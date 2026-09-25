@@ -46,14 +46,16 @@ export class TelaMenu implements Tela {
       '      <div class="menu-instituicao-box">' +
       '        <img src="/utfpr-logo.svg" alt="UTFPR" class="logo-utfpr-grande" />' +
       '        <div class="menu-instituicao-divisoria"></div>' +
+      '        <img src="/tsi.png" alt="TSI UTFPR" class="logo-tsi-cabecalho" />' +
+      '        <div class="menu-instituicao-divisoria"></div>' +
       '        <div class="menu-instituicao-nomes">' +
       '          <span class="menu-instituicao-univ">Universidade Tecnológica Federal do Paraná - UTFPR</span>' +
-      '          <span class="menu-instituicao-campus">Campus Guarapuava</span>' +
+      '          <span class="menu-instituicao-campus">Campus Guarapuava · TSI (Sistemas para Internet)</span>' +
       '        </div>' +
       '      </div>' +
       '    </div>' +
       '    <span class="menu-selo">Preparatório Certificações Linux · LPIC-1 · Linux Essentials</span>' +
-      '    <h1>Linux na prática <span class="menu-pinguim">🐧</span></h1>' +
+      '    <h1>Linux na prática <img src="/tsi.png" alt="TSI" class="menu-tsi-icone" /></h1>' +
       '    <p>Guia interativo e preparatório para <b>certificações Linux</b> (LPI Linux Essentials, LPIC-1, CompTIA Linux+ e RHCSA). ' +
       'Os comandos que caem nas provas explicados um a um, com dicas oficiais de exames, pegadinhas e um <b>servidor Ubuntu simulado</b> ao lado: ' +
       'veja o comando rodando, depois pratique você mesmo em até <b>3 terminais</b> (um como root e outros como usuários comuns).</p>' +

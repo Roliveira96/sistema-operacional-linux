@@ -38,6 +38,21 @@
   display: block;
 }
 
+.logo-tsi-cabecalho {
+  height: 30px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.menu-tsi-icone {
+  height: 38px;
+  width: auto;
+  vertical-align: middle;
+  margin-left: 8px;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.25));
+}
+
 .menu-instituicao-divisoria {
   width: 1px;
   height: 28px;

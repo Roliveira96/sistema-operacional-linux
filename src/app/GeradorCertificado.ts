@@ -148,6 +148,7 @@ export class GeradorCertificado {
     const ehExcelencia = dados.porcentagem === 100;
     const descricaoModulo = GeradorCertificado.obterDescricaoConteudo(dados.modalidade.id);
     const logoUrl = typeof window !== 'undefined' && window.location ? (window.location.origin + '/utfpr-logo.svg') : '/utfpr-logo.svg';
+    const logoTsiUrl = typeof window !== 'undefined' && window.location ? (window.location.origin + '/tsi.png') : '/tsi.png';
     const linkValidacao = `https://github.com/Roliveira96/sistema-operacional-linux?cert=${dados.codigoAutenticidade}`;
     const qrCodeSvg = gerarQrCodeSvgSincrono(linkValidacao);
 
@@ -402,27 +403,24 @@ export class GeradorCertificado {
           .bloco-selo {
             text-align: center;
           }
-          .emblema-selo {
-            width: 52px;
+          .emblema-selo-tsi {
+            width: 86px;
             height: 52px;
-            border-radius: 50%;
-            background: #231F20;
-            color: #F6C212;
+            background: #ffffff;
+            border: 1.5px solid #231F20;
+            border-radius: 6px;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
             margin: 0 auto 3px;
-            border: 2px double #F6C212;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            padding: 3px 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
           }
-          .emblema-selo span {
-            font-size: 18px;
-            line-height: 1;
-          }
-          .emblema-selo b {
-            font-size: 7.5px;
-            letter-spacing: 0.8px;
+          .logo-selo-tsi {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
           }
           .bloco-qrcode {
             text-align: center;
@@ -573,11 +571,10 @@ export class GeradorCertificado {
 
                 <div class="bloco-centro-validacao">
                   <div class="bloco-selo">
-                    <div class="emblema-selo">
-                      <span>🐧</span>
-                      <b>UTFPR</b>
+                    <div class="emblema-selo-tsi" title="Tecnologia em Sistemas para Internet - UTFPR">
+                      <img src="${logoTsiUrl}" alt="TSI UTFPR" class="logo-selo-tsi" />
                     </div>
-                    <p class="meta-emissao"><b>Campus Guarapuava</b></p>
+                    <p class="meta-emissao"><b>TSI · Campus Guarapuava</b></p>
                     <p class="meta-emissao">${dataFormatada} às ${horaFormatada}</p>
                   </div>
 

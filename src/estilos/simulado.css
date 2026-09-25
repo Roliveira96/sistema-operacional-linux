@@ -54,6 +54,16 @@
   margin: 16px 0 12px;
   font-weight: 800;
   letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sim-tsi-titulo-logo {
+  height: 42px;
+  width: auto;
+  vertical-align: middle;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.25));
 }
 
 .sim-hub-titulos p {
@@ -932,8 +942,18 @@
 
 .pinguim-animado {
   font-size: 64px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   animation: pinguimPula 0.6s ease infinite alternate;
+}
+
+.tsi-mascote-comemorativo {
+  height: 60px;
+  width: auto;
+  vertical-align: middle;
+  filter: drop-shadow(0 4px 12px rgba(46, 204, 113, 0.4));
 }
 
 @keyframes pinguimPula {

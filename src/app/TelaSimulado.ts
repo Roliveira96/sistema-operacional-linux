@@ -147,7 +147,7 @@ export class TelaSimulado implements Tela {
           </div>
           <div class="sim-hub-titulos">
             <span class="menu-selo">Simulador Oficial de Exame · Modo Prova</span>
-            <h1>Simulados de Certificação Linux 🐧</h1>
+            <h1>Simulados de Certificação Linux <img src="/tsi.png" alt="TSI" class="sim-tsi-titulo-logo" /></h1>
             <p>Escolha o nível ou exame desejado para realizar uma prova cronometrada de <b>30 minutos</b> com validação em tempo real e relatório de desempenho.</p>
           </div>
         </header>
@@ -224,7 +224,7 @@ export class TelaSimulado implements Tela {
                   <span class="sim-regra-ico">🔒</span>
                   <div>
                     <b>Validação e trava automática</b>
-                    <p>Ao realizar a operação correta no terminal, o sistema valida, comemora com o pinguim 🐧, trava a questão e avança para a próxima pendente.</p>
+                    <p>Ao realizar a operação correta no terminal, o sistema valida, comemora com o mascote do TSI, trava a questão e avança para a próxima pendente.</p>
                   </div>
                 </div>
                 <div class="sim-regra">
@@ -496,10 +496,10 @@ export class TelaSimulado implements Tela {
             <div class="sim-prova-estudo-rodape">
               <button class="botao-secundario btn-entregar-prova-rodape">🏁 Finalizar Prova</button>
             </div>
-            <!-- Overlay comemorativo do pinguim -->
+            <!-- Overlay comemorativo do mascote TSI -->
             <div class="sim-pinguim-overlay" aria-hidden="true" hidden>
               <div class="sim-pinguim-card">
-                <div class="pinguim-animado">🐧✨</div>
+                <div class="pinguim-animado"><img src="/tsi.png" alt="TSI" class="tsi-mascote-comemorativo" />✨</div>
                 <h3>Excelente! Questão Concluída!</h3>
                 <p class="sim-pinguim-msg-tempo"></p>
                 <div class="sim-pinguim-barra"></div>
