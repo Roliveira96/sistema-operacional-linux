@@ -15,6 +15,9 @@ import { Exit, Su, Sudo } from './comandos/Privilegios';
 import { Ajuda, Clear, Date_, History, Hostname, Man, Uname, Who } from './comandos/Utilitarios';
 import { Alias, Bash, Env, Export, Read, Set_, Shift, Sleep, Source, Test, Type, Unalias, Unset, Verdadeiro } from './comandos/Embutidos';
 import { Bg, Fg, Jobs, Kill, Killall, Nohup, Ps, Top, Uptime, Wait } from './comandos/Processos';
+import { Awk, Sed, Tee, Tr, Uniq, Xargs } from './comandos/TextoAvancado';
+import { Du, Find } from './comandos/Busca';
+import { Gzip, Rsync, Tar, Unzip, Zip } from './comandos/Compactacao';
 
 /** Monta o registro com todos os comandos e devolve um interpretador novo (um por terminal). */
 export class Shell {
@@ -50,6 +53,8 @@ export class Shell {
         new Bash('bash'), new Bash('sh'), new Sleep(),
         new Ps(), new Top(), new Kill(), new Killall('killall'), new Killall('pkill'), new Killall('pgrep'),
         new Jobs(), new Fg(), new Bg(), new Wait(), new Nohup(), new Uptime(),
+        new Tee(), new Xargs(), new Uniq(), new Tr(), new Sed(), new Awk(), new Find(), new Du(),
+        new Tar(), new Gzip('gzip'), new Gzip('gunzip'), new Gzip('zcat'), new Zip(), new Unzip(), new Rsync(),
       );
       Shell.registro = registro;
     }

@@ -116,6 +116,41 @@ export class Binario extends Arquivo {
   }
 }
 
+/** Arquivo compactado (.tar, .tar.gz, .gz, .zip): guarda o conteúdo original e ocupa menos espaço. */
+export class Compactado extends Arquivo {
+  public formato: 'tar' | 'tar.gz' | 'gz' | 'zip';
+  /** O conteúdo "de dentro" (texto original, ou JSON com as entradas do tar/zip). */
+  public dados: string;
+
+  constructor(nome: string, formato: 'tar' | 'tar.gz' | 'gz' | 'zip', dados: string, dono: number, grupo: number, modo: number) {
+    super(nome, dono, grupo, modo);
+    this.formato = formato;
+    this.dados = dados;
+  }
+
+  public ler(): string {
+    const assinatura: string = this.formato === 'zip' ? 'PK\u0003\u0004' : this.formato === 'tar' ? this.nome + '\u0000\u0000ustar  ' : '\u001f\u008b\u0008';
+    return assinatura + '\u0000\u0000 (arquivo compactado: use tar, gunzip ou unzip para ver o conteúdo) \u0000\n';
+  }
+
+  public escrever(_texto: string): void {
+    // um compactado é substituído inteiro pelo tar/gzip/zip, não editado
+  }
+
+  /** gzip real reduz texto para uns 25–35%; o tar arredonda em blocos de 10 KB. */
+  public tamanho(): number {
+    const bruto: number = new TextEncoder().encode(this.dados).length;
+    if (this.formato === 'tar') return Math.max(10240, Math.ceil(bruto / 10240) * 10240);
+    return Math.max(60, Math.round(bruto * 0.3));
+  }
+
+  public clonar(): No {
+    const copia: Compactado = new Compactado(this.nome, this.formato, this.dados, this.dono, this.grupo, this.modo);
+    this.copiarMetadadosPara(copia);
+    return copia;
+  }
+}
+
 /** Link simbólico: um "atalho" que aponta para outro caminho (ex.: /bin -> usr/bin). */
 export class Link extends No {
   public alvo: string;

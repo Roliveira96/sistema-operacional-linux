@@ -1,4 +1,4 @@
-import { Arquivo, ArquivoGerado, Binario, Buraco, Diretorio, Dispositivo, Link, type No } from './No';
+import { Arquivo, ArquivoGerado, Binario, Buraco, Compactado, Diretorio, Dispositivo, Link, type No } from './No';
 import { Contas, Grupo, Usuario } from './Contas';
 import { Maquina } from './Maquina';
 import { Permissoes } from './Permissoes';
@@ -7,7 +7,7 @@ import { SistemaDeArquivos } from './SistemaDeArquivos';
 /** Um nó da árvore em JSON. "gerado" = conteúdo calculado das contas (/etc/passwd, /etc/group, /etc/shadow). */
 export interface NoJson {
   nome: string;
-  tipo: 'diretorio' | 'arquivo' | 'gerado' | 'nulo' | 'link' | 'dispositivo' | 'binario';
+  tipo: 'diretorio' | 'arquivo' | 'gerado' | 'nulo' | 'link' | 'dispositivo' | 'binario' | 'compactado';
   dono: number;
   grupo: number;
   /** Octal em texto: "755", "644", "1777". */
@@ -21,6 +21,8 @@ export interface NoJson {
   letra?: 'c' | 'b';
   /** Binários: tamanho em bytes. */
   bytes?: number;
+  /** Compactados: formato (tar, tar.gz, gz, zip). */
+  formato?: 'tar' | 'tar.gz' | 'gz' | 'zip';
 }
 
 export interface UsuarioJson {
@@ -100,6 +102,7 @@ export class Serializador {
     }
     if (no instanceof ArquivoGerado) return { ...base, tipo: 'gerado' };
     if (no instanceof Binario) return { ...base, tipo: 'binario', bytes: no.bytes };
+    if (no instanceof Compactado) return { ...base, tipo: 'compactado', formato: no.formato, conteudo: no.dados };
     if (no instanceof Buraco) return { ...base, tipo: 'nulo' };
     if (no instanceof Dispositivo) return { ...base, tipo: 'dispositivo', letra: no.letra };
     if (no instanceof Link) return { ...base, tipo: 'link', alvo: no.alvo };
@@ -124,6 +127,9 @@ export class Serializador {
         break;
       case 'dispositivo':
         no = new Dispositivo(json.nome, json.letra ?? 'c', json.dono, json.grupo, modo);
+        break;
+      case 'compactado':
+        no = new Compactado(json.nome, json.formato ?? 'gz', json.conteudo ?? '', json.dono, json.grupo, modo);
         break;
       case 'binario':
         no = new Binario(json.nome, json.bytes ?? 0, json.dono, json.grupo, modo);

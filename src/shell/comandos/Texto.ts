@@ -1,6 +1,7 @@
 import { Comando, Opcoes } from '../Comando';
 import type { Contexto } from '../Contexto';
-import { lerEntradas, linhasDe, saidaEhTerminal } from './util';
+import { lerEntradas, linhasDe, mensagemDe, saidaEhTerminal } from './util';
+import { Arquivo, Binario, Diretorio, Dispositivo, type No } from '../../linux/No';
 
 /** "-5" vira "-n 5", como head e tail aceitam. */
 function normalizarNumero(args: string[]): string[] {
@@ -84,30 +85,44 @@ export class Wc extends Comando {
 
 export class Grep extends Comando {
   public readonly nome: string = 'grep';
-  public readonly resumo: string = 'filtra linhas que contêm um texto (-i ignora maiúsculas, -v inverte, -n numera, -c conta)';
+  public readonly resumo: string = 'filtra linhas que contêm um texto (-i ignora maiúsculas, -v inverte, -n numera, -c conta, -r em pastas, -l só nomes)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
-    const opcoes: Opcoes = Opcoes.ler(args, '', { 'ignore-case': 'i', 'invert-match': 'v', 'line-number': 'n', count: 'c' });
+    const opcoes: Opcoes = Opcoes.ler(args, 'e', {
+      'ignore-case': 'i', 'invert-match': 'v', 'line-number': 'n', count: 'c', recursive: 'r', 'files-with-matches': 'l', 'word-regexp': 'w',
+    });
+    if (opcoes.valor('e') !== undefined) opcoes.operandos.unshift(opcoes.valor('e') as string);
     if (opcoes.operandos.length === 0) {
       contexto.falhar('Uso: grep [OPÇÃO]... PADRÕES [ARQUIVO]...');
       contexto.falhar("Experimente 'grep --help' para mais informações.");
       return 2;
     }
     const [padrao, ...arquivos] = opcoes.operandos;
+    let fonte: string = opcoes.tem('F') ? padrao.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : padrao;
+    if (opcoes.tem('w')) fonte = '\\b(?:' + fonte + ')\\b';
     let regex: RegExp;
     try {
-      regex = new RegExp(padrao, opcoes.tem('i') ? 'gi' : 'g');
+      regex = new RegExp(fonte, opcoes.tem('i') ? 'gi' : 'g');
     } catch {
       regex = new RegExp(padrao.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), opcoes.tem('i') ? 'gi' : 'g');
     }
-    const entradas = lerEntradas('grep', arquivos, contexto);
+    const recursivo: boolean = opcoes.tem('r', 'R');
+    const entradas = recursivo ? this.arquivosRecursivos(arquivos.length > 0 ? arquivos : ['.'], contexto) : lerEntradas('grep', arquivos, contexto);
     if (entradas === null) {
       return 2;
     }
     const colorir: boolean = saidaEhTerminal(contexto) && !opcoes.tem('v');
     let achou: boolean = false;
     for (const entrada of entradas) {
-      const prefixo: string = entradas.length > 1 ? entrada.nome + ':' : '';
+      const prefixo: string = entradas.length > 1 || recursivo ? entrada.nome + ':' : '';
+      if (opcoes.tem('l')) {
+        const casou: boolean = linhasDe(entrada.texto).some((linha: string) => { regex.lastIndex = 0; return regex.test(linha) !== opcoes.tem('v'); });
+        if (casou) {
+          achou = true;
+          contexto.linha(entrada.nome ?? '(entrada padrão)', saidaEhTerminal(contexto) ? 'c-grep-arquivo' : undefined);
+        }
+        continue;
+      }
       let contagem: number = 0;
       linhasDe(entrada.texto).forEach((linha: string, indice: number) => {
         regex.lastIndex = 0;
@@ -129,6 +144,35 @@ export class Grep extends Comando {
       }
     }
     return achou ? 0 : 1;
+  }
+
+  /** grep -r: todos os arquivos legíveis dentro das pastas (e avisa onde não tem permissão). */
+  private arquivosRecursivos(caminhos: string[], contexto: Contexto): Array<{ nome: string | null; texto: string }> {
+    const lista: Array<{ nome: string | null; texto: string }> = [];
+    const visitar = (caminho: string, no: No): void => {
+      if (no instanceof Diretorio) {
+        if (!contexto.fs.pode(no, contexto.credencial, 'r') || !contexto.fs.pode(no, contexto.credencial, 'x')) {
+          contexto.falhar('grep: ' + caminho + ': Permissão negada');
+          return;
+        }
+        for (const nome of no.nomesOrdenados()) visitar(caminho.replace(/\/$/, '') + '/' + nome, no.obter(nome) as No);
+        return;
+      }
+      if (!(no instanceof Arquivo) || no instanceof Binario || no instanceof Dispositivo) return;
+      if (!contexto.fs.pode(no, contexto.credencial, 'r')) {
+        contexto.falhar('grep: ' + caminho + ': Permissão negada');
+        return;
+      }
+      lista.push({ nome: caminho.replace(/^\.\//, ''), texto: no.ler() });
+    };
+    for (const caminho of caminhos) {
+      try {
+        visitar(caminho, contexto.localizar(caminho));
+      } catch (erro) {
+        contexto.falhar('grep: ' + caminho + ': ' + mensagemDe(erro));
+      }
+    }
+    return lista;
   }
 
   private escreverDestacado(linha: string, regex: RegExp | null, contexto: Contexto): void {
