@@ -854,12 +854,54 @@ export class TelaSimulado implements Tela {
       tabelaHtml += `
         <tr>
           <td class="col-num">#${index + 1}</td>
-          <td class="col-enunciado">${enunciado} ${solucaoHtml}</td>
+          <td class="col-enunciado">
+            ${enunciado}
+            ${
+              !foiConcluida
+                ? '<div class="relatorio-aviso-guia">💡 <i>Veja o passo a passo de como fazer no Guia de Correção abaixo</i></div>'
+                : ''
+            }
+            ${solucaoHtml}
+          </td>
           <td class="col-status">${badgeResultado}</td>
           <td class="col-tempo"><b>${tempoGasto}</b></td>
         </tr>
       `;
     });
+
+    const questoesNaoFeitas = itens
+      .map((item, index) => ({ item, index, estado: this.estadosQuestoes.get(item.id) }))
+      .filter((q) => !(q.estado?.concluida ?? false));
+
+    let secaoComoFazerHtml = '';
+    if (questoesNaoFeitas.length > 0) {
+      secaoComoFazerHtml = `
+        <section class="sim-relatorio-guia-secao">
+          <div class="guia-secao-header">
+            <span class="guia-secao-ico">🎓</span>
+            <div>
+              <h3>Como resolver as questões que você não concluiu (${questoesNaoFeitas.length})</h3>
+              <p>Estude os comandos corretos, sintaxe e justificativa técnica abaixo para dominar estas tarefas na próxima tentativa:</p>
+            </div>
+          </div>
+          <div class="guia-cards-lista">
+            ${questoesNaoFeitas.map((q) => this.gerarCardComoFazer(q.item, q.index, q.estado)).join('')}
+          </div>
+        </section>
+      `;
+    } else {
+      secaoComoFazerHtml = `
+        <section class="sim-relatorio-guia-secao sucesso-total">
+          <div class="guia-secao-header">
+            <span class="guia-secao-ico">🏆</span>
+            <div>
+              <h3>Incrível! Você acertou todas as tarefas!</h3>
+              <p>Nenhuma questão pendente para correção. Você atingiu 100% de precisão nesta prova prática!</p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
 
     this.raiz.innerHTML = `
       <div class="tela-simulado sim-relatorio">
@@ -913,6 +955,8 @@ export class TelaSimulado implements Tela {
             </div>
           </section>
 
+          ${secaoComoFazerHtml}
+
           <footer class="sim-relatorio-acoes">
             <button class="botao-primario btn-refazer-prova">🔄 Refazer Esta Prova</button>
             <button class="botao-secundario btn-ir-menu-simulados">← Voltar ao Menu de Simulados</button>
@@ -931,5 +975,57 @@ export class TelaSimulado implements Tela {
       this.renderizar();
       window.scrollTo(0, 0);
     });
+  }
+
+  private gerarCardComoFazer(item: Desafio | QuestaoQuiz, index: number, estado?: EstadoQuestao): string {
+    const ehDesafio = 'solucao' in item;
+    const num = index + 1;
+    const statusTxt = estado?.pulada ? '⏭️ Questão Pulada' : '❌ Não Concluída';
+
+    if (ehDesafio) {
+      const d = item as Desafio;
+      return `
+        <div class="guia-card">
+          <div class="guia-card-header">
+            <span class="guia-badge-num">Questão #${num}</span>
+            <span class="guia-badge-status ${estado?.pulada ? 'pulada' : 'erro'}">${statusTxt}</span>
+          </div>
+          <p class="guia-enunciado"><b>Tarefa exigida:</b> ${d.enunciado}</p>
+
+          <div class="guia-bloco-solucao">
+            <span class="guia-rotulo">💻 Como fazer (comando exato):</span>
+            <pre class="guia-codigo">${d.solucao.map((p) => escapar(p.comando)).join('\n')}</pre>
+          </div>
+
+          <div class="guia-explicacao">
+            <span class="guia-rotulo">📖 Por que esta é a forma correta e o que cai na prova:</span>
+            <p>${d.dica}</p>
+          </div>
+        </div>
+      `;
+    } else {
+      const q = item as QuestaoQuiz;
+      const letraCorreta = ['A', 'B', 'C', 'D'][q.correta];
+      const textoCorreto = q.opcoes[q.correta];
+      return `
+        <div class="guia-card">
+          <div class="guia-card-header">
+            <span class="guia-badge-num">Questão Teórica #${num}</span>
+            <span class="guia-badge-status ${estado?.pulada ? 'pulada' : 'erro'}">${statusTxt}</span>
+          </div>
+          <p class="guia-enunciado"><b>Pergunta:</b> ${q.pergunta}</p>
+
+          <div class="guia-bloco-solucao">
+            <span class="guia-rotulo">✅ Resposta correta:</span>
+            <div class="guia-opcao-correta"><b>Opção ${letraCorreta}:</b> ${textoCorreto}</div>
+          </div>
+
+          <div class="guia-explicacao">
+            <span class="guia-rotulo">📖 Justificativa oficial de exame (${q.certificacao}):</span>
+            <p>${q.explicacao}</p>
+          </div>
+        </div>
+      `;
+    }
   }
 }
