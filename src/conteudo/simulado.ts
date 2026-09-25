@@ -471,13 +471,14 @@ const desafiosEscola: Desafio[] = [
   },
 ];
 
-const modalidades: ModalidadeSimulado[] = [
+export const modalidades: ModalidadeSimulado[] = [
   {
     id: 'basico',
     titulo: 'Linux Básico',
     icone: '🟢',
     badge: 'Fundamentos',
     descricao: 'Navegação por caminhos, criação de pastas aninhadas, manipulação, cópia e redirecionamento de arquivos.',
+    objetivo: 'Avaliar sua agilidade e precisão em navegação de diretórios no terminal, caminhos relativos e absolutos, criação de pastas aninhadas com -p, manipulação de arquivos e redirecionamento de fluxos (> e >>).',
     desafios: desafiosBasico,
   },
   {
@@ -486,6 +487,7 @@ const modalidades: ModalidadeSimulado[] = [
     icone: '🟡',
     badge: 'Intermediário',
     descricao: 'Administração de contas de usuários, grupos secundários, posse com chown e permissões com chmod (770, 640).',
+    objetivo: 'Validar suas competências em criação e administração de contas de usuários (useradd, passwd), grupos de segurança (groupadd), atribuição de donos (chown) e permissões de acesso (chmod 770 e 640).',
     desafios: desafiosMedio,
   },
   {
@@ -494,6 +496,7 @@ const modalidades: ModalidadeSimulado[] = [
     icone: '🔴',
     badge: 'Avançado',
     descricao: 'Instalação de pacotes com apt, gestão de serviços com systemctl, Sticky Bit 1777 e links simbólicos.',
+    objetivo: 'Testar habilidades avançadas de administração Linux: instalação e controle de serviços web (apt, systemctl), configuração de diretórios públicos com Sticky Bit (1777), links simbólicos e automação de scripts.',
     desafios: desafiosAvancado,
   },
   {
@@ -502,6 +505,7 @@ const modalidades: ModalidadeSimulado[] = [
     icone: '🏅',
     badge: '010-160',
     descricao: 'Cenários práticos no formato do exame oficial LPI Linux Essentials: padrão FHS, arquivos ocultos e filtros.',
+    objetivo: 'Simular os objetivos práticos cobrados no exame oficial LPI Linux Essentials (010-160): padrão de hierarquia do sistema de arquivos (FHS), arquivos de configuração ocultos (.bash_custom), redirecionamentos e filtros de texto.',
     desafios: desafiosEssentials,
   },
   {
@@ -510,6 +514,7 @@ const modalidades: ModalidadeSimulado[] = [
     icone: '🏆',
     badge: '101 e 102',
     descricao: 'Desafios no padrão das provas LPIC-1 e CompTIA Linux+: contas de serviço /sbin/nologin, links e userdel -r.',
+    objetivo: 'Simulação prática no nível profissional dos exames LPIC-1 (101-500 e 102-500) e CompTIA Linux+: gestão de pacotes do sistema, contas de serviços sem login (/usr/sbin/nologin), links para binários e remoção segura de usuários.',
     desafios: desafiosLPIC1,
   },
   {
@@ -518,6 +523,7 @@ const modalidades: ModalidadeSimulado[] = [
     icone: '🏫',
     badge: 'Cenário Integrado',
     descricao: 'Laboratório completo de infraestrutura escolar: 14 tarefas encadeadas cobrindo todos os tópicos do exame.',
+    objetivo: 'Cenário integrado completo de 14 tarefas estilo exames práticos RHCSA (EX200) e LFCS. Você configurará do zero um servidor de arquivos, contas de professores e alunos, permissões restritas e servidor web.',
     desafios: desafiosEscola,
   },
   {
@@ -526,6 +532,7 @@ const modalidades: ModalidadeSimulado[] = [
     icone: '📝',
     badge: 'Teórico · 10 Questões',
     descricao: 'Questões de múltipla escolha oficiais de certificações (Linux Essentials e LPIC-1) com gabarito comentado.',
+    objetivo: 'Avaliar seus conhecimentos teóricos através de 10 questões clássicas de múltipla escolha das certificações Linux Essentials e LPIC-1, com gabarito imediato e justificativa técnica detalhada.',
     questoes: questoesCertificacao,
   },
 ];

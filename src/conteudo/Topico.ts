@@ -56,6 +56,7 @@ export interface ModalidadeSimulado {
   icone: string;
   badge?: string;
   descricao: string;
+  objetivo?: string;
   preparar?: (maquina: Maquina) => void;
   desafios?: Desafio[];
   questoes?: QuestaoQuiz[];

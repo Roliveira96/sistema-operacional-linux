@@ -2,6 +2,7 @@ import type { Tela } from './Tela';
 import { TelaMenu } from './TelaMenu';
 import { TelaLaboratorio } from './TelaLaboratorio';
 import { TelaTopico } from './TelaTopico';
+import { TelaSimulado } from './TelaSimulado';
 import { CatalogoDeTopicos } from '../conteudo/CatalogoDeTopicos';
 import type { Topico } from '../conteudo/Topico';
 
@@ -24,6 +25,10 @@ export class Aplicacao {
     const id: string = window.location.hash.replace('#/', '');
     if (id === 'laboratorio') {
       this.trocarTela(new TelaLaboratorio());
+      return;
+    }
+    if (id === 'simulado') {
+      this.trocarTela(new TelaSimulado());
       return;
     }
     const topico: Topico | undefined = this.catalogo.obter(id);

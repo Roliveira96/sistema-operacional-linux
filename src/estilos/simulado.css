@@ -1,0 +1,851 @@
+/* ===== Tela de Simulados e Exames ===== */
+.tela-simulado {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--texto);
+  background: var(--fundo);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   1. Hub de Simulados (Menu Inicial)
+   ══════════════════════════════════════════════════════════════════ */
+.sim-hub {
+  align-items: center;
+  padding: 48px 24px 80px;
+  background:
+    radial-gradient(700px 320px at 15% 5%, rgba(233, 84, 32, 0.16), transparent 70%),
+    radial-gradient(700px 320px at 85% 15%, rgba(119, 33, 111, 0.28), transparent 70%),
+    radial-gradient(800px 380px at 50% 100%, rgba(74, 168, 255, 0.08), transparent 70%);
+}
+
+.sim-hub-cabecalho {
+  text-align: center;
+  max-width: 820px;
+  margin-bottom: 40px;
+  position: relative;
+}
+
+.sim-hub-cabecalho .botao-voltar {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.sim-hub-titulos h1 {
+  font-size: clamp(32px, 5vw, 48px);
+  margin: 16px 0 12px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sim-hub-titulos p {
+  color: var(--texto-medio);
+  font-size: 16.5px;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.sim-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 340px));
+  gap: 22px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+@media (max-width: 1024px) {
+  .sim-hub-grid {
+    grid-template-columns: repeat(2, minmax(0, 360px));
+  }
+}
+
+@media (max-width: 768px) {
+  .sim-hub-grid {
+    grid-template-columns: 1fr;
+  }
+  .sim-hub-cabecalho .botao-voltar {
+    position: static;
+    display: inline-block;
+    margin-bottom: 16px;
+  }
+}
+
+.sim-hub-card {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 18px;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.sim-hub-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--destaque);
+  box-shadow: 0 16px 40px -16px var(--destaque);
+}
+
+.sim-hub-card-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sim-hub-card-ico {
+  font-size: 28px;
+}
+
+.sim-hub-card-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--texto-suave);
+  border: 1px solid var(--borda);
+}
+
+.sim-hub-card h2 {
+  font-size: 20px;
+  margin: 0;
+  font-weight: 700;
+}
+
+.sim-hub-card-desc {
+  margin: 0;
+  font-size: 14px;
+  color: var(--texto-medio);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.sim-hub-card-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--texto-suave);
+  font-weight: 600;
+  padding-top: 8px;
+  border-top: 1px dashed var(--borda);
+}
+
+.sim-hub-card-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 14px;
+  font-size: 14px;
+  justify-content: center;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   2. Pré-Prova (Objetivo, Regras e Iniciar)
+   ══════════════════════════════════════════════════════════════════ */
+.sim-pre-prova {
+  align-items: center;
+  padding: 40px 20px 80px;
+}
+
+.sim-pre-container {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sim-pre-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sim-pre-identificacao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sim-pre-ico { font-size: 32px; }
+
+.sim-pre-identificacao h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.sim-pre-card {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 20px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.sim-pre-secao h3 {
+  font-size: 17px;
+  margin: 0 0 10px;
+  font-weight: 700;
+  color: var(--destaque);
+}
+
+.sim-pre-secao p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--texto);
+}
+
+.sim-regras-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+
+@media (max-width: 650px) {
+  .sim-regras-grid { grid-template-columns: 1fr; }
+}
+
+.sim-regra {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+}
+
+.sim-regra-ico { font-size: 22px; flex-shrink: 0; }
+.sim-regra b { display: block; font-size: 14px; margin-bottom: 3px; color: var(--texto); }
+.sim-regra p { font-size: 13px; color: var(--texto-medio); margin: 0; line-height: 1.45; }
+
+.sim-pre-resumo-meta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 18px;
+  background: color-mix(in srgb, var(--destaque) 8%, var(--superficie-2));
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--destaque) 30%, var(--borda));
+  font-size: 13.5px;
+}
+
+.sim-pre-rodape {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--borda);
+}
+
+.sim-pre-rodape .btn-iniciar-prova {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   3. Modo Exame (Prova em Andamento)
+   ══════════════════════════════════════════════════════════════════ */
+.sim-modo-prova {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sim-prova-cabecalho {
+  height: 60px;
+  padding: 0 20px;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.sim-prova-esquerda, .sim-prova-direita {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sim-prova-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sim-prova-titulo h2 {
+  font-size: 18px;
+  margin: 0;
+  font-weight: 700;
+}
+
+.sim-prova-contador-resumo {
+  font-size: 13px;
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.sim-tempo-geral {
+  font-family: var(--fonte-codigo);
+  font-size: 17px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  color: var(--destaque);
+}
+
+.sim-tempo-geral.tempo-alerta {
+  background: rgba(243, 156, 18, 0.15);
+  border-color: #f39c12;
+  color: #f39c12;
+}
+
+.sim-tempo-geral.tempo-critico {
+  background: rgba(231, 76, 60, 0.2);
+  border-color: #e74c3c;
+  color: #e74c3c;
+  animation: pisca 1s infinite alternate;
+}
+
+@keyframes pisca {
+  from { opacity: 1; }
+  to { opacity: 0.5; }
+}
+
+.sim-prova-divisao {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  overflow: hidden;
+}
+
+.prova-teorica .sim-prova-divisao {
+  grid-template-columns: 1fr;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .sim-prova-divisao {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.sim-prova-estudo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--borda);
+  background: #110c14;
+  overflow-y: auto;
+  padding: 18px;
+  gap: 16px;
+}
+
+.sim-prova-terminal {
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  overflow: hidden;
+}
+
+.sim-terminal-janela {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Navegação de Questões */
+.sim-questoes-nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.sim-btn-questao {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  color: var(--texto-medio);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.sim-btn-questao:hover {
+  border-color: var(--destaque);
+  color: var(--texto);
+}
+
+.sim-btn-questao.ativa {
+  border-color: var(--destaque);
+  background: color-mix(in srgb, var(--destaque) 25%, var(--superficie));
+  color: #fff;
+  box-shadow: 0 0 10px -2px var(--destaque);
+}
+
+.sim-btn-questao.concluida {
+  background: #27ae60;
+  border-color: #2ecc71;
+  color: #fff;
+}
+
+.sim-btn-questao.pulada {
+  background: rgba(243, 156, 18, 0.2);
+  border-color: #f39c12;
+  color: #f39c12;
+}
+
+/* Card da Questão Ativa */
+.sim-card-questao {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 16px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  transition: border-color 0.2s;
+}
+
+.sim-card-questao.questao-travada {
+  border-color: #2ecc71;
+  background: rgba(46, 204, 113, 0.03);
+}
+
+.sim-questao-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.sim-questao-status-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-numero {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.tag-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.tag-status.concluida { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+.tag-status.pulada { background: rgba(243, 156, 18, 0.2); color: #f39c12; }
+.tag-status.em-andamento { background: rgba(74, 168, 255, 0.2); color: #70b4ff; }
+
+.sim-tempo-questao {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--texto-suave);
+}
+
+.sim-tempo-questao-valor {
+  font-family: var(--fonte-codigo);
+  font-weight: 700;
+  color: var(--destaque);
+  font-size: 14px;
+}
+
+.sim-questao-enunciado p {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: var(--texto);
+}
+
+.sim-sucesso-trava {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(46, 204, 113, 0.1);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+  border-radius: 10px;
+}
+
+.sim-sucesso-ico { font-size: 22px; }
+.sim-sucesso-trava b { color: #2ecc71; font-size: 14px; display: block; margin-bottom: 2px; }
+.sim-sucesso-trava p { margin: 0; font-size: 13px; color: var(--texto-medio); }
+
+.sim-questao-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sim-dica-detalhe {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+}
+
+.sim-dica-detalhe summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto-medio);
+}
+
+.sim-dica-detalhe p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--texto);
+  line-height: 1.45;
+}
+
+/* Quiz Opções dentro do exame */
+.sim-quiz-opcoes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sim-quiz-opcao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  color: var(--texto);
+  font: inherit;
+  font-size: 14.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sim-quiz-opcao:hover:not(:disabled) {
+  border-color: var(--destaque);
+  background: color-mix(in srgb, var(--destaque) 10%, var(--superficie-2));
+}
+
+.sim-quiz-opcao.correta {
+  border-color: #2ecc71;
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+  font-weight: 600;
+}
+
+.sim-quiz-opcao.errada {
+  border-color: #e74c3c;
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   4. Animação Comemorativa do Pinguim 🐧
+   ══════════════════════════════════════════════════════════════════ */
+.sim-pinguim-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 6, 12, 0.88);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sim-pinguim-card {
+  background: var(--superficie);
+  border: 2px solid #2ecc71;
+  border-radius: 20px;
+  padding: 32px 36px;
+  text-align: center;
+  box-shadow: 0 20px 60px -10px rgba(46, 204, 113, 0.4);
+  max-width: 380px;
+  width: 90%;
+}
+
+.pinguim-animado {
+  font-size: 64px;
+  display: inline-block;
+  animation: pinguimPula 0.6s ease infinite alternate;
+}
+
+@keyframes pinguimPula {
+  0% { transform: translateY(0) scale(1); }
+  100% { transform: translateY(-20px) scale(1.15) rotate(-6deg); }
+}
+
+.sim-pinguim-card h3 {
+  font-size: 20px;
+  color: #2ecc71;
+  margin: 12px 0 6px;
+}
+
+.sim-pinguim-msg-tempo {
+  font-size: 14px;
+  color: var(--texto-medio);
+  margin: 0;
+}
+
+.sim-pinguim-barra {
+  height: 4px;
+  background: #2ecc71;
+  border-radius: 999px;
+  margin-top: 18px;
+  animation: barraEncolhe 1.5s linear forwards;
+}
+
+@keyframes barraEncolhe {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   5. Relatório Final de Desempenho
+   ══════════════════════════════════════════════════════════════════ */
+.sim-relatorio {
+  align-items: center;
+  padding: 40px 20px 80px;
+}
+
+.sim-relatorio-container {
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.sim-relatorio-header {
+  text-align: center;
+}
+
+.sim-relatorio-header h1 {
+  font-size: clamp(30px, 4.5vw, 42px);
+  margin: 14px 0 8px;
+  font-weight: 800;
+}
+
+.sim-relatorio-header p {
+  color: var(--texto-medio);
+  margin: 0;
+  font-size: 16px;
+}
+
+.sim-relatorio-placar {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 20px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sim-relatorio-placar.aprovado {
+  border-color: #2ecc71;
+  box-shadow: 0 10px 30px -10px rgba(46, 204, 113, 0.2);
+}
+
+.sim-relatorio-placar.reciclagem {
+  border-color: #f39c12;
+  box-shadow: 0 10px 30px -10px rgba(243, 156, 18, 0.2);
+}
+
+.placar-resultado {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.placar-trofeu { font-size: 48px; }
+
+.placar-textos h2 {
+  font-size: 22px;
+  margin: 0 0 6px;
+  color: var(--texto);
+}
+
+.placar-textos p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--texto-medio);
+  line-height: 1.5;
+}
+
+.placar-meta-tempos {
+  display: flex;
+  gap: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--borda);
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--superficie-2);
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--borda);
+}
+
+.meta-rotulo {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--texto-suave);
+  font-weight: 700;
+}
+
+.meta-valor {
+  font-family: var(--fonte-codigo);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--destaque);
+}
+
+.sim-relatorio-tabela-secao h3 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+
+.tabela-container {
+  overflow-x: auto;
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  background: var(--superficie);
+}
+
+.sim-tabela-desempenho {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  text-align: left;
+}
+
+.sim-tabela-desempenho th {
+  padding: 12px 14px;
+  background: var(--superficie-2);
+  color: var(--texto-suave);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--borda);
+}
+
+.sim-tabela-desempenho td {
+  padding: 14px;
+  border-bottom: 1px solid var(--borda);
+  vertical-align: top;
+}
+
+.sim-tabela-desempenho tr:last-child td { border-bottom: none; }
+
+.col-num {
+  font-weight: 700;
+  color: var(--texto-suave);
+  width: 48px;
+}
+
+.col-enunciado {
+  color: var(--texto);
+  line-height: 1.5;
+}
+
+.relatorio-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.relatorio-badge.ok { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+.relatorio-badge.pulou { background: rgba(243, 156, 18, 0.2); color: #f39c12; }
+.relatorio-badge.erro { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+
+.col-tempo {
+  font-family: var(--fonte-codigo);
+  white-space: nowrap;
+}
+
+.relatorio-solucao {
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+
+.relatorio-solucao summary {
+  color: var(--destaque);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.relatorio-solucao pre {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #000;
+  color: #fff;
+  font-family: var(--fonte-codigo);
+  font-size: 12px;
+}
+
+.relatorio-solucao p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--texto-medio);
+}
+
+.sim-relatorio-acoes {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding-top: 10px;
+}
+
+.sim-relatorio-acoes button {
+  padding: 12px 24px;
+  font-size: 15px;
+}
