@@ -672,6 +672,74 @@
   cursor: wait;
 }
 
+/* Comparação de respostas no relatório de revisão */
+.sim-bloco-comparacao-respostas {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.sim-bloco-resposta-aluno {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 12px;
+  animation: deslizarSolucao 0.25s ease-out;
+}
+
+.sim-resposta-aluno-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sim-resposta-aluno-rotulo {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #38bdf8;
+  letter-spacing: 0.04em;
+}
+
+.sim-resposta-aluno-qtd {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.sim-resposta-aluno-codigo-container {
+  overflow-x: auto;
+}
+
+.sim-resposta-aluno-codigo {
+  margin: 0;
+  padding: 10px 14px;
+  background: #090d16;
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 8px;
+  font-family: var(--fonte-codigo);
+  font-size: 13.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.sim-resposta-aluno-vazio {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-suave);
+  font-style: italic;
+}
+
 /* Bloco de solução revelada abaixo da questão */
 .sim-bloco-solucao-ativa {
   display: flex;

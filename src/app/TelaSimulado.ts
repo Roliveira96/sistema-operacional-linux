@@ -2,6 +2,7 @@ import type { Tela } from './Tela';
 import type { Desafio, ModalidadeSimulado, Passo, QuestaoQuiz } from '../conteudo/Topico';
 import type { Maquina } from '../linux/Maquina';
 import type { TerminalUbuntu } from '../terminal/TerminalUbuntu';
+import type { Sessao } from '../linux/Sessao';
 import { Bancada } from './Bancada';
 import { ArmazemDeMaquinas } from './ArmazemDeMaquinas';
 import { MotorQuestoesSimulado } from './MotorQuestoesSimulado';
@@ -17,6 +18,7 @@ interface EstadoQuestao {
   pulada: boolean;
   tempoSegundos: number;
   respostaQuiz?: number;
+  comandosDigitados?: string[];
 }
 
 const escapar = ColaDeComandos.escapar;
@@ -66,6 +68,7 @@ export class TelaSimulado implements Tela {
   private entregueManualmente: boolean = false;
   private questoesExameAtual: Array<Desafio | QuestaoQuiz> = [];
   private chaveSessaoExame: string = '';
+  private historicoPosicoesPorSessao: Map<Sessao, number> = new Map();
 
   public montar(raiz: HTMLElement): void {
     this.raiz = raiz;
@@ -264,6 +267,7 @@ export class TelaSimulado implements Tela {
     this.indiceQuestaoRevisao = 0;
     this.solucoesReveladasRevisao.clear();
     this.estadosQuestoes.clear();
+    this.historicoPosicoesPorSessao.clear();
     this.animandoPinguim = false;
     this.entregueManualmente = false;
 
@@ -279,6 +283,7 @@ export class TelaSimulado implements Tela {
         concluida: false,
         pulada: false,
         tempoSegundos: 0,
+        comandosDigitados: [],
       });
     }
 
@@ -590,6 +595,9 @@ export class TelaSimulado implements Tela {
   }
 
   private trocarQuestaoAtiva(novoIndex: number): void {
+    if (this.bancada) {
+      this.registrarComandosDaQuestaoAtiva(this.bancada.obterMaquina());
+    }
     this.indiceQuestaoAtiva = novoIndex;
     this.renderizarBotoesQuestoes();
     this.renderizarQuestaoAtiva();
@@ -757,8 +765,35 @@ export class TelaSimulado implements Tela {
     }
   }
 
+  private registrarComandosDaQuestaoAtiva(maquina: Maquina): void {
+    const item = this.obterItemAtual();
+    if (!item) return;
+    const estado = this.estadosQuestoes.get(item.id);
+    if (!estado) return;
+    if (!estado.comandosDigitados) {
+      estado.comandosDigitados = [];
+    }
+
+    const sessoes = maquina.listarSessoes();
+    for (const sessao of sessoes) {
+      const posAnterior = this.historicoPosicoesPorSessao.get(sessao) ?? 0;
+      if (sessao.historico.length > posAnterior) {
+        const novos = sessao.historico.slice(posAnterior);
+        for (const cmd of novos) {
+          const limpo = cmd.trim();
+          if (limpo.length > 0) {
+            estado.comandosDigitados.push(limpo);
+          }
+        }
+        this.historicoPosicoesPorSessao.set(sessao, sessao.historico.length);
+      }
+    }
+  }
+
   private verificarComandoMaquina(maquina: Maquina): void {
     if (this.animandoPinguim) return;
+
+    this.registrarComandosDaQuestaoAtiva(maquina);
 
     const item = this.obterItemAtual();
     if (!item || !('verificar' in item)) return;
@@ -884,6 +919,9 @@ export class TelaSimulado implements Tela {
   // ══════════════════════════════════════════════════════════════════
 
   private finalizarProva(): void {
+    if (this.bancada) {
+      this.registrarComandosDaQuestaoAtiva(this.bancada.obterMaquina());
+    }
     this.pararTimer();
     this.fase = 'relatorio';
     const itens = this.obterItens();
@@ -1146,6 +1184,8 @@ export class TelaSimulado implements Tela {
         return escapar(texto);
       }).join('\n');
 
+      const alunoComandos = estado?.comandosDigitados ?? [];
+
       container.innerHTML = `
         <div class="sim-card-questao sim-card-revisao">
           <div class="sim-questao-header">
@@ -1164,18 +1204,33 @@ export class TelaSimulado implements Tela {
             <p><b>Tarefa exigida:</b> ${d.enunciado}</p>
           </div>
 
-          <div class="sim-revisao-acao-principal">
-            <button class="botao-primario btn-revisao-solucao-terminal" ${this.executandoSolucao ? 'disabled' : ''}>
-              ${this.executandoSolucao ? '⏳ Digitando no terminal...' : (jaRevelada ? '▶️ Reproduzir Solução Novamente no Terminal' : '👀 Ver Solução & Reproduzir no Terminal ao Lado')}
-            </button>
-          </div>
+          <div class="sim-bloco-comparacao-respostas">
+            <!-- Bloco 1: Comandos que o aluno executou na prova -->
+            <div class="sim-bloco-resposta-aluno">
+              <div class="sim-resposta-aluno-topo">
+                <span class="sim-resposta-aluno-rotulo">👤 Comandos que você utilizou no exame:</span>
+                <span class="sim-resposta-aluno-qtd">${alunoComandos.length} comando(s)</span>
+              </div>
+              ${
+                alunoComandos.length > 0
+                  ? `
+                <div class="sim-resposta-aluno-codigo-container">
+                  <pre class="sim-resposta-aluno-codigo">${alunoComandos.map((c) => `$ ${escapar(c)}`).join('\n')}</pre>
+                </div>
+              `
+                  : `
+                <p class="sim-resposta-aluno-vazio">Nenhum comando foi executado no terminal para esta tarefa durante a prova.</p>
+              `
+              }
+            </div>
 
-          ${
-            jaRevelada
-              ? `
+            <!-- Bloco 2: Solução recomendada pelo sistema -->
             <div class="sim-bloco-solucao-ativa">
               <div class="sim-solucao-topo">
-                <span class="sim-solucao-rotulo">💻 Solução recomendada no Terminal Ubuntu:</span>
+                <span class="sim-solucao-rotulo">💻 Solução recomendada no Terminal:</span>
+                <button class="botao-primario btn-revisao-solucao-terminal" ${this.executandoSolucao ? 'disabled' : ''}>
+                  ${this.executandoSolucao ? '⏳ Digitando no terminal...' : (jaRevelada ? '▶️ Digitar Novamente no Terminal' : '▶️ Reproduzir no Terminal ao Lado')}
+                </button>
               </div>
               <div class="sim-solucao-comandos-container">
                 <pre class="sim-solucao-codigo">${comandosFormatados}</pre>
@@ -1183,15 +1238,13 @@ export class TelaSimulado implements Tela {
               ${
                 d.dica
                   ? `<div class="sim-solucao-dica-bloco">
-                      <span class="sim-solucao-rotulo-sub">📖 O que é cobrado nesta questão:</span>
+                      <span class="sim-solucao-rotulo-sub">📖 Fundamentação técnica do exame:</span>
                       <p class="sim-solucao-dica">${d.dica}</p>
                     </div>`
                   : ''
               }
             </div>
-          `
-              : ''
-          }
+          </div>
         </div>
       `;
 

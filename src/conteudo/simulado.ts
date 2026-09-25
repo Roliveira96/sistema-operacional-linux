@@ -385,7 +385,7 @@ export const desafiosBasico: Desafio[] = [
   {
     id: 'bas-fac-3',
     nivel: 'facil',
-    enunciado: 'Crie um arquivo vazio chamado <code>/home/ricardo/workspace/vazio.txt</code> utilizando o comando <code>touch</code>.',
+    enunciado: 'Crie um arquivo vazio chamado <code>/home/ricardo/workspace/vazio.txt</code>.',
     dica: '<b>[Linux Essentials 2.2]:</b> O comando <code>touch</code> cria novos arquivos vazios quando eles ainda não existem.',
     solucao: [{ comando: 'touch /home/ricardo/workspace/vazio.txt' }],
     verificar: (m) => Verificar.arquivo(m, '/home/ricardo/workspace/vazio.txt'),
@@ -393,7 +393,7 @@ export const desafiosBasico: Desafio[] = [
   {
     id: 'bas-fac-4',
     nivel: 'facil',
-    enunciado: 'Grave o caminho do diretório atual dentro do arquivo <code>/home/ricardo/meu_caminho.txt</code> usando <code>pwd</code> e redirecionamento.',
+    enunciado: 'Grave o caminho absoluto do diretório atual dentro do arquivo <code>/home/ricardo/meu_caminho.txt</code>.',
     dica: '<b>[Linux Essentials 2.1]:</b> O comando <code>pwd</code> retorna o diretório atual; redirecione sua saída (<code>&gt;</code>) para o arquivo de destino.',
     solucao: [{ comando: 'pwd > /home/ricardo/meu_caminho.txt' }],
     verificar: (m) => Verificar.arquivo(m, '/home/ricardo/meu_caminho.txt') && (Verificar.conteudo(m, '/home/ricardo/meu_caminho.txt') ?? '').trim().length > 0,
@@ -439,9 +439,9 @@ export const desafiosBasico: Desafio[] = [
   {
     id: 'bas-fac-9',
     nivel: 'facil',
-    enunciado: 'Copie o conteúdo de <code>/etc/hostname</code> para <code>/home/ricardo/nome_maquina.txt</code> usando <code>cat</code> ou redirecionamento.',
-    dica: '<b>[Linux Essentials 2.4]:</b> É possível ler um arquivo com <code>cat</code> e redirecionar a saída com <code>&gt;</code>, ou copiar diretamente com <code>cp</code>.',
-    solucao: [{ comando: 'cat /etc/hostname > /home/ricardo/nome_maquina.txt' }],
+    enunciado: 'Copie o arquivo ou conteúdo de <code>/etc/hostname</code> para <code>/home/ricardo/nome_maquina.txt</code>.',
+    dica: '<b>[Linux Essentials 2.4]:</b> É possível usar <code>cp</code> para duplicar o arquivo ou redirecionar a saída de <code>cat</code> com <code>&gt;</code>.',
+    solucao: [{ comando: 'cp /etc/hostname /home/ricardo/nome_maquina.txt' }],
     verificar: (m) => Verificar.arquivo(m, '/home/ricardo/nome_maquina.txt') && (Verificar.conteudo(m, '/home/ricardo/nome_maquina.txt') ?? '').trim().length > 0,
   },
   {
@@ -597,7 +597,7 @@ export const desafiosBasico: Desafio[] = [
   {
     id: 'bas-dif-6',
     nivel: 'dificil',
-    enunciado: 'Descubra a localização do binário do comando <code>bash</code> usando <code>which</code> e grave a resposta em <code>/home/ricardo/caminho_bash.txt</code>.',
+    enunciado: 'Descubra a localização do binário do comando <code>bash</code> e grave o caminho em <code>/home/ricardo/caminho_bash.txt</code>.',
     dica: '<b>[LPIC-1 104.7]:</b> O comando <code>which</code> procura no PATH e exibe o caminho absoluto do executável correspondente.',
     solucao: [{ comando: 'which bash > /home/ricardo/caminho_bash.txt' }],
     verificar: (m) => Verificar.contem(m, '/home/ricardo/caminho_bash.txt', 'bash'),
@@ -605,7 +605,7 @@ export const desafiosBasico: Desafio[] = [
   {
     id: 'bas-dif-7',
     nivel: 'dificil',
-    enunciado: 'Descubra a localização do binário do comando <code>ls</code> usando <code>which</code> e grave em <code>/home/ricardo/caminho_ls.txt</code>.',
+    enunciado: 'Descubra a localização do binário do comando <code>ls</code> e grave o caminho em <code>/home/ricardo/caminho_ls.txt</code>.',
     dica: '<b>[LPIC-1 104.7]:</b> Localize o binário do comando utilizando <code>which</code> e direcione a saída com o operador de redirecionamento <code>&gt;</code>.',
     solucao: [{ comando: 'which ls > /home/ricardo/caminho_ls.txt' }],
     verificar: (m) => Verificar.contem(m, '/home/ricardo/caminho_ls.txt', 'ls'),
@@ -613,8 +613,8 @@ export const desafiosBasico: Desafio[] = [
   {
     id: 'bas-dif-8',
     nivel: 'dificil',
-    enunciado: 'Conecte a saída de <code>cat /etc/passwd</code> ao comando <code>wc -l</code> através de um pipe (<code>|</code>) e salve em <code>/home/ricardo/contagem_pipe.txt</code>.',
-    dica: '<b>[LPIC-1 103.4]:</b> O operador pipe (<code>|</code>) canaliza a saída padrão do primeiro comando para a entrada padrão do comando de contagem.',
+    enunciado: 'Conte o total de linhas do arquivo <code>/etc/passwd</code> e salve o resultado em <code>/home/ricardo/contagem_pipe.txt</code>.',
+    dica: '<b>[LPIC-1 103.4]:</b> É comum canalizar a saída de <code>cat</code> para <code>wc -l</code> através de pipe (<code>|</code>) ou passar o arquivo diretamente para o utilitário.',
     solucao: [{ comando: 'cat /etc/passwd | wc -l > /home/ricardo/contagem_pipe.txt' }],
     verificar: (m) => Verificar.arquivo(m, '/home/ricardo/contagem_pipe.txt') && (Verificar.conteudo(m, '/home/ricardo/contagem_pipe.txt') ?? '').trim().length > 0,
   },
@@ -629,7 +629,7 @@ export const desafiosBasico: Desafio[] = [
   {
     id: 'bas-dif-10',
     nivel: 'dificil',
-    enunciado: 'Busque no diretório <code>/etc</code> o arquivo de nome exato <code>hosts</code> usando o comando <code>find</code> e grave o caminho em <code>/home/ricardo/busca_hosts.txt</code>.',
+    enunciado: 'Localize dentro de <code>/etc</code> o arquivo de nome exato <code>hosts</code> e salve seu caminho em <code>/home/ricardo/busca_hosts.txt</code>.',
     dica: '<b>[LPIC-1 104.7]:</b> O comando <code>find</code> permite pesquisar recursivamente na árvore de diretórios informando o ponto de partida e o critério <code>-name</code>.',
     solucao: [{ comando: 'find /etc -name "hosts" > /home/ricardo/busca_hosts.txt' }],
     verificar: (m) => Verificar.contem(m, '/home/ricardo/busca_hosts.txt', '/etc/hosts'),
@@ -787,9 +787,9 @@ export const desafiosMedio: Desafio[] = [
   {
     id: 'med-med-7',
     nivel: 'medio',
-    enunciado: 'Exclua o grupo <code>devops</code> do sistema utilizando <code>groupdel</code>.',
+    enunciado: 'Exclua o grupo <code>devops</code> do sistema.',
     dica: '<b>[LPIC-1 107.1]:</b> O utilitário <code>groupdel</code> remove grupos de usuários existentes no sistema.',
-    solucao: [{ comando: 'groupdel devops' }],
+    solucao: [{ comando: 'groupadd devops' }, { comando: 'groupdel devops' }],
     verificar: (m) => Verificar.grupo(m, 'devops') === undefined,
   },
   {
@@ -867,7 +867,7 @@ export const desafiosMedio: Desafio[] = [
   {
     id: 'med-dif-6',
     nivel: 'dificil',
-    enunciado: 'Obtenha os grupos e identificadores do usuário <code>carlos</code> com o comando <code>id</code> e salve em <code>/home/ricardo/grupos_carlos.txt</code>.',
+    enunciado: 'Obtenha os identificadores e grupos do usuário <code>carlos</code> e salve em <code>/home/ricardo/grupos_carlos.txt</code>.',
     dica: '<b>[Linux Essentials 5.1]:</b> O utilitário <code>id</code> exibe o UID, GID e grupos suplementares de um usuário; redirecione a saída para o arquivo solicitado.',
     solucao: [{ comando: 'id carlos > /home/ricardo/grupos_carlos.txt' }],
     verificar: (m) => Verificar.contem(m, '/home/ricardo/grupos_carlos.txt', 'carlos'),
@@ -1017,7 +1017,7 @@ export const desafiosAvancado: Desafio[] = [
   {
     id: 'av-med-3',
     nivel: 'medio',
-    enunciado: 'Reinicie o serviço web <code>nginx</code> usando o systemctl.',
+    enunciado: 'Reinicie o serviço web <code>nginx</code>.',
     dica: '<b>[LPIC-1 101.3]:</b> O utilitário <code>systemctl</code> possui uma ação específica para reiniciar daemons de serviços em execução.',
     solucao: [{ comando: 'systemctl restart nginx' }],
     verificar: (m) => new Servicos(m).ativo('nginx'),
@@ -1076,7 +1076,7 @@ export const desafiosAvancado: Desafio[] = [
   {
     id: 'av-med-10',
     nivel: 'medio',
-    enunciado: 'Atualize todos os pacotes instalados com atualizações disponíveis usando <code>apt upgrade -y</code>.',
+    enunciado: 'Atualize todos os pacotes instalados com atualizações disponíveis no sistema.',
     dica: '<b>[LPIC-1 102.4]:</b> O subcomando <code>upgrade</code> do <code>apt</code> baixa e aplica as versões mais recentes dos pacotes instalados no sistema.',
     solucao: [{ comando: 'apt upgrade -y' }],
     verificar: (m) => new GerenciadorDePacotes(m).atualizaveis().length === 0,
@@ -1118,7 +1118,7 @@ export const desafiosAvancado: Desafio[] = [
   {
     id: 'av-dif-4',
     nivel: 'dificil',
-    enunciado: 'Pare o serviço <code>apache2</code> com <code>systemctl stop</code> para liberar a porta web.',
+    enunciado: 'Pare o serviço <code>apache2</code> para liberar a porta web.',
     dica: '<b>[LPIC-1 101.3]:</b> O comando <code>systemctl</code> possui uma ação de parada de serviço para interromper daemons em execução.',
     solucao: [{ comando: 'systemctl stop apache2' }],
     verificar: (m) => !new Servicos(m).ativo('apache2'),
@@ -1126,7 +1126,7 @@ export const desafiosAvancado: Desafio[] = [
   {
     id: 'av-dif-5',
     nivel: 'dificil',
-    enunciado: 'Desinstale o pacote <code>tree</code> utilizando <code>apt remove -y tree</code>.',
+    enunciado: 'Desinstale o pacote <code>tree</code> do sistema.',
     dica: '<b>[LPIC-1 102.4]:</b> O subcomando <code>remove</code> do <code>apt</code> desinstala os binários do pacote especificado no sistema.',
     solucao: [{ comando: 'apt remove -y tree' }],
     verificar: (m) => !new GerenciadorDePacotes(m).instalado('tree'),
@@ -1134,7 +1134,7 @@ export const desafiosAvancado: Desafio[] = [
   {
     id: 'av-dif-6',
     nivel: 'dificil',
-    enunciado: 'Expurgue completamente o pacote <code>apache2</code> e suas configurações usando <code>apt purge -y apache2</code>.',
+    enunciado: 'Remova e expurgue completamente o pacote <code>apache2</code> e suas configurações.',
     dica: '<b>[LPIC-1 102.4]:</b> A ação <code>purge</code> do <code>apt</code> remove tanto os pacotes quanto todos os seus arquivos de configuração remanescentes.',
     solucao: [{ comando: 'apt purge -y apache2' }],
     verificar: (m) => !new GerenciadorDePacotes(m).instalado('apache2'),
@@ -1213,7 +1213,7 @@ export const desafiosEssentials: Desafio[] = [
   {
     id: 'ess-fac-4',
     nivel: 'facil',
-    enunciado: 'Grave o nome do usuário atual no arquivo <code>/tmp/lpi-lab/usuario_atual.txt</code> com o comando <code>whoami</code>.',
+    enunciado: 'Grave o nome do usuário atual no arquivo <code>/tmp/lpi-lab/usuario_atual.txt</code>.',
     dica: '<b>[LPI Linux Essentials 5.1]:</b> O utilitário <code>whoami</code> retorna o identificador textual do usuário autenticado no terminal.',
     solucao: [{ comando: 'whoami > /tmp/lpi-lab/usuario_atual.txt' }],
     verificar: (m) => Verificar.contem(m, '/tmp/lpi-lab/usuario_atual.txt', 'root') || Verificar.contem(m, '/tmp/lpi-lab/usuario_atual.txt', 'ricardo'),
@@ -1237,7 +1237,7 @@ export const desafiosEssentials: Desafio[] = [
   {
     id: 'ess-fac-7',
     nivel: 'facil',
-    enunciado: 'Grave a data e hora do sistema em <code>/tmp/lpi-lab/data_exame.txt</code> usando <code>date</code>.',
+    enunciado: 'Grave a data e hora do sistema em <code>/tmp/lpi-lab/data_exame.txt</code>.',
     dica: '<b>[LPI Linux Essentials 2.1]:</b> O utilitário <code>date</code> relata o relógio e calendário do sistema; redirecione sua saída com <code>&gt;</code>.',
     solucao: [{ comando: 'date > /tmp/lpi-lab/data_exame.txt' }],
     verificar: (m) => Verificar.arquivo(m, '/tmp/lpi-lab/data_exame.txt') && (Verificar.conteudo(m, '/tmp/lpi-lab/data_exame.txt') ?? '').trim().length > 0,
@@ -1265,7 +1265,7 @@ export const desafiosEssentials: Desafio[] = [
   {
     id: 'ess-fac-10',
     nivel: 'facil',
-    enunciado: 'Gere a listagem de arquivos da home com <code>ls -a /home/ricardo</code> e salve em <code>/tmp/lpi-lab/arquivos_com_ocultos.txt</code>.',
+    enunciado: 'Gere a listagem de todos os arquivos da home (incluindo arquivos ocultos) e salve em <code>/tmp/lpi-lab/arquivos_com_ocultos.txt</code>.',
     dica: '<b>[LPI Linux Essentials 2.2]:</b> No comando <code>ls</code>, a opção que inclui arquivos ocultos na listagem é a flag <code>-a</code>.',
     solucao: [{ comando: 'ls -a /home/ricardo > /tmp/lpi-lab/arquivos_com_ocultos.txt' }],
     verificar: (m) => Verificar.contem(m, '/tmp/lpi-lab/arquivos_com_ocultos.txt', '.bashrc'),
@@ -1340,7 +1340,7 @@ export const desafiosEssentials: Desafio[] = [
   {
     id: 'ess-med-7',
     nivel: 'medio',
-    enunciado: 'Descubra a localização do utilitário <code>ls</code> com <code>which</code> e grave em <code>/tmp/lpi-lab/caminho_ls.txt</code>.',
+    enunciado: 'Descubra a localização do utilitário <code>ls</code> no sistema e grave em <code>/tmp/lpi-lab/caminho_ls.txt</code>.',
     dica: '<b>[LPI Linux Essentials 2.1]:</b> O comando <code>which</code> localiza e retorna o caminho absoluto de executáveis localizados nos diretórios do PATH.',
     solucao: [{ comando: 'which ls > /tmp/lpi-lab/caminho_ls.txt' }],
     verificar: (m) => Verificar.contem(m, '/tmp/lpi-lab/caminho_ls.txt', 'ls'),
@@ -1417,7 +1417,7 @@ export const desafiosEssentials: Desafio[] = [
   {
     id: 'ess-dif-5',
     nivel: 'dificil',
-    enunciado: 'Conte quantas contas no sistema NÃO possuem a palavra <code>root</code> usando pipe entre <code>grep -v</code> e <code>wc -l</code> e salve em <code>/tmp/lpi-lab/usuarios_nao_root.txt</code>.',
+    enunciado: 'Conte quantas contas no sistema NÃO possuem a palavra <code>root</code> no arquivo <code>/etc/passwd</code> e salve em <code>/tmp/lpi-lab/usuarios_nao_root.txt</code>.',
     dica: '<b>[LPI Linux Essentials 3.2]:</b> Combine <code>grep -v</code> (para inverter a seleção) com o utilitário <code>wc -l</code> através de um pipe (<code>|</code>).',
     solucao: [{ comando: 'grep -v "root" /etc/passwd | wc -l > /tmp/lpi-lab/usuarios_nao_root.txt' }],
     verificar: (m) => Verificar.arquivo(m, '/tmp/lpi-lab/usuarios_nao_root.txt') && (Verificar.conteudo(m, '/tmp/lpi-lab/usuarios_nao_root.txt') ?? '').trim().length > 0,
@@ -1425,7 +1425,7 @@ export const desafiosEssentials: Desafio[] = [
   {
     id: 'ess-dif-6',
     nivel: 'dificil',
-    enunciado: 'Localize todos os arquivos terminados em <code>.log</code> dentro de <code>/var/log</code> com o comando <code>find</code> e salve a lista em <code>/tmp/lpi-lab/lista_logs.txt</code>.',
+    enunciado: 'Localize todos os arquivos terminados em <code>.log</code> dentro de <code>/var/log</code> e salve a lista em <code>/tmp/lpi-lab/lista_logs.txt</code>.',
     dica: '<b>[LPI Linux Essentials 2.4]:</b> O utilitário <code>find</code> permite buscar arquivos por padrão de nome utilizando o predicado <code>-name</code>.',
     solucao: [{ comando: 'find /var/log -name "*.log" > /tmp/lpi-lab/lista_logs.txt' }],
     verificar: (m) => Verificar.arquivo(m, '/tmp/lpi-lab/lista_logs.txt') && (Verificar.conteudo(m, '/tmp/lpi-lab/lista_logs.txt') ?? '').length > 0,
@@ -1544,7 +1544,7 @@ export const desafiosLPIC1: Desafio[] = [
   {
     id: 'lpic-fac-9',
     nivel: 'facil',
-    enunciado: 'Verifique se o daemon SSH está ativo usando <code>systemctl is-active ssh</code> e salve a resposta em <code>/home/ricardo/ssh_ativo.txt</code>.',
+    enunciado: 'Verifique se o serviço SSH está ativo e salve a resposta em <code>/home/ricardo/ssh_ativo.txt</code>.',
     dica: '<b>[LPIC-1 101.3]:</b> O comando <code>systemctl</code> possui o subcomando <code>is-active</code> para testar programmaticamente se uma unidade está em execução.',
     solucao: [{ comando: 'systemctl is-active ssh > /home/ricardo/ssh_ativo.txt' }],
     verificar: (m) => Verificar.contem(m, '/home/ricardo/ssh_ativo.txt', 'active'),
@@ -1694,7 +1694,7 @@ export const desafiosLPIC1: Desafio[] = [
   {
     id: 'lpic-dif-4',
     nivel: 'dificil',
-    enunciado: 'Desinstale o pacote <code>nginx</code> expurgando todos os seus arquivos de configuração com <code>apt purge</code>.',
+    enunciado: 'Desinstale o pacote <code>nginx</code> expurgando todos os seus arquivos de configuração.',
     dica: '<b>[LPIC-1 102.4]:</b> No gerenciador <code>apt</code>, utilize o subcomando que remove pacotes e expurga completamente seus arquivos de configuração residuais.',
     solucao: [{ comando: 'apt purge -y nginx' }],
     verificar: (m) => !new GerenciadorDePacotes(m).instalado('nginx'),
@@ -1710,7 +1710,7 @@ export const desafiosLPIC1: Desafio[] = [
   {
     id: 'lpic-dif-6',
     nivel: 'dificil',
-    enunciado: 'Filtre todas as linhas de <code>/etc/group</code> que começam com letras minúsculas usando expressão regular e salve em <code>/home/ricardo/grupos_validos.txt</code>.',
+    enunciado: 'Filtre todas as linhas de <code>/etc/group</code> que começam com letras minúsculas e salve em <code>/home/ricardo/grupos_validos.txt</code>.',
     dica: '<b>[LPIC-1 103.7]:</b> O comando <code>grep</code> com a opção de expressões regulares estendidas permite casar padrões ancorados no início de cada linha.',
     solucao: [{ comando: 'grep -E "^[a-z]+" /etc/group > /home/ricardo/grupos_validos.txt' }],
     verificar: (m) => Verificar.contem(m, '/home/ricardo/grupos_validos.txt', 'root:') || Verificar.contem(m, '/home/ricardo/grupos_validos.txt', 'sudo:'),
@@ -1729,7 +1729,7 @@ export const desafiosLPIC1: Desafio[] = [
   {
     id: 'lpic-dif-8',
     nivel: 'dificil',
-    enunciado: 'Substitua todas as ocorrências de <code>bash</code> por <code>sh</code> no arquivo <code>/etc/passwd</code> usando <code>sed</code> e salve em <code>/home/ricardo/passwd_sh.txt</code>.',
+    enunciado: 'Substitua todas as ocorrências de <code>bash</code> por <code>sh</code> no arquivo <code>/etc/passwd</code> e salve em <code>/home/ricardo/passwd_sh.txt</code>.',
     dica: '<b>[LPIC-1 103.2]:</b> O editor de fluxo <code>sed</code> utiliza a sintaxe de substituição global <code>s/padrao/substituto/g</code> para transformar textos em lote.',
     solucao: [{ comando: "sed s/bash/sh/g /etc/passwd > /home/ricardo/passwd_sh.txt" }],
     verificar: (m) =>
@@ -1740,7 +1740,7 @@ export const desafiosLPIC1: Desafio[] = [
   {
     id: 'lpic-dif-9',
     nivel: 'dificil',
-    enunciado: 'Filtre os processos ativos relacionados ao <code>ssh</code> através de pipe entre <code>ps aux</code> e <code>grep</code> e salve em <code>/home/ricardo/processos_ssh.txt</code>.',
+    enunciado: 'Filtre os processos ativos relacionados ao <code>ssh</code> e salve em <code>/home/ricardo/processos_ssh.txt</code>.',
     dica: '<b>[LPIC-1 103.5]:</b> Liste os processos do sistema com <code>ps aux</code> e filtre as linhas desejadas conectando a saída ao <code>grep</code> via pipe.',
     solucao: [{ comando: 'ps aux | grep ssh > /home/ricardo/processos_ssh.txt' }],
     verificar: (m) => Verificar.contem(m, '/home/ricardo/processos_ssh.txt', 'ssh'),
@@ -1851,7 +1851,7 @@ export const desafiosEscola: Desafio[] = [
   {
     id: 'esc-med-1',
     nivel: 'medio',
-    enunciado: 'Adicione a coordenadora <code>sediane</code> ao grupo <code>professores</code> com <code>usermod -aG</code>.',
+    enunciado: 'Adicione a coordenadora <code>sediane</code> ao grupo suplementar <code>professores</code> mantendo seus outros grupos.',
     dica: '<b>[LPIC-1 107.1]:</b> No utilitário <code>usermod</code>, combine a flag de append com a de grupo suplementar para vincular a usuária sem afetar seus grupos atuais.',
     solucao: [{ comando: 'usermod -aG professores sediane' }],
     verificar: (m) => Verificar.membro(m, 'sediane', 'professores'),
@@ -1859,7 +1859,7 @@ export const desafiosEscola: Desafio[] = [
   {
     id: 'esc-med-2',
     nivel: 'medio',
-    enunciado: 'Adicione a aluna <code>ana</code> ao grupo <code>alunos</code> com <code>usermod -aG</code>.',
+    enunciado: 'Adicione a aluna <code>ana</code> ao grupo suplementar <code>alunos</code> mantendo seus outros grupos.',
     dica: '<b>[LPIC-1 107.1]:</b> Utilize <code>usermod</code> com a combinação de opções de adição a grupo secundário mantendo os demais grupos da usuária.',
     solucao: [{ comando: 'usermod -aG alunos ana' }],
     verificar: (m) => Verificar.membro(m, 'ana', 'alunos'),
