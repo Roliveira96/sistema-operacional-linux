@@ -40,6 +40,8 @@ export interface Desafio {
   dica: string;
   solucao: Passo[];
   verificar(maquina: Maquina): boolean;
+  preparar?(maquina: Maquina): void;
+  adaptar?(maquina: Maquina): Desafio;
 }
 
 /** Questão teórica de múltipla escolha no padrão de exames de certificação. */

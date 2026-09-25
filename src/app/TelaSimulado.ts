@@ -4,6 +4,7 @@ import type { Maquina } from '../linux/Maquina';
 import type { TerminalUbuntu } from '../terminal/TerminalUbuntu';
 import { Bancada } from './Bancada';
 import { ArmazemDeMaquinas } from './ArmazemDeMaquinas';
+import { MotorQuestoesSimulado } from './MotorQuestoesSimulado';
 import { modalidades, sortearQuestoesExame } from '../conteudo/simulado';
 import { ColaDeComandos } from './ColaDeComandos';
 import { Aviso } from './Aviso';
@@ -504,6 +505,7 @@ export class TelaSimulado implements Tela {
         this.chaveSessaoExame || `simulado-exame-${mod.id}-${Date.now()}`,
         (maquina: Maquina) => {
           mod.preparar?.(maquina);
+          MotorQuestoesSimulado.prepararPrerequisitos(this.questoesExameAtual, maquina);
         },
         (maquina: Maquina) => {
           this.verificarComandoMaquina(maquina);
@@ -598,7 +600,7 @@ export class TelaSimulado implements Tela {
     if (!container) return;
 
     const itens = this.obterItens();
-    const item = itens[this.indiceQuestaoAtiva];
+    let item = itens[this.indiceQuestaoAtiva];
     if (!item) return;
 
     const estado = this.estadosQuestoes.get(item.id) ?? {
@@ -609,6 +611,20 @@ export class TelaSimulado implements Tela {
     };
 
     const ehQuiz = 'opcoes' in item;
+
+    // Se for desafio prático pendente e já temos uma máquina instanciada na bancada,
+    // verifica se o estado do sistema já atende prematuramente o desafio (ex: criado por engano em questão anterior).
+    // Se sim, adapta a questão dinamicamente gerando novo alvo e enunciado.
+    if (!ehQuiz && !estado.concluida && this.bancada) {
+      const maquina = this.bancada.obterMaquina();
+      const desafioAdaptado = MotorQuestoesSimulado.adaptarQuestaoSeJaAtendida(item as Desafio, maquina);
+      if (desafioAdaptado !== item) {
+        item = desafioAdaptado;
+        if (this.questoesExameAtual[this.indiceQuestaoAtiva]) {
+          this.questoesExameAtual[this.indiceQuestaoAtiva] = desafioAdaptado;
+        }
+      }
+    }
 
     let corpoHtml = '';
     if (ehQuiz) {
@@ -986,6 +1002,7 @@ export class TelaSimulado implements Tela {
           `simulado-revisao-${mod.id}-${Date.now()}`,
           (maquina: Maquina) => {
             mod.preparar?.(maquina);
+            MotorQuestoesSimulado.prepararPrerequisitos(this.questoesExameAtual, maquina);
           },
           () => {},
         );
