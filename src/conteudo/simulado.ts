@@ -1028,7 +1028,7 @@ export const desafiosAvancado: Desafio[] = [
     enunciado: 'Habilite o serviço <code>nginx</code> para inicialização automática no boot com <code>systemctl enable</code>.',
     dica: '<b>[LPIC-1 101.3]:</b> Para ativar a inicialização de um serviço durante o boot do sistema operacional, use a ação de habilitação do <code>systemctl</code>.',
     solucao: [{ comando: 'systemctl enable nginx' }],
-    verificar: (m) => new Servicos(m).ativo('nginx'),
+    verificar: (m) => new Servicos(m).habilitado('nginx'),
   },
   {
     id: 'av-med-5',

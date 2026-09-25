@@ -31,7 +31,7 @@ export class Permissoes {
 
   /** "755", "0644" ou "1777" → número; null se não for octal válido. */
   public static lerOctal(texto: string): number | null {
-    if (!/^[0-7]{1,4}$/.test(texto)) {
+    if (!/^0?[0-7]{1,4}$/.test(texto)) {
       return null;
     }
     return parseInt(texto, 8);

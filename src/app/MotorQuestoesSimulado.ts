@@ -94,6 +94,17 @@ export class MotorQuestoesSimulado {
       }
     }
 
+    if (ids.has('med-fac-5')) {
+      if (!maquina.contas.usuario('carlos')) {
+        const u = new Usuario('carlos', 1001, 1001, '/home/carlos', '/bin/bash', null, 'Carlos');
+        maquina.contas.adicionarUsuario(u);
+        maquina.contas.adicionarGrupo(new Grupo('carlos', 1001, ['carlos']));
+        maquina.criarHome(u);
+      } else {
+        maquina.contas.usuario('carlos')!.senha = null;
+      }
+    }
+
     if (
       ids.has('med-fac-7') ||
       ids.has('med-fac-10') ||
@@ -169,7 +180,7 @@ export class MotorQuestoesSimulado {
       instalarSeExistir('tree');
     }
 
-    if (ids.has('av-dif-7') || ids.has('lpic-med-3') || ids.has('lpic-dif-4') || ids.has('esc-dif-10')) {
+    if (ids.has('av-med-3') || ids.has('av-med-4') || ids.has('av-dif-7') || ids.has('lpic-med-3') || ids.has('lpic-dif-4') || ids.has('esc-dif-10')) {
       instalarSeExistir('nginx');
     }
 
@@ -225,12 +236,14 @@ export class MotorQuestoesSimulado {
       }
     }
 
-    if (ids.has('lpic-med-6')) {
+    if (ids.has('lpic-fac-6') || ids.has('lpic-med-6')) {
       if (!maquina.contas.usuario('auditor1')) {
-        const u = new Usuario('auditor1', 1006, 1006, '/home/auditor1', '/bin/bash', '123', 'Auditor');
+        const u = new Usuario('auditor1', 1006, 1006, '/home/auditor1', '/bin/bash', ids.has('lpic-fac-6') ? null : '123', 'Auditor');
         maquina.contas.adicionarUsuario(u);
         maquina.contas.adicionarGrupo(new Grupo('auditor1', 1006, ['auditor1']));
         maquina.criarHome(u);
+      } else if (ids.has('lpic-fac-6')) {
+        maquina.contas.usuario('auditor1')!.senha = null;
       }
     }
 
@@ -246,6 +259,7 @@ export class MotorQuestoesSimulado {
 
     // Escola
     if (
+      ids.has('esc-fac-6') ||
       ids.has('esc-med-1') ||
       ids.has('esc-med-4') ||
       ids.has('esc-dif-4') ||
@@ -256,9 +270,11 @@ export class MotorQuestoesSimulado {
         maquina.contas.adicionarGrupo(new Grupo('professores', 1040, []));
       }
       if (!maquina.contas.usuario('sediane')) {
-        const u = new Usuario('sediane', 1007, 1040, '/home/sediane', '/bin/bash', '123', 'Professora Sediane');
+        const u = new Usuario('sediane', 1007, 1040, '/home/sediane', '/bin/bash', ids.has('esc-fac-6') ? null : '123', 'Professora Sediane');
         maquina.contas.adicionarUsuario(u);
         maquina.criarHome(u);
+      } else if (ids.has('esc-fac-6')) {
+        maquina.contas.usuario('sediane')!.senha = null;
       }
     }
 
@@ -268,7 +284,7 @@ export class MotorQuestoesSimulado {
       }
     }
 
-    if (ids.has('esc-med-6')) {
+    if (ids.has('esc-fac-8') || ids.has('esc-med-2') || ids.has('esc-med-6')) {
       maquina.criarDiretorio('/srv/escola/docs', 0, 0, 0o755);
       if (!maquina.fs.obter('/srv/escola/docs/regras.txt')) {
         maquina.criarArquivo('/srv/escola/docs/regras.txt', 'Prova de Linux\nSem consulta\n', 0, 0, 0o644);
@@ -277,9 +293,18 @@ export class MotorQuestoesSimulado {
         maquina.contas.adicionarGrupo(new Grupo('alunos', 1041, []));
       }
       if (!maquina.contas.usuario('ana')) {
-        const u = new Usuario('ana', 1008, 1041, '/home/ana', '/bin/bash', '123', 'Ana Estudante');
+        const grupoAna = ids.has('esc-med-2') ? 1008 : 1041;
+        const senhaAna = ids.has('esc-fac-8') ? null : '123';
+        const u = new Usuario('ana', 1008, grupoAna, '/home/ana', '/bin/bash', senhaAna, 'Ana Estudante');
         maquina.contas.adicionarUsuario(u);
+        if (ids.has('esc-med-2')) {
+          maquina.contas.adicionarGrupo(new Grupo('ana', 1008, ['ana']));
+        }
         maquina.criarHome(u);
+      } else {
+        if (ids.has('esc-fac-8')) {
+          maquina.contas.usuario('ana')!.senha = null;
+        }
       }
     }
 
