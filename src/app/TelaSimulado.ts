@@ -982,20 +982,35 @@ export class TelaSimulado implements Tela {
       });
     });
 
-    this.raiz.querySelectorAll('.btn-ir-questao-revisao').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const idx = Number((e.currentTarget as HTMLElement).dataset.idx ?? 0);
-        this.trocarQuestaoRevisao(idx);
-        this.raiz.querySelector('.sim-relatorio-questao-ativa-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      });
-    });
+    this.anexarEventosTabelaRevisao();
   }
 
   private renderizarBotoesRevisao(): void {
     const nav = this.raiz.querySelector('.sim-relatorio-questoes-nav') as HTMLElement | null;
+    const rotulo = this.raiz.querySelector('.sim-relatorio-secao-rotulo') as HTMLElement | null;
     if (!nav) return;
 
     const itens = this.obterItens();
+    const itemAtual = itens[this.indiceQuestaoRevisao];
+    const estadoAtual = itemAtual ? this.estadosQuestoes.get(itemAtual.id) : undefined;
+
+    let statusTexto = '❌ Não realizada';
+    let statusClasse = 'erro';
+    if (estadoAtual?.concluida) {
+      statusTexto = '✅ Concluída no exame';
+      statusClasse = 'ok';
+    } else if (estadoAtual?.pulada) {
+      statusTexto = '⏭️ Pulada no exame';
+      statusClasse = 'pulou';
+    }
+
+    if (rotulo) {
+      rotulo.innerHTML = `
+        <span class="rotulo-titulo">📍 Visualizando agora: <b class="destaque-questao">Questão #${this.indiceQuestaoRevisao + 1} de ${itens.length}</b></span>
+        <span class="relatorio-badge ${statusClasse}">${statusTexto}</span>
+      `;
+    }
+
     let html = '';
     itens.forEach((item, index) => {
       const estado = this.estadosQuestoes.get(item.id);
@@ -1011,7 +1026,8 @@ export class TelaSimulado implements Tela {
 
       const ehAtiva = index === this.indiceQuestaoRevisao ? ' ativa' : '';
       html += `
-        <button class="sim-btn-questao ${statusClass}${ehAtiva}" data-idx="${index}" title="Revisar Questão ${index + 1}">
+        <button class="sim-btn-questao ${statusClass}${ehAtiva}" data-idx="${index}" title="Ir para Questão ${index + 1}">
+          <span class="sim-btn-questao-idx">#${index + 1}</span>
           <span class="sim-btn-questao-num">${icon}</span>
         </button>
       `;
@@ -1033,6 +1049,7 @@ export class TelaSimulado implements Tela {
     this.indiceQuestaoRevisao = novoIndex;
     this.renderizarBotoesRevisao();
     this.renderizarRevisaoQuestaoAtiva();
+    this.atualizarLinhasTabelaRevisao();
   }
 
   private renderizarRevisaoQuestaoAtiva(): void {
@@ -1177,21 +1194,51 @@ export class TelaSimulado implements Tela {
 
         const tempoGasto = estado ? formatarExtenso(estado.tempoSegundos) : '0s';
         const enunciado = 'enunciado' in item ? item.enunciado : (item as QuestaoQuiz).pergunta;
+        const ehAtual = index === this.indiceQuestaoRevisao;
 
         return `
-          <tr>
+          <tr class="${ehAtual ? 'linha-selecionada' : ''}" data-idx="${index}">
             <td class="col-num">#${index + 1}</td>
             <td class="col-enunciado">${enunciado}</td>
             <td class="col-status">${badgeResultado}</td>
             <td class="col-tempo"><b>${tempoGasto}</b></td>
             <td class="col-acao">
-              <button class="botao-secundario btn-ir-questao-revisao" data-idx="${index}">
-                🔍 Ver no Terminal
-              </button>
+              ${
+                ehAtual
+                  ? '<span class="badge-em-exibicao">▶ Em Exibição</span>'
+                  : `<button class="botao-secundario btn-ir-questao-revisao" data-idx="${index}">🔍 Ver no Terminal</button>`
+              }
             </td>
           </tr>
         `;
       })
       .join('');
+  }
+
+  private atualizarLinhasTabelaRevisao(): void {
+    const tbody = this.raiz.querySelector('.sim-tabela-desempenho tbody');
+    if (tbody) {
+      tbody.innerHTML = this.gerarLinhasTabelaHtml(this.obterItens());
+      this.anexarEventosTabelaRevisao();
+    }
+  }
+
+  private anexarEventosTabelaRevisao(): void {
+    this.raiz.querySelectorAll('.btn-ir-questao-revisao').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = Number((e.currentTarget as HTMLElement).dataset.idx ?? 0);
+        this.trocarQuestaoRevisao(idx);
+        this.raiz.querySelector('.sim-relatorio-questao-ativa-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    });
+
+    this.raiz.querySelectorAll('.sim-tabela-desempenho tr[data-idx]').forEach((tr) => {
+      tr.addEventListener('click', (e) => {
+        const idx = Number((e.currentTarget as HTMLElement).dataset.idx ?? 0);
+        this.trocarQuestaoRevisao(idx);
+        this.raiz.querySelector('.sim-relatorio-questao-ativa-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    });
   }
 }
