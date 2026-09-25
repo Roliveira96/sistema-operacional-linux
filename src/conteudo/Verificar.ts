@@ -1,5 +1,5 @@
 import type { Maquina } from '../linux/Maquina';
-import { Arquivo, Diretorio, type No } from '../linux/No';
+import { Arquivo, Diretorio, Link, type No } from '../linux/No';
 import type { Grupo, Usuario } from '../linux/Contas';
 
 /** Perguntas prontas sobre o estado da máquina, usadas pelos desafios. */
@@ -15,6 +15,16 @@ export class Verificar {
   public static arquivo(maquina: Maquina, caminho: string): boolean {
     const no: No | null = maquina.fs.obter(caminho);
     return no instanceof Arquivo;
+  }
+
+  public static link(maquina: Maquina, caminho: string): boolean {
+    const no: No | null = maquina.fs.obter(caminho, false);
+    return no instanceof Link;
+  }
+
+  public static linkAlvo(maquina: Maquina, caminho: string, alvo: string): boolean {
+    const no: No | null = maquina.fs.obter(caminho, false);
+    return no instanceof Link && no.alvo === alvo;
   }
 
   public static naoExiste(maquina: Maquina, caminho: string): boolean {

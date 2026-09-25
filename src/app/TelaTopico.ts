@@ -1,5 +1,5 @@
 import type { Tela } from './Tela';
-import type { Desafio, Passo, Topico } from '../conteudo/Topico';
+import type { Desafio, ModalidadeSimulado, Passo, QuestaoQuiz, Topico } from '../conteudo/Topico';
 import type { Maquina } from '../linux/Maquina';
 import type { TerminalUbuntu } from '../terminal/TerminalUbuntu';
 import { Bancada } from './Bancada';
@@ -41,10 +41,15 @@ export class TelaTopico implements Tela {
   private ocupado: boolean = false;
   private velocidade: number = 1;
   private concluidos: Set<string> = new Set();
+  private modalidadeAtiva: ModalidadeSimulado | null = null;
+  private quizRespostas: Map<string, number> = new Map();
   private readonly aoTeclar: (evento: KeyboardEvent) => void;
 
   constructor(topico: Topico) {
     this.topico = topico;
+    if (topico.modalidades && topico.modalidades.length > 0) {
+      this.modalidadeAtiva = topico.modalidades[0];
+    }
     const demonstracao: Passo[] = topico.demonstracao ?? [];
     if (demonstracao.length > 0) this.adicionarBloco('conceitos', 'Antes dos comandos', demonstracao);
     for (const licao of topico.licoes) this.adicionarBloco(licao.comando, licao.titulo, licao.exemplos);
@@ -87,7 +92,9 @@ export class TelaTopico implements Tela {
       '    <section class="topico-estudo">' +
       '      <nav class="abas-estudo" role="tablist">' +
       (temAula ? '<button class="aba-estudo ativa" data-aba="aula">📘 Comandos e dicas</button>' : '') +
-      '        <button class="aba-estudo' + (temAula ? '' : ' ativa') + '" data-aba="desafios">🎯 Desafios <span class="contador-desafios"></span></button>' +
+      '        <button class="aba-estudo' + (temAula ? '' : ' ativa') + '" data-aba="desafios">' +
+      (this.topico.modalidades && this.topico.modalidades.length > 0 ? '🎯 Simulados e Questões' : '🎯 Desafios') +
+      ' <span class="contador-desafios"></span></button>' +
       '      </nav>' +
       '      <div class="painel-estudo" data-painel="aula"' + (temAula ? '' : ' hidden') + '></div>' +
       '      <div class="painel-estudo" data-painel="desafios"' + (temAula ? ' hidden' : '') + '></div>' +
@@ -391,13 +398,92 @@ export class TelaTopico implements Tela {
     if (evento.key === ' ') { evento.preventDefault(); this.alternarPlay(); }
   }
 
-  // ───────────── desafios ─────────────
+  // ───────────── desafios e simulados ─────────────
+
+  private obterDesafiosAtuais(): Desafio[] {
+    if (this.modalidadeAtiva !== null) {
+      return this.modalidadeAtiva.desafios ?? [];
+    }
+    return this.topico.desafios;
+  }
 
   private montarDesafios(painel: HTMLElement): void {
-    let html: string = '<p class="desafios-intro">Resolva digitando no terminal. Cada desafio é conferido <b>automaticamente</b> depois de cada comando, olhando o estado real da máquina. ' +
+    if (this.topico.modalidades && this.topico.modalidades.length > 0) {
+      this.montarPainelModalidades(painel);
+      return;
+    }
+    this.montarListaDesafios(painel, this.topico.desafios);
+  }
+
+  private montarPainelModalidades(painel: HTMLElement): void {
+    const mods = this.topico.modalidades ?? [];
+    let html: string =
+      '<div class="simulado-seletor">' +
+      '  <div class="simulado-abas-scroll">';
+
+    for (const m of mods) {
+      const ativa: string = m.id === this.modalidadeAtiva?.id ? ' ativa' : '';
+      const badge: string = m.badge ? '<span class="simulado-aba-badge">' + m.badge + '</span>' : '';
+      html +=
+        '<button class="simulado-aba-btn' + ativa + '" data-mod="' + m.id + '">' +
+        '  <span class="simulado-aba-ico">' + m.icone + '</span>' +
+        '  <span class="simulado-aba-titulo">' + m.titulo + '</span>' +
+        badge +
+        '</button>';
+    }
+
+    html +=
+      '  </div>' +
+      '  <div class="simulado-info-mod">' +
+      '    <p>' + (this.modalidadeAtiva?.descricao ?? '') + '</p>' +
+      '  </div>' +
+      '</div>' +
+      '<div class="simulado-conteudo-corpo"></div>';
+
+    painel.innerHTML = html;
+
+    painel.querySelectorAll<HTMLButtonElement>('.simulado-aba-btn').forEach((btn: HTMLButtonElement) => {
+      btn.addEventListener('click', () => {
+        const modId: string | undefined = btn.dataset.mod;
+        const mod: ModalidadeSimulado | undefined = mods.find((m) => m.id === modId);
+        if (!mod || mod.id === this.modalidadeAtiva?.id) return;
+        this.trocarModalidade(mod);
+      });
+    });
+
+    const corpo: HTMLElement | null = painel.querySelector('.simulado-conteudo-corpo');
+    if (corpo !== null) {
+      this.renderizarConteudoModalidade(corpo);
+    }
+  }
+
+  private trocarModalidade(mod: ModalidadeSimulado): void {
+    this.modalidadeAtiva = mod;
+    this.concluidos = this.lerConcluidos();
+    const painel: HTMLElement | null = this.raiz.querySelector('[data-painel="desafios"]');
+    if (painel !== null) {
+      this.montarPainelModalidades(painel);
+      this.conferirDesafios(this.bancada.obterMaquina());
+    }
+  }
+
+  private renderizarConteudoModalidade(container: HTMLElement): void {
+    if (this.modalidadeAtiva?.questoes && this.modalidadeAtiva.questoes.length > 0) {
+      this.renderizarQuiz(container, this.modalidadeAtiva.questoes);
+      return;
+    }
+    const desafios: Desafio[] = this.modalidadeAtiva?.desafios ?? [];
+    this.montarListaDesafios(container, desafios);
+  }
+
+  private montarListaDesafios(container: HTMLElement, desafios: Desafio[]): void {
+    let html: string =
+      '<p class="desafios-intro">Resolva digitando no terminal. Cada desafio é conferido <b>automaticamente</b> depois de cada comando, olhando o estado real da máquina. ' +
       'Travou? Abra a dica. Ainda travou? Veja a solução e execute.</p><ol class="desafios">';
-    this.topico.desafios.forEach((desafio: Desafio, i: number) => {
-      html += '<li class="desafio" data-desafio="' + desafio.id + '">' +
+
+    desafios.forEach((desafio: Desafio, i: number) => {
+      html +=
+        '<li class="desafio" data-desafio="' + desafio.id + '">' +
         '<span class="desafio-status" aria-hidden="true"></span>' +
         '<div class="desafio-corpo"><p class="desafio-enunciado"><b>' + (i + 1) + '.</b> ' + desafio.enunciado + '</p>' +
         '<details><summary>💡 Dica</summary><p>' + desafio.dica + '</p></details>' +
@@ -405,13 +491,123 @@ export class TelaTopico implements Tela {
         desafio.solucao.map((p: Passo) => ((p.terminal ?? 1) > 1 ? '[T' + p.terminal + '] ' : '') + escapar(p.comando)).join('\n') +
         '</pre><button class="botao-secundario desafio-rodar">▶ Executar a solução</button></details></div></li>';
     });
+
     html += '</ol>';
-    painel.innerHTML = html;
-    painel.querySelectorAll<HTMLElement>('.desafio').forEach((item: HTMLElement) => {
-      const desafio: Desafio | undefined = this.topico.desafios.find((d: Desafio) => d.id === item.dataset.desafio);
+    container.innerHTML = html;
+
+    container.querySelectorAll<HTMLElement>('.desafio').forEach((item: HTMLElement) => {
+      const desafio: Desafio | undefined = desafios.find((d: Desafio) => d.id === item.dataset.desafio);
       item.querySelector('.desafio-rodar')?.addEventListener('click', () => {
         if (desafio !== undefined) void this.rodarSolucao(desafio);
       });
+    });
+  }
+
+  private chaveQuiz(): string {
+    return 'exame-so:quiz:' + this.topico.id;
+  }
+
+  private lerQuizRespostas(): Map<string, number> {
+    try {
+      const salvas: Record<string, number> = JSON.parse(localStorage.getItem(this.chaveQuiz()) ?? '{}') as Record<string, number>;
+      return new Map(Object.entries(salvas).map(([k, v]) => [k, Number(v)]));
+    } catch {
+      return new Map();
+    }
+  }
+
+  private salvarQuizRespostas(): void {
+    try {
+      const obj: Record<string, number> = Object.fromEntries(this.quizRespostas.entries());
+      localStorage.setItem(this.chaveQuiz(), JSON.stringify(obj));
+    } catch {
+      // sem armazenamento
+    }
+  }
+
+  private renderizarQuiz(container: HTMLElement, questoes: QuestaoQuiz[]): void {
+    this.quizRespostas = this.lerQuizRespostas();
+    let acertos: number = 0;
+    questoes.forEach((q: QuestaoQuiz) => {
+      const resp: number | undefined = this.quizRespostas.get(q.id);
+      if (resp !== undefined && resp === q.correta) acertos++;
+    });
+
+    let html: string =
+      '<div class="quiz-container">' +
+      '  <div class="quiz-placar">' +
+      '    <div class="quiz-placar-info">' +
+      '      <span class="quiz-placar-titulo">Placar do Questionário</span>' +
+      '      <span class="quiz-placar-pontos"><b>' + acertos + '</b> de ' + questoes.length + ' acertos</span>' +
+      '    </div>' +
+      '    <button class="botao-secundario quiz-reiniciar" title="Limpar respostas para tentar de novo">🔄 Refazer Quiz</button>' +
+      '  </div>' +
+      '  <div class="quiz-perguntas">';
+
+    questoes.forEach((q: QuestaoQuiz, i: number) => {
+      const resp: number | undefined = this.quizRespostas.get(q.id);
+      const respondida: boolean = resp !== undefined;
+      const acertou: boolean = resp === q.correta;
+
+      html +=
+        '<div class="quiz-card ' + (respondida ? (acertou ? 'quiz-acertou' : 'quiz-errou') : '') + '" data-quiz-id="' + q.id + '">' +
+        '  <div class="quiz-topo">' +
+        '    <span class="quiz-num">Questão ' + (i + 1) + ' de ' + questoes.length + '</span>' +
+        '    <span class="quiz-cert">' + q.certificacao + '</span>' +
+        '  </div>' +
+        '  <p class="quiz-enunciado">' + q.pergunta + '</p>' +
+        '  <div class="quiz-opcoes">';
+
+      q.opcoes.forEach((opcao: string, optIdx: number) => {
+        const letra: string = ['A', 'B', 'C', 'D'][optIdx] ?? String(optIdx + 1);
+        let classeOpcao: string = 'quiz-opcao';
+        if (respondida) {
+          if (optIdx === q.correta) classeOpcao += ' opcao-correta';
+          else if (optIdx === resp) classeOpcao += ' opcao-errada';
+        }
+        html +=
+          '<button class="' + classeOpcao + '" data-opcao="' + optIdx + '" ' + (respondida ? 'disabled' : '') + '>' +
+          '  <span class="quiz-letra">' + letra + '</span>' +
+          '  <span class="quiz-texto">' + opcao + '</span>' +
+          '</button>';
+      });
+
+      html += '</div>';
+
+      if (respondida) {
+        html +=
+          '  <div class="quiz-gabarito">' +
+          '    <span class="quiz-feedback">' + (acertou ? '✅ Resposta correta!' : '❌ Resposta incorreta!') + '</span>' +
+          '    <p class="quiz-explicacao">' + q.explicacao + '</p>' +
+          '  </div>';
+      }
+
+      html += '</div>';
+    });
+
+    html += '  </div></div>';
+    container.innerHTML = html;
+
+    container.querySelectorAll<HTMLButtonElement>('.quiz-opcao').forEach((btn: HTMLButtonElement) => {
+      btn.addEventListener('click', () => {
+        const card: HTMLElement | null = btn.closest('.quiz-card');
+        if (!card) return;
+        const qId: string | undefined = card.dataset.quizId;
+        const optIdx: number = Number(btn.dataset.opcao);
+        if (qId !== undefined && !isNaN(optIdx)) {
+          this.quizRespostas.set(qId, optIdx);
+          this.salvarQuizRespostas();
+          this.renderizarQuiz(container, questoes);
+          this.conferirDesafios(this.bancada.obterMaquina());
+        }
+      });
+    });
+
+    container.querySelector('.quiz-reiniciar')?.addEventListener('click', () => {
+      this.quizRespostas.clear();
+      this.salvarQuizRespostas();
+      this.renderizarQuiz(container, questoes);
+      this.conferirDesafios(this.bancada.obterMaquina());
     });
   }
 
@@ -426,8 +622,20 @@ export class TelaTopico implements Tela {
   }
 
   private conferirDesafios(maquina: Maquina): void {
+    const desafios: Desafio[] = this.obterDesafiosAtuais();
+    const contador: HTMLElement | null = this.raiz.querySelector('.contador-desafios');
+
+    if (desafios.length === 0) {
+      if (this.modalidadeAtiva?.questoes && contador !== null) {
+        const questoes = this.modalidadeAtiva.questoes;
+        const acertos = questoes.filter((q) => this.quizRespostas.get(q.id) === q.correta).length;
+        contador.textContent = acertos + '/' + questoes.length;
+      }
+      return;
+    }
+
     let mudou: boolean = false;
-    for (const desafio of this.topico.desafios) {
+    for (const desafio of desafios) {
       let ok: boolean = false;
       try {
         ok = desafio.verificar(maquina);
@@ -444,12 +652,12 @@ export class TelaTopico implements Tela {
     this.raiz.querySelectorAll<HTMLElement>('.desafio').forEach((item: HTMLElement) => {
       item.classList.toggle('concluido', this.concluidos.has(item.dataset.desafio ?? ''));
     });
-    const contador: HTMLElement | null = this.raiz.querySelector('.contador-desafios');
-    if (contador !== null) contador.textContent = this.concluidos.size + '/' + this.topico.desafios.length;
+    if (contador !== null) contador.textContent = this.concluidos.size + '/' + desafios.length;
   }
 
   private chaveDesafios(): string {
-    return 'exame-so:desafios:' + this.topico.id;
+    const sufixo: string = this.modalidadeAtiva !== null ? ':' + this.modalidadeAtiva.id : '';
+    return 'exame-so:desafios:' + this.topico.id + sufixo;
   }
 
   private lerConcluidos(): Set<string> {

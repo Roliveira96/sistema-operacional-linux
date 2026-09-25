@@ -78,7 +78,7 @@ export class TelaMenu implements Tela {
   private card(topico: Topico): string {
     const comandos: string = topico.licoes.length > 0
       ? topico.subtitulo.split(' · ').map((item: string) => '<code>' + item + '</code>').join(' ')
-      : '<code>' + topico.desafios.length + ' tarefas</code>';
+      : '<code>' + (topico.modalidades && topico.modalidades.length > 0 ? topico.modalidades.length + ' modalidades de simulado' : topico.desafios.length + ' tarefas') + '</code>';
     return '<a class="card" href="#/' + topico.id + '" style="--cor-card: var(' + topico.cor + ')">' +
       '<span class="card-numero">0' + topico.numero + '</span>' +
       '<span class="card-icone">' + topico.icone + '</span>' +

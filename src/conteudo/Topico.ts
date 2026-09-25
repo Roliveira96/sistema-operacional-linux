@@ -39,6 +39,28 @@ export interface Desafio {
   verificar(maquina: Maquina): boolean;
 }
 
+/** Questão teórica de múltipla escolha no padrão de exames de certificação. */
+export interface QuestaoQuiz {
+  id: string;
+  pergunta: string;
+  certificacao: string;
+  opcoes: string[];
+  correta: number;
+  explicacao: string;
+}
+
+/** Modalidade ou sub-simulado (ex.: Básico, Médio, LPI Essentials, LPIC-1, Quiz). */
+export interface ModalidadeSimulado {
+  id: string;
+  titulo: string;
+  icone: string;
+  badge?: string;
+  descricao: string;
+  preparar?: (maquina: Maquina) => void;
+  desafios?: Desafio[];
+  questoes?: QuestaoQuiz[];
+}
+
 export interface Topico {
   id: string;
   numero: number;
@@ -58,4 +80,7 @@ export interface Topico {
   preparar(maquina: Maquina): void;
   licoes: Licao[];
   desafios: Desafio[];
+  /** Sub-menus / categorias de simulado se o tópico for modular. */
+  modalidades?: ModalidadeSimulado[];
 }
+
