@@ -830,113 +830,320 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   5. Relatório Final de Desempenho
+   5. Relatório Final de Desempenho (com Terminal Linux ao Lado)
    ══════════════════════════════════════════════════════════════════ */
-.sim-relatorio {
-  align-items: center;
-  padding: 40px 20px 80px;
-}
-
-.sim-relatorio-container {
-  width: 100%;
-  max-width: 860px;
+.sim-relatorio-tela {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 26px;
 }
 
-.sim-relatorio-header {
-  text-align: center;
+.sim-relatorio-modo-terminal {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.sim-relatorio-header h1 {
-  font-size: clamp(30px, 4.5vw, 42px);
-  margin: 14px 0 8px;
-  font-weight: 800;
-}
-
-.sim-relatorio-header p {
-  color: var(--texto-medio);
-  margin: 0;
-  font-size: 16px;
-}
-
-.sim-relatorio-placar {
+.sim-relatorio-cabecalho {
+  height: 60px;
+  padding: 0 20px;
   background: var(--superficie);
-  border: 1px solid var(--borda);
-  border-radius: 20px;
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.sim-relatorio-placar.aprovado {
-  border-color: #2ecc71;
-  box-shadow: 0 10px 30px -10px rgba(46, 204, 113, 0.2);
-}
-
-.sim-relatorio-placar.reciclagem {
-  border-color: #f39c12;
-  box-shadow: 0 10px 30px -10px rgba(243, 156, 18, 0.2);
-}
-
-.placar-resultado {
+  border-bottom: 1px solid var(--borda);
   display: flex;
   align-items: center;
-  gap: 20px;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 10;
 }
 
-.placar-trofeu { font-size: 48px; }
+.sim-relatorio-esquerda,
+.sim-relatorio-direita {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 
-.placar-textos h2 {
-  font-size: 22px;
-  margin: 0 0 6px;
+.sim-relatorio-titulo-grupo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sim-relatorio-ico {
+  font-size: 26px;
+}
+
+.sim-relatorio-titulo-grupo h2 {
+  font-size: 17px;
+  margin: 0;
+  font-weight: 700;
   color: var(--texto);
 }
 
-.placar-textos p {
-  margin: 0;
-  font-size: 14px;
+.sim-relatorio-subtitulo {
+  font-size: 12.5px;
   color: var(--texto-medio);
-  line-height: 1.5;
 }
 
-.placar-meta-tempos {
-  display: flex;
-  gap: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--borda);
-}
-
-.meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  background: var(--superficie-2);
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 1px solid var(--borda);
-}
-
-.meta-rotulo {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--texto-suave);
-  font-weight: 700;
-}
-
-.meta-valor {
+.sim-relatorio-meta-pill {
   font-family: var(--fonte-codigo);
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
   color: var(--destaque);
 }
 
-.sim-relatorio-tabela-secao h3 {
-  font-size: 18px;
-  margin: 0 0 12px;
+.sim-relatorio-divisao {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 480px 1fr;
+  overflow: hidden;
+}
+
+.sim-relatorio-modo-quiz .sim-relatorio-divisao {
+  grid-template-columns: 1fr;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .sim-relatorio-divisao {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.sim-relatorio-estudo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--borda);
+  background: #110c14;
+  overflow-y: auto;
+  padding: 18px;
+  gap: 16px;
+}
+
+.sim-relatorio-terminal {
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  overflow: hidden;
+}
+
+.sim-relatorio-terminal-janela {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Placar Compacto no Topo da Coluna de Revisão */
+.sim-relatorio-placar-compacto {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.sim-relatorio-placar-compacto.aprovado {
+  border-color: #2ecc71;
+  background: rgba(46, 204, 113, 0.06);
+}
+
+.sim-relatorio-placar-compacto.reciclagem {
+  border-color: #f39c12;
+  background: rgba(243, 156, 18, 0.06);
+}
+
+.placar-topo-linha {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.placar-trofeu-pequeno {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.placar-topo-linha b {
+  display: block;
+  font-size: 15px;
+  color: var(--texto);
+  margin-bottom: 2px;
+}
+
+.placar-topo-linha p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--texto-medio);
+  line-height: 1.45;
+}
+
+/* Seção de Navegação de Questões na Revisão */
+.sim-relatorio-navegacao-secao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sim-relatorio-secao-rotulo {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--texto-suave);
+}
+
+.sim-relatorio-questoes-nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.sim-btn-questao.erro {
+  background: rgba(231, 76, 60, 0.2);
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+/* Card de Revisão da Questão Ativa */
+.sim-card-revisao {
+  gap: 14px;
+}
+
+.sim-revisao-acao-principal {
+  display: flex;
+}
+
+.btn-revisao-solucao-terminal {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #e95420, #c0392b);
+  border: 1px solid #ff7846;
+  box-shadow: 0 4px 16px rgba(233, 84, 32, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-revisao-solucao-terminal:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ff6b35, #d63031);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(233, 84, 32, 0.5);
+}
+
+.btn-revisao-solucao-terminal:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.sim-solucao-dica-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border-left: 3px solid var(--destaque);
+}
+
+.sim-solucao-rotulo-sub {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--destaque);
+  letter-spacing: 0.04em;
+}
+
+/* Quiz Opções na Revisão */
+.sim-quiz-opcoes-revisao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sim-quiz-opcao-revisao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+
+.sim-quiz-opcao-revisao.correta {
+  border-color: #2ecc71;
+  background: rgba(46, 204, 113, 0.12);
+  color: #2ecc71;
+  font-weight: 600;
+}
+
+.sim-quiz-opcao-revisao.errada {
+  border-color: #e74c3c;
+  background: rgba(231, 76, 60, 0.12);
+  color: #e74c3c;
+}
+
+.quiz-badge-gabarito {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #27ae60;
+  color: #fff;
+}
+
+.quiz-badge-sua-resposta {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #c0392b;
+  color: #fff;
+}
+
+/* Tabela de Desempenho no Relatório */
+.sim-relatorio-tabela-secao {
+  margin-top: 4px;
+}
+
+.sim-relatorio-tabela-detalhes summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: var(--texto);
+  user-select: none;
+}
+
+.sim-relatorio-tabela-detalhes summary:hover {
+  background: var(--superficie-2);
+  border-color: var(--destaque);
+}
+
+.sim-relatorio-tabela-detalhes[open] summary {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: none;
+}
+
+.sim-relatorio-tabela-detalhes .tabela-container {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 .tabela-container {
@@ -949,43 +1156,66 @@
 .sim-tabela-desempenho {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13.5px;
   text-align: left;
 }
 
 .sim-tabela-desempenho th {
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: var(--superficie-2);
   color: var(--texto-suave);
-  font-size: 12px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   border-bottom: 1px solid var(--borda);
 }
 
 .sim-tabela-desempenho td {
-  padding: 14px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--borda);
-  vertical-align: top;
+  vertical-align: middle;
 }
 
-.sim-tabela-desempenho tr:last-child td { border-bottom: none; }
+.sim-tabela-desempenho tr:last-child td {
+  border-bottom: none;
+}
 
 .col-num {
   font-weight: 700;
   color: var(--texto-suave);
-  width: 48px;
+  width: 38px;
 }
 
 .col-enunciado {
   color: var(--texto);
-  line-height: 1.5;
+  line-height: 1.45;
+  font-size: 13px;
+}
+
+.col-status {
+  white-space: nowrap;
+}
+
+.col-tempo {
+  font-family: var(--fonte-codigo);
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+.col-acao {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.btn-ir-questao-revisao {
+  font-size: 12px;
+  padding: 5px 10px;
 }
 
 .relatorio-badge {
   font-size: 11px;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
   white-space: nowrap;
 }
@@ -993,239 +1223,19 @@
 .relatorio-badge.ok { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
 .relatorio-badge.pulou { background: rgba(243, 156, 18, 0.2); color: #f39c12; }
 .relatorio-badge.erro { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
-.relatorio-badge.solucao { background: rgba(233, 84, 32, 0.2); color: #ff9d76; }
 
-.relatorio-linha-praticar {
-  margin-top: 8px;
-}
-
-.btn-praticar-revisao-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 6px;
-}
-
-.col-tempo {
-  font-family: var(--fonte-codigo);
-  white-space: nowrap;
-}
-
-.relatorio-solucao {
-  margin-top: 8px;
-  font-size: 12.5px;
-}
-
-.relatorio-solucao summary {
-  color: var(--destaque);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.relatorio-solucao pre {
-  margin: 6px 0 0;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: #000;
-  color: #fff;
-  font-family: var(--fonte-codigo);
-  font-size: 12px;
-}
-
-.relatorio-solucao p {
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: var(--texto-medio);
-}
-
-/* ===== Guia de Aprendizado / Como Fazer no Relatório ===== */
-.relatorio-aviso-guia {
-  margin-top: 6px;
-  font-size: 12.5px;
-  color: #f39c12;
-}
-
-.sim-relatorio-guia-secao {
-  background: var(--superficie);
-  border: 1px solid rgba(243, 156, 18, 0.4);
-  border-radius: 20px;
-  padding: 26px;
+.sim-relatorio-rodape-acoes {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.sim-relatorio-guia-secao.sucesso-total {
-  border-color: rgba(46, 204, 113, 0.4);
-  background: rgba(46, 204, 113, 0.04);
-}
-
-.guia-secao-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--borda);
-}
-
-.guia-secao-ico {
-  font-size: 36px;
-  flex-shrink: 0;
-}
-
-.guia-secao-header h3 {
-  margin: 0 0 4px;
-  font-size: 19px;
-  color: var(--texto);
-}
-
-.guia-secao-header p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--texto-medio);
-}
-
-.guia-cards-lista {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.guia-card {
-  background: var(--superficie-2);
-  border: 1px solid var(--borda);
-  border-left: 4px solid #f39c12;
-  border-radius: 14px;
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
   gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borda);
 }
 
-.guia-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.guia-badge-num {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--destaque);
-}
-
-.guia-badge-status {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-
-.guia-badge-status.pulada {
-  background: rgba(243, 156, 18, 0.2);
-  color: #f39c12;
-}
-
-.guia-badge-status.erro {
-  background: rgba(231, 76, 60, 0.2);
-  color: #e74c3c;
-}
-
-.guia-badge-status.solucao {
-  background: rgba(233, 84, 32, 0.2);
-  color: #ff9d76;
-}
-
-.guia-enunciado {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--texto);
-}
-
-.guia-bloco-solucao {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.guia-rotulo {
-  font-size: 12.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--texto-suave);
-}
-
-.guia-codigo {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: 8px;
-  background: #000;
-  color: #2ecc71;
-  font-family: var(--fonte-codigo);
-  font-size: 14px;
-  white-space: pre-wrap;
-  border: 1px solid rgba(46, 204, 113, 0.3);
-}
-
-.guia-opcao-correta {
+.sim-relatorio-rodape-acoes button {
+  flex: 1;
   padding: 10px 14px;
-  border-radius: 8px;
-  background: rgba(46, 204, 113, 0.15);
-  border: 1px solid #2ecc71;
-  color: #2ecc71;
-  font-size: 14px;
-}
-
-.guia-explicacao {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  border: 1px dashed var(--borda);
-}
-
-.guia-explicacao p {
-  margin: 0;
   font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--texto-medio);
-}
-
-.guia-card-acoes {
-  display: flex;
-  margin-top: 6px;
-}
-
-.modo-revisao-tag {
-  background: rgba(74, 168, 255, 0.15) !important;
-  border-color: #4aa8ff !important;
-  color: #70b4ff !important;
-}
-
-.barra-modo-revisao {
-  border-bottom: 2px solid #4aa8ff !important;
-}
-
-.sim-relatorio-acoes {
-  display: flex;
   justify-content: center;
-  gap: 16px;
-  padding-top: 10px;
-}
-
-.sim-relatorio-acoes button {
-  padding: 12px 24px;
-  font-size: 15px;
 }
 
 /* ===== Mockup do Terminal Ubuntu na Solução Recomendada ===== */

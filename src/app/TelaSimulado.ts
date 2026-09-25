@@ -1,6 +1,7 @@
 import type { Tela } from './Tela';
 import type { Desafio, ModalidadeSimulado, Passo, QuestaoQuiz } from '../conteudo/Topico';
 import type { Maquina } from '../linux/Maquina';
+import type { TerminalUbuntu } from '../terminal/TerminalUbuntu';
 import { Bancada } from './Bancada';
 import { modalidades } from '../conteudo/simulado';
 import { ColaDeComandos } from './ColaDeComandos';
@@ -12,7 +13,6 @@ interface EstadoQuestao {
   id: string;
   concluida: boolean;
   pulada: boolean;
-  usouSolucao?: boolean;
   tempoSegundos: number;
   respostaQuiz?: number;
 }
@@ -40,7 +40,7 @@ const formatarExtenso = (segundos: number): string => {
  * - Avisos aos 10, 5, 2 e 1 minuto restante
  * - 30 segundos de margem de tolerância ao término do tempo oficial
  * - Validação automática em tempo real, animação comemorativa do pinguim e trava
- * - Relatório final detalhado com placar e tempos por exercício
+ * - Relatório final com terminal ao lado para visualização e reprodução da solução recomendada
  */
 export class TelaSimulado implements Tela {
   private raiz!: HTMLElement;
@@ -56,10 +56,10 @@ export class TelaSimulado implements Tela {
   private timerBannerAviso: number | null = null;
   private intervaloTimer: number | null = null;
   private indiceQuestaoAtiva: number = 0;
+  private indiceQuestaoRevisao: number = 0;
   private estadosQuestoes: Map<string, EstadoQuestao> = new Map();
-  private solucoesReveladas: Set<string> = new Set();
+  private solucoesReveladasRevisao: Set<string> = new Set();
   private executandoSolucao: boolean = false;
-  private modoRevisao: boolean = false;
   private animandoPinguim: boolean = false;
   private entregueManualmente: boolean = false;
 
@@ -257,8 +257,8 @@ export class TelaSimulado implements Tela {
     this.emMargemExtra = false;
     this.avisosEmitidos.clear();
     this.indiceQuestaoAtiva = 0;
-    this.solucoesReveladas.clear();
-    this.modoRevisao = false;
+    this.indiceQuestaoRevisao = 0;
+    this.solucoesReveladasRevisao.clear();
     this.estadosQuestoes.clear();
     this.animandoPinguim = false;
     this.entregueManualmente = false;
@@ -276,19 +276,6 @@ export class TelaSimulado implements Tela {
     this.fase = 'prova';
     this.renderizar();
     this.iniciarTimer();
-  }
-
-  public iniciarModoRevisao(indice: number = 0): void {
-    this.pararTimer();
-    this.modoRevisao = true;
-    this.fase = 'prova';
-    this.indiceQuestaoAtiva = indice;
-    const itens = this.obterItens();
-    if (itens[indice]) {
-      this.solucoesReveladas.add(itens[indice].id);
-    }
-    this.renderizar();
-    window.scrollTo(0, 0);
   }
 
   private iniciarTimer(): void {
@@ -444,36 +431,21 @@ export class TelaSimulado implements Tela {
 
     this.raiz.innerHTML = `
       <div class="tela-simulado sim-modo-prova ${ehQuiz ? 'prova-teorica' : 'prova-pratica'}">
-        <header class="sim-prova-cabecalho ${this.modoRevisao ? 'barra-modo-revisao' : ''}">
+        <header class="sim-prova-cabecalho">
           <div class="sim-prova-esquerda">
-            ${
-              this.modoRevisao
-                ? '<button class="botao-secundario btn-voltar-relatorio-topo">← Voltar ao Relatório</button>'
-                : '<button class="botao-secundario btn-abandonar-prova" title="Abandonar a prova">← Abandonar</button>'
-            }
+            <button class="botao-secundario btn-abandonar-prova" title="Abandonar a prova">← Abandonar</button>
             <div class="sim-prova-titulo">
-              <span class="sim-prova-ico">${this.modoRevisao ? '🎓' : mod.icone}</span>
-              <h2>${this.modoRevisao ? `Revisão Prática · ${mod.titulo}` : mod.titulo}</h2>
+              <span class="sim-prova-ico">${mod.icone}</span>
+              <h2>${mod.titulo}</h2>
               <span class="sim-prova-contador-resumo"></span>
             </div>
           </div>
 
           <div class="sim-prova-direita">
-            ${
-              this.modoRevisao
-                ? `
-                  <div class="sim-tempo-geral modo-revisao-tag" title="Sem limite de tempo no modo revisão">
-                    📖 Modo Revisão Livre
-                  </div>
-                  <button class="botao-primario btn-voltar-relatorio-topo" title="Voltar ao relatório">📋 Relatório</button>
-                `
-                : `
-                  <div class="sim-tempo-geral" title="Tempo restante da prova">
-                    ⏱️ ${formatarMinSeg(this.tempoRestanteGeral)}
-                  </div>
-                  <button class="botao-primario btn-entregar-prova" title="Finalizar a prova e ver o relatório de desempenho">🏁 Finalizar Prova</button>
-                `
-            }
+            <div class="sim-tempo-geral" title="Tempo restante da prova">
+              ⏱️ ${formatarMinSeg(this.tempoRestanteGeral)}
+            </div>
+            <button class="botao-primario btn-entregar-prova" title="Finalizar a prova e ver o relatório de desempenho">🏁 Finalizar Prova</button>
           </div>
         </header>
 
@@ -486,11 +458,7 @@ export class TelaSimulado implements Tela {
             <nav class="sim-questoes-nav" aria-label="Navegação de questões"></nav>
             <div class="sim-questao-ativa-container"></div>
             <div class="sim-prova-estudo-rodape">
-              ${
-                this.modoRevisao
-                  ? '<button class="botao-primario btn-voltar-relatorio-rodape">📋 Voltar ao Relatório de Desempenho</button>'
-                  : '<button class="botao-secundario btn-entregar-prova-rodape">🏁 Finalizar Prova</button>'
-              }
+              <button class="botao-secundario btn-entregar-prova-rodape">🏁 Finalizar Prova</button>
             </div>
             <!-- Overlay comemorativo do pinguim -->
             <div class="sim-pinguim-overlay" aria-hidden="true" hidden>
@@ -535,15 +503,6 @@ export class TelaSimulado implements Tela {
     this.renderizarBotoesQuestoes();
     this.renderizarQuestaoAtiva();
 
-    this.raiz.querySelectorAll('.btn-voltar-relatorio-topo, .btn-voltar-relatorio-rodape').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this.fase = 'relatorio';
-        this.modoRevisao = false;
-        this.renderizar();
-        window.scrollTo(0, 0);
-      });
-    });
-
     this.raiz.querySelector('.btn-abandonar-prova')?.addEventListener('click', () => {
       if (confirm('Tem certeza de que deseja abandonar a prova em andamento? O progresso desta tentativa será cancelado.')) {
         this.fase = 'hub';
@@ -553,11 +512,11 @@ export class TelaSimulado implements Tela {
     });
 
     const confirmarFinalizacao = (): void => {
-      const concluidas = Array.from(this.estadosQuestoes.values()).filter((e) => e.concluida && !e.usouSolucao).length;
+      const concluidas = Array.from(this.estadosQuestoes.values()).filter((e) => e.concluida).length;
       const total = this.obterItens().length;
       if (
         confirm(
-          `Deseja realmente finalizar a prova agora?\n\nVocê concluiu ${concluidas} de ${total} tarefas de forma autônoma.\nAo confirmar, a prova será entregue e o relatório final será gerado.`,
+          `Deseja realmente finalizar a prova agora?\n\nVocê concluiu ${concluidas} de ${total} tarefas.\nAo confirmar, a prova será entregue e o relatório com o terminal de soluções será exibido.`,
         )
       ) {
         this.entregueManualmente = true;
@@ -693,47 +652,14 @@ export class TelaSimulado implements Tela {
           <div class="sim-sucesso-trava">
             <span class="sim-sucesso-ico">✅</span>
             <div>
-              <b>${estado.usouSolucao ? 'Tarefa resolvida com a solução!' : 'Tarefa concluída com sucesso!'}</b>
+              <b>Tarefa concluída com sucesso!</b>
               <p>Esta questão está travada e pontuada com o tempo de <b>${formatarExtenso(estado.tempoSegundos)}</b>.</p>
             </div>
           </div>
-          ${
-            'solucao' in item
-              ? `
-            <details class="sim-dica-detalhe sim-solucao-concluida-detalhe" ${this.solucoesReveladas.has(item.id) ? 'open' : ''}>
-              <summary>👀 Ver solução recomendada</summary>
-              <div class="sim-bloco-solucao-ativa">
-                <div class="sim-solucao-topo">
-                  <span class="sim-solucao-rotulo">💻 Comando da solução:</span>
-                  <button class="botao-secundario btn-reproduzir-solucao" data-idx="${this.indiceQuestaoAtiva}" title="Executar comandos no terminal ao lado">
-                    ▶ Reproduzir no Terminal
-                  </button>
-                </div>
-                <div class="sim-solucao-comandos-container">
-                  <pre class="sim-solucao-codigo">${item.solucao.map((p) => ((p.terminal ?? 1) > 1 ? `[T${p.terminal}] ` : '') + escapar(p.comando)).join('\n')}</pre>
-                </div>
-                ${item.dica ? `<p class="sim-solucao-dica">📖 <i>${escapar(item.dica)}</i></p>` : ''}
-              </div>
-            </details>
-          `
-              : ''
-          }
         `
             : `
           <div class="sim-questao-acoes">
-            <div class="sim-acoes-linha">
-              <button class="botao-secundario btn-pular-questao">⏭️ Pular questão / Não sei agora</button>
-              ${
-                'solucao' in item
-                  ? `
-                <button class="botao-secundario btn-ver-solucao" title="Mostrar comando abaixo da questão e reproduzir no terminal ao lado">
-                  👀 Ver Solução & Reproduzir no Terminal
-                </button>
-              `
-                  : ''
-              }
-            </div>
-
+            <button class="botao-secundario btn-pular-questao">⏭️ Pular questão / Não sei agora</button>
             ${
               'dica' in item && item.dica
                 ? `
@@ -741,25 +667,6 @@ export class TelaSimulado implements Tela {
                 <summary>💡 Dica do exame</summary>
                 <p>${item.dica}</p>
               </details>
-            `
-                : ''
-            }
-
-            ${
-              'solucao' in item
-                ? `
-              <div class="sim-bloco-solucao-ativa" id="solucao-bloco-${item.id}" ${this.solucoesReveladas.has(item.id) ? '' : 'hidden'}>
-                <div class="sim-solucao-topo">
-                  <span class="sim-solucao-rotulo">💻 Solução recomendada:</span>
-                  <button class="botao-secundario btn-reproduzir-solucao" data-idx="${this.indiceQuestaoAtiva}" title="Executar comandos no terminal ao lado">
-                    ▶ Reproduzir no Terminal
-                  </button>
-                </div>
-                <div class="sim-solucao-comandos-container">
-                  <pre class="sim-solucao-codigo">${item.solucao.map((p) => ((p.terminal ?? 1) > 1 ? `[T${p.terminal}] ` : '') + escapar(p.comando)).join('\n')}</pre>
-                </div>
-                ${item.dica ? `<p class="sim-solucao-dica">📖 <i>${escapar(item.dica)}</i></p>` : ''}
-              </div>
             `
                 : ''
             }
@@ -774,31 +681,6 @@ export class TelaSimulado implements Tela {
       this.pularQuestaoAtiva();
     });
 
-    container.querySelector('.btn-ver-solucao')?.addEventListener('click', async (e) => {
-      const btn = e.currentTarget as HTMLButtonElement;
-      if (!('solucao' in item)) return;
-
-      this.solucoesReveladas.add(item.id);
-      if (!estado.concluida) {
-        estado.usouSolucao = true;
-      }
-
-      const bloco = container.querySelector(`#solucao-bloco-${item.id}`) as HTMLElement | null;
-      if (bloco) {
-        bloco.hidden = false;
-        bloco.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-
-      await this.reproduzirSolucaoNoTerminal((item as Desafio).solucao, btn);
-    });
-
-    container.querySelectorAll<HTMLButtonElement>('.btn-reproduzir-solucao').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!('solucao' in item)) return;
-        await this.reproduzirSolucaoNoTerminal((item as Desafio).solucao, btn);
-      });
-    });
-
     if (ehQuiz) {
       container.querySelectorAll<HTMLButtonElement>('.sim-quiz-opcao').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -807,6 +689,91 @@ export class TelaSimulado implements Tela {
         });
       });
     }
+  }
+
+  private pularQuestaoAtiva(): void {
+    const item = this.obterItemAtual();
+    if (!item) return;
+    const estado = this.estadosQuestoes.get(item.id);
+    if (estado && !estado.concluida) {
+      estado.pulada = true;
+    }
+    this.avancarParaProximaPendente();
+  }
+
+  private responderQuizOpcao(q: QuestaoQuiz, opcao: number): void {
+    const estado = this.estadosQuestoes.get(q.id);
+    if (!estado || estado.concluida) return;
+
+    estado.respostaQuiz = opcao;
+    if (opcao === q.correta) {
+      this.concluirQuestaoAtivaComSucesso(estado);
+    } else {
+      // Errou no quiz: dá feedback e avança
+      estado.concluida = false;
+      estado.pulada = true;
+      this.renderizarBotoesQuestoes();
+      this.renderizarQuestaoAtiva();
+      setTimeout(() => this.avancarParaProximaPendente(), 1000);
+    }
+  }
+
+  private verificarComandoMaquina(maquina: Maquina): void {
+    if (this.animandoPinguim) return;
+
+    const item = this.obterItemAtual();
+    if (!item || !('verificar' in item)) return;
+
+    const desafio = item as Desafio;
+    const estado = this.estadosQuestoes.get(desafio.id);
+    if (!estado || estado.concluida) return;
+
+    let acertou = false;
+    try {
+      acertou = desafio.verificar(maquina);
+    } catch {
+      acertou = false;
+    }
+
+    if (acertou) {
+      this.concluirQuestaoAtivaComSucesso(estado);
+    }
+  }
+
+  private concluirQuestaoAtivaComSucesso(estado: EstadoQuestao): void {
+    estado.concluida = true;
+    estado.pulada = false;
+    this.animandoPinguim = true;
+
+    // Dispara animação comemorativa do pinguim 🐧
+    const overlay = this.raiz.querySelector('.sim-pinguim-overlay') as HTMLElement | null;
+    const msgTempo = this.raiz.querySelector('.sim-pinguim-msg-tempo') as HTMLElement | null;
+    const tituloMsg = overlay?.querySelector('h3');
+
+    if (overlay && msgTempo) {
+      if (tituloMsg) tituloMsg.textContent = 'Excelente! Questão Concluída!';
+      msgTempo.textContent = `Resolvido em ${formatarExtenso(estado.tempoSegundos)} · Travando questão e avançando...`;
+      overlay.hidden = false;
+      overlay.classList.add('visivel');
+    }
+
+    setTimeout(() => {
+      if (overlay) {
+        overlay.classList.remove('visivel');
+        overlay.hidden = true;
+      }
+      this.animandoPinguim = false;
+      this.renderizarBotoesQuestoes();
+      this.renderizarQuestaoAtiva();
+
+      // Checa se todas foram concluídas no exame oficial
+      const todasConcluidas = Array.from(this.estadosQuestoes.values()).every((e) => e.concluida);
+      if (todasConcluidas) {
+        setTimeout(() => this.finalizarProva(), 600);
+      } else {
+        this.avancarParaProximaPendente();
+      }
+    }, 1500);
   }
 
   private async reproduzirSolucaoNoTerminal(passos: Passo[], botao?: HTMLButtonElement | null): Promise<void> {
@@ -875,6 +842,12 @@ export class TelaSimulado implements Tela {
   private finalizarProva(): void {
     this.pararTimer();
     this.fase = 'relatorio';
+    const itens = this.obterItens();
+    const primeiraIncompleta = itens.findIndex((item) => {
+      const e = this.estadosQuestoes.get(item.id);
+      return !e || !e.concluida;
+    });
+    this.indiceQuestaoRevisao = primeiraIncompleta !== -1 ? primeiraIncompleta : 0;
     this.renderizar();
     window.scrollTo(0, 0);
   }
@@ -883,321 +856,342 @@ export class TelaSimulado implements Tela {
     const mod = this.modalidadeSelecionada;
     const itens = this.obterItens();
     const totalItens = itens.length;
-    const concluidasSozinho = Array.from(this.estadosQuestoes.values()).filter((e) => e.concluida && !e.usouSolucao).length;
-    const resolvidasComSolucao = Array.from(this.estadosQuestoes.values()).filter((e) => e.usouSolucao).length;
-    const porcentagem = totalItens > 0 ? Math.round((concluidasSozinho / totalItens) * 100) : 0;
+    const concluidas = Array.from(this.estadosQuestoes.values()).filter((e) => e.concluida).length;
+    const porcentagem = totalItens > 0 ? Math.round((concluidas / totalItens) * 100) : 0;
     const aprovado = porcentagem >= 70;
     const tempoGeralUtilizado = 30 * 60 - this.tempoRestanteGeral;
-
-    let tabelaHtml = '';
-    itens.forEach((item, index) => {
-      const estado = this.estadosQuestoes.get(item.id);
-      const foiConcluida = estado?.concluida ?? false;
-      const foiPulada = estado?.pulada ?? false;
-
-      let badgeResultado = foiConcluida
-        ? '<span class="relatorio-badge ok">✅ Concluída</span>'
-        : foiPulada
-          ? '<span class="relatorio-badge pulou">⏭️ Pulada</span>'
-          : '<span class="relatorio-badge erro">❌ Não realizada</span>';
-
-      if (estado?.usouSolucao) {
-        badgeResultado = '<span class="relatorio-badge solucao">💡 Resolvida com Solução</span>';
-      }
-
-      const tempoGasto = estado ? formatarExtenso(estado.tempoSegundos) : '0s';
-      const enunciado = 'enunciado' in item ? item.enunciado : (item as QuestaoQuiz).pergunta;
-
-      let solucaoHtml = '';
-      if ('solucao' in item) {
-        solucaoHtml = `
-          <details class="relatorio-solucao">
-            <summary>💻 Ver solução no Terminal Ubuntu</summary>
-            ${this.gerarTerminalUbuntuMockup(item.solucao)}
-          </details>
-        `;
-      } else if ('explicacao' in item) {
-        const q = item as QuestaoQuiz;
-        solucaoHtml = `
-          <details class="relatorio-solucao">
-            <summary>Gabarito: Opção ${['A', 'B', 'C', 'D'][q.correta]}</summary>
-            <p>${q.explicacao}</p>
-          </details>
-        `;
-      }
-
-      tabelaHtml += `
-        <tr>
-          <td class="col-num">#${index + 1}</td>
-          <td class="col-enunciado">
-            ${enunciado}
-            ${
-              !foiConcluida || estado?.usouSolucao
-                ? '<div class="relatorio-aviso-guia">💡 <i>Veja o passo a passo de como fazer no Guia de Correção abaixo</i></div>'
-                : ''
-            }
-            ${solucaoHtml}
-            ${
-              'solucao' in item
-                ? `<div class="relatorio-linha-praticar">
-                    <button class="botao-secundario btn-praticar-revisao-item" data-idx="${index}">
-                      🖥️ Praticar no Terminal ao Lado
-                    </button>
-                  </div>`
-                : ''
-            }
-          </td>
-          <td class="col-status">${badgeResultado}</td>
-          <td class="col-tempo"><b>${tempoGasto}</b></td>
-        </tr>
-      `;
-    });
-
-    const questoesNaoFeitas = itens
-      .map((item, index) => ({ item, index, estado: this.estadosQuestoes.get(item.id) }))
-      .filter((q) => !(q.estado?.concluida ?? false) || (q.estado?.usouSolucao ?? false));
-
-    let secaoComoFazerHtml = '';
-    if (questoesNaoFeitas.length > 0) {
-      secaoComoFazerHtml = `
-        <section class="sim-relatorio-guia-secao">
-          <div class="guia-secao-header">
-            <span class="guia-secao-ico">🎓</span>
-            <div>
-              <h3>Como resolver as questões pendentes (${questoesNaoFeitas.length})</h3>
-              <p>Estude os comandos corretos e pratique em tempo real com o terminal Linux interativo ao lado:</p>
-            </div>
-          </div>
-          <div class="guia-cards-lista">
-            ${questoesNaoFeitas.map((q) => this.gerarCardComoFazer(q.item, q.index, q.estado)).join('')}
-          </div>
-        </section>
-      `;
-    } else {
-      secaoComoFazerHtml = `
-        <section class="sim-relatorio-guia-secao sucesso-total">
-          <div class="guia-secao-header">
-            <span class="guia-secao-ico">🏆</span>
-            <div>
-              <h3>Incrível! Você acertou todas as tarefas de forma autônoma!</h3>
-              <p>Nenhuma questão pendente para correção. Você atingiu 100% de precisão nesta prova prática!</p>
-            </div>
-          </div>
-        </section>
-      `;
-    }
+    const ehQuiz = mod.questoes !== undefined && mod.questoes.length > 0;
 
     this.raiz.innerHTML = `
-      <div class="tela-simulado sim-relatorio">
-        <div class="sim-relatorio-container">
-          <header class="sim-relatorio-header">
-            <span class="menu-selo">Resultado do Exame · Relatório de Desempenho</span>
-            <h1>${aprovado ? '🎉 Aprovado no Simulado!' : '📚 Prova Finalizada!'}</h1>
-            <p>${mod.titulo} · Duração máxima: 30 minutos · ${this.entregueManualmente ? 'Entregue pelo candidato' : (this.tempoRestanteGeral === 0 ? 'Tempo limite esgotado' : 'Todas as tarefas concluídas')}</p>
-          </header>
-
-          <section class="sim-relatorio-placar ${aprovado ? 'aprovado' : 'reciclagem'}">
-            <div class="placar-resultado">
-              <span class="placar-trofeu">${aprovado ? '🏆' : '📝'}</span>
-              <div class="placar-textos">
-                <h2>${concluidasSozinho} de ${totalItens} tarefas concluídas sozinho (${porcentagem}%)</h2>
-                <p>${
-                  resolvidasComSolucao > 0
-                    ? `Você resolveu ${concluidasSozinho} de forma independente e ${resolvidasComSolucao} com auxílio do botão de solução no terminal.`
-                    : aprovado
-                      ? 'Parabéns! Seu índice de acertos atingiu o patamar esperado para aprovação em exames de certificação oficial.'
-                      : 'Bom treino! Para certificações Linux (LPI, LPIC, Red Hat), recomenda-se atingir ao menos 70% de precisão autônoma.'
-                }</p>
+      <div class="tela-simulado sim-relatorio-tela ${ehQuiz ? 'sim-relatorio-modo-quiz' : 'sim-relatorio-modo-terminal'}">
+        <header class="sim-relatorio-cabecalho">
+          <div class="sim-relatorio-esquerda">
+            <button class="botao-secundario btn-ir-menu-simulados" title="Voltar ao menu de simulados">← Menu de Simulados</button>
+            <div class="sim-relatorio-titulo-grupo">
+              <span class="sim-relatorio-ico">${mod.icone}</span>
+              <div>
+                <h2>Resultado: ${mod.titulo}</h2>
+                <span class="sim-relatorio-subtitulo">${concluidas} de ${totalItens} tarefas concluídas (${porcentagem}%) · ${aprovado ? '🎉 Aprovado' : '📚 Em Treinamento'} · ${this.entregueManualmente ? 'Entregue pelo candidato' : (this.tempoRestanteGeral === 0 ? 'Tempo esgotado' : 'Todas as tarefas concluídas')}</span>
               </div>
             </div>
-            <div class="placar-meta-tempos">
-              <div class="meta-item">
-                <span class="meta-rotulo">Tempo Total Utilizado</span>
-                <span class="meta-valor">${formatarExtenso(tempoGeralUtilizado)}</span>
+          </div>
+          <div class="sim-relatorio-direita">
+            <div class="sim-relatorio-meta-pill" title="Tempo total utilizado">
+              ⏱️ Tempo: <b>${formatarExtenso(tempoGeralUtilizado)}</b>
+            </div>
+            <button class="botao-primario btn-refazer-prova" title="Refazer esta prova">🔄 Refazer Prova</button>
+          </div>
+        </header>
+
+        <main class="sim-relatorio-divisao">
+          <section class="sim-relatorio-estudo">
+            <div class="sim-relatorio-placar-compacto ${aprovado ? 'aprovado' : 'reciclagem'}">
+              <div class="placar-topo-linha">
+                <span class="placar-trofeu-pequeno">${aprovado ? '🏆' : '📝'}</span>
+                <div>
+                  <b>${aprovado ? 'Parabéns! Aprovado no Simulado Prático!' : 'Prova Finalizada · Modo de Correção e Aprendizado'}</b>
+                  <p>${concluidas} de ${totalItens} tarefas concluídas (${porcentagem}%). ${
+                    aprovado
+                      ? 'Seu desempenho atingiu a nota de corte para aprovação em exames oficiais.'
+                      : 'Veja a correção passo a passo de cada tarefa no terminal ao lado para dominar todos os comandos.'
+                  }</p>
+                </div>
               </div>
-              <div class="meta-item">
-                <span class="meta-rotulo">Tempo Restante</span>
-                <span class="meta-valor">${formatarMinSeg(this.tempoRestanteGeral)}</span>
-              </div>
+            </div>
+
+            <div class="sim-relatorio-navegacao-secao">
+              <span class="sim-relatorio-secao-rotulo">Navegue pelas questões para revisar a resolução:</span>
+              <nav class="sim-relatorio-questoes-nav" aria-label="Navegação de revisão das questões"></nav>
+            </div>
+
+            <div class="sim-relatorio-questao-ativa-container"></div>
+
+            <section class="sim-relatorio-tabela-secao">
+              <details class="sim-relatorio-tabela-detalhes" open>
+                <summary><b>⏱️ Tabela de Desempenho Detalhada (${concluidas}/${totalItens})</b></summary>
+                <div class="tabela-container">
+                  <table class="sim-tabela-desempenho">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Exercício / Tarefa</th>
+                        <th>Resultado</th>
+                        <th>Tempo</th>
+                        <th>Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${this.gerarLinhasTabelaHtml(itens)}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </section>
+
+            <div class="sim-relatorio-rodape-acoes">
+              <button class="botao-secundario btn-refazer-prova-rodape">🔄 Refazer Esta Prova</button>
+              <button class="botao-secundario btn-ir-menu-simulados-rodape">← Voltar ao Menu de Simulados</button>
             </div>
           </section>
 
-          <section class="sim-relatorio-tabela-secao">
-            <h3>⏱️ Desempenho Detalhado por Questão</h3>
-            <div class="tabela-container">
-              <table class="sim-tabela-desempenho">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Exercício / Tarefa</th>
-                    <th>Resultado</th>
-                    <th>Tempo Gasto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${tabelaHtml}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          ${secaoComoFazerHtml}
-
-          <footer class="sim-relatorio-acoes">
-            <button class="botao-primario btn-abrir-revisao-geral">🖥️ Revisar Tarefas no Terminal ao Lado</button>
-            <button class="botao-secundario btn-refazer-prova">🔄 Refazer Esta Prova</button>
-            <button class="botao-secundario btn-ir-menu-simulados">← Voltar ao Menu de Simulados</button>
-          </footer>
-        </div>
+          ${
+            ehQuiz
+              ? ''
+              : `
+            <section class="sim-relatorio-terminal">
+              <div class="sim-relatorio-terminal-janela"></div>
+              <p class="topico-rodape">🔑 senhas: <b>root</b> = <code>123</code> · <b>ricardo</b> = <code>123</code> · <kbd>Tab</kbd> completa · <kbd>Ctrl</kbd>+<kbd>C</kbd> cancela</p>
+            </section>
+          `
+          }
+        </main>
       </div>
     `;
 
-    this.raiz.querySelectorAll('.btn-praticar-revisao-item').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const idx = Number((e.currentTarget as HTMLElement).dataset.idx ?? 0);
-        this.iniciarModoRevisao(idx);
+    // Inicializa a Bancada de terminais para revisão em tempo real
+    if (!ehQuiz) {
+      const containerJanela = this.raiz.querySelector('.sim-relatorio-terminal-janela') as HTMLElement;
+      if (containerJanela) {
+        this.bancada = new Bancada(
+          containerJanela,
+          `simulado-revisao-${mod.id}-${Date.now()}`,
+          (maquina: Maquina) => {
+            mod.preparar?.(maquina);
+          },
+          () => {},
+        );
+      }
+    }
+
+    this.renderizarBotoesRevisao();
+    this.renderizarRevisaoQuestaoAtiva();
+
+    // Eventos de navegação global
+    this.raiz.querySelectorAll('.btn-ir-menu-simulados, .btn-ir-menu-simulados-rodape').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.fase = 'hub';
+        this.renderizar();
+        window.scrollTo(0, 0);
       });
     });
 
-    this.raiz.querySelector('.btn-abrir-revisao-geral')?.addEventListener('click', () => {
-      const primeiraIncompleta = questoesNaoFeitas[0]?.index ?? 0;
-      this.iniciarModoRevisao(primeiraIncompleta);
+    this.raiz.querySelectorAll('.btn-refazer-prova, .btn-refazer-prova-rodape').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.iniciarExame();
+        window.scrollTo(0, 0);
+      });
     });
 
-    this.raiz.querySelector('.btn-refazer-prova')?.addEventListener('click', () => {
-      this.iniciarExame();
-      window.scrollTo(0, 0);
-    });
-
-    this.raiz.querySelector('.btn-ir-menu-simulados')?.addEventListener('click', () => {
-      this.fase = 'hub';
-      this.renderizar();
-      window.scrollTo(0, 0);
+    this.raiz.querySelectorAll('.btn-ir-questao-revisao').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number((e.currentTarget as HTMLElement).dataset.idx ?? 0);
+        this.trocarQuestaoRevisao(idx);
+        this.raiz.querySelector('.sim-relatorio-questao-ativa-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
     });
   }
 
-  private gerarCardComoFazer(item: Desafio | QuestaoQuiz, index: number, estado?: EstadoQuestao): string {
-    const ehDesafio = 'solucao' in item;
-    const num = index + 1;
-    let statusTxt = '❌ Não Concluída';
-    if (estado?.usouSolucao) {
-      statusTxt = '💡 Resolvida com Solução';
+  private renderizarBotoesRevisao(): void {
+    const nav = this.raiz.querySelector('.sim-relatorio-questoes-nav') as HTMLElement | null;
+    if (!nav) return;
+
+    const itens = this.obterItens();
+    let html = '';
+    itens.forEach((item, index) => {
+      const estado = this.estadosQuestoes.get(item.id);
+      let statusClass = 'erro';
+      let icon = '✗';
+      if (estado?.concluida) {
+        statusClass = 'concluida';
+        icon = '✓';
+      } else if (estado?.pulada) {
+        statusClass = 'pulada';
+        icon = '⏭';
+      }
+
+      const ehAtiva = index === this.indiceQuestaoRevisao ? ' ativa' : '';
+      html += `
+        <button class="sim-btn-questao ${statusClass}${ehAtiva}" data-idx="${index}" title="Revisar Questão ${index + 1}">
+          <span class="sim-btn-questao-num">${icon}</span>
+        </button>
+      `;
+    });
+
+    nav.innerHTML = html;
+
+    nav.querySelectorAll<HTMLButtonElement>('.sim-btn-questao').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        if (!isNaN(idx) && idx !== this.indiceQuestaoRevisao) {
+          this.trocarQuestaoRevisao(idx);
+        }
+      });
+    });
+  }
+
+  private trocarQuestaoRevisao(novoIndex: number): void {
+    this.indiceQuestaoRevisao = novoIndex;
+    this.renderizarBotoesRevisao();
+    this.renderizarRevisaoQuestaoAtiva();
+  }
+
+  private renderizarRevisaoQuestaoAtiva(): void {
+    const container = this.raiz.querySelector('.sim-relatorio-questao-ativa-container') as HTMLElement | null;
+    if (!container) return;
+
+    const itens = this.obterItens();
+    const item = itens[this.indiceQuestaoRevisao];
+    if (!item) return;
+
+    const estado = this.estadosQuestoes.get(item.id);
+    const ehQuiz = 'opcoes' in item;
+
+    let badgeStatusHtml = '<span class="tag-status erro">❌ Não realizada</span>';
+    if (estado?.concluida) {
+      badgeStatusHtml = `<span class="tag-status concluida">✅ Concluída no exame (${formatarExtenso(estado.tempoSegundos)})</span>`;
     } else if (estado?.pulada) {
-      statusTxt = '⏭️ Questão Pulada';
+      badgeStatusHtml = '<span class="tag-status pulada">⏭️ Pulada no exame</span>';
     }
 
-    if (ehDesafio) {
+    if (!ehQuiz) {
       const d = item as Desafio;
-      return `
-        <div class="guia-card">
-          <div class="guia-card-header">
-            <span class="guia-badge-num">Questão #${num}</span>
-            <span class="guia-badge-status ${estado?.usouSolucao ? 'solucao' : (estado?.pulada ? 'pulada' : 'erro')}">${statusTxt}</span>
-          </div>
-          <p class="guia-enunciado"><b>Tarefa exigida:</b> ${d.enunciado}</p>
+      const jaRevelada = this.solucoesReveladasRevisao.has(d.id);
+      const comandosFormatados = d.solucao.map((p) => {
+        let texto = `$ ${p.comando}`;
+        if (p.respostas && p.respostas.length > 0) {
+          texto += `   # entrada: ${p.respostas.join(', ')}`;
+        }
+        return escapar(texto);
+      }).join('\n');
 
-          <div class="guia-bloco-solucao">
-            <span class="guia-rotulo">💻 Como executar no Terminal Ubuntu:</span>
-            ${this.gerarTerminalUbuntuMockup(d.solucao)}
+      container.innerHTML = `
+        <div class="sim-card-questao sim-card-revisao">
+          <div class="sim-questao-header">
+            <div class="sim-questao-status-tag">
+              <span class="tag-numero">Questão ${this.indiceQuestaoRevisao + 1} de ${itens.length}</span>
+              ${badgeStatusHtml}
+            </div>
+            <div class="sim-tempo-questao">
+              <span class="sim-tempo-questao-rotulo">Tempo gasto:</span>
+              <span class="sim-tempo-questao-valor">${formatarExtenso(estado?.tempoSegundos ?? 0)}</span>
+            </div>
           </div>
 
-          <div class="guia-explicacao">
-            <span class="guia-rotulo">📖 Por que esta é a forma correta e o que cai na prova:</span>
-            <p>${d.dica}</p>
+          <div class="sim-questao-enunciado">
+            <p><b>Tarefa exigida:</b> ${escapar(d.enunciado)}</p>
           </div>
 
-          <div class="guia-card-acoes">
-            <button class="botao-primario btn-praticar-revisao-item" data-idx="${index}">
-              🖥️ Praticar no Terminal ao Lado (Ver Solução & Reproduzir)
+          <div class="sim-revisao-acao-principal">
+            <button class="botao-primario btn-revisao-solucao-terminal" ${this.executandoSolucao ? 'disabled' : ''}>
+              ${this.executandoSolucao ? '⏳ Digitando no terminal...' : (jaRevelada ? '▶️ Reproduzir Solução Novamente no Terminal' : '👀 Ver Solução & Reproduzir no Terminal ao Lado')}
             </button>
           </div>
+
+          ${
+            jaRevelada
+              ? `
+            <div class="sim-bloco-solucao-ativa">
+              <div class="sim-solucao-topo">
+                <span class="sim-solucao-rotulo">💻 Solução recomendada no Terminal Ubuntu:</span>
+              </div>
+              <div class="sim-solucao-comandos-container">
+                <pre class="sim-solucao-codigo">${comandosFormatados}</pre>
+              </div>
+              ${
+                d.dica
+                  ? `<div class="sim-solucao-dica-bloco">
+                      <span class="sim-solucao-rotulo-sub">📖 O que é cobrado nesta questão:</span>
+                      <p class="sim-solucao-dica">${escapar(d.dica)}</p>
+                    </div>`
+                  : ''
+              }
+            </div>
+          `
+              : ''
+          }
         </div>
       `;
+
+      container.querySelector('.btn-revisao-solucao-terminal')?.addEventListener('click', async () => {
+        this.solucoesReveladasRevisao.add(d.id);
+        this.renderizarRevisaoQuestaoAtiva();
+        const btnAtual = this.raiz.querySelector<HTMLButtonElement>('.btn-revisao-solucao-terminal');
+        await this.reproduzirSolucaoNoTerminal(d.solucao, btnAtual);
+      });
     } else {
       const q = item as QuestaoQuiz;
-      const letraCorreta = ['A', 'B', 'C', 'D'][q.correta];
-      const textoCorreto = q.opcoes[q.correta];
-      return `
-        <div class="guia-card">
-          <div class="guia-card-header">
-            <span class="guia-badge-num">Questão Teórica #${num}</span>
-            <span class="guia-badge-status ${estado?.pulada ? 'pulada' : 'erro'}">${statusTxt}</span>
-          </div>
-          <p class="guia-enunciado"><b>Pergunta:</b> ${q.pergunta}</p>
 
-          <div class="guia-bloco-solucao">
-            <span class="guia-rotulo">✅ Resposta correta:</span>
-            <div class="guia-opcao-correta"><b>Opção ${letraCorreta}:</b> ${textoCorreto}</div>
+      container.innerHTML = `
+        <div class="sim-card-questao sim-card-revisao">
+          <div class="sim-questao-header">
+            <div class="sim-questao-status-tag">
+              <span class="tag-numero">Questão Teórica ${this.indiceQuestaoRevisao + 1} de ${itens.length}</span>
+              ${badgeStatusHtml}
+            </div>
           </div>
 
-          <div class="guia-explicacao">
-            <span class="guia-rotulo">📖 Justificativa oficial de exame (${q.certificacao}):</span>
-            <p>${q.explicacao}</p>
+          <div class="sim-questao-enunciado">
+            <p><b>Pergunta:</b> ${escapar(q.pergunta)}</p>
+          </div>
+
+          <div class="sim-quiz-opcoes-revisao">
+            ${q.opcoes
+              .map((opcao, optIdx) => {
+                const letra = ['A', 'B', 'C', 'D'][optIdx] ?? String(optIdx + 1);
+                let classe = 'sim-quiz-opcao-revisao';
+                if (optIdx === q.correta) classe += ' correta';
+                else if (estado?.respostaQuiz === optIdx) classe += ' errada';
+                return `
+                  <div class="${classe}">
+                    <span class="quiz-letra">${letra}</span>
+                    <span class="quiz-texto">${escapar(opcao)}</span>
+                    ${optIdx === q.correta ? '<span class="quiz-badge-gabarito">✓ Gabarito Oficial</span>' : ''}
+                    ${estado?.respostaQuiz === optIdx && optIdx !== q.correta ? '<span class="quiz-badge-sua-resposta">✗ Sua Resposta</span>' : ''}
+                  </div>
+                `;
+              })
+              .join('')}
+          </div>
+
+          <div class="sim-bloco-solucao-ativa">
+            <span class="sim-solucao-rotulo">📖 Justificativa oficial (${escapar(q.certificacao)}):</span>
+            <p class="sim-solucao-dica">${escapar(q.explicacao)}</p>
           </div>
         </div>
       `;
     }
   }
 
-  private gerarTerminalUbuntuMockup(passos: Passo[]): string {
-    if (!passos || passos.length === 0) return '';
+  private gerarLinhasTabelaHtml(itens: Array<Desafio | QuestaoQuiz>): string {
+    return itens
+      .map((item, index) => {
+        const estado = this.estadosQuestoes.get(item.id);
+        const foiConcluida = estado?.concluida ?? false;
+        const foiPulada = estado?.pulada ?? false;
 
-    const primeiro = passos[0];
-    const userInicial = primeiro?.login?.usuario ?? ((primeiro?.terminal ?? 1) > 1 ? 'ricardo' : 'root');
-    const tituloAba = `${userInicial}@ubuntu: ~`;
+        const badgeResultado = foiConcluida
+          ? '<span class="relatorio-badge ok">✅ Concluída</span>'
+          : foiPulada
+            ? '<span class="relatorio-badge pulou">⏭️ Pulada</span>'
+            : '<span class="relatorio-badge erro">❌ Não realizada</span>';
 
-    let linhasHtml = '';
-    let ultimoUser = userInicial;
-    let ultimoSimbolo = userInicial === 'root' ? '#' : '$';
+        const tempoGasto = estado ? formatarExtenso(estado.tempoSegundos) : '0s';
+        const enunciado = 'enunciado' in item ? item.enunciado : (item as QuestaoQuiz).pergunta;
 
-    for (const p of passos) {
-      const isUser = (p.terminal ?? 1) > 1 || p.login !== undefined;
-      const user = p.login?.usuario ?? (isUser ? 'ricardo' : 'root');
-      const simbolo = user === 'root' ? '#' : '$';
-      ultimoUser = user;
-      ultimoSimbolo = simbolo;
-
-      const promptHtml = `<span class="mock-prompt-user">${user}@ubuntu</span>:<span class="mock-prompt-path">~</span><span class="mock-prompt-sym">${simbolo}</span> `;
-
-      let respostasHtml = '';
-      if (p.respostas && p.respostas.length > 0) {
-        respostasHtml = p.respostas
-          .map((r) => `<div class="mock-linha-resposta"><span class="mock-rotulo-entrada">[entrada]</span> ${escapar(r)}</div>`)
-          .join('');
-      }
-
-      let explicacaoHtml = '';
-      if (p.explicacao) {
-        explicacaoHtml = `<div class="mock-linha-comentario"># ${escapar(p.explicacao)}</div>`;
-      }
-
-      linhasHtml += `
-        ${explicacaoHtml}
-        <div class="mock-linha-comando">
-          ${promptHtml}<span class="mock-cmd-texto">${escapar(p.comando)}</span>
-        </div>
-        ${respostasHtml}
-      `;
-    }
-
-    return `
-      <div class="terminal-ubuntu-mockup">
-        <div class="mock-janela-topo">
-          <div class="mock-botoes-janela">
-            <span class="mock-dot mock-dot-fechar" title="Fechar"></span>
-            <span class="mock-dot mock-dot-minimizar" title="Minimizar"></span>
-            <span class="mock-dot mock-dot-maximizar" title="Maximizar"></span>
-          </div>
-          <span class="mock-titulo-janela">terminal — ${tituloAba}</span>
-          <span class="mock-tag-bash">bash</span>
-        </div>
-        <div class="mock-janela-corpo">
-          ${linhasHtml}
-          <div class="mock-linha-comando mock-linha-cursor">
-            <span class="mock-prompt-user">${ultimoUser}@ubuntu</span>:<span class="mock-prompt-path">~</span><span class="mock-prompt-sym">${ultimoSimbolo}</span> <span class="mock-cursor-bloco"></span>
-          </div>
-        </div>
-      </div>
-    `;
+        return `
+          <tr>
+            <td class="col-num">#${index + 1}</td>
+            <td class="col-enunciado">${escapar(enunciado)}</td>
+            <td class="col-status">${badgeResultado}</td>
+            <td class="col-tempo"><b>${tempoGasto}</b></td>
+            <td class="col-acao">
+              <button class="botao-secundario btn-ir-questao-revisao" data-idx="${index}">
+                🔍 Ver no Terminal
+              </button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
   }
 }
