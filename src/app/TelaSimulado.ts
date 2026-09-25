@@ -12,6 +12,7 @@ interface EstadoQuestao {
   id: string;
   concluida: boolean;
   pulada: boolean;
+  usouSolucao?: boolean;
   tempoSegundos: number;
   respostaQuiz?: number;
 }
@@ -56,6 +57,9 @@ export class TelaSimulado implements Tela {
   private intervaloTimer: number | null = null;
   private indiceQuestaoAtiva: number = 0;
   private estadosQuestoes: Map<string, EstadoQuestao> = new Map();
+  private solucoesReveladas: Set<string> = new Set();
+  private executandoSolucao: boolean = false;
+  private modoRevisao: boolean = false;
   private animandoPinguim: boolean = false;
   private entregueManualmente: boolean = false;
 
@@ -253,6 +257,8 @@ export class TelaSimulado implements Tela {
     this.emMargemExtra = false;
     this.avisosEmitidos.clear();
     this.indiceQuestaoAtiva = 0;
+    this.solucoesReveladas.clear();
+    this.modoRevisao = false;
     this.estadosQuestoes.clear();
     this.animandoPinguim = false;
     this.entregueManualmente = false;
@@ -270,6 +276,19 @@ export class TelaSimulado implements Tela {
     this.fase = 'prova';
     this.renderizar();
     this.iniciarTimer();
+  }
+
+  public iniciarModoRevisao(indice: number = 0): void {
+    this.pararTimer();
+    this.modoRevisao = true;
+    this.fase = 'prova';
+    this.indiceQuestaoAtiva = indice;
+    const itens = this.obterItens();
+    if (itens[indice]) {
+      this.solucoesReveladas.add(itens[indice].id);
+    }
+    this.renderizar();
+    window.scrollTo(0, 0);
   }
 
   private iniciarTimer(): void {
@@ -425,21 +444,36 @@ export class TelaSimulado implements Tela {
 
     this.raiz.innerHTML = `
       <div class="tela-simulado sim-modo-prova ${ehQuiz ? 'prova-teorica' : 'prova-pratica'}">
-        <header class="sim-prova-cabecalho">
+        <header class="sim-prova-cabecalho ${this.modoRevisao ? 'barra-modo-revisao' : ''}">
           <div class="sim-prova-esquerda">
-            <button class="botao-secundario btn-abandonar-prova" title="Abandonar a prova">← Abandonar</button>
+            ${
+              this.modoRevisao
+                ? '<button class="botao-secundario btn-voltar-relatorio-topo">← Voltar ao Relatório</button>'
+                : '<button class="botao-secundario btn-abandonar-prova" title="Abandonar a prova">← Abandonar</button>'
+            }
             <div class="sim-prova-titulo">
-              <span class="sim-prova-ico">${mod.icone}</span>
-              <h2>${mod.titulo}</h2>
+              <span class="sim-prova-ico">${this.modoRevisao ? '🎓' : mod.icone}</span>
+              <h2>${this.modoRevisao ? `Revisão Prática · ${mod.titulo}` : mod.titulo}</h2>
               <span class="sim-prova-contador-resumo"></span>
             </div>
           </div>
 
           <div class="sim-prova-direita">
-            <div class="sim-tempo-geral" title="Tempo restante da prova">
-              ⏱️ ${formatarMinSeg(this.tempoRestanteGeral)}
-            </div>
-            <button class="botao-primario btn-entregar-prova" title="Finalizar a prova e ver o relatório de desempenho">🏁 Finalizar Prova</button>
+            ${
+              this.modoRevisao
+                ? `
+                  <div class="sim-tempo-geral modo-revisao-tag" title="Sem limite de tempo no modo revisão">
+                    📖 Modo Revisão Livre
+                  </div>
+                  <button class="botao-primario btn-voltar-relatorio-topo" title="Voltar ao relatório">📋 Relatório</button>
+                `
+                : `
+                  <div class="sim-tempo-geral" title="Tempo restante da prova">
+                    ⏱️ ${formatarMinSeg(this.tempoRestanteGeral)}
+                  </div>
+                  <button class="botao-primario btn-entregar-prova" title="Finalizar a prova e ver o relatório de desempenho">🏁 Finalizar Prova</button>
+                `
+            }
           </div>
         </header>
 
@@ -452,7 +486,11 @@ export class TelaSimulado implements Tela {
             <nav class="sim-questoes-nav" aria-label="Navegação de questões"></nav>
             <div class="sim-questao-ativa-container"></div>
             <div class="sim-prova-estudo-rodape">
-              <button class="botao-secundario btn-entregar-prova-rodape">🏁 Finalizar Prova</button>
+              ${
+                this.modoRevisao
+                  ? '<button class="botao-primario btn-voltar-relatorio-rodape">📋 Voltar ao Relatório de Desempenho</button>'
+                  : '<button class="botao-secundario btn-entregar-prova-rodape">🏁 Finalizar Prova</button>'
+              }
             </div>
             <!-- Overlay comemorativo do pinguim -->
             <div class="sim-pinguim-overlay" aria-hidden="true" hidden>
@@ -497,6 +535,15 @@ export class TelaSimulado implements Tela {
     this.renderizarBotoesQuestoes();
     this.renderizarQuestaoAtiva();
 
+    this.raiz.querySelectorAll('.btn-voltar-relatorio-topo, .btn-voltar-relatorio-rodape').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.fase = 'relatorio';
+        this.modoRevisao = false;
+        this.renderizar();
+        window.scrollTo(0, 0);
+      });
+    });
+
     this.raiz.querySelector('.btn-abandonar-prova')?.addEventListener('click', () => {
       if (confirm('Tem certeza de que deseja abandonar a prova em andamento? O progresso desta tentativa será cancelado.')) {
         this.fase = 'hub';
@@ -506,11 +553,11 @@ export class TelaSimulado implements Tela {
     });
 
     const confirmarFinalizacao = (): void => {
-      const concluidas = Array.from(this.estadosQuestoes.values()).filter((e) => e.concluida).length;
+      const concluidas = Array.from(this.estadosQuestoes.values()).filter((e) => e.concluida && !e.usouSolucao).length;
       const total = this.obterItens().length;
       if (
         confirm(
-          `Deseja realmente finalizar a prova agora?\n\nVocê concluiu ${concluidas} de ${total} questões.\nAo confirmar, a prova será entregue e o relatório final será gerado.`,
+          `Deseja realmente finalizar a prova agora?\n\nVocê concluiu ${concluidas} de ${total} tarefas de forma autônoma.\nAo confirmar, a prova será entregue e o relatório final será gerado.`,
         )
       ) {
         this.entregueManualmente = true;
@@ -646,14 +693,47 @@ export class TelaSimulado implements Tela {
           <div class="sim-sucesso-trava">
             <span class="sim-sucesso-ico">✅</span>
             <div>
-              <b>Tarefa concluída com sucesso!</b>
+              <b>${estado.usouSolucao ? 'Tarefa resolvida com a solução!' : 'Tarefa concluída com sucesso!'}</b>
               <p>Esta questão está travada e pontuada com o tempo de <b>${formatarExtenso(estado.tempoSegundos)}</b>.</p>
             </div>
           </div>
+          ${
+            'solucao' in item
+              ? `
+            <details class="sim-dica-detalhe sim-solucao-concluida-detalhe" ${this.solucoesReveladas.has(item.id) ? 'open' : ''}>
+              <summary>👀 Ver solução recomendada</summary>
+              <div class="sim-bloco-solucao-ativa">
+                <div class="sim-solucao-topo">
+                  <span class="sim-solucao-rotulo">💻 Comando da solução:</span>
+                  <button class="botao-secundario btn-reproduzir-solucao" data-idx="${this.indiceQuestaoAtiva}" title="Executar comandos no terminal ao lado">
+                    ▶ Reproduzir no Terminal
+                  </button>
+                </div>
+                <div class="sim-solucao-comandos-container">
+                  <pre class="sim-solucao-codigo">${item.solucao.map((p) => ((p.terminal ?? 1) > 1 ? `[T${p.terminal}] ` : '') + escapar(p.comando)).join('\n')}</pre>
+                </div>
+                ${item.dica ? `<p class="sim-solucao-dica">📖 <i>${escapar(item.dica)}</i></p>` : ''}
+              </div>
+            </details>
+          `
+              : ''
+          }
         `
             : `
           <div class="sim-questao-acoes">
-            <button class="botao-secundario btn-pular-questao">⏭️ Pular questão / Não sei agora</button>
+            <div class="sim-acoes-linha">
+              <button class="botao-secundario btn-pular-questao">⏭️ Pular questão / Não sei agora</button>
+              ${
+                'solucao' in item
+                  ? `
+                <button class="botao-secundario btn-ver-solucao" title="Mostrar comando abaixo da questão e reproduzir no terminal ao lado">
+                  👀 Ver Solução & Reproduzir no Terminal
+                </button>
+              `
+                  : ''
+              }
+            </div>
+
             ${
               'dica' in item && item.dica
                 ? `
@@ -661,6 +741,25 @@ export class TelaSimulado implements Tela {
                 <summary>💡 Dica do exame</summary>
                 <p>${item.dica}</p>
               </details>
+            `
+                : ''
+            }
+
+            ${
+              'solucao' in item
+                ? `
+              <div class="sim-bloco-solucao-ativa" id="solucao-bloco-${item.id}" ${this.solucoesReveladas.has(item.id) ? '' : 'hidden'}>
+                <div class="sim-solucao-topo">
+                  <span class="sim-solucao-rotulo">💻 Solução recomendada:</span>
+                  <button class="botao-secundario btn-reproduzir-solucao" data-idx="${this.indiceQuestaoAtiva}" title="Executar comandos no terminal ao lado">
+                    ▶ Reproduzir no Terminal
+                  </button>
+                </div>
+                <div class="sim-solucao-comandos-container">
+                  <pre class="sim-solucao-codigo">${item.solucao.map((p) => ((p.terminal ?? 1) > 1 ? `[T${p.terminal}] ` : '') + escapar(p.comando)).join('\n')}</pre>
+                </div>
+                ${item.dica ? `<p class="sim-solucao-dica">📖 <i>${escapar(item.dica)}</i></p>` : ''}
+              </div>
             `
                 : ''
             }
@@ -675,6 +774,31 @@ export class TelaSimulado implements Tela {
       this.pularQuestaoAtiva();
     });
 
+    container.querySelector('.btn-ver-solucao')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      if (!('solucao' in item)) return;
+
+      this.solucoesReveladas.add(item.id);
+      if (!estado.concluida) {
+        estado.usouSolucao = true;
+      }
+
+      const bloco = container.querySelector(`#solucao-bloco-${item.id}`) as HTMLElement | null;
+      if (bloco) {
+        bloco.hidden = false;
+        bloco.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      await this.reproduzirSolucaoNoTerminal((item as Desafio).solucao, btn);
+    });
+
+    container.querySelectorAll<HTMLButtonElement>('.btn-reproduzir-solucao').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!('solucao' in item)) return;
+        await this.reproduzirSolucaoNoTerminal((item as Desafio).solucao, btn);
+      });
+    });
+
     if (ehQuiz) {
       container.querySelectorAll<HTMLButtonElement>('.sim-quiz-opcao').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -685,87 +809,33 @@ export class TelaSimulado implements Tela {
     }
   }
 
-  private pularQuestaoAtiva(): void {
-    const item = this.obterItemAtual();
-    if (!item) return;
-    const estado = this.estadosQuestoes.get(item.id);
-    if (estado && !estado.concluida) {
-      estado.pulada = true;
+  private async reproduzirSolucaoNoTerminal(passos: Passo[], botao?: HTMLButtonElement | null): Promise<void> {
+    if (!this.bancada || this.executandoSolucao) return;
+    this.executandoSolucao = true;
+    const textoOriginal = botao?.innerHTML ?? '';
+    if (botao) {
+      botao.disabled = true;
+      botao.innerHTML = '⏳ Digitando no terminal...';
     }
-    this.avancarParaProximaPendente();
-  }
 
-  private responderQuizOpcao(q: QuestaoQuiz, opcao: number): void {
-    const estado = this.estadosQuestoes.get(q.id);
-    if (!estado || estado.concluida) return;
-
-    estado.respostaQuiz = opcao;
-    if (opcao === q.correta) {
-      this.concluirQuestaoAtivaComSucesso(estado);
-    } else {
-      // Errou no quiz: dá feedback e avança
-      estado.concluida = false;
-      estado.pulada = true;
-      this.renderizarBotoesQuestoes();
-      this.renderizarQuestaoAtiva();
-      setTimeout(() => this.avancarParaProximaPendente(), 1000);
-    }
-  }
-
-  private verificarComandoMaquina(maquina: Maquina): void {
-    if (this.animandoPinguim) return;
-
-    const item = this.obterItemAtual();
-    if (!item || !('verificar' in item)) return;
-
-    const desafio = item as Desafio;
-    const estado = this.estadosQuestoes.get(desafio.id);
-    if (!estado || estado.concluida) return;
-
-    let acertou = false;
     try {
-      acertou = desafio.verificar(maquina);
-    } catch {
-      acertou = false;
-    }
-
-    if (acertou) {
-      this.concluirQuestaoAtivaComSucesso(estado);
-    }
-  }
-
-  private concluirQuestaoAtivaComSucesso(estado: EstadoQuestao): void {
-    estado.concluida = true;
-    estado.pulada = false;
-    this.animandoPinguim = true;
-
-    // Dispara animação comemorativa do pinguim 🐧
-    const overlay = this.raiz.querySelector('.sim-pinguim-overlay') as HTMLElement | null;
-    const msgTempo = this.raiz.querySelector('.sim-pinguim-msg-tempo') as HTMLElement | null;
-
-    if (overlay && msgTempo) {
-      msgTempo.textContent = `Resolvido em ${formatarExtenso(estado.tempoSegundos)} · Travando questão e avançando...`;
-      overlay.hidden = false;
-      overlay.classList.add('visivel');
-    }
-
-    setTimeout(() => {
-      if (overlay) {
-        overlay.classList.remove('visivel');
-        overlay.hidden = true;
+      for (let i = 0; i < passos.length; i++) {
+        const p = passos[i];
+        const terminal: TerminalUbuntu = await this.bancada.janela.obter(p.terminal ?? 1, p.login);
+        await terminal.executarAutomatico(p.comando, p.respostas ?? []);
+        if (i < passos.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 600));
+        }
       }
-      this.animandoPinguim = false;
-      this.renderizarBotoesQuestoes();
-      this.renderizarQuestaoAtiva();
-
-      // Checa se todas foram concluídas
-      const todasConcluidas = Array.from(this.estadosQuestoes.values()).every((e) => e.concluida);
-      if (todasConcluidas) {
-        setTimeout(() => this.finalizarProva(), 600);
-      } else {
-        this.avancarParaProximaPendente();
+    } catch (e) {
+      console.error('Erro ao reproduzir comando no terminal:', e);
+    } finally {
+      this.executandoSolucao = false;
+      if (botao) {
+        botao.disabled = false;
+        botao.innerHTML = textoOriginal;
       }
-    }, 1500);
+    }
   }
 
   private avancarParaProximaPendente(): void {
@@ -813,8 +883,9 @@ export class TelaSimulado implements Tela {
     const mod = this.modalidadeSelecionada;
     const itens = this.obterItens();
     const totalItens = itens.length;
-    const concluidas = Array.from(this.estadosQuestoes.values()).filter((e) => e.concluida).length;
-    const porcentagem = totalItens > 0 ? Math.round((concluidas / totalItens) * 100) : 0;
+    const concluidasSozinho = Array.from(this.estadosQuestoes.values()).filter((e) => e.concluida && !e.usouSolucao).length;
+    const resolvidasComSolucao = Array.from(this.estadosQuestoes.values()).filter((e) => e.usouSolucao).length;
+    const porcentagem = totalItens > 0 ? Math.round((concluidasSozinho / totalItens) * 100) : 0;
     const aprovado = porcentagem >= 70;
     const tempoGeralUtilizado = 30 * 60 - this.tempoRestanteGeral;
 
@@ -824,11 +895,15 @@ export class TelaSimulado implements Tela {
       const foiConcluida = estado?.concluida ?? false;
       const foiPulada = estado?.pulada ?? false;
 
-      const badgeResultado = foiConcluida
+      let badgeResultado = foiConcluida
         ? '<span class="relatorio-badge ok">✅ Concluída</span>'
         : foiPulada
           ? '<span class="relatorio-badge pulou">⏭️ Pulada</span>'
           : '<span class="relatorio-badge erro">❌ Não realizada</span>';
+
+      if (estado?.usouSolucao) {
+        badgeResultado = '<span class="relatorio-badge solucao">💡 Resolvida com Solução</span>';
+      }
 
       const tempoGasto = estado ? formatarExtenso(estado.tempoSegundos) : '0s';
       const enunciado = 'enunciado' in item ? item.enunciado : (item as QuestaoQuiz).pergunta;
@@ -857,11 +932,20 @@ export class TelaSimulado implements Tela {
           <td class="col-enunciado">
             ${enunciado}
             ${
-              !foiConcluida
+              !foiConcluida || estado?.usouSolucao
                 ? '<div class="relatorio-aviso-guia">💡 <i>Veja o passo a passo de como fazer no Guia de Correção abaixo</i></div>'
                 : ''
             }
             ${solucaoHtml}
+            ${
+              'solucao' in item
+                ? `<div class="relatorio-linha-praticar">
+                    <button class="botao-secundario btn-praticar-revisao-item" data-idx="${index}">
+                      🖥️ Praticar no Terminal ao Lado
+                    </button>
+                  </div>`
+                : ''
+            }
           </td>
           <td class="col-status">${badgeResultado}</td>
           <td class="col-tempo"><b>${tempoGasto}</b></td>
@@ -871,7 +955,7 @@ export class TelaSimulado implements Tela {
 
     const questoesNaoFeitas = itens
       .map((item, index) => ({ item, index, estado: this.estadosQuestoes.get(item.id) }))
-      .filter((q) => !(q.estado?.concluida ?? false));
+      .filter((q) => !(q.estado?.concluida ?? false) || (q.estado?.usouSolucao ?? false));
 
     let secaoComoFazerHtml = '';
     if (questoesNaoFeitas.length > 0) {
@@ -880,8 +964,8 @@ export class TelaSimulado implements Tela {
           <div class="guia-secao-header">
             <span class="guia-secao-ico">🎓</span>
             <div>
-              <h3>Como resolver as questões que você não concluiu (${questoesNaoFeitas.length})</h3>
-              <p>Estude os comandos corretos, sintaxe e justificativa técnica abaixo para dominar estas tarefas na próxima tentativa:</p>
+              <h3>Como resolver as questões pendentes (${questoesNaoFeitas.length})</h3>
+              <p>Estude os comandos corretos e pratique em tempo real com o terminal Linux interativo ao lado:</p>
             </div>
           </div>
           <div class="guia-cards-lista">
@@ -895,7 +979,7 @@ export class TelaSimulado implements Tela {
           <div class="guia-secao-header">
             <span class="guia-secao-ico">🏆</span>
             <div>
-              <h3>Incrível! Você acertou todas as tarefas!</h3>
+              <h3>Incrível! Você acertou todas as tarefas de forma autônoma!</h3>
               <p>Nenhuma questão pendente para correção. Você atingiu 100% de precisão nesta prova prática!</p>
             </div>
           </div>
@@ -916,11 +1000,13 @@ export class TelaSimulado implements Tela {
             <div class="placar-resultado">
               <span class="placar-trofeu">${aprovado ? '🏆' : '📝'}</span>
               <div class="placar-textos">
-                <h2>${concluidas} de ${totalItens} tarefas concluídas (${porcentagem}%)</h2>
+                <h2>${concluidasSozinho} de ${totalItens} tarefas concluídas sozinho (${porcentagem}%)</h2>
                 <p>${
-                  aprovado
-                    ? 'Parabéns! Seu índice de acertos atingiu o patamar esperado para aprovação em exames de certificação oficial.'
-                    : 'Bom treino! Para certificações Linux (LPI, LPIC, Red Hat), recomenda-se atingir ao menos 70% de precisão.'
+                  resolvidasComSolucao > 0
+                    ? `Você resolveu ${concluidasSozinho} de forma independente e ${resolvidasComSolucao} com auxílio do botão de solução no terminal.`
+                    : aprovado
+                      ? 'Parabéns! Seu índice de acertos atingiu o patamar esperado para aprovação em exames de certificação oficial.'
+                      : 'Bom treino! Para certificações Linux (LPI, LPIC, Red Hat), recomenda-se atingir ao menos 70% de precisão autônoma.'
                 }</p>
               </div>
             </div>
@@ -958,12 +1044,25 @@ export class TelaSimulado implements Tela {
           ${secaoComoFazerHtml}
 
           <footer class="sim-relatorio-acoes">
-            <button class="botao-primario btn-refazer-prova">🔄 Refazer Esta Prova</button>
+            <button class="botao-primario btn-abrir-revisao-geral">🖥️ Revisar Tarefas no Terminal ao Lado</button>
+            <button class="botao-secundario btn-refazer-prova">🔄 Refazer Esta Prova</button>
             <button class="botao-secundario btn-ir-menu-simulados">← Voltar ao Menu de Simulados</button>
           </footer>
         </div>
       </div>
     `;
+
+    this.raiz.querySelectorAll('.btn-praticar-revisao-item').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number((e.currentTarget as HTMLElement).dataset.idx ?? 0);
+        this.iniciarModoRevisao(idx);
+      });
+    });
+
+    this.raiz.querySelector('.btn-abrir-revisao-geral')?.addEventListener('click', () => {
+      const primeiraIncompleta = questoesNaoFeitas[0]?.index ?? 0;
+      this.iniciarModoRevisao(primeiraIncompleta);
+    });
 
     this.raiz.querySelector('.btn-refazer-prova')?.addEventListener('click', () => {
       this.iniciarExame();
@@ -980,7 +1079,12 @@ export class TelaSimulado implements Tela {
   private gerarCardComoFazer(item: Desafio | QuestaoQuiz, index: number, estado?: EstadoQuestao): string {
     const ehDesafio = 'solucao' in item;
     const num = index + 1;
-    const statusTxt = estado?.pulada ? '⏭️ Questão Pulada' : '❌ Não Concluída';
+    let statusTxt = '❌ Não Concluída';
+    if (estado?.usouSolucao) {
+      statusTxt = '💡 Resolvida com Solução';
+    } else if (estado?.pulada) {
+      statusTxt = '⏭️ Questão Pulada';
+    }
 
     if (ehDesafio) {
       const d = item as Desafio;
@@ -988,7 +1092,7 @@ export class TelaSimulado implements Tela {
         <div class="guia-card">
           <div class="guia-card-header">
             <span class="guia-badge-num">Questão #${num}</span>
-            <span class="guia-badge-status ${estado?.pulada ? 'pulada' : 'erro'}">${statusTxt}</span>
+            <span class="guia-badge-status ${estado?.usouSolucao ? 'solucao' : (estado?.pulada ? 'pulada' : 'erro')}">${statusTxt}</span>
           </div>
           <p class="guia-enunciado"><b>Tarefa exigida:</b> ${d.enunciado}</p>
 
@@ -1000,6 +1104,12 @@ export class TelaSimulado implements Tela {
           <div class="guia-explicacao">
             <span class="guia-rotulo">📖 Por que esta é a forma correta e o que cai na prova:</span>
             <p>${d.dica}</p>
+          </div>
+
+          <div class="guia-card-acoes">
+            <button class="botao-primario btn-praticar-revisao-item" data-idx="${index}">
+              🖥️ Praticar no Terminal ao Lado (Ver Solução & Reproduzir)
+            </button>
           </div>
         </div>
       `;
