@@ -54,6 +54,9 @@ export const usuarios: Topico = {
         { comando: 'id ricardo', explicacao: 'ricardo está no grupo sudo' },
         { comando: 'groups ricardo' },
       ],
+      dicas: [
+        '<b>[LPIC-1 107.1 / Linux Essentials 5.2]:</b> O comando <code>id</code> exibe UID, GID primário e lista de GIDs secundários. O UID 0 identifica exclusivamente o root.',
+      ],
     },
     {
       comando: 'cat /etc/passwd',
@@ -68,6 +71,10 @@ export const usuarios: Topico = {
         { comando: 'getent passwd ricardo', explicacao: 'consulta um só' },
         { comando: 'ls -l /etc/passwd /etc/shadow', explicacao: 'shadow: só root e o grupo shadow leem' },
       ],
+      dicas: [
+        '<b>[LPIC-1 107.1]:</b> O <code>/etc/passwd</code> contém 7 campos separados por dois pontos: login:senha:UID:GID:GECOS/comentário:home:shell.',
+      ],
+      pegadinha: '<b>[LPIC-1 107.1]:</b> O caractere <code>x</code> no campo de senha do <code>/etc/passwd</code> indica que a senha real criptografada está protegida no arquivo <code>/etc/shadow</code>.',
     },
     {
       comando: 'useradd',
@@ -90,7 +97,10 @@ export const usuarios: Topico = {
         { comando: 'useradd pedro', explicacao: 'sem -m...' },
         { comando: 'ls /home', explicacao: '... não tem /home/pedro!' },
       ],
-      pegadinha: 'Esquecer o <code>-m</code>: a conta existe, mas sem pasta pessoal. No login aparece "Could not chdir to home directory".',
+      dicas: [
+        '<b>[LPIC-1 107.1 / RHCSA EX200]:</b> <code>-m</code> cria a home copiando o modelo de <code>/etc/skel</code>. Contas de serviço sem login usam <code>-s /usr/sbin/nologin</code>.',
+      ],
+      pegadinha: '<b>[LPIC-1 107.1]:</b> Letra minúscula <code>-g</code> define o grupo PRIMÁRIO; letra maiúscula <code>-G</code> define grupos SECUNDÁRIOS. Confundi-las é erro clássico de prova!',
     },
     {
       comando: 'passwd',
@@ -111,6 +121,9 @@ export const usuarios: Topico = {
         { comando: 'passwd maria', respostas: ['123', '123'], explicacao: 'digitamos 123 duas vezes' },
         { comando: 'passwd -S maria', explicacao: 'P: pronta para logar' },
       ],
+      dicas: [
+        '<b>[LPIC-1 107.1]:</b> Opções cobradas: <code>passwd -l</code> bloqueia conta (insere exclamação no /etc/shadow), <code>passwd -u</code> desbloqueia e <code>passwd -e</code> expira a senha.',
+      ],
     },
     {
       comando: 'login SSH',
@@ -123,6 +136,9 @@ export const usuarios: Topico = {
         { comando: 'pwd', terminal: 2, explicacao: 'caiu na home dela' },
         { comando: 'ls /root', terminal: 2, explicacao: 'usuário comum não bisbilhota o root' },
         { comando: 'who', explicacao: 'no root: quem está conectado' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 107.1]:</b> Contas novas criadas via <code>useradd</code> ficam bloqueadas para login até que uma senha seja definida via <code>passwd</code>.',
       ],
     },
     {
@@ -145,7 +161,10 @@ export const usuarios: Topico = {
         { comando: 'exit', explicacao: 'volta para maria' },
         { comando: 'exit', explicacao: 'volta para root' },
       ],
-      pegadinha: '<code>su</code> pede a senha do usuário de <b>destino</b>; o <code>sudo</code> pede a <b>sua</b> senha.',
+      dicas: [
+        '<b>[LPIC-1 107.3]:</b> O hífen em <code>su - usuario</code> (ou <code>su -l usuario</code>) simula login real: carrega as variáveis de ambiente ($PATH, $HOME) do usuário de destino.',
+      ],
+      pegadinha: '<b>[LPIC-1 107.3]:</b> <code>su</code> sem o hífen troca de UID mas mantém o diretório de trabalho e as variáveis de ambiente do usuário anterior!',
     },
     {
       comando: 'sudo',
@@ -162,10 +181,10 @@ export const usuarios: Topico = {
         { comando: 'sudo cat /etc/shadow', terminal: 2, login: { usuario: 'maria', senha: '123' }, respostas: ['123'], explicacao: 'agora funciona' },
       ],
       dicas: [
-        'Também é possível com <code>gpasswd -a maria sudo</code> ou <code>adduser maria sudo</code>.',
+        '<b>[LPIC-1 107.1 / CompTIA Linux+]:</b> No Debian/Ubuntu o grupo administrativo é <code>sudo</code>; no Red Hat/CentOS/Fedora é <code>wheel</code>.',
         '<code>sudo -i</code> abre um shell de root (sai com <code>exit</code>).',
       ],
-      pegadinha: 'Adicionou ao grupo e "não funcionou"? A sessão antiga ainda usa os grupos do login. Saia (<code>exit</code>) e entre de novo.',
+      pegadinha: '<b>[LPIC-1 107.1]:</b> O arquivo <code>/etc/sudoers</code> NUNCA deve ser editado com editores comuns! Use sempre <code>visudo</code> para validar a sintaxe e evitar que administradores fiquem trancados fora do sistema.',
     },
     {
       comando: 'groupadd',
@@ -176,6 +195,9 @@ export const usuarios: Topico = {
       exemplos: [
         { comando: 'groupadd desenvolvimento' },
         { comando: 'tail -2 /etc/group', explicacao: 'grupo novo, ainda sem membros' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 107.1]:</b> <code>groupadd</code> cria registros em <code>/etc/group</code>. A opção <code>-g GID</code> permite fixar um número de grupo manualmente.',
       ],
     },
     {
@@ -196,7 +218,10 @@ export const usuarios: Topico = {
         { comando: 'grep desenvolvimento /etc/group' },
         { comando: 'gpasswd -d ricardo desenvolvimento', explicacao: 'tira o ricardo' },
       ],
-      pegadinha: '<code>usermod -G desenvolvimento maria</code> (sem o <b>-a</b>) tira a maria do <b>sudo</b> e de todos os outros grupos.',
+      dicas: [
+        '<b>[LPIC-1 107.1 / RHCSA EX200]:</b> A flag <code>-a</code> (append) junto com <code>-G</code> é estritamente obrigatória para manter os grupos suplementares existentes.',
+      ],
+      pegadinha: '<b>[LPIC-1 107.1]:</b> Pergunta campeã de provas: <code>usermod -G novo grupo maria</code> (sem o <b>-a</b>) REMOVE o usuário de todos os outros grupos secundários (inclusive do sudo)!',
     },
     {
       comando: 'adduser',
@@ -209,7 +234,9 @@ export const usuarios: Topico = {
         { comando: 'adduser carlos desenvolvimento', explicacao: 'forma curta de pôr num grupo' },
         { comando: 'id carlos' },
       ],
-      dicas: ['Em outras distribuições (CentOS, Fedora) o <code>adduser</code> é só um apelido do <code>useradd</code>. Na prova, saiba os dois.'],
+      dicas: [
+        '<b>[LPIC-1 107.1]:</b> O <code>adduser</code> é um script de alto nível exclusivo do Debian/Ubuntu; em distros Red Hat ele é apenas link simbólico para <code>useradd</code>.',
+      ],
     },
     {
       comando: 'usermod',
@@ -230,6 +257,9 @@ export const usuarios: Topico = {
         { comando: 'passwd -S estagiario' },
         { comando: 'usermod -U estagiario' },
       ],
+      dicas: [
+        '<b>[LPIC-1 107.1]:</b> Opções fundamentais: <code>-d NOVO -m</code> (altera diretório home e move os arquivos), <code>-l NOVO</code> (renomeia conta) e <code>-L / -U</code> (lock/unlock).',
+      ],
     },
     {
       comando: 'userdel / groupdel',
@@ -244,7 +274,10 @@ export const usuarios: Topico = {
         { comando: 'groupdel desenvolvimento' },
         { comando: 'userdel maria', explicacao: 'maria está logada no terminal 2: recusa' },
       ],
-      pegadinha: 'Não dá para apagar um usuário logado. Feche a sessão dele (<code>exit</code> no terminal dele) antes.',
+      dicas: [
+        '<b>[LPIC-1 107.1]:</b> <code>userdel -r</code> remove a conta, o diretório home e a caixa de correio em <code>/var/mail</code>.',
+      ],
+      pegadinha: '<b>[LPIC-1 107.1]:</b> Sem a opção <code>-r</code>, o diretório do usuário em <code>/home</code> não é apagado e fica como arquivo órfão no disco.',
     },
   ],
 

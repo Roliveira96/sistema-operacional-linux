@@ -49,7 +49,10 @@ export const pacotes: Topico = {
         { comando: 'apt update', explicacao: 'agora sim: "3 pacotes podem ser atualizados"' },
         { comando: 'apt list --upgradable', explicacao: 'quais são e de qual para qual versão' },
       ],
-      pegadinha: '<code>apt update</code> ≠ <code>apt upgrade</code>. O update só atualiza a <b>lista</b>; quem instala as versões novas é o upgrade.',
+      dicas: [
+        '<b>[LPIC-1 102.4]:</b> <code>apt update</code> consulta as URLs cadastradas em <code>/etc/apt/sources.list</code> e <code>/etc/apt/sources.list.d/</code> para atualizar os índices locais.',
+      ],
+      pegadinha: '<b>[LPIC-1 102.4]:</b> <code>apt update</code> NÃO instala nada! Ele apenas sincroniza a lista de versões mais recentes dos repositórios. Quem instala as atualizações é o <code>apt upgrade</code>.',
       naPratica: 'Todo tutorial de servidor começa com <code>sudo apt update &amp;&amp; sudo apt upgrade -y</code>. O <code>&amp;&amp;</code> garante que o upgrade só roda se o update deu certo.',
     },
     {
@@ -67,6 +70,9 @@ export const pacotes: Topico = {
         { comando: 'apt list --upgradable', explicacao: 'nada mais pendente' },
         { comando: 'tail -5 /var/log/apt/history.log', explicacao: 'o apt registra tudo que fez' },
       ],
+      dicas: [
+        '<b>[LPIC-1 102.4]:</b> Diferença de prova: <code>upgrade</code> atualiza pacotes sem desinstalar nada; <code>full-upgrade</code> (ou <code>dist-upgrade</code>) pode remover dependências antigas para instalar novas versões de pacotes essenciais como o kernel.',
+      ],
       naPratica: 'Em servidores de produção, atualizações grandes são testadas antes num servidor de homologação e aplicadas numa "janela de manutenção" (madrugada). ' +
         'Atualizações de segurança são exceção: entram o quanto antes.',
     },
@@ -78,6 +84,9 @@ export const pacotes: Topico = {
       exemplos: [
         { comando: 'apt search web', explicacao: 'servidores web disponíveis' },
         { comando: 'apt show nginx' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 102.4]:</b> <code>apt show pacote</code> exibe arquitetura, versão, maintainer e dependências de pacotes do repositório antes da instalação.',
       ],
       naPratica: 'Nem sempre o nome do pacote é óbvio: o servidor SSH é <code>openssh-server</code>, o MySQL é <code>mysql-server</code>. O search evita adivinhar.',
     },
@@ -95,7 +104,10 @@ export const pacotes: Topico = {
         { comando: 'cowsay "Passei na prova de Linux!"' },
         { comando: 'htop' },
       ],
-      dicas: ['Instalar o que já está instalado não dá erro: o apt diz "já é a versão mais recente".'],
+      dicas: [
+        '<b>[LPIC-1 102.4]:</b> O APT resolve automaticamente a árvore de dependências. O parâmetro <code>-y</code> confirma automaticamente os downloads para automações.',
+        'Instalar o que já está instalado não dá erro: o apt diz "já é a versão mais recente".',
+      ],
       naPratica: 'Um servidor novo recebe logo os pacotes de trabalho: <code>apt install -y nginx git curl htop</code>. Em nuvem, esse comando costuma ficar num script de inicialização (cloud-init) que roda sozinho quando a máquina é criada.',
     },
     {
@@ -107,6 +119,9 @@ export const pacotes: Topico = {
         { comando: 'apt install git', terminal: 2, login: { usuario: 'ricardo', senha: '123' }, explicacao: 'sem sudo: não consegue a "trava" do dpkg' },
         { comando: 'sudo apt install -y git', terminal: 2, respostas: ['123'], explicacao: 'com sudo: pede a senha do ricardo' },
         { comando: 'git --version', terminal: 2 },
+      ],
+      dicas: [
+        '<b>[LPIC-1 102.4 / 107.1]:</b> O banco de dados do dpkg cria travas em <code>/var/lib/dpkg/lock</code> para evitar execuções concorrentes corrompendo a base de pacotes.',
       ],
       pegadinha: 'A mensagem "Não foi possível obter trava... você é root?" quase sempre significa só uma coisa: faltou o <code>sudo</code>.',
       naPratica: 'Em empresas, só alguns administradores estão no grupo sudo. Cada <code>sudo apt install</code> fica registrado em <code>/var/log/auth.log</code> com o nome de quem fez.',
@@ -122,6 +137,10 @@ export const pacotes: Topico = {
         { comando: 'dpkg -L htop', explicacao: 'os arquivos do pacote' },
         { comando: 'apt list --installed | grep tree' },
       ],
+      dicas: [
+        '<b>[LPIC-1 102.4]:</b> Comandos dpkg chave: <code>dpkg -l</code> (lista instalados), <code>dpkg -L pacote</code> (lista arquivos de um pacote) e <code>dpkg -i arq.deb</code> (instala arquivo local).',
+      ],
+      pegadinha: '<b>[LPIC-1 102.4]:</b> Questão clássica de prova: para descobrir QUAL pacote instalou um arquivo específico no disco, use <code>dpkg -S /caminho/arquivo</code>. No Red Hat/RPM, o equivalente é <code>rpm -qf /caminho/arquivo</code>.',
       naPratica: 'Auditoria: "que versão do openssl está nesse servidor?" → <code>dpkg -l openssl</code>. Quando sai uma falha de segurança famosa, é assim que se confere quais servidores estão vulneráveis.',
     },
     {
@@ -165,8 +184,11 @@ export const pacotes: Topico = {
         { comando: 'systemctl status ssh', explicacao: 'o serviço que permite você estar conectado' },
         { comando: 'systemctl restart nginx', terminal: 2, explicacao: 'usuário comum não controla serviços' },
       ],
-      dicas: ['O comando antigo <code>service nginx status</code> ainda funciona e chama o systemctl por baixo.'],
-      pegadinha: '<code>start</code> não é <code>enable</code>. Um serviço iniciado com start, mas desabilitado, <b>não volta</b> depois de um reboot.',
+      dicas: [
+        '<b>[LPIC-1 101.3 / 108.1 & CompTIA Linux+]:</b> No systemd, <code>start</code> e <code>stop</code> gerenciam o serviço agora; <code>enable</code> e <code>disable</code> criam/removem symlinks em <code>/etc/systemd/system/</code> para o boot.',
+        'O comando antigo <code>service nginx status</code> ainda funciona e chama o systemctl por baixo.',
+      ],
+      pegadinha: '<b>[LPIC-1 101.3 / RHCSA EX200]:</b> <code>systemctl start servico</code> NÃO habilita o serviço para os próximos reboots! Para iniciar e habilitar no boot em um comando só: <code>systemctl enable --now servico</code>.',
       naPratica: 'Mudou a configuração do nginx? Primeiro <code>nginx -t</code> (testa se está certa), depois <code>systemctl reload nginx</code>. ' +
         'Um erro de digitação na configuração seguido de restart derruba o site: por isso o teste antes.',
     },
@@ -180,6 +202,9 @@ export const pacotes: Topico = {
         { comando: 'curl -I localhost', explicacao: '...então o www-data recebe 403' },
         { comando: 'chmod 644 /var/www/html/index.html', explicacao: 'devolve a leitura para "outros"' },
         { comando: 'curl -I localhost', explicacao: '200 OK' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 104.5]:</b> O servidor Web roda sob a conta de serviço <code>www-data</code>. Se ele não tiver leitura nos arquivos ou execução nas pastas pai, responderá com HTTP 403.',
       ],
       naPratica: 'É um dos chamados mais comuns: "subi os arquivos novos e o site deu 403". A causa costuma ser o upload feito como root com permissão fechada. A correção: <code>chmod 644</code> nos arquivos, <code>755</code> nas pastas, ou <code>chown -R www-data:www-data</code>.',
     },
@@ -199,7 +224,10 @@ export const pacotes: Topico = {
         { comando: 'apt purge -y nginx-common', explicacao: 'agora apaga até o /etc/nginx' },
         { comando: 'ls /etc/nginx' },
       ],
-      pegadinha: 'Reinstalou e "voltou com a configuração antiga"? Foi removido com <code>remove</code>. Para começar do zero, use <code>purge</code>.',
+      dicas: [
+        '<b>[LPIC-1 102.4]:</b> Equivalente no dpkg: <code>dpkg -r</code> (remove programa) e <code>dpkg -P</code> (purge: remove programa e arquivos de configuração). Pacotes com configs remanescentes aparecem como <code>rc</code> no <code>dpkg -l</code>.',
+      ],
+      pegadinha: '<b>[LPIC-1 102.4]:</b> Reinstalou e voltou com configuração antiga? O pacote foi removido com <code>remove</code>. Para apagar completamente até os arquivos em <code>/etc</code>, a prova exige <code>purge</code>.',
       naPratica: 'Menos programas instalados = menos coisas para atualizar e menos portas para invasão. Remover o que não se usa (e rodar <code>autoremove</code>) faz parte da rotina de segurança.',
     },
     {
@@ -212,6 +240,9 @@ export const pacotes: Topico = {
         { comando: 'apt-get install -y cowsay' },
         { comando: 'apt-cache search cow' },
         { comando: 'apt-cache policy openssl', explicacao: 'versão instalada × disponível' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 102.4]:</b> <code>apt-get</code> e <code>apt-cache</code> são os utilitários clássicos estáveis para automação e scripts. <code>apt</code> foi desenvolvido para uso interativo humano no terminal.',
       ],
       naPratica: 'Todo Dockerfile baseado em Ubuntu tem uma linha como <code>RUN apt-get update &amp;&amp; apt-get install -y curl</code>. Se o apt reclamar "WARNING: apt does not have a stable CLI interface", é porque deveria ser apt-get.',
     },
