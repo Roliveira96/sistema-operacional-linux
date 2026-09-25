@@ -320,7 +320,7 @@ export class GeradorCertificado {
             transform: translate(-50%, -50%);
             width: 660px;
             max-width: 82%;
-            opacity: 0.045;
+            opacity: 0.09;
             pointer-events: none;
             z-index: 1;
             user-select: none;
