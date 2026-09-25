@@ -54,6 +54,10 @@ export const historia: Topico = {
         { comando: 'cat /etc/passwd | cut -d: -f1 | sort | head -3', explicacao: 'quatro programas pequenos em sequência' },
         { comando: 'ls -l /dev/sda', explicacao: '"tudo é arquivo": o disco inteiro é um arquivo' },
       ],
+      dicas: [
+        '<b>[LPI Linux Essentials 1.1 / LPIC-1 103.1]:</b> A filosofia Unix baseia-se em "tudo é arquivo" e ferramentas modulares combinadas por pipes (<code>|</code>).',
+      ],
+      pegadinha: '<b>[LPIC-1 101.1]:</b> O Linux não contém código proprietário do Unix da AT&T. Ele foi criado do zero por Linus Torvalds com inspiração no MINIX.',
       naPratica: 'Descendentes diretos do Unix ainda estão por aí: o <b>macOS</b> é um Unix certificado e o <b>FreeBSD</b> roda em servidores e até no PlayStation. ' +
         'Por isso quem sabe Linux se vira bem no terminal do Mac.',
     },
@@ -69,9 +73,10 @@ export const historia: Topico = {
         { comando: 'apt show bash', explicacao: 'o shell que você está usando: GNU Bourne Again SHell' },
       ],
       dicas: [
-        'As <b>4 liberdades</b> do software livre: <b>0</b> usar para qualquer fim; <b>1</b> estudar o código e adaptá-lo; <b>2</b> redistribuir cópias; <b>3</b> distribuir suas melhorias.',
-        'A <b>GPL</b> é "copyleft": quem distribui uma versão modificada precisa manter o código aberto com a mesma licença.',
+        '<b>[LPI Linux Essentials 1.2 / LPIC-1 101.1]:</b> As <b>4 liberdades</b> da FSF: <b>0</b> executar para qualquer fim; <b>1</b> estudar o código e adaptá-lo; <b>2</b> redistribuir cópias; <b>3</b> distribuir suas melhorias.',
+        '<b>[LPI Linux Essentials 1.3]:</b> A licença <b>GPL</b> é "copyleft" (exige código aberto derivado). Já licenças permissivas (MIT, BSD, Apache) permitem fechamento de derivados.',
       ],
+      pegadinha: '<b>[LPI Linux Essentials 1.2]:</b> As liberdades da FSF começam no número ZERO (0, 1, 2 e 3). Não caia na pegadinha de marcar 1 a 4 na prova!',
       naPratica: 'Software livre não é "de graça": é sobre <b>liberdade</b>. Empresas como Red Hat e Canonical vendem suporte e serviços em cima de software livre. ' +
         'Para uma empresa, isso significa não depender de um único fornecedor e poder auditar o código (importante em segurança).',
     },
@@ -88,6 +93,10 @@ export const historia: Topico = {
         { comando: 'cat /proc/version', explicacao: 'o próprio kernel respondendo' },
         { comando: 'ls -l /boot', explicacao: 'o arquivo do kernel (vmlinuz) fica aqui' },
       ],
+      dicas: [
+        '<b>[LPIC-1 101.1 / Linux Essentials 1.1]:</b> <code>uname -r</code> exibe apenas a versão do kernel; <code>uname -m</code> a arquitetura (ex: x86_64); <code>uname -a</code> exibe tudo.',
+      ],
+      pegadinha: '<b>[LPI Linux Essentials 1.1]:</b> "Linux" a rigor é APENAS o kernel. O sistema operacional completo que usamos no dia a dia é o <b>GNU/Linux</b>.',
       naPratica: 'Atualizações de segurança do kernel são frequentes. Depois de um <code>apt upgrade</code> que troca o kernel, o servidor precisa ser reiniciado para usar a versão nova: ' +
         'o Ubuntu avisa com a mensagem "*** System restart required ***" ao fazer login.',
     },
@@ -102,6 +111,10 @@ export const historia: Topico = {
         { comando: 'grep ID_LIKE /etc/os-release', explicacao: 'o Ubuntu é "parecido com" o Debian' },
         { comando: 'which apt dpkg', explicacao: 'o gerenciador de pacotes da família Debian' },
       ],
+      dicas: [
+        '<b>[LPIC-1 101.1 / Linux Essentials 1.1]:</b> Em qualquer distribuição Linux moderna (systemd), <code>cat /etc/os-release</code> é o arquivo oficial e padronizado para identificar nome e versão da distro.',
+      ],
+      pegadinha: '<b>[LPIC-1 102.1]:</b> A base dos comandos do terminal (ls, cp, grep, bash) é do projeto GNU e funciona igual em todas as distros; o que muda essencialmente é o empacotamento.',
       naPratica: 'Scripts de instalação "para Linux" costumam começar lendo o <code>/etc/os-release</code> para decidir se usam <code>apt</code> ou <code>dnf</code>. ' +
         'Imagens Docker também são distribuições: <code>ubuntu</code>, <code>debian</code>, <code>alpine</code>.',
     },
@@ -118,10 +131,10 @@ export const historia: Topico = {
       sintaxe: '',
       exemplos: [],
       dicas: [
-        '<b>Ubuntu</b>: versões <b>AA.MM</b> (24.04 = abril de 2024). A cada 2 anos, em abril, sai uma <b>LTS</b> (Long Term Support) com 5 anos de atualizações. É a escolha padrão para servidores.',
-        'Os codinomes seguem o alfabeto com um animal: 20.04 Focal Fossa, 22.04 Jammy Jellyfish, <b>24.04 Noble Numbat</b>.',
-        '<b>Rolling release</b> (Arch): não há "versão nova", o sistema vai sendo atualizado continuamente.',
+        '<b>[LPIC-1 102.4 / 102.5 & CompTIA Linux+]:</b> Memorize: Debian/Ubuntu usa <code>.deb</code> (apt/dpkg); Red Hat/CentOS/Rocky usa <code>.rpm</code> (dnf/yum/rpm); SUSE usa <code>.rpm</code> (zypper).',
+        '<b>[LPI Linux Essentials 1.1]:</b> Ubuntu usa versões AA.MM (24.04 = abril de 2024). A cada 2 anos sai versão <b>LTS</b> (Long Term Support). Já o Arch é <i>Rolling release</i> (sem versões pontuais).',
       ],
+      pegadinha: '<b>[LPIC-1 102.5]:</b> Não confunda gerenciador de rede/alto nível (<code>apt</code>, <code>dnf</code>, <code>zypper</code>) com o instalador local de baixo nível (<code>dpkg</code>, <code>rpm</code>).',
       naPratica: 'Em vagas de emprego aparecem muito "Linux (Ubuntu/Debian ou RHEL/Rocky)". Os comandos deste material (arquivos, permissões, usuários) são iguais em todas; ' +
         'o que muda de uma família para outra é principalmente o gerenciador de pacotes e onde ficam algumas configurações.',
     },
@@ -142,6 +155,9 @@ export const historia: Topico = {
         { comando: 'who', explicacao: 'multiusuário: quem está conectado agora' },
         { comando: 'free -h', explicacao: 'um servidor inteiro usando pouco mais de 1 GB de RAM' },
       ],
+      dicas: [
+        '<b>[LPI Linux Essentials 1.1]:</b> O Linux é o sistema operacional dominante em servidores web, supercomputadores (TOP500) e nuvem (AWS/GCP/Azure).',
+      ],
       naPratica: 'Profissões que exigem Linux no dia a dia: administrador de sistemas, DevOps/SRE, engenharia de nuvem, segurança da informação (pentest usa Kali Linux), ' +
         'desenvolvimento backend e ciência de dados.',
     },
@@ -155,6 +171,9 @@ export const historia: Topico = {
         { comando: 'hostname', explicacao: 'em qual máquina estou' },
         { comando: 'hostname -I', explicacao: 'o IP dela' },
         { comando: 'whoami', explicacao: 'com qual usuário' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 103.1 / Linux Essentials 2.1]:</b> A porta padrão do serviço SSH é a 22 (em <code>/etc/ssh/sshd_config</code>). <code>whoami</code> e <code>hostname</code> são os comandos de identificação inicial.',
       ],
       naPratica: 'Um administrador cuida de dezenas ou centenas de servidores. Ninguém faria isso clicando: as tarefas são feitas por SSH e, cada vez mais, ' +
         'por ferramentas de automação (Ansible, scripts shell) que no fundo executam os mesmos comandos que você está aprendendo.',

@@ -52,7 +52,10 @@ export const arquivos: Topico = {
         { comando: 'touch a.txt b.txt c.txt', explicacao: 'vários de uma vez' },
         { comando: 'ls -l', explicacao: 'repare no tamanho 0 dos novos' },
       ],
-      dicas: ['Arquivos novos nascem com permissão <code>644</code> para o root (<code>664</code> para usuários comuns), por causa do <b>umask</b>.'],
+      dicas: [
+        '<b>[LPIC-1 103.3 / Linux Essentials 2.4]:</b> Se o arquivo já existe, <code>touch</code> não altera seu conteúdo; apenas atualiza os timestamps (acesso com <code>-a</code> e modificação com <code>-m</code>).',
+        'Arquivos novos nascem com permissão <code>644</code> para o root (<code>664</code> para usuários comuns), por causa do <b>umask</b>.',
+      ],
     },
     {
       comando: 'echo',
@@ -71,7 +74,10 @@ export const arquivos: Topico = {
         { comando: 'echo "Usuário: $USER, casa: $HOME"', explicacao: 'aspas duplas expandem variáveis' },
         { comando: 'echo \'Usuário: $USER\'', explicacao: 'aspas simples mostram literalmente' },
       ],
-      pegadinha: 'Usar <code>&gt;</code> quando queria <code>&gt;&gt;</code> apaga o conteúdo anterior sem perguntar nada.',
+      dicas: [
+        '<b>[LPIC-1 103.4]:</b> Aspas duplas (<code>""</code>) expandem variáveis (<code>$USER</code>) e caracteres de escape. Aspas simples (<code>\'\'</code>) preservam o texto 100% literal.',
+      ],
+      pegadinha: '<b>[LPIC-1 103.4]:</b> O operador <code>&gt;</code> SOBRESCREVE o arquivo truncando-o a zero bytes. Para acrescentar no final sem apagar o que já existia, o exame cobra <code>&gt;&gt;</code>.',
     },
     {
       comando: 'cat',
@@ -86,7 +92,9 @@ export const arquivos: Topico = {
         { comando: 'cat /etc/hostname /etc/os-release', explicacao: 'dois arquivos seguidos' },
         { comando: 'cat a.txt notas.txt > junto.txt', explicacao: 'junta arquivos num novo' },
       ],
-      dicas: ['Arquivo grande? Use <code>less arquivo</code> no Ubuntu real (setas rolam, <kbd>q</kbd> sai), ou <code>head</code>/<code>tail</code>.'],
+      dicas: [
+        '<b>[LPIC-1 103.2]:</b> <code>cat -n</code> numera todas as linhas de saída; <code>tac</code> exibe as linhas em ordem invertida. Para arquivos longos, use paginadores como <code>less</code> ou <code>head</code>/<code>tail</code>.',
+      ],
     },
     {
       comando: 'head / tail',
@@ -100,6 +108,10 @@ export const arquivos: Topico = {
         { comando: 'tail -n 2 alunos.txt', explicacao: 'as 2 últimas' },
         { comando: 'tail -1 /etc/passwd', explicacao: 'o último usuário criado fica no fim do passwd' },
       ],
+      dicas: [
+        '<b>[LPIC-1 103.2]:</b> Por padrão, <code>head</code> e <code>tail</code> mostram 10 linhas. A opção <code>tail -f</code> (follow) monitora logs em tempo real conforme novas linhas são gravadas.',
+      ],
+      pegadinha: '<b>[LPIC-1 103.2]:</b> <code>head -n 5</code> mostra o TOPO (início) do arquivo; não confunda com <code>tail</code> (fim).',
     },
     {
       comando: 'grep',
@@ -120,6 +132,10 @@ export const arquivos: Topico = {
         { comando: 'cat /etc/passwd | grep bash', explicacao: 'pipe: quem usa o bash como shell' },
         { comando: 'ls -l /etc | grep shadow' },
       ],
+      dicas: [
+        '<b>[LPIC-1 103.2 / Linux Essentials 3.2]:</b> Principais opções em provas: <code>-i</code> (ignora maiúsculas/minúsculas), <code>-v</code> (inverte a busca), <code>-n</code> (número da linha), <code>-c</code> (contagem de ocorrências) e <code>-r</code> (recursivo).',
+      ],
+      pegadinha: '<b>[LPIC-1 103.2]:</b> Para usar expressões regulares estendidas (+, ?, |, ()), a prova cobra <code>grep -E</code> ou o comando <code>egrep</code>.',
     },
     {
       comando: 'wc',
@@ -132,6 +148,9 @@ export const arquivos: Topico = {
         { comando: 'wc alunos.txt', explicacao: 'linhas, palavras, bytes' },
         { comando: 'wc -l /etc/passwd', explicacao: 'quantas contas existem' },
         { comando: 'ls /etc | wc -l', explicacao: 'quantos itens há no /etc' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 103.2]:</b> <code>wc -l</code> conta o número de linhas (novas linhas <code>\\n</code>). É o parceiro favorito de pipes em testes: <code>comando | grep filtro | wc -l</code>.',
       ],
     },
     {
@@ -154,7 +173,10 @@ export const arquivos: Topico = {
         { comando: 'cp -r backup copia', explicacao: 'agora sim' },
         { comando: 'ls copia' },
       ],
-      pegadinha: 'Se o destino já existe, o <code>cp</code> <b>sobrescreve sem perguntar</b> (a menos que use <code>-i</code>).',
+      dicas: [
+        '<b>[LPIC-1 103.3]:</b> <code>cp -p</code> preserva permissões, dono e timestamps. <code>cp -a</code> (archive) preserva tudo incluindo links simbólicos recursivamente.',
+      ],
+      pegadinha: '<b>[LPIC-1 103.3]:</b> Tentar copiar diretórios sem <code>-r</code> ou <code>-R</code> dá erro ("omitting directory"). E sem <code>-i</code>, o <code>cp</code> sobrescreve arquivos de destino existentes sem perguntar.',
     },
     {
       comando: 'mv',
@@ -169,7 +191,9 @@ export const arquivos: Topico = {
         { comando: 'mv copia copia-antiga', explicacao: 'também serve para diretórios (sem -r)' },
         { comando: 'ls -R', explicacao: 'confere tudo, recursivamente' },
       ],
-      dicas: ['Diferente do <code>cp</code>, o <code>mv</code> move diretórios sem precisar de <code>-r</code>.'],
+      dicas: [
+        '<b>[LPIC-1 103.3]:</b> No Linux, renomear e mover são a mesma operação com <code>mv</code>. Diferente do <code>cp</code>, o <code>mv</code> move diretórios inteiros sem precisar de <code>-r</code>.',
+      ],
     },
     {
       comando: 'ln -s',
@@ -186,7 +210,10 @@ export const arquivos: Topico = {
         { comando: 'ls -l /var/log/syslog', explicacao: 'o original continua lá' },
         { comando: 'ls -l / | grep bin', explicacao: 'o próprio sistema usa links: bin -> usr/bin' },
       ],
-      pegadinha: 'A ordem é <code>ln -s ORIGEM NOME</code>, igual ao <code>cp</code>: primeiro o que já existe, depois o nome novo.',
+      dicas: [
+        '<b>[LPIC-1 104.6]:</b> Links simbólicos (<code>ln -s</code>) podem cruzar diferentes partições/discos e apontar para diretórios. Hard links (<code>ln</code> sem -s) compartilham o mesmo número de <b>inode</b>, mas NÃO podem cruzar partições nem apontar para pastas.',
+      ],
+      pegadinha: '<b>[LPIC-1 104.6]:</b> A ordem dos parâmetros é <code>ln -s ALVO_EXISTENTE NOME_DO_LINK</code>. Se o alvo for excluído, o link simbólico fica quebrado (dangling).',
       naPratica: 'O nginx ativa sites com links: o arquivo fica em <code>sites-available</code> e um <code>ln -s</code> em <code>sites-enabled</code> liga o site. ' +
         'Em deploys, <code>/srv/app/current</code> é um link para a versão atual: trocar de versão (ou voltar) é só refazer o link.',
     },
@@ -205,7 +232,9 @@ export const arquivos: Topico = {
         { comando: 'nano lista.txt', explicacao: 'digite algo, Ctrl+O, Enter, Ctrl+X (o roteiro espera você sair)' },
         { comando: 'cat lista.txt', explicacao: 'confere o que foi gravado' },
       ],
-      dicas: ['Se o arquivo não existe, o nano cria na hora de gravar. Sem permissão de escrita, ele avisa <i>Permissão negada</i> ao gravar.'],
+      dicas: [
+        '<b>[LPIC-1 103.8]:</b> No nano, <code>^</code> representa a tecla <kbd>Ctrl</kbd>. Para salvar é <kbd>Ctrl+O</kbd> (WriteOut) e para sair é <kbd>Ctrl+X</kbd>.',
+      ],
     },
     {
       comando: 'vim',
@@ -227,7 +256,10 @@ export const arquivos: Topico = {
         { comando: 'vim ideias.txt', explicacao: 'i, digite, Esc, :wq, Enter (o roteiro espera você sair)' },
         { comando: 'cat ideias.txt' },
       ],
-      pegadinha: '"Não consigo sair do vim": aperte <kbd>Esc</kbd> e digite <code>:q!</code> + <kbd>Enter</kbd> (sai sem salvar) ou <code>:wq</code> (salva e sai).',
+      dicas: [
+        '<b>[LPIC-1 103.8]:</b> Modos do Vim: Normal (comandos de navegação e edição: <code>dd</code> apaga linha, <code>yy</code> copia, <code>p</code> cola), Inserção (<kbd>i</kbd>) e Linha de Comando (<kbd>:</kbd>).',
+      ],
+      pegadinha: '<b>[LPIC-1 103.8]:</b> Para sair descartando qualquer alteração: aperte <kbd>Esc</kbd> e digite <code>:q!</code>. Para salvar e sair: <code>:wq</code> ou <code>:x</code> ou <code>ZZ</code>.',
     },
   ],
 

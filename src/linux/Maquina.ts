@@ -2,7 +2,9 @@ import { Arquivo, ArquivoGerado, Binario, Buraco, Diretorio, Dispositivo, Link, 
 import { GerenciadorDePacotes } from './Pacotes';
 import { Contas, Grupo, Usuario } from './Contas';
 import { SistemaDeArquivos } from './SistemaDeArquivos';
-import { Quadro, Sessao } from './Sessao';
+import { Quadro, Sessao, type Job } from './Sessao';
+import { TabelaDeProcessos } from './Processos';
+import { Escopo } from './Escopo';
 
 const BASHRC: string =
   '# ~/.bashrc: executado pelo bash(1) para shells não-login.\n' +
@@ -26,6 +28,8 @@ export class Maquina {
   public readonly hostname: string = 'servidor';
   /** Um shell por terminal aberto (as "conexões SSH"). */
   private readonly sessoes: Sessao[] = [];
+  /** Processos de usuário rodando agora (não vão para o JSON: somem como num reboot). */
+  public readonly processos: TabelaDeProcessos = new TabelaDeProcessos();
 
   public constructor(fs: SistemaDeArquivos, contas: Contas) {
     this.fs = fs;
@@ -41,9 +45,23 @@ export class Maquina {
   /** Login: lê os grupos do usuário NESTE momento e começa na home dele. */
   public abrirSessao(usuario: Usuario): Sessao {
     const home: string = this.fs.obter(usuario.home)?.ehDiretorio() ? usuario.home : '/';
-    const sessao: Sessao = new Sessao(new Quadro(usuario, this.contas.gidsDe(usuario), home));
+    let numero: number = 0;
+    while (this.sessoes.some((s: Sessao) => s.tty === 'pts/' + numero)) numero++;
+    const sessao: Sessao = new Sessao(this.novoQuadro(usuario, home), 'pts/' + numero, () => this.processos.novoPid());
     this.sessoes.push(sessao);
     return sessao;
+  }
+
+  /** Um shell de login: ambiente padrão + o que o ~/.bashrc do usuário define (apelidos, PATH...). */
+  public novoQuadro(usuario: Usuario, cwd: string): Quadro {
+    const escopo: Escopo = Escopo.paraLogin(usuario);
+    const bashrc: No | null = this.fs.obter(usuario.home + '/.bashrc');
+    if (bashrc instanceof Arquivo) escopo.aplicarPerfil(bashrc.ler());
+    return new Quadro(usuario, this.contas.gidsDe(usuario), cwd, escopo);
+  }
+
+  public listarSessoes(): Sessao[] {
+    return this.sessoes.slice();
   }
 
   public fecharSessao(sessao: Sessao): void {
@@ -51,6 +69,8 @@ export class Maquina {
     if (indice >= 0) {
       this.sessoes.splice(indice, 1);
     }
+    // os jobs recebem SIGHUP ao cair a conexão (quem usou nohup sobrevive)
+    sessao.jobs.forEach((job: Job) => job.processo.receber(1));
   }
 
   /** Quem está logado em qualquer terminal (o userdel se recusa a apagar essas contas). */

@@ -92,6 +92,7 @@ export class Who extends Comando {
 export class Ajuda extends Comando {
   public readonly nome: string = 'help';
   public readonly resumo: string = 'lista os comandos disponíveis no simulador';
+  public readonly embutido: boolean = true;
   private readonly registro: RegistroDeComandos;
 
   constructor(registro: RegistroDeComandos) {

@@ -58,6 +58,14 @@ export class Cat extends Comando {
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { number: 'n' });
+    if (opcoes.operandos.length === 0 && contexto.entrada === null) {
+      // cat > arquivo: lê o teclado até Ctrl+D (fim da entrada)
+      for (;;) {
+        const linha: string = await contexto.interacao.perguntar('', false);
+        if (linha === '\u0004' || linha === '\u0003') return linha === '\u0003' ? 130 : 0;
+        contexto.linha(linha);
+      }
+    }
     const entradas = lerEntradas('cat', opcoes.operandos, contexto);
     if (entradas === null) {
       return 1;
@@ -79,6 +87,7 @@ export class Cat extends Comando {
 export class Echo extends Comando {
   public readonly nome: string = 'echo';
   public readonly resumo: string = 'imprime um texto (use > para gravar num arquivo e >> para acrescentar)';
+  public readonly embutido: boolean = true;
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     let semQuebra: boolean = false;
@@ -94,6 +103,36 @@ export class Echo extends Comando {
       texto = texto.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
     }
     contexto.escrever(texto + (semQuebra ? '' : '\n'));
+    return 0;
+  }
+}
+
+export class Printf extends Comando {
+  public readonly nome: string = 'printf';
+  public readonly resumo: string = 'imprime com formato: printf "%s tem %d anos\\n" Ana 20';
+  public readonly embutido: boolean = true;
+
+  public async executar(args: string[], contexto: Contexto): Promise<number> {
+    if (args.length === 0) {
+      contexto.falhar('printf: uso: printf formato [argumentos]');
+      return 2;
+    }
+    const [formato, ...valores] = args;
+    let i: number = 0;
+    let texto: string = '';
+    do {
+      texto += formato.replace(/%(-?\d*)(\.\d+)?([sdfi%])/g, (_t: string, largura: string, precisao: string | undefined, tipo: string): string => {
+        if (tipo === '%') return '%';
+        const valor: string = valores[i++] ?? '';
+        let saida: string = tipo === 's' ? valor : tipo === 'f'
+          ? (Number(valor) || 0).toFixed(precisao !== undefined ? Number(precisao.substring(1)) : 6)
+          : String(Math.trunc(Number(valor) || 0));
+        const n: number = Math.abs(Number(largura || '0'));
+        saida = largura.startsWith('-') ? saida.padEnd(n) : saida.padStart(n);
+        return saida;
+      });
+    } while (i < valores.length && /%[sdfi]/.test(formato));
+    contexto.escrever(texto.replace(/\\n/g, '\n').replace(/\\t/g, '\t'));
     return 0;
   }
 }

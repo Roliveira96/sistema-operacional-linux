@@ -57,7 +57,10 @@ export const diretorios: Topico = {
       exemplos: [
         { comando: 'pwd', explicacao: 'o root começa em /root' },
       ],
-      dicas: ['Perdido? <code>pwd</code> resolve. Quer voltar para casa? <code>cd</code> sozinho.'],
+      dicas: [
+        '<b>[LPI Linux Essentials 2.3 / LPIC-1 103.3]:</b> <code>pwd</code> (print working directory) imprime o caminho absoluto. O bash guarda esse valor na variável <code>$PWD</code>.',
+        'Perdido? <code>pwd</code> resolve. Quer voltar para casa? <code>cd</code> sozinho.',
+      ],
     },
     {
       comando: 'ls',
@@ -82,10 +85,10 @@ export const diretorios: Topico = {
         { comando: 'ls -ld /tmp', explicacao: 'dados do PRÓPRIO /tmp (repare no "t" no final)' },
       ],
       dicas: [
-        'Arquivos ocultos são só arquivos cujo nome começa com ponto. Não é segurança, é só para não poluir a listagem.',
+        '<b>[LPI Linux Essentials 2.3 / LPIC-1 103.3]:</b> Arquivos ocultos começam com <code>.</code> (use <code>-a</code> para vê-los). As opções <code>-t</code> (ordena por data de modificação) e <code>-S</code> (ordena por tamanho) caem com frequência em provas.',
         'Nomes com espaço aparecem entre aspas no ls, como <code>\'Área de Trabalho\'</code>. Para usá-los, coloque aspas: <code>cd "Área de Trabalho"</code>.',
       ],
-      pegadinha: '<code>ls -l</code> de um diretório lista o <b>conteúdo</b> dele. Para ver as permissões do diretório em si, use <code>ls -ld pasta</code>.',
+      pegadinha: '<b>[LPIC-1 103.3]:</b> <code>ls -l pasta</code> lista o CONTEÚDO da pasta. Para examinar as permissões e o dono da própria pasta, a prova exige a opção <code>-d</code> (ex.: <code>ls -ld pasta</code>).',
     },
     {
       comando: 'cd',
@@ -110,10 +113,10 @@ export const diretorios: Topico = {
         { comando: 'cd', explicacao: 'volta para casa: /root' },
       ],
       dicas: [
-        'Use <kbd>Tab</kbd> para completar nomes: digite <code>cd /ho</code> e aperte Tab.',
-        'O <code>cd</code> é um comando <b>embutido</b> no bash; por isso <code>sudo cd</code> não funciona.',
+        '<b>[LPIC-1 103.3]:</b> <code>cd</code> é um comando interno do shell (built-in); por isso <code>sudo cd</code> não existe. O atalho <code>cd -</code> lê a variável <code>$OLDPWD</code>.',
+        'Use <kbd>Tab</kbd> para autocompletar caminhos rapidamente.',
       ],
-      pegadinha: '<code>cd..</code> (sem espaço) dá "comando não encontrado". O certo é <code>cd ..</code>.',
+      pegadinha: '<b>[LPI Linux Essentials 2.3]:</b> <code>cd..</code> (sem espaço) falha. O espaço é obrigatório: <code>cd ..</code>.',
     },
     {
       comando: 'mkdir',
@@ -135,10 +138,10 @@ export const diretorios: Topico = {
         { comando: 'ls' },
       ],
       dicas: [
+        '<b>[LPIC-1 103.3]:</b> A opção <code>mkdir -m 700 pasta</code> permite definir permissões octais diretamente na criação.',
         'Sem aspas, <code>mkdir minhas fotos</code> cria <b>duas</b> pastas: <code>minhas</code> e <code>fotos</code>.',
-        'Chaves criam em lote: <code>mkdir -p site/{css,js,img}</code> (no bash real). Aqui, liste um por um.',
       ],
-      pegadinha: 'Sem o <code>-p</code>, o mkdir não cria pastas intermediárias: "Arquivo ou diretório inexistente".',
+      pegadinha: '<b>[LPIC-1 103.3 / Linux Essentials 2.4]:</b> Sem a opção <code>-p</code> (parents), o <code>mkdir</code> gera erro se as pastas pai não existirem ("Arquivo ou diretório inexistente").',
     },
     {
       comando: 'tree',
@@ -157,7 +160,9 @@ export const diretorios: Topico = {
         { comando: 'tree faculdade' },
         { comando: 'tree -d -L 1 /', explicacao: 'as pastas principais do sistema' },
       ],
-      dicas: ['No Ubuntu recém-instalado o tree não vem por padrão. Na prova, se ele não existir, use <code>ls -R</code> para ver as subpastas.'],
+      dicas: [
+        '<b>[LPIC-1 103.3]:</b> No Linux padrão o tree pode não vir instalado. Na prova, utilize <code>ls -R</code> ou <code>find . -type d</code> para inspecionar hierarquias recursivas.',
+      ],
     },
     {
       comando: 'rmdir',
@@ -175,7 +180,10 @@ export const diretorios: Topico = {
         { comando: 'rmdir -pv faculdade/2026/linux', explicacao: 'apaga linux, 2026 e faculdade' },
         { comando: 'ls' },
       ],
-      pegadinha: 'Diretório com conteúdo não sai com rmdir. Aí é <code>rm -r</code> (veja o tópico Exclusão).',
+      dicas: [
+        '<b>[LPIC-1 103.3]:</b> <code>rmdir -p a/b/c</code> remove em cadeia c, b e a caso cada pai se torne vazio após a remoção do filho.',
+      ],
+      pegadinha: '<b>[LPIC-1 103.3]:</b> Diretório com qualquer conteúdo (mesmo arquivos ocultos) recusa <code>rmdir</code> ("Diretório não vazio"). Para apagar com conteúdo, a prova cobra <code>rm -r</code>.',
     },
   ],
 

@@ -95,6 +95,14 @@ export class TerminalUbuntu implements Saida, Interacao {
 
   private iniciarSessao(usuario: Usuario): void {
     this.sessao = this.maquina.abrirSessao(usuario);
+    // kill no bash/sshd desta conexão ou "pkill -u usuario" feito em outro terminal
+    this.sessao.aoEncerrar = (): void => {
+      window.setTimeout(() => {
+        this.escrever('\nConnection to ' + ClasseMaquina.IP + ' closed by remote host.\n', 'c-erro');
+        this.desconectar();
+        this.renderizarEntrada();
+      }, 0);
+    };
     this.escrever('Welcome to Ubuntu 24.04 LTS (GNU/Linux 6.8.0-45-generic x86_64)\n\n');
     this.escrever(' * Documentation:  https://help.ubuntu.com\n * Management:     https://landscape.canonical.com\n\n');
     if (this.sessao.atual().cwd !== usuario.home) {
@@ -303,7 +311,17 @@ export class TerminalUbuntu implements Saida, Interacao {
 
   private teclar(evento: KeyboardEvent): void {
     if (this.estado === 'ocupado' || this.estado === 'editor') {
-      if (evento.ctrlKey && evento.key.toLowerCase() === 'c') evento.preventDefault();
+      const letra: string = evento.key.toLowerCase();
+      if (this.estado === 'ocupado' && evento.ctrlKey && (letra === 'c' || letra === 'z')) {
+        evento.preventDefault();
+        if (letra === 'c') {
+          this.escrever('^C\n');
+          this.sessao?.interromper();
+        } else {
+          this.escrever('^Z');
+          this.sessao?.suspender();
+        }
+      }
       return;
     }
     const tecla: string = evento.key;
@@ -319,6 +337,14 @@ export class TerminalUbuntu implements Saida, Interacao {
       if (letra === 'a') { this.cursor = 0; this.renderizarEntrada(); }
       if (letra === 'e') { this.cursor = this.buffer.length; this.renderizarEntrada(); }
       if (letra === 'd' && this.buffer === '' && this.estado === 'comando') { this.buffer = 'exit'; void this.enviarComando(); }
+      if (letra === 'd' && this.buffer === '' && this.estado === 'pergunta' && this.resolverPergunta !== null) {
+        // Ctrl+D: fim da entrada (encerra o "cat > arquivo")
+        const resolver = this.resolverPergunta;
+        this.resolverPergunta = null;
+        this.estado = 'ocupado';
+        this.renderizarEntrada();
+        resolver('\u0004');
+      }
       return;
     }
     if (evento.metaKey || evento.altKey) {

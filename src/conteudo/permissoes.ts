@@ -67,6 +67,9 @@ export const permissoes: Topico = {
         { comando: 'ls -ld privado', explicacao: '-d: a permissão da própria pasta' },
         { comando: 'stat salarios.txt', explicacao: 'mostra em número (0640) e em texto' },
       ],
+      dicas: [
+        '<b>[LPIC-1 104.5 / Linux Essentials 5.3]:</b> O primeiro caractere indica o tipo: <code>-</code> (arquivo regular), <code>d</code> (diretório), <code>l</code> (link simbólico), <code>c</code> (caractere), <code>b</code> (bloco). Seguem os trios: Dono (u), Grupo (g) e Outros (o).',
+      ],
     },
     {
       comando: 'chmod (letras)',
@@ -91,7 +94,9 @@ export const permissoes: Topico = {
         { comando: 'chmod -v u=rw,g=r,o= relatorio.txt', explicacao: '= define exatamente: vira 640' },
         { comando: 'ls -l' },
       ],
-      dicas: ['Sem letra de quem, vale para todos: <code>chmod +x script.sh</code> = <code>chmod a+x script.sh</code>.'],
+      dicas: [
+        '<b>[LPIC-1 104.5]:</b> Classes: <code>u</code> (user/dono), <code>g</code> (group), <code>o</code> (others), <code>a</code> (all/todos). Operadores: <code>+</code> adiciona, <code>-</code> retira, <code>=</code> fixa. Sem letra de classe, <code>chmod +x</code> aplica a todos (<code>a+x</code>).',
+      ],
     },
     {
       comando: 'chmod (números)',
@@ -107,7 +112,10 @@ export const permissoes: Topico = {
         { comando: 'chmod 700 privado', explicacao: 'pasta privada: só o dono entra' },
         { comando: 'ls -l' },
       ],
-      pegadinha: 'Os números são <b>por classe</b>, não um número só: 640 é "6 para o dono, 4 para o grupo, 0 para os outros".',
+      dicas: [
+        '<b>[LPIC-1 104.5 / Linux Essentials 5.3]:</b> Tabela octal: r=4, w=2, x=1. Padrões de prova: <code>755</code> (scripts e pastas), <code>644</code> (arquivos de texto comuns), <code>600</code> (senhas e chaves privadas).',
+      ],
+      pegadinha: '<b>[LPIC-1 104.5 / RHCSA EX200]:</b> Em DIRETÓRIOS, o bit <code>x</code> (1) é o direito de ENTRAR (cd) e acessar seus arquivos. Sem <code>x</code>, mesmo tendo <code>r</code>, o usuário lista os nomes pelo <code>ls</code> mas recebe "Permissão negada" ao tentar ler qualquer arquivo interno!',
     },
     {
       comando: 'chmod -R',
@@ -119,8 +127,10 @@ export const permissoes: Topico = {
         { comando: 'chmod -Rv 750 privado', explicacao: 'repare: senhas.txt ganhou x sem precisar' },
         { comando: 'chmod -Rv u=rwX,g=rX,o= privado', explicacao: 'X maiúsculo: x só em pastas (e no que já era executável)' },
       ],
-      dicas: ['Com número, o <code>-R</code> aplica o mesmo valor em pastas <b>e</b> arquivos, e os arquivos ganham <b>x</b> à toa. O <code>X</code> maiúsculo resolve.'],
-      pegadinha: 'No chmod/chown/chgrp o recursivo é <b>-R maiúsculo</b>. No rm e no cp é -r minúsculo (o cp aceita os dois).',
+      dicas: [
+        '<b>[LPIC-1 104.5]:</b> O caractere especial <code>X</code> maiúsculo (ex.: <code>chmod -R a+rX pasta</code>) aplica execução somente a pastas e a arquivos que já eram executáveis, evitando dar <code>x</code> a arquivos comuns.',
+      ],
+      pegadinha: '<b>[LPIC-1 104.5]:</b> No chmod/chown/chgrp o recursivo é <b>-R maiúsculo</b>. No rm e no cp é -r minúsculo (o cp aceita os dois).',
     },
     {
       comando: 'chown',
@@ -141,6 +151,10 @@ export const permissoes: Topico = {
         { comando: 'chown -R maria:financeiro /srv/equipe' },
         { comando: 'ls -ld /srv/equipe' },
       ],
+      dicas: [
+        '<b>[LPIC-1 104.5]:</b> <code>chown usuario:grupo arquivo</code> troca dono e grupo de uma só vez. <code>chown :grupo arquivo</code> altera apenas o grupo.',
+      ],
+      pegadinha: '<b>[LPIC-1 104.5 / Linux Essentials 5.3]:</b> Apenas o superusuário <b>root</b> tem permissão para alterar o dono (owner) de um arquivo no Linux. Usuários comuns não podem doar arquivos para outros.',
     },
     {
       comando: 'chgrp',
@@ -148,9 +162,13 @@ export const permissoes: Topico = {
       descricao: '<b>ch</b>ange <b>gr</b>ou<b>p</b>. O dono do arquivo também pode usar, mas só para um grupo do qual ele participa.',
       sintaxe: 'chgrp grupo arquivo',
       naPratica: 'Dar acesso a uma pasta para uma equipe inteira: <code>chgrp -R devs /srv/projeto</code> e <code>chmod 770</code>. Quem entrar no grupo <code>devs</code> ganha acesso na hora, sem ninguém mexer em permissão de novo.',
+      opcoes: [['-R', 'recursivo']],
       exemplos: [
         { comando: 'chgrp -v financeiro script.sh' },
         { comando: 'ls -l script.sh' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 104.5]:</b> O usuário dono de um arquivo pode usar <code>chgrp</code> para alterar o grupo, mas somente para grupos aos quais ele próprio pertença.',
       ],
     },
     {
@@ -167,7 +185,10 @@ export const permissoes: Topico = {
         { comando: 'cat /srv/empresa/relatorio.txt', terminal: 3, explicacao: 'relatorio.txt é 640 e joao não é do grupo: negado' },
         { comando: 'ls -l /srv/empresa', terminal: 3, explicacao: 'listar a pasta ele pode (a pasta é 755)' },
       ],
-      dicas: ['Mudou algo como root? Rode de novo no terminal do usuário: o efeito é imediato para permissões. Para <b>grupos novos</b>, o usuário precisa logar de novo.'],
+      dicas: [
+        '<b>[LPIC-1 104.5]:</b> O kernel avalia apenas uma classe na ordem: Dono → Grupo → Outros. Se o usuário for o dono, valem exclusivamente os bits do dono.',
+        'Mudou algo como root? Rode de novo no terminal do usuário: o efeito é imediato para permissões. Para <b>grupos novos</b>, o usuário precisa logar de novo.',
+      ],
     },
     {
       comando: 'umask',
@@ -188,7 +209,11 @@ export const permissoes: Topico = {
         { comando: 'touch depois.txt && mkdir depois' },
         { comando: 'ls -l', explicacao: 'compare antes (644/755) e depois (640/750)' },
       ],
-      dicas: ['O umask vale só para o shell atual. Para ficar permanente, coloque o comando no <code>~/.bashrc</code>.'],
+      dicas: [
+        '<b>[LPIC-1 104.5 & CompTIA Linux+]:</b> Base de cálculo do umask: diretórios partem de <code>777</code> e arquivos partem de <code>666</code> (nenhum arquivo comum nasce executável por padrão).',
+        'O umask vale só para o shell atual. Para ficar permanente, coloque o comando no <code>~/.bashrc</code>.',
+      ],
+      pegadinha: '<b>[LPIC-1 104.5]:</b> O umask SUBTRAI permissões: umask <code>022</code> resulta em <code>644</code> para arquivos (666 - 022) e <code>755</code> para pastas (777 - 022). Um umask <code>027</code> gera arquivos <code>640</code> e pastas <code>750</code>.',
     },
     {
       comando: 'chmod +t',
@@ -201,7 +226,11 @@ export const permissoes: Topico = {
         { comando: 'chmod 1777 /srv/publico' },
         { comando: 'ls -ld /srv/publico /tmp', explicacao: 'drwxrwxrwt: o t no lugar do último x' },
       ],
-      dicas: ['Outros bits especiais que aparecem na prova: <b>SUID</b> (<code>s</code> no dono, ex.: <code>/usr/bin/passwd</code> roda como root) e <b>SGID</b> (<code>s</code> no grupo: arquivos criados na pasta herdam o grupo).'],
+      dicas: [
+        '<b>[LPIC-1 104.6 / Linux Essentials 5.4]:</b> Permissões especiais (4º dígito octal): <b>4000 = SUID</b> (executa como dono, ex: <code>/usr/bin/passwd</code>), <b>2000 = SGID</b> (arquivos herdam grupo da pasta), <b>1000 = Sticky Bit</b> (exclusão restrita ao dono, ex: <code>/tmp</code> 1777).',
+        '<b>[LPIC-1 104.6]:</b> Se aparecer <code>S</code> ou <code>T</code> maiúsculo no <code>ls -l</code>, significa que o bit especial está ativo mas o bit <code>x</code> correspondente está DESLIGADO! Com <code>x</code> ligado, eles aparecem minúsculos: <code>s</code> e <code>t</code>.',
+      ],
+      pegadinha: '<b>[LPIC-1 104.6 / RHCSA EX200]:</b> Para pastas colaborativas compartilhadas entre membros de um mesmo grupo, a prova exige o <b>SGID</b> (<code>chmod 2770 pasta</code> ou <code>chmod g+s pasta</code>): novos arquivos herdam automaticamente o grupo da pasta.',
     },
   ],
 

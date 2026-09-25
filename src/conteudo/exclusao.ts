@@ -65,7 +65,10 @@ export const exclusao: Topico = {
         { comando: 'rm -f nao-existe.txt', explicacao: 'com -f, silêncio' },
         { comando: 'rm temp', explicacao: 'ERRO: é um diretório' },
       ],
-      pegadinha: '<code>rm</code> sozinho não apaga pasta ("É um diretório"). Para pasta vazia use <code>rmdir</code>; com conteúdo, <code>rm -r</code>.',
+      dicas: [
+        '<b>[LPIC-1 103.3 / Linux Essentials 2.4]:</b> Com <code>-f</code> (force) o <code>rm</code> suprime confirmações e ignora arquivos inexistentes, finalizando com sucesso (status 0).',
+      ],
+      pegadinha: '<b>[LPIC-1 103.3]:</b> Questão clássica: para apagar um arquivo cujo nome começa com hífen (ex: <code>-teste.txt</code>), use <code>rm -- -teste.txt</code> ou <code>rm ./-teste.txt</code> para o comando não achar que é um parâmetro inválido.',
     },
     {
       comando: 'rm *',
@@ -80,7 +83,10 @@ export const exclusao: Topico = {
         { comando: 'rm -v foto?.jpg' },
         { comando: 'ls' },
       ],
-      pegadinha: 'Um espaço a mais é fatal: <code>rm * .log</code> (com espaço) apaga <b>tudo</b> da pasta e depois reclama que ".log" não existe.',
+      dicas: [
+        '<b>[LPIC-1 103.3]:</b> Curingas de Shell: <code>*</code> (zero ou mais caracteres), <code>?</code> (exatamente um caractere) e <code>[abc]</code> (qualquer caractere dentro dos colchetes).',
+      ],
+      pegadinha: '<b>[LPIC-1 103.3]:</b> Quem expande os curingas é o BASH antes do <code>rm</code> receber os argumentos. Um espaço a mais é fatal: <code>rm * .log</code> apaga TUDO da pasta!',
     },
     {
       comando: 'rm -r',
@@ -89,12 +95,15 @@ export const exclusao: Topico = {
       sintaxe: 'rm -r diretório  |  rm -rf diretório',
       naPratica: 'Remover versões antigas de um sistema depois de publicar a nova, ou limpar o cache de uma aplicação para forçar a recriação (<code>rm -rf /var/www/app/cache/*</code>). Cuidado em scripts: se a variável estiver vazia, <code>rm -rf $PASTA/</code> vira <code>rm -rf /</code>. Scripts profissionais sempre validam a variável antes.',
       exemplos: [
-        { comando: 'tree temp' },
+        { comando: 'ls -R temp', explicacao: 'o que tem dentro, subpastas incluídas' },
         { comando: 'rm -rv temp', explicacao: 'apaga a pasta e tudo dentro' },
         { comando: 'rm -ri vazia', respostas: ['s'], explicacao: '-i também funciona com -r' },
         { comando: 'rm -rf /', explicacao: 'o Linux se protege: recusa apagar a raiz' },
       ],
-      dicas: ['A ordem das letras não importa: <code>-rf</code>, <code>-fr</code>, <code>-r -f</code> são iguais.'],
+      dicas: [
+        '<b>[LPIC-1 103.3]:</b> Ambas as opções <code>-r</code> e <code>-R</code> são válidas para recursão no <code>rm</code>.',
+        'A ordem das letras não importa: <code>-rf</code>, <code>-fr</code>, <code>-r -f</code> são iguais.',
+      ],
       pegadinha: 'Não existe "desfazer". <code>rm -rf pasta /</code> (com espaço antes da barra) tenta apagar a raiz também.',
     },
     {
@@ -108,6 +117,9 @@ export const exclusao: Topico = {
         { comando: 'ls -l protegido.txt', terminal: 2, login: { usuario: 'ricardo', senha: '123' }, explicacao: 'permissão 444: só leitura' },
         { comando: 'rm protegido.txt', terminal: 2, respostas: ['n'], explicacao: 'pergunta; respondemos n' },
         { comando: 'rm -f protegido.txt', terminal: 2, explicacao: '-f não pergunta: apagou mesmo sendo 444, porque a pasta é do ricardo' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 104.5]:</b> Regra essencial do Linux: a permissão para apagar um arquivo depende da permissão de escrita (<code>w</code>) e execução (<code>x</code>) no DIRETÓRIO pai, não no arquivo.',
       ],
     },
     {
@@ -124,6 +136,9 @@ export const exclusao: Topico = {
         { comando: 'echo "meu" > /tmp/do-ricardo.txt', terminal: 2, explicacao: 'mas ricardo cria o dele...' },
         { comando: 'rm /tmp/do-ricardo.txt', terminal: 2, explicacao: '... e apaga o dele normalmente' },
       ],
+      dicas: [
+        '<b>[LPIC-1 104.5 / Linux Essentials 5.4]:</b> O Sticky Bit (permissão octal <code>1000</code> / flag <code>+t</code>) impede que um usuário apague arquivos de outros em pastas 777 como <code>/tmp</code> (<code>1777</code> / <code>drwxrwxrwt</code>).',
+      ],
     },
     {
       comando: 'rmdir',
@@ -135,6 +150,9 @@ export const exclusao: Topico = {
         { comando: 'mkdir -p x/y' },
         { comando: 'rmdir x', explicacao: 'recusa: não está vazio' },
         { comando: 'rmdir x/y x', explicacao: 'primeiro o de dentro, depois o de fora' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 103.3]:</b> <code>rmdir</code> é a ferramenta exigida para exclusão estritamente segura de diretórios que já estejam vazios.',
       ],
     },
   ],

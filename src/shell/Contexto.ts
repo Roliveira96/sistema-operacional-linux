@@ -3,6 +3,8 @@ import type { Contas } from '../linux/Contas';
 import type { Quadro, Sessao } from '../linux/Sessao';
 import type { No, Diretorio } from '../linux/No';
 import type { Credencial, SistemaDeArquivos } from '../linux/SistemaDeArquivos';
+import type { Processo } from '../linux/Processos';
+import type { Escopo } from '../linux/Escopo';
 import type { Saida } from './Saida';
 
 /** Um arquivo aberto no nano ou no vim. gravar() devolve a mensagem de erro, ou null se deu certo. */
@@ -26,10 +28,27 @@ export interface Interacao {
   desconectar(): void;
 }
 
-/** Quem sabe rodar um comando a partir de argumentos já prontos (usado pelo sudo). */
+/** Quem sabe rodar comandos (usado pelo sudo, xargs, nohup, bash, source, find -exec...). */
 export interface Executor {
   executarArgs(args: string[], contexto: Contexto): Promise<number>;
+  executarTexto(texto: string, contexto: Contexto): Promise<number>;
+  executarScript(caminho: string, argumentos: string[], contexto: Contexto, exigirExecucao: boolean): Promise<number>;
   ehEmbutido(nome: string): boolean;
+  nomesDeComandos(): string[];
+}
+
+export interface OpcoesDeContexto {
+  maquina: Maquina;
+  sessao: Sessao;
+  saida: Saida;
+  erro: Saida;
+  entrada: string | null;
+  credencial: Credencial;
+  interacao: Interacao;
+  executor: Executor;
+  escopo: Escopo;
+  processo: Processo | null;
+  emFundo: boolean;
 }
 
 /** Tudo que um comando recebe para trabalhar. */
@@ -42,17 +61,37 @@ export class Contexto {
   public readonly credencial: Credencial;
   public readonly interacao: Interacao;
   public readonly executor: Executor;
+  /** Variáveis do shell atual (ou do script que está rodando). */
+  public readonly escopo: Escopo;
+  /** O processo deste comando (null para comandos internos do bash). */
+  public readonly processo: Processo | null;
+  /** Rodando em segundo plano (&): o Ctrl+C do terminal não o atinge. */
+  public readonly emFundo: boolean;
 
-  constructor(maquina: Maquina, sessao: Sessao, saida: Saida, erro: Saida, entrada: string | null, credencial: Credencial,
-    interacao: Interacao, executor: Executor) {
-    this.maquina = maquina;
-    this.sessao = sessao;
-    this.saida = saida;
-    this.erro = erro;
-    this.entrada = entrada;
-    this.credencial = credencial;
-    this.interacao = interacao;
-    this.executor = executor;
+  constructor(opcoes: OpcoesDeContexto) {
+    this.maquina = opcoes.maquina;
+    this.sessao = opcoes.sessao;
+    this.saida = opcoes.saida;
+    this.erro = opcoes.erro;
+    this.entrada = opcoes.entrada;
+    this.credencial = opcoes.credencial;
+    this.interacao = opcoes.interacao;
+    this.executor = opcoes.executor;
+    this.escopo = opcoes.escopo;
+    this.processo = opcoes.processo;
+    this.emFundo = opcoes.emFundo;
+  }
+
+  public opcoes(): OpcoesDeContexto {
+    return {
+      maquina: this.maquina, sessao: this.sessao, saida: this.saida, erro: this.erro, entrada: this.entrada,
+      credencial: this.credencial, interacao: this.interacao, executor: this.executor, escopo: this.escopo,
+      processo: this.processo, emFundo: this.emFundo,
+    };
+  }
+
+  public com(mudancas: Partial<OpcoesDeContexto>): Contexto {
+    return new Contexto({ ...this.opcoes(), ...mudancas });
   }
 
   public get fs(): SistemaDeArquivos {
@@ -73,7 +112,24 @@ export class Contexto {
 
   /** Mesmo contexto, com outra identidade (sudo). */
   public comCredencial(credencial: Credencial): Contexto {
-    return new Contexto(this.maquina, this.sessao, this.saida, this.erro, this.entrada, credencial, this.interacao, this.executor);
+    return this.com({ credencial });
+  }
+
+  /** O comando deve parar? (Ctrl+C no terminal, ou kill no processo dele.) */
+  public interrompido(): boolean {
+    return (this.processo?.encerrado ?? false) || (!this.emFundo && this.sessao.interrompido);
+  }
+
+  /** Espera ms milissegundos (parado enquanto suspenso com Ctrl+Z). Devolve false se foi interrompido. */
+  public async dormir(ms: number): Promise<boolean> {
+    let restante: number = ms;
+    while (restante > 0) {
+      if (this.interrompido()) return false;
+      const passo: number = Math.min(100, restante);
+      await new Promise((resolver) => setTimeout(resolver, passo));
+      if (!(this.processo?.estaPausado() ?? false)) restante -= passo;
+    }
+    return !this.interrompido();
   }
 
   public escrever(texto: string, classe?: string): void {

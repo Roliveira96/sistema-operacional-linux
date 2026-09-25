@@ -1,7 +1,7 @@
 import { Comando, Opcoes } from '../Comando';
 import type { Contexto } from '../Contexto';
 import { Contas, type Usuario } from '../../linux/Contas';
-import { Quadro } from '../../linux/Sessao';
+import { SaidaDoScript } from '../Interpretador';
 
 export class Sudo extends Comando {
   public readonly nome: string = 'sudo';
@@ -41,7 +41,7 @@ export class Sudo extends Comando {
       return 1;
     }
     if (loginShell || shell) {
-      contexto.sessao.entrar(new Quadro(alvo, contexto.contas.gidsDe(alvo), loginShell ? alvo.home : contexto.quadro.cwd));
+      contexto.sessao.entrar(contexto.maquina.novoQuadro(alvo, loginShell ? alvo.home : contexto.quadro.cwd));
       return 0;
     }
     if (contexto.executor.ehEmbutido(comando[0])) {
@@ -114,7 +114,7 @@ export class Su extends Comando {
         destino = '/';
       }
     }
-    contexto.sessao.entrar(new Quadro(alvo, contexto.contas.gidsDe(alvo), destino));
+    contexto.sessao.entrar(contexto.maquina.novoQuadro(alvo, destino));
     return 0;
   }
 }
@@ -129,7 +129,11 @@ export class Exit extends Comando {
     this.nome = nome;
   }
 
-  public async executar(_args: string[], contexto: Contexto): Promise<number> {
+  public async executar(args: string[], contexto: Contexto): Promise<number> {
+    const codigo: number = args[0] !== undefined && /^\d+$/.test(args[0]) ? Number(args[0]) : contexto.escopo.ultimoStatus;
+    if (contexto.escopo.emScript) {
+      throw new SaidaDoScript(codigo);
+    }
     contexto.linha('logout');
     if (!contexto.sessao.sair()) {
       contexto.interacao.desconectar();

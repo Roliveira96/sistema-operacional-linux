@@ -57,6 +57,11 @@ export class SistemaDeArquivos {
     return (no.modo & bit) !== 0;
   }
 
+  /** Grupo de um arquivo novo: o grupo principal de quem cria, ou o grupo da pasta se ela tiver SGID (g+s). */
+  public grupoParaNovo(pai: Diretorio, credencial: Credencial): number {
+    return (pai.modo & Permissoes.SGID) !== 0 ? pai.grupo : credencial.gids[0];
+  }
+
   /** Para apagar/renomear algo é preciso w+x no diretório pai (e respeitar o sticky bit, como no /tmp). */
   public podeApagar(pai: Diretorio, filho: No, credencial: Credencial): boolean {
     if (!this.pode(pai, credencial, 'w') || !this.pode(pai, credencial, 'x')) {

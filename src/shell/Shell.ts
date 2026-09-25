@@ -2,7 +2,7 @@ import { RegistroDeComandos } from './RegistroDeComandos';
 import { Interpretador } from './Interpretador';
 import { Cd, Ls, Pwd, Tree } from './comandos/Navegacao';
 import { Mkdir, Rmdir } from './comandos/Diretorios';
-import { Cat, Cp, Echo, Editor, Ln, Mv, Stat, Touch } from './comandos/Arquivos';
+import { Cat, Cp, Echo, Editor, Ln, Mv, Printf, Stat, Touch } from './comandos/Arquivos';
 import { Apt, AptCache, AptGet, Dpkg } from './comandos/Pacotes';
 import { Df, Free, Lsblk, LsbRelease, Service, Systemctl, Which } from './comandos/Sistema';
 import { Cowsay, Curl, Git, Htop, Mysql, Neofetch, Nginx, Openssl, Python3 } from './comandos/Programas';
@@ -13,6 +13,8 @@ import { Adduser, Deluser, Getent, Groups, Id, Passwd, Useradd, Userdel, Usermod
 import { Delgroup, Gpasswd, Groupadd, Groupdel, Groupmod } from './comandos/Grupos';
 import { Exit, Su, Sudo } from './comandos/Privilegios';
 import { Ajuda, Clear, Date_, History, Hostname, Man, Uname, Who } from './comandos/Utilitarios';
+import { Alias, Bash, Env, Export, Read, Set_, Shift, Sleep, Source, Test, Type, Unalias, Unset, Verdadeiro } from './comandos/Embutidos';
+import { Bg, Fg, Jobs, Kill, Killall, Nohup, Ps, Top, Uptime, Wait } from './comandos/Processos';
 
 /** Monta o registro com todos os comandos e devolve um interpretador novo (um por terminal). */
 export class Shell {
@@ -28,7 +30,7 @@ export class Shell {
       registro.registrar(
         new Pwd(), new Cd(), new Ls(), new Tree(),
         new Mkdir(), new Rmdir(),
-        new Touch(), new Cat(), new Echo(), new Cp(), new Mv(), new Stat(), new Ln(),
+        new Touch(), new Cat(), new Echo(), new Cp(), new Mv(), new Stat(), new Ln(), new Printf(),
         new Apt(), new AptGet(), new AptCache(), new Dpkg(),
         new Systemctl(), new Service(), new Which(), new LsbRelease(), new Df(), new Free(), new Lsblk(),
         new Htop(), new Neofetch(), new Cowsay(), new Git(), new Curl(), new Nginx(), new Mysql(), new Python3(), new Openssl(),
@@ -42,6 +44,12 @@ export class Shell {
         new Sudo(), new Su(), new Exit('exit'), new Exit('logout'),
         new Clear(), new History(), new Hostname(), new Date_(), new Uname(), new Who(),
         new Ajuda(registro), new Man(registro),
+        new Export(), new Unset(), new Set_(), new Env('env'), new Env('printenv'), new Alias(), new Unalias(),
+        new Source('source'), new Source('.'), new Read(), new Test('test'), new Test('['), new Test('[['),
+        new Verdadeiro('true'), new Verdadeiro('false'), new Verdadeiro(':'), new Shift(), new Type(),
+        new Bash('bash'), new Bash('sh'), new Sleep(),
+        new Ps(), new Top(), new Kill(), new Killall('killall'), new Killall('pkill'), new Killall('pgrep'),
+        new Jobs(), new Fg(), new Bg(), new Wait(), new Nohup(), new Uptime(),
       );
       Shell.registro = registro;
     }

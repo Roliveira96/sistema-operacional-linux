@@ -59,6 +59,10 @@ export const estrutura: Topico = {
         { comando: 'cat fstab', explicacao: 'a partição sda2 é montada em /' },
         { comando: 'grep Port ssh/sshd_config', explicacao: 'o SSH escuta na porta 22' },
       ],
+      dicas: [
+        '<b>[LPIC-1 104.7 / Linux Essentials 4.3]:</b> Pelo padrão FHS, o <code>/etc</code> guarda EXCLUSIVAMENTE arquivos de configuração em texto puro do sistema (nunca binários).',
+      ],
+      pegadinha: '<b>[LPIC-1 104.7]:</b> Em provas, lembre-se: nenhum executável binário deve residir em <code>/etc</code>; binários ficam em <code>/bin</code>, <code>/sbin</code>, <code>/usr/bin</code> ou <code>/usr/sbin</code>.',
       naPratica: 'Antes de editar qualquer arquivo em <code>/etc</code>, faça uma cópia (<code>cp arquivo arquivo.bak</code>). Muitas empresas versionam o <code>/etc</code> inteiro (ferramenta <i>etckeeper</i>) para saber quem mudou o quê. ' +
         'E backup do servidor sem o <code>/etc</code> é backup incompleto: é ali que está todo o trabalho de configuração.',
     },
@@ -74,6 +78,10 @@ export const estrutura: Topico = {
         { comando: 'ls -ld /root', explicacao: 'drwx------: só o root entra' },
         { comando: 'echo $HOME' },
       ],
+      dicas: [
+        '<b>[LPIC-1 104.7]:</b> Diretórios de usuários normais ficam sob <code>/home</code>, geralmente em partições separadas com cotas de disco.',
+      ],
+      pegadinha: '<b>[LPIC-1 104.7 / Linux Essentials 4.3]:</b> A casa do root é <code>/root</code> e NUNCA <code>/home/root</code>! O root fica isolado para permitir boot e recuperação caso <code>/home</code> esteja desmontado.',
       naPratica: 'Em servidores, é comum colocar o <code>/home</code> numa partição ou disco separado: se o sistema precisar ser reinstalado, os dados dos usuários ficam intactos. ' +
         'Cotas de disco (limitar quanto cada usuário pode usar) também são aplicadas no <code>/home</code>.',
     },
@@ -90,6 +98,9 @@ export const estrutura: Topico = {
         { comando: 'ls -l /usr/bin/ls', explicacao: 'um programa é um arquivo com x' },
         { comando: '/usr/bin/whoami', explicacao: 'chamar pelo caminho completo também funciona' },
       ],
+      dicas: [
+        '<b>[LPIC-1 104.7]:</b> <code>/usr/sbin</code> e <code>/sbin</code> concentram os comandos exclusivos do superusuário (root). Programas comuns de usuários ficam em <code>/usr/bin</code>.',
+      ],
       naPratica: 'Programas instalados pelo <code>apt</code> vão para <code>/usr/bin</code>. Scripts e programas que <b>você</b> instala à mão devem ir para <code>/usr/local/bin</code>: ' +
         'o apt nunca mexe lá, então uma atualização do sistema não apaga o seu trabalho.',
     },
@@ -104,6 +115,9 @@ export const estrutura: Topico = {
         { comando: 'ls' },
         { comando: 'ls lib/x86_64-linux-gnu', explicacao: 'bibliotecas: libc é usada por quase todo programa' },
         { comando: 'ls /usr/local/bin', explicacao: 'vazia: aqui entram os seus scripts' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 104.7]:</b> Segundo o FHS, <code>/usr</code> é compartilhável e somente leitura (read-only). O que o sysadmin compila/instala manualmente fica em <code>/usr/local</code>.',
       ],
       naPratica: 'Em servidores muito grandes o <code>/usr</code> pode ser montado como <b>somente leitura</b>: como ele só muda quando se instala pacotes, isso impede que um invasor troque programas do sistema.',
     },
@@ -126,6 +140,9 @@ export const estrutura: Topico = {
         { comando: 'tail -3 log/syslog' },
         { comando: 'grep Failed log/auth.log', explicacao: 'alguém tentando adivinhar a senha do root!' },
       ],
+      dicas: [
+        '<b>[LPIC-1 104.7 / 108.2]:</b> Questão certa de prova: arquivos de log de auditoria e de serviços residem obrigatoriamente sob <code>/var/log</code>.',
+      ],
       naPratica: '<b>"Disco cheio" quase sempre é o /var</b>: um log que cresceu sem controle ou um banco de dados em <code>/var/lib/mysql</code>. ' +
         'O <i>logrotate</i> existe para girar e compactar os logs. E o <code>auth.log</code> é o primeiro lugar a olhar numa suspeita de invasão.',
     },
@@ -140,6 +157,10 @@ export const estrutura: Topico = {
         { comando: 'echo "rascunho" > /tmp/teste.txt' },
         { comando: 'ls -l /tmp' },
       ],
+      dicas: [
+        '<b>[LPIC-1 104.7 / 104.5]:</b> <code>/tmp</code> tem a permissão octal <code>1777</code> (Sticky bit <code>+t</code>). Qualquer usuário pode criar arquivos lá.',
+      ],
+      pegadinha: '<b>[LPIC-1 104.7]:</b> Diferença clássica de exame: <code>/tmp</code> é limpo na reinicialização; <code>/var/tmp</code> preserva arquivos temporários entre boots.',
       naPratica: 'Nunca guarde nada importante em <code>/tmp</code>: depois do próximo reboot, sumiu. Por outro lado, é o lugar certo para arquivos de trabalho de scripts ' +
         '(ex.: um backup montando um arquivo antes de enviar). Como todos escrevem lá, também é um lugar clássico para invasores deixarem arquivos: vale ficar de olho.',
     },
@@ -154,6 +175,9 @@ export const estrutura: Topico = {
         { comando: 'uname -r', explicacao: 'a mesma versão que está rodando' },
         { comando: 'cat /boot/grub/grub.cfg', explicacao: '"NÃO EDITE": gerado automaticamente' },
       ],
+      dicas: [
+        '<b>[LPIC-1 101.2 / 102.2]:</b> Em <code>/boot</code> residem o kernel <code>vmlinuz</code>, a imagem <code>initramfs</code> (ou <code>initrd</code>) e o arquivo de configuração do bootloader <code>grub.cfg</code>.',
+      ],
       naPratica: 'Em servidores antigos, a partição <code>/boot</code> era pequena e enchia com kernels antigos, impedindo atualizações. A solução: <code>apt autoremove</code>, que apaga os kernels que não são mais usados.',
     },
     {
@@ -167,6 +191,9 @@ export const estrutura: Topico = {
         { comando: 'lsblk', explicacao: 'os discos e onde cada partição está montada' },
         { comando: 'echo "isto some" > /dev/null' },
         { comando: 'ls /nada 2> /dev/null', explicacao: 'jogar erros fora: uso clássico do /dev/null' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 104.1 / Linux Essentials 4.2]:</b> Dispositivos especiais: <code>/dev/sda</code> (disco físico SCSI/SATA), <code>/dev/null</code> (bit bucket/descarta dados), <code>/dev/zero</code> (gera bytes nulos) e <code>/dev/urandom</code> (gerador de números pseudoaleatórios).',
       ],
       naPratica: 'Ao adicionar um disco novo num servidor, ele aparece como <code>/dev/sdb</code>; você cria a partição, formata e monta numa pasta (e registra no <code>/etc/fstab</code> para montar sozinho no boot). ' +
         'Em scripts do cron, <code>&gt; /dev/null 2&gt;&amp;1</code> é usado para descartar toda a saída.',
@@ -184,6 +211,10 @@ export const estrutura: Topico = {
         { comando: 'free -h', explicacao: 'o free lê o /proc/meminfo e formata' },
         { comando: 'cat /proc/loadavg', explicacao: 'a carga do servidor' },
       ],
+      dicas: [
+        '<b>[LPIC-1 101.1 / 104.7]:</b> <code>/proc</code> e <code>/sys</code> são pseudossistemas de arquivos (virtual filesystems) mantidos diretamente na memória RAM pelo kernel (tamanho 0 bytes no disco).',
+      ],
+      pegadinha: '<b>[LPIC-1 101.1]:</b> Se perguntarem em qual pasta virtual checar dados de CPU ou memória do hardware sem instalar ferramentas extras, a resposta é <code>/proc</code> (<code>/proc/cpuinfo</code> e <code>/proc/meminfo</code>).',
       naPratica: 'Ferramentas de monitoramento (htop, top, free, Zabbix, Prometheus) leem justamente o <code>/proc</code>. ' +
         'Quando alguém pergunta "quantos núcleos tem esse servidor?", <code>grep -c processor /proc/cpuinfo</code> responde.',
     },
@@ -197,6 +228,9 @@ export const estrutura: Topico = {
         { comando: 'ls -ld /opt /srv', explicacao: 'vazias numa instalação nova' },
         { comando: 'mkdir -p /srv/site', explicacao: 'lugar organizado para os arquivos de um site' },
       ],
+      dicas: [
+        '<b>[LPIC-1 104.7]:</b> <code>/opt</code> guarda aplicações autônomas e pacotes add-on de terceiros; <code>/srv</code> armazena dados de serviços atendidos pelo sistema (web, ftp, etc.).',
+      ],
       naPratica: 'Organização vale ouro quando outra pessoa assume o servidor: sites em <code>/srv</code> ou <code>/var/www</code>, softwares comerciais em <code>/opt</code>. ' +
         'Quem chega sabe onde procurar sem precisar perguntar.',
     },
@@ -209,6 +243,9 @@ export const estrutura: Topico = {
       exemplos: [
         { comando: 'ls -ld /media /mnt' },
         { comando: 'df -h', explicacao: 'cada linha: um disco e a pasta onde está montado' },
+      ],
+      dicas: [
+        '<b>[LPIC-1 104.3 / 104.7]:</b> Padrão FHS: <code>/media</code> para mídias removíveis montadas automaticamente pelo sistema; <code>/mnt</code> para pontos de montagem manuais e temporários do sysadmin.',
       ],
       naPratica: 'Para recuperar arquivos de um disco de outro computador, o administrador pluga o disco e monta em <code>/mnt</code> (<code>mount /dev/sdb1 /mnt</code>). ' +
         'Discos de backup e compartilhamentos de rede (NFS, Samba) também costumam ser montados em pastas como <code>/mnt/backup</code>.',

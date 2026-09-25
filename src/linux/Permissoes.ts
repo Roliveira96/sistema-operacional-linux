@@ -4,6 +4,8 @@
  */
 export class Permissoes {
   public static readonly STICKY: number = 0o1000;
+  public static readonly SGID: number = 0o2000;
+  public static readonly SUID: number = 0o4000;
 
   /** 0o755 + diretório → "drwxr-xr-x" (com o "t" do sticky bit quando houver). Aceita a letra de tipo do ls (d, l, c, b, -). */
   public static paraTexto(modo: number, tipo: boolean | string): string {
