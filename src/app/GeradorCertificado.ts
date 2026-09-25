@@ -132,7 +132,9 @@ export class GeradorCertificado {
       <html lang="pt-BR">
       <head>
         <meta charset="UTF-8">
-        <title>Certificado - ${dados.nomeAluno} - ${dados.modalidade.titulo}</title>
+        <title>Certificado - ${dados.nomeAluno} - Professora Sediane - UTFPR</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Great+Vibes&display=swap" />
         <style>
           @page {
             size: landscape A4;
@@ -293,10 +295,32 @@ export class GeradorCertificado {
             letter-spacing: 1px;
             text-transform: uppercase;
           }
+          .docente-destaque-cert {
+            margin: 6px auto 0;
+            padding: 4px 16px;
+            background: rgba(30, 58, 138, 0.05);
+            border: 1px solid rgba(30, 58, 138, 0.2);
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #1e3a8a;
+          }
+          .docente-destaque-cert span {
+            color: #475569;
+          }
+          .docente-destaque-cert b {
+            color: #0f172a;
+          }
+          .docente-destaque-cert small {
+            color: #b45309;
+            font-weight: 700;
+          }
           .texto-ementa {
             font-size: 12px;
             color: #64748b;
-            margin-top: 8px;
+            margin-top: 6px;
             font-family: 'Segoe UI', Roboto, sans-serif;
             font-style: italic;
           }
@@ -311,6 +335,13 @@ export class GeradorCertificado {
           .bloco-assinatura {
             text-align: center;
             width: 320px;
+          }
+          .assinatura-rubrica {
+            font-family: 'Great Vibes', 'Brush Script MT', cursive, serif;
+            font-size: 24px;
+            color: #1e3a8a;
+            margin-bottom: 2px;
+            line-height: 1;
           }
           .linha-assinatura {
             border-top: 1.5px solid #334155;
@@ -432,18 +463,19 @@ export class GeradorCertificado {
                 <p class="instituicao-titulo">UNIVERSIDADE TECNOLÓGICA FEDERAL DO PARANÁ - UTFPR</p>
                 <p class="instituicao-campus">CAMPUS GUARAPUAVA</p>
                 <h1 class="diploma-titulo">Certificado de Conclusão</h1>
-                <p class="diploma-subtitulo">EXAME PRÁTICO E AVALIAÇÃO DE COMPETÊNCIAS EM SISTEMAS OPERACIONAIS LINUX</p>
+                <p class="diploma-subtitulo">EXAME PRÁTICO E AVALIAÇÃO DE COMPETÊNCIAS · PROFESSORA SEDIANE</p>
               </header>
 
               <main class="corpo-cert">
                 <p class="texto-certificamos">Certificamos com louvor que</p>
                 <h2 class="nome-aluno-destaque">${dados.nomeAluno}</h2>
                 <p class="texto-conclusao">
-                  concluiu com êxito o exame de certificação prática e suficiência no módulo
+                  concluiu com êxito o exame de certificação prática e avaliação de competências no módulo
                   <span class="destaque-modulo">${dados.modalidade.titulo}</span>,
-                  demonstrando proficiência nas tarefas de terminal Linux com aproveitamento de
-                  <b>${dados.porcentagem}%</b> em avaliação cronometrada de 10 desafios técnicos
-                  realizada na <b>Universidade Tecnológica Federal do Paraná - UTFPR (Campus Guarapuava)</b>.
+                  demonstrando proficiência nas tarefas de terminal do sistema operacional Linux com aproveitamento de
+                  <b>${dados.porcentagem}%</b> em avaliação técnica realizada na
+                  <b>Universidade Tecnológica Federal do Paraná - UTFPR (Campus Guarapuava)</b>,
+                  sob a orientação, supervisão e avaliação da docente <b>Professora Sediane Carmem Lunardi Hernandes</b>.
                 </p>
 
                 ${
@@ -452,6 +484,12 @@ export class GeradorCertificado {
                     : `<div class="selo-excelencia">✓ Aprovado com Louvor (Nota Superior à Média de 70%)</div>`
                 }
 
+                <div class="docente-destaque-cert">
+                  <span>Professora Avaliadora:</span>
+                  <b>Professora Sediane Carmem Lunardi Hernandes</b>
+                  <small>UTFPR · Campus Guarapuava</small>
+                </div>
+
                 <p class="texto-ementa">
                   <b>Competências avaliadas:</b> ${descricaoModulo}
                 </p>
@@ -459,9 +497,10 @@ export class GeradorCertificado {
 
               <footer class="rodape-cert">
                 <div class="bloco-assinatura">
+                  <div class="assinatura-rubrica" aria-hidden="true">Sediane C. L. Hernandes</div>
                   <div class="linha-assinatura"></div>
-                  <p class="nome-assinante">Profª. Sediane Carmem Lunardi Hernandes</p>
-                  <p class="cargo-assinante">Professora Avaliadora · UTFPR Campus Guarapuava</p>
+                  <p class="nome-assinante">Professora Sediane Carmem Lunardi Hernandes</p>
+                  <p class="cargo-assinante">Docente Avaliadora e Coordenadora · UTFPR Campus Guarapuava</p>
                 </div>
 
                 <div class="bloco-selo">
@@ -475,6 +514,7 @@ export class GeradorCertificado {
                 </div>
 
                 <div class="bloco-assinatura">
+                  <div class="assinatura-rubrica" aria-hidden="true">Coord. Sistemas Operacionais</div>
                   <div class="linha-assinatura"></div>
                   <p class="nome-assinante">Laboratório de Sistemas Operacionais</p>
                   <p class="cargo-assinante">Universidade Tecnológica Federal do Paraná - UTFPR</p>
