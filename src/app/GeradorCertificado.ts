@@ -1,4 +1,5 @@
 import type { ModalidadeSimulado } from '../conteudo/Topico';
+import { gerarQrCodeSvgSincrono } from './QrCodeCertificado';
 
 export interface DadosCertificado {
   nomeAluno: string;
@@ -50,7 +51,7 @@ export class GeradorCertificado {
             type="text"
             id="input-nome-aluno"
             name="nomeAluno"
-            placeholder="Ex.: Ricardo Oliveira dos Santos"
+            placeholder="Ex.: Ricardo Martins de Oliveira"
             required
             minlength="3"
             autofocus
@@ -112,7 +113,7 @@ export class GeradorCertificado {
   /**
    * Abre um exemplo oficial do certificado para visualização rápida.
    */
-  public static exibirExemplo(nomeAluno: string = 'Ricardo tete 123'): void {
+  public static exibirExemplo(nomeAluno: string = 'Ricardo Martins de Oliveira'): void {
     GeradorCertificado.exibirCertificado({
       nomeAluno,
       modalidade: {
@@ -147,6 +148,8 @@ export class GeradorCertificado {
     const ehExcelencia = dados.porcentagem === 100;
     const descricaoModulo = GeradorCertificado.obterDescricaoConteudo(dados.modalidade.id);
     const logoUrl = typeof window !== 'undefined' && window.location ? (window.location.origin + '/utfpr-logo.svg') : '/utfpr-logo.svg';
+    const linkValidacao = `https://github.com/Roliveira96/sistema-operacional-linux?cert=${dados.codigoAutenticidade}`;
+    const qrCodeSvg = gerarQrCodeSvgSincrono(linkValidacao);
 
     return `
       <!DOCTYPE html>
@@ -155,7 +158,8 @@ export class GeradorCertificado {
         <meta charset="UTF-8">
         <title>Certificado - ${dados.nomeAluno} - Professora Sediane - UTFPR</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Great+Vibes&display=swap" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Great+Vibes&family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet" />
         <style>
           @page {
             size: landscape A4;
@@ -167,31 +171,33 @@ export class GeradorCertificado {
             padding: 0;
           }
           body {
-            font-family: 'Cinzel', 'Times New Roman', Times, serif;
-            background: #0f172a;
-            color: #1e293b;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #18181b;
+            color: #231F20;
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            padding: 20px;
+            padding: 24px;
           }
           .folha-diploma {
-            width: 1050px;
-            height: 742px;
-            background: #fffdfa;
-            padding: 30px;
+            width: 1040px;
+            height: 720px;
+            max-height: 720px;
+            background: #fffdf9;
+            padding: 14px;
             position: relative;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 45px rgba(0,0,0,0.45);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            overflow: hidden;
           }
           .borda-externa {
             width: 100%;
             height: 100%;
-            border: 5px solid #1e3a8a;
-            padding: 10px;
+            border: 4px solid #231F20;
+            padding: 5px;
             position: relative;
             display: flex;
             flex-direction: column;
@@ -200,8 +206,8 @@ export class GeradorCertificado {
           .borda-interna {
             width: 100%;
             height: 100%;
-            border: 2px solid #b45309;
-            padding: 24px 36px;
+            border: 2.5px solid #F6C212;
+            padding: 16px 28px 14px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -209,9 +215,9 @@ export class GeradorCertificado {
           }
           .canto {
             position: absolute;
-            width: 24px;
-            height: 24px;
-            border: 3px solid #b45309;
+            width: 22px;
+            height: 22px;
+            border: 2.5px solid #F6C212;
           }
           .canto-tl { top: 4px; left: 4px; border-right: none; border-bottom: none; }
           .canto-tr { top: 4px; right: 4px; border-left: none; border-bottom: none; }
@@ -226,123 +232,131 @@ export class GeradorCertificado {
             margin-bottom: 4px;
           }
           .logo-diploma-utfpr {
-            height: 44px;
+            height: 38px;
             width: auto;
             display: inline-block;
           }
           .instituicao-governo {
-            font-size: 10px;
-            letter-spacing: 2.5px;
-            color: #64748b;
+            font-size: 9px;
+            letter-spacing: 2px;
+            color: #71717a;
             font-weight: 700;
             text-transform: uppercase;
             margin-bottom: 2px;
           }
           .instituicao-titulo {
-            font-size: 16px;
-            letter-spacing: 2.5px;
-            color: #1e3a8a;
+            font-size: 15px;
+            letter-spacing: 2px;
+            color: #231F20;
             text-transform: uppercase;
-            font-weight: 900;
+            font-weight: 800;
             margin-bottom: 2px;
           }
           .instituicao-campus {
-            font-size: 12px;
-            letter-spacing: 1.8px;
+            font-size: 11px;
+            letter-spacing: 1.5px;
             color: #b45309;
             font-weight: 800;
             text-transform: uppercase;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
           }
           .diploma-titulo {
-            font-size: 34px;
+            font-family: 'Cinzel', serif;
+            font-size: 26px;
             font-weight: 900;
-            color: #1e3a8a;
+            color: #231F20;
             letter-spacing: 3px;
             text-transform: uppercase;
-            margin: 2px 0 2px;
+            margin: 2px 0;
           }
           .diploma-subtitulo {
-            font-size: 13px;
-            color: #b45309;
+            font-size: 11px;
+            color: #52525b;
             font-weight: 700;
-            letter-spacing: 1.8px;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
           }
 
           .corpo-cert {
             text-align: center;
-            margin: 10px 0;
+            margin: 4px 0;
           }
           .texto-certificamos {
-            font-size: 15px;
-            color: #475569;
+            font-size: 13.5px;
+            color: #52525b;
             font-style: italic;
-            font-family: Georgia, serif;
+            font-family: 'Merriweather', Georgia, serif;
           }
           .nome-aluno-destaque {
-            font-size: 34px;
-            font-weight: 900;
-            color: #0f172a;
+            font-family: 'Cinzel', serif;
+            font-size: 25px;
+            font-weight: 800;
+            color: #231F20;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin: 10px 0 12px;
-            border-bottom: 2px solid #b45309;
+            letter-spacing: 2px;
+            margin: 6px 0 8px;
+            border-bottom: 2.5px solid #F6C212;
             display: inline-block;
-            padding: 0 30px 4px;
+            padding: 0 24px 4px;
           }
           .texto-conclusao {
-            font-size: 15px;
-            line-height: 1.6;
-            color: #334155;
-            max-width: 820px;
+            font-size: 12.5px;
+            line-height: 1.55;
+            color: #27272a;
+            max-width: 860px;
             margin: 0 auto;
-            font-family: Georgia, serif;
+            font-family: 'Merriweather', Georgia, serif;
           }
           .destaque-modulo {
-            font-weight: bold;
-            color: #1e3a8a;
+            font-weight: 700;
+            color: #231F20;
+          }
+
+          .linha-destaques-badges {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 8px;
           }
           .selo-excelencia {
             display: inline-block;
-            margin-top: 8px;
-            padding: 4px 16px;
-            background: #fef3c7;
-            border: 1px solid #d97706;
-            color: #92400e;
-            border-radius: 20px;
-            font-size: 12px;
+            padding: 3px 12px;
+            background: #fef9c3;
+            border: 1.5px solid #eab308;
+            color: #854d0e;
+            border-radius: 999px;
+            font-size: 10.5px;
             font-weight: 800;
-            letter-spacing: 1px;
+            letter-spacing: 0.8px;
             text-transform: uppercase;
           }
           .docente-destaque-cert {
-            margin: 6px auto 0;
-            padding: 4px 16px;
-            background: rgba(30, 58, 138, 0.05);
-            border: 1px solid rgba(30, 58, 138, 0.2);
-            border-radius: 8px;
+            padding: 3px 12px;
+            background: #f4f4f5;
+            border: 1px solid #e4e4e7;
+            border-radius: 6px;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: #1e3a8a;
+            gap: 6px;
+            font-size: 11px;
+            color: #231F20;
           }
           .docente-destaque-cert span {
-            color: #475569;
+            color: #71717a;
           }
           .docente-destaque-cert b {
-            color: #0f172a;
+            color: #231F20;
           }
           .docente-destaque-cert small {
             color: #b45309;
             font-weight: 700;
           }
           .texto-ementa {
-            font-size: 12px;
-            color: #64748b;
+            font-size: 10.5px;
+            color: #71717a;
             margin-top: 6px;
-            font-family: 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', sans-serif;
             font-style: italic;
           }
 
@@ -350,63 +364,93 @@ export class GeradorCertificado {
             display: flex;
             align-items: flex-end;
             justify-content: space-between;
-            margin-top: 15px;
-            padding-top: 10px;
+            margin-top: 8px;
+            padding-top: 6px;
           }
           .bloco-assinatura {
             text-align: center;
-            width: 320px;
+            width: 250px;
           }
           .assinatura-rubrica {
             font-family: 'Great Vibes', 'Brush Script MT', cursive, serif;
             font-size: 24px;
-            color: #1e3a8a;
+            color: #231F20;
             margin-bottom: 2px;
             line-height: 1;
           }
           .linha-assinatura {
-            border-top: 1.5px solid #334155;
-            margin-bottom: 6px;
+            border-top: 1.5px solid #231F20;
+            margin-bottom: 4px;
           }
           .nome-assinante {
-            font-size: 15px;
+            font-size: 12px;
             font-weight: 700;
-            color: #0f172a;
+            color: #231F20;
           }
           .cargo-assinante {
-            font-size: 12px;
-            color: #64748b;
-            font-family: 'Segoe UI', Roboto, sans-serif;
+            font-size: 10px;
+            color: #52525b;
+            font-family: 'Inter', sans-serif;
           }
 
+          .bloco-centro-validacao {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+          }
           .bloco-selo {
             text-align: center;
           }
           .emblema-selo {
-            width: 76px;
-            height: 76px;
+            width: 52px;
+            height: 52px;
             border-radius: 50%;
-            background: #b45309;
-            color: #ffffff;
+            background: #231F20;
+            color: #F6C212;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 6px;
-            box-shadow: 0 4px 10px rgba(180, 83, 9, 0.3);
-            border: 3px double #fef3c7;
+            margin: 0 auto 3px;
+            border: 2px double #F6C212;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
           }
           .emblema-selo span {
-            font-size: 22px;
+            font-size: 18px;
+            line-height: 1;
           }
           .emblema-selo b {
-            font-size: 9px;
-            letter-spacing: 1px;
+            font-size: 7.5px;
+            letter-spacing: 0.8px;
+          }
+          .bloco-qrcode {
+            text-align: center;
+          }
+          .moldura-qrcode {
+            width: 52px;
+            height: 52px;
+            background: #ffffff;
+            border: 1.5px solid #231F20;
+            border-radius: 4px;
+            padding: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 3px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
           }
           .meta-emissao {
-            font-size: 11px;
-            color: #64748b;
-            font-family: 'Segoe UI', Roboto, sans-serif;
+            font-size: 9.5px;
+            color: #52525b;
+            font-family: 'Inter', sans-serif;
+            line-height: 1.3;
+          }
+          .meta-emissao code {
+            font-family: monospace;
+            font-size: 9px;
+            color: #231F20;
+            font-weight: bold;
           }
 
           .barra-botoes-topo {
@@ -419,24 +463,24 @@ export class GeradorCertificado {
           }
           .btn-imprimir {
             padding: 10px 20px;
-            background: #2563eb;
-            color: white;
+            background: #F6C212;
+            color: #231F20;
             border: none;
             border-radius: 8px;
             font-weight: bold;
             font-size: 14px;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(37,99,235,0.4);
+            box-shadow: 0 4px 12px rgba(246, 194, 18, 0.4);
             display: flex;
             align-items: center;
             gap: 8px;
           }
           .btn-imprimir:hover {
-            background: #1d4ed8;
+            background: #e5b30d;
           }
           .btn-fechar {
             padding: 10px 18px;
-            background: #475569;
+            background: #3f3f46;
             color: white;
             border: none;
             border-radius: 8px;
@@ -457,6 +501,7 @@ export class GeradorCertificado {
               box-shadow: none;
               width: 100vw;
               height: 100vh;
+              max-height: 100vh;
               page-break-after: avoid;
             }
           }
@@ -499,16 +544,17 @@ export class GeradorCertificado {
                   sob a orientação, supervisão e avaliação da docente <b>Professora Sediane Carmem Lunardi Hernandes</b>.
                 </p>
 
-                ${
-                  ehExcelencia
-                    ? `<div class="selo-excelencia">⭐ Distinção Acadêmica: 100% de Acertos (Com Excelência)</div>`
-                    : `<div class="selo-excelencia">✓ Aprovado com Louvor (Nota Superior à Média de 70%)</div>`
-                }
-
-                <div class="docente-destaque-cert">
-                  <span>Professora Avaliadora:</span>
-                  <b>Professora Sediane Carmem Lunardi Hernandes</b>
-                  <small>UTFPR · Campus Guarapuava</small>
+                <div class="linha-destaques-badges">
+                  ${
+                    ehExcelencia
+                      ? `<div class="selo-excelencia">⭐ Distinção Acadêmica: 100% de Acertos (Com Excelência)</div>`
+                      : `<div class="selo-excelencia">✓ Aprovado com Louvor (Nota Superior à Média de 70%)</div>`
+                  }
+                  <div class="docente-destaque-cert">
+                    <span>Professora Avaliadora:</span>
+                    <b>Professora Sediane Carmem Lunardi Hernandes</b>
+                    <small>UTFPR · Campus Guarapuava</small>
+                  </div>
                 </div>
 
                 <p class="texto-ementa">
@@ -521,24 +567,35 @@ export class GeradorCertificado {
                   <div class="assinatura-rubrica" aria-hidden="true">Sediane C. L. Hernandes</div>
                   <div class="linha-assinatura"></div>
                   <p class="nome-assinante">Professora Sediane Carmem Lunardi Hernandes</p>
-                  <p class="cargo-assinante">Docente Avaliadora e Coordenadora · UTFPR Campus Guarapuava</p>
+                  <p class="cargo-assinante">Docente Avaliadora e Coordenadora</p>
+                  <p class="cargo-assinante">UTFPR · Campus Guarapuava</p>
                 </div>
 
-                <div class="bloco-selo">
-                  <div class="emblema-selo">
-                    <span>🐧</span>
-                    <b>UTFPR</b>
+                <div class="bloco-centro-validacao">
+                  <div class="bloco-selo">
+                    <div class="emblema-selo">
+                      <span>🐧</span>
+                      <b>UTFPR</b>
+                    </div>
+                    <p class="meta-emissao"><b>Campus Guarapuava</b></p>
+                    <p class="meta-emissao">${dataFormatada} às ${horaFormatada}</p>
                   </div>
-                  <p class="meta-emissao"><b>Campus Guarapuava</b></p>
-                  <p class="meta-emissao">Emitido em ${dataFormatada} às ${horaFormatada}</p>
-                  <p class="meta-emissao">Registro: <code>${dados.codigoAutenticidade}</code></p>
+
+                  <div class="bloco-qrcode">
+                    <div class="moldura-qrcode" title="Escaneie para validar a autenticidade deste certificado">
+                      ${qrCodeSvg}
+                    </div>
+                    <p class="meta-emissao"><b>Autenticidade</b></p>
+                    <p class="meta-emissao"><code>${dados.codigoAutenticidade}</code></p>
+                  </div>
                 </div>
 
                 <div class="bloco-assinatura">
                   <div class="assinatura-rubrica" aria-hidden="true">Coord. Sistemas Operacionais</div>
                   <div class="linha-assinatura"></div>
                   <p class="nome-assinante">Laboratório de Sistemas Operacionais</p>
-                  <p class="cargo-assinante">Universidade Tecnológica Federal do Paraná - UTFPR</p>
+                  <p class="cargo-assinante">Universidade Tecnológica Federal do Paraná</p>
+                  <p class="cargo-assinante">Campus Guarapuava</p>
                 </div>
               </footer>
             </div>

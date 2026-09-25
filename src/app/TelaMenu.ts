@@ -60,7 +60,7 @@ export class TelaMenu implements Tela {
       '    <div class="menu-botoes">' +
       '      <a class="botao-primario" href="#/laboratorio">🖥️ Abrir o laboratório livre</a>' +
       '      <button class="botao-secundario" data-acao="cola">📋 Cola de comandos</button>' +
-      '      <button class="botao-secundario" data-acao="exemplo-cert" title="Visualizar modelo de certificado emitido para Ricardo tete 123">🎓 Ver Modelo Certificado (Ricardo tete 123)</button>' +
+      '      <button class="botao-secundario" data-acao="exemplo-cert" title="Visualizar modelo de certificado oficial (Ricardo Martins de Oliveira)">🎓 Ver Modelo Certificado Oficial</button>' +
       '    </div>' +
       '  </header>' +
       '  <nav class="menu-cards">' + cards + '</nav>' +
@@ -82,7 +82,7 @@ export class TelaMenu implements Tela {
       this.modal?.abrir('📋 Cola de comandos', ColaDeComandos.html(this.catalogo.listar()));
     });
     raiz.querySelector('[data-acao="exemplo-cert"]')?.addEventListener('click', () => {
-      GeradorCertificado.exibirExemplo('Ricardo tete 123');
+      GeradorCertificado.exibirExemplo('Ricardo Martins de Oliveira');
     });
   }
 
