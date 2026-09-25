@@ -4,6 +4,7 @@ import type { Maquina } from '../linux/Maquina';
 import { Bancada } from './Bancada';
 import { modalidades } from '../conteudo/simulado';
 import { ColaDeComandos } from './ColaDeComandos';
+import { Aviso } from './Aviso';
 
 type FaseSimulado = 'hub' | 'pre-prova' | 'prova' | 'relatorio';
 
@@ -35,6 +36,8 @@ const formatarExtenso = (segundos: number): string => {
  * - Hub de escolha de modalidade
  * - Pré-prova com objetivo, regras e botão de iniciar
  * - Exame cronometrado (30 min) com tempo individual por questão
+ * - Avisos aos 10, 5, 2 e 1 minuto restante
+ * - 30 segundos de margem de tolerância ao término do tempo oficial
  * - Validação automática em tempo real, animação comemorativa do pinguim e trava
  * - Relatório final detalhado com placar e tempos por exercício
  */
@@ -46,6 +49,10 @@ export class TelaSimulado implements Tela {
 
   // Estado do exame
   private tempoRestanteGeral: number = 30 * 60; // 30 minutos em segundos
+  private tempoMargemExtra: number = 30; // 30 segundos de margem de tolerância
+  private emMargemExtra: boolean = false;
+  private avisosEmitidos: Set<number> = new Set();
+  private timerBannerAviso: number | null = null;
   private intervaloTimer: number | null = null;
   private indiceQuestaoAtiva: number = 0;
   private estadosQuestoes: Map<string, EstadoQuestao> = new Map();
@@ -59,6 +66,10 @@ export class TelaSimulado implements Tela {
 
   public desmontar(): void {
     this.pararTimer();
+    if (this.timerBannerAviso !== null) {
+      clearTimeout(this.timerBannerAviso);
+      this.timerBannerAviso = null;
+    }
     this.bancada?.destruir();
     this.bancada = null;
   }
@@ -238,6 +249,9 @@ export class TelaSimulado implements Tela {
   private iniciarExame(): void {
     const mod = this.modalidadeSelecionada;
     this.tempoRestanteGeral = 30 * 60; // 30 minutos
+    this.tempoMargemExtra = 30; // 30 segundos de margem de tolerância
+    this.emMargemExtra = false;
+    this.avisosEmitidos.clear();
     this.indiceQuestaoAtiva = 0;
     this.estadosQuestoes.clear();
     this.animandoPinguim = false;
@@ -261,22 +275,68 @@ export class TelaSimulado implements Tela {
   private iniciarTimer(): void {
     this.pararTimer();
     this.intervaloTimer = window.setInterval(() => {
-      if (this.tempoRestanteGeral > 0) {
-        this.tempoRestanteGeral--;
+      if (!this.emMargemExtra) {
+        if (this.tempoRestanteGeral > 0) {
+          this.tempoRestanteGeral--;
 
-        // Contabiliza tempo da questão ativa se não estiver concluída
-        const questaoAtual = this.obterItemAtual();
-        if (questaoAtual) {
-          const estado = this.estadosQuestoes.get(questaoAtual.id);
-          if (estado && !estado.concluida) {
-            estado.tempoSegundos++;
+          // Avisos aos 10, 5, 2 e 1 minuto restante
+          if (this.tempoRestanteGeral === 600 && !this.avisosEmitidos.has(600)) {
+            this.avisosEmitidos.add(600);
+            Aviso.mostrar('⚠️ Atenção: Restam 10 minutos para o término da prova!');
+            this.exibirBannerAviso('⚠️ Restam 10 minutos para o término da prova.');
+          } else if (this.tempoRestanteGeral === 300 && !this.avisosEmitidos.has(300)) {
+            this.avisosEmitidos.add(300);
+            Aviso.mostrar('⚠️ Atenção: Restam 5 minutos! Revise as questões pendentes.');
+            this.exibirBannerAviso('⚠️ Restam 5 minutos! Revise as tarefas pendentes.');
+          } else if (this.tempoRestanteGeral === 120 && !this.avisosEmitidos.has(120)) {
+            this.avisosEmitidos.add(120);
+            Aviso.mostrar('⚠️ Restam 2 minutos para o encerramento da prova!');
+            this.exibirBannerAviso('⚠️ Restam apenas 2 minutos de prova!');
+          } else if (this.tempoRestanteGeral === 60 && !this.avisosEmitidos.has(60)) {
+            this.avisosEmitidos.add(60);
+            Aviso.mostrar('⚠️ Resta apenas 1 minuto! O tempo de 30 minutos está acabando.');
+            this.exibirBannerAviso('⚠️ Resta 1 minuto! Prepare-se para a entrega da prova.');
+          }
+
+          // Contabiliza tempo da questão ativa se não estiver concluída
+          const questaoAtual = this.obterItemAtual();
+          if (questaoAtual) {
+            const estado = this.estadosQuestoes.get(questaoAtual.id);
+            if (estado && !estado.concluida) {
+              estado.tempoSegundos++;
+            }
+          }
+
+          this.atualizarDisplaysDeTempo();
+
+          if (this.tempoRestanteGeral === 0) {
+            // Tempo esgotado: entra na margem de tolerância de 30 segundos
+            this.emMargemExtra = true;
+            Aviso.mostrar('⏳ Tempo oficial esgotado! Você tem 30 segundos de tolerância final!');
+            this.atualizarBannerTolerancia();
+            this.atualizarDisplaysDeTempo();
           }
         }
+      } else {
+        // Modo margem de tolerância extra (30 segundos)
+        if (this.tempoMargemExtra > 0) {
+          this.tempoMargemExtra--;
 
-        this.atualizarDisplaysDeTempo();
+          const questaoAtual = this.obterItemAtual();
+          if (questaoAtual) {
+            const estado = this.estadosQuestoes.get(questaoAtual.id);
+            if (estado && !estado.concluida) {
+              estado.tempoSegundos++;
+            }
+          }
 
-        if (this.tempoRestanteGeral === 0) {
-          this.finalizarProva();
+          this.atualizarBannerTolerancia();
+          this.atualizarDisplaysDeTempo();
+
+          if (this.tempoMargemExtra === 0) {
+            // Encerra definitivamente a prova e mostra o relatório
+            this.finalizarProva();
+          }
         }
       }
     }, 1000);
@@ -292,13 +352,18 @@ export class TelaSimulado implements Tela {
   private atualizarDisplaysDeTempo(): void {
     const elGeral = this.raiz.querySelector('.sim-tempo-geral') as HTMLElement | null;
     if (elGeral) {
-      elGeral.textContent = `⏱️ ${formatarMinSeg(this.tempoRestanteGeral)}`;
-      if (this.tempoRestanteGeral <= 60) {
-        elGeral.className = 'sim-tempo-geral tempo-critico';
-      } else if (this.tempoRestanteGeral <= 300) {
-        elGeral.className = 'sim-tempo-geral tempo-alerta';
+      if (this.emMargemExtra) {
+        elGeral.textContent = `⏳ Margem: ${this.tempoMargemExtra}s`;
+        elGeral.className = 'sim-tempo-geral tempo-margem';
       } else {
-        elGeral.className = 'sim-tempo-geral';
+        elGeral.textContent = `⏱️ ${formatarMinSeg(this.tempoRestanteGeral)}`;
+        if (this.tempoRestanteGeral <= 60) {
+          elGeral.className = 'sim-tempo-geral tempo-critico';
+        } else if (this.tempoRestanteGeral <= 300) {
+          elGeral.className = 'sim-tempo-geral tempo-alerta';
+        } else {
+          elGeral.className = 'sim-tempo-geral';
+        }
       }
     }
 
@@ -310,6 +375,38 @@ export class TelaSimulado implements Tela {
         elQuestao.textContent = formatarMinSeg(estado.tempoSegundos);
       }
     }
+  }
+
+  private exibirBannerAviso(texto: string): void {
+    const banner = this.raiz.querySelector('.sim-banner-aviso') as HTMLElement | null;
+    const bannerTexto = this.raiz.querySelector('.sim-banner-aviso-texto') as HTMLElement | null;
+    if (!banner || !bannerTexto) return;
+
+    if (this.timerBannerAviso !== null) {
+      clearTimeout(this.timerBannerAviso);
+      this.timerBannerAviso = null;
+    }
+
+    bannerTexto.textContent = texto;
+    banner.hidden = false;
+    banner.className = 'sim-banner-aviso visivel';
+
+    this.timerBannerAviso = window.setTimeout(() => {
+      if (!this.emMargemExtra) {
+        banner.classList.remove('visivel');
+        banner.hidden = true;
+      }
+    }, 6000);
+  }
+
+  private atualizarBannerTolerancia(): void {
+    const banner = this.raiz.querySelector('.sim-banner-aviso') as HTMLElement | null;
+    const bannerTexto = this.raiz.querySelector('.sim-banner-aviso-texto') as HTMLElement | null;
+    if (!banner || !bannerTexto) return;
+
+    banner.hidden = false;
+    banner.className = 'sim-banner-aviso banner-tolerancia visivel';
+    bannerTexto.innerHTML = `⏳ <b>Tempo oficial de 30 minutos esgotado!</b> Margem de tolerância: <b>${this.tempoMargemExtra} segundos restantes</b>. Conclua seus comandos e finalize a prova!`;
   }
 
   private obterItens(): Array<Desafio | QuestaoQuiz> {
@@ -342,14 +439,21 @@ export class TelaSimulado implements Tela {
             <div class="sim-tempo-geral" title="Tempo restante da prova">
               ⏱️ ${formatarMinSeg(this.tempoRestanteGeral)}
             </div>
-            <button class="botao-primario btn-entregar-prova">🏁 Finalizar e Entregar</button>
+            <button class="botao-primario btn-entregar-prova" title="Finalizar a prova e ver o relatório de desempenho">🏁 Finalizar Prova</button>
           </div>
         </header>
+
+        <div class="sim-banner-aviso" hidden>
+          <span class="sim-banner-aviso-texto"></span>
+        </div>
 
         <main class="sim-prova-divisao">
           <section class="sim-prova-estudo">
             <nav class="sim-questoes-nav" aria-label="Navegação de questões"></nav>
             <div class="sim-questao-ativa-container"></div>
+            <div class="sim-prova-estudo-rodape">
+              <button class="botao-secundario btn-entregar-prova-rodape">🏁 Finalizar Prova</button>
+            </div>
             <!-- Overlay comemorativo do pinguim -->
             <div class="sim-pinguim-overlay" aria-hidden="true" hidden>
               <div class="sim-pinguim-card">
@@ -401,18 +505,21 @@ export class TelaSimulado implements Tela {
       }
     });
 
-    this.raiz.querySelector('.btn-entregar-prova')?.addEventListener('click', () => {
+    const confirmarFinalizacao = (): void => {
       const concluidas = Array.from(this.estadosQuestoes.values()).filter((e) => e.concluida).length;
       const total = this.obterItens().length;
       if (
         confirm(
-          `Você concluiu ${concluidas} de ${total} questões.\nDeseja realmente finalizar e entregar a prova para gerar seu relatório?`,
+          `Deseja realmente finalizar a prova agora?\n\nVocê concluiu ${concluidas} de ${total} questões.\nAo confirmar, a prova será entregue e o relatório final será gerado.`,
         )
       ) {
         this.entregueManualmente = true;
         this.finalizarProva();
       }
-    });
+    };
+
+    this.raiz.querySelector('.btn-entregar-prova')?.addEventListener('click', confirmarFinalizacao);
+    this.raiz.querySelector('.btn-entregar-prova-rodape')?.addEventListener('click', confirmarFinalizacao);
   }
 
   private renderizarBotoesQuestoes(): void {
