@@ -32,14 +32,17 @@ Abra o endereço que o Vite mostrar (ex.: **http://localhost:5173**).
 
 ## 📚 Conteúdo (o que a prova cobre)
 
-| # | Tópico | Comandos |
+| # | Tópico | Conteúdo |
 |---|--------|----------|
-| 01 | 📁 Navegação e diretórios | `pwd` `ls` `cd` `mkdir` `tree` `rmdir` |
-| 02 | 📄 Arquivos | `touch` `echo > >>` `cat` `head` `tail` `grep` `wc` `cp` `mv` `nano` `vim` |
-| 03 | 🗑️ Exclusão | `rm` `rm -r` `rm -i` `rm -f` curingas `*` `?`, sticky bit do `/tmp` |
-| 04 | 🔐 Permissões e segurança de acesso | `ls -l` `chmod` (letras e números) `chown` `chgrp` `umask` `chmod 1777` |
-| 05 | 👥 Usuários e grupos | `whoami` `id` `useradd` `passwd` `adduser` `su` `sudo` `usermod -aG` `groupadd` `gpasswd` `userdel` `groupdel` |
-| 06 | 📝 Simulado | 12 tarefas encadeadas no estilo da prova prática |
+| 01 | 📜 História do Linux | Unix, GNU e software livre, Linus Torvalds, kernel × distribuição, famílias de distros (Debian/Ubuntu, Red Hat, SUSE, Arch, Alpine), onde o Linux está |
+| 02 | 🌳 Estrutura de pastas | um card por pasta (`/etc`, `/home`, `/root`, `/usr/bin`, `/usr`, `/var`, `/tmp`, `/boot`, `/dev`, `/proc`, `/opt`, `/srv`, `/media`, `/mnt`), navegando em cada uma |
+| 03 | 📁 Navegação e diretórios | `pwd` `ls` `cd` `mkdir` `tree` `rmdir` |
+| 04 | 📄 Arquivos | `touch` `echo > >>` `cat` `head` `tail` `grep` `wc` `cp` `mv` `ln -s` `nano` `vim` |
+| 05 | 🗑️ Exclusão | `rm` `rm -r` `rm -i` `rm -f` curingas `*` `?`, sticky bit do `/tmp` |
+| 06 | 🔐 Permissões e segurança de acesso | `ls -l` `chmod` (letras e números) `chown` `chgrp` `umask` `chmod 1777` |
+| 07 | 👥 Usuários e grupos | `whoami` `id` `useradd` `passwd` `adduser` `su` `sudo` `usermod -aG` `groupadd` `gpasswd` `userdel` `groupdel` |
+| 08 | 📦 Pacotes, atualizações e serviços | `apt update/upgrade/install/remove/purge/autoremove/search/show/list`, `apt-get`, `apt-cache`, `dpkg`, `which`, `systemctl`, servidor web nginx + `curl` |
+| 09 | 📝 Simulado | 14 tarefas encadeadas no estilo da prova prática |
 
 Cada comando tem um **card** com: descrição, sintaxe, tabela de opções, exemplos clicáveis (▶ executa no terminal), 💡 dicas e ⚠️ "cai na prova".
 Cada tópico tem **🎯 desafios** que se corrigem sozinhos: depois de cada comando, o site confere o estado real da máquina (o arquivo existe? a permissão é 750? a maria está no grupo?).
@@ -64,7 +67,8 @@ src/
 │   ├── Permissoes.ts     octal ⇄ texto ⇄ simbólico (u+x,g-w,o=)
 │   ├── Contas.ts         Usuario, Grupo e geração de passwd/group/shadow
 │   ├── Sessao.ts         pilha de shells (su/sudo -i empilham, exit desempilha)
-│   ├── Maquina.ts        junta tudo; várias sessões = vários terminais
+│   ├── Maquina.ts        junta tudo; árvore FHS completa; várias sessões = vários terminais
+│   ├── Pacotes.ts        catálogo de pacotes do Ubuntu, dpkg (/var/lib/dpkg/status) e serviços do systemd
 │   └── Serializador.ts   máquina ⇄ JSON
 ├── shell/            ← o "bash"
 │   ├── Analisador.ts     aspas, escapes, $VAR, ~, ; && || | > >> 2> <
@@ -113,7 +117,8 @@ Os grupos da sessão são lidos **no login**, como no Linux real: depois de um `
 }
 ```
 
-- `tipo`: `diretorio` (tem `filhos`), `arquivo` (tem `conteudo`), `gerado` (`/etc/passwd`, `/etc/group` e `/etc/shadow`, recalculados a partir de `contas`) e `nulo` (`/dev/null`).
+- `tipo`: `diretorio` (tem `filhos`), `arquivo` (tem `conteudo`), `gerado` (`/etc/passwd`, `/etc/group` e `/etc/shadow`, recalculados a partir de `contas`), `link` (tem `alvo`, ex.: `/bin -> usr/bin`), `dispositivo` (tem `letra` `c`/`b`, ex.: `/dev/sda`), `binario` (programa compilado, tem `bytes`) e `nulo` (`/dev/null`).
+- Pacotes instalados e serviços também ficam **dentro da árvore**, como no Linux real: `/var/lib/dpkg/status` (o banco do dpkg), `/usr/lib/systemd/system/*.service` (unidades), links em `/etc/systemd/system/multi-user.target.wants/` (serviço habilitado) e `/run/systemd/ativos/` (serviço rodando). Por isso o JSON exportado guarda tudo.
 - `permissoes` é octal em texto (`"755"`, `"1777"`); `dono`/`grupo` são UID/GID numéricos, como no inode real (por isso um usuário apagado aparece como número no `ls -l`).
 - A senha fica em texto puro porque é um simulador didático; o `/etc/shadow` exibe um hash fictício.
 

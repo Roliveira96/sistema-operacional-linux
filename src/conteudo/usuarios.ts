@@ -2,10 +2,10 @@ import type { Topico } from './Topico';
 import type { Maquina } from '../linux/Maquina';
 import { Verificar } from './Verificar';
 
-/** 05 · Usuários e grupos: contas, senhas, troca de usuário, sudo e grupos. */
+/** 07 · Usuários e grupos: contas, senhas, troca de usuário, sudo e grupos. */
 export const usuarios: Topico = {
   id: 'usuarios',
-  numero: 5,
+  numero: 7,
   titulo: 'Usuários e grupos',
   subtitulo: 'useradd · passwd · su · sudo · usermod · groupadd · gpasswd · userdel',
   icone: '👥',

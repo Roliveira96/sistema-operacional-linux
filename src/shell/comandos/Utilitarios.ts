@@ -58,9 +58,17 @@ export class Uname extends Comando {
   public readonly resumo: string = 'informações do sistema (-a tudo)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
-    contexto.linha(args.includes('-a')
-      ? 'Linux ' + contexto.maquina.hostname + ' 6.8.0-45-generic #45-Ubuntu SMP PREEMPT_DYNAMIC x86_64 x86_64 x86_64 GNU/Linux'
-      : 'Linux');
+    if (args.includes('-a')) {
+      contexto.linha('Linux ' + contexto.maquina.hostname + ' 6.8.0-45-generic #45-Ubuntu SMP PREEMPT_DYNAMIC x86_64 x86_64 x86_64 GNU/Linux');
+    } else {
+      const partes: string[] = [];
+      if (args.length === 0 || args.includes('-s')) partes.push('Linux');
+      if (args.includes('-n')) partes.push(contexto.maquina.hostname);
+      if (args.includes('-r')) partes.push('6.8.0-45-generic');
+      if (args.includes('-m')) partes.push('x86_64');
+      if (args.includes('-o')) partes.push('GNU/Linux');
+      contexto.linha(partes.join(' '));
+    }
     return 0;
   }
 }

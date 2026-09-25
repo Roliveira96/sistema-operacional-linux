@@ -1,4 +1,4 @@
-export type CodigoDeErro = 'ENOENT' | 'EACCES' | 'ENOTDIR' | 'EEXIST' | 'EISDIR' | 'ENOTEMPTY' | 'EPERM' | 'EINVAL';
+export type CodigoDeErro = 'ENOENT' | 'EACCES' | 'ENOTDIR' | 'EEXIST' | 'EISDIR' | 'ENOTEMPTY' | 'EPERM' | 'EINVAL' | 'ELOOP';
 
 /** Erro do "kernel": carrega o código e a mensagem que o Ubuntu em pt_BR mostraria. */
 export class ErroDeSistema extends Error {
@@ -11,6 +11,7 @@ export class ErroDeSistema extends Error {
     ENOTEMPTY: 'Diretório não vazio',
     EPERM: 'Operação não permitida',
     EINVAL: 'Argumento inválido',
+    ELOOP: 'Muitos níveis de links simbólicos',
   };
 
   public readonly codigo: CodigoDeErro;

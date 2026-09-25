@@ -64,7 +64,7 @@ export class Chmod extends Comando {
         atual.modo = depois;
         const mudou: boolean = antes !== depois;
         if (flags.has('v') || (flags.has('c') && mudou)) {
-          const descrever = (modo: number): string => Permissoes.paraOctal(modo, true) + ' (' + Permissoes.paraTexto(modo, atual.ehDiretorio()).substring(1) + ')';
+          const descrever = (modo: number): string => Permissoes.paraOctal(modo, true) + ' (' + Permissoes.paraTexto(modo, atual.tipoLs()).substring(1) + ')';
           contexto.linha(mudou
             ? 'o modo de ' + citar(nomeAtual) + ' foi alterado de ' + descrever(antes) + ' para ' + descrever(depois)
             : 'o modo de ' + citar(nomeAtual) + ' foi mantido como ' + descrever(antes));

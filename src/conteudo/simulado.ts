@@ -1,10 +1,11 @@
 import type { Topico } from './Topico';
 import { Verificar } from './Verificar';
+import { GerenciadorDePacotes, Servicos } from '../linux/Pacotes';
 
-/** 06 · Simulado: tarefas encadeadas no estilo da prova prática, misturando todos os tópicos. */
+/** 09 · Simulado: tarefas encadeadas no estilo da prova prática, misturando todos os tópicos. */
 export const simulado: Topico = {
   id: 'simulado',
-  numero: 6,
+  numero: 9,
   titulo: 'Simulado de prova',
   subtitulo: 'Um cenário completo, do zero, misturando todos os tópicos',
   icone: '📝',
@@ -114,6 +115,24 @@ export const simulado: Topico = {
         { comando: 'chown ana:ana /home/ana/regras.txt' },
       ],
       verificar: (m) => Verificar.dono(m, '/home/ana/regras.txt', 'ana') && Verificar.contem(m, '/home/ana/regras.txt', 'Prova de Linux'),
+    },
+    {
+      id: 'sim-apt-1',
+      enunciado: 'Atualize a lista de pacotes e instale as atualizações pendentes do servidor.',
+      dica: 'apt update e depois apt upgrade -y.',
+      solucao: [{ comando: 'apt update' }, { comando: 'apt upgrade -y' }],
+      verificar: (m) => { const g = new GerenciadorDePacotes(m); return g.listasAtualizadas() && g.atualizaveis().length === 0; },
+    },
+    {
+      id: 'sim-apt-2',
+      enunciado: 'Instale o servidor web <code>nginx</code> e faça a página inicial (<code>/var/www/html/index.html</code>) mostrar <code>Escola Linux</code>. O serviço precisa estar rodando.',
+      dica: 'apt install -y nginx; echo "Escola Linux" &gt; /var/www/html/index.html; confira com curl localhost.',
+      solucao: [
+        { comando: 'apt install -y nginx' },
+        { comando: 'echo "Escola Linux" > /var/www/html/index.html' },
+        { comando: 'curl localhost' },
+      ],
+      verificar: (m) => new Servicos(m).ativo('nginx') && Verificar.contem(m, '/var/www/html/index.html', 'Escola Linux'),
     },
     {
       id: 'sim-11',

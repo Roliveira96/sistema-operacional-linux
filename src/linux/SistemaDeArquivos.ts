@@ -1,4 +1,4 @@
-import { Diretorio, type No } from './No';
+import { Diretorio, Link, type No } from './No';
 import { ErroDeSistema } from './ErroDeSistema';
 import { Permissoes } from './Permissoes';
 
@@ -68,19 +68,33 @@ export class SistemaDeArquivos {
     return true;
   }
 
-  /** Acha um nó checando a permissão de "entrar" (x) em cada diretório do caminho. */
-  public localizar(caminho: string, cwd: string, credencial: Credencial): No {
+  /**
+   * Acha um nó checando a permissão de "entrar" (x) em cada diretório do caminho.
+   * Links simbólicos no meio do caminho são seguidos; o último só se seguirFinal (o rm e o ls -l não seguem).
+   */
+  public localizar(caminho: string, cwd: string, credencial: Credencial, seguirFinal: boolean = true, saltos: number = 0): No {
+    if (saltos > 40) {
+      throw new ErroDeSistema('ELOOP');
+    }
+    const partes: string[] = SistemaDeArquivos.segmentos(caminho, cwd);
     let atual: No = this.raiz;
-    for (const parte of SistemaDeArquivos.segmentos(caminho, cwd)) {
+    for (let i: number = 0; i < partes.length; i++) {
       if (!(atual instanceof Diretorio)) {
         throw new ErroDeSistema('ENOTDIR');
       }
       if (!this.pode(atual, credencial, 'x')) {
         throw new ErroDeSistema('EACCES');
       }
-      const proximo: No | undefined = atual.obter(parte);
+      const proximo: No | undefined = atual.obter(partes[i]);
       if (proximo === undefined) {
         throw new ErroDeSistema('ENOENT');
+      }
+      const ultimo: boolean = i === partes.length - 1;
+      if (proximo instanceof Link && (!ultimo || seguirFinal || caminho.endsWith('/'))) {
+        const base: string = '/' + partes.slice(0, i).join('/');
+        const resto: string = partes.slice(i + 1).join('/');
+        const destino: string = SistemaDeArquivos.absoluto(proximo.alvo, base) + (resto !== '' ? '/' + resto : '');
+        return this.localizar(destino, '/', credencial, seguirFinal, saltos + 1);
       }
       atual = proximo;
     }
@@ -94,7 +108,7 @@ export class SistemaDeArquivos {
   public localizarPai(caminho: string, cwd: string, credencial: Credencial): { pai: Diretorio; nome: string } {
     const partes: string[] = SistemaDeArquivos.segmentos(caminho, cwd);
     const nome: string = partes.pop() ?? '';
-    const pai: No = this.localizar('/' + partes.join('/'), '/', credencial);
+    const pai: No = this.localizar('/' + partes.join('/'), '/', credencial, true);
     if (!(pai instanceof Diretorio)) {
       throw new ErroDeSistema('ENOTDIR');
     }
@@ -105,9 +119,9 @@ export class SistemaDeArquivos {
   }
 
   /** Versão sem checagem de permissão, usada para conferir os desafios. */
-  public obter(caminhoAbsoluto: string): No | null {
+  public obter(caminhoAbsoluto: string, seguirFinal: boolean = true): No | null {
     try {
-      return this.localizar(caminhoAbsoluto, '/', { uid: 0, gids: [0] });
+      return this.localizar(caminhoAbsoluto, '/', { uid: 0, gids: [0] }, seguirFinal);
     } catch {
       return null;
     }

@@ -233,3 +233,7 @@
 }
 
 .vim-cola b { font-family: var(--fonte-codigo); color: #fce94f; font-weight: 400; }
+.c-link { color: #34e2e2; font-weight: 700; }
+.c-dispositivo { color: #fce94f; font-weight: 700; background: rgba(0, 0, 0, 0.25); }
+.c-ok { color: #8ae234; font-weight: 700; }
+.c-laranja { color: #ff7f50; font-weight: 700; }

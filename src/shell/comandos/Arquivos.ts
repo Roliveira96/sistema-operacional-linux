@@ -1,6 +1,6 @@
 import { Comando, Opcoes, citar } from '../Comando';
 import type { Contexto } from '../Contexto';
-import { Arquivo, Diretorio, type No } from '../../linux/No';
+import { Arquivo, Diretorio, Link, type No } from '../../linux/No';
 import { ErroDeSistema } from '../../linux/ErroDeSistema';
 import { Permissoes } from '../../linux/Permissoes';
 import { Interpretador } from '../Interpretador';
@@ -248,7 +248,7 @@ export class Mv extends ComandoDeCopia {
   }
 
   private mover(origem: string, destino: string, contexto: Contexto): void {
-    const no: No = contexto.localizar(origem);
+    const no: No = contexto.localizarSemSeguir(origem);
     const paiOrigem: Diretorio | null = no.pai;
     if (paiOrigem === null) {
       throw new ErroDeSistema('EPERM');
@@ -318,6 +318,46 @@ export class Stat extends Comando {
       contexto.linha('Alteração: ' + data);
     }
     return status;
+  }
+}
+
+export class Ln extends Comando {
+  public readonly nome: string = 'ln';
+  public readonly resumo: string = 'cria links: ln -s ALVO NOME cria um atalho (link simbólico)';
+
+  public async executar(args: string[], contexto: Contexto): Promise<number> {
+    const opcoes: Opcoes = Opcoes.ler(args, '', { symbolic: 's', force: 'f', verbose: 'v' });
+    if (opcoes.operandos.length === 0) {
+      contexto.falhar('ln: falta operando arquivo');
+      return 1;
+    }
+    if (!opcoes.tem('s')) {
+      contexto.falhar('ln: o simulador só faz links simbólicos. Use: ln -s ALVO NOME');
+      return 1;
+    }
+    const alvo: string = opcoes.operandos[0];
+    let nomeLink: string = opcoes.operandos[1] ?? (alvo.replace(/\/+$/, '').split('/').pop() ?? alvo);
+    const existente: No | null = (() => {
+      try { return contexto.localizar(nomeLink); } catch { return null; }
+    })();
+    if (existente instanceof Diretorio) {
+      nomeLink = nomeLink.replace(/\/+$/, '') + '/' + (alvo.replace(/\/+$/, '').split('/').pop() ?? alvo);
+    }
+    try {
+      const { pai, nome } = contexto.localizarPai(nomeLink);
+      const atual: No | undefined = pai.obter(nome);
+      if (atual !== undefined) {
+        if (!opcoes.tem('f')) throw new ErroDeSistema('EEXIST');
+        pai.remover(nome);
+      }
+      if (!contexto.fs.pode(pai, contexto.credencial, 'w')) throw new ErroDeSistema('EACCES');
+      pai.adicionar(new Link(nome, alvo, contexto.credencial.uid, contexto.credencial.gids[0]));
+      if (opcoes.tem('v')) contexto.linha(citar(nomeLink) + ' -> ' + citar(alvo));
+      return 0;
+    } catch (erro) {
+      contexto.falhar('ln: falhou ao criar link simbólico ' + citar(nomeLink) + ': ' + mensagemDe(erro));
+      return 1;
+    }
   }
 }
 

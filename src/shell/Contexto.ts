@@ -92,6 +92,11 @@ export class Contexto {
     return this.fs.localizar(caminho, this.quadro.cwd, this.credencial);
   }
 
+  /** Como localizar, mas se o último item for um link devolve o próprio link (lstat). */
+  public localizarSemSeguir(caminho: string): No {
+    return this.fs.localizar(caminho, this.quadro.cwd, this.credencial, false);
+  }
+
   public localizarPai(caminho: string): { pai: Diretorio; nome: string } {
     return this.fs.localizarPai(caminho, this.quadro.cwd, this.credencial);
   }

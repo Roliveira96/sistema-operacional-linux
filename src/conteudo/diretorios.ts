@@ -1,10 +1,10 @@
 import type { Topico } from './Topico';
 import { Verificar } from './Verificar';
 
-/** 01 · Navegação e diretórios: pwd, ls, cd, mkdir, rmdir, tree. */
+/** 03 · Navegação e diretórios: pwd, ls, cd, mkdir, rmdir, tree. */
 export const diretorios: Topico = {
   id: 'diretorios',
-  numero: 1,
+  numero: 3,
   titulo: 'Navegação e diretórios',
   subtitulo: 'pwd · ls · cd · mkdir · rmdir · tree',
   icone: '📁',
@@ -152,10 +152,12 @@ export const diretorios: Topico = {
         ['-L 2', 'desce no máximo 2 níveis'],
       ],
       exemplos: [
+        { comando: 'tree faculdade', explicacao: 'o tree não vem instalado: o Ubuntu sugere o pacote' },
+        { comando: 'apt install -y tree', explicacao: 'instala (o apt é explicado no tópico Pacotes)' },
         { comando: 'tree faculdade' },
         { comando: 'tree -d -L 1 /', explicacao: 'as pastas principais do sistema' },
       ],
-      dicas: ['No Ubuntu recém-instalado o tree não vem por padrão: <code>sudo apt install tree</code>.'],
+      dicas: ['No Ubuntu recém-instalado o tree não vem por padrão. Na prova, se ele não existir, use <code>ls -R</code> para ver as subpastas.'],
     },
     {
       comando: 'rmdir',

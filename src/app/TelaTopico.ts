@@ -138,9 +138,10 @@ export class TelaTopico implements Tela {
     }
     for (const licao of this.topico.licoes) {
       html += '<article class="licao bloco" data-bloco="' + bloco + '">' +
-        '<header><code class="licao-comando">' + escapar(licao.comando) + '</code><h2>' + licao.titulo + '</h2>' + this.botaoBloco(bloco) + '</header>' +
+        '<header><code class="licao-comando">' + escapar(licao.comando) + '</code><h2>' + licao.titulo + '</h2>' +
+        (licao.exemplos.length > 0 ? this.botaoBloco(bloco) : '') + '</header>' +
         '<p class="licao-descricao">' + licao.descricao + '</p>' +
-        '<div class="licao-sintaxe"><span>Sintaxe</span><code>' + escapar(licao.sintaxe) + '</code></div>';
+        (licao.sintaxe !== '' ? '<div class="licao-sintaxe"><span>Sintaxe</span><code>' + escapar(licao.sintaxe) + '</code></div>' : '');
       if (licao.opcoes !== undefined && licao.opcoes.length > 0) {
         html += '<table class="tabela licao-opcoes">' + licao.opcoes.map(([opcao, descricao]) =>
           '<tr><td><code>' + escapar(opcao) + '</code></td><td>' + descricao + '</td></tr>').join('') + '</table>';
@@ -148,8 +149,10 @@ export class TelaTopico implements Tela {
       if (licao.extra !== undefined) {
         html += Widgets.html(licao.extra);
       }
-      html += '<div class="licao-rotulo">▶ Exemplos: clique para executar no terminal</div>' + this.exemplosHtml(this.blocos[bloco]) +
-        this.naPraticaHtml(licao.naPratica);
+      if (licao.exemplos.length > 0) {
+        html += '<div class="licao-rotulo">▶ Exemplos: clique para executar no terminal</div>' + this.exemplosHtml(this.blocos[bloco]);
+      }
+      html += this.naPraticaHtml(licao.naPratica);
       if (licao.dicas !== undefined && licao.dicas.length > 0) {
         html += '<ul class="licao-dicas">' + licao.dicas.map((d: string) => '<li>' + d + '</li>').join('') + '</ul>';
       }

@@ -1,10 +1,10 @@
 import type { Topico } from './Topico';
 import { Verificar } from './Verificar';
 
-/** 03 · Exclusão: rm, rm -r, rm -i, rm -f, curingas e rmdir. */
+/** 05 · Exclusão: rm, rm -r, rm -i, rm -f, curingas e rmdir. */
 export const exclusao: Topico = {
   id: 'exclusao',
-  numero: 3,
+  numero: 5,
   titulo: 'Exclusão',
   subtitulo: 'rm · rm -r · rm -i · rm -f · curingas * ? · rmdir',
   icone: '🗑️',

@@ -2,10 +2,10 @@ import type { Topico } from './Topico';
 import type { Maquina } from '../linux/Maquina';
 import { Verificar } from './Verificar';
 
-/** 04 · Segurança de acesso: ler permissões, chmod, chown, chgrp, umask e testes com outros usuários. */
+/** 06 · Segurança de acesso: ler permissões, chmod, chown, chgrp, umask e testes com outros usuários. */
 export const permissoes: Topico = {
   id: 'permissoes',
-  numero: 4,
+  numero: 6,
   titulo: 'Permissões e segurança de acesso',
   subtitulo: 'ls -l · chmod (letras e números) · chown · chgrp · umask · sticky bit',
   icone: '🔐',

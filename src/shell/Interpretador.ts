@@ -7,11 +7,14 @@ import type { Maquina } from '../linux/Maquina';
 import type { Sessao } from '../linux/Sessao';
 import type { Usuario } from '../linux/Contas';
 import type { Credencial } from '../linux/SistemaDeArquivos';
-import { Arquivo, Diretorio, type No } from '../linux/No';
+import { Arquivo, Binario, Diretorio, type No } from '../linux/No';
+import { GerenciadorDePacotes, type Pacote } from '../linux/Pacotes';
 import { ErroDeSistema } from '../linux/ErroDeSistema';
 
 /** O "bash": lê a linha, expande curingas, liga pipes e redirecionamentos e chama os comandos. */
 export class Interpretador implements Executor {
+  public static readonly PATH: string[] = ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin'];
+
   private readonly registro: RegistroDeComandos;
   private ultimoStatus: number = 0;
 
@@ -60,10 +63,22 @@ export class Interpretador implements Executor {
       return 0;
     }
     if (args[0].includes('/')) {
-      return this.executarScript(args[0], contexto);
+      return this.executarScript(args[0], args.slice(1), contexto);
     }
     const comando: Comando | undefined = this.registro.obter(args[0]);
+    // Programas de pacote só existem se o binário estiver no PATH (instalado com apt).
+    const fornecedor: Pacote | undefined = comando?.embutido ? undefined : GerenciadorDePacotes.fornecedor(args[0]);
+    if (fornecedor !== undefined && !Interpretador.PATH.some((p: string) => contexto.fs.obter(p + '/' + args[0]) !== null)) {
+      contexto.falhar('O comando \'' + args[0] + '\' não foi encontrado, mas pode ser instalado com:');
+      contexto.falhar((contexto.ehRoot() ? '' : 'sudo ') + 'apt install ' + fornecedor.nome);
+      return 127;
+    }
     if (comando === undefined) {
+      // scripts do administrador em /usr/local/bin (ou outra pasta do PATH) viram comandos
+      const pasta: string | undefined = Interpretador.PATH.find((p: string) => contexto.fs.obter(p + '/' + args[0]) instanceof Arquivo);
+      if (pasta !== undefined) {
+        return this.executarScript(pasta + '/' + args[0], args.slice(1), contexto);
+      }
       contexto.falhar(args[0] + ': comando não encontrado');
       return 127;
     }
@@ -79,7 +94,7 @@ export class Interpretador implements Executor {
   }
 
   /** ./script.sh: precisa de x (e de r, porque o bash lê o arquivo); cada linha vira um comando. */
-  private async executarScript(caminho: string, contexto: Contexto): Promise<number> {
+  private async executarScript(caminho: string, argumentos: string[], contexto: Contexto): Promise<number> {
     let no: No;
     try {
       no = contexto.localizar(caminho);
@@ -94,6 +109,10 @@ export class Interpretador implements Executor {
     if (!contexto.fs.pode(no, contexto.credencial, 'x') || !contexto.fs.pode(no, contexto.credencial, 'r')) {
       contexto.falhar('bash: ' + caminho + ': Permissão negada');
       return 126;
+    }
+    if (no instanceof Binario) {
+      // /usr/bin/ls -l: um programa chamado pelo caminho completo
+      return this.registro.obter(no.nome) !== undefined ? this.executarArgs([no.nome, ...argumentos], contexto) : 0;
     }
     let status: number = 0;
     for (const linha of (no as Arquivo).ler().split('\n')) {

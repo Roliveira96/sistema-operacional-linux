@@ -16,6 +16,11 @@ export abstract class No {
   }
 
   public abstract ehDiretorio(): boolean;
+
+  /** Primeira letra do ls -l: d diretório, l link, c/b dispositivo, - arquivo. */
+  public tipoLs(): string {
+    return this.ehDiretorio() ? 'd' : '-';
+  }
   public abstract tamanho(): number;
   public abstract clonar(): No;
 
@@ -83,14 +88,100 @@ export class ArquivoGerado extends Arquivo {
   }
 }
 
-/** /dev/null: aceita tudo e devolve nada. */
-export class Buraco extends Arquivo {
+/** Programa compilado (ELF): não dá para ler como texto; o tamanho é o do binário real. */
+export class Binario extends Arquivo {
+  public readonly bytes: number;
+
+  constructor(nome: string, bytes: number, dono: number = 0, grupo: number = 0, modo: number = 0o755) {
+    super(nome, dono, grupo, modo);
+    this.bytes = bytes;
+  }
+
+  public ler(): string {
+    return '\u007fELF\u0002\u0001\u0001 (programa compilado: binário, não é texto) \u0000\u0000\n';
+  }
+
+  public escrever(_texto: string): void {
+    // binários do sistema não são alterados no simulador
+  }
+
+  public tamanho(): number {
+    return this.bytes;
+  }
+
+  public clonar(): No {
+    const copia: Binario = new Binario(this.nome, this.bytes, this.dono, this.grupo, this.modo);
+    this.copiarMetadadosPara(copia);
+    return copia;
+  }
+}
+
+/** Link simbólico: um "atalho" que aponta para outro caminho (ex.: /bin -> usr/bin). */
+export class Link extends No {
+  public alvo: string;
+
+  constructor(nome: string, alvo: string, dono: number = 0, grupo: number = 0) {
+    super(nome, dono, grupo, 0o777);
+    this.alvo = alvo;
+  }
+
+  public ehDiretorio(): boolean {
+    return false;
+  }
+
+  public tipoLs(): string {
+    return 'l';
+  }
+
+  public tamanho(): number {
+    return new TextEncoder().encode(this.alvo).length;
+  }
+
+  public clonar(): No {
+    const copia: Link = new Link(this.nome, this.alvo, this.dono, this.grupo);
+    this.copiarMetadadosPara(copia);
+    return copia;
+  }
+}
+
+/** Arquivo de dispositivo em /dev: c = caractere (terminal, /dev/null), b = bloco (disco). */
+export class Dispositivo extends Arquivo {
+  public readonly letra: 'c' | 'b';
+
+  constructor(nome: string, letra: 'c' | 'b', dono: number, grupo: number, modo: number) {
+    super(nome, dono, grupo, modo);
+    this.letra = letra;
+  }
+
+  public tipoLs(): string {
+    return this.letra;
+  }
+
+  public tamanho(): number {
+    return 0;
+  }
+
   public ler(): string {
     return '';
   }
 
   public escrever(_texto: string): void {
-    // descarta
+    // escrever num dispositivo não guarda nada no simulador
+  }
+
+  public clonar(): No {
+    return new Dispositivo(this.nome, this.letra, this.dono, this.grupo, this.modo);
+  }
+}
+
+/** /dev/null: aceita tudo e devolve nada. */
+export class Buraco extends Dispositivo {
+  constructor(nome: string, dono: number, grupo: number, modo: number) {
+    super(nome, 'c', dono, grupo, modo);
+  }
+
+  public clonar(): No {
+    return new Buraco(this.nome, this.dono, this.grupo, this.modo);
   }
 }
 

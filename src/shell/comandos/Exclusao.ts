@@ -33,7 +33,7 @@ export class Rm extends Comando {
       }
       let no: No;
       try {
-        no = contexto.localizar(caminho);
+        no = contexto.localizarSemSeguir(caminho);
       } catch (erro) {
         const texto: string = mensagemDe(erro);
         if (!(opcoes.tem('f') && texto === 'Arquivo ou diretório inexistente')) {

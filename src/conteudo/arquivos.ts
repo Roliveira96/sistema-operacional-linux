@@ -1,10 +1,10 @@
 import type { Topico } from './Topico';
 import { Verificar } from './Verificar';
 
-/** 02 · Arquivos: criar, ver, escrever, copiar, mover e editar. */
+/** 04 · Arquivos: criar, ver, escrever, copiar, mover e editar. */
 export const arquivos: Topico = {
   id: 'arquivos',
-  numero: 2,
+  numero: 4,
   titulo: 'Arquivos',
   subtitulo: 'touch · echo > >> · cat · cp · mv · head · tail · grep · nano · vim',
   icone: '📄',
@@ -170,6 +170,25 @@ export const arquivos: Topico = {
         { comando: 'ls -R', explicacao: 'confere tudo, recursivamente' },
       ],
       dicas: ['Diferente do <code>cp</code>, o <code>mv</code> move diretórios sem precisar de <code>-r</code>.'],
+    },
+    {
+      comando: 'ln -s',
+      titulo: 'Atalhos: links simbólicos',
+      descricao: 'Um <b>link simbólico</b> é um atalho: um arquivo que só guarda o caminho de outro. No <code>ls -l</code> ele aparece com <b>l</b> no começo e uma seta <code>nome -&gt; destino</code>. ' +
+        'Apagar o link não apaga o original; apagar o original deixa o link "quebrado".',
+      sintaxe: 'ln -s DESTINO NOME_DO_LINK',
+      opcoes: [['-s', 'simbólico (o mais usado)'], ['-f', 'substitui se o link já existir'], ['-v', 'mostra o que fez']],
+      exemplos: [
+        { comando: 'ln -s /var/log/syslog log-do-sistema', explicacao: 'atalho para um arquivo longe daqui' },
+        { comando: 'ls -l log-do-sistema', explicacao: 'l no começo e a seta mostrando o destino' },
+        { comando: 'tail -2 log-do-sistema', explicacao: 'usar o link = usar o arquivo original' },
+        { comando: 'rm log-do-sistema', explicacao: 'apaga só o atalho' },
+        { comando: 'ls -l /var/log/syslog', explicacao: 'o original continua lá' },
+        { comando: 'ls -l / | grep bin', explicacao: 'o próprio sistema usa links: bin -> usr/bin' },
+      ],
+      pegadinha: 'A ordem é <code>ln -s ORIGEM NOME</code>, igual ao <code>cp</code>: primeiro o que já existe, depois o nome novo.',
+      naPratica: 'O nginx ativa sites com links: o arquivo fica em <code>sites-available</code> e um <code>ln -s</code> em <code>sites-enabled</code> liga o site. ' +
+        'Em deploys, <code>/srv/app/current</code> é um link para a versão atual: trocar de versão (ou voltar) é só refazer o link.',
     },
     {
       comando: 'nano',

@@ -1,6 +1,6 @@
 import { Comando, Opcoes, citar } from '../Comando';
 import type { Contexto } from '../Contexto';
-import { Diretorio, type No } from '../../linux/No';
+import { Diretorio, Link, type No } from '../../linux/No';
 import { Permissoes } from '../../linux/Permissoes';
 import type { Quadro } from '../../linux/Sessao';
 import { classeDoNo, dataDoLs, mensagemDe, nomeParaExibir, saidaEhTerminal } from './util';
@@ -68,7 +68,8 @@ export class Ls extends Comando {
 
     for (const alvo of alvos) {
       try {
-        const no: No = contexto.localizar(alvo);
+        // ls -l e ls -d mostram o próprio link; sem eles, um link para pasta lista a pasta de destino
+        const no: No = opcoes.tem('l', 'd') ? contexto.localizarSemSeguir(alvo) : contexto.localizar(alvo);
         if (no instanceof Diretorio && !opcoes.tem('d')) {
           pastas.push([alvo, no]);
         } else {
@@ -150,7 +151,7 @@ export class Ls extends Comando {
       const tamanho: number = no.tamanho();
       blocos += no.ehDiretorio() ? 4 : Math.ceil(tamanho / 4096) * 4;
       linhas.push([
-        Permissoes.paraTexto(no.modo, no.ehDiretorio()),
+        Permissoes.paraTexto(no instanceof Link ? 0o777 : no.modo, no.tipoLs()),
         String(this.contarLinks(no)),
         contexto.contas.nomeDoUsuario(no.dono),
         contexto.contas.nomeDoGrupo(no.grupo),
@@ -173,6 +174,9 @@ export class Ls extends Comando {
         colunas[3].padEnd(larguras[3]) + ' ' + colunas[4].padStart(larguras[4]) + ' ' + colunas[5] + ' ';
       contexto.escrever(texto);
       contexto.escrever(nomeParaExibir(nome, contexto), classeDoNo(no));
+      if (no instanceof Link) {
+        contexto.escrever(' -> ' + no.alvo);
+      }
       contexto.escrever('\n');
     });
   }
@@ -245,7 +249,10 @@ export class Tree extends Comando {
       const no: No = pasta.obter(nome) as No;
       const ultimo: boolean = indice === nomes.length - 1;
       contexto.escrever(prefixo + (ultimo ? '└── ' : '├── '));
-      if (no instanceof Diretorio) {
+      if (no instanceof Link) {
+        contexto.escrever(nome, 'c-link');
+        contexto.linha(' -> ' + no.alvo);
+      } else if (no instanceof Diretorio) {
         contagem.pastas++;
         const bloqueada: boolean = !contexto.fs.pode(no, contexto.credencial, 'r');
         contexto.escrever(nome, classeDoNo(no));

@@ -2,7 +2,10 @@ import { RegistroDeComandos } from './RegistroDeComandos';
 import { Interpretador } from './Interpretador';
 import { Cd, Ls, Pwd, Tree } from './comandos/Navegacao';
 import { Mkdir, Rmdir } from './comandos/Diretorios';
-import { Cat, Cp, Echo, Editor, Mv, Stat, Touch } from './comandos/Arquivos';
+import { Cat, Cp, Echo, Editor, Ln, Mv, Stat, Touch } from './comandos/Arquivos';
+import { Apt, AptCache, AptGet, Dpkg } from './comandos/Pacotes';
+import { Df, Free, Lsblk, LsbRelease, Service, Systemctl, Which } from './comandos/Sistema';
+import { Cowsay, Curl, Git, Htop, Mysql, Neofetch, Nginx, Openssl, Python3 } from './comandos/Programas';
 import { Cut, Grep, Head, Sort, Tail, Wc } from './comandos/Texto';
 import { Rm } from './comandos/Exclusao';
 import { Chgrp, Chmod, Chown, Umask } from './comandos/Acesso';
@@ -25,7 +28,10 @@ export class Shell {
       registro.registrar(
         new Pwd(), new Cd(), new Ls(), new Tree(),
         new Mkdir(), new Rmdir(),
-        new Touch(), new Cat(), new Echo(), new Cp(), new Mv(), new Stat(),
+        new Touch(), new Cat(), new Echo(), new Cp(), new Mv(), new Stat(), new Ln(),
+        new Apt(), new AptGet(), new AptCache(), new Dpkg(),
+        new Systemctl(), new Service(), new Which(), new LsbRelease(), new Df(), new Free(), new Lsblk(),
+        new Htop(), new Neofetch(), new Cowsay(), new Git(), new Curl(), new Nginx(), new Mysql(), new Python3(), new Openssl(),
         new Editor('nano'), new Editor('vim'), new Editor('vi'),
         new Head(), new Tail(), new Wc(), new Grep(), new Sort(), new Cut(),
         new Rm(),

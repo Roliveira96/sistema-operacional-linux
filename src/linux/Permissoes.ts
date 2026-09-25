@@ -5,10 +5,10 @@
 export class Permissoes {
   public static readonly STICKY: number = 0o1000;
 
-  /** 0o755 + diretório → "drwxr-xr-x" (com o "t" do sticky bit quando houver). */
-  public static paraTexto(modo: number, ehDiretorio: boolean): string {
+  /** 0o755 + diretório → "drwxr-xr-x" (com o "t" do sticky bit quando houver). Aceita a letra de tipo do ls (d, l, c, b, -). */
+  public static paraTexto(modo: number, tipo: boolean | string): string {
     const letras: string[] = ['r', 'w', 'x'];
-    let texto: string = ehDiretorio ? 'd' : '-';
+    let texto: string = typeof tipo === 'string' ? tipo : tipo ? 'd' : '-';
     for (let bit: number = 8; bit >= 0; bit--) {
       texto += (modo & (1 << bit)) !== 0 ? letras[(8 - bit) % 3] : '-';
     }

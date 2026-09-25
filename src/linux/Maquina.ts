@@ -1,4 +1,5 @@
-import { Arquivo, ArquivoGerado, Buraco, Diretorio, type No } from './No';
+import { Arquivo, ArquivoGerado, Binario, Buraco, Diretorio, Dispositivo, Link, type No } from './No';
+import { GerenciadorDePacotes } from './Pacotes';
 import { Contas, Grupo, Usuario } from './Contas';
 import { SistemaDeArquivos } from './SistemaDeArquivos';
 import { Quadro, Sessao } from './Sessao';
@@ -82,7 +83,7 @@ export class Maquina {
     contas.adicionarUsuario(new Usuario('ricardo', 1000, 1000, '/home/ricardo', '/bin/bash', Maquina.SENHA_PADRAO, 'Ricardo,,,'));
     const grupos: Array<[string, number, string[]]> = [
       ['root', 0, []], ['daemon', 1, []], ['bin', 2, []], ['sys', 3, []], ['adm', 4, ['ricardo']],
-      ['cdrom', 24, ['ricardo']], ['sudo', Contas.GID_SUDO, ['ricardo']], ['www-data', 33, []], ['shadow', 42, []],
+      ['tty', 5, []], ['disk', 6, []], ['mail', 8, []], ['cdrom', 24, ['ricardo']], ['sudo', Contas.GID_SUDO, ['ricardo']], ['www-data', 33, []], ['shadow', 42, []],
       ['plugdev', 46, ['ricardo']], ['users', 100, []], ['nogroup', 65534, []], ['ricardo', 1000, []],
     ];
     for (const [nome, gid, membros] of grupos) {
@@ -91,28 +92,106 @@ export class Maquina {
     return contas;
   }
 
+  /** Monta a árvore padrão do Linux (FHS), como num Ubuntu Server 24.04 recém-instalado. */
   private montarArvore(): void {
-    for (const dir of ['/bin', '/boot', '/dev', '/etc', '/home', '/lib', '/media', '/mnt', '/opt', '/proc', '/sbin',
-      '/srv', '/usr', '/usr/bin', '/usr/sbin', '/usr/share', '/var', '/var/log', '/var/www']) {
-      this.criarDiretorio(dir, 0, 0, 0o755);
+    const pastas: Array<[string, number]> = [
+      ['/boot', 0o755], ['/boot/grub', 0o755], ['/boot/efi', 0o700], ['/dev', 0o755], ['/dev/pts', 0o755], ['/dev/shm', 0o1777],
+      ['/etc', 0o755], ['/home', 0o755], ['/media', 0o755], ['/mnt', 0o755], ['/opt', 0o755], ['/proc', 0o555],
+      ['/root', 0o700], ['/run', 0o755], ['/srv', 0o755], ['/sys', 0o555], ['/sys/block', 0o755], ['/sys/class', 0o755],
+      ['/sys/kernel', 0o755], ['/tmp', 0o1777], ['/usr', 0o755], ['/usr/bin', 0o755], ['/usr/sbin', 0o755], ['/usr/lib', 0o755],
+      ['/usr/lib/modules/6.8.0-45-generic', 0o755], ['/usr/lib/systemd/system', 0o755], ['/usr/local', 0o755],
+      ['/usr/local/bin', 0o755], ['/usr/local/sbin', 0o755], ['/usr/share', 0o755], ['/usr/share/doc', 0o755],
+      ['/usr/share/man/man1', 0o755], ['/usr/include', 0o755], ['/var', 0o755], ['/var/backups', 0o755], ['/var/cache/apt/archives', 0o755],
+      ['/var/lib/apt/lists', 0o755], ['/var/lib/dpkg', 0o755], ['/var/log/apt', 0o755], ['/var/mail', 0o775],
+      ['/var/spool/cron/crontabs', 0o730], ['/var/tmp', 0o1777],
+    ];
+    for (const [pasta, modo] of pastas) {
+      this.criarDiretorio(pasta, 0, 0, 0o755).modo = modo;
     }
-    this.criarDiretorio('/root', 0, 0, 0o700);
-    this.criarDiretorio('/tmp', 0, 0, 0o1777);
-    this.colocar('/dev', new Buraco('null', 0, 0, 0o666));
+    // No Ubuntu moderno /bin, /sbin e /lib são atalhos para dentro de /usr ("usrmerge").
+    this.fs.raiz.adicionar(new Link('bin', 'usr/bin'));
+    this.fs.raiz.adicionar(new Link('sbin', 'usr/sbin'));
+    this.fs.raiz.adicionar(new Link('lib', 'usr/lib'));
+    this.fs.raiz.adicionar(new Link('lib64', 'usr/lib64'));
+    this.criarDiretorio('/usr/lib64', 0, 0, 0o755);
 
+    // /boot: o kernel e o carregador de inicialização
+    this.colocar('/boot', new Binario('vmlinuz-6.8.0-45-generic', 14928264, 0, 0, 0o600));
+    this.colocar('/boot', new Binario('initrd.img-6.8.0-45-generic', 71368522, 0, 0, 0o644));
+    this.criarArquivo('/boot/config-6.8.0-45-generic', '# Configuração usada para compilar o kernel\nCONFIG_64BIT=y\nCONFIG_EXT4_FS=y\nCONFIG_USB=y\n', 0, 0, 0o644);
+    this.colocar('/boot', new Link('vmlinuz', 'vmlinuz-6.8.0-45-generic'));
+    this.colocar('/boot', new Link('initrd.img', 'initrd.img-6.8.0-45-generic'));
+    this.criarArquivo('/boot/grub/grub.cfg', '# NÃO EDITE ESTE ARQUIVO: gerado pelo update-grub\nmenuentry \'Ubuntu\' {\n\tlinux /boot/vmlinuz-6.8.0-45-generic root=/dev/sda2 ro\n\tinitrd /boot/initrd.img-6.8.0-45-generic\n}\n', 0, 0, 0o444);
+
+    // /dev: cada dispositivo de hardware vira um arquivo
+    this.colocar('/dev', new Buraco('null', 0, 0, 0o666));
+    for (const nome of ['zero', 'random', 'urandom', 'tty']) this.colocar('/dev', new Dispositivo(nome, 'c', 0, nome === 'tty' ? 5 : 0, 0o666));
+    this.colocar('/dev', new Dispositivo('tty1', 'c', 0, 5, 0o620));
+    this.colocar('/dev', new Dispositivo('console', 'c', 0, 5, 0o600));
+    for (const nome of ['sda', 'sda1', 'sda2']) this.colocar('/dev', new Dispositivo(nome, 'b', 0, 6, 0o660));
+    this.colocar('/dev', new Dispositivo('sr0', 'b', 0, 24, 0o660));
+
+    // /proc: janela para dentro do kernel (arquivos "virtuais", gerados na hora)
+    const proc: Array<[string, string]> = [
+      ['cpuinfo', 'processor\t: 0\nvendor_id\t: GenuineIntel\nmodel name\t: Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz\ncpu cores\t: 2\n\nprocessor\t: 1\nvendor_id\t: GenuineIntel\nmodel name\t: Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz\ncpu cores\t: 2\n'],
+      ['meminfo', 'MemTotal:        4015604 kB\nMemFree:         1987332 kB\nMemAvailable:    2843120 kB\nSwapTotal:       2097148 kB\n'],
+      ['version', 'Linux version 6.8.0-45-generic (buildd@lcy02-amd64-115) (gcc 13.2.0) #45-Ubuntu SMP PREEMPT_DYNAMIC\n'],
+      ['uptime', '5231.44 10318.02\n'],
+      ['loadavg', '0.08 0.03 0.01 1/187 2412\n'],
+    ];
+    for (const [nome, conteudo] of proc) this.criarArquivo('/proc/' + nome, conteudo, 0, 0, 0o444);
+
+    // /etc: configurações
     for (const nome of ['passwd', 'group', 'shadow']) {
       this.colocar('/etc', this.criarArquivoGerado(nome) as ArquivoGerado);
     }
-    this.criarArquivo('/etc/hostname', 'servidor\n', 0, 0, 0o644);
-    this.criarArquivo('/etc/os-release', 'PRETTY_NAME="Ubuntu 24.04 LTS"\nNAME="Ubuntu"\nVERSION_ID="24.04"\n' +
-      'VERSION="24.04 LTS (Noble Numbat)"\nID=ubuntu\n', 0, 0, 0o644);
-    this.criarArquivo('/etc/sudoers', '# Membros do grupo sudo podem executar qualquer comando\n%sudo\tALL=(ALL:ALL) ALL\n', 0, 0, 0o440);
+    const etc: Array<[string, string, number]> = [
+      ['hostname', 'servidor\n', 0o644],
+      ['hosts', '127.0.0.1 localhost\n127.0.1.1 servidor\n\n# IPv6\n::1     ip6-localhost ip6-loopback\n', 0o644],
+      ['os-release', 'PRETTY_NAME="Ubuntu 24.04 LTS"\nNAME="Ubuntu"\nVERSION_ID="24.04"\nVERSION="24.04 LTS (Noble Numbat)"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL="https://www.ubuntu.com/"\n', 0o644],
+      ['lsb-release', 'DISTRIB_ID=Ubuntu\nDISTRIB_RELEASE=24.04\nDISTRIB_CODENAME=noble\nDISTRIB_DESCRIPTION="Ubuntu 24.04 LTS"\n', 0o644],
+      ['issue', 'Ubuntu 24.04 LTS \\n \\l\n\n', 0o644],
+      ['timezone', 'America/Sao_Paulo\n', 0o644],
+      ['resolv.conf', 'nameserver 127.0.0.53\noptions edns0 trust-ad\nsearch .\n', 0o644],
+      ['fstab', '# <sistema de arquivos>  <ponto de montagem>  <tipo>  <opções>  <dump>  <pass>\n/dev/sda2  /          ext4  defaults  0  1\n/dev/sda1  /boot/efi  vfat  umask=0077  0  1\n/swap.img  none       swap  sw  0  0\n', 0o644],
+      ['shells', '# /etc/shells: shells de login válidos\n/bin/sh\n/bin/bash\n/usr/bin/bash\n', 0o644],
+      ['crontab', '# /etc/crontab: agendamentos do sistema\n# m h dom mon dow user  command\n17 *    * * *   root    cd / && run-parts --report /etc/cron.hourly\n25 6    * * *   root    test -x /usr/sbin/anacron || run-parts --report /etc/cron.daily\n', 0o644],
+      ['sudoers', '# Membros do grupo sudo podem executar qualquer comando\n%sudo\tALL=(ALL:ALL) ALL\n', 0o440],
+    ];
+    for (const [nome, conteudo, modo] of etc) this.criarArquivo('/etc/' + nome, conteudo, 0, 0, modo);
+    this.criarDiretorio('/etc/ssh', 0, 0, 0o755);
+    this.criarArquivo('/etc/ssh/sshd_config', '# Configuração do servidor SSH\nPort 22\nPermitRootLogin prohibit-password\nPasswordAuthentication yes\nKbdInteractiveAuthentication no\nUsePAM yes\n', 0, 0, 0o644);
+    this.criarDiretorio('/etc/apt/sources.list.d', 0, 0, 0o755);
+    this.criarArquivo('/etc/apt/sources.list.d/ubuntu.sources', 'Types: deb\nURIs: http://br.archive.ubuntu.com/ubuntu/\nSuites: noble noble-updates noble-backports\nComponents: main restricted universe multiverse\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n\nTypes: deb\nURIs: http://security.ubuntu.com/ubuntu/\nSuites: noble-security\nComponents: main restricted universe multiverse\n', 0, 0, 0o644);
     this.criarDiretorio('/etc/skel', 0, 0, 0o755);
     this.criarArquivo('/etc/skel/.bashrc', BASHRC, 0, 0, 0o644);
     this.criarArquivo('/etc/skel/.profile', PROFILE, 0, 0, 0o644);
     this.criarArquivo('/etc/skel/.bash_logout', BASH_LOGOUT, 0, 0, 0o644);
     this.criarArquivo('/root/.bashrc', BASHRC, 0, 0, 0o644);
-    this.criarArquivo('/var/log/syslog', 'Sep 25 08:00:01 ubuntu systemd[1]: Started Daily apt upgrade.\n', 0, 4, 0o640);
+
+    // /usr/lib: bibliotecas compartilhadas (as "DLLs" do Linux)
+    this.criarDiretorio('/usr/lib/x86_64-linux-gnu', 0, 0, 0o755);
+    this.colocar('/usr/lib/x86_64-linux-gnu', new Binario('libc.so.6', 2125328, 0, 0, 0o755));
+    this.colocar('/usr/lib/x86_64-linux-gnu', new Binario('libssl.so.3', 667864, 0, 0, 0o644));
+    this.criarArquivo('/usr/share/doc/README', 'Documentação dos pacotes instalados fica em /usr/share/doc/<pacote>.\n', 0, 0, 0o644);
+
+    // /var/log: registros do sistema (o grupo adm pode ler)
+    this.criarArquivo('/var/log/syslog',
+      'Sep 25 08:00:01 servidor systemd[1]: Started cron.service - Regular background program processing daemon.\n' +
+      'Sep 25 08:00:02 servidor systemd[1]: Started ssh.service - OpenBSD Secure Shell server.\n' +
+      'Sep 25 08:15:44 servidor kernel: [  932.117] EXT4-fs (sda2): error count since last fsck: 0\n' +
+      'Sep 25 09:00:01 servidor CRON[1893]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)\n', 0, 4, 0o640);
+    this.criarArquivo('/var/log/auth.log',
+      'Sep 25 07:58:12 servidor sshd[1201]: Failed password for root from 45.155.205.12 port 51234 ssh2\n' +
+      'Sep 25 07:58:15 servidor sshd[1201]: Failed password for root from 45.155.205.12 port 51234 ssh2\n' +
+      'Sep 25 07:58:19 servidor sshd[1205]: Failed password for invalid user admin from 45.155.205.12 port 51290 ssh2\n' +
+      'Sep 25 08:30:02 servidor sshd[1512]: Accepted password for ricardo from 192.168.0.50 port 50122 ssh2\n' +
+      'Sep 25 08:31:10 servidor sudo:  ricardo : TTY=pts/0 ; PWD=/home/ricardo ; USER=root ; COMMAND=/usr/bin/apt update\n', 0, 4, 0o640);
+    this.criarArquivo('/var/log/kern.log', 'Sep 25 07:50:01 servidor kernel: [    0.000000] Linux version 6.8.0-45-generic\n', 0, 4, 0o640);
+    this.criarArquivo('/var/log/apt/history.log', '', 0, 0, 0o644);
+
+    // pacotes que vêm com o Ubuntu Server (cria os programas em /usr/bin e /usr/sbin) e serviços ligados
+    new GerenciadorDePacotes(this).instalarBase();
 
     const ricardo: Usuario = this.contas.usuario('ricardo') as Usuario;
     this.criarHome(ricardo);

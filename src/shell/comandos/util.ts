@@ -1,4 +1,4 @@
-import { Diretorio, type Arquivo, type No } from '../../linux/No';
+import { Diretorio, Dispositivo, Link, type Arquivo, type No } from '../../linux/No';
 import { ErroDeSistema } from '../../linux/ErroDeSistema';
 import { SaidaEmTexto, SaidaParaArquivo } from '../Saida';
 import type { Contexto } from '../Contexto';
@@ -22,6 +22,12 @@ export function dataCompleta(data: Date): string {
 export function classeDoNo(no: No): string {
   if (no instanceof Diretorio) {
     return (no.modo & 0o1002) === 0o1002 ? 'c-sticky' : 'c-dir';
+  }
+  if (no instanceof Link) {
+    return 'c-link';
+  }
+  if (no instanceof Dispositivo) {
+    return 'c-dispositivo';
   }
   return (no.modo & 0o111) !== 0 ? 'c-exe' : '';
 }
