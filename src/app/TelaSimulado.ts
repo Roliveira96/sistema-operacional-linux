@@ -779,16 +779,23 @@ export class TelaSimulado implements Tela {
   private async reproduzirSolucaoNoTerminal(passos: Passo[], botao?: HTMLButtonElement | null): Promise<void> {
     if (!this.bancada || this.executandoSolucao) return;
     this.executandoSolucao = true;
-    const textoOriginal = botao?.innerHTML ?? '';
+    this.atualizarLinhasTabelaRevisao();
+
+    const btnCard = this.raiz.querySelector<HTMLButtonElement>('.btn-revisao-solucao-terminal');
     if (botao) {
       botao.disabled = true;
       botao.innerHTML = '⏳ Digitando no terminal...';
+    }
+    if (btnCard && btnCard !== botao) {
+      btnCard.disabled = true;
+      btnCard.innerHTML = '⏳ Digitando no terminal...';
     }
 
     try {
       for (let i = 0; i < passos.length; i++) {
         const p = passos[i];
         const terminal: TerminalUbuntu = await this.bancada.janela.obter(p.terminal ?? 1, p.login);
+        terminal.focar();
         await terminal.executarAutomatico(p.comando, p.respostas ?? []);
         if (i < passos.length - 1) {
           await new Promise((resolve) => setTimeout(resolve, 600));
@@ -798,10 +805,8 @@ export class TelaSimulado implements Tela {
       console.error('Erro ao reproduzir comando no terminal:', e);
     } finally {
       this.executandoSolucao = false;
-      if (botao) {
-        botao.disabled = false;
-        botao.innerHTML = textoOriginal;
-      }
+      this.renderizarRevisaoQuestaoAtiva();
+      this.atualizarLinhasTabelaRevisao();
     }
   }
 
@@ -1129,11 +1134,9 @@ export class TelaSimulado implements Tela {
         </div>
       `;
 
-      container.querySelector('.btn-revisao-solucao-terminal')?.addEventListener('click', async () => {
-        this.solucoesReveladasRevisao.add(d.id);
-        this.renderizarRevisaoQuestaoAtiva();
-        const btnAtual = this.raiz.querySelector<HTMLButtonElement>('.btn-revisao-solucao-terminal');
-        await this.reproduzirSolucaoNoTerminal(d.solucao, btnAtual);
+      container.querySelector('.btn-revisao-solucao-terminal')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget as HTMLButtonElement;
+        await this.executarSolucaoRevisao(this.indiceQuestaoRevisao, btn);
       });
     } else {
       const q = item as QuestaoQuiz;
@@ -1179,6 +1182,26 @@ export class TelaSimulado implements Tela {
     }
   }
 
+  private async executarSolucaoRevisao(idx: number, botaoClicado?: HTMLButtonElement | null): Promise<void> {
+    const itens = this.obterItens();
+    const item = itens[idx];
+    if (!item) return;
+
+    this.indiceQuestaoRevisao = idx;
+    this.solucoesReveladasRevisao.add(item.id);
+    this.renderizarBotoesRevisao();
+    this.renderizarRevisaoQuestaoAtiva();
+    this.atualizarLinhasTabelaRevisao();
+
+    // Rola suavemente até o card da questão na coluna da esquerda
+    this.raiz.querySelector('.sim-relatorio-questao-ativa-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if ('solucao' in item) {
+      const btnCard = this.raiz.querySelector<HTMLButtonElement>('.btn-revisao-solucao-terminal');
+      await this.reproduzirSolucaoNoTerminal(item.solucao, botaoClicado ?? btnCard);
+    }
+  }
+
   private gerarLinhasTabelaHtml(itens: Array<Desafio | QuestaoQuiz>): string {
     return itens
       .map((item, index) => {
@@ -1195,6 +1218,22 @@ export class TelaSimulado implements Tela {
         const tempoGasto = estado ? formatarExtenso(estado.tempoSegundos) : '0s';
         const enunciado = 'enunciado' in item ? item.enunciado : (item as QuestaoQuiz).pergunta;
         const ehAtual = index === this.indiceQuestaoRevisao;
+        const ehDesafio = 'solucao' in item;
+
+        let acaoHtml = '';
+        if (ehDesafio) {
+          acaoHtml = `
+            <button class="botao-primario btn-ir-questao-revisao ${this.executandoSolucao && ehAtual ? 'executando' : ''}" data-idx="${index}" ${this.executandoSolucao ? 'disabled' : ''}>
+              ${this.executandoSolucao && ehAtual ? '⏳ Digitando...' : '▶️ Reproduzir no Terminal'}
+            </button>
+          `;
+        } else {
+          acaoHtml = `
+            <button class="botao-secundario btn-ir-questao-revisao" data-idx="${index}">
+              🔍 Ver Gabarito
+            </button>
+          `;
+        }
 
         return `
           <tr class="${ehAtual ? 'linha-selecionada' : ''}" data-idx="${index}">
@@ -1202,13 +1241,7 @@ export class TelaSimulado implements Tela {
             <td class="col-enunciado">${enunciado}</td>
             <td class="col-status">${badgeResultado}</td>
             <td class="col-tempo"><b>${tempoGasto}</b></td>
-            <td class="col-acao">
-              ${
-                ehAtual
-                  ? '<span class="badge-em-exibicao">▶ Em Exibição</span>'
-                  : `<button class="botao-secundario btn-ir-questao-revisao" data-idx="${index}">🔍 Ver no Terminal</button>`
-              }
-            </td>
+            <td class="col-acao">${acaoHtml}</td>
           </tr>
         `;
       })
@@ -1224,16 +1257,15 @@ export class TelaSimulado implements Tela {
   }
 
   private anexarEventosTabelaRevisao(): void {
-    this.raiz.querySelectorAll('.btn-ir-questao-revisao').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
+    this.raiz.querySelectorAll<HTMLButtonElement>('.btn-ir-questao-revisao').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const idx = Number((e.currentTarget as HTMLElement).dataset.idx ?? 0);
-        this.trocarQuestaoRevisao(idx);
-        this.raiz.querySelector('.sim-relatorio-questao-ativa-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const idx = Number(btn.dataset.idx ?? 0);
+        await this.executarSolucaoRevisao(idx, btn);
       });
     });
 
-    this.raiz.querySelectorAll('.sim-tabela-desempenho tr[data-idx]').forEach((tr) => {
+    this.raiz.querySelectorAll('.sim-tabela-desempenho tbody tr[data-idx]').forEach((tr) => {
       tr.addEventListener('click', (e) => {
         const idx = Number((e.currentTarget as HTMLElement).dataset.idx ?? 0);
         this.trocarQuestaoRevisao(idx);
