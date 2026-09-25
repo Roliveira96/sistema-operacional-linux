@@ -3,6 +3,7 @@ import { Contas, Grupo, Usuario } from './Contas';
 import { Maquina } from './Maquina';
 import { Permissoes } from './Permissoes';
 import { SistemaDeArquivos } from './SistemaDeArquivos';
+import { Disco, Particao } from './Discos';
 
 /** Um nó da árvore em JSON. "gerado" = conteúdo calculado das contas (/etc/passwd, /etc/group, /etc/shadow). */
 export interface NoJson {
@@ -44,17 +45,45 @@ export interface GrupoJson {
   membros: string[];
 }
 
+export interface ParticaoJson {
+  nome: string;
+  tamanhoGb: number;
+  fs: 'ext4' | null;
+  uuid: string | null;
+  formatadaEm?: string | null;
+  raiz?: NoJson | null;
+}
+
+export interface DiscoJson {
+  nome: string;
+  tamanhoGb: number;
+  detectadoEm: number;
+  particoes: ParticaoJson[];
+}
+
+export interface MontagemJson {
+  dispositivo: string;
+  ponto: string;
+}
+
 export interface MaquinaJson {
   formato: 'exame-so/maquina';
   versao: 1;
   hostname: string;
   contas: { usuarios: UsuarioJson[]; grupos: GrupoJson[] };
   raiz: NoJson;
+  discos?: DiscoJson[];
+  montagens?: MontagemJson[];
 }
 
 /** Converte a máquina inteira (árvore + contas) de/para JSON. As sessões abertas não são salvas. */
 export class Serializador {
   public static paraJson(maquina: Maquina): MaquinaJson {
+    const serializarNo = (no: No): NoJson => {
+      const original = maquina.discos.originalDe(no);
+      return Serializador.noParaJson(original ?? no, serializarNo);
+    };
+
     return {
       formato: 'exame-so/maquina',
       versao: 1,
@@ -65,7 +94,24 @@ export class Serializador {
         })),
         grupos: maquina.contas.listarGrupos().map((g: Grupo) => ({ nome: g.nome, gid: g.gid, membros: g.membros.slice() })),
       },
-      raiz: Serializador.noParaJson(maquina.fs.raiz),
+      raiz: serializarNo(maquina.fs.raiz),
+      discos: maquina.discos.listar().map((d: Disco) => ({
+        nome: d.nome,
+        tamanhoGb: d.tamanhoGb,
+        detectadoEm: d.detectadoEm,
+        particoes: d.particoes.map((p: Particao) => ({
+          nome: p.nome,
+          tamanhoGb: p.tamanhoGb,
+          fs: p.fs,
+          uuid: p.uuid,
+          formatadaEm: p.formatadaEm ? p.formatadaEm.toISOString() : null,
+          raiz: p.raiz ? Serializador.noParaJson(p.raiz) : null,
+        })),
+      })),
+      montagens: maquina.discos.listarMontagens().map((m) => ({
+        dispositivo: m.dispositivo,
+        ponto: m.ponto,
+      })),
     };
   }
 
@@ -88,10 +134,42 @@ export class Serializador {
     for (const filho of json.raiz.filhos ?? []) {
       raiz.adicionar(Serializador.noDeJson(filho, maquina));
     }
+
+    // Restaura discos
+    if (json.discos && json.discos.length > 0) {
+      for (const dJson of json.discos) {
+        const d = new Disco(dJson.nome, dJson.tamanhoGb, dJson.detectadoEm);
+        d.particoes = (dJson.particoes ?? []).map((pJson) => {
+          const p = new Particao(pJson.nome, pJson.tamanhoGb);
+          p.fs = pJson.fs;
+          p.uuid = pJson.uuid;
+          if (pJson.formatadaEm) p.formatadaEm = new Date(pJson.formatadaEm);
+          if (pJson.raiz) {
+            p.raiz = Serializador.noDeJson(pJson.raiz, maquina) as Diretorio;
+          }
+          return p;
+        });
+        maquina.discos.adicionarDisco(d);
+      }
+    } else {
+      maquina.montarDiscos();
+    }
+
+    // Remonta partições salvas
+    if (json.montagens) {
+      for (const mJson of json.montagens) {
+        const p = maquina.discos.particao(mJson.dispositivo);
+        if (p) {
+          maquina.discos.montar(p, mJson.ponto);
+        }
+      }
+    }
+
     return maquina;
   }
 
-  private static noParaJson(no: No): NoJson {
+  private static noParaJson(no: No, transformar?: (n: No) => NoJson): NoJson {
+    const fn = transformar ?? ((n: No) => Serializador.noParaJson(n, transformar));
     const base = {
       nome: no.nome,
       dono: no.dono,
@@ -101,7 +179,7 @@ export class Serializador {
       ...(no.acl !== null ? { acl: { usuarios: Array.from(no.acl.usuarios), grupos: Array.from(no.acl.grupos), grupoDono: no.acl.grupoDono } } : {}),
     };
     if (no instanceof Diretorio) {
-      return { ...base, tipo: 'diretorio', filhos: no.nomesOrdenados().map((n: string) => Serializador.noParaJson(no.obter(n) as No)) };
+      return { ...base, tipo: 'diretorio', filhos: no.nomesOrdenados().map((n: string) => fn(no.obter(n) as No)) };
     }
     if (no instanceof ArquivoGerado) return { ...base, tipo: 'gerado' };
     if (no instanceof Binario) return { ...base, tipo: 'binario', bytes: no.bytes };

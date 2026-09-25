@@ -41,10 +41,43 @@ export class Head extends Fatiador {
 
 export class Tail extends Fatiador {
   public readonly nome: string = 'tail';
-  public readonly resumo: string = 'mostra as últimas linhas (padrão 10; -n 3 para três)';
+  public readonly resumo: string = 'mostra as últimas linhas (padrão 10; -n 3 para três, -f acompanha)';
 
   protected fatiar(linhas: string[], quantidade: number): string[] {
     return quantidade === 0 ? [] : linhas.slice(-quantidade);
+  }
+
+  public override async executar(args: string[], contexto: Contexto): Promise<number> {
+    const opcoes: Opcoes = Opcoes.ler(normalizarNumero(args), 'nf', { lines: 'n', follow: 'f' });
+    const seguir: boolean = opcoes.tem('f');
+
+    const status = await super.executar(args.filter((a) => a !== '-f' && a !== '--follow'), contexto);
+    if (status !== 0 || !seguir) {
+      return status;
+    }
+
+    const arquivos = opcoes.operandos;
+    if (arquivos.length === 0) {
+      return 0;
+    }
+
+    const caminho = arquivos[0];
+    let ultimoTamanho = (contexto.tentarLocalizar(caminho) as Arquivo | null)?.tamanho() ?? 0;
+
+    while (await contexto.dormir(400)) {
+      const no = contexto.tentarLocalizar(caminho);
+      if (no instanceof Arquivo) {
+        const conteudo = no.ler();
+        if (conteudo.length > ultimoTamanho) {
+          const novas = conteudo.substring(ultimoTamanho);
+          for (const l of linhasDe(novas)) {
+            contexto.linha(l);
+          }
+          ultimoTamanho = conteudo.length;
+        }
+      }
+    }
+    return 0;
   }
 }
 

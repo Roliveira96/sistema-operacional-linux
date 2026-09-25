@@ -1,6 +1,6 @@
 import { Arquivo, ArquivoGerado, Binario, Buraco, Diretorio, Dispositivo, Link, type No } from './No';
 import { GerenciadorDePacotes } from './Pacotes';
-import { GerenciadorDeDiscos } from './Discos';
+import { Disco, GerenciadorDeDiscos } from './Discos';
 import { Contas, Grupo, Usuario } from './Contas';
 import { SistemaDeArquivos } from './SistemaDeArquivos';
 import { Quadro, Sessao, type Job } from './Sessao';
@@ -42,6 +42,7 @@ export class Maquina {
   public static criar(): Maquina {
     const maquina: Maquina = new Maquina(new SistemaDeArquivos(new Diretorio('', 0, 0, 0o755)), Maquina.criarContas());
     maquina.montarArvore();
+    maquina.montarDiscos();
     return maquina;
   }
 
@@ -220,6 +221,16 @@ export class Maquina {
     this.criarHome(ricardo);
     for (const pasta of ['Área de Trabalho', 'Documentos', 'Downloads', 'Imagens', 'Modelos', 'Música', 'Público', 'Vídeos']) {
       this.criarDiretorio(ricardo.home + '/' + pasta, ricardo.uid, ricardo.gid, 0o755);
+    }
+  }
+
+  /** Discos secundários conectados ao servidor (sdb 5G, sdc 2G). */
+  public montarDiscos(): void {
+    if (this.discos.listar().length === 0) {
+      const sdb = new Disco('sdb', 5, 2.10);
+      const sdc = new Disco('sdc', 2, 2.30);
+      this.discos.adicionarDisco(sdb);
+      this.discos.adicionarDisco(sdc);
     }
   }
 

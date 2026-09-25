@@ -175,10 +175,37 @@ export class Df extends Comando {
       ['tmpfs', '2,0G', '0', '2,0G', '0%', '/dev/shm'],
       ['/dev/sda1', '1,1G', '6,1M', '1,1G', '1%', '/boot/efi'],
     ];
+
+    for (const m of contexto.maquina.discos.listarMontagens()) {
+      const totalKb = m.particao.tamanhoGb * 1048576;
+      const usadoKb = contexto.maquina.discos.usadoKb(m.particao);
+      const dispKb = Math.max(0, totalKb - usadoKb);
+      const pct = Math.min(100, Math.round((usadoKb / totalKb) * 100));
+      if (humano) {
+        linhas.push([
+          m.dispositivo,
+          `${m.particao.tamanhoGb}G`,
+          usadoKb < 1024 ? `${usadoKb}K` : `${(usadoKb / 1024).toFixed(1)}M`,
+          dispKb < 1048576 ? `${(dispKb / 1024).toFixed(1)}M` : `${(dispKb / 1048576).toFixed(1)}G`,
+          `${pct}%`,
+          m.ponto,
+        ]);
+      } else {
+        linhas.push([
+          m.dispositivo,
+          String(totalKb),
+          String(usadoKb),
+          String(dispKb),
+          `${pct}%`,
+          m.ponto,
+        ]);
+      }
+    }
+
     for (const [sistema, tam, usado, disp, uso, ponto] of linhas) {
       contexto.linha(humano
         ? sistema.padEnd(15) + ' ' + tam.padStart(4) + ' ' + usado.padStart(5) + ' ' + disp.padStart(5) + ' ' + uso.padStart(4) + ' ' + ponto
-        : sistema.padEnd(15) + ' ' + '25107716'.padStart(12) + ' ' + '7126512'.padStart(8) + ' ' + '16680884'.padStart(10) + ' ' + uso.padStart(4) + ' ' + ponto);
+        : sistema.padEnd(15) + ' ' + tam.padStart(12) + ' ' + usado.padStart(8) + ' ' + disp.padStart(10) + ' ' + uso.padStart(4) + ' ' + ponto);
     }
     return 0;
   }
@@ -211,6 +238,20 @@ export class Lsblk extends Comando {
     contexto.linha('sda      8:0    0   25G  0 disk ');
     contexto.linha('├─sda1   8:1    0    1G  0 part /boot/efi');
     contexto.linha('└─sda2   8:2    0   24G  0 part /');
+
+    const discos = contexto.maquina.discos.listar();
+    let min = 16;
+    for (const d of discos) {
+      contexto.linha(`${d.nome.padEnd(6)}  8:${min}    0    ${d.tamanhoGb}G  0 disk `);
+      d.particoes.forEach((p, idx) => {
+        const charArvore = idx === d.particoes.length - 1 ? '└─' : '├─';
+        const montagem = contexto.maquina.discos.montagemDe(p);
+        const mountpoint = montagem ? ' ' + montagem.ponto : '';
+        contexto.linha(`${charArvore}${p.nome.padEnd(5)}  8:${min + idx + 1}    0    ${p.tamanhoGb}G  0 part${mountpoint}`);
+      });
+      min += 16;
+    }
+
     contexto.linha('sr0     11:0    1 1024M  0 rom  ');
     return 0;
   }

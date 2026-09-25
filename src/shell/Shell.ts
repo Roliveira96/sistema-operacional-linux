@@ -18,6 +18,8 @@ import { Bg, Fg, Jobs, Kill, Killall, Nohup, Ps, Top, Uptime, Wait } from './com
 import { Awk, Sed, Tee, Tr, Uniq, Xargs } from './comandos/TextoAvancado';
 import { Du, Find } from './comandos/Busca';
 import { Gzip, Rsync, Tar, Unzip, Zip } from './comandos/Compactacao';
+import { Dmesg, Journalctl, Logger } from './comandos/Logs';
+import { Blkid, Fdisk, Mkfs, Mount, Umount } from './comandos/Discos';
 
 /** Monta o registro com todos os comandos e devolve um interpretador novo (um por terminal). */
 export class Shell {
@@ -36,6 +38,8 @@ export class Shell {
         new Touch(), new Cat(), new Echo(), new Cp(), new Mv(), new Stat(), new Ln(), new Printf(),
         new Apt(), new AptGet(), new AptCache(), new Dpkg(),
         new Systemctl(), new Service(), new Which(), new LsbRelease(), new Df(), new Free(), new Lsblk(),
+        new Mount(), new Umount(), new Fdisk(), new Mkfs(), new Mkfs('mkfs'), new Blkid(),
+        new Journalctl(), new Dmesg(), new Logger(),
         new Htop(), new Neofetch(), new Cowsay(), new Git(), new Curl(), new Nginx(), new Mysql(), new Python3(), new Openssl(),
         new Editor('nano'), new Editor('vim'), new Editor('vi'),
         new Head(), new Tail(), new Wc(), new Grep(), new Sort(), new Cut(),
