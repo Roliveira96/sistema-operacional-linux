@@ -1,6 +1,7 @@
 import type { Desafio, Passo, QuestaoQuiz } from '../conteudo/Topico';
 import type { Maquina } from '../linux/Maquina';
 import { Usuario, Grupo } from '../linux/Contas';
+import { GerenciadorDePacotes } from '../linux/Pacotes';
 import { Verificar } from '../conteudo/Verificar';
 
 /**
@@ -149,28 +150,27 @@ export class MotorQuestoesSimulado {
       maquina.criarDiretorio('/var/www/html', 0, 0, 0o755);
     }
 
-    if (ids.has('av-dif-4') || ids.has('av-dif-6')) {
-      try {
-        maquina.pacotes.instalar('apache2');
-      } catch {
-        // ignora se já instalado
+    const instalarSeExistir = (nome: string) => {
+      const p = GerenciadorDePacotes.pacote(nome);
+      if (p) {
+        try {
+          new GerenciadorDePacotes(maquina).instalar(p, false);
+        } catch {
+          // ignora se já instalado
+        }
       }
+    };
+
+    if (ids.has('av-dif-4') || ids.has('av-dif-6')) {
+      instalarSeExistir('apache2');
     }
 
     if (ids.has('av-dif-5')) {
-      try {
-        maquina.pacotes.instalar('tree');
-      } catch {
-        // ignora se já instalado
-      }
+      instalarSeExistir('tree');
     }
 
     if (ids.has('av-dif-7') || ids.has('lpic-med-3') || ids.has('lpic-dif-4') || ids.has('esc-dif-10')) {
-      try {
-        maquina.pacotes.instalar('nginx');
-      } catch {
-        // ignora se já instalado
-      }
+      instalarSeExistir('nginx');
     }
 
     // Essentials: arquivos no laboratório /tmp/lpi-lab

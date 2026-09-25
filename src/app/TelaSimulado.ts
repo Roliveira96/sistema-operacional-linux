@@ -9,6 +9,7 @@ import { MotorQuestoesSimulado } from './MotorQuestoesSimulado';
 import { modalidades, sortearQuestoesExame } from '../conteudo/simulado';
 import { ColaDeComandos } from './ColaDeComandos';
 import { Aviso } from './Aviso';
+import { GeradorCertificado } from './GeradorCertificado';
 
 type FaseSimulado = 'hub' | 'pre-prova' | 'prova' | 'relatorio';
 
@@ -961,24 +962,53 @@ export class TelaSimulado implements Tela {
             <div class="sim-relatorio-meta-pill" title="Tempo total utilizado">
               ⏱️ Tempo: <b>${formatarExtenso(tempoGeralUtilizado)}</b>
             </div>
-            <button class="botao-primario btn-refazer-prova" title="Refazer esta prova">🔄 Refazer Prova</button>
+            ${
+              aprovado
+                ? `<button class="botao-primario btn-gerar-certificado" title="Emitir Certificado Oficial em PDF">🎓 Emitir Certificado</button>`
+                : ''
+            }
+            <button class="botao-secundario btn-refazer-prova" title="Refazer esta prova">🔄 Refazer Prova</button>
           </div>
         </header>
 
         <main class="sim-relatorio-divisao">
           <section class="sim-relatorio-estudo">
-            <div class="sim-relatorio-placar-compacto ${aprovado ? 'aprovado' : 'reciclagem'}">
+            <div class="sim-relatorio-placar-compacto ${aprovado ? (porcentagem === 100 ? 'excelencia' : 'aprovado') : 'reciclagem'}">
               <div class="placar-topo-linha">
-                <span class="placar-trofeu-pequeno">${aprovado ? '🏆' : '📝'}</span>
+                <span class="placar-trofeu-pequeno">${aprovado ? (porcentagem === 100 ? '⭐' : '🏆') : '📝'}</span>
                 <div>
-                  <b>${aprovado ? 'Parabéns! Aprovado no Simulado Prático!' : 'Prova Finalizada · Modo de Correção e Aprendizado'}</b>
+                  <b>${
+                    aprovado
+                      ? (porcentagem === 100
+                          ? 'Parabéns! Aprovado com Excelência (100% de Acertos)!'
+                          : 'Parabéns! Aprovado no Exame!')
+                      : 'Prova Finalizada · Modo de Correção e Aprendizado'
+                  }</b>
                   <p>${concluidas} de ${totalItens} tarefas concluídas (${porcentagem}%). ${
                     aprovado
-                      ? 'Seu desempenho atingiu a nota de corte para aprovação em exames oficiais.'
+                      ? (porcentagem === 100
+                          ? 'Desempenho perfeito! Todas as 10 tarefas do exame foram cumpridas com êxito total.'
+                          : 'Seu desempenho atingiu a nota de corte para aprovação em exames oficiais.')
                       : 'Veja a correção passo a passo de cada tarefa no terminal ao lado para dominar todos os comandos.'
                   }</p>
                 </div>
               </div>
+
+              ${
+                aprovado
+                  ? `
+                <div class="placar-certificado-banner">
+                  <div class="placar-cert-texto">
+                    <b>🎓 Certificado Oficial Habilitado</b>
+                    <span>Emita seu diploma oficial em PDF assinado pela <b>Professora Sediane</b> (${porcentagem}% de aproveitamento${porcentagem === 100 ? ' · Com Excelência' : ''}).</span>
+                  </div>
+                  <button class="botao-primario btn-gerar-certificado-placar">
+                    📜 Gerar Certificado PDF
+                  </button>
+                </div>
+              `
+                  : ''
+              }
             </div>
 
             <div class="sim-relatorio-navegacao-secao">
@@ -1066,6 +1096,19 @@ export class TelaSimulado implements Tela {
         window.scrollTo(0, 0);
       });
     });
+
+    if (aprovado) {
+      this.raiz.querySelectorAll('.btn-gerar-certificado, .btn-gerar-certificado-placar').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          GeradorCertificado.solicitarNomeEEmitir(
+            mod,
+            porcentagem,
+            totalItens,
+            tempoGeralUtilizado,
+          );
+        });
+      });
+    }
 
     this.anexarEventosTabelaRevisao();
   }
