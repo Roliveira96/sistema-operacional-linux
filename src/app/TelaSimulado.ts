@@ -1078,7 +1078,7 @@ export class TelaSimulado implements Tela {
           </div>
 
           <div class="sim-questao-enunciado">
-            <p><b>Tarefa exigida:</b> ${escapar(d.enunciado)}</p>
+            <p><b>Tarefa exigida:</b> ${d.enunciado}</p>
           </div>
 
           <div class="sim-revisao-acao-principal">
@@ -1101,7 +1101,7 @@ export class TelaSimulado implements Tela {
                 d.dica
                   ? `<div class="sim-solucao-dica-bloco">
                       <span class="sim-solucao-rotulo-sub">📖 O que é cobrado nesta questão:</span>
-                      <p class="sim-solucao-dica">${escapar(d.dica)}</p>
+                      <p class="sim-solucao-dica">${d.dica}</p>
                     </div>`
                   : ''
               }
@@ -1131,7 +1131,7 @@ export class TelaSimulado implements Tela {
           </div>
 
           <div class="sim-questao-enunciado">
-            <p><b>Pergunta:</b> ${escapar(q.pergunta)}</p>
+            <p><b>Pergunta:</b> ${q.pergunta}</p>
           </div>
 
           <div class="sim-quiz-opcoes-revisao">
@@ -1144,7 +1144,7 @@ export class TelaSimulado implements Tela {
                 return `
                   <div class="${classe}">
                     <span class="quiz-letra">${letra}</span>
-                    <span class="quiz-texto">${escapar(opcao)}</span>
+                    <span class="quiz-texto">${opcao}</span>
                     ${optIdx === q.correta ? '<span class="quiz-badge-gabarito">✓ Gabarito Oficial</span>' : ''}
                     ${estado?.respostaQuiz === optIdx && optIdx !== q.correta ? '<span class="quiz-badge-sua-resposta">✗ Sua Resposta</span>' : ''}
                   </div>
@@ -1154,8 +1154,8 @@ export class TelaSimulado implements Tela {
           </div>
 
           <div class="sim-bloco-solucao-ativa">
-            <span class="sim-solucao-rotulo">📖 Justificativa oficial (${escapar(q.certificacao)}):</span>
-            <p class="sim-solucao-dica">${escapar(q.explicacao)}</p>
+            <span class="sim-solucao-rotulo">📖 Justificativa oficial (${q.certificacao}):</span>
+            <p class="sim-solucao-dica">${q.explicacao}</p>
           </div>
         </div>
       `;
@@ -1181,7 +1181,7 @@ export class TelaSimulado implements Tela {
         return `
           <tr>
             <td class="col-num">#${index + 1}</td>
-            <td class="col-enunciado">${escapar(enunciado)}</td>
+            <td class="col-enunciado">${enunciado}</td>
             <td class="col-status">${badgeResultado}</td>
             <td class="col-tempo"><b>${tempoGasto}</b></td>
             <td class="col-acao">
