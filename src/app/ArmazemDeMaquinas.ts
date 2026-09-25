@@ -31,6 +31,22 @@ export class ArmazemDeMaquinas {
     }
   }
 
+  /** Apaga todas as máquinas temporárias de simulado/avaliação salvas no navegador. */
+  public static limparSimulados(): void {
+    try {
+      const chavesParaRemover: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(ArmazemDeMaquinas.PREFIXO + 'simulado-')) {
+          chavesParaRemover.push(k);
+        }
+      }
+      chavesParaRemover.forEach((k) => localStorage.removeItem(k));
+    } catch {
+      // sem armazenamento
+    }
+  }
+
   /** Baixa a máquina como arquivo .json. */
   public static baixar(maquina: Maquina, nome: string): void {
     const texto: string = JSON.stringify(Serializador.paraJson(maquina), null, 2);

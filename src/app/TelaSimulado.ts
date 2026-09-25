@@ -3,6 +3,7 @@ import type { Desafio, ModalidadeSimulado, Passo, QuestaoQuiz } from '../conteud
 import type { Maquina } from '../linux/Maquina';
 import type { TerminalUbuntu } from '../terminal/TerminalUbuntu';
 import { Bancada } from './Bancada';
+import { ArmazemDeMaquinas } from './ArmazemDeMaquinas';
 import { modalidades, sortearQuestoesExame } from '../conteudo/simulado';
 import { ColaDeComandos } from './ColaDeComandos';
 import { Aviso } from './Aviso';
@@ -63,6 +64,7 @@ export class TelaSimulado implements Tela {
   private animandoPinguim: boolean = false;
   private entregueManualmente: boolean = false;
   private questoesExameAtual: Array<Desafio | QuestaoQuiz> = [];
+  private chaveSessaoExame: string = '';
 
   public montar(raiz: HTMLElement): void {
     this.raiz = raiz;
@@ -77,6 +79,7 @@ export class TelaSimulado implements Tela {
     }
     this.bancada?.destruir();
     this.bancada = null;
+    ArmazemDeMaquinas.limparSimulados();
   }
 
   private renderizar(): void {
@@ -234,6 +237,7 @@ export class TelaSimulado implements Tela {
 
     this.raiz.querySelectorAll('.btn-voltar-hub').forEach((btn) => {
       btn.addEventListener('click', () => {
+        ArmazemDeMaquinas.limparSimulados();
         this.fase = 'hub';
         this.renderizar();
         window.scrollTo(0, 0);
@@ -261,6 +265,10 @@ export class TelaSimulado implements Tela {
     this.estadosQuestoes.clear();
     this.animandoPinguim = false;
     this.entregueManualmente = false;
+
+    // Limpa resíduos de avaliações anteriores e gera chave única para isolamento absoluto de kernel/ambiente
+    ArmazemDeMaquinas.limparSimulados();
+    this.chaveSessaoExame = `simulado-exame-${mod.id}-${Date.now()}`;
 
     const lista: Array<Desafio | QuestaoQuiz> = mod.desafios ?? mod.questoes ?? [];
     this.questoesExameAtual = sortearQuestoesExame(lista, 10);
@@ -488,12 +496,12 @@ export class TelaSimulado implements Tela {
       </div>
     `;
 
-    // Inicializa a Bancada de terminais se for prova prática
+    // Inicializa a Bancada de terminais se for prova prática com ambiente Linux 100% novo e isolado
     if (!ehQuiz) {
       const containerJanela = this.raiz.querySelector('.sim-terminal-janela') as HTMLElement;
       this.bancada = new Bancada(
         containerJanela,
-        `simulado-exame-${mod.id}`,
+        this.chaveSessaoExame || `simulado-exame-${mod.id}-${Date.now()}`,
         (maquina: Maquina) => {
           mod.preparar?.(maquina);
         },
@@ -508,6 +516,7 @@ export class TelaSimulado implements Tela {
 
     this.raiz.querySelector('.btn-abandonar-prova')?.addEventListener('click', () => {
       if (confirm('Tem certeza de que deseja abandonar a prova em andamento? O progresso desta tentativa será cancelado.')) {
+        ArmazemDeMaquinas.limparSimulados();
         this.fase = 'hub';
         this.renderizar();
         window.scrollTo(0, 0);
@@ -989,6 +998,7 @@ export class TelaSimulado implements Tela {
     // Eventos de navegação global
     this.raiz.querySelectorAll('.btn-ir-menu-simulados, .btn-ir-menu-simulados-rodape').forEach((btn) => {
       btn.addEventListener('click', () => {
+        ArmazemDeMaquinas.limparSimulados();
         this.fase = 'hub';
         this.renderizar();
         window.scrollTo(0, 0);
