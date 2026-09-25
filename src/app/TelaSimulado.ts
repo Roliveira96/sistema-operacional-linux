@@ -70,6 +70,7 @@ export class TelaSimulado implements Tela {
   private questoesExameAtual: Array<Desafio | QuestaoQuiz> = [];
   private chaveSessaoExame: string = '';
   private historicoPosicoesPorSessao: Map<Sessao, number> = new Map();
+  private protecoesAtivas: boolean = false;
 
   public montar(raiz: HTMLElement): void {
     this.raiz = raiz;
@@ -77,6 +78,7 @@ export class TelaSimulado implements Tela {
   }
 
   public desmontar(): void {
+    this.desativarProtecoesNavegacao();
     this.pararTimer();
     if (this.timerBannerAviso !== null) {
       clearTimeout(this.timerBannerAviso);
@@ -291,6 +293,7 @@ export class TelaSimulado implements Tela {
     this.fase = 'prova';
     this.renderizar();
     this.iniciarTimer();
+    this.ativarProtecoesNavegacao();
   }
 
   private iniciarTimer(): void {
@@ -521,14 +524,10 @@ export class TelaSimulado implements Tela {
 
     this.renderizarBotoesQuestoes();
     this.renderizarQuestaoAtiva();
+    this.bancada?.janela.focar();
 
     this.raiz.querySelector('.btn-abandonar-prova')?.addEventListener('click', () => {
-      if (confirm('Tem certeza de que deseja abandonar a prova em andamento? O progresso desta tentativa será cancelado.')) {
-        ArmazemDeMaquinas.limparSimulados();
-        this.fase = 'hub';
-        this.renderizar();
-        window.scrollTo(0, 0);
-      }
+      this.abandonarProva();
     });
 
     const confirmarFinalizacao = (): void => {
@@ -602,6 +601,7 @@ export class TelaSimulado implements Tela {
     this.indiceQuestaoAtiva = novoIndex;
     this.renderizarBotoesQuestoes();
     this.renderizarQuestaoAtiva();
+    this.bancada?.janela.focar();
   }
 
   private renderizarQuestaoAtiva(): void {
@@ -747,6 +747,7 @@ export class TelaSimulado implements Tela {
       estado.pulada = true;
     }
     this.avancarParaProximaPendente();
+    this.bancada?.janela.focar();
   }
 
   private responderQuizOpcao(q: QuestaoQuiz, opcao: number): void {
@@ -920,6 +921,7 @@ export class TelaSimulado implements Tela {
   // ══════════════════════════════════════════════════════════════════
 
   private finalizarProva(): void {
+    this.desativarProtecoesNavegacao();
     if (this.bancada) {
       this.registrarComandosDaQuestaoAtiva(this.bancada.obterMaquina());
     }
@@ -1440,4 +1442,327 @@ export class TelaSimulado implements Tela {
       });
     });
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // PROTEÇÕES CONTRA SAÍDA ACIDENTAL DA PROVA E ATALHOS DE TECLADO
+  // ══════════════════════════════════════════════════════════════════
+
+  public podeSair(): boolean {
+    if (this.fase !== 'prova') return true;
+    const querAbandonar = confirm(
+      'Atenção: Você está realizando uma prova de certificação em andamento!\n\nTem certeza de que deseja abandonar a prova? Todo o progresso desta tentativa será cancelado.',
+    );
+    if (querAbandonar) {
+      this.desativarProtecoesNavegacao();
+      ArmazemDeMaquinas.limparSimulados();
+      return true;
+    }
+    return false;
+  }
+
+  private abandonarProva(): void {
+    if (
+      confirm(
+        'Atenção: Você está realizando uma prova de certificação em andamento!\n\nTem certeza de que deseja abandonar a prova? Todo o progresso desta tentativa será cancelado.',
+      )
+    ) {
+      this.desativarProtecoesNavegacao();
+      ArmazemDeMaquinas.limparSimulados();
+      this.fase = 'hub';
+      this.renderizar();
+      window.scrollTo(0, 0);
+    }
+  }
+
+  private ativarProtecoesNavegacao(): void {
+    if (this.protecoesAtivas) return;
+    this.protecoesAtivas = true;
+    window.addEventListener('keydown', this.tratarTeclasGlobal, { capture: true });
+    window.addEventListener('beforeunload', this.aoAntesDeDescarregar);
+    window.addEventListener('popstate', this.aoNavegarHistorico);
+    try {
+      window.history.pushState({ emProvaSimulado: true }, '', window.location.href);
+    } catch {
+      // ignora caso o browser restrinja
+    }
+  }
+
+  private desativarProtecoesNavegacao(): void {
+    if (!this.protecoesAtivas) return;
+    this.protecoesAtivas = false;
+    window.removeEventListener('keydown', this.tratarTeclasGlobal, { capture: true });
+    window.removeEventListener('beforeunload', this.aoAntesDeDescarregar);
+    window.removeEventListener('popstate', this.aoNavegarHistorico);
+  }
+
+  private readonly aoAntesDeDescarregar = (evento: BeforeUnloadEvent): string => {
+    if (this.fase === 'prova') {
+      evento.preventDefault();
+      evento.returnValue = 'Você está realizando uma prova de certificação em andamento. Se sair agora, seu progresso será perdido!';
+      return evento.returnValue;
+    }
+    return '';
+  };
+
+  private readonly aoNavegarHistorico = (_evento: PopStateEvent): void => {
+    if (this.fase === 'prova') {
+      try {
+        window.history.pushState({ emProvaSimulado: true }, '', window.location.href);
+      } catch {
+        // ignora
+      }
+      this.abandonarProva();
+    }
+  };
+
+  private obterTerminalAtivo(): any {
+    const janela = this.bancada?.janela as any;
+    if (!janela) return null;
+    if (typeof janela.obterAtivo === 'function') {
+      return janela.obterAtivo();
+    }
+    if (Array.isArray(janela.terminais) && typeof janela.ativo === 'number') {
+      return janela.terminais[janela.ativo - 1] ?? null;
+    }
+    return null;
+  }
+
+  private executarApagarPalavraNoTerminal(): void {
+    const term = this.obterTerminalAtivo();
+    if (!term) return;
+
+    if (typeof term.apagarPalavraAnterior === 'function') {
+      term.apagarPalavraAnterior();
+      return;
+    }
+
+    if (typeof term.buffer === 'string' && typeof term.cursor === 'number') {
+      let pos = term.cursor;
+      while (pos > 0 && term.buffer[pos - 1] === ' ') pos--;
+      while (pos > 0 && term.buffer[pos - 1] !== ' ') pos--;
+      term.buffer = term.buffer.substring(0, pos) + term.buffer.substring(term.cursor);
+      term.cursor = pos;
+      if (typeof term.renderizarEntrada === 'function') {
+        term.renderizarEntrada();
+      }
+    }
+  }
+
+  private executarMoverPalavraAnteriorNoTerminal(): void {
+    const term = this.obterTerminalAtivo();
+    if (!term) return;
+
+    if (typeof term.moverPalavraAnterior === 'function') {
+      term.moverPalavraAnterior();
+      return;
+    }
+
+    if (typeof term.buffer === 'string' && typeof term.cursor === 'number') {
+      let pos = term.cursor;
+      while (pos > 0 && term.buffer[pos - 1] === ' ') pos--;
+      while (pos > 0 && term.buffer[pos - 1] !== ' ') pos--;
+      term.cursor = pos;
+      if (typeof term.renderizarEntrada === 'function') {
+        term.renderizarEntrada();
+      }
+    }
+  }
+
+  private executarMoverProximaPalavraNoTerminal(): void {
+    const term = this.obterTerminalAtivo();
+    if (!term) return;
+
+    if (typeof term.moverProximaPalavra === 'function') {
+      term.moverProximaPalavra();
+      return;
+    }
+
+    if (typeof term.buffer === 'string' && typeof term.cursor === 'number') {
+      let pos = term.cursor;
+      while (pos < term.buffer.length && term.buffer[pos] !== ' ') pos++;
+      while (pos < term.buffer.length && term.buffer[pos] === ' ') pos++;
+      term.cursor = pos;
+      if (typeof term.renderizarEntrada === 'function') {
+        term.renderizarEntrada();
+      }
+    }
+  }
+
+  private executarLimparTelaNoTerminal(): void {
+    const term = this.obterTerminalAtivo();
+    if (!term) return;
+    if (typeof term.limparTela === 'function') {
+      term.limparTela();
+    }
+    if (typeof term.renderizarEntrada === 'function') {
+      term.renderizarEntrada();
+    }
+  }
+
+  private executarCancelarLinhaNoTerminal(): void {
+    const term = this.obterTerminalAtivo();
+    if (!term) return;
+    if (typeof term.cancelarLinha === 'function') {
+      term.cancelarLinha();
+    } else if (typeof term.buffer === 'string') {
+      term.buffer = '';
+      term.cursor = 0;
+      if (typeof term.renderizarEntrada === 'function') {
+        term.renderizarEntrada();
+      }
+    }
+  }
+
+  private readonly tratarTeclasGlobal = (evento: KeyboardEvent): void => {
+    if (this.fase !== 'prova') return;
+
+    const tecla = evento.key;
+    const alvo = evento.target as HTMLElement | null;
+    const emInputOuEditor =
+      alvo !== null &&
+      (['INPUT', 'TEXTAREA', 'SELECT'].includes(alvo.tagName) ||
+        alvo.isContentEditable ||
+        alvo.closest('.sim-modal-certificado-overlay') !== null);
+
+    const dentroDoTerminal = alvo !== null && alvo.closest('.term') !== null;
+
+    // Se estiver digitando em um input de formulário legítimo da página (ex: modal), não interfere
+    if (emInputOuEditor && !dentroDoTerminal) return;
+
+    // 1. Interceptar Ctrl+W / Cmd+W (Fechamento acidental de aba)
+    if ((evento.ctrlKey || evento.metaKey) && (tecla === 'w' || tecla === 'W')) {
+      evento.preventDefault();
+      evento.stopPropagation();
+      this.executarApagarPalavraNoTerminal();
+      this.bancada?.janela.focar();
+      return;
+    }
+
+    // 2. Interceptar Ctrl+R / Cmd+R / F5 (Recarregar a página acidentalmente)
+    if (((evento.ctrlKey || evento.metaKey) && (tecla === 'r' || tecla === 'R')) || tecla === 'F5') {
+      evento.preventDefault();
+      evento.stopPropagation();
+      Aviso.mostrar('⚠️ Recarregamento da página (Ctrl+R / F5) desativado para proteger sua prova.');
+      this.bancada?.janela.focar();
+      return;
+    }
+
+    // 3. Interceptar Ctrl+Q / Cmd+Q (Fechar navegador / fechar app)
+    if ((evento.ctrlKey || evento.metaKey) && (tecla === 'q' || tecla === 'Q')) {
+      evento.preventDefault();
+      evento.stopPropagation();
+      Aviso.mostrar('⚠️ Atalho de saída bloqueado durante a realização da prova.');
+      this.bancada?.janela.focar();
+      return;
+    }
+
+    // 4. Interceptar Ctrl+Shift+W / Cmd+Shift+W / Ctrl+Shift+Q (Fechar todas as abas / janela)
+    if (
+      (evento.ctrlKey || evento.metaKey) &&
+      evento.shiftKey &&
+      (tecla === 'w' || tecla === 'W' || tecla === 'q' || tecla === 'Q')
+    ) {
+      evento.preventDefault();
+      evento.stopPropagation();
+      this.bancada?.janela.focar();
+      return;
+    }
+
+    // 5. Interceptar Alt+Left / Alt+ArrowLeft (Voltar histórico acidental no navegador)
+    if (evento.altKey && (tecla === 'ArrowLeft' || tecla === 'b' || tecla === 'B')) {
+      evento.preventDefault();
+      evento.stopPropagation();
+      this.executarMoverPalavraAnteriorNoTerminal();
+      this.bancada?.janela.focar();
+      return;
+    }
+
+    // 6. Interceptar Alt+Right / Alt+ArrowRight (Avançar palavra)
+    if (evento.altKey && (tecla === 'ArrowRight' || tecla === 'f' || tecla === 'F')) {
+      evento.preventDefault();
+      evento.stopPropagation();
+      this.executarMoverProximaPalavraNoTerminal();
+      this.bancada?.janela.focar();
+      return;
+    }
+
+    // 7. Interceptar Alt+Backspace (Apagar palavra anterior)
+    if (evento.altKey && tecla === 'Backspace') {
+      evento.preventDefault();
+      evento.stopPropagation();
+      this.executarApagarPalavraNoTerminal();
+      this.bancada?.janela.focar();
+      return;
+    }
+
+    // 8. Backspace fora de inputs (evita que o navegador execute voltar página no Linux)
+    if (tecla === 'Backspace' && !dentroDoTerminal) {
+      evento.preventDefault();
+      evento.stopPropagation();
+      this.bancada?.janela.focar();
+      return;
+    }
+
+    // 9. Se o foco estiver no lado das questões / na tela e o usuário apertar atalhos clássicos do terminal:
+    if (!dentroDoTerminal) {
+      // Ctrl+L (limpar tela)
+      if (evento.ctrlKey && (tecla === 'l' || tecla === 'L')) {
+        evento.preventDefault();
+        evento.stopPropagation();
+        this.executarLimparTelaNoTerminal();
+        this.bancada?.janela.focar();
+        return;
+      }
+
+      // Ctrl+C (cancelar linha)
+      if (evento.ctrlKey && (tecla === 'c' || tecla === 'C')) {
+        if ((window.getSelection()?.toString() ?? '') === '') {
+          evento.preventDefault();
+          evento.stopPropagation();
+          this.executarCancelarLinhaNoTerminal();
+          this.bancada?.janela.focar();
+          return;
+        }
+      }
+
+      // Ctrl+U (limpar linha antes do cursor)
+      if (evento.ctrlKey && (tecla === 'u' || tecla === 'U')) {
+        evento.preventDefault();
+        evento.stopPropagation();
+        this.executarCancelarLinhaNoTerminal();
+        this.bancada?.janela.focar();
+        return;
+      }
+
+      // Ctrl+D (prevenir abrir favoritos e focar no terminal)
+      if (evento.ctrlKey && (tecla === 'd' || tecla === 'D')) {
+        evento.preventDefault();
+        evento.stopPropagation();
+        this.bancada?.janela.focar();
+        return;
+      }
+
+      // Se for digitação alfanumérica comum (ex: digitou comando enquanto o foco estava na tela)
+      if (!evento.ctrlKey && !evento.metaKey && !evento.altKey) {
+        if (tecla.length === 1 || tecla === 'Enter' || tecla === 'Tab' || tecla === 'ArrowUp' || tecla === 'ArrowDown') {
+          this.bancada?.janela.focar();
+          const telaEl = this.raiz.querySelector('.term.ativo .term-tela, .term .term-tela') as HTMLElement | null;
+          if (telaEl && document.activeElement !== telaEl) {
+            telaEl.focus();
+            telaEl.dispatchEvent(
+              new KeyboardEvent('keydown', {
+                key: evento.key,
+                code: evento.code,
+                keyCode: evento.keyCode,
+                which: evento.which,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
+            evento.preventDefault();
+          }
+        }
+      }
+    }
+  };
 }

@@ -12,6 +12,8 @@ export class Aplicacao {
   private readonly catalogo: CatalogoDeTopicos = new CatalogoDeTopicos();
   private telaAtual: Tela | null = null;
 
+  private hashAtual: string = window.location.hash;
+
   constructor(raiz: HTMLElement) {
     this.raiz = raiz;
   }
@@ -22,6 +24,13 @@ export class Aplicacao {
   }
 
   private navegar(): void {
+    if (this.telaAtual?.podeSair && !this.telaAtual.podeSair()) {
+      // Cancela a navegação restaurando a rota anterior
+      window.history.pushState(null, '', this.hashAtual || '#/simulado');
+      return;
+    }
+    this.hashAtual = window.location.hash;
+
     const id: string = window.location.hash.replace('#/', '');
     if (id === 'laboratorio') {
       this.trocarTela(new TelaLaboratorio());

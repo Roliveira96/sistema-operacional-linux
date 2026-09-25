@@ -2,4 +2,5 @@
 export interface Tela {
   montar(raiz: HTMLElement): void;
   desmontar(): void;
+  podeSair?: () => boolean;
 }
