@@ -139,6 +139,12 @@ export class TelaSimulado implements Tela {
       <div class="tela-simulado sim-hub">
         <header class="sim-hub-cabecalho">
           <a class="botao-voltar" href="#/">← Menu Principal</a>
+          <div class="sim-hub-instituicao">
+            <div class="brand-utfpr-header" title="Universidade Tecnológica Federal do Paraná - Campus Guarapuava">
+              <img src="/utfpr-logo.svg" alt="UTFPR" class="logo-utfpr-header" />
+              <span class="brand-utfpr-campus-tag">Universidade Tecnológica Federal do Paraná · Campus Guarapuava</span>
+            </div>
+          </div>
           <div class="sim-hub-titulos">
             <span class="menu-selo">Simulador Oficial de Exame · Modo Prova</span>
             <h1>Simulados de Certificação Linux 🐧</h1>
@@ -184,6 +190,10 @@ export class TelaSimulado implements Tela {
                 <h2>${mod.titulo}</h2>
                 ${mod.badge ? `<span class="sim-hub-card-badge">${mod.badge}</span>` : ''}
               </div>
+            </div>
+            <div class="brand-utfpr-header" title="Universidade Tecnológica Federal do Paraná - Campus Guarapuava">
+              <img src="/utfpr-logo.svg" alt="UTFPR" class="logo-utfpr-header" />
+              <span class="brand-utfpr-campus-tag">Campus Guarapuava</span>
             </div>
           </header>
 
@@ -460,6 +470,11 @@ export class TelaSimulado implements Tela {
               <h2>${mod.titulo}</h2>
               <span class="sim-prova-contador-resumo"></span>
             </div>
+          </div>
+
+          <div class="brand-utfpr-header brand-utfpr-prova" title="Universidade Tecnológica Federal do Paraná - Campus Guarapuava">
+            <img src="/utfpr-logo.svg" alt="UTFPR" class="logo-utfpr-header" />
+            <span class="brand-utfpr-campus-tag">Campus Guarapuava</span>
           </div>
 
           <div class="sim-prova-direita">
@@ -960,6 +975,10 @@ export class TelaSimulado implements Tela {
               </div>
             </div>
           </div>
+          <div class="brand-utfpr-header" title="Universidade Tecnológica Federal do Paraná - Campus Guarapuava">
+            <img src="/utfpr-logo.svg" alt="UTFPR" class="logo-utfpr-header" />
+            <span class="brand-utfpr-campus-tag">Campus Guarapuava</span>
+          </div>
           <div class="sim-relatorio-direita">
             <div class="sim-relatorio-meta-pill" title="Tempo total utilizado">
               ⏱️ Tempo: <b>${formatarExtenso(tempoGeralUtilizado)}</b>
@@ -1001,8 +1020,8 @@ export class TelaSimulado implements Tela {
                   ? `
                 <div class="placar-certificado-banner">
                   <div class="placar-cert-texto">
-                    <b>🎓 Certificado Oficial Habilitado</b>
-                    <span>Emita seu diploma oficial em PDF assinado pela <b>Professora Sediane</b> (${porcentagem}% de aproveitamento${porcentagem === 100 ? ' · Com Excelência' : ''}).</span>
+                    <b>🎓 Certificado Oficial UTFPR Habilitado</b>
+                    <span>Emita seu diploma oficial da <b>Universidade Tecnológica Federal do Paraná (Campus Guarapuava)</b> assinado pela <b>Professora Sediane</b> (${porcentagem}% de aproveitamento${porcentagem === 100 ? ' · Com Excelência' : ''}).</span>
                   </div>
                   <button class="botao-primario btn-gerar-certificado-placar">
                     📜 Gerar Certificado PDF

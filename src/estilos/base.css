@@ -188,6 +188,42 @@ details[open] summary { margin-bottom: 8px; }
 .tela-icone { font-size: 30px; }
 .tela-titulo h1 { margin: 0; font-size: 19px; line-height: 1.2; }
 .tela-titulo p { margin: 0; font-size: 13px; color: var(--destaque); font-weight: 600; }
+
+/* ===== Identidade Visual UTFPR ===== */
+.brand-utfpr-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  padding: 4px 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.brand-utfpr-header img,
+.logo-utfpr-header {
+  height: 22px;
+  width: auto;
+  display: block;
+}
+
+.brand-utfpr-campus-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e293b;
+  border-left: 1px solid #cbd5e1;
+  padding-left: 8px;
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .brand-utfpr-campus-tag {
+    display: none;
+  }
+}
+
 .tela-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .aviso-senhas {

@@ -41,6 +41,16 @@ export class TelaMenu implements Tela {
     raiz.innerHTML =
       '<div class="menu">' +
       '  <header class="menu-cabecalho">' +
+      '    <div class="menu-instituicao-destaque">' +
+      '      <div class="menu-instituicao-box">' +
+      '        <img src="/utfpr-logo.svg" alt="UTFPR" class="logo-utfpr-grande" />' +
+      '        <div class="menu-instituicao-divisoria"></div>' +
+      '        <div class="menu-instituicao-nomes">' +
+      '          <span class="menu-instituicao-univ">Universidade Tecnológica Federal do Paraná - UTFPR</span>' +
+      '          <span class="menu-instituicao-campus">Campus Guarapuava</span>' +
+      '        </div>' +
+      '      </div>' +
+      '    </div>' +
       '    <span class="menu-selo">Preparatório Certificações Linux · LPIC-1 · Linux Essentials</span>' +
       '    <h1>Linux na prática <span class="menu-pinguim">🐧</span></h1>' +
       '    <p>Guia interativo e preparatório para <b>certificações Linux</b> (LPI Linux Essentials, LPIC-1, CompTIA Linux+ e RHCSA). ' +
@@ -60,7 +70,7 @@ export class TelaMenu implements Tela {
       '  <div class="pessoas">' + this.autor.gerarHtml() +
       '    <section class="professor"><div class="professor-monograma" aria-hidden="true">SH</div><div>' +
       '      <span class="autor-rotulo">Professora avaliadora</span><h2>Sediane Carmem Lunardi Hernandes</h2>' +
-      '      <p class="professor-disciplina">UTFPR · Campus Guarapuava</p>' +
+      '      <p class="professor-disciplina">Universidade Tecnológica Federal do Paraná - UTFPR · Campus Guarapuava</p>' +
       '      <p class="professor-avaliacao">Avaliação de suficiência de Linux: diretórios, arquivos, exclusão, segurança de acesso, usuários e grupos.</p>' +
       '      <a class="autor-link professor-link" href="https://www.linkedin.com/in/sediane-hernandes-77b632a9/" target="_blank" rel="noopener">' + ICONE_LINKEDIN + '<span>LinkedIn</span></a></div></section>' +
       '  </div>' +

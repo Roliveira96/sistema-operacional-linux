@@ -12,6 +12,10 @@ export class TelaLaboratorio implements Tela {
       '    <a class="botao-voltar" href="#/">← Menu</a>' +
       '    <div class="tela-titulo"><span class="tela-icone">🖥️</span>' +
       '      <div><h1>Laboratório livre</h1><p>Servidor Ubuntu simulado · até 3 conexões SSH</p></div></div>' +
+      '    <div class="brand-utfpr-header" title="Universidade Tecnológica Federal do Paraná - Campus Guarapuava">' +
+      '      <img src="/utfpr-logo.svg" alt="UTFPR" class="logo-utfpr-header" />' +
+      '      <span class="brand-utfpr-campus-tag">Campus Guarapuava</span>' +
+      '    </div>' +
       '    <span class="aviso-senhas">senhas: <b>root</b> = <b>123</b> · <b>ricardo</b> = <b>123</b></span>' +
       '    <nav class="tela-acoes">' +
       '      <button class="botao-secundario" data-acao="exportar" title="Baixa o sistema de arquivos e as contas em JSON">💾 Exportar JSON</button>' +

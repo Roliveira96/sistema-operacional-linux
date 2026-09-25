@@ -31,9 +31,12 @@ export class GeradorCertificado {
     overlay.innerHTML = `
       <div class="sim-modal-certificado-card">
         <div class="sim-modal-cert-topo">
-          <span class="sim-modal-cert-icone">🎓</span>
+          <div class="sim-modal-cert-brand">
+            <img src="/utfpr-logo.svg" alt="UTFPR" class="logo-modal-cert" />
+          </div>
           <div>
             <h3>Emissão de Certificado de Conclusão</h3>
+            <p class="modal-cert-univ">Universidade Tecnológica Federal do Paraná · Campus Guarapuava</p>
             <p>Você atingiu <b>${porcentagem}%</b> de acertos em <b>${modalidade.titulo}</b>!</p>
           </div>
         </div>
@@ -54,9 +57,10 @@ export class GeradorCertificado {
           />
 
           <div class="sim-modal-cert-info-box">
+            <span>🏛️ <b>Instituição:</b> Universidade Tecnológica Federal do Paraná - UTFPR (Campus Guarapuava)</span>
             <span>📋 <b>Módulo:</b> ${modalidade.titulo}</span>
             <span>⭐ <b>Aproveitamento:</b> ${porcentagem}% ${porcentagem === 100 ? '<b>(Com Excelência)</b>' : ''}</span>
-            <span>✍️ <b>Coordenação:</b> Professora Sediane</span>
+            <span>✍️ <b>Avaliadora:</b> Professora Sediane Carmem Lunardi Hernandes</span>
           </div>
 
           <div class="sim-modal-cert-acoes">
@@ -194,26 +198,52 @@ export class GeradorCertificado {
           .cabecalho-cert {
             text-align: center;
           }
+          .cert-logo-topo {
+            text-align: center;
+            margin-bottom: 4px;
+          }
+          .logo-diploma-utfpr {
+            height: 44px;
+            width: auto;
+            display: inline-block;
+          }
+          .instituicao-governo {
+            font-size: 10px;
+            letter-spacing: 2.5px;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+          }
           .instituicao-titulo {
             font-size: 16px;
-            letter-spacing: 5px;
-            color: #64748b;
+            letter-spacing: 2.5px;
+            color: #1e3a8a;
             text-transform: uppercase;
-            font-weight: 700;
+            font-weight: 900;
+            margin-bottom: 2px;
+          }
+          .instituicao-campus {
+            font-size: 12px;
+            letter-spacing: 1.8px;
+            color: #b45309;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 6px;
           }
           .diploma-titulo {
-            font-size: 38px;
+            font-size: 34px;
             font-weight: 900;
             color: #1e3a8a;
             letter-spacing: 3px;
             text-transform: uppercase;
-            margin: 4px 0 2px;
+            margin: 2px 0 2px;
           }
           .diploma-subtitulo {
-            font-size: 13.5px;
+            font-size: 13px;
             color: #b45309;
             font-weight: 700;
-            letter-spacing: 2px;
+            letter-spacing: 1.8px;
             text-transform: uppercase;
           }
 
@@ -395,19 +425,25 @@ export class GeradorCertificado {
               <div class="canto canto-br"></div>
 
               <header class="cabecalho-cert">
-                <p class="instituicao-titulo">SISTEMA OPERACIONAL LINUX · FORMAÇÃO PRÁTICA</p>
+                <div class="cert-logo-topo">
+                  <img src="${window.location.origin}/utfpr-logo.svg" alt="UTFPR" class="logo-diploma-utfpr" />
+                </div>
+                <p class="instituicao-governo">REPÚBLICA FEDERATIVA DO BRASIL · MINISTÉRIO DA EDUCAÇÃO</p>
+                <p class="instituicao-titulo">UNIVERSIDADE TECNOLÓGICA FEDERAL DO PARANÁ - UTFPR</p>
+                <p class="instituicao-campus">CAMPUS GUARAPUAVA</p>
                 <h1 class="diploma-titulo">Certificado de Conclusão</h1>
-                <p class="diploma-subtitulo">EXAME PRÁTICO E AVALIAÇÃO DE COMPETÊNCIAS</p>
+                <p class="diploma-subtitulo">EXAME PRÁTICO E AVALIAÇÃO DE COMPETÊNCIAS EM SISTEMAS OPERACIONAIS LINUX</p>
               </header>
 
               <main class="corpo-cert">
                 <p class="texto-certificamos">Certificamos com louvor que</p>
                 <h2 class="nome-aluno-destaque">${dados.nomeAluno}</h2>
                 <p class="texto-conclusao">
-                  concluiu com êxito o exame de certificação prática no módulo
+                  concluiu com êxito o exame de certificação prática e suficiência no módulo
                   <span class="destaque-modulo">${dados.modalidade.titulo}</span>,
                   demonstrando proficiência nas tarefas de terminal Linux com aproveitamento de
-                  <b>${dados.porcentagem}%</b> em avaliação cronometrada de 10 desafios técnicos.
+                  <b>${dados.porcentagem}%</b> em avaliação cronometrada de 10 desafios técnicos
+                  realizada na <b>Universidade Tecnológica Federal do Paraná - UTFPR (Campus Guarapuava)</b>.
                 </p>
 
                 ${
@@ -424,15 +460,16 @@ export class GeradorCertificado {
               <footer class="rodape-cert">
                 <div class="bloco-assinatura">
                   <div class="linha-assinatura"></div>
-                  <p class="nome-assinante">Professora Sediane</p>
-                  <p class="cargo-assinante">Coordenadora e Instrutora de Sistemas Operacionais</p>
+                  <p class="nome-assinante">Profª. Sediane Carmem Lunardi Hernandes</p>
+                  <p class="cargo-assinante">Professora Avaliadora · UTFPR Campus Guarapuava</p>
                 </div>
 
                 <div class="bloco-selo">
                   <div class="emblema-selo">
                     <span>🐧</span>
-                    <b>OFICIAL</b>
+                    <b>UTFPR</b>
                   </div>
+                  <p class="meta-emissao"><b>Campus Guarapuava</b></p>
                   <p class="meta-emissao">Emitido em ${dataFormatada} às ${horaFormatada}</p>
                   <p class="meta-emissao">Registro: <code>${dados.codigoAutenticidade}</code></p>
                 </div>
@@ -440,7 +477,7 @@ export class GeradorCertificado {
                 <div class="bloco-assinatura">
                   <div class="linha-assinatura"></div>
                   <p class="nome-assinante">Laboratório de Sistemas Operacionais</p>
-                  <p class="cargo-assinante">Ambiente Linux Ubuntu · Validação Automatizada</p>
+                  <p class="cargo-assinante">Universidade Tecnológica Federal do Paraná - UTFPR</p>
                 </div>
               </footer>
             </div>

@@ -37,6 +37,12 @@
   position: relative;
 }
 
+.sim-hub-instituicao {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
 .sim-hub-cabecalho .botao-voltar {
   position: absolute;
   left: 0;
@@ -1179,6 +1185,31 @@
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.sim-modal-cert-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.logo-modal-cert {
+  height: 28px;
+  width: auto;
+  display: block;
+}
+
+.modal-cert-univ {
+  color: #b45309 !important;
+  font-weight: 700;
+  font-size: 12px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .sim-modal-cert-icone {

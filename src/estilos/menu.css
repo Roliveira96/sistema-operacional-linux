@@ -14,6 +14,73 @@
 
 .menu-cabecalho { text-align: center; max-width: 760px; }
 
+/* Instituição UTFPR - Tela Inicial */
+.menu-instituicao-destaque {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.menu-instituicao-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  background: #ffffff;
+  padding: 8px 18px 8px 14px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.logo-utfpr-grande {
+  height: 34px;
+  width: auto;
+  display: block;
+}
+
+.menu-instituicao-divisoria {
+  width: 1px;
+  height: 28px;
+  background: #cbd5e1;
+}
+
+.menu-instituicao-nomes {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.menu-instituicao-univ {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+}
+
+.menu-instituicao-campus {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #b45309;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  .menu-instituicao-box {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+  .menu-instituicao-divisoria {
+    display: none;
+  }
+  .menu-instituicao-nomes {
+    text-align: center;
+  }
+}
+
 .menu-selo {
   display: inline-block;
   font-size: 12px;

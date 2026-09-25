@@ -70,6 +70,10 @@ export class TelaTopico implements Tela {
       '    <a class="botao-voltar" href="#/">← Menu</a>' +
       '    <div class="tela-titulo"><span class="tela-icone">' + this.topico.icone + '</span>' +
       '      <div><h1>' + this.topico.titulo + '</h1><p>' + this.topico.subtitulo + '</p></div></div>' +
+      '    <div class="brand-utfpr-header" title="Universidade Tecnológica Federal do Paraná - Campus Guarapuava">' +
+      '      <img src="/utfpr-logo.svg" alt="UTFPR" class="logo-utfpr-header" />' +
+      '      <span class="brand-utfpr-campus-tag">Campus Guarapuava</span>' +
+      '    </div>' +
       (temAula ?
         '    <div class="reprodutor" aria-label="Roteiro automático">' +
         '      <button class="rep-botao" data-rep="voltar" title="Volta um passo: reinicia a máquina e refaz até o anterior">⏮</button>' +
