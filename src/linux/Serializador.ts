@@ -1,4 +1,4 @@
-import { Arquivo, ArquivoGerado, Binario, Buraco, Compactado, Diretorio, Dispositivo, Link, type No } from './No';
+import { Acl, Arquivo, ArquivoGerado, Binario, Buraco, Compactado, Diretorio, Dispositivo, Link, type No } from './No';
 import { Contas, Grupo, Usuario } from './Contas';
 import { Maquina } from './Maquina';
 import { Permissoes } from './Permissoes';
@@ -23,6 +23,8 @@ export interface NoJson {
   bytes?: number;
   /** Compactados: formato (tar, tar.gz, gz, zip). */
   formato?: 'tar' | 'tar.gz' | 'gz' | 'zip';
+  /** ACL: [[uid, perms]], [[gid, perms]] e a permissão do grupo dono. */
+  acl?: { usuarios: Array<[number, number]>; grupos: Array<[number, number]>; grupoDono: number };
 }
 
 export interface UsuarioJson {
@@ -96,6 +98,7 @@ export class Serializador {
       grupo: no.grupo,
       permissoes: Permissoes.paraOctal(no.modo),
       modificadoEm: no.modificadoEm.toISOString(),
+      ...(no.acl !== null ? { acl: { usuarios: Array.from(no.acl.usuarios), grupos: Array.from(no.acl.grupos), grupoDono: no.acl.grupoDono } } : {}),
     };
     if (no instanceof Diretorio) {
       return { ...base, tipo: 'diretorio', filhos: no.nomesOrdenados().map((n: string) => Serializador.noParaJson(no.obter(n) as No)) };
@@ -149,5 +152,11 @@ export class Serializador {
     no.grupo = json.grupo;
     no.modo = parseInt(json.permissoes, 8);
     no.modificadoEm = new Date(json.modificadoEm);
+    if (json.acl !== undefined) {
+      const acl: Acl = new Acl(json.acl.grupoDono);
+      for (const [uid, p] of json.acl.usuarios) acl.usuarios.set(uid, p);
+      for (const [gid, p] of json.acl.grupos) acl.grupos.set(gid, p);
+      no.acl = acl;
+    }
   }
 }

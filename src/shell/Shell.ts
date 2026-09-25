@@ -8,7 +8,7 @@ import { Df, Free, Lsblk, LsbRelease, Service, Systemctl, Which } from './comand
 import { Cowsay, Curl, Git, Htop, Mysql, Neofetch, Nginx, Openssl, Python3 } from './comandos/Programas';
 import { Cut, Grep, Head, Sort, Tail, Wc } from './comandos/Texto';
 import { Rm } from './comandos/Exclusao';
-import { Chgrp, Chmod, Chown, Umask } from './comandos/Acesso';
+import { Chgrp, Chmod, Chown, Getfacl, Setfacl, Umask } from './comandos/Acesso';
 import { Adduser, Deluser, Getent, Groups, Id, Passwd, Useradd, Userdel, Usermod, Whoami } from './comandos/Usuarios';
 import { Delgroup, Gpasswd, Groupadd, Groupdel, Groupmod } from './comandos/Grupos';
 import { Exit, Su, Sudo } from './comandos/Privilegios';
@@ -40,7 +40,7 @@ export class Shell {
         new Editor('nano'), new Editor('vim'), new Editor('vi'),
         new Head(), new Tail(), new Wc(), new Grep(), new Sort(), new Cut(),
         new Rm(),
-        new Chmod(), new Chown(), new Chgrp(), new Umask(),
+        new Chmod(), new Chown(), new Chgrp(), new Umask(), new Setfacl(), new Getfacl(),
         new Whoami(), new Id(), new Groups(), new Useradd(), new Adduser('adduser'), new Adduser('addgroup'),
         new Userdel(), new Deluser(), new Usermod(), new Passwd(), new Getent(),
         new Groupadd(), new Groupdel(), new Groupmod(), new Gpasswd(), new Delgroup(),

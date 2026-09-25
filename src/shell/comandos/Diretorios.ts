@@ -66,7 +66,9 @@ export class Mkdir extends Comando {
     if (!contexto.fs.pode(pai, contexto.credencial, 'w')) {
       throw new ErroDeSistema('EACCES');
     }
-    pai.adicionar(new Diretorio(nome, contexto.credencial.uid, contexto.credencial.gids[0], modo));
+    // numa pasta com SGID (g+s), a pasta nova herda o grupo e o próprio SGID
+    const herdaGrupo: boolean = (pai.modo & Permissoes.SGID) !== 0;
+    pai.adicionar(new Diretorio(nome, contexto.credencial.uid, contexto.fs.grupoParaNovo(pai, contexto.credencial), herdaGrupo ? modo | Permissoes.SGID : modo));
     if (verboso) {
       contexto.linha('mkdir: foi criado o diretório ' + citar(caminho));
     }

@@ -2,6 +2,7 @@ import { Comando, Opcoes } from '../Comando';
 import type { Contexto } from '../Contexto';
 import { Contas, type Usuario } from '../../linux/Contas';
 import { SaidaDoScript } from '../Interpretador';
+import { pidDeLog, registrar } from '../../linux/Registro';
 
 export class Sudo extends Comando {
   public readonly nome: string = 'sudo';
@@ -49,6 +50,10 @@ export class Sudo extends Comando {
       contexto.falhar('Dica: ' + comando[0] + ' é embutido no bash; use sudo -i para abrir um shell de root.');
       return 1;
     }
+    if (!contexto.ehRoot()) {
+      registrar(contexto.maquina, 'auth.log', 'sudo', ' ' + eu.nome + ' : TTY=' + contexto.sessao.tty + ' ; PWD=' + contexto.quadro.cwd + ' ; USER=' + alvo.nome + ' ; COMMAND=' +
+        (comando[0].includes('/') ? '' : '/usr/bin/') + comando.join(' '));
+    }
     return contexto.executor.executarArgs(comando, contexto.comCredencial({ uid: alvo.uid, gids: contexto.contas.gidsDe(alvo) }));
   }
 
@@ -62,7 +67,9 @@ export class Sudo extends Comando {
         if (senha === eu.senha && !eu.bloqueado) {
           break;
         }
+        registrar(contexto.maquina, 'auth.log', 'sudo', 'pam_unix(sudo:auth): authentication failure; logname=' + eu.nome + ' uid=' + eu.uid + ' euid=0 tty=/dev/' + contexto.sessao.tty + ' ruser=' + eu.nome + ' rhost=  user=' + eu.nome);
         if (tentativa === 3) {
+          registrar(contexto.maquina, 'auth.log', 'sudo', ' ' + eu.nome + ' : 3 incorrect password attempts ; TTY=' + contexto.sessao.tty + ' ; PWD=' + contexto.quadro.cwd + ' ; USER=root');
           contexto.falhar('sudo: 3 tentativas de senha incorretas');
           return false;
         }
@@ -70,6 +77,7 @@ export class Sudo extends Comando {
       }
     }
     if (!contexto.credencial.gids.includes(Contas.GID_SUDO)) {
+      registrar(contexto.maquina, 'auth.log', 'sudo', ' ' + eu.nome + ' : user NOT in sudoers ; TTY=' + contexto.sessao.tty + ' ; PWD=' + contexto.quadro.cwd + ' ; USER=root');
       contexto.falhar(eu.nome + ' não está no arquivo sudoers.  Este incidente será relatado.');
       contexto.falhar('Dica: como root, rode "usermod -aG sudo ' + eu.nome + '" e depois faça login de novo.');
       return false;
@@ -95,6 +103,7 @@ export class Su extends Comando {
     if (!contexto.ehRoot()) {
       const senha: string = await contexto.interacao.perguntar('Senha: ', true);
       if (alvo.senha === null || alvo.bloqueado || senha !== alvo.senha) {
+        registrar(contexto.maquina, 'auth.log', 'su[' + pidDeLog() + ']', 'FAILED SU (to ' + nome + ') ' + contexto.contas.nomeDoUsuario(contexto.credencial.uid) + ' on ' + contexto.sessao.tty);
         contexto.falhar('su: Falha de autenticação');
         if (alvo.senha === null) {
           contexto.falhar('Dica: ' + nome + ' ainda não tem senha. Como root, rode "passwd ' + nome + '".');
@@ -114,6 +123,7 @@ export class Su extends Comando {
         destino = '/';
       }
     }
+    registrar(contexto.maquina, 'auth.log', 'su[' + pidDeLog() + ']', '(to ' + alvo.nome + ') ' + contexto.contas.nomeDoUsuario(contexto.credencial.uid) + ' on ' + contexto.sessao.tty);
     contexto.sessao.entrar(contexto.maquina.novoQuadro(alvo, destino));
     return 0;
   }

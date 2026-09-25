@@ -31,7 +31,7 @@ export class Touch extends Comando {
         if (!contexto.fs.pode(pai, contexto.credencial, 'w')) {
           throw new ErroDeSistema('EACCES');
         }
-        pai.adicionar(new Arquivo(nome, contexto.credencial.uid, contexto.credencial.gids[0], 0o666 & ~contexto.quadro.umask));
+        pai.adicionar(new Arquivo(nome, contexto.credencial.uid, contexto.fs.grupoParaNovo(pai, contexto.credencial), 0o666 & ~contexto.quadro.umask));
       } catch (erro) {
         contexto.falhar('touch: não foi possível tocar ' + citar(caminho) + ': ' + mensagemDe(erro));
         status = 1;
@@ -238,18 +238,19 @@ export class Cp extends ComandoDeCopia {
     }
     const copia: No = origem.clonar();
     copia.nome = nome;
-    this.ajustarDono(copia, contexto);
+    this.ajustarDono(copia, contexto, contexto.fs.grupoParaNovo(pai, contexto.credencial));
     pai.adicionar(copia);
   }
 
   /** A cópia pertence a quem copiou, e perde permissões conforme o umask. */
-  private ajustarDono(no: No, contexto: Contexto): void {
+  private ajustarDono(no: No, contexto: Contexto, grupo: number): void {
     no.dono = contexto.credencial.uid;
-    no.grupo = contexto.credencial.gids[0];
+    no.grupo = grupo;
+    no.acl = null;
     no.modo = no.modo & ~contexto.quadro.umask;
     no.tocar();
     if (no instanceof Diretorio) {
-      for (const filho of no.filhos.values()) this.ajustarDono(filho, contexto);
+      for (const filho of no.filhos.values()) this.ajustarDono(filho, contexto, grupo);
     }
   }
 }
@@ -339,7 +340,7 @@ export class Stat extends Comando {
       }
       const formato: string | undefined = opcoes.valor('c');
       if (formato !== undefined) {
-        contexto.linha(formato.replace(/%a/g, Permissoes.paraOctal(no.modo)).replace(/%A/g, Permissoes.paraTexto(no.modo, no.ehDiretorio()))
+        contexto.linha(formato.replace(/%a/g, Permissoes.paraOctal(no.modo)).replace(/%A/g, Permissoes.paraTexto(no.modo, no.tipoLs()))
           .replace(/%U/g, contexto.contas.nomeDoUsuario(no.dono)).replace(/%G/g, contexto.contas.nomeDoGrupo(no.grupo))
           .replace(/%n/g, caminho).replace(/%s/g, String(no.tamanho())));
         continue;
@@ -349,7 +350,7 @@ export class Stat extends Comando {
       contexto.linha('  Arquivo: ' + caminho);
       contexto.linha('  Tamanho: ' + String(tamanho).padEnd(10) + '\tBlocos: ' + String(no.ehDiretorio() ? 8 : Math.ceil(tamanho / 4096) * 8).padEnd(10) +
         ' bloco de E/S: 4096   ' + (no.ehDiretorio() ? 'diretório' : tamanho === 0 ? 'arquivo comum vazio' : 'arquivo comum'));
-      contexto.linha('Acesso: (' + Permissoes.paraOctal(no.modo, true) + '/' + Permissoes.paraTexto(no.modo, no.ehDiretorio()) + ')  Uid: (' +
+      contexto.linha('Acesso: (' + Permissoes.paraOctal(no.modo, true) + '/' + Permissoes.paraTexto(no.modo, no.tipoLs()) + ')  Uid: (' +
         String(no.dono).padStart(5) + '/' + contexto.contas.nomeDoUsuario(no.dono).padStart(8) + ')   Gid: (' +
         String(no.grupo).padStart(5) + '/' + contexto.contas.nomeDoGrupo(no.grupo).padStart(8) + ')');
       contexto.linha('Acesso: ' + data);

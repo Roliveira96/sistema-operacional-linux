@@ -1,6 +1,6 @@
 import { Comando, Opcoes, citar } from '../Comando';
 import type { Contexto } from '../Contexto';
-import { Diretorio, type No } from '../../linux/No';
+import { Acl, Diretorio, type No } from '../../linux/No';
 import { Permissoes } from '../../linux/Permissoes';
 import type { Grupo, Usuario } from '../../linux/Contas';
 import { mensagemDe } from './util';
@@ -60,7 +60,9 @@ export class Chmod extends Comando {
           return false;
         }
         const antes: number = atual.modo;
-        const depois: number = octal ?? (Permissoes.aplicarSimbolico(antes, expressao, atual.ehDiretorio()) as number);
+        let depois: number = octal ?? (Permissoes.aplicarSimbolico(antes, expressao, atual.ehDiretorio()) as number);
+        // chmod 755 numa pasta mantém SUID/SGID (só some com 4 dígitos, ex.: 0755)
+        if (octal !== null && atual.ehDiretorio() && expressao.length <= 3) depois |= antes & (Permissoes.SUID | Permissoes.SGID);
         atual.modo = depois;
         const mudou: boolean = antes !== depois;
         if (flags.has('v') || (flags.has('c') && mudou)) {
@@ -205,5 +207,149 @@ export class Umask extends Comando {
     }
     contexto.quadro.umask = lido;
     return 0;
+  }
+}
+
+function textoPerms(p: number): string {
+  return ((p & 4) ? 'r' : '-') + ((p & 2) ? 'w' : '-') + ((p & 1) ? 'x' : '-');
+}
+
+function lerPerms(texto: string): number | null {
+  if (/^[0-7]$/.test(texto)) return Number(texto);
+  if (!/^[rwxX-]{0,3}$/.test(texto)) return null;
+  return (texto.includes('r') ? 4 : 0) | (texto.includes('w') ? 2 : 0) | (/[xX]/.test(texto) ? 1 : 0);
+}
+
+export class Setfacl extends Comando {
+  public readonly nome: string = 'setfacl';
+  public readonly resumo: string = 'permissão para um usuário/grupo específico: setfacl -m u:maria:rw arq | -x u:maria | -b (remove tudo)';
+
+  public async executar(args: string[], contexto: Contexto): Promise<number> {
+    let recursivo: boolean = false;
+    const acoes: Array<['m' | 'x' | 'b', string]> = [];
+    const caminhos: string[] = [];
+    for (let i: number = 0; i < args.length; i++) {
+      const arg: string = args[i];
+      if (arg === '-R') recursivo = true;
+      else if (arg === '-b' || arg === '-k') acoes.push(['b', '']);
+      else if (arg === '-m' || arg === '-x') acoes.push([arg.charAt(1) as 'm' | 'x', args[++i] ?? '']);
+      else if (/^-R?[mx]$/.test(arg)) { recursivo = arg.includes('R'); acoes.push([arg.slice(-1) as 'm' | 'x', args[++i] ?? '']); }
+      else if (arg === '-d') {
+        contexto.falhar('setfacl: ACL padrão (-d) não é simulada; aplique a ACL nos arquivos (use -R).');
+        return 1;
+      } else caminhos.push(arg);
+    }
+    if (acoes.length === 0 || caminhos.length === 0) {
+      contexto.falhar('Uso: setfacl [-R] {-m|-x} u:USUÁRIO:rwx|g:GRUPO:rwx ARQUIVO... | setfacl -b ARQUIVO');
+      return 2;
+    }
+    let status: number = 0;
+    for (const caminho of caminhos) {
+      let no: No;
+      try {
+        no = contexto.localizar(caminho);
+      } catch (erro) {
+        contexto.falhar('setfacl: ' + caminho + ': ' + mensagemDe(erro));
+        status = 1;
+        continue;
+      }
+      const ok: boolean = percorrer(no, caminho, recursivo, (atual: No, nomeAtual: string): boolean => {
+        if (!contexto.ehRoot() && contexto.credencial.uid !== atual.dono) {
+          contexto.falhar('setfacl: ' + nomeAtual + ': Operação não permitida');
+          return false;
+        }
+        for (const [acao, especificacao] of acoes) {
+          const erro: string | null = this.aplicar(atual, acao, especificacao, contexto);
+          if (erro !== null) {
+            contexto.falhar('setfacl: ' + nomeAtual + ': ' + erro);
+            return false;
+          }
+        }
+        return true;
+      });
+      if (!ok) status = 1;
+    }
+    return status;
+  }
+
+  private aplicar(no: No, acao: 'm' | 'x' | 'b', especificacao: string, contexto: Contexto): string | null {
+    if (acao === 'b') {
+      if (no.acl !== null) no.modo = (no.modo & ~0o070) | (no.acl.grupoDono << 3);
+      no.acl = null;
+      return null;
+    }
+    for (const parte of especificacao.split(',')) {
+      const [tipoBruto, nome = '', permsTexto = ''] = parte.split(':');
+      const tipo: string = tipoBruto.replace(/^user$/, 'u').replace(/^group$/, 'g').replace(/^other$/, 'o').replace(/^mask$/, 'm');
+      const perms: number | null = acao === 'm' ? lerPerms(permsTexto) : 0;
+      if (perms === null) return 'Argumento inválido perto do caractere 1';
+      if (tipo === 'o') { no.modo = (no.modo & ~0o007) | perms; continue; }
+      if (tipo === 'u' && nome === '') { no.modo = (no.modo & ~0o700) | (perms << 6); continue; }
+      if (no.acl === null) {
+        if (acao === 'x') continue;
+        no.acl = new Acl((no.modo >> 3) & 7);
+      }
+      const acl: Acl = no.acl;
+      if (tipo === 'm') { no.modo = (no.modo & ~0o070) | (perms << 3); continue; }
+      if (tipo === 'g' && nome === '') { acl.grupoDono = perms; }
+      else if (tipo === 'u') {
+        const usuario = contexto.contas.acharUsuario(nome);
+        if (usuario === undefined) return 'usuário inválido: ' + nome;
+        if (acao === 'm') acl.usuarios.set(usuario.uid, perms); else acl.usuarios.delete(usuario.uid);
+      } else if (tipo === 'g') {
+        const grupo = contexto.contas.acharGrupo(nome);
+        if (grupo === undefined) return 'grupo inválido: ' + nome;
+        if (acao === 'm') acl.grupos.set(grupo.gid, perms); else acl.grupos.delete(grupo.gid);
+      } else {
+        return 'tipo de entrada inválido: ' + tipoBruto;
+      }
+      // a máscara é recalculada sozinha, como no setfacl real
+      no.modo = (no.modo & ~0o070) | (acl.mascaraCalculada() << 3);
+    }
+    if (no.acl !== null && no.acl.vazia()) {
+      no.modo = (no.modo & ~0o070) | (no.acl.grupoDono << 3);
+      no.acl = null;
+    }
+    return null;
+  }
+}
+
+export class Getfacl extends Comando {
+  public readonly nome: string = 'getfacl';
+  public readonly resumo: string = 'mostra as permissões completas, incluindo a ACL (quem mais tem acesso)';
+
+  public async executar(args: string[], contexto: Contexto): Promise<number> {
+    let status: number = 0;
+    const caminhos: string[] = args.filter((a) => !a.startsWith('-'));
+    caminhos.forEach((caminho: string, indice: number) => {
+      let no: No;
+      try {
+        no = contexto.localizar(caminho);
+      } catch (erro) {
+        contexto.falhar('getfacl: ' + caminho + ': ' + mensagemDe(erro));
+        status = 1;
+        return;
+      }
+      if (indice === 0 && caminho.startsWith('/')) contexto.falhar('getfacl: Removendo "/" inicial dos nomes de caminho');
+      contexto.linha('# file: ' + caminho.replace(/^\/+/, ''));
+      contexto.linha('# owner: ' + contexto.contas.nomeDoUsuario(no.dono));
+      contexto.linha('# group: ' + contexto.contas.nomeDoGrupo(no.grupo));
+      const especiais: string = ((no.modo & Permissoes.SUID) ? 's' : '-') + ((no.modo & Permissoes.SGID) ? 's' : '-') + ((no.modo & Permissoes.STICKY) ? 't' : '-');
+      if (especiais !== '---') contexto.linha('# flags: ' + especiais);
+      contexto.linha('user::' + textoPerms((no.modo >> 6) & 7));
+      const mascara: number = (no.modo >> 3) & 7;
+      const efetivo = (p: number): string => (p & ~mascara) !== 0 ? '\t\t\t#effective:' + textoPerms(p & mascara) : '';
+      if (no.acl !== null) {
+        for (const [uid, p] of no.acl.usuarios) contexto.linha('user:' + contexto.contas.nomeDoUsuario(uid) + ':' + textoPerms(p) + efetivo(p));
+        contexto.linha('group::' + textoPerms(no.acl.grupoDono) + efetivo(no.acl.grupoDono));
+        for (const [gid, p] of no.acl.grupos) contexto.linha('group:' + contexto.contas.nomeDoGrupo(gid) + ':' + textoPerms(p) + efetivo(p));
+        contexto.linha('mask::' + textoPerms(mascara));
+      } else {
+        contexto.linha('group::' + textoPerms(mascara));
+      }
+      contexto.linha('other::' + textoPerms(no.modo & 7));
+      contexto.linha();
+    });
+    return status;
   }
 }

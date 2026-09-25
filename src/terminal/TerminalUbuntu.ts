@@ -7,6 +7,7 @@ import type { Interacao, PedidoDeEdicao } from '../shell/Contexto';
 import type { Saida } from '../shell/Saida';
 import type { Interpretador } from '../shell/Interpretador';
 import { Shell } from '../shell/Shell';
+import { CHAVE_DO_NOTEBOOK, Fail2ban, ServidorSsh } from '../linux/Ssh';
 import { EditorNano } from './EditorNano';
 import { EditorVim } from './EditorVim';
 
@@ -85,8 +86,24 @@ export class TerminalUbuntu implements Saida, Interacao {
   }
 
   /** Terminais 2 e 3: pedem usuário e senha como o PuTTY/ssh. */
+  /** IP do "notebook" de onde este terminal conecta (terminal 2 → .52). */
+  private ip(): string {
+    return '192.168.0.' + (50 + this.numero);
+  }
+
   public pedirLogin(): void {
     this.escrever('Conectando a ' + ClasseMaquina.IP + ' (' + this.maquina.hostname + ') pela porta 22...\n', 'c-info');
+    const recusa: string | null = new ServidorSsh(this.maquina).conectar(this.ip());
+    if (recusa !== null) {
+      this.escrever(recusa + '\n', 'c-erro');
+      if (recusa.includes('timed out')) this.escrever('(o firewall ufw está bloqueando a porta 22 para o IP ' + this.ip() + ')\n', 'c-info');
+      else if (new Fail2ban(this.maquina).banidos().includes(this.ip())) this.escrever('(o fail2ban baniu o IP ' + this.ip() + ' por errar a senha demais: fail2ban-client set sshd unbanip ' + this.ip() + ')\n', 'c-info');
+      else this.escrever('(o serviço ssh não está rodando no servidor: systemctl start ssh)\n', 'c-info');
+      this.escrever('[Pressione Enter para tentar de novo]\n', 'c-info');
+      this.estado = 'desconectado';
+      this.renderizarEntrada();
+      return;
+    }
     this.estado = 'login-usuario';
     this.rotulo = 'login as: ';
     this.oculto = false;
@@ -428,6 +445,23 @@ export class TerminalUbuntu implements Saida, Interacao {
           this.renderizarEntrada();
           return;
         }
+        {
+          const servidor: ServidorSsh = new ServidorSsh(this.maquina);
+          const candidato: Usuario | undefined = this.maquina.contas.usuario(this.loginPendente);
+          if (candidato !== undefined && servidor.aceitaChave(candidato, CHAVE_DO_NOTEBOOK)) {
+            servidor.registrarEntrada(candidato, this.ip(), 'publickey');
+            this.escrever('(autenticado com a chave SSH do notebook: sem senha)\n', 'c-info');
+            this.entrar(candidato);
+            return;
+          }
+          if (!servidor.aceitaSenha()) {
+            servidor.registrarRecusaPorChave(this.loginPendente, this.ip());
+            this.escrever(this.loginPendente + '@' + ClasseMaquina.IP + ': Permission denied (publickey).\n', 'c-erro');
+            this.escrever('(o servidor só aceita chave SSH: PasswordAuthentication no)\n', 'c-info');
+            this.desconectar();
+            return;
+          }
+        }
         this.estado = 'login-senha';
         this.tentativasDeSenha = 0;
         this.rotulo = this.loginPendente + '@' + ClasseMaquina.IP + "'s password: ";
@@ -452,19 +486,23 @@ export class TerminalUbuntu implements Saida, Interacao {
     const senha: string = this.buffer;
     this.buffer = '';
     this.cursor = 0;
+    const servidor: ServidorSsh = new ServidorSsh(this.maquina);
     const usuario: Usuario | undefined = this.maquina.contas.usuario(this.loginPendente);
-    const aceita: boolean = usuario !== undefined && usuario.senha !== null && !usuario.bloqueado && usuario.senha === senha;
-    if (aceita && usuario !== undefined) {
-      if (usuario.shell.endsWith('nologin') || usuario.shell.endsWith('false')) {
-        this.escrever('This account is currently not available.\n');
-        this.desconectar();
-        return;
-      }
-      this.iniciarSessao(usuario);
+    const autenticado: Usuario | null = servidor.autenticarSenha(this.loginPendente, senha, this.ip());
+    if (autenticado !== null) {
+      this.entrar(autenticado);
       return;
     }
     this.escrever('Access denied\n', 'c-erro');
-    if (usuario !== undefined && usuario.senha === null) {
+    if (new Fail2ban(this.maquina).banidos().includes(this.ip())) {
+      this.escrever('Connection closed by 192.168.0.10 port 22\n', 'c-erro');
+      this.escrever('(o fail2ban acabou de banir o IP ' + this.ip() + ')\n', 'c-info');
+      this.desconectar();
+      return;
+    }
+    if (usuario !== undefined && usuario.uid === 0 && servidor.politica().permitRootLogin !== 'yes' && usuario.senha === senha) {
+      this.escrever('(o SSH não aceita o root com senha: PermitRootLogin ' + servidor.politica().permitRootLogin + '. Entre como ricardo e use sudo -i)\n', 'c-info');
+    } else if (usuario !== undefined && usuario.senha === null) {
       this.escrever('(Dica: ' + usuario.nome + ' ainda não tem senha. No terminal do root, rode: passwd ' + usuario.nome + ')\n', 'c-info');
     } else if (usuario !== undefined && usuario.bloqueado) {
       this.escrever('(Dica: a conta ' + usuario.nome + ' está bloqueada — usermod -U ' + usuario.nome + ' desbloqueia)\n', 'c-info');
@@ -478,6 +516,16 @@ export class TerminalUbuntu implements Saida, Interacao {
       this.oculto = false;
     }
     this.renderizarEntrada();
+  }
+
+  /** Login aceito: confere o shell (nologin) e abre a sessão. */
+  private entrar(usuario: Usuario): void {
+    if (usuario.shell.endsWith('nologin') || usuario.shell.endsWith('false')) {
+      this.escrever('This account is currently not available.\n');
+      this.desconectar();
+      return;
+    }
+    this.iniciarSessao(usuario);
   }
 
   private async enviarComando(): Promise<void> {

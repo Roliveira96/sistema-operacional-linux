@@ -1,3 +1,30 @@
+/**
+ * ACL: permissões extras para usuários e grupos específicos (setfacl -m u:maria:rw).
+ * Com ACL, os bits de "grupo" do ls viram a MÁSCARA (o máximo que usuários/grupos nomeados podem ter).
+ */
+export class Acl {
+  public readonly usuarios: Map<number, number> = new Map();
+  public readonly grupos: Map<number, number> = new Map();
+  /** Permissão do grupo dono do arquivo (entrada group:: do getfacl). */
+  public grupoDono: number;
+
+  constructor(grupoDono: number) {
+    this.grupoDono = grupoDono;
+  }
+
+  public vazia(): boolean {
+    return this.usuarios.size === 0 && this.grupos.size === 0;
+  }
+
+  /** Máscara automática: a união de tudo que não é dono nem "outros". */
+  public mascaraCalculada(): number {
+    let mascara: number = this.grupoDono;
+    for (const p of this.usuarios.values()) mascara |= p;
+    for (const p of this.grupos.values()) mascara |= p;
+    return mascara;
+  }
+}
+
 /** Qualquer coisa que mora no sistema de arquivos: tem nome, dono, grupo e permissões. */
 export abstract class No {
   public nome: string;
@@ -6,6 +33,8 @@ export abstract class No {
   public modo: number;
   public modificadoEm: Date;
   public pai: Diretorio | null = null;
+  /** Lista de controle de acesso (setfacl). null = só as permissões tradicionais. */
+  public acl: Acl | null = null;
 
   constructor(nome: string, dono: number, grupo: number, modo: number) {
     this.nome = nome;

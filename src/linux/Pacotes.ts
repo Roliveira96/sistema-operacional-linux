@@ -1,6 +1,7 @@
 import type { Maquina } from './Maquina';
 import { Arquivo, Binario, Diretorio, Link, type No } from './No';
 import { SistemaDeArquivos } from './SistemaDeArquivos';
+import { registrar } from './Registro';
 
 /** Arquivo que um pacote instala. "config" = fica no sistema após remove (sai só com purge). */
 export interface ArquivoDoPacote {
@@ -87,6 +88,8 @@ export const CATALOGO: Pacote[] = [
     descricao: 'Pattern scanning and text processing language', dependencias: [], arquivos: [], programas: bin('awk') },
   { nome: 'rsync', versao: '3.2.7-1ubuntu1', secao: 'net', repositorio: 'main', baixarKb: 436, instaladoKb: 770, base: true,
     descricao: 'fast, versatile, remote (and local) file-copying tool', dependencias: [], arquivos: [], programas: bin('rsync') },
+  { nome: 'acl', versao: '2.3.2-1build1', secao: 'utils', repositorio: 'main', baixarKb: 39, instaladoKb: 188, base: true,
+    descricao: 'access control list - utilities', dependencias: [], arquivos: [], programas: bin('setfacl getfacl') },
   { nome: 'psmisc', versao: '23.7-1build1', secao: 'admin', repositorio: 'main', baixarKb: 179, instaladoKb: 758, base: true,
     descricao: 'utilities that use the proc file system (killall, pstree)', dependencias: [], arquivos: [], programas: bin('killall') },
   { nome: 'grep', versao: '3.11-4build1', secao: 'utils', repositorio: 'main', baixarKb: 162, instaladoKb: 772, base: true, essencial: true,
@@ -366,7 +369,7 @@ export class GerenciadorDePacotes {
         s.execucao + '\n\n[Install]\nWantedBy=multi-user.target\n', 0, 0, 0o644);
       const servicos: Servicos = new Servicos(this.maquina);
       servicos.habilitar(s.nome);
-      servicos.iniciar(s.nome);
+      servicos.iniciar(s.nome, pacote.base === true);
     }
     const estado: Map<string, EstadoDoPacote> = this.estado();
     estado.set(pacote.nome, { versao: this.versaoCandidata(pacote), estado: 'ii', automatico });
@@ -432,6 +435,11 @@ export class GerenciadorDePacotes {
   public instalarBase(): void {
     for (const pacote of CATALOGO.filter((p: Pacote) => p.base)) {
       this.instalar(pacote, false);
+    }
+    // programas SUID: rodam com o poder do dono (root) mesmo chamados por um usuário comum
+    for (const programa of ['/usr/bin/passwd', '/usr/bin/sudo', '/usr/bin/su', '/usr/bin/gpasswd', '/usr/bin/mount', '/usr/bin/umount']) {
+      const no: No | null = this.maquina.fs.obter(programa);
+      if (no !== null) no.modo = 0o4755;
     }
     this.apagar('/var/log/dpkg.log');
     this.maquina.criarArquivo('/var/log/dpkg.log', '2024-04-24 12:00:01 startup archives install\n', 0, 0, 0o644);
@@ -503,16 +511,29 @@ export class Servicos {
     return this.maquina.fs.obter(Servicos.WANTS + '/' + nome + '.service', false) !== null;
   }
 
-  public iniciar(nome: string): void {
+  public iniciar(nome: string, silencioso: boolean = false): void {
+    if (nome === 'ssh') {
+      // o sshd lê o /etc/ssh/sshd_config ao (re)iniciar: mudanças só valem depois do restart
+      const config: No | null = this.maquina.fs.obter('/etc/ssh/sshd_config');
+      this.maquina.criarDiretorio('/run/sshd', 0, 0, 0o755);
+      const ativa: No | null = this.maquina.fs.obter('/run/sshd/sshd_config.ativa');
+      const texto: string = config instanceof Arquivo ? config.ler() : '';
+      if (ativa instanceof Arquivo) ativa.escrever(texto);
+      else this.maquina.criarArquivo('/run/sshd/sshd_config.ativa', texto, 0, 0, 0o600);
+    }
     if (!this.ativo(nome)) {
       this.maquina.criarDiretorio(Servicos.ATIVOS, 0, 0, 0o755);
       this.maquina.criarArquivo(Servicos.ATIVOS + '/' + nome, 'active\n', 0, 0, 0o644);
+      if (!silencioso) registrar(this.maquina, 'syslog', 'systemd[1]', 'Started ' + nome + '.service - ' + this.descricao(nome) + '.');
     }
   }
 
   public parar(nome: string): void {
     const no: No | null = this.maquina.fs.obter(Servicos.ATIVOS + '/' + nome);
-    no?.pai?.remover(no.nome);
+    if (no === null) return;
+    registrar(this.maquina, 'syslog', 'systemd[1]', 'Stopping ' + nome + '.service - ' + this.descricao(nome) + '...');
+    no.pai?.remover(no.nome);
+    registrar(this.maquina, 'syslog', 'systemd[1]', 'Stopped ' + nome + '.service - ' + this.descricao(nome) + '.');
   }
 
   public habilitar(nome: string): boolean {

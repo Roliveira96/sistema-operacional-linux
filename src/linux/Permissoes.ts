@@ -14,9 +14,12 @@ export class Permissoes {
     for (let bit: number = 8; bit >= 0; bit--) {
       texto += (modo & (1 << bit)) !== 0 ? letras[(8 - bit) % 3] : '-';
     }
-    if ((modo & Permissoes.STICKY) !== 0) {
-      texto = texto.substring(0, 9) + (texto.charAt(9) === 'x' ? 't' : 'T');
-    }
+    const trocar = (posicao: number, minuscula: string, maiuscula: string): void => {
+      texto = texto.substring(0, posicao) + (texto.charAt(posicao) === 'x' ? minuscula : maiuscula) + texto.substring(posicao + 1);
+    };
+    if ((modo & Permissoes.SUID) !== 0) trocar(3, 's', 'S');
+    if ((modo & Permissoes.SGID) !== 0) trocar(6, 's', 'S');
+    if ((modo & Permissoes.STICKY) !== 0) trocar(9, 't', 'T');
     return texto;
   }
 
@@ -38,7 +41,7 @@ export class Permissoes {
   public static aplicarSimbolico(modoAtual: number, expressao: string, ehDiretorio: boolean): number | null {
     let modo: number = modoAtual;
     for (const clausula of expressao.split(',')) {
-      const partes: RegExpMatchArray | null = clausula.match(/^([ugoa]*)([+\-=])([rwxXt]*)$/);
+      const partes: RegExpMatchArray | null = clausula.match(/^([ugoa]*)([+\-=])([rwxXst]*)$/);
       if (partes === null) {
         return null;
       }
@@ -61,6 +64,13 @@ export class Permissoes {
       }
       if (partes[3].includes('t')) {
         modo = operador === '-' ? modo & ~Permissoes.STICKY : modo | Permissoes.STICKY;
+      }
+      if (partes[3].includes('s')) {
+        // u+s = SUID (roda como o dono), g+s = SGID (roda como o grupo / pasta passa o grupo adiante)
+        let especiais: number = 0;
+        if (quem.includes('u')) especiais |= Permissoes.SUID;
+        if (quem.includes('g')) especiais |= Permissoes.SGID;
+        modo = operador === '-' ? modo & ~especiais : modo | especiais;
       }
     }
     return modo;

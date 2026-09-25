@@ -151,7 +151,7 @@ export class Ls extends Comando {
       const tamanho: number = no.tamanho();
       blocos += no.ehDiretorio() ? 4 : Math.ceil(tamanho / 4096) * 4;
       linhas.push([
-        Permissoes.paraTexto(no instanceof Link ? 0o777 : no.modo, no.tipoLs()),
+        Permissoes.paraTexto(no instanceof Link ? 0o777 : no.modo, no.tipoLs()) + (no.acl !== null ? '+' : ''),
         String(this.contarLinks(no)),
         contexto.contas.nomeDoUsuario(no.dono),
         contexto.contas.nomeDoGrupo(no.grupo),

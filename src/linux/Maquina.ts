@@ -1,5 +1,6 @@
 import { Arquivo, ArquivoGerado, Binario, Buraco, Diretorio, Dispositivo, Link, type No } from './No';
 import { GerenciadorDePacotes } from './Pacotes';
+import { GerenciadorDeDiscos } from './Discos';
 import { Contas, Grupo, Usuario } from './Contas';
 import { SistemaDeArquivos } from './SistemaDeArquivos';
 import { Quadro, Sessao, type Job } from './Sessao';
@@ -30,10 +31,12 @@ export class Maquina {
   private readonly sessoes: Sessao[] = [];
   /** Processos de usuário rodando agora (não vão para o JSON: somem como num reboot). */
   public readonly processos: TabelaDeProcessos = new TabelaDeProcessos();
+  public readonly discos: GerenciadorDeDiscos;
 
   public constructor(fs: SistemaDeArquivos, contas: Contas) {
     this.fs = fs;
     this.contas = contas;
+    this.discos = new GerenciadorDeDiscos(this);
   }
 
   public static criar(): Maquina {

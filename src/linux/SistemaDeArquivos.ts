@@ -51,6 +51,21 @@ export class SistemaDeArquivos {
     if (credencial.uid === no.dono) {
       return ((no.modo >> 6) & bit) !== 0;
     }
+    const acl = no.acl;
+    const mascara: number = (no.modo >> 3) & 7;
+    if (acl !== null) {
+      const doUsuario: number | undefined = acl.usuarios.get(credencial.uid);
+      if (doUsuario !== undefined) {
+        return (doUsuario & mascara & bit) !== 0;
+      }
+      const candidatos: number[] = [];
+      if (credencial.gids.includes(no.grupo)) candidatos.push(acl.grupoDono);
+      for (const [gid, perms] of acl.grupos) if (credencial.gids.includes(gid)) candidatos.push(perms);
+      if (candidatos.length > 0) {
+        return candidatos.some((p: number) => (p & mascara & bit) !== 0);
+      }
+      return (no.modo & bit) !== 0;
+    }
     if (credencial.gids.includes(no.grupo)) {
       return ((no.modo >> 3) & bit) !== 0;
     }

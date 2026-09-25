@@ -4,6 +4,7 @@ import { Grupo, Usuario, type Contas } from '../../linux/Contas';
 import { Diretorio, type No } from '../../linux/No';
 import { SistemaDeArquivos } from '../../linux/SistemaDeArquivos';
 import { simOuNao } from './util';
+import { pidDeLog, registrar } from '../../linux/Registro';
 
 const NOME_VALIDO: RegExp = /^[a-z_][a-z0-9_-]{0,31}$/;
 
@@ -157,6 +158,8 @@ export class Useradd extends Comando {
     const usuario: Usuario = new Usuario(nome, uid, gidPrimario, opcoes.valor('d') ?? '/home/' + nome,
       opcoes.valor('s') ?? '/bin/sh', null, opcoes.valor('c') ?? '');
     contas.adicionarUsuario(usuario);
+    registrar(contexto.maquina, 'auth.log', 'useradd[' + pidDeLog() + ']', 'new user: name=' + usuario.nome + ', UID=' + usuario.uid + ', GID=' + usuario.gid +
+      ', home=' + usuario.home + ', shell=' + usuario.shell + ', from=/dev/' + contexto.sessao.tty);
     for (const grupo of extras) {
       if (!grupo.membros.includes(nome)) grupo.membros.push(nome);
     }
@@ -236,6 +239,8 @@ export class Adduser extends Comando {
     contexto.linha("info: Adicionando novo usuário `" + nome + "' (" + uid + ") com grupo `" + nome + ' (' + gid + ")' ...");
     const usuario: Usuario = new Usuario(nome, uid, gid, '/home/' + nome, '/bin/bash', null, '');
     contas.adicionarUsuario(usuario);
+    registrar(contexto.maquina, 'auth.log', 'useradd[' + pidDeLog() + ']', 'new user: name=' + usuario.nome + ', UID=' + usuario.uid + ', GID=' + usuario.gid +
+      ', home=' + usuario.home + ', shell=' + usuario.shell + ', from=/dev/' + contexto.sessao.tty);
     contexto.linha("info: Criando diretório pessoal `/home/" + nome + "' ...");
     contexto.linha("info: Copiando arquivos de `/etc/skel' ...");
     if (contexto.fs.obter(usuario.home) === null) {
@@ -324,6 +329,7 @@ export class Userdel extends Comando {
       }
     }
     apagarConta(usuario, opcoes.tem('r'), contexto);
+    registrar(contexto.maquina, 'auth.log', 'userdel[' + pidDeLog() + ']', 'delete user \'' + nome + '\'');
     return 0;
   }
 }
@@ -509,6 +515,7 @@ export class Passwd extends Comando {
       return 10;
     }
     alvo.senha = nova;
+    registrar(contexto.maquina, 'auth.log', 'passwd[' + pidDeLog() + ']', 'pam_unix(passwd:chauthtok): password changed for ' + alvo.nome);
     contexto.linha('passwd: senha atualizada com sucesso');
     return 0;
   }
