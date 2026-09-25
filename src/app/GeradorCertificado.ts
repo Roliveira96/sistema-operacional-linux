@@ -313,52 +313,55 @@ export class GeradorCertificado {
             color: #231F20;
           }
 
-          .linha-destaques-badges {
+          .marca-dagua-utfpr {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 660px;
+            max-width: 82%;
+            opacity: 0.045;
+            pointer-events: none;
+            z-index: 1;
+            user-select: none;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
-            margin-top: 8px;
           }
-          .selo-excelencia {
-            display: inline-block;
-            padding: 3px 12px;
-            background: #fef9c3;
-            border: 1.5px solid #eab308;
-            color: #854d0e;
-            border-radius: 999px;
-            font-size: 10.5px;
-            font-weight: 800;
-            letter-spacing: 0.8px;
-            text-transform: uppercase;
+          .marca-dagua-utfpr img {
+            width: 100%;
+            height: auto;
+            display: block;
           }
-          .docente-destaque-cert {
-            padding: 3px 12px;
-            background: #f4f4f5;
-            border: 1px solid #e4e4e7;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+
+          .texto-distincao-solene {
             font-size: 11px;
-            color: #231F20;
-          }
-          .docente-destaque-cert span {
-            color: #71717a;
-          }
-          .docente-destaque-cert b {
-            color: #231F20;
-          }
-          .docente-destaque-cert small {
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
             color: #b45309;
+            margin-top: 6px;
+          }
+          .docente-nome-destaque {
+            font-size: 13.5px;
             font-weight: 700;
+            color: #231F20;
+            letter-spacing: 0.5px;
+            margin: 4px 0 6px;
           }
           .texto-ementa {
             font-size: 10.5px;
             color: #71717a;
-            margin-top: 6px;
+            margin-top: 4px;
             font-family: 'Inter', sans-serif;
             font-style: italic;
+          }
+
+          .cabecalho-cert,
+          .corpo-cert,
+          .rodape-cert {
+            position: relative;
+            z-index: 2;
           }
 
           .rodape-cert {
@@ -519,6 +522,10 @@ export class GeradorCertificado {
               <div class="canto canto-bl"></div>
               <div class="canto canto-br"></div>
 
+              <div class="marca-dagua-utfpr" aria-hidden="true">
+                <img src="${logoUrl}" alt="" />
+              </div>
+
               <header class="cabecalho-cert">
                 <div class="cert-logo-topo">
                   <img src="${logoUrl}" alt="UTFPR" class="logo-diploma-utfpr" />
@@ -542,18 +549,12 @@ export class GeradorCertificado {
                   sob a orientação, supervisão e avaliação da docente <b>Professora Sediane Carmem Lunardi Hernandes</b>.
                 </p>
 
-                <div class="linha-destaques-badges">
-                  ${
-                    ehExcelencia
-                      ? `<div class="selo-excelencia">⭐ Distinção Acadêmica: 100% de Acertos (Com Excelência)</div>`
-                      : `<div class="selo-excelencia">✓ Aprovado com Louvor (Nota Superior à Média de 70%)</div>`
-                  }
-                  <div class="docente-destaque-cert">
-                    <span>Professora Avaliadora:</span>
-                    <b>Professora Sediane Carmem Lunardi Hernandes</b>
-                    <small>UTFPR · Campus Guarapuava</small>
-                  </div>
-                </div>
+                ${
+                  ehExcelencia
+                    ? `<p class="texto-distincao-solene">Distinção Acadêmica com Louvor · 100% de Aproveitamento</p>`
+                    : ``
+                }
+                <p class="docente-nome-destaque">Professora Sediane Carmem Lunardi Hernandes</p>
 
                 <p class="texto-ementa">
                   <b>Competências avaliadas:</b> ${descricaoModulo}
