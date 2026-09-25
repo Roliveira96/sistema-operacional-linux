@@ -73,9 +73,9 @@ export class TelaMenu implements Tela {
       '  </section>' +
       '  <div class="pessoas">' + this.autor.gerarHtml() +
       '    <section class="professor"><div class="professor-monograma" aria-hidden="true">SH</div><div>' +
-      '      <span class="autor-rotulo">Professora avaliadora</span><h2>Sediane Carmem Lunardi Hernandes</h2>' +
+      '      <span class="autor-rotulo">Docente avaliadora · Doutora em Informática</span><h2>Profª. Dra. Sediane Carmem Lunardi Hernandes</h2>' +
       '      <p class="professor-disciplina">Universidade Tecnológica Federal do Paraná - UTFPR · Campus Guarapuava</p>' +
-      '      <p class="professor-avaliacao">Avaliação de suficiência de Linux: diretórios, arquivos, exclusão, segurança de acesso, usuários e grupos.</p>' +
+      '      <p class="professor-avaliacao">Doutora em Informática pela Pontifícia Universidade Católica do Paraná (PPGIa/PUCPR). Avaliação de suficiência de Linux: diretórios, arquivos, permissões, usuários, grupos e serviços.</p>' +
       '      <a class="autor-link professor-link" href="https://www.linkedin.com/in/sediane-hernandes-77b632a9/" target="_blank" rel="noopener">' + ICONE_LINKEDIN + '<span>LinkedIn</span></a></div></section>' +
       '  </div>' +
       '</div>';

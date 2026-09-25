@@ -61,7 +61,7 @@ export class GeradorCertificado {
             <span>🏛️ <b>Instituição:</b> Universidade Tecnológica Federal do Paraná - UTFPR (Campus Guarapuava)</span>
             <span>📋 <b>Módulo:</b> ${modalidade.titulo}</span>
             <span>⭐ <b>Aproveitamento:</b> ${porcentagem}% ${porcentagem === 100 ? '<b>(Com Excelência)</b>' : ''}</span>
-            <span>✍️ <b>Avaliadora:</b> Professora Sediane Carmem Lunardi Hernandes</span>
+            <span>✍️ <b>Avaliadora:</b> Profª. Dra. Sediane Carmem Lunardi Hernandes (Doutora em Informática · PUCPR)</span>
           </div>
 
           <div class="sim-modal-cert-acoes">
@@ -157,7 +157,7 @@ export class GeradorCertificado {
       <html lang="pt-BR">
       <head>
         <meta charset="UTF-8">
-        <title>Certificado - ${dados.nomeAluno} - Professora Sediane - UTFPR</title>
+        <title>Certificado - ${dados.nomeAluno} - Profª. Dra. Sediane Carmem Lunardi Hernandes - UTFPR</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Great+Vibes&family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet" />
@@ -534,7 +534,7 @@ export class GeradorCertificado {
                 <p class="instituicao-titulo">UNIVERSIDADE TECNOLÓGICA FEDERAL DO PARANÁ - UTFPR</p>
                 <p class="instituicao-campus">CAMPUS GUARAPUAVA</p>
                 <h1 class="diploma-titulo">Certificado de Conclusão</h1>
-                <p class="diploma-subtitulo">EXAME PRÁTICO E AVALIAÇÃO DE COMPETÊNCIAS · PROFESSORA SEDIANE</p>
+                <p class="diploma-subtitulo">EXAME PRÁTICO E AVALIAÇÃO DE COMPETÊNCIAS · PROFª. DRA. SEDIANE</p>
               </header>
 
               <main class="corpo-cert">
@@ -546,7 +546,7 @@ export class GeradorCertificado {
                   demonstrando proficiência nas tarefas de terminal do sistema operacional Linux com aproveitamento de
                   <b>${dados.porcentagem}%</b> em avaliação técnica realizada na
                   <b>Universidade Tecnológica Federal do Paraná - UTFPR (Campus Guarapuava)</b>,
-                  sob a orientação, supervisão e avaliação da docente <b>Professora Sediane Carmem Lunardi Hernandes</b>.
+                  sob a orientação, supervisão e avaliação da docente <b>Profª. Dra. Sediane Carmem Lunardi Hernandes</b>.
                 </p>
 
                 ${
@@ -554,7 +554,7 @@ export class GeradorCertificado {
                     ? `<p class="texto-distincao-solene">Distinção Acadêmica com Louvor · 100% de Aproveitamento</p>`
                     : ``
                 }
-                <p class="docente-nome-destaque">Professora Sediane Carmem Lunardi Hernandes</p>
+                <p class="docente-nome-destaque">Profª. Dra. Sediane Carmem Lunardi Hernandes</p>
 
                 <p class="texto-ementa">
                   <b>Competências avaliadas:</b> ${descricaoModulo}
@@ -563,10 +563,10 @@ export class GeradorCertificado {
 
               <footer class="rodape-cert">
                 <div class="bloco-assinatura">
-                  <div class="assinatura-rubrica" aria-hidden="true">Sediane C. L. Hernandes</div>
+                  <div class="assinatura-rubrica" aria-hidden="true">Dra. Sediane C. L. Hernandes</div>
                   <div class="linha-assinatura"></div>
-                  <p class="nome-assinante">Professora Sediane Carmem Lunardi Hernandes</p>
-                  <p class="cargo-assinante">Docente Avaliadora e Coordenadora</p>
+                  <p class="nome-assinante">Profª. Dra. Sediane Carmem Lunardi Hernandes</p>
+                  <p class="cargo-assinante">Docente Avaliadora e Coordenadora · Doutora em Informática</p>
                   <p class="cargo-assinante">UTFPR · Campus Guarapuava</p>
                 </div>
 

@@ -1021,7 +1021,7 @@ export class TelaSimulado implements Tela {
                 <div class="placar-certificado-banner">
                   <div class="placar-cert-texto">
                     <b>🎓 Certificado Oficial UTFPR Habilitado</b>
-                    <span>Emita seu diploma oficial da <b>Universidade Tecnológica Federal do Paraná (Campus Guarapuava)</b> assinado pela <b>Professora Sediane</b> (${porcentagem}% de aproveitamento${porcentagem === 100 ? ' · Com Excelência' : ''}).</span>
+                    <span>Emita seu diploma oficial da <b>Universidade Tecnológica Federal do Paraná (Campus Guarapuava)</b> assinado pela <b>Profª. Dra. Sediane Carmem Lunardi Hernandes</b> (${porcentagem}% de aproveitamento${porcentagem === 100 ? ' · Com Excelência' : ''}).</span>
                   </div>
                   <button class="botao-primario btn-gerar-certificado-placar">
                     📜 Gerar Certificado PDF
