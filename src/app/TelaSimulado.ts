@@ -3,7 +3,7 @@ import type { Desafio, ModalidadeSimulado, Passo, QuestaoQuiz } from '../conteud
 import type { Maquina } from '../linux/Maquina';
 import type { TerminalUbuntu } from '../terminal/TerminalUbuntu';
 import { Bancada } from './Bancada';
-import { modalidades } from '../conteudo/simulado';
+import { modalidades, sortearQuestoesExame } from '../conteudo/simulado';
 import { ColaDeComandos } from './ColaDeComandos';
 import { Aviso } from './Aviso';
 
@@ -62,6 +62,7 @@ export class TelaSimulado implements Tela {
   private executandoSolucao: boolean = false;
   private animandoPinguim: boolean = false;
   private entregueManualmente: boolean = false;
+  private questoesExameAtual: Array<Desafio | QuestaoQuiz> = [];
 
   public montar(raiz: HTMLElement): void {
     this.raiz = raiz;
@@ -106,7 +107,6 @@ export class TelaSimulado implements Tela {
   private renderizarHub(): void {
     let cardsHtml: string = '';
     for (const mod of modalidades) {
-      const totalItens = (mod.desafios?.length ?? 0) || (mod.questoes?.length ?? 0);
       const tipo = mod.questoes ? 'questões teóricas' : 'tarefas práticas';
       cardsHtml += `
         <div class="sim-hub-card" data-mod="${mod.id}">
@@ -118,7 +118,7 @@ export class TelaSimulado implements Tela {
           <p class="sim-hub-card-desc">${mod.descricao}</p>
           <div class="sim-hub-card-meta">
             <span>⏱️ 30 minutos</span>
-            <span>🎯 ${totalItens} ${tipo}</span>
+            <span>🎯 10 ${tipo} sorteadas (banco de 30)</span>
           </div>
           <button class="botao-primario sim-hub-card-btn">Acessar Prova →</button>
         </div>
@@ -161,7 +161,6 @@ export class TelaSimulado implements Tela {
 
   private renderizarPreProva(): void {
     const mod = this.modalidadeSelecionada;
-    const totalItens = (mod.desafios?.length ?? 0) || (mod.questoes?.length ?? 0);
     const tipo = mod.questoes ? 'questões de múltipla escolha' : 'desafios práticos no terminal';
 
     this.raiz.innerHTML = `
@@ -219,7 +218,7 @@ export class TelaSimulado implements Tela {
             </section>
 
             <div class="sim-pre-resumo-meta">
-              <span><b>Estrutura:</b> ${totalItens} ${tipo}</span>
+              <span><b>Estrutura:</b> 10 ${tipo} sorteadas (banco de 30: 🟢 4 Fáceis · 🟡 3 Médias · 🔴 3 Difíceis)</span>
               <span><b>Duração:</b> 30 minutos</span>
               <span><b>Aprovação recomendada:</b> 70% de acertos</span>
             </div>
@@ -263,8 +262,9 @@ export class TelaSimulado implements Tela {
     this.animandoPinguim = false;
     this.entregueManualmente = false;
 
-    const lista = mod.desafios ?? mod.questoes ?? [];
-    for (const item of lista) {
+    const lista: Array<Desafio | QuestaoQuiz> = mod.desafios ?? mod.questoes ?? [];
+    this.questoesExameAtual = sortearQuestoesExame(lista, 10);
+    for (const item of this.questoesExameAtual) {
       this.estadosQuestoes.set(item.id, {
         id: item.id,
         concluida: false,
@@ -416,6 +416,9 @@ export class TelaSimulado implements Tela {
   }
 
   private obterItens(): Array<Desafio | QuestaoQuiz> {
+    if ((this.fase === 'prova' || this.fase === 'relatorio') && this.questoesExameAtual.length > 0) {
+      return this.questoesExameAtual;
+    }
     const mod = this.modalidadeSelecionada;
     return mod.desafios ?? mod.questoes ?? [];
   }
@@ -547,8 +550,10 @@ export class TelaSimulado implements Tela {
       }
 
       const ehAtiva = index === this.indiceQuestaoAtiva ? ' ativa' : '';
+      const nivelDesc = item.nivel === 'facil' ? '🟢 Fácil' : item.nivel === 'medio' ? '🟡 Médio' : item.nivel === 'dificil' ? '🔴 Difícil' : '';
+      const tooltip = `Questão #${index + 1} (${nivelDesc})`;
       html += `
-        <button class="sim-btn-questao ${statusClass}${ehAtiva}" data-idx="${index}" title="Questão ${index + 1}">
+        <button class="sim-btn-questao ${statusClass}${ehAtiva}" data-idx="${index}" title="${tooltip}">
           <span class="sim-btn-questao-num">${icon}</span>
         </button>
       `;
@@ -621,11 +626,20 @@ export class TelaSimulado implements Tela {
       `;
     }
 
+    const nivelBadge = item.nivel === 'facil'
+      ? '<span class="sim-badge-nivel nivel-facil">🟢 Fácil</span>'
+      : item.nivel === 'medio'
+        ? '<span class="sim-badge-nivel nivel-medio">🟡 Médio</span>'
+        : item.nivel === 'dificil'
+          ? '<span class="sim-badge-nivel nivel-dificil">🔴 Difícil</span>'
+          : '';
+
     container.innerHTML = `
       <div class="sim-card-questao ${estado.concluida ? 'questao-travada' : ''}">
         <div class="sim-questao-header">
           <div class="sim-questao-status-tag">
             <span class="tag-numero">Questão ${this.indiceQuestaoAtiva + 1} de ${itens.length}</span>
+            ${nivelBadge}
             ${
               estado.concluida
                 ? '<span class="tag-status concluida">🔒 Concluída e Travada</span>'
@@ -919,6 +933,7 @@ export class TelaSimulado implements Tela {
                     <thead>
                       <tr>
                         <th>#</th>
+                        <th>Nível</th>
                         <th>Exercício / Tarefa</th>
                         <th>Resultado</th>
                         <th>Tempo</th>
@@ -1009,9 +1024,18 @@ export class TelaSimulado implements Tela {
       statusClasse = 'pulou';
     }
 
+    const nivelBadge = itemAtual?.nivel === 'facil'
+      ? '<span class="sim-badge-nivel nivel-facil">🟢 Fácil</span>'
+      : itemAtual?.nivel === 'medio'
+        ? '<span class="sim-badge-nivel nivel-medio">🟡 Médio</span>'
+        : itemAtual?.nivel === 'dificil'
+          ? '<span class="sim-badge-nivel nivel-dificil">🔴 Difícil</span>'
+          : '';
+
     if (rotulo) {
       rotulo.innerHTML = `
         <span class="rotulo-titulo">📍 Visualizando agora: <b class="destaque-questao">Questão #${this.indiceQuestaoRevisao + 1} de ${itens.length}</b></span>
+        ${nivelBadge}
         <span class="relatorio-badge ${statusClasse}">${statusTexto}</span>
       `;
     }
@@ -1029,9 +1053,10 @@ export class TelaSimulado implements Tela {
         icon = '⏭';
       }
 
+      const nivelDesc = item.nivel === 'facil' ? '🟢 Fácil' : item.nivel === 'medio' ? '🟡 Médio' : item.nivel === 'dificil' ? '🔴 Difícil' : '';
       const ehAtiva = index === this.indiceQuestaoRevisao ? ' ativa' : '';
       html += `
-        <button class="sim-btn-questao ${statusClass}${ehAtiva}" data-idx="${index}" title="Ir para Questão ${index + 1}">
+        <button class="sim-btn-questao ${statusClass}${ehAtiva}" data-idx="${index}" title="Ir para Questão #${index + 1} (${nivelDesc})">
           <span class="sim-btn-questao-idx">#${index + 1}</span>
           <span class="sim-btn-questao-num">${icon}</span>
         </button>
@@ -1068,6 +1093,14 @@ export class TelaSimulado implements Tela {
     const estado = this.estadosQuestoes.get(item.id);
     const ehQuiz = 'opcoes' in item;
 
+    const nivelBadge = item.nivel === 'facil'
+      ? '<span class="sim-badge-nivel nivel-facil">🟢 Fácil</span>'
+      : item.nivel === 'medio'
+        ? '<span class="sim-badge-nivel nivel-medio">🟡 Médio</span>'
+        : item.nivel === 'dificil'
+          ? '<span class="sim-badge-nivel nivel-dificil">🔴 Difícil</span>'
+          : '';
+
     let badgeStatusHtml = '<span class="tag-status erro">❌ Não realizada</span>';
     if (estado?.concluida) {
       badgeStatusHtml = `<span class="tag-status concluida">✅ Concluída no exame (${formatarExtenso(estado.tempoSegundos)})</span>`;
@@ -1090,7 +1123,8 @@ export class TelaSimulado implements Tela {
         <div class="sim-card-questao sim-card-revisao">
           <div class="sim-questao-header">
             <div class="sim-questao-status-tag">
-              <span class="tag-numero">Questão ${this.indiceQuestaoRevisao + 1} de ${itens.length}</span>
+              <span class="tag-numero">Questão #${this.indiceQuestaoRevisao + 1} de ${itens.length}</span>
+              ${nivelBadge}
               ${badgeStatusHtml}
             </div>
             <div class="sim-tempo-questao">
@@ -1145,7 +1179,8 @@ export class TelaSimulado implements Tela {
         <div class="sim-card-questao sim-card-revisao">
           <div class="sim-questao-header">
             <div class="sim-questao-status-tag">
-              <span class="tag-numero">Questão Teórica ${this.indiceQuestaoRevisao + 1} de ${itens.length}</span>
+              <span class="tag-numero">Questão Teórica #${this.indiceQuestaoRevisao + 1} de ${itens.length}</span>
+              ${nivelBadge}
               ${badgeStatusHtml}
             </div>
           </div>
@@ -1235,9 +1270,18 @@ export class TelaSimulado implements Tela {
           `;
         }
 
+        const nivelBadge = item.nivel === 'facil'
+          ? '<span class="sim-badge-nivel nivel-facil">🟢 Fácil</span>'
+          : item.nivel === 'medio'
+            ? '<span class="sim-badge-nivel nivel-medio">🟡 Médio</span>'
+            : item.nivel === 'dificil'
+              ? '<span class="sim-badge-nivel nivel-dificil">🔴 Difícil</span>'
+              : '';
+
         return `
           <tr class="${ehAtual ? 'linha-selecionada' : ''}" data-idx="${index}">
             <td class="col-num">#${index + 1}</td>
+            <td class="col-nivel">${nivelBadge}</td>
             <td class="col-enunciado">${enunciado}</td>
             <td class="col-status">${badgeResultado}</td>
             <td class="col-tempo"><b>${tempoGasto}</b></td>

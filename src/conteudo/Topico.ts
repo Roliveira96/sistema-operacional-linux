@@ -30,9 +30,12 @@ export interface Licao {
   extra?: 'calculadora-permissoes' | 'anatomia-ls';
 }
 
+export type NivelDificuldade = 'facil' | 'medio' | 'dificil';
+
 /** Tarefa prática conferida automaticamente olhando o estado da máquina. */
 export interface Desafio {
   id: string;
+  nivel?: NivelDificuldade;
   enunciado: string;
   dica: string;
   solucao: Passo[];
@@ -42,6 +45,7 @@ export interface Desafio {
 /** Questão teórica de múltipla escolha no padrão de exames de certificação. */
 export interface QuestaoQuiz {
   id: string;
+  nivel?: NivelDificuldade;
   pergunta: string;
   certificacao: string;
   opcoes: string[];
