@@ -1,134 +1,179 @@
 <div align="center">
 
-# 🐧 Linux na prática
+<img src="public/utfpr-logo.svg" alt="UTFPR" width="280" />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<img src="public/tsi.png" alt="TSI UTFPR" width="130" />
 
-### Material de estudo + servidor Ubuntu simulado no navegador
+<br/>
 
-**Os comandos que caem na prova, um a um, com dicas e pegadinhas, e um terminal Ubuntu ao lado executando cada comando.**
-Assista ao comando sendo digitado, depois pratique você mesmo em até **3 terminais** conectados por "SSH" à mesma máquina: um como `root` e os outros como usuários comuns.
+### Universidade Tecnológica Federal do Paraná - UTFPR
+**Campus Guarapuava · Tecnologia em Sistemas para Internet (TSI)**  
+*Laboratório de Sistemas Operacionais · Preparatório Oficial para Certificações Linux*
+
+# 🐧 Linux na Prática
+
+### Material de Estudo Interativo + Servidor Ubuntu 24.04 Simulado no Navegador
+
+**Ambiente completo para dominar comandos de terminal, resolução de exames práticos (LPIC-1, Linux Essentials, CompTIA Linux+) e emissão oficial de certificados.**
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
-![Sem frameworks](https://img.shields.io/badge/sem-frameworks-3ddc97)
 ![Ubuntu](https://img.shields.io/badge/simula-Ubuntu%2024.04-E95420?logo=ubuntu&logoColor=white)
+![Testes](https://img.shields.io/badge/testes-558%20passando-success?logo=vitest&logoColor=white)
+![UTFPR](https://img.shields.io/badge/UTFPR-Campus%20Guarapuava-F6C212?logoColor=231F20)
 
-**Aluno:** Ricardo Martins de Oliveira · [GitHub](https://github.com/Roliveira96) · [LinkedIn](https://www.linkedin.com/in/ricardodeoliveira96/) · [rmo.dev.br](https://rmo.dev.br)
-**Professora:** Sediane Carmem Lunardi Hernandes (UTFPR · Campus Guarapuava) · Avaliação de suficiência de Sistema Operacional Linux
+**Aluno Desenvolvedor:** Ricardo Martins de Oliveira · [GitHub](https://github.com/Roliveira96) · [LinkedIn](https://www.linkedin.com/in/ricardodeoliveira96/) · [rmo.dev.br](https://rmo.dev.br)  
+**Docente Avaliadora:** **Profª. Dra. Sediane Carmem Lunardi Hernandes** (Doutora em Informática · PPGIa/PUCPR)  
 
 </div>
 
 ---
 
-## 🚀 Como rodar
+## 📸 Demonstração Visual do Sistema
 
-Pré-requisito: [Node.js](https://nodejs.org) 20.19+ ou 22.12+.
+Abaixo estão capturas reais do sistema em funcionamento, cobrindo desde a exploração inicial até o exame cronometrado e a geração do certificado:
+
+### 1. Tela Inicial e Hub de Estudos
+Apresentação institucional da UTFPR e do curso TSI, cards temáticos com contadores de comandos e acesso rápido aos exames e laboratório livre:
+
+![Tela Inicial](docs/screenshots/01-menu-principal.png)
+
+---
+
+### 2. Lições Práticas com Terminal Ubuntu Conectado
+Comandos explicados com tabelas de opções, dicas oficiais de prova, pegadinhas de exames e um terminal Ubuntu 24.04 LTS ao lado executando as ações em tempo real:
+
+![Exercícios e Lições de Terminal](docs/screenshots/02-exercicios-licoes.png)
+
+---
+
+### 3. Modo Simulado de Certificação (Prova em Tempo Real)
+Prova com cronômetro regressivo de 30 minutos, tarefas encadeadas, barra de progresso, botão "Pular questão" e até 3 terminais concorrentes (root e usuários normais):
+
+![Prova do Simulado](docs/screenshots/03-simulado-questoes.png)
+
+---
+
+### 4. Relatório de Desempenho e Correção Técnica
+Placar detalhado exibindo porcentagem de aproveitamento, tempo decorrido, status de aprovação, fundamentação técnica de cada tarefa e botão para emissão de certificado:
+
+![Resultado do Simulado](docs/screenshots/04-resultado-simulado.png)
+
+---
+
+### 5. Certificado Oficial com Dados Mockados (UTFPR / TSI)
+Diploma emitido com padrão gráfico institucional nas cores oficiais da UTFPR (Amarelo e Preto), marca d'água centralizada, selo oficial do curso TSI, assinatura da Profª. Dra. Sediane e QR Code dinâmico para validação digital:
+
+![Certificado Oficial](docs/screenshots/05-geracao-certificado.png)
+
+---
+
+## 🚀 Como Rodar o Projeto
+
+### Pré-requisitos
+- [Node.js](https://nodejs.org) versão 20.19+ ou 22.12+.
+- Gerenciador de pacotes `npm`.
+
+### Execução Local e na Rede
 
 ```bash
+# 1. Instalar dependências
 npm install
+
+# 2. Iniciar servidor de desenvolvimento (acessível via localhost e IP da rede)
 npm run dev
 ```
 
-Abra o endereço que o Vite mostrar (ex.: **http://localhost:5173**).
+Acesse no navegador:
+- Localmente: **http://localhost:5173**
+- Pelo IP da rede local (ex.): **http://192.168.3.111:5173**
+- Modelo de certificado oficial direto: **http://localhost:5173/certificado-exemplo.html**
 
-## 📚 Conteúdo (o que a prova cobre)
+### Testes Automatizados (558 Testes)
 
-| # | Tópico | Conteúdo |
-|---|--------|----------|
-| 01 | 📜 História do Linux | Unix, GNU e software livre, Linus Torvalds, kernel × distribuição, famílias de distros (Debian/Ubuntu, Red Hat, SUSE, Arch, Alpine), onde o Linux está |
-| 02 | 🌳 Estrutura de pastas | um card por pasta (`/etc`, `/home`, `/root`, `/usr/bin`, `/usr`, `/var`, `/tmp`, `/boot`, `/dev`, `/proc`, `/opt`, `/srv`, `/media`, `/mnt`), navegando em cada uma |
-| 03 | 📁 Navegação e diretórios | `pwd` `ls` `cd` `mkdir` `tree` `rmdir` |
-| 04 | 📄 Arquivos | `touch` `echo > >>` `cat` `head` `tail` `grep` `wc` `cp` `mv` `ln -s` `nano` `vim` |
-| 05 | 🗑️ Exclusão | `rm` `rm -r` `rm -i` `rm -f` curingas `*` `?`, sticky bit do `/tmp` |
-| 06 | 🔐 Permissões e segurança de acesso | `ls -l` `chmod` (letras e números) `chown` `chgrp` `umask` `chmod 1777` |
-| 07 | 👥 Usuários e grupos | `whoami` `id` `useradd` `passwd` `adduser` `su` `sudo` `usermod -aG` `groupadd` `gpasswd` `userdel` `groupdel` |
-| 08 | 📦 Pacotes, atualizações e serviços | `apt update/upgrade/install/remove/purge/autoremove/search/show/list`, `apt-get`, `apt-cache`, `dpkg`, `which`, `systemctl`, servidor web nginx + `curl` |
-| 09 | 📝 Simulado | 14 tarefas encadeadas no estilo da prova prática |
+```bash
+# Executa toda a suíte de testes (validações oficiais e formas alternativas)
+npm test
 
-Cada comando tem um **card** com: descrição, sintaxe, tabela de opções, exemplos clicáveis (▶ executa no terminal), 💡 dicas e ⚠️ "cai na prova".
-Cada tópico tem **🎯 desafios** que se corrigem sozinhos: depois de cada comando, o site confere o estado real da máquina (o arquivo existe? a permissão é 750? a maria está no grupo?).
+# Executa build de produção com verificação rigorosa de tipos TypeScript
+npm run build
+```
 
-## 🖥️ Como usar
+---
 
-- **▶ nos exemplos**: digita e executa aquele comando no terminal indicado (T1 = root; T2/T3 = outros usuários, com login automático).
-- **Reprodutor no topo**: ▶ executa o roteiro inteiro, ⏭ só o próximo, ⏮ volta um passo (reinicia a máquina e refaz até o anterior). Teclas: `←` `espaço` `→`.
-- **＋ na janela do terminal**: abre outra conexão SSH (`login as:` / senha). **⊞ Lado a lado** mostra todas juntas.
-- **Senhas**: `root` = `123`, `ricardo` = `123`. Usuários criados só conseguem logar depois do `passwd`.
-- **Atalhos**: `Tab` completa, `↑ ↓` histórico, `Ctrl+C` cancela, `Ctrl+L` limpa.
-- **💾 / 📂**: exporta e importa a máquina em JSON. Tudo também fica salvo no navegador automaticamente.
-- **🖥️ Laboratório livre**: a máquina sem roteiro, para treinar à vontade.
+## 📚 Matriz de Conteúdo Curricular
 
-## 🏗️ Arquitetura
+O simulador cobre integralmente a ementa de Sistemas Operacionais da UTFPR e os editais de certificações internacionais:
+
+| # | Módulo | Tópicos e Comandos Abordados |
+|---|--------|------------------------------|
+| **01** | 📜 História do Linux | Unix, GNU, Linus Torvalds, Kernel vs Distribuição, famílias de distros (Debian/Ubuntu, Red Hat, SUSE, Arch, Alpine). |
+| **02** | 🌳 Estrutura de Pastas | Padrão FHS (`/etc`, `/home`, `/root`, `/usr`, `/var`, `/tmp`, `/boot`, `/dev`, `/proc`, `/opt`, `/srv`). |
+| **03** | 📁 Navegação e Diretórios | `pwd`, `ls`, `cd`, `mkdir`, `tree`, `rmdir`, caminhos relativos e absolutos. |
+| **04** | 📄 Manipulação de Arquivos | `touch`, `echo > >>`, `cat`, `head`, `tail`, `grep`, `wc`, `cp`, `mv`, `ln -s`, editores `nano` e `vim`. |
+| **05** | 🗑️ Exclusão e Segurança | `rm`, `rm -r`, `rm -f`, curingas `*` `?`, isolamento e Sticky Bit em `/tmp`. |
+| **06** | 🔐 Permissões e Acessos | `ls -l`, `chmod` (letras e números octais 755, 644, 1777), `chown`, `chgrp`, `umask`. |
+| **07** | 👥 Usuários e Grupos | `whoami`, `id`, `useradd`, `passwd`, `su`, `sudo`, `usermod -aG`, `groupadd`, `gpasswd`, `/etc/shadow`. |
+| **08** | 📦 Pacotes e Serviços | `apt update/upgrade/install/remove/purge`, `dpkg`, `systemctl start/stop/enable`, servidor Nginx. |
+| **09** | 📝 Simulados Oficiais | Provas cronometradas para LPIC-1, Linux Essentials, Linux Avançado e Servidor Escola. |
+
+---
+
+## 🏗️ Arquitetura do Simulador
+
+O projeto foi arquitetado em **TypeScript puro**, sem dependência de emuladores pesados ou WebAssembly, funcionando com alta fidelidade às chamadas POSIX:
 
 ```
 src/
-├── linux/            ← o "kernel": sistema de arquivos virtual, contas e sessões
-│   ├── No.ts             Arquivo, Diretorio, ArquivoGerado (/etc/passwd...), Buraco (/dev/null)
-│   ├── SistemaDeArquivos resolução de caminhos (/, ./, ../, ~) e checagem rwx
-│   ├── Permissoes.ts     octal ⇄ texto ⇄ simbólico (u+x,g-w,o=)
-│   ├── Contas.ts         Usuario, Grupo e geração de passwd/group/shadow
-│   ├── Sessao.ts         pilha de shells (su/sudo -i empilham, exit desempilha)
-│   ├── Maquina.ts        junta tudo; árvore FHS completa; várias sessões = vários terminais
-│   ├── Pacotes.ts        catálogo de pacotes do Ubuntu, dpkg (/var/lib/dpkg/status) e serviços do systemd
-│   └── Serializador.ts   máquina ⇄ JSON
-├── shell/            ← o "bash"
-│   ├── Analisador.ts     aspas, escapes, $VAR, ~, ; && || | > >> 2> <
-│   ├── Interpretador.ts  curingas, pipes, redirecionamentos, ./scripts
-│   └── comandos/         +50 comandos, um por classe
-├── terminal/         ← a interface
-│   ├── TerminalUbuntu    GNOME Terminal: prompt, histórico, Tab, login SSH
-│   ├── JanelaDeTerminais até 3 abas / lado a lado
-│   ├── EditorNano        ^O grava, ^X sai, ^K/^U recorta/cola
-│   └── EditorVim         modos NORMAL / INSERÇÃO / COMANDO (:w :q :wq :q!)
-├── conteudo/         ← o material de estudo (um arquivo por tópico)
-└── app/              ← telas: menu, tópico, laboratório
+├── linux/              ← O "Kernel" Virtual
+│   ├── No.ts               Arquivo, Diretorio, ArquivoGerado (/etc/passwd, shadow), Buraco (/dev/null)
+│   ├── SistemaDeArquivos.ts Resolução de caminhos (/, ./, ../, ~) e checagem de permissões rwx
+│   ├── Permissoes.ts       Conversão octal ⇄ texto ⇄ simbólico (u+x, g-w, o=)
+│   ├── Contas.ts           Controle de usuários, grupos, UIDs, GIDs e integridade de senhas
+│   ├── Sessao.ts           Pilha de shells virtuais (su/sudo empilham, exit desempilha)
+│   ├── Maquina.ts          Orquestrador global de hardware, rede (IP), serviços e discos
+│   ├── Pacotes.ts          Gerenciador APT/dpkg (/var/lib/dpkg/status) e systemd units
+│   └── Ssh.ts              Validação de portas SSH, chaves authorized_keys e regras de firewall
+├── shell/              ← Interpretador de Linha de Comando (Bash)
+│   ├── Analisador.ts       Tratamento de aspas, escapes, $VAR, curingas e pipes (| > >> 2> <)
+│   ├── Interpretador.ts    Execução de comandos encadeados, subshells e scripts
+│   └── comandos/           Mais de 50 comandos Linux implementados um a um
+├── terminal/           ← Interface Gráfica de Terminal
+│   ├── TerminalUbuntu.ts   Emulação de terminal GNOME com suporte a cores ANSI, Tab, histórico e login SSH
+│   ├── JanelaDeTerminais.ts Suporte a abas e visualização lado a lado simultânea
+│   ├── EditorNano.ts       Editor de texto visual com atalhos nano (^O grava, ^X sai)
+│   └── EditorVim.ts        Editor modal com comandos (:w, :q, :wq, i, ESC)
+├── app/                ← Telas da Aplicação e Emissão de Documentos
+│   ├── TelaMenu.ts         Portal inicial e seleção de módulos
+│   ├── TelaTopico.ts       Interface de estudo guiado e desafios assistidos
+│   ├── TelaSimulado.ts     Ambiente de prova cronometrada, validação e placar
+│   ├── GeradorCertificado.ts Gerador do diploma oficial da UTFPR
+│   └── QrCodeCertificado.ts Gerador vetorial SVG síncrono de QR Code
+└── conteudo/           ← Catálogo e banco de questões teóricas e práticas
 ```
 
-### Permissões (regra do kernel)
+---
 
-`SistemaDeArquivos.pode(no, credencial, 'r'|'w'|'x')`: root pode tudo; se o UID é o dono, valem **só** os bits do dono; senão, se algum GID da sessão é o grupo do arquivo, valem os do grupo; senão, os de outros. Para **entrar** em cada diretório do caminho é preciso `x`; para **criar/apagar** é preciso `w`+`x` no diretório pai, e o sticky bit restringe a exclusão ao dono.
+## 📜 Certificação e Autenticidade Digital
 
-Os grupos da sessão são lidos **no login**, como no Linux real: depois de um `usermod -aG`, o usuário precisa logar de novo.
+Os certificados emitidos pelo sistema contam com:
+- **Identidade Institucional da UTFPR:** Cores oficiais Amarelo Ouro (`#F6C212`) e Preto (`#231F20`).
+- **Marca d'Água Centralizada:** Brasão da universidade em alta definição com transparência calibrada a 9%.
+- **Selo Oficial do Curso TSI:** Logotipo do curso de Tecnologia em Sistemas para Internet do Campus Guarapuava.
+- **Assinatura Acadêmica:** Homologação da **Profª. Dra. Sediane Carmem Lunardi Hernandes**.
+- **QR Code Vetorial:** Código escaneável e registro exclusivo para validação online.
 
-### Schema JSON (persistência)
+---
 
-```jsonc
-{
-  "formato": "exame-so/maquina",
-  "versao": 1,
-  "hostname": "servidor",
-  "contas": {
-    "usuarios": [
-      { "nome": "maria", "uid": 1001, "gid": 1001, "comentario": "Maria Silva",
-        "home": "/home/maria", "shell": "/bin/bash", "senha": "123", "bloqueado": false }
-    ],
-    "grupos": [ { "nome": "financeiro", "gid": 1002, "membros": ["maria"] } ]
-  },
-  "raiz": {
-    "nome": "", "tipo": "diretorio", "dono": 0, "grupo": 0,
-    "permissoes": "755", "modificadoEm": "2026-09-25T12:00:00.000Z",
-    "filhos": [
-      { "nome": "etc", "tipo": "diretorio", "dono": 0, "grupo": 0, "permissoes": "755", "modificadoEm": "…",
-        "filhos": [ { "nome": "passwd", "tipo": "gerado", "dono": 0, "grupo": 0, "permissoes": "644", "modificadoEm": "…" } ] },
-      { "nome": "tmp", "tipo": "diretorio", "dono": 0, "grupo": 0, "permissoes": "1777", "modificadoEm": "…", "filhos": [] },
-      { "nome": "notas.txt", "tipo": "arquivo", "dono": 1001, "grupo": 1001, "permissoes": "644",
-        "modificadoEm": "…", "conteudo": "texto do arquivo\n" }
-    ]
-  }
-}
-```
+## 👥 Créditos e Agradecimentos
 
-- `tipo`: `diretorio` (tem `filhos`), `arquivo` (tem `conteudo`), `gerado` (`/etc/passwd`, `/etc/group` e `/etc/shadow`, recalculados a partir de `contas`), `link` (tem `alvo`, ex.: `/bin -> usr/bin`), `dispositivo` (tem `letra` `c`/`b`, ex.: `/dev/sda`), `binario` (programa compilado, tem `bytes`) e `nulo` (`/dev/null`).
-- Pacotes instalados e serviços também ficam **dentro da árvore**, como no Linux real: `/var/lib/dpkg/status` (o banco do dpkg), `/usr/lib/systemd/system/*.service` (unidades), links em `/etc/systemd/system/multi-user.target.wants/` (serviço habilitado) e `/run/systemd/ativos/` (serviço rodando). Por isso o JSON exportado guarda tudo.
-- `permissoes` é octal em texto (`"755"`, `"1777"`); `dono`/`grupo` são UID/GID numéricos, como no inode real (por isso um usuário apagado aparece como número no `ls -l`).
-- A senha fica em texto puro porque é um simulador didático; o `/etc/shadow` exibe um hash fictício.
+- **Universidade Tecnológica Federal do Paraná (UTFPR) - Campus Guarapuava**
+- **Curso Superior de Tecnologia em Sistemas para Internet (TSI)**
+- **Docente Orientadora:** Profª. Dra. Sediane Carmem Lunardi Hernandes
+- **Desenvolvedor:** Ricardo Martins de Oliveira
 
-### Modo linha × tela cheia (nano e vim)
+---
 
-O comando `nano`/`vim` não desenha nada: ele monta um `PedidoDeEdicao` (caminho, conteúdo, se é somente leitura e uma função `gravar()` que aplica as **mesmas regras de permissão** do redirecionamento `>`) e chama `interacao.editar(pedido)`, que devolve uma `Promise`.
-O terminal então esconde a área de linhas, monta o editor no lugar e só resolve a Promise quando o editor fecha, e assim o shell fica "parado" no comando, exatamente como no Linux. O teclado também muda de dono: enquanto o editor está aberto, o terminal ignora as teclas.
-
-## 📖 Referências
-
-- `man` do Ubuntu 24.04: coreutils (`ls`, `cp`, `mv`, `rm`, `chmod`, `chown`), shadow-utils (`useradd`, `usermod`, `userdel`, `groupadd`, `passwd`) e `adduser(8)`.
-- NEMETH, E. et al. *Manual de Administração do Sistema Unix e Linux*. Pearson.
-- [Ubuntu Server documentation: user management](https://documentation.ubuntu.com/server/how-to/security/user-management/).
+<div align="center">
+  <sub>UTFPR Campus Guarapuava · Laboratório de Sistemas Operacionais · 2026</sub>
+</div>
