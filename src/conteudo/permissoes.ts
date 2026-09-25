@@ -33,6 +33,14 @@ export const permissoes: Topico = {
     'Senão, se está no grupo, valem os do grupo. Senão, os de outros. O <b>root</b> ignora tudo isso.</p>' +
     '<p>Nesta máquina já existem os usuários <b>maria</b> (grupo <b>financeiro</b>) e <b>joao</b>, ambos com senha <code>123</code>, e a pasta <code>/srv/empresa</code> para os testes.</p>',
 
+  naPratica: 'Permissão errada é uma das maiores causas de problemas e de invasões em servidores. Um <code>.env</code> com a senha do banco legível por todos (644) expõe credenciais; um site com pastas 777 deixa qualquer processo invadido gravar código malicioso. E permissão fechada demais faz o site responder <b>403 Forbidden</b>.',
+  demonstracao: [
+    { comando: 'ls -l /srv/empresa' },
+    { comando: 'id maria', explicacao: 'maria está no grupo financeiro' },
+    { comando: 'id joao', explicacao: 'joao não está' },
+    { comando: 'stat -c "%A = %a  dono: %U  grupo: %G" /srv/empresa/salarios.txt', explicacao: 'texto e número lado a lado' },
+  ],
+
   preparar(maquina: Maquina): void {
     maquina.criarUsuario('maria', '123', ['financeiro']);
     maquina.criarUsuario('joao', '123');
@@ -51,6 +59,7 @@ export const permissoes: Topico = {
       titulo: 'Ler as permissões',
       descricao: 'O primeiro campo do <code>ls -l</code> é a permissão: 1 caractere de tipo + 3 trios (dono, grupo, outros). Depois vêm o dono e o grupo.',
       sintaxe: 'ls -l arquivo  |  ls -ld diretório  |  stat arquivo',
+      naPratica: 'Primeiro passo quando aparece "Permission denied" ou o site dá 403: <code>ls -l /var/www/html</code> para ver dono, grupo e permissões. Quase sempre o culpado é um arquivo que ficou do root em vez do usuário do servidor web (<code>www-data</code>).',
       extra: 'anatomia-ls',
       exemplos: [
         { comando: 'cd /srv/empresa' },
@@ -64,6 +73,7 @@ export const permissoes: Topico = {
       titulo: 'Mudar permissões no modo simbólico',
       descricao: 'Diga <b>quem</b> (u, g, o ou a = todos), a <b>operação</b> (+ adiciona, - tira, = define exatamente) e <b>quais</b> permissões (r, w, x).',
       sintaxe: 'chmod [ugoa][+-=][rwx] arquivo',
+      naPratica: 'Tornar executável um script de backup recém-criado: <code>chmod +x backup.sh</code>. Tirar a leitura dos outros num arquivo com senhas: <code>chmod o-r .env</code>. O modo simbólico é ideal para mudar UM bit sem mexer nos demais.',
       opcoes: [
         ['u+x', 'dá execução ao dono'],
         ['g-w', 'tira a escrita do grupo'],
@@ -88,6 +98,7 @@ export const permissoes: Topico = {
       titulo: 'Mudar permissões no modo octal',
       descricao: 'Três dígitos: <b>dono</b>, <b>grupo</b>, <b>outros</b>. Cada dígito é a soma r=4, w=2, x=1. Brinque com a calculadora:',
       sintaxe: 'chmod 755 arquivo',
+      naPratica: 'Os valores clássicos de um servidor web: pastas <code>755</code>, arquivos <code>644</code>, arquivos com senha (<code>.env</code>, <code>wp-config.php</code>) <code>600</code> ou <code>640</code>. A chave SSH privada (<code>~/.ssh/id_ed25519</code>) precisa ser <code>600</code>: se estiver mais aberta, o próprio ssh se recusa a usá-la.',
       extra: 'calculadora-permissoes',
       exemplos: [
         { comando: 'chmod 755 script.sh', explicacao: 'rwxr-xr-x: todos executam, só o dono altera' },
@@ -103,6 +114,7 @@ export const permissoes: Topico = {
       titulo: 'Aplicar numa pasta inteira',
       descricao: 'Com <code>-R</code> (maiúsculo!) a mudança vale para a pasta e tudo que estiver dentro dela.',
       sintaxe: 'chmod -R modo diretório',
+      naPratica: 'Corrigir as permissões de um site inteiro depois de um upload feito errado. No Ubuntu real, o jeito seguro separa pastas e arquivos: <code>find /var/www/html -type d -exec chmod 755 {} \\;</code> e <code>find /var/www/html -type f -exec chmod 644 {} \\;</code>.',
       exemplos: [
         { comando: 'chmod -Rv 750 privado', explicacao: 'repare: senhas.txt ganhou x sem precisar' },
         { comando: 'chmod -Rv u=rwX,g=rX,o= privado', explicacao: 'X maiúsculo: x só em pastas (e no que já era executável)' },
@@ -115,6 +127,7 @@ export const permissoes: Topico = {
       titulo: 'Mudar o dono (e o grupo)',
       descricao: '<b>ch</b>ange <b>own</b>er. Só o <b>root</b> pode dar um arquivo para outra pessoa. Com <code>dono:grupo</code> troca os dois de uma vez.',
       sintaxe: 'chown dono[:grupo] arquivo',
+      naPratica: 'Depois de copiar os arquivos de um site como root, eles ficam do root e o nginx/apache não consegue gravar os uploads. A correção clássica: <code>chown -R www-data:www-data /var/www/html</code>.',
       opcoes: [
         ['maria arq', 'só o dono'],
         ['maria:financeiro arq', 'dono e grupo'],
@@ -134,6 +147,7 @@ export const permissoes: Topico = {
       titulo: 'Mudar só o grupo',
       descricao: '<b>ch</b>ange <b>gr</b>ou<b>p</b>. O dono do arquivo também pode usar, mas só para um grupo do qual ele participa.',
       sintaxe: 'chgrp grupo arquivo',
+      naPratica: 'Dar acesso a uma pasta para uma equipe inteira: <code>chgrp -R devs /srv/projeto</code> e <code>chmod 770</code>. Quem entrar no grupo <code>devs</code> ganha acesso na hora, sem ninguém mexer em permissão de novo.',
       exemplos: [
         { comando: 'chgrp -v financeiro script.sh' },
         { comando: 'ls -l script.sh' },
@@ -144,6 +158,7 @@ export const permissoes: Topico = {
       titulo: 'Provar que funciona: outros usuários',
       descricao: 'A melhor forma de entender permissão é tentar acessar como outra pessoa. O terminal <b>2</b> entra como <b>maria</b> (grupo financeiro) e o <b>3</b> como <b>joao</b> (fora do grupo).',
       sintaxe: 'ssh maria@servidor  (ou: su - maria)',
+      naPratica: 'Antes de liberar um servidor, o administrador testa como o usuário final: <code>su - usuario</code> (ou <code>sudo -u www-data cat arquivo</code>) para confirmar que ele acessa o que deve e, principalmente, NÃO acessa o que não deve.',
       exemplos: [
         { comando: 'cat /srv/empresa/salarios.txt', terminal: 2, login: { usuario: 'maria', senha: '123' }, explicacao: 'maria está no grupo financeiro: o r do grupo deixa ler' },
         { comando: 'echo "maria: R$ 9.000" >> /srv/empresa/salarios.txt', terminal: 2, explicacao: 'mas o grupo não tem w: Permissão negada' },
@@ -159,6 +174,7 @@ export const permissoes: Topico = {
       titulo: 'A permissão padrão dos arquivos novos',
       descricao: 'O <b>umask</b> é uma máscara que <b>tira</b> permissões de tudo que é criado. Arquivos partem de 666 e pastas de 777; o umask subtrai.',
       sintaxe: 'umask  |  umask 027',
+      naPratica: 'Em servidores compartilhados, um umask <code>027</code> faz tudo que os usuários criam já nascer fechado para os outros. Serviços como servidores de arquivos (Samba, SFTP) também configuram umask para os uploads terem a permissão certa.',
       opcoes: [
         ['umask 022', '(root) arquivos 644, pastas 755'],
         ['umask 002', '(usuários no Ubuntu) arquivos 664, pastas 775'],
@@ -179,6 +195,7 @@ export const permissoes: Topico = {
       titulo: 'Sticky bit: pasta compartilhada segura',
       descricao: 'Numa pasta onde todos escrevem (777), qualquer um apagaria o arquivo dos outros. O <b>sticky bit</b> (o <code>t</code>, ou o <b>1</b> na frente do número) impede: cada um só apaga o que é seu. É assim no <code>/tmp</code>.',
       sintaxe: 'chmod 1777 pasta  |  chmod +t pasta',
+      naPratica: 'Pastas de upload compartilhadas e o próprio <code>/tmp</code>. O SUID aparece no <code>/usr/bin/passwd</code>: ele precisa gravar no <code>/etc/shadow</code> (que é do root) mesmo quando um usuário comum troca a própria senha.',
       exemplos: [
         { comando: 'mkdir /srv/publico' },
         { comando: 'chmod 1777 /srv/publico' },

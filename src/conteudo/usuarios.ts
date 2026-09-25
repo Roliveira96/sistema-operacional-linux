@@ -27,6 +27,15 @@ export const usuarios: Topico = {
     '<p>O terminal 1 é o <b>root</b>. Crie usuários aqui, defina a senha e abra o terminal 2 ou 3 (botão ＋) para entrar como eles, como se fosse outro computador conectando por SSH.</p>' +
     '<p class="conceitos-dica">💡 <b>Sem senha, sem login.</b> O <code>useradd</code> cria a conta <b>bloqueada</b> (sem senha). Só depois do <code>passwd</code> ela consegue entrar.</p>',
 
+  naPratica: 'Num servidor, cada pessoa e cada serviço tem sua conta: o nginx roda como <code>www-data</code> e o PostgreSQL como <code>postgres</code>. Isso limita o estrago: se o site for invadido, o invasor fica preso às permissões do www-data, não do root. Boa prática: ninguém trabalha como root no dia a dia; cada administrador tem seu usuário e usa <code>sudo</code>.',
+  demonstracao: [
+    { comando: 'tail -3 /etc/passwd', explicacao: 'as contas' },
+    { comando: 'tail -3 /etc/group', explicacao: 'os grupos' },
+    { comando: 'ls -l /etc/shadow', explicacao: 'as senhas: só root lê' },
+    { comando: 'id', explicacao: 'root = uid 0' },
+    { comando: 'id ricardo', explicacao: 'usuário comum, no grupo sudo' },
+  ],
+
   preparar(maquina: Maquina): void {
     maquina.criarUsuario('estagiario', '123');
     maquina.criarUsuario('temporario', '123');
@@ -38,6 +47,7 @@ export const usuarios: Topico = {
       titulo: 'Quem sou eu?',
       descricao: '<code>whoami</code> mostra o usuário atual. <code>id</code> mostra UID, GID e todos os grupos. <code>groups</code> lista só os nomes dos grupos.',
       sintaxe: 'whoami  |  id [usuário]  |  groups [usuário]',
+      naPratica: 'Antes de rodar algo importante, confirme quem você é (principalmente depois de vários su/sudo). O <code>id</code> também resolve o clássico "por que não consigo acessar esta pasta?": mostra se você realmente está no grupo necessário.',
       exemplos: [
         { comando: 'whoami' },
         { comando: 'id', explicacao: 'root: uid=0' },
@@ -50,6 +60,7 @@ export const usuarios: Topico = {
       titulo: 'Os arquivos de contas',
       descricao: 'Tudo o que os comandos de usuário fazem aparece nestes arquivos. Ler o <code>/etc/passwd</code> e o <code>/etc/group</code> é o melhor jeito de conferir.',
       sintaxe: 'cat /etc/passwd  |  cat /etc/group  |  sudo cat /etc/shadow',
+      naPratica: 'Auditoria de segurança: listar quem tem shell de login (<code>grep bash /etc/passwd</code>), achar contas esquecidas de ex-funcionários e conferir quem tem poder de administrador (<code>grep sudo /etc/group</code>).',
       exemplos: [
         { comando: 'tail -3 /etc/passwd', explicacao: 'os usuários criados ficam no fim' },
         { comando: 'cut -d: -f1 /etc/passwd', explicacao: 'só os nomes (campo 1, separador :)' },
@@ -63,6 +74,7 @@ export const usuarios: Topico = {
       titulo: 'Criar usuário (jeito "cru")',
       descricao: 'Cria a conta. No Ubuntu, <b>sem opções</b> ele não cria a pasta pessoal e usa o shell <code>/bin/sh</code>. Por isso quase sempre se usa <code>-m -s /bin/bash</code>.',
       sintaxe: 'useradd [opções] usuário',
+      naPratica: 'Criar a conta de um novo desenvolvedor, ou uma conta de serviço sem login para rodar uma aplicação: <code>useradd -r -s /usr/sbin/nologin app</code> (-r = conta de sistema). Por não fazer perguntas, o useradd é o preferido em scripts de automação.',
       opcoes: [
         ['-m', 'cria a home (/home/usuário) copiando o /etc/skel'],
         ['-s /bin/bash', 'define o shell'],
@@ -86,6 +98,7 @@ export const usuarios: Topico = {
       descricao: 'Como root, <code>passwd usuário</code> define a senha de qualquer um. Um usuário comum só troca a própria (e precisa digitar a atual). ' +
         'Nada aparece enquanto você digita a senha, e isso é normal.',
       sintaxe: 'passwd [usuário]',
+      naPratica: 'Definir a senha inicial de um colaborador novo, resetar a de quem esqueceu, ou bloquear na hora uma conta suspeita com <code>passwd -l</code>. Muitas empresas obrigam a troca no primeiro acesso com <code>passwd -e usuario</code>.',
       opcoes: [
         ['passwd', 'troca a SUA senha'],
         ['passwd maria', '(root) define a senha da maria'],
@@ -104,6 +117,7 @@ export const usuarios: Topico = {
       titulo: 'Entrar como o novo usuário',
       descricao: 'Com a senha definida, a conta pode logar. O terminal 2 conecta como <b>maria</b>. Repare que o prompt termina com <code>$</code> (usuário comum).',
       sintaxe: 'ssh maria@192.168.0.10  (botão ＋ no simulador)',
+      naPratica: 'É exatamente assim que se administra servidor: <code>ssh maria@192.168.0.10</code> de outro computador. Em produção, costuma-se proibir o login do root por SSH e trocar senha por chave SSH.',
       exemplos: [
         { comando: 'whoami', terminal: 2, login: { usuario: 'maria', senha: '123' } },
         { comando: 'pwd', terminal: 2, explicacao: 'caiu na home dela' },
@@ -116,6 +130,7 @@ export const usuarios: Topico = {
       titulo: 'Trocar de usuário no mesmo terminal',
       descricao: '<b>s</b>ubstitute <b>u</b>ser. <code>su - maria</code> vira a maria (pede a senha <b>dela</b>). O <code>-</code> faz um login completo: vai para a home e carrega o ambiente dela. <code>exit</code> volta.',
       sintaxe: 'su [-] [usuário]',
+      naPratica: 'Assumir a conta de um serviço para administrá-lo: <code>sudo su - postgres</code> para mexer no banco como o usuário postgres. Ou reproduzir um problema vendo exatamente o que o usuário vê.',
       opcoes: [
         ['su - maria', 'vira maria com login completo (recomendado)'],
         ['su maria', 'vira maria mas continua na pasta atual'],
@@ -138,6 +153,7 @@ export const usuarios: Topico = {
       descricao: 'Quem está no grupo <b>sudo</b> pode rodar comandos de administrador colocando <code>sudo</code> na frente, digitando a <b>própria</b> senha. ' +
         'O ricardo já está no grupo; a maria, não.',
       sintaxe: 'sudo comando  |  sudo -i (vira root)',
+      naPratica: 'É o padrão do Ubuntu: o root nem tem senha e os administradores usam <code>sudo</code>. Cada comando fica registrado em <code>/var/log/auth.log</code> com quem executou, o que permite auditar. Tirar alguém do grupo sudo é como retirar os poderes de administrador.',
       exemplos: [
         { comando: 'cat /etc/shadow', terminal: 2, explicacao: 'maria: Permissão negada' },
         { comando: 'sudo cat /etc/shadow', terminal: 2, respostas: ['123'], explicacao: 'maria não está no sudoers' },
@@ -156,6 +172,7 @@ export const usuarios: Topico = {
       titulo: 'Criar grupos',
       descricao: 'Grupos servem para dar a mesma permissão a várias pessoas de uma vez: você dá a permissão ao grupo e coloca as pessoas nele.',
       sintaxe: 'groupadd grupo',
+      naPratica: 'Organizar o acesso por equipe: grupos <code>devs</code>, <code>suporte</code>, <code>financeiro</code>. Em vez de dar permissão pessoa por pessoa, você dá ao grupo e só controla quem entra e quem sai.',
       exemplos: [
         { comando: 'groupadd desenvolvimento' },
         { comando: 'tail -2 /etc/group', explicacao: 'grupo novo, ainda sem membros' },
@@ -166,6 +183,7 @@ export const usuarios: Topico = {
       titulo: 'Colocar usuário em grupos',
       descricao: '<code>usermod -aG grupo usuário</code> <b>adiciona</b> o usuário ao grupo, mantendo os que ele já tinha. O <code>gpasswd -a</code> faz o mesmo.',
       sintaxe: 'usermod -aG grupo usuário  |  gpasswd -a usuário grupo',
+      naPratica: 'Deixar um usuário usar o Docker: <code>usermod -aG docker maria</code>. Dar acesso aos arquivos do site: <code>usermod -aG www-data maria</code>. Promover a administrador: <code>usermod -aG sudo maria</code>.',
       opcoes: [
         ['-aG', 'a = append (acrescenta), G = grupos suplementares'],
         ['-G', 'SEM o -a: substitui a lista toda (tira dos outros grupos!)'],
@@ -185,6 +203,7 @@ export const usuarios: Topico = {
       titulo: 'Criar usuário do jeito "amigável" (Debian/Ubuntu)',
       descricao: 'O <code>adduser</code> faz tudo numa tacada: cria grupo, home, copia o skel, pede a senha e o nome completo. É interativo.',
       sintaxe: 'adduser usuário  |  adduser usuário grupo',
+      naPratica: 'Criar manualmente a conta de uma pessoa no Ubuntu/Debian: já sai com home, grupo e senha prontos. Para scripts e automação, prefira o <code>useradd</code>, que não faz perguntas.',
       exemplos: [
         { comando: 'adduser carlos', respostas: ['123', '123', 'Carlos Souza', '', '', '', '', 'S'], explicacao: 'senha, nome completo e ENTER no resto' },
         { comando: 'adduser carlos desenvolvimento', explicacao: 'forma curta de pôr num grupo' },
@@ -197,6 +216,7 @@ export const usuarios: Topico = {
       titulo: 'Alterar usuários',
       descricao: 'Muda qualquer dado da conta.',
       sintaxe: 'usermod [opções] usuário',
+      naPratica: 'Funcionário mudou de setor: trocam-se os grupos. Saiu de férias ou está sob suspeita: <code>usermod -L</code> bloqueia sem apagar nada. Conta de serviço criada com bash por engano: <code>usermod -s /usr/sbin/nologin app</code>.',
       opcoes: [
         ['-s /bin/bash', 'troca o shell'],
         ['-l novo', 'renomeia o login'],
@@ -216,6 +236,7 @@ export const usuarios: Topico = {
       titulo: 'Remover usuários e grupos',
       descricao: '<code>userdel</code> apaga a conta; com <code>-r</code> apaga também a home. <code>groupdel</code> apaga um grupo, desde que não seja o grupo principal de alguém.',
       sintaxe: 'userdel [-r] usuário  |  groupdel grupo',
+      naPratica: 'Desligamento de funcionário: bloqueie primeiro (<code>usermod -L</code>), faça backup da home se precisar e depois <code>userdel -r</code>. Contas de ex-funcionários ainda ativas são uma das falhas de segurança mais comuns em auditorias.',
       exemplos: [
         { comando: 'userdel -r pedro', explicacao: '-r leva a home junto' },
         { comando: 'userdel temporario', explicacao: 'sem -r a home fica...' },

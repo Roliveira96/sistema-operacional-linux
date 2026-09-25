@@ -355,3 +355,47 @@
   .topico-terminal { height: 88vh; position: sticky; bottom: 0; }
   .laboratorio-janela { height: 80vh; flex: none; }
 }
+
+/* ===== Play por card e "Na vida real" ===== */
+.licao > header .bloco-play { margin-left: auto; }
+
+.bloco-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; }
+.bloco-rotulo { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--texto-suave); }
+
+.bloco-play {
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--destaque) 55%, var(--borda));
+  background: color-mix(in srgb, var(--destaque) 12%, transparent);
+  color: var(--destaque);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+
+.bloco-play:hover, .bloco-play.tocando { background: var(--destaque); color: #140a0e; }
+
+.bloco { transition: border-color 0.3s, box-shadow 0.3s; }
+.bloco.bloco-ativo { border-color: var(--destaque); box-shadow: 0 0 0 1px var(--destaque), 0 12px 40px -24px var(--destaque); }
+
+.na-pratica {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(74, 168, 255, 0.07);
+  border: 1px solid rgba(74, 168, 255, 0.3);
+  border-left-width: 3px;
+}
+
+.na-pratica b { font-size: 13px; color: #9ccaff; }
+.na-pratica p { margin: 4px 0 0 !important; font-size: 13.5px; color: var(--texto-medio); }
+
+.rep-info { width: 320px; gap: 3px; }
+.rep-bloco { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--texto); font-size: 12.5px; }
+
+@media (max-width: 1400px) {
+  .rep-info { width: 240px; }
+}

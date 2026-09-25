@@ -22,6 +22,14 @@ export const exclusao: Topico = {
     '<p>Apagar um arquivo é <b>alterar a pasta</b> onde ele está. Então o que importa é ter permissão de escrita (<b>w</b>) e entrada (<b>x</b>) no <b>diretório</b>, ' +
     'não no arquivo. Exceção: pastas com <b>sticky bit</b> (o <code>t</code> em <code>drwxrwxrwt</code>, como o <code>/tmp</code>): lá cada um só apaga o que é seu.</p>',
 
+  naPratica: 'Servidores enchem o disco com logs, backups antigos e arquivos temporários, e disco cheio derruba banco de dados e site. Limpar é rotina, mas é também onde acontecem os maiores desastres: não há lixeira e algum serviço pode depender do arquivo. Por isso: confira com <code>ls</code>, apague com precisão e prefira perguntar (<code>-i</code>) quando estiver em dúvida.',
+  demonstracao: [
+    { comando: 'ls /root/bagunca' },
+    { comando: 'ls /root/bagunca/*.log', explicacao: '* : tudo que termina em .log' },
+    { comando: 'ls /root/bagunca/foto?.jpg', explicacao: '? : um caractere só' },
+    { comando: 'ls -ld /tmp', explicacao: 'o t no final = sticky bit' },
+  ],
+
   preparar(maquina): void {
     maquina.criarDiretorio('/root/bagunca/temp/cache', 0, 0, 0o755);
     maquina.criarDiretorio('/root/bagunca/vazia', 0, 0, 0o755);
@@ -40,6 +48,7 @@ export const exclusao: Topico = {
       titulo: 'Apagar arquivos',
       descricao: '<b>r</b>e<b>m</b>ove: apaga arquivos. Sem opções, <b>não apaga diretórios</b>.',
       sintaxe: 'rm [opções] arquivo...',
+      naPratica: 'Remover um dump de banco que já foi para o backup, um arquivo de configuração antigo, ou um arquivo de trava que ficou para trás depois de uma queda de energia (<code>rm /tmp/backup.lock</code>) e está impedindo o backup de rodar.',
       opcoes: [
         ['-i', 'interativo: pergunta antes de cada um (responda s ou n)'],
         ['-f', 'força: não pergunta e não reclama de arquivo inexistente'],
@@ -63,6 +72,7 @@ export const exclusao: Topico = {
       titulo: 'Apagar vários com curingas',
       descricao: 'O shell troca o curinga pela lista de nomes que combinam e só então chama o rm.',
       sintaxe: 'rm *.extensão  |  rm nome?.ext',
+      naPratica: 'Limpar logs antigos compactados: <code>rm /var/log/app/*.gz</code>. Apagar temporários de upload: <code>rm /tmp/upload_*</code>. Sempre rode o mesmo padrão com <code>ls</code> antes para ver o que vai ser apagado.',
       exemplos: [
         { comando: 'ls *.log', explicacao: 'SEMPRE confira antes' },
         { comando: 'rm -v *.log', explicacao: 'apaga app.log e erro.log' },
@@ -77,6 +87,7 @@ export const exclusao: Topico = {
       titulo: 'Apagar diretórios com conteúdo',
       descricao: 'Com <code>-r</code> (recursivo) o rm entra nas subpastas e apaga tudo. Combinado com <code>-f</code> vira o famoso <code>rm -rf</code>: poderoso e perigoso.',
       sintaxe: 'rm -r diretório  |  rm -rf diretório',
+      naPratica: 'Remover versões antigas de um sistema depois de publicar a nova, ou limpar o cache de uma aplicação para forçar a recriação (<code>rm -rf /var/www/app/cache/*</code>). Cuidado em scripts: se a variável estiver vazia, <code>rm -rf $PASTA/</code> vira <code>rm -rf /</code>. Scripts profissionais sempre validam a variável antes.',
       exemplos: [
         { comando: 'tree temp' },
         { comando: 'rm -rv temp', explicacao: 'apaga a pasta e tudo dentro' },
@@ -92,6 +103,7 @@ export const exclusao: Topico = {
       descricao: 'Se o arquivo não tem permissão de escrita (<code>r--r--r--</code>), o rm <b>pergunta</b> antes de apagar. ' +
         'O root nunca é perguntado (ele pode tudo), então vamos testar no <b>terminal 2</b> como <b>ricardo</b>. Repare: quem decide se dá para apagar é a <b>pasta</b>.',
       sintaxe: 'rm arquivo  (e responda s/n)',
+      naPratica: 'Arquivos importantes costumam ficar sem permissão de escrita justamente para o <code>rm</code> perguntar antes. Se ele pedir confirmação, pare e pense: alguém protegeu aquele arquivo por um motivo.',
       exemplos: [
         { comando: 'ls -l protegido.txt', terminal: 2, login: { usuario: 'ricardo', senha: '123' }, explicacao: 'permissão 444: só leitura' },
         { comando: 'rm protegido.txt', terminal: 2, respostas: ['n'], explicacao: 'pergunta; respondemos n' },
@@ -104,6 +116,7 @@ export const exclusao: Topico = {
       descricao: 'No <code>/tmp</code> todo mundo escreve, mas o <b>t</b> (sticky bit) impede que um usuário apague o arquivo de outro. ' +
         'Vamos testar no <b>terminal 2</b>, logado como <b>ricardo</b>.',
       sintaxe: 'ls -ld /tmp  →  drwxrwxrwt',
+      naPratica: 'Num servidor usado por vários usuários e serviços (site, banco, tarefas agendadas), todos gravam no <code>/tmp</code>. Sem o sticky bit, qualquer um apagaria os arquivos temporários do banco de dados e derrubaria o serviço.',
       exemplos: [
         { comando: 'ls -ld /tmp', explicacao: 'o t no final = sticky bit' },
         { comando: 'ls -l /tmp', explicacao: 'do-root.txt tem permissão 666 (todos escrevem)' },
@@ -117,6 +130,7 @@ export const exclusao: Topico = {
       titulo: 'A alternativa segura para pastas',
       descricao: 'Relembrando: <code>rmdir</code> só remove diretórios <b>vazios</b>. Se tiver algo dentro, ele se recusa, e isso é uma proteção.',
       sintaxe: 'rmdir diretório',
+      naPratica: 'Scripts de limpeza removem pastas de upload que ficaram vazias sem o risco de apagar algo que ainda está em uso.',
       exemplos: [
         { comando: 'mkdir -p x/y' },
         { comando: 'rmdir x', explicacao: 'recusa: não está vazio' },

@@ -1,5 +1,5 @@
 import type { Tela } from './Tela';
-import type { Desafio, Licao, Passo, Topico } from '../conteudo/Topico';
+import type { Desafio, Passo, Topico } from '../conteudo/Topico';
 import type { Maquina } from '../linux/Maquina';
 import type { TerminalUbuntu } from '../terminal/TerminalUbuntu';
 import { Bancada } from './Bancada';
@@ -8,6 +8,14 @@ import { ColaDeComandos } from './ColaDeComandos';
 import { CatalogoDeTopicos } from '../conteudo/CatalogoDeTopicos';
 import { Widgets } from './Widgets';
 import { Aviso } from './Aviso';
+
+/** Um card (ou o bloco de conceitos) e o intervalo dos seus passos no roteiro. */
+interface Bloco {
+  rotulo: string;
+  titulo: string;
+  inicio: number;
+  fim: number;
+}
 
 const esperar = (ms: number): Promise<void> => new Promise((resolver) => window.setTimeout(resolver, ms));
 const escapar = ColaDeComandos.escapar;
@@ -21,6 +29,10 @@ export class TelaTopico implements Tela {
 
   private readonly topico: Topico;
   private readonly passos: Passo[] = [];
+  private readonly blocos: Bloco[] = [];
+  /** Card tocando pelo seu próprio play (null = nenhum ou o roteiro inteiro). */
+  private blocoTocando: number | null = null;
+  private executando: number | null = null;
   private raiz!: HTMLElement;
   private bancada!: Bancada;
   private modal: JanelaModal | null = null;
@@ -33,8 +45,15 @@ export class TelaTopico implements Tela {
 
   constructor(topico: Topico) {
     this.topico = topico;
-    for (const licao of topico.licoes) this.passos.push(...licao.exemplos);
+    const demonstracao: Passo[] = topico.demonstracao ?? [];
+    if (demonstracao.length > 0) this.adicionarBloco('conceitos', 'Antes dos comandos', demonstracao);
+    for (const licao of topico.licoes) this.adicionarBloco(licao.comando, licao.titulo, licao.exemplos);
     this.aoTeclar = (evento: KeyboardEvent) => this.teclar(evento);
+  }
+
+  private adicionarBloco(rotulo: string, titulo: string, passos: Passo[]): void {
+    this.blocos.push({ rotulo, titulo, inicio: this.passos.length, fim: this.passos.length + passos.length });
+    this.passos.push(...passos);
   }
 
   public montar(raiz: HTMLElement): void {
@@ -51,7 +70,8 @@ export class TelaTopico implements Tela {
         '      <button class="rep-botao" data-rep="voltar" title="Volta um passo: reinicia a máquina e refaz até o anterior">⏮</button>' +
         '      <button class="rep-botao rep-play" data-rep="play" title="Executa todos os exemplos em sequência">▶</button>' +
         '      <button class="rep-botao" data-rep="avancar" title="Executa só o próximo exemplo">⏭</button>' +
-        '      <div class="rep-info"><div class="rep-linha"><span class="rep-titulo">Roteiro pronto</span><span class="rep-contador"></span></div>' +
+        '      <div class="rep-info"><div class="rep-linha"><span class="rep-bloco"></span><span class="rep-contador"></span></div>' +
+        '        <span class="rep-titulo"></span>' +
         '        <div class="rep-trilho"><div class="rep-progresso"></div></div></div>' +
         '      <select class="rep-velocidade" title="Velocidade da digitação">' +
         '        <option value="0.5">🐢 0,5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">🐇 4×</option></select>' +
@@ -105,11 +125,20 @@ export class TelaTopico implements Tela {
   // ───────────── aula ─────────────
 
   private montarAula(painel: HTMLElement): void {
-    let html: string = '<div class="conceitos">' + this.topico.conceitos + '</div>';
-    let numeroPasso: number = 0;
-    this.topico.licoes.forEach((licao: Licao, i: number) => {
-      html += '<article class="licao" id="licao-' + i + '">' +
-        '<header><code class="licao-comando">' + escapar(licao.comando) + '</code><h2>' + licao.titulo + '</h2></header>' +
+    let html: string = '';
+    let bloco: number = 0;
+    if ((this.topico.demonstracao ?? []).length > 0) {
+      html += '<div class="conceitos bloco" data-bloco="0">' +
+        '<div class="bloco-barra"><span class="bloco-rotulo">📖 Conceitos</span>' + this.botaoBloco(0) + '</div>' +
+        this.topico.conceitos + this.naPraticaHtml(this.topico.naPratica) +
+        '<div class="licao-rotulo">🧪 Veja na prática: clique para executar no terminal</div>' + this.exemplosHtml(this.blocos[0]) + '</div>';
+      bloco++;
+    } else {
+      html += '<div class="conceitos">' + this.topico.conceitos + this.naPraticaHtml(this.topico.naPratica) + '</div>';
+    }
+    for (const licao of this.topico.licoes) {
+      html += '<article class="licao bloco" data-bloco="' + bloco + '">' +
+        '<header><code class="licao-comando">' + escapar(licao.comando) + '</code><h2>' + licao.titulo + '</h2>' + this.botaoBloco(bloco) + '</header>' +
         '<p class="licao-descricao">' + licao.descricao + '</p>' +
         '<div class="licao-sintaxe"><span>Sintaxe</span><code>' + escapar(licao.sintaxe) + '</code></div>';
       if (licao.opcoes !== undefined && licao.opcoes.length > 0) {
@@ -119,19 +148,8 @@ export class TelaTopico implements Tela {
       if (licao.extra !== undefined) {
         html += Widgets.html(licao.extra);
       }
-      html += '<div class="licao-rotulo">▶ Exemplos: clique para executar no terminal</div><ol class="exemplos">';
-      for (const passo of licao.exemplos) {
-        const terminal: number = passo.terminal ?? 1;
-        html += '<li class="exemplo" data-passo="' + numeroPasso + '">' +
-          '<button class="exemplo-rodar" title="Executar no terminal ' + terminal + '">▶</button>' +
-          '<div class="exemplo-corpo"><code class="exemplo-comando">' +
-          (terminal > 1 ? '<span class="exemplo-terminal" title="Roda no terminal ' + terminal + '">T' + terminal + '</span>' : '') +
-          escapar(passo.comando) + '</code>' +
-          (passo.explicacao !== undefined ? '<span class="exemplo-explicacao">' + passo.explicacao + '</span>' : '') +
-          '</div></li>';
-        numeroPasso++;
-      }
-      html += '</ol>';
+      html += '<div class="licao-rotulo">▶ Exemplos: clique para executar no terminal</div>' + this.exemplosHtml(this.blocos[bloco]) +
+        this.naPraticaHtml(licao.naPratica);
       if (licao.dicas !== undefined && licao.dicas.length > 0) {
         html += '<ul class="licao-dicas">' + licao.dicas.map((d: string) => '<li>' + d + '</li>').join('') + '</ul>';
       }
@@ -139,7 +157,8 @@ export class TelaTopico implements Tela {
         html += '<div class="licao-pegadinha"><b>⚠️ Cai na prova:</b> ' + licao.pegadinha + '</div>';
       }
       html += '</article>';
-    });
+      bloco++;
+    }
     painel.innerHTML = html;
     Widgets.ativar(painel);
     painel.querySelectorAll<HTMLElement>('.exemplo').forEach((item: HTMLElement) => {
@@ -147,6 +166,65 @@ export class TelaTopico implements Tela {
         void this.executarUm(Number(item.dataset.passo));
       });
     });
+    painel.querySelectorAll<HTMLElement>('.bloco-play').forEach((botao: HTMLElement) => {
+      botao.addEventListener('click', () => void this.alternarBloco(Number(botao.dataset.bloco)));
+    });
+  }
+
+  private naPraticaHtml(texto: string | undefined): string {
+    return texto === undefined ? '' : '<div class="na-pratica"><b>🏢 Na vida real</b><p>' + texto + '</p></div>';
+  }
+
+  private botaoBloco(indice: number): string {
+    return '<button class="bloco-play" data-bloco="' + indice + '" title="Executa só os exemplos deste card">▶ Rodar este card</button>';
+  }
+
+  private exemplosHtml(bloco: Bloco): string {
+    let html: string = '<ol class="exemplos">';
+    for (let i: number = bloco.inicio; i < bloco.fim; i++) {
+      const passo: Passo = this.passos[i];
+      const terminal: number = passo.terminal ?? 1;
+      html += '<li class="exemplo" data-passo="' + i + '">' +
+        '<button class="exemplo-rodar" title="Executar no terminal ' + terminal + '">▶</button>' +
+        '<div class="exemplo-corpo"><code class="exemplo-comando">' +
+        (terminal > 1 ? '<span class="exemplo-terminal" title="Roda no terminal ' + terminal + '">T' + terminal + '</span>' : '') +
+        escapar(passo.comando) + '</code>' +
+        (passo.explicacao !== undefined ? '<span class="exemplo-explicacao">' + passo.explicacao + '</span>' : '') +
+        '</div></li>';
+    }
+    return html + '</ol>';
+  }
+
+  /** Play de um card só: roda os exemplos dele do primeiro ao último (clicar de novo para). */
+  private async alternarBloco(indice: number): Promise<void> {
+    if (this.tocando) {
+      this.tocando = false;
+      this.atualizarReprodutor();
+      return;
+    }
+    if (this.ocupado) {
+      return;
+    }
+    const bloco: Bloco = this.blocos[indice];
+    this.tocando = true;
+    this.blocoTocando = indice;
+    this.rolarParaBloco(indice);
+    this.atualizarReprodutor();
+    for (let i: number = bloco.inicio; i < bloco.fim && this.tocando; i++) {
+      await this.executarUm(i);
+      if (i < bloco.fim - 1) await esperar(800 / this.velocidade);
+    }
+    this.tocando = false;
+    this.blocoTocando = null;
+    this.atualizarReprodutor();
+  }
+
+  private blocoDe(passo: number): number {
+    return this.blocos.findIndex((b: Bloco) => passo >= b.inicio && passo < b.fim);
+  }
+
+  private rolarParaBloco(indice: number): void {
+    this.raiz.querySelector('.bloco[data-bloco="' + indice + '"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
   // ───────────── reprodutor ─────────────
@@ -195,7 +273,12 @@ export class TelaTopico implements Tela {
     this.tocando = true;
     this.atualizarReprodutor();
     while (this.tocando && this.indice + 1 < this.passos.length) {
-      await this.executarUm(this.indice + 1);
+      const proximo: number = this.indice + 1;
+      if (proximo === this.blocos[this.blocoDe(proximo)]?.inicio) {
+        this.rolarParaBloco(this.blocoDe(proximo));
+        await esperar(350);
+      }
+      await this.executarUm(proximo);
       await esperar(900 / this.velocidade);
     }
     this.tocando = false;
@@ -208,12 +291,15 @@ export class TelaTopico implements Tela {
       return;
     }
     this.ocupado = true;
+    this.executando = i;
     this.marcarPasso(i, true);
+    this.atualizarReprodutor();
     try {
       await this.rodarPasso(this.passos[i]);
       this.indice = i;
     } finally {
       this.ocupado = false;
+      this.executando = null;
       this.marcarPasso(i, false);
       this.atualizarReprodutor();
     }
@@ -254,20 +340,37 @@ export class TelaTopico implements Tela {
     if (executando) {
       this.raiz.querySelectorAll('.exemplo.atual').forEach((e: Element) => e.classList.remove('atual'));
       item.classList.add('atual');
-      item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      window.setTimeout(() => item.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 400);
     } else {
       item.classList.add('feito');
     }
   }
 
   private atualizarReprodutor(): void {
+    // cards: destaca o que está rodando e troca o texto do botão dele
+    const alvo: number = this.executando ?? this.indice + 1;
+    const blocoAtual: number = this.tocando || this.executando !== null ? this.blocoDe(alvo) : -1;
+    this.raiz.querySelectorAll<HTMLElement>('.bloco').forEach((el: HTMLElement) => {
+      el.classList.toggle('bloco-ativo', Number(el.dataset.bloco) === blocoAtual);
+    });
+    this.raiz.querySelectorAll<HTMLElement>('.bloco-play').forEach((botao: HTMLElement) => {
+      const esteTocando: boolean = this.tocando && Number(botao.dataset.bloco) === (this.blocoTocando ?? blocoAtual);
+      botao.textContent = esteTocando ? '⏹ Parar' : '▶ Rodar este card';
+      botao.classList.toggle('tocando', esteTocando);
+    });
+
     const play: HTMLElement | null = this.raiz.querySelector('[data-rep="play"]');
     if (play === null) return;
-    play.textContent = this.tocando ? '⏸' : '▶';
-    play.classList.toggle('pausado', !this.tocando);
-    const proximo: Passo | undefined = this.passos[this.indice + 1];
-    (this.raiz.querySelector('.rep-titulo') as HTMLElement).textContent =
-      proximo !== undefined ? 'Próximo: ' + proximo.comando : '✔ Roteiro concluído';
+    const tocandoTudo: boolean = this.tocando && this.blocoTocando === null;
+    play.textContent = tocandoTudo ? '⏸' : '▶';
+    play.classList.toggle('pausado', !tocandoTudo);
+    const indiceBloco: number = this.blocoDe(alvo);
+    const bloco: Bloco | undefined = this.blocos[indiceBloco];
+    const passo: Passo | undefined = this.passos[alvo];
+    (this.raiz.querySelector('.rep-bloco') as HTMLElement).textContent = bloco !== undefined
+      ? (this.executando !== null ? '▶ ' : 'Próximo card: ') + (indiceBloco + 1) + '/' + this.blocos.length + ' · ' + bloco.rotulo + ': ' + bloco.titulo
+      : '✔ Roteiro concluído';
+    (this.raiz.querySelector('.rep-titulo') as HTMLElement).textContent = passo !== undefined ? '$ ' + passo.comando : 'Aperte ▶ para recomeçar';
     (this.raiz.querySelector('.rep-contador') as HTMLElement).textContent = (this.indice + 1) + '/' + this.passos.length;
     (this.raiz.querySelector('.rep-progresso') as HTMLElement).style.setProperty('--progresso', ((this.indice + 1) / this.passos.length * 100) + '%');
     (this.raiz.querySelector('[data-rep="voltar"]') as HTMLButtonElement).disabled = this.indice < 0;

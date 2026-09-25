@@ -22,6 +22,8 @@ export interface Licao {
   opcoes?: Array<[string, string]>;
   exemplos: Passo[];
   dicas?: string[];
+  /** "Na vida real": quando isso é usado de verdade, principalmente em servidores. */
+  naPratica?: string;
   /** "Cai na prova": o erro mais comum com esse comando. */
   pegadinha?: string;
   /** Widget interativo extra dentro do card. */
@@ -48,6 +50,10 @@ export interface Topico {
   resumo: string;
   /** Texto introdutório (HTML) com os conceitos antes dos comandos. */
   conceitos: string;
+  /** "Na vida real" do bloco de conceitos. */
+  naPratica?: string;
+  /** Comandos que mostram os conceitos na prática (o play do bloco de conceitos). */
+  demonstracao?: Passo[];
   /** Deixa a máquina no ponto de partida do tópico. */
   preparar(maquina: Maquina): void;
   licoes: Licao[];

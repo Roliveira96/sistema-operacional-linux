@@ -22,6 +22,16 @@ export const arquivos: Topico = {
     '<tr><td><code>cmd1 | cmd2</code></td><td><b>pipe</b>: a saída do primeiro vira a entrada do segundo</td></tr></table>' +
     '<p class="conceitos-dica">💡 Decore assim: <b>um</b> sinal <code>&gt;</code> apaga e escreve; <b>dois</b> <code>&gt;&gt;</code> somam.</p>',
 
+  naPratica: 'Em servidores, redirecionamento é usado o tempo todo: tarefas agendadas no <b>cron</b> gravam o resultado com <code>&gt;&gt; /var/log/backup.log</code> para manter o histórico, e os erros vão para outro arquivo com <code>2&gt; erros.log</code>. O pipe junta ferramentas: <code>cat access.log | grep 404 | wc -l</code> conta quantas vezes o site respondeu "página não encontrada".',
+  demonstracao: [
+    { comando: 'echo "um" > demo.txt', explicacao: '> cria' },
+    { comando: 'echo "dois" >> demo.txt', explicacao: '>> acrescenta' },
+    { comando: 'cat demo.txt' },
+    { comando: 'ls /nao-existe 2> erros.txt', explicacao: '2> guarda só o erro' },
+    { comando: 'cat erros.txt' },
+    { comando: 'ls /etc | head -3', explicacao: '| pipe: saída do ls vira entrada do head' },
+  ],
+
   preparar(maquina): void {
     maquina.criarDiretorio('/root/aula', 0, 0, 0o755);
     maquina.criarArquivo('/root/aula/alunos.txt',
@@ -35,6 +45,7 @@ export const arquivos: Topico = {
       titulo: 'Criar arquivo vazio',
       descricao: 'Cria um arquivo vazio. Se ele já existir, <b>não apaga nada</b>: só atualiza a data de modificação.',
       sintaxe: 'touch arquivo...',
+      naPratica: 'Alguns serviços só iniciam se o arquivo de log já existir: <code>touch /var/log/app.log</code> e depois ajusta-se o dono. Também é usado como "sinal": um script cria <code>/tmp/backup.lock</code> para avisar que o backup está rodando e evitar dois ao mesmo tempo.',
       exemplos: [
         { comando: 'cd aula', explicacao: 'entra na pasta de prática' },
         { comando: 'touch notas.txt' },
@@ -48,6 +59,7 @@ export const arquivos: Topico = {
       titulo: 'Escrever texto (e gravar com > e >>)',
       descricao: 'Imprime um texto na tela. Junto com <code>&gt;</code> ou <code>&gt;&gt;</code> vira o jeito mais rápido de escrever em arquivos, sem editor.',
       sintaxe: 'echo "texto" [> arquivo | >> arquivo]',
+      naPratica: 'Adicionar uma linha de configuração sem abrir editor: <code>echo "192.168.0.20 banco" &gt;&gt; /etc/hosts</code>. Em scripts, registrar o que aconteceu: <code>echo "backup concluído" &gt;&gt; /var/log/backup.log</code>. Trocar o <code>&gt;&gt;</code> por <code>&gt;</code> no /etc/hosts apagaria o arquivo inteiro e o servidor perderia os nomes cadastrados.',
       opcoes: [['-n', 'não pula linha no final'], ['-e', 'interpreta \\n (nova linha) e \\t (tab)']],
       exemplos: [
         { comando: 'echo "Olá, Linux!"', explicacao: 'só mostra na tela' },
@@ -66,6 +78,7 @@ export const arquivos: Topico = {
       titulo: 'Mostrar o conteúdo',
       descricao: 'con<b>cat</b>enate: mostra o conteúdo de um ou mais arquivos, um atrás do outro.',
       sintaxe: 'cat [-n] arquivo...',
+      naPratica: 'Conferir rapidamente uma configuração: <code>cat /etc/hostname</code>, <code>cat /etc/os-release</code> (qual versão do Ubuntu este servidor roda?), <code>cat /etc/resolv.conf</code> (quais DNS ele usa?).',
       opcoes: [['-n', 'numera as linhas']],
       exemplos: [
         { comando: 'cat alunos.txt' },
@@ -80,6 +93,7 @@ export const arquivos: Topico = {
       titulo: 'Ver o começo ou o fim',
       descricao: '<code>head</code> mostra as primeiras linhas e <code>tail</code>, as últimas. O padrão é 10 linhas.',
       sintaxe: 'head -n N arquivo  |  tail -n N arquivo',
+      naPratica: '<code>tail -f /var/log/nginx/error.log</code> talvez seja o comando mais usado por quem cuida de servidor: você deixa rodando e vê os erros aparecendo em tempo real enquanto testa o site. O <code>head</code> serve para espiar arquivos enormes (logs de vários GB, CSVs) sem abrir tudo.',
       opcoes: [['-n 3', 'quantidade de linhas (também vale -3)'], ['tail -f', '(Ubuntu real) acompanha o arquivo crescendo, ótimo para logs']],
       exemplos: [
         { comando: 'head -n 3 alunos.txt', explicacao: 'as 3 primeiras' },
@@ -92,6 +106,7 @@ export const arquivos: Topico = {
       titulo: 'Procurar texto dentro de arquivos',
       descricao: 'Mostra só as linhas que contêm um texto. Combinado com <code>|</code> (pipe), filtra a saída de qualquer comando.',
       sintaxe: 'grep [opções] "texto" arquivo...  |  comando | grep "texto"',
+      naPratica: 'Achar um erro no meio de milhões de linhas: <code>grep -i error /var/log/syslog</code>. Ver quem tentou invadir por SSH: <code>grep "Failed password" /var/log/auth.log</code>. Checar se uma opção está ativa: <code>grep -n PermitRootLogin /etc/ssh/sshd_config</code>.',
       opcoes: [
         ['-i', 'ignora maiúsculas/minúsculas'],
         ['-v', 'inverte: linhas que NÃO têm o texto'],
@@ -111,6 +126,7 @@ export const arquivos: Topico = {
       titulo: 'Contar linhas, palavras e bytes',
       descricao: '<b>w</b>ord <b>c</b>ount. Muito usado com pipe para contar resultados.',
       sintaxe: 'wc [-l] [-w] [-c] arquivo',
+      naPratica: 'Contar acessos a uma página: <code>grep "GET /login" access.log | wc -l</code>. Saber quantas contas o servidor tem: <code>wc -l /etc/passwd</code>. Monitorar uma fila: <code>ls /var/spool/fila | wc -l</code>.',
       opcoes: [['-l', 'linhas'], ['-w', 'palavras'], ['-c', 'bytes']],
       exemplos: [
         { comando: 'wc alunos.txt', explicacao: 'linhas, palavras, bytes' },
@@ -123,6 +139,7 @@ export const arquivos: Topico = {
       titulo: 'Copiar',
       descricao: '<b>c</b>o<b>p</b>y: copia arquivos. O original continua lá. Para copiar <b>diretórios</b> precisa de <code>-r</code>.',
       sintaxe: 'cp [opções] origem destino  |  cp origem... pasta/',
+      naPratica: 'Regra de ouro antes de editar configuração: faça uma cópia. <code>cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak</code>. Se a alteração derrubar o serviço, basta copiar de volta. O <code>cp -r</code> duplica a pasta de um site antes de uma atualização arriscada.',
       opcoes: [
         ['-r', 'recursivo: copia diretórios inteiros'],
         ['-v', 'mostra cada cópia'],
@@ -144,6 +161,7 @@ export const arquivos: Topico = {
       titulo: 'Mover e renomear',
       descricao: '<b>m</b>o<b>v</b>e: move para outro lugar. No Linux <b>não existe comando "renomear"</b>: renomear é "mover para outro nome" no mesmo lugar.',
       sintaxe: 'mv origem destino',
+      naPratica: 'Rotação manual de log: <code>mv app.log app.log.1</code> e o serviço começa um arquivo novo. Desativar um site sem apagar: <code>mv site.conf site.conf.desativado</code>. Publicar uma versão nova trocando a pasta antiga pela nova com um <code>mv</code>.',
       opcoes: [['-v', 'mostra o que foi feito'], ['-i', '(Ubuntu real) pergunta antes de sobrescrever']],
       exemplos: [
         { comando: 'mv c.txt c-renomeado.txt', explicacao: 'RENOMEAR' },
@@ -158,6 +176,7 @@ export const arquivos: Topico = {
       titulo: 'Editor simples',
       descricao: 'O editor mais amigável do terminal: abre e você já digita. Os atalhos ficam no rodapé; <code>^</code> significa <kbd>Ctrl</kbd>.',
       sintaxe: 'nano arquivo',
+      naPratica: 'Não existe interface gráfica num servidor: toda configuração é editada no terminal. <code>sudo nano /etc/ssh/sshd_config</code>, <code>sudo nano /etc/hosts</code>. O nano é o editor padrão do Ubuntu e o mais amigável para ajustes rápidos.',
       opcoes: [
         ['Ctrl+O', 'grava (o nano pergunta o nome: <kbd>Enter</kbd> confirma)'],
         ['Ctrl+X', 'sai (se houver alteração, pergunta se quer salvar: S/N)'],
@@ -175,6 +194,7 @@ export const arquivos: Topico = {
       descricao: 'O vim tem <b>modos</b>. Ele abre no modo <b>NORMAL</b> (as teclas são comandos, não texto). ' +
         'Aperte <kbd>i</kbd> para o modo <b>INSERÇÃO</b> e digitar; <kbd>Esc</kbd> volta ao NORMAL; <kbd>:</kbd> abre a linha de comando.',
       sintaxe: 'vim arquivo',
+      naPratica: 'O vi/vim existe em praticamente todo Linux, inclusive servidores mínimos e containers onde o nano não está instalado. Saber pelo menos <code>i</code>, <code>Esc</code>, <code>:wq</code> e <code>:q!</code> salva você quando precisar editar algo numa máquina desconhecida.',
       opcoes: [
         ['i / a / o', 'inserir antes do cursor / depois / em nova linha abaixo'],
         ['Esc', 'volta para o modo NORMAL'],

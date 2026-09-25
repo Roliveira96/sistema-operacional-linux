@@ -59,8 +59,7 @@ export class TerminalUbuntu implements Saida, Interacao {
     this.elemento.className = 'term';
     this.elemento.innerHTML =
       '<div class="term-tela" tabindex="0" aria-label="Terminal ' + numero + '">' +
-      '  <div class="term-linhas"></div>' +
-      '  <div class="term-entrada"></div>' +
+      '<div class="term-linhas"></div><div class="term-entrada"></div>' +
       '</div>' +
       '<div class="term-editor" hidden></div>';
     this.tela = this.elemento.querySelector('.term-tela') as HTMLElement;
