@@ -110,9 +110,29 @@ export class GeradorCertificado {
   }
 
   /**
-   * Renderiza a visualização do certificado e disponibiliza botão de impressão/PDF.
+   * Abre um exemplo oficial do certificado para visualização rápida.
    */
-  public static exibirCertificado(dados: DadosCertificado): void {
+  public static exibirExemplo(nomeAluno: string = 'Ricardo tete 123'): void {
+    GeradorCertificado.exibirCertificado({
+      nomeAluno,
+      modalidade: {
+        id: 'lpic1',
+        titulo: 'LPIC-1: Administrador Linux Profissional',
+        descricao: 'Exame de proficiência prática em administração e segurança de sistemas Linux.',
+        icone: '🐧',
+      },
+      porcentagem: 100,
+      totalTarefas: 10,
+      tempoGeralSegundos: 840,
+      dataEmissao: new Date(),
+      codigoAutenticidade: `UTFPR-LPIC1-${Math.random().toString(36).substring(2, 7).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`,
+    });
+  }
+
+  /**
+   * Gera o HTML completo do diploma oficial para exibição ou impressão.
+   */
+  public static gerarHtmlDiploma(dados: DadosCertificado): string {
     const dataFormatada = dados.dataEmissao.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'long',
@@ -126,8 +146,9 @@ export class GeradorCertificado {
 
     const ehExcelencia = dados.porcentagem === 100;
     const descricaoModulo = GeradorCertificado.obterDescricaoConteudo(dados.modalidade.id);
+    const logoUrl = typeof window !== 'undefined' && window.location ? (window.location.origin + '/utfpr-logo.svg') : '/utfpr-logo.svg';
 
-    const htmlDiploma = `
+    return `
       <!DOCTYPE html>
       <html lang="pt-BR">
       <head>
@@ -457,7 +478,7 @@ export class GeradorCertificado {
 
               <header class="cabecalho-cert">
                 <div class="cert-logo-topo">
-                  <img src="${window.location.origin}/utfpr-logo.svg" alt="UTFPR" class="logo-diploma-utfpr" />
+                  <img src="${logoUrl}" alt="UTFPR" class="logo-diploma-utfpr" />
                 </div>
                 <p class="instituicao-governo">REPÚBLICA FEDERATIVA DO BRASIL · MINISTÉRIO DA EDUCAÇÃO</p>
                 <p class="instituicao-titulo">UNIVERSIDADE TECNOLÓGICA FEDERAL DO PARANÁ - UTFPR</p>
@@ -526,7 +547,13 @@ export class GeradorCertificado {
       </body>
       </html>
     `;
+  }
 
+  /**
+   * Renderiza a visualização do certificado e disponibiliza botão de impressão/PDF.
+   */
+  public static exibirCertificado(dados: DadosCertificado): void {
+    const htmlDiploma = GeradorCertificado.gerarHtmlDiploma(dados);
     const janela = window.open('', '_blank');
     if (janela) {
       janela.document.write(htmlDiploma);
