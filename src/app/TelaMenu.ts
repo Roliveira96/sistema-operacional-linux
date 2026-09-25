@@ -20,7 +20,7 @@ export class TelaMenu implements Tela {
     'Ricardo Martins de Oliveira',
     'Software Developer / Backend Engineer na Studio4You',
     'Guarapuava, PR',
-    'Material de estudo para a avaliação de suficiência de Sistema Operacional Linux.',
+    'Material de estudo e preparatório para exames de certificação Linux (LPIC-1, Linux Essentials, CompTIA Linux+, RHCSA) e avaliação de suficiência.',
     'ricardo.png',
     [
       { rotulo: 'github.com/Roliveira96', endereco: 'https://github.com/Roliveira96', icone: ICONE_GITHUB },
@@ -41,9 +41,10 @@ export class TelaMenu implements Tela {
     raiz.innerHTML =
       '<div class="menu">' +
       '  <header class="menu-cabecalho">' +
-      '    <span class="menu-selo">Avaliação de suficiência · Sistema Operacional</span>' +
+      '    <span class="menu-selo">Preparatório Certificações Linux · LPIC-1 · Linux Essentials</span>' +
       '    <h1>Linux na prática <span class="menu-pinguim">🐧</span></h1>' +
-      '    <p>Os comandos que caem na prova, explicados um a um, com dicas, pegadinhas e um <b>servidor Ubuntu simulado</b> ao lado: ' +
+      '    <p>Guia interativo e preparatório para <b>certificações Linux</b> (LPI Linux Essentials, LPIC-1, CompTIA Linux+ e RHCSA). ' +
+      'Os comandos que caem nas provas explicados um a um, com dicas oficiais de exames, pegadinhas e um <b>servidor Ubuntu simulado</b> ao lado: ' +
       'veja o comando rodando, depois pratique você mesmo em até <b>3 terminais</b> (um como root e outros como usuários comuns).</p>' +
       '    <div class="menu-botoes">' +
       '      <a class="botao-primario" href="#/laboratorio">🖥️ Abrir o laboratório livre</a>' +
