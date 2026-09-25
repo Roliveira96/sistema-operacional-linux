@@ -837,8 +837,8 @@ export class TelaSimulado implements Tela {
       if ('solucao' in item) {
         solucaoHtml = `
           <details class="relatorio-solucao">
-            <summary>Ver solução recomendada</summary>
-            <pre>${item.solucao.map((p: Passo) => escapar(p.comando)).join('\n')}</pre>
+            <summary>💻 Ver solução no Terminal Ubuntu</summary>
+            ${this.gerarTerminalUbuntuMockup(item.solucao)}
           </details>
         `;
       } else if ('explicacao' in item) {
@@ -993,8 +993,8 @@ export class TelaSimulado implements Tela {
           <p class="guia-enunciado"><b>Tarefa exigida:</b> ${d.enunciado}</p>
 
           <div class="guia-bloco-solucao">
-            <span class="guia-rotulo">💻 Como fazer (comando exato):</span>
-            <pre class="guia-codigo">${d.solucao.map((p) => escapar(p.comando)).join('\n')}</pre>
+            <span class="guia-rotulo">💻 Como executar no Terminal Ubuntu:</span>
+            ${this.gerarTerminalUbuntuMockup(d.solucao)}
           </div>
 
           <div class="guia-explicacao">
@@ -1027,5 +1027,67 @@ export class TelaSimulado implements Tela {
         </div>
       `;
     }
+  }
+
+  private gerarTerminalUbuntuMockup(passos: Passo[]): string {
+    if (!passos || passos.length === 0) return '';
+
+    const primeiro = passos[0];
+    const userInicial = primeiro?.login?.usuario ?? ((primeiro?.terminal ?? 1) > 1 ? 'ricardo' : 'root');
+    const tituloAba = `${userInicial}@ubuntu: ~`;
+
+    let linhasHtml = '';
+    let ultimoUser = userInicial;
+    let ultimoSimbolo = userInicial === 'root' ? '#' : '$';
+
+    for (const p of passos) {
+      const isUser = (p.terminal ?? 1) > 1 || p.login !== undefined;
+      const user = p.login?.usuario ?? (isUser ? 'ricardo' : 'root');
+      const simbolo = user === 'root' ? '#' : '$';
+      ultimoUser = user;
+      ultimoSimbolo = simbolo;
+
+      const promptHtml = `<span class="mock-prompt-user">${user}@ubuntu</span>:<span class="mock-prompt-path">~</span><span class="mock-prompt-sym">${simbolo}</span> `;
+
+      let respostasHtml = '';
+      if (p.respostas && p.respostas.length > 0) {
+        respostasHtml = p.respostas
+          .map((r) => `<div class="mock-linha-resposta"><span class="mock-rotulo-entrada">[entrada]</span> ${escapar(r)}</div>`)
+          .join('');
+      }
+
+      let explicacaoHtml = '';
+      if (p.explicacao) {
+        explicacaoHtml = `<div class="mock-linha-comentario"># ${escapar(p.explicacao)}</div>`;
+      }
+
+      linhasHtml += `
+        ${explicacaoHtml}
+        <div class="mock-linha-comando">
+          ${promptHtml}<span class="mock-cmd-texto">${escapar(p.comando)}</span>
+        </div>
+        ${respostasHtml}
+      `;
+    }
+
+    return `
+      <div class="terminal-ubuntu-mockup">
+        <div class="mock-janela-topo">
+          <div class="mock-botoes-janela">
+            <span class="mock-dot mock-dot-fechar" title="Fechar"></span>
+            <span class="mock-dot mock-dot-minimizar" title="Minimizar"></span>
+            <span class="mock-dot mock-dot-maximizar" title="Maximizar"></span>
+          </div>
+          <span class="mock-titulo-janela">terminal — ${tituloAba}</span>
+          <span class="mock-tag-bash">bash</span>
+        </div>
+        <div class="mock-janela-corpo">
+          ${linhasHtml}
+          <div class="mock-linha-comando mock-linha-cursor">
+            <span class="mock-prompt-user">${ultimoUser}@ubuntu</span>:<span class="mock-prompt-path">~</span><span class="mock-prompt-sym">${ultimoSimbolo}</span> <span class="mock-cursor-bloco"></span>
+          </div>
+        </div>
+      </div>
+    `;
   }
 }
