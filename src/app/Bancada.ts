@@ -20,6 +20,7 @@ export class Bancada {
     this.preparar = preparar;
     this.aoExecutar = aoExecutar;
     this.maquina = ArmazemDeMaquinas.carregar(chave) ?? this.criarNova();
+    this.maquina.atualizarProc();
     this.janela = new JanelaDeTerminais(container, this.maquina, {
       aoExecutar: () => {
         ArmazemDeMaquinas.salvar(this.chave, this.maquina);
@@ -38,6 +39,25 @@ export class Bancada {
     if (!silencioso) Aviso.mostrar('🔄 Máquina reiniciada do zero');
   }
 
+  private resetando: boolean = false;
+
+  public async resetarComAnimacao(): Promise<void> {
+    if (this.resetando) return;
+    this.resetando = true;
+    try {
+      await this.janela.executarResetAnimado(() => {
+        ArmazemDeMaquinas.apagar(this.chave);
+        const nova: Maquina = this.criarNova();
+        this.maquina = nova;
+        this.aoExecutar(nova);
+        return nova;
+      });
+      Aviso.mostrar('🔄 Máquina formatada e reiniciada com sucesso');
+    } finally {
+      this.resetando = false;
+    }
+  }
+
   public exportar(): void {
     ArmazemDeMaquinas.baixar(this.maquina, 'maquina-' + this.chave);
     Aviso.mostrar('💾 JSON da máquina baixado');
@@ -46,6 +66,7 @@ export class Bancada {
   public async importar(): Promise<void> {
     try {
       const maquina: Maquina = await ArmazemDeMaquinas.importar();
+      maquina.atualizarProc();
       this.trocar(maquina);
       ArmazemDeMaquinas.salvar(this.chave, maquina);
       Aviso.mostrar('📂 Máquina importada do JSON');
@@ -67,6 +88,7 @@ export class Bancada {
   private criarNova(): Maquina {
     const maquina: Maquina = ArmazemDeMaquinas.nova();
     this.preparar(maquina);
+    maquina.atualizarProc();
     return maquina;
   }
 }

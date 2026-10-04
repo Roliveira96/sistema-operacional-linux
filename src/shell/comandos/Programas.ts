@@ -69,9 +69,12 @@ export class Neofetch extends Comando {
     ];
     const info: string[] = [
       usuario + '@' + contexto.maquina.hostname, '-'.repeat(usuario.length + contexto.maquina.hostname.length + 1),
-      'OS: Ubuntu 24.04 LTS x86_64', 'Host: KVM/QEMU (Standard PC)', 'Kernel: 6.8.0-45-generic', 'Uptime: 1 hour, 27 mins',
-      'Packages: ' + pacotes + ' (dpkg)', 'Shell: bash 5.2.21', 'Terminal: /dev/pts/0', 'CPU: Intel Xeon E5-2680 v4 (2) @ 2.399GHz',
-      'Memory: 1128MiB / 3921MiB',
+      'OS: Ubuntu 24.04 LTS x86_64', 'Host: UTFPR AI SuperCluster (4 Sockets)', 'Kernel: 6.8.0-45-generic', 'Uptime: 1 day, 10 hours',
+      'Packages: ' + pacotes + ' (dpkg)', 'Shell: bash 5.2.21', 'Terminal: /dev/pts/0',
+      'CPU: 4x Intel Xeon Platinum 8592+ (256) @ 3.900GHz',
+      'GPU: 4x NVIDIA H100 80GB HBM3 SXM5 (AI Tensor Core)',
+      'Memory: 58TiB / 1024TiB (1.0 PiB)',
+      'Disk (/): 4.2P / 100P (5%)',
     ];
     logo.forEach((linha: string, i: number) => {
       contexto.escrever(linha.padEnd(42), 'c-laranja');
@@ -285,3 +288,74 @@ export class Openssl extends Comando {
     return 0;
   }
 }
+
+export class NvidiaSmi extends Comando {
+  public readonly nome: string = 'nvidia-smi';
+  public readonly resumo: string = 'gerenciamento e telemetria de GPUs NVIDIA: nvidia-smi';
+
+  public async executar(_args: string[], contexto: Contexto): Promise<number> {
+    contexto.linha('+-----------------------------------------------------------------------------------------+');
+    contexto.linha('| NVIDIA-SMI 550.54.14              Driver Version: 550.54.14      CUDA Version: 12.4     |');
+    contexto.linha('|-----------------------------------------+------------------------+----------------------+');
+    contexto.linha('| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |');
+    contexto.linha('| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |');
+    contexto.linha('|                                         |                        |               MIG M. |');
+    contexto.linha('|=========================================+========================+======================|');
+    contexto.linha('|   0  NVIDIA H100 80GB HBM3          On  |   00000000:03:00.0 Off |                    0 |');
+    contexto.linha('| N/A   41C    P0             165W / 700W |   48210MiB /  81559MiB |    88%      Default  |');
+    contexto.linha('|                                         |                        |             Disabled |');
+    contexto.linha('+-----------------------------------------+------------------------+----------------------+');
+    contexto.linha('|   1  NVIDIA H100 80GB HBM3          On  |   00000000:04:00.0 Off |                    0 |');
+    contexto.linha('| N/A   43C    P0             172W / 700W |   52140MiB /  81559MiB |    92%      Default  |');
+    contexto.linha('|                                         |                        |             Disabled |');
+    contexto.linha('+-----------------------------------------+------------------------+----------------------+');
+    contexto.linha('|   2  NVIDIA H100 80GB HBM3          On  |   00000000:81:00.0 Off |                    0 |');
+    contexto.linha('| N/A   40C    P0             158W / 700W |   46900MiB /  81559MiB |    85%      Default  |');
+    contexto.linha('|                                         |                        |             Disabled |');
+    contexto.linha('+-----------------------------------------+------------------------+----------------------+');
+    contexto.linha('|   3  NVIDIA H100 80GB HBM3          On  |   00000000:82:00.0 Off |                    0 |');
+    contexto.linha('| N/A   42C    P0             168W / 700W |   50300MiB /  81559MiB |    89%      Default  |');
+    contexto.linha('|                                         |                        |             Disabled |');
+    contexto.linha('+-----------------------------------------+------------------------+----------------------+');
+    contexto.linha('');
+    contexto.linha('+-----------------------------------------------------------------------------------------+');
+    contexto.linha('| Processes:                                                                              |');
+    contexto.linha('|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |');
+    contexto.linha('|        ID   ID                                                               Usage      |');
+    contexto.linha('|=========================================================================================|');
+    contexto.linha('|    0   N/A  N/A      4120      C   /usr/bin/python3 (vLLM-DeepSeek-R1-671B)    48120MiB |');
+    contexto.linha('|    1   N/A  N/A      4120      C   /usr/bin/python3 (vLLM-DeepSeek-R1-671B)    52050MiB |');
+    contexto.linha('|    2   N/A  N/A      4120      C   /usr/bin/python3 (vLLM-DeepSeek-R1-671B)    46810MiB |');
+    contexto.linha('|    3   N/A  N/A      4120      C   /usr/bin/python3 (vLLM-DeepSeek-R1-671B)    50210MiB |');
+    contexto.linha('+-----------------------------------------------------------------------------------------+');
+    return 0;
+  }
+}
+
+export class Lspci extends Comando {
+  public readonly nome: string = 'lspci';
+  public readonly resumo: string = 'lista dispositivos PCI conectados ao barramento do hardware';
+
+  public async executar(args: string[], contexto: Contexto): Promise<number> {
+    const dispositivos = [
+      '00:00.0 Host bridge: Intel Corporation 5th Gen Xeon Scalable Processor Host Bridge/DRAM Registers (rev 02)',
+      '00:01.0 PCI bridge: Intel Corporation Xeon PCIe Root Port 1',
+      '00:02.0 PCI bridge: Intel Corporation Xeon PCIe Root Port 2',
+      '01:00.0 Non-Volatile memory controller: Intel Corporation NVMe Datacenter SSD 100PB (rev 01)',
+      '02:00.0 Ethernet controller: Intel Corporation Ethernet Controller E810-C for 100GbE QSFP (rev 02)',
+      '03:00.0 3D controller: NVIDIA Corporation GH100 [H100 SXM5 80GB] (rev a1)',
+      '04:00.0 3D controller: NVIDIA Corporation GH100 [H100 SXM5 80GB] (rev a1)',
+      '80:01.0 PCI bridge: Intel Corporation Xeon PCIe Root Port 3',
+      '80:02.0 PCI bridge: Intel Corporation Xeon PCIe Root Port 4',
+      '81:00.0 3D controller: NVIDIA Corporation GH100 [H100 SXM5 80GB] (rev a1)',
+      '82:00.0 3D controller: NVIDIA Corporation GH100 [H100 SXM5 80GB] (rev a1)',
+    ];
+    for (const d of dispositivos) {
+      if (args.length === 0 || args.some((a) => d.toLowerCase().includes(a.toLowerCase().replace(/^-+/g, '')))) {
+        contexto.linha(d);
+      }
+    }
+    return 0;
+  }
+}
+

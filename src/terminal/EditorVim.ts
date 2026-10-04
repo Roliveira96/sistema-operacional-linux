@@ -17,6 +17,7 @@ export class EditorVim {
   private original: string;
   private pendente: string = '';
   private avisouSomenteLeitura: boolean = false;
+  private cancelado: boolean = false;
 
   constructor(container: HTMLElement, pedido: PedidoDeEdicao, aoFechar: () => void) {
     this.pedido = pedido;
@@ -251,5 +252,57 @@ export class EditorVim {
   private mostrar(mensagem: string, erro: boolean = false, destaque: boolean = false): void {
     this.barra.textContent = mensagem;
     this.barra.className = 'vim-barra' + (erro ? ' erro' : '') + (destaque ? ' destaque' : '');
+  }
+
+  /** Demonstração automática para roteiros de aula e play de cards. */
+  public async demonstrar(textoExemplo: string, velocidade: number = 1): Promise<void> {
+    const esperar = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, Math.max(30, ms / velocidade)));
+
+    await esperar(500);
+    if (this.cancelado) return;
+
+    // 1. Entra no modo inserção (tecla i)
+    this.mudarModo('insercao');
+    await esperar(350);
+    if (this.cancelado) return;
+
+    // 2. Digita o texto simulando digitação suave
+    const linhas: string[] = textoExemplo.split('\n');
+    let acumulado: string = '';
+    for (let i: number = 0; i < linhas.length; i++) {
+      if (this.cancelado) return;
+      acumulado += (i > 0 ? '\n' : '') + linhas[i];
+      this.texto.value = acumulado;
+      this.atualizarPosicao();
+      await esperar(90);
+    }
+
+    await esperar(500);
+    if (this.cancelado) return;
+
+    // 3. Pressiona Esc (volta ao modo normal)
+    this.mudarModo('normal');
+    await esperar(350);
+    if (this.cancelado) return;
+
+    // 4. Digita :wq na linha de comando
+    this.mudarModo('comando');
+    this.linhaComando.value = ':w';
+    await esperar(150);
+    if (this.cancelado) return;
+    this.linhaComando.value = ':wq';
+    await esperar(400);
+    if (this.cancelado) return;
+
+    // 5. Grava e sai
+    const valor: string = this.texto.value;
+    this.pedido.gravar(valor !== '' && !valor.endsWith('\n') ? valor + '\n' : valor);
+    this.original = valor;
+    this.mostrar('"' + this.pedido.caminho + '" ' + linhas.length + 'L gravado(s)');
+    await esperar(400);
+    if (this.cancelado) return;
+
+    this.cancelado = true;
+    this.aoFechar();
   }
 }

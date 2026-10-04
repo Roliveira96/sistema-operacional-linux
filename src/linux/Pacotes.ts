@@ -142,6 +142,10 @@ export const CATALOGO: Pacote[] = [
     descricao: 'process scheduling daemon', dependencias: [], arquivos: [], programas: bin('cron', 'sbin'),
     servico: { nome: 'cron', descricao: 'Regular background program processing daemon', execucao: '/usr/sbin/cron -f -P', documentacao: 'man:cron(8)',
       processos: ['/usr/sbin/cron -f -P'] } },
+  { nome: 'pciutils', versao: '1:3.10.0-2build1', secao: 'admin', repositorio: 'main', baixarKb: 285, instaladoKb: 890, base: true,
+    descricao: 'PCI utilities (lspci)', dependencias: [], arquivos: [], programas: bin('lspci') },
+  { nome: 'nvidia-utils-550', versao: '550.54.14-0ubuntu1', secao: 'utils', repositorio: 'main', baixarKb: 540, instaladoKb: 1850, base: true,
+    descricao: 'NVIDIA driver support binaries (nvidia-smi)', dependencias: [], arquivos: [], programas: bin('nvidia-smi') },
 
   // ─── instaláveis ───
   { nome: 'tree', versao: '2.1.1-2ubuntu3', secao: 'utils', repositorio: 'universe', baixarKb: 47, instaladoKb: 111,

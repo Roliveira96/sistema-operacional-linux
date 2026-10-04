@@ -20,7 +20,7 @@ export class TelaLaboratorio implements Tela {
       '    <nav class="tela-acoes">' +
       '      <button class="botao-secundario" data-acao="exportar" title="Baixa o sistema de arquivos e as contas em JSON">💾 Exportar JSON</button>' +
       '      <button class="botao-secundario" data-acao="importar" title="Carrega uma máquina salva em JSON">📂 Importar</button>' +
-      '      <button class="botao-secundario" data-acao="reiniciar" title="Apaga tudo e volta ao estado inicial">🔄 Reiniciar máquina</button>' +
+      '      <button class="botao-secundario botao-reset" data-acao="reiniciar" title="Formata e reseta a máquina virtual ao estado padrão de fábrica">🔄 Reset Máquina</button>' +
       '    </nav>' +
       '  </header>' +
       '  <main class="laboratorio-corpo"><div class="laboratorio-janela"></div>' +
@@ -32,8 +32,10 @@ export class TelaLaboratorio implements Tela {
     this.bancada = bancada;
     raiz.querySelector('[data-acao="exportar"]')?.addEventListener('click', () => bancada.exportar());
     raiz.querySelector('[data-acao="importar"]')?.addEventListener('click', () => void bancada.importar());
-    raiz.querySelector('[data-acao="reiniciar"]')?.addEventListener('click', () => {
-      if (window.confirm('Reiniciar a máquina do laboratório? Arquivos, usuários e grupos criados serão apagados.')) bancada.reiniciar();
+    raiz.querySelector('[data-acao="reiniciar"]')?.addEventListener('click', async () => {
+      if (window.confirm('⚠️ ATENÇÃO: Todos os dados, arquivos e diretórios criados nesta máquina serão permanentemente perdidos e o sistema será formatado e resetado para o padrão de fábrica.\n\nDeseja confirmar a formatação e reinicialização da máquina?')) {
+        await bancada.resetarComAnimacao();
+      }
     });
   }
 

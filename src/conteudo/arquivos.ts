@@ -11,25 +11,30 @@ export const arquivos: Topico = {
   cor: '--cor-arq',
   resumo: 'Criar, ler, escrever, copiar, mover e renomear arquivos, e editar com nano e vim.',
   conceitos:
-    '<h3>📄 Tudo é arquivo</h3>' +
-    '<p>No Linux quase tudo é tratado como arquivo: textos, configurações (<code>/etc/passwd</code>), até dispositivos (<code>/dev/null</code>). ' +
-    'A <b>extensão não manda em nada</b>: <code>notas.txt</code> e <code>notas</code> são igualmente arquivos de texto. Quem define se algo executa é a <b>permissão x</b>.</p>' +
-    '<h3>➡️ Redirecionamento: mandar a saída para um arquivo</h3>' +
+    '<h3>📄 Tudo é arquivo no Linux</h3>' +
+    '<p>No Linux quase tudo é tratado como arquivo: textos simples, configurações críticas (<code>/etc/passwd</code>) e até hardware (<code>/dev/sda</code>, <code>/dev/null</code>). ' +
+    'A <b>extensão não manda em nada</b>: <code>notas.txt</code> e <code>notas</code> são tratados exatamente iguais pelo Kernel. Quem define se algo pode ser executado como programa é a <b>permissão de execução (x)</b>.</p>' +
+    '<div class="fhs-porque"><b>❓ Por que tratar tudo como arquivo?</b> Porque assim o Linux usa as mesmíssimas instruções básicas (<code>ler</code>, <code>escrever</code> e <code>fechar</code>) para qualquer coisa. Isso possibilita conectar ferramentas do sistema com o pipe (<code>|</code>) como blocos de LEGO!</div>' +
+    '<h3>➡️ Redirecionamento: controlar para onde vão os dados</h3>' +
+    '<div class="fhs-porque"><b>❓ Por que existem canais separados (1 e 2)?</b> Todo comando Linux tem 3 vias de comunicação:<br>' +
+    '• <b>Canal 1 (stdout):</b> Saída padrão dos dados gerados (usado por <code>&gt;</code> e <code>&gt;&gt;</code>).<br>' +
+    '• <b>Canal 2 (stderr):</b> Saída exclusiva de alertas e erros (usado por <code>2&gt;</code>).<br>' +
+    'Isso permite salvar relatórios limpos sem que mensagens de falha poluam o arquivo de dados.</div>' +
     '<table class="tabela">' +
-    '<tr><td><code>comando &gt; arq</code></td><td><b>cria ou SOBRESCREVE</b> o arquivo com a saída</td></tr>' +
-    '<tr><td><code>comando &gt;&gt; arq</code></td><td><b>ACRESCENTA</b> no final (não apaga o que já tinha)</td></tr>' +
-    '<tr><td><code>comando 2&gt; erros.txt</code></td><td>manda só as <b>mensagens de erro</b> para o arquivo</td></tr>' +
-    '<tr><td><code>cmd1 | cmd2</code></td><td><b>pipe</b>: a saída do primeiro vira a entrada do segundo</td></tr></table>' +
-    '<p class="conceitos-dica">💡 Decore assim: <b>um</b> sinal <code>&gt;</code> apaga e escreve; <b>dois</b> <code>&gt;&gt;</code> somam.</p>',
+    '<tr><td><code>comando &gt; arq</code></td><td><b>cria ou SOBRESCREVE</b> o arquivo com a saída (Canal 1)</td></tr>' +
+    '<tr><td><code>comando &gt;&gt; arq</code></td><td><b>ACRESCENTA</b> no final sem apagar o que já existia</td></tr>' +
+    '<tr><td><code>comando 2&gt; erros.txt</code></td><td>manda só os <b>erros e falhas</b> para o arquivo (Canal 2)</td></tr>' +
+    '<tr><td><code>cmd1 | cmd2</code></td><td><b>pipe</b>: a saída do primeiro vira a entrada do segundo em tempo real</td></tr></table>' +
+    '<p class="conceitos-dica">💡 <b>Regra de ouro:</b> Um sinal <code>&gt;</code> apaga e reescreve do zero; dois sinais <code>&gt;&gt;</code> somam no final.</p>',
 
-  naPratica: 'Em servidores, redirecionamento é usado o tempo todo: tarefas agendadas no <b>cron</b> gravam o resultado com <code>&gt;&gt; /var/log/backup.log</code> para manter o histórico, e os erros vão para outro arquivo com <code>2&gt; erros.log</code>. O pipe junta ferramentas: <code>cat access.log | grep 404 | wc -l</code> conta quantas vezes o site respondeu "página não encontrada".',
+  naPratica: 'Em servidores corporativos, o redirecionamento é vital: scripts do <b>cron</b> gravam logs com <code>&gt;&gt; /var/log/backup.log</code> para manter o histórico das noites anteriores, enquanto erros vão para <code>2&gt; /var/log/backup.err</code>. Com o pipe, podemos responder perguntas complexas em uma linha: <code>cat access.log | grep "404" | wc -l</code> conta quantas requisições deram erro de página não encontrada.',
   demonstracao: [
-    { comando: 'echo "um" > demo.txt', explicacao: '> cria' },
-    { comando: 'echo "dois" >> demo.txt', explicacao: '>> acrescenta' },
-    { comando: 'cat demo.txt' },
-    { comando: 'ls /nao-existe 2> erros.txt', explicacao: '2> guarda só o erro' },
-    { comando: 'cat erros.txt' },
-    { comando: 'ls /etc | head -3', explicacao: '| pipe: saída do ls vira entrada do head' },
+    { comando: 'echo "um" > demo.txt', explicacao: '> cria o arquivo demo.txt com o texto "um"' },
+    { comando: 'echo "dois" >> demo.txt', explicacao: '>> acrescenta "dois" sem apagar o "um"' },
+    { comando: 'cat demo.txt', explicacao: 'lê o arquivo: repare que agora ele tem as duas linhas' },
+    { comando: 'ls /nao-existe 2> erros.txt', explicacao: '2> desvia a mensagem de erro para o arquivo erros.txt' },
+    { comando: 'cat erros.txt', explicacao: 'comprova que o erro foi gravado no arquivo e não na tela' },
+    { comando: 'ls /etc | head -3', explicacao: '| (pipe): envia a listagem do ls para o head mostrar só as 3 primeiras' },
   ],
 
   preparar(maquina): void {
@@ -229,8 +234,12 @@ export const arquivos: Topico = {
         ['Ctrl+K / Ctrl+U', 'recorta a linha / cola'],
       ],
       exemplos: [
-        { comando: 'nano lista.txt', explicacao: 'digite algo, Ctrl+O, Enter, Ctrl+X (o roteiro espera você sair)' },
-        { comando: 'cat lista.txt', explicacao: 'confere o que foi gravado' },
+        {
+          comando: 'nano lista.txt',
+          explicacao: 'o nano abre, digita o texto e salva com Ctrl+O e Ctrl+X',
+          respostas: ['1. Estudar Linux na UTFPR\n2. Praticar comandos no terminal\n3. Configurar servidores web'],
+        },
+        { comando: 'cat lista.txt', explicacao: 'confere o que foi gravado pelo nano' },
       ],
       dicas: [
         '<b>[LPIC-1 103.8]:</b> No nano, <code>^</code> representa a tecla <kbd>Ctrl</kbd>. Para salvar é <kbd>Ctrl+O</kbd> (WriteOut) e para sair é <kbd>Ctrl+X</kbd>.',
@@ -253,8 +262,12 @@ export const arquivos: Topico = {
         ['dd / x', 'apaga a linha / apaga um caractere (no modo NORMAL)'],
       ],
       exemplos: [
-        { comando: 'vim ideias.txt', explicacao: 'i, digite, Esc, :wq, Enter (o roteiro espera você sair)' },
-        { comando: 'cat ideias.txt' },
+        {
+          comando: 'vim ideias.txt',
+          explicacao: 'o vim abre no modo normal, insere texto com i e salva com :wq',
+          respostas: ['1. Cluster UTFPR com IA\n2. Scripts de automação em bash\n3. Infraestrutura em nuvem'],
+        },
+        { comando: 'cat ideias.txt', explicacao: 'confere o que foi gravado pelo vim' },
       ],
       dicas: [
         '<b>[LPIC-1 103.8]:</b> Modos do Vim: Normal (comandos de navegação e edição: <code>dd</code> apaga linha, <code>yy</code> copia, <code>p</code> cola), Inserção (<kbd>i</kbd>) e Linha de Comando (<kbd>:</kbd>).',

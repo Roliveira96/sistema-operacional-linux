@@ -5,7 +5,7 @@ import { Mkdir, Rmdir } from './comandos/Diretorios';
 import { Cat, Cp, Echo, Editor, Ln, Mv, Printf, Stat, Touch } from './comandos/Arquivos';
 import { Apt, AptCache, AptGet, Dpkg } from './comandos/Pacotes';
 import { Df, Free, Lsblk, LsbRelease, Service, Systemctl, Which } from './comandos/Sistema';
-import { Cowsay, Curl, Git, Htop, Mysql, Neofetch, Nginx, Openssl, Python3 } from './comandos/Programas';
+import { Cowsay, Curl, Git, Htop, Lspci, Mysql, Neofetch, Nginx, NvidiaSmi, Openssl, Python3 } from './comandos/Programas';
 import { Cut, Grep, Head, Sort, Tail, Wc } from './comandos/Texto';
 import { Rm } from './comandos/Exclusao';
 import { Chgrp, Chmod, Chown, Getfacl, Setfacl, Umask } from './comandos/Acesso';
@@ -40,7 +40,7 @@ export class Shell {
         new Systemctl(), new Service(), new Which(), new LsbRelease(), new Df(), new Free(), new Lsblk(),
         new Mount(), new Umount(), new Fdisk(), new Mkfs(), new Mkfs('mkfs'), new Blkid(),
         new Journalctl(), new Dmesg(), new Logger(),
-        new Htop(), new Neofetch(), new Cowsay(), new Git(), new Curl(), new Nginx(), new Mysql(), new Python3(), new Openssl(),
+        new Htop(), new Neofetch(), new NvidiaSmi(), new Lspci(), new Cowsay(), new Git(), new Curl(), new Nginx(), new Mysql(), new Python3(), new Openssl(),
         new Editor('nano'), new Editor('vim'), new Editor('vi'),
         new Head(), new Tail(), new Wc(), new Grep(), new Sort(), new Cut(),
         new Rm(),

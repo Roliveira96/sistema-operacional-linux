@@ -3,8 +3,8 @@ import { Serializador, type MaquinaJson } from '../linux/Serializador';
 
 /** Guarda a máquina de cada tela no navegador (localStorage) e exporta/importa o JSON. */
 export class ArmazemDeMaquinas {
-  /** v2: árvore FHS com pacotes; máquinas salvas pela versão anterior são ignoradas. */
-  private static readonly PREFIXO: string = 'exame-so:maquina:v2:';
+  /** v3: supercomputador de IA com 4x Xeon Platinum, 1024 TB RAM, 4x H100 e 100 PB storage. */
+  private static readonly PREFIXO: string = 'exame-so:maquina:v3:';
 
   public static carregar(chave: string): Maquina | null {
     try {

@@ -29,7 +29,7 @@ const esperar = (ms: number): Promise<void> => new Promise((resolver) => window.
 export class TerminalUbuntu implements Saida, Interacao {
   public readonly numero: number;
   public readonly elemento: HTMLElement;
-  private readonly maquina: Maquina;
+  private maquina: Maquina;
   private readonly ouvinte: OuvinteDoTerminal;
   private readonly interpretador: Interpretador = Shell.criarInterpretador();
 
@@ -51,6 +51,7 @@ export class TerminalUbuntu implements Saida, Interacao {
   private loginPendente: string = '';
   private tentativasDeSenha: number = 0;
   private velocidade: number = 1;
+  private emAutomacao: boolean = false;
 
   constructor(numero: number, maquina: Maquina, ouvinte: OuvinteDoTerminal) {
     this.numero = numero;
@@ -140,6 +141,138 @@ export class TerminalUbuntu implements Saida, Interacao {
     this.escrever('[Pressione Enter para conectar de novo]\n', 'c-info');
     this.estado = 'desconectado';
     this.ouvinte.aoMudarTitulo(this);
+  }
+
+  /** Animação de formatação, desligamento, boot fictício do cluster e login com root (10 segundos). */
+  public async animarFormatacaoEBoot(recriar: () => Maquina): Promise<void> {
+    this.estado = 'ocupado';
+    if (this.areaEditor) {
+      this.areaEditor.hidden = true;
+      this.areaEditor.innerHTML = '';
+      this.tela.hidden = false;
+    }
+    this.renderizarEntrada();
+
+    const esperarMs = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+    // ── FASE 1: Formatação Fictícia (2.7s) ──
+    this.escrever('\n');
+    this.escrever('Broadcast message from root@' + this.maquina.hostname + ' (pts/0) (' + new Date().toTimeString().split(' ')[0] + '):\n', 'c-laranja');
+    this.escrever('O SISTEMA ESTÁ ENTRANDO EM MANUTENÇÃO PARA FORMATAÇÃO DE FÁBRICA!\n\n', 'c-laranja');
+    await esperarMs(550);
+
+    this.escrever('[!] Iniciando rotina de formatação e limpeza de armazenamento...\n', 'c-info');
+    await esperarMs(550);
+
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Desmontando partições /dev/sda2 (100 PB) e /dev/nvme0n1 (250 PB).\n');
+    await esperarMs(550);
+
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Formatando partição raiz: mke2fs 1.47.0 -t ext4 /dev/sda2 [concluído].\n');
+    await esperarMs(550);
+
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Limpando dados e diretórios criados (/home/*, /root/*, /tmp/*).\n');
+    await esperarMs(500);
+
+    // ── FASE 2: Desligamento Fictício (2.2s) ──
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Encerrando processos de usuário e daemons (SIGTERM -> SIGKILL).\n');
+    await esperarMs(550);
+
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Stopped target Multi-User System & Graphical Interface.\n');
+    await esperarMs(550);
+
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Reached target System Shutdown & Power Off.\n');
+    await esperarMs(550);
+
+    this.escrever('systemd-shutdown[1]: All filesystems unmounted. Powering off.\n', 'c-info');
+    this.escrever('[ SISTEMA DESLIGADO ]\n', 'c-erro');
+    await esperarMs(550);
+
+    // ── Recriação real da máquina limpa em memória ──
+    if (this.sessao !== null) {
+      this.maquina.fecharSessao(this.sessao);
+      this.sessao = null;
+    }
+    const novaMaquina: Maquina = recriar();
+    this.maquina = novaMaquina;
+
+    // ── FASE 3: Boot Fictício do Supercomputador / Cluster (3.3s) ──
+    this.limparTela();
+    this.escrever('Booting Linux 6.8.0-45-generic on Cluster UTFPR...\n', 'c-info');
+    await esperarMs(550);
+
+    this.escrever('[    0.000000] Linux version 6.8.0-45-generic (buildd@utfpr-ai-cluster) #45-Ubuntu\n');
+    this.escrever('[    0.012400] BIOS-e820: usable memory 1024 TB RAM (DDR5 ECC Registered)\n');
+    this.escrever('[    0.045000] smpboot: 4x Intel(R) Xeon(R) Platinum 8592+ (256 Cores / 512 Threads)\n');
+    await esperarMs(700);
+
+    this.escrever('[    0.089100] NVRM: 4x NVIDIA H100 80GB HBM3 SXM5 detected & initialized\n');
+    this.escrever('[    0.142000] nvme0n1: 100 Petabytes Storage Array attached\n');
+    await esperarMs(700);
+
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Mounted /dev/sda2 on / (ext4, clean).\n');
+
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Mounted pseudofs: /proc, /sys, /dev.\n');
+    await esperarMs(700);
+
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Started OpenSSH Server Daemon.\n');
+
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] Reached target Multi-User System.\n');
+    this.escrever('[  ', '');
+    this.escrever('OK', 'c-ok');
+    this.escrever('  ] System initialization complete.\n');
+    await esperarMs(650);
+
+    // ── FASE 4: Login Automático com root e Terminal Limpo (1.8s) ──
+    this.limparTela();
+    this.escrever('Ubuntu 24.04 LTS ' + this.maquina.hostname + ' tty1\n\n');
+    this.escrever(this.maquina.hostname + ' login: root (automatic login)\n', 'c-info');
+    await esperarMs(600);
+
+    this.escrever('Welcome to Ubuntu 24.04 LTS (GNU/Linux 6.8.0-45-generic x86_64)\n');
+    this.escrever('Supercomputador UTFPR · 4x Xeon Platinum · 1024 TB RAM · 4x NVIDIA H100 · 100 PB\n\n');
+    this.escrever(' * Estado da Máquina: Formatada do zero com sucesso!\n');
+    this.escrever(' * Todos os diretórios e arquivos foram resetados para o padrão da aula.\n\n');
+    await esperarMs(1200);
+
+    // Login efetivo com o usuário root na nova máquina limpa
+    const usuarioRoot: Usuario = this.maquina.contas.usuario('root') as Usuario;
+    this.sessao = this.maquina.abrirSessao(usuarioRoot);
+    this.sessao.aoEncerrar = (): void => {
+      window.setTimeout(() => {
+        this.escrever('\nConnection to ' + ClasseMaquina.IP + ' closed by remote host.\n', 'c-erro');
+        this.desconectar();
+        this.renderizarEntrada();
+      }, 0);
+    };
+
+    this.buffer = '';
+    this.cursor = 0;
+    this.rotulo = '';
+    this.posicaoHistorico = 0;
+    this.estado = 'comando';
+    this.renderizarEntrada();
+    this.ouvinte.aoMudarTitulo(this);
+    this.focar();
   }
 
   /** Ao fechar a aba: encerra a sessão para o userdel não achar que ainda tem alguém logado. */
@@ -253,7 +386,10 @@ export class TerminalUbuntu implements Saida, Interacao {
       this.estado = 'editor';
       this.tela.hidden = true;
       this.areaEditor.hidden = false;
+      let resolvido: boolean = false;
       const fechar = (): void => {
+        if (resolvido) return;
+        resolvido = true;
         this.areaEditor.hidden = true;
         this.areaEditor.innerHTML = '';
         this.tela.hidden = false;
@@ -262,9 +398,17 @@ export class TerminalUbuntu implements Saida, Interacao {
         resolver();
       };
       if (pedido.editor === 'nano') {
-        new EditorNano(this.areaEditor, pedido, fechar);
+        const nano: EditorNano = new EditorNano(this.areaEditor, pedido, fechar);
+        if (this.emAutomacao) {
+          const texto: string = this.respostasAutomaticas[0] || '1. Estudar Linux na UTFPR\n2. Praticar comandos no terminal\n3. Configurar servidores web';
+          void nano.demonstrar(texto, this.velocidade);
+        }
       } else {
-        new EditorVim(this.areaEditor, pedido, fechar);
+        const vim: EditorVim = new EditorVim(this.areaEditor, pedido, fechar);
+        if (this.emAutomacao) {
+          const texto: string = this.respostasAutomaticas[0] || '1. Cluster UTFPR com IA\n2. Scripts de automação em bash\n3. Infraestrutura em nuvem';
+          void vim.demonstrar(texto, this.velocidade);
+        }
       }
     });
   }
@@ -281,14 +425,19 @@ export class TerminalUbuntu implements Saida, Interacao {
     if (this.estado !== 'comando') {
       return;
     }
+    this.emAutomacao = true;
     this.respostasAutomaticas = respostas.slice();
     this.buffer = '';
     this.cursor = 0;
     this.renderizarEntrada();
-    await this.digitar(comando, false);
-    await esperar(180 / this.velocidade);
-    await this.enviarComando();
-    this.respostasAutomaticas = [];
+    try {
+      await this.digitar(comando, false);
+      await esperar(180 / this.velocidade);
+      await this.enviarComando();
+    } finally {
+      this.respostasAutomaticas = [];
+      this.emAutomacao = false;
+    }
   }
 
   /** Faz o login SSH digitando usuário e senha. */

@@ -15,6 +15,7 @@ export class EditorNano {
   /** Quando não é null, o nano está esperando uma resposta na barra de baixo. */
   private aguardando: 'gravar' | 'salvar-ao-sair' | null = null;
   private sairDepoisDeGravar: boolean = false;
+  private cancelado: boolean = false;
 
   constructor(container: HTMLElement, pedido: PedidoDeEdicao, aoFechar: () => void) {
     this.pedido = pedido;
@@ -174,5 +175,41 @@ export class EditorNano {
   private mostrar(mensagem: string, erro: boolean = false, pergunta: boolean = false): void {
     this.estado.textContent = mensagem;
     this.estado.className = 'nano-estado' + (erro ? ' erro' : '') + (pergunta ? ' ativo' : '');
+  }
+
+  /** Demonstração automática para roteiros de aula e play de cards. */
+  public async demonstrar(textoExemplo: string, velocidade: number = 1): Promise<void> {
+    const esperar = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, Math.max(30, ms / velocidade)));
+
+    await esperar(500);
+    if (this.cancelado) return;
+
+    const linhas: string[] = textoExemplo.split('\n');
+    let acumulado: string = '';
+    for (let i: number = 0; i < linhas.length; i++) {
+      if (this.cancelado) return;
+      acumulado += (i > 0 ? '\n' : '') + linhas[i];
+      this.texto.value = acumulado;
+      this.atualizarIndicador();
+      await esperar(90);
+    }
+
+    await esperar(500);
+    if (this.cancelado) return;
+
+    this.mostrar('Nome do arquivo para gravar: ' + this.pedido.caminho, false, true);
+    await esperar(450);
+    if (this.cancelado) return;
+
+    this.gravar();
+    await esperar(500);
+    if (this.cancelado) return;
+
+    this.mostrar('[ Saindo do nano... ]');
+    await esperar(350);
+    if (this.cancelado) return;
+
+    this.cancelado = true;
+    this.aoFechar();
   }
 }

@@ -89,15 +89,17 @@ export class Dmesg extends Comando {
     }
     const humano: boolean = args.includes('-T') || args.includes('-H');
     const mensagens: Array<[number, string]> = [
-      [0.0, 'Linux version 6.8.0-45-generic (buildd@lcy02-amd64-115) (gcc 13.2.0) #45-Ubuntu SMP PREEMPT_DYNAMIC'],
+      [0.0, 'Linux version 6.8.0-45-generic (buildd@utfpr-ai-cluster) (gcc 13.2.0) #45-Ubuntu SMP PREEMPT_DYNAMIC'],
       [0.0, 'Command line: BOOT_IMAGE=/vmlinuz-6.8.0-45-generic root=/dev/sda2 ro'],
-      [0.21, 'Memory: 3921500K/4193784K available'],
-      [0.52, 'smpboot: CPU0: Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz'],
-      [1.88, 'sd 2:0:0:0: [sda] 52428800 512-byte logical blocks: (26.8 GB/25.0 GiB)'],
+      [0.21, 'Memory: 1048576000000K/1099511627776K available (1024 TB RAM online)'],
+      [0.52, 'smpboot: CPU0-255: 4x Intel(R) Xeon(R) Platinum 8592+ @ 3.90GHz (4 sockets / 256 physical cores / 512 threads)'],
+      [0.60, 'nvidia: loading NVIDIA UNIX x86_64 Kernel Module 550.54.14 (4x H100 80GB SXM5 initialized, NVSwitch active)'],
+      [0.72, 'nvme 0000:01:00.0: 100 PB High-Speed NVMe Storage Array online (/dev/sda2, /dev/nvme0n1)'],
+      [1.88, 'sd 2:0:0:0: [sda] 214748364800 512-byte logical blocks: (109.9 TB / 100.0 PB Storage Pool)'],
       [1.9, ' sda: sda1 sda2'],
-      [2.45, 'EXT4-fs (sda2): mounted filesystem 5a1c1b2e-0f4d-4a8e-9b6c-2d7e3f8a9b0c ro with ordered data mode'],
+      [2.45, 'EXT4-fs (sda2): mounted filesystem 5a1c1b2e-0f4d-4a8e-9b6c-2d7e3f8a9b0c ro with ordered data mode (100 PB ROOT)'],
       [4.12, 'e1000 0000:00:03.0 enp0s3: renamed from eth0'],
-      [5.01, 'e1000: enp0s3 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX'],
+      [5.01, 'e1000: enp0s3 NIC Link is Up 100000 Mbps Full Duplex (100GbE QSFP), Flow Control: RX/TX'],
     ];
     for (const disco of contexto.maquina.discos.listar()) {
       mensagens.push([disco.detectadoEm, 'sd 2:0:1:0: [' + disco.nome + '] ' + disco.tamanhoGb * 2097152 + ' 512-byte logical blocks: (' + (disco.tamanhoGb * 1.074).toFixed(2) + ' GB/' + disco.tamanhoGb + '.00 GiB)']);

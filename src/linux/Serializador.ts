@@ -164,6 +164,7 @@ export class Serializador {
         }
       }
     }
+    maquina.atualizarProc();
 
     return maquina;
   }

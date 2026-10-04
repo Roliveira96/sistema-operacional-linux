@@ -106,6 +106,29 @@ export class JanelaDeTerminais implements OuvinteDoTerminal {
     this.iniciar();
   }
 
+  /** Executa o reset da máquina com a animação de 6 segundos no terminal 1. */
+  public async executarResetAnimado(recriar: () => Maquina): Promise<void> {
+    for (let i: number = 1; i < JanelaDeTerminais.MAXIMO; i++) {
+      if (this.terminais[i] !== null) {
+        this.terminais[i]?.destruir();
+        this.terminais[i] = null;
+      }
+    }
+    this.selecionar(1);
+    const t1: TerminalUbuntu | null = this.terminais[0];
+    if (t1 !== null) {
+      await t1.animarFormatacaoEBoot(() => {
+        const nova: Maquina = recriar();
+        this.maquina = nova;
+        return nova;
+      });
+    } else {
+      const nova: Maquina = recriar();
+      this.trocarMaquina(nova);
+    }
+    this.atualizar();
+  }
+
   public definirVelocidade(velocidade: number): void {
     this.velocidade = velocidade;
     for (const terminal of this.terminais) terminal?.definirVelocidade(velocidade);

@@ -87,7 +87,7 @@ export class TelaTopico implements Tela {
         '    </div>' : '') +
       '    <nav class="tela-acoes">' +
       '      <button class="botao-secundario" data-acao="cola">📋 Cola</button>' +
-      '      <button class="botao-secundario" data-acao="reiniciar" title="Volta a máquina ao estado inicial do tópico">🔄 Reiniciar</button>' +
+      '      <button class="botao-secundario botao-reset" data-acao="reiniciar" title="Formata e reseta a máquina virtual ao estado padrão de fábrica">🔄 Reset Máquina</button>' +
       '      <button class="botao-secundario" data-acao="exportar" title="Baixa a máquina em JSON">💾</button>' +
       '      <button class="botao-secundario" data-acao="importar" title="Carrega uma máquina em JSON">📂</button>' +
       '    </nav>' +
@@ -691,21 +691,21 @@ export class TelaTopico implements Tela {
         });
       });
     });
-    const acao = (nome: string, fazer: () => void): void => {
+    const acao = (nome: string, fazer: () => void | Promise<void>): void => {
       this.raiz.querySelector('[data-acao="' + nome + '"]')?.addEventListener('click', fazer);
     };
     acao('cola', () => this.modal?.abrir('📋 Cola de comandos', ColaDeComandos.html(new CatalogoDeTopicos().listar())));
     acao('exportar', () => this.bancada.exportar());
     acao('importar', () => void this.bancada.importar());
-    acao('reiniciar', () => {
-      if (!window.confirm('Reiniciar a máquina deste tópico? Tudo o que foi criado aqui será apagado e os desafios voltam a ficar pendentes.')) return;
+    acao('reiniciar', async () => {
+      if (!window.confirm('⚠️ ATENÇÃO: Todos os dados, arquivos e diretórios criados nesta máquina serão permanentemente perdidos e o sistema será formatado e resetado para o padrão de fábrica.\n\nDeseja confirmar a formatação e reinicialização da máquina?')) return;
       this.tocando = false;
       this.concluidos.clear();
       this.salvarConcluidos();
       this.indice = -1;
       this.raiz.querySelectorAll('.exemplo').forEach((e: Element) => e.classList.remove('feito', 'atual'));
-      this.bancada.reiniciar();
       this.atualizarReprodutor();
+      await this.bancada.resetarComAnimacao();
     });
   }
 }

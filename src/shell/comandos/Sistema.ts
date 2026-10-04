@@ -168,13 +168,22 @@ export class Df extends Comando {
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const humano: boolean = args.some((a: string) => a.startsWith('-') && a.includes('h'));
-    contexto.linha('Sist. Arq.      ' + (humano ? 'Tam. Usado Disp. Uso%' : '   1K-blocos    Usado Disponível Uso%') + ' Montado em');
-    const linhas: Array<[string, string, string, string, string, string]> = [
-      ['tmpfs', '392M', '1,1M', '391M', '1%', '/run'],
-      ['/dev/sda2', '24G', '6,8G', '16G', '30%', '/'],
-      ['tmpfs', '2,0G', '0', '2,0G', '0%', '/dev/shm'],
-      ['/dev/sda1', '1,1G', '6,1M', '1,1G', '1%', '/boot/efi'],
-    ];
+    contexto.linha('Sist. Arq.      ' + (humano ? 'Tam. Usado Disp. Uso%' : '     1K-blocos          Usado     Disponível Uso%') + ' Montado em');
+    const linhas: Array<[string, string, string, string, string, string]> = humano
+      ? [
+          ['tmpfs', '100T', '12M', '100T', '1%', '/run'],
+          ['/dev/sda2', '100P', '4,2P', '95,8P', '5%', '/'],
+          ['tmpfs', '500T', '0', '500T', '0%', '/dev/shm'],
+          ['/dev/sda1', '1,0T', '6,1M', '1,0T', '1%', '/boot/efi'],
+          ['/dev/nvme0n1', '250P', '12P', '238P', '5%', '/mnt/dataset-ia'],
+        ]
+      : [
+          ['tmpfs', '104857600000', '12288', '104857587712', '1%', '/run'],
+          ['/dev/sda2', '107374182400000', '4509715660800', '102864466739200', '5%', '/'],
+          ['tmpfs', '524288000000', '0', '524288000000', '0%', '/dev/shm'],
+          ['/dev/sda1', '1048576000', '6246', '1048569754', '1%', '/boot/efi'],
+          ['/dev/nvme0n1', '268435456000000', '12884901888000', '255550554112000', '5%', '/mnt/dataset-ia'],
+        ];
 
     for (const m of contexto.maquina.discos.listarMontagens()) {
       const totalKb = m.particao.tamanhoGb * 1048576;
@@ -205,7 +214,7 @@ export class Df extends Comando {
     for (const [sistema, tam, usado, disp, uso, ponto] of linhas) {
       contexto.linha(humano
         ? sistema.padEnd(15) + ' ' + tam.padStart(4) + ' ' + usado.padStart(5) + ' ' + disp.padStart(5) + ' ' + uso.padStart(4) + ' ' + ponto
-        : sistema.padEnd(15) + ' ' + tam.padStart(12) + ' ' + usado.padStart(8) + ' ' + disp.padStart(10) + ' ' + uso.padStart(4) + ' ' + ponto);
+        : sistema.padEnd(15) + ' ' + tam.padStart(16) + ' ' + usado.padStart(14) + ' ' + disp.padStart(16) + ' ' + uso.padStart(4) + ' ' + ponto);
     }
     return 0;
   }
@@ -218,12 +227,12 @@ export class Free extends Comando {
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args.includes('-h')) {
       contexto.linha('               total       usada       livre    compart.  buff/cache  disponível');
-      contexto.linha('Mem.:          3,8Gi       1,1Gi       1,9Gi        12Mi       1,0Gi       2,7Gi');
-      contexto.linha('Swap:          2,0Gi          0B       2,0Gi');
+      contexto.linha('Mem.:         1,0PiB       58TiB      870TiB       2,4Gi      117TiB      986TiB');
+      contexto.linha('Swap:          64TiB          0B       64TiB');
     } else {
       contexto.linha('               total       usada       livre    compart.  buff/cache  disponível');
-      contexto.linha('Mem.:        4015604     1172484     1987332       12344     1055788     2843120');
-      contexto.linha('Swap:        2097148           0     2097148');
+      contexto.linha('Mem.:   1099511627776 62561499776 912450128000   2516582 124500000000 1034502140000');
+      contexto.linha('Swap:    68719476736           0 68719476736');
     }
     return 0;
   }
@@ -234,25 +243,26 @@ export class Lsblk extends Comando {
   public readonly resumo: string = 'lista discos e partições (os dispositivos de bloco de /dev)';
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
-    contexto.linha('NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS');
-    contexto.linha('sda      8:0    0   25G  0 disk ');
-    contexto.linha('├─sda1   8:1    0    1G  0 part /boot/efi');
-    contexto.linha('└─sda2   8:2    0   24G  0 part /');
+    contexto.linha('NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS');
+    contexto.linha('sda           8:0    0   100P  0 disk ');
+    contexto.linha('├─sda1        8:1    0     1T  0 part /boot/efi');
+    contexto.linha('└─sda2        8:2    0   100P  0 part /');
+    contexto.linha('nvme0n1     259:0    0   250P  0 disk /mnt/dataset-ia');
 
     const discos = contexto.maquina.discos.listar();
     let min = 16;
     for (const d of discos) {
-      contexto.linha(`${d.nome.padEnd(6)}  8:${min}    0    ${d.tamanhoGb}G  0 disk `);
+      contexto.linha(`${d.nome.padEnd(11)}   8:${min}    0    ${d.tamanhoGb}G  0 disk `);
       d.particoes.forEach((p, idx) => {
         const charArvore = idx === d.particoes.length - 1 ? '└─' : '├─';
         const montagem = contexto.maquina.discos.montagemDe(p);
         const mountpoint = montagem ? ' ' + montagem.ponto : '';
-        contexto.linha(`${charArvore}${p.nome.padEnd(5)}  8:${min + idx + 1}    0    ${p.tamanhoGb}G  0 part${mountpoint}`);
+        contexto.linha(`${charArvore}${p.nome.padEnd(9)}  8:${min + idx + 1}    0    ${p.tamanhoGb}G  0 part${mountpoint}`);
       });
       min += 16;
     }
 
-    contexto.linha('sr0     11:0    1 1024M  0 rom  ');
+    contexto.linha('sr0          11:0    1  1024M  0 rom  ');
     return 0;
   }
 }
