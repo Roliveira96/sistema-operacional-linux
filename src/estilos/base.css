@@ -85,6 +85,8 @@ kbd {
 .botao-primario:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
 .botao-secundario { background: var(--superficie-2); border-color: var(--borda); }
 .botao-secundario:hover { border-color: var(--destaque); }
+.botao-secundario.botao-reset { color: #fca5a5; border-color: rgba(239, 68, 68, 0.35); }
+.botao-secundario.botao-reset:hover { color: #ffffff; background: rgba(239, 68, 68, 0.2); border-color: #ef4444; }
 button:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ===== Janela modal ===== */

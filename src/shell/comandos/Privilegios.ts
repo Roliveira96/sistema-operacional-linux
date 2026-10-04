@@ -76,10 +76,13 @@ export class Sudo extends Comando {
         contexto.falhar('Sinto muito, tente novamente.');
       }
     }
-    if (!contexto.credencial.gids.includes(Contas.GID_SUDO)) {
+    const grupoWheel = contexto.contas.grupo('wheel');
+    const autorizado = contexto.credencial.gids.includes(Contas.GID_SUDO) ||
+      (grupoWheel !== undefined && contexto.credencial.gids.includes(grupoWheel.gid));
+    if (!autorizado) {
       registrar(contexto.maquina, 'auth.log', 'sudo', ' ' + eu.nome + ' : user NOT in sudoers ; TTY=' + contexto.sessao.tty + ' ; PWD=' + contexto.quadro.cwd + ' ; USER=root');
       contexto.falhar(eu.nome + ' não está no arquivo sudoers.  Este incidente será relatado.');
-      contexto.falhar('Dica: como root, rode "usermod -aG sudo ' + eu.nome + '" e depois faça login de novo.');
+      contexto.falhar('Dica: como root, rode "usermod -aG sudo ' + eu.nome + '" (ou no grupo wheel) e depois faça login de novo.');
       return false;
     }
     contexto.sessao.sudoValidado.add(eu.nome);

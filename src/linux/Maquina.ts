@@ -107,7 +107,7 @@ export class Maquina {
     contas.adicionarUsuario(new Usuario('ricardo', 1000, 1000, '/home/ricardo', '/bin/bash', Maquina.SENHA_PADRAO, 'Ricardo,,,'));
     const grupos: Array<[string, number, string[]]> = [
       ['root', 0, []], ['daemon', 1, []], ['bin', 2, []], ['sys', 3, []], ['adm', 4, ['ricardo']],
-      ['tty', 5, []], ['disk', 6, []], ['mail', 8, []], ['cdrom', 24, ['ricardo']], ['sudo', Contas.GID_SUDO, ['ricardo']], ['www-data', 33, []], ['shadow', 42, []],
+      ['tty', 5, []], ['disk', 6, []], ['mail', 8, []], ['wheel', 10, []], ['cdrom', 24, ['ricardo']], ['sudo', Contas.GID_SUDO, ['ricardo']], ['www-data', 33, []], ['shadow', 42, []],
       ['plugdev', 46, ['ricardo']], ['users', 100, []], ['nogroup', 65534, []], ['ricardo', 1000, []],
     ];
     for (const [nome, gid, membros] of grupos) {
@@ -154,16 +154,12 @@ export class Maquina {
     this.colocar('/dev', new Dispositivo('console', 'c', 0, 5, 0o600));
     for (const nome of ['sda', 'sda1', 'sda2']) this.colocar('/dev', new Dispositivo(nome, 'b', 0, 6, 0o660));
     this.colocar('/dev', new Dispositivo('sr0', 'b', 0, 24, 0o660));
+    // 4 GPUs NVIDIA H100 SXM5 para IA e aceleradores de disco NVMe de 100 PB
+    for (const nome of ['nvidia0', 'nvidia1', 'nvidia2', 'nvidia3', 'nvidiactl', 'nvidia-uvm']) this.colocar('/dev', new Dispositivo(nome, 'c', 0, 195, 0o666));
+    for (const nome of ['nvme0n1', 'nvme0n1p1']) this.colocar('/dev', new Dispositivo(nome, 'b', 0, 259, 0o660));
 
     // /proc: janela para dentro do kernel (arquivos "virtuais", gerados na hora)
-    const proc: Array<[string, string]> = [
-      ['cpuinfo', 'processor\t: 0\nvendor_id\t: GenuineIntel\nmodel name\t: Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz\ncpu cores\t: 2\n\nprocessor\t: 1\nvendor_id\t: GenuineIntel\nmodel name\t: Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz\ncpu cores\t: 2\n'],
-      ['meminfo', 'MemTotal:        4015604 kB\nMemFree:         1987332 kB\nMemAvailable:    2843120 kB\nSwapTotal:       2097148 kB\n'],
-      ['version', 'Linux version 6.8.0-45-generic (buildd@lcy02-amd64-115) (gcc 13.2.0) #45-Ubuntu SMP PREEMPT_DYNAMIC\n'],
-      ['uptime', '5231.44 10318.02\n'],
-      ['loadavg', '0.08 0.03 0.01 1/187 2412\n'],
-    ];
-    for (const [nome, conteudo] of proc) this.criarArquivo('/proc/' + nome, conteudo, 0, 0, 0o444);
+    this.atualizarProc();
 
     // /etc: configurações
     for (const nome of ['passwd', 'group', 'shadow']) {
@@ -289,8 +285,37 @@ export class Maquina {
     return arquivo;
   }
 
+  public atualizarProc(): void {
+    const procCpu =
+      'processor\t: 0\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 143\nmodel name\t: Intel(R) Xeon(R) Platinum 8592+ @ 3.90GHz\nphysical id\t: 0\nsiblings\t: 128\ncore id\t\t: 0\ncpu cores\t: 64\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch invpcid_single ssbd ibrs ibpb stibp fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl avx512_vnni avx512_bfloat16 amx_bf16 amx_tile amx_int8\n\n' +
+      'processor\t: 64\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 143\nmodel name\t: Intel(R) Xeon(R) Platinum 8592+ @ 3.90GHz\nphysical id\t: 1\nsiblings\t: 128\ncore id\t\t: 0\ncpu cores\t: 64\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch invpcid_single ssbd ibrs ibpb stibp fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl avx512_vnni avx512_bfloat16 amx_bf16 amx_tile amx_int8\n\n' +
+      'processor\t: 128\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 143\nmodel name\t: Intel(R) Xeon(R) Platinum 8592+ @ 3.90GHz\nphysical id\t: 2\nsiblings\t: 128\ncore id\t\t: 0\ncpu cores\t: 64\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch invpcid_single ssbd ibrs ibpb stibp fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl avx512_vnni avx512_bfloat16 amx_bf16 amx_tile amx_int8\n\n' +
+      'processor\t: 192\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 143\nmodel name\t: Intel(R) Xeon(R) Platinum 8592+ @ 3.90GHz\nphysical id\t: 3\nsiblings\t: 128\ncore id\t\t: 0\ncpu cores\t: 64\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch invpcid_single ssbd ibrs ibpb stibp fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl avx512_vnni avx512_bfloat16 amx_bf16 amx_tile amx_int8\n';
+
+    const proc: Array<[string, string]> = [
+      ['cpuinfo', procCpu],
+      ['meminfo', 'MemTotal:       1099511627776 kB\nMemFree:         912450128000 kB\nMemAvailable:   1034502140000 kB\nBuffers:           1258291200 kB\nCached:          124500000000 kB\nSwapTotal:        68719476736 kB\nSwapFree:         68719476736 kB\n'],
+      ['version', 'Linux version 6.8.0-45-generic (buildd@utfpr-ai-cluster) (gcc 13.2.0) #45-Ubuntu SMP PREEMPT_DYNAMIC\n'],
+      ['uptime', '125231.44 3210318.02\n'],
+      ['loadavg', '2.14 1.85 1.42 8/1024 18942\n'],
+    ];
+
+    if (!this.fs.obter('/proc')) {
+      this.criarDiretorio('/proc', 0, 0, 0o555);
+    }
+    for (const [nome, conteudo] of proc) {
+      const arq = this.fs.obter('/proc/' + nome);
+      if (arq instanceof Arquivo) {
+        arq.escrever(conteudo);
+      } else {
+        this.criarArquivo('/proc/' + nome, conteudo, 0, 0, 0o444);
+      }
+    }
+  }
+
   private colocar(pasta: string, no: No): void {
     (this.fs.obter(pasta) as Diretorio).adicionar(no);
   }
 
 }
+
