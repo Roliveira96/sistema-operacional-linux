@@ -128,7 +128,7 @@ Os dados de longo prazo ficam em um banco relacional (PostgreSQL), com integrida
     \item \textbf{avisos e confirmações de leitura:} a tabela \texttt{avisos\_turmas} guarda os comunicados da professora: título, texto em Markdown, público (turma inteira ou lista de alunos), data de publicação (\texttt{publicar\_em}), nível de importância e se a leitura deve ser confirmada (\texttt{requer\_confirmacao}). Cada confirmação vai para \texttt{confirmacoes\_leitura\_avisos}, com aluno, horário e endereço IP, o que permite acompanhar a adesão e comprovar que o aviso foi lido.
 \end{enumerate}
 
-Ao lado dessas entidades acadêmicas, o modelo inclui as entidades de conteúdo e de avaliação detalhadas na Seção~\ref{sec:autoria-conteudo}: módulos e seus blocos tipados, com trechos de vídeo e links de referência opcionais, exercícios de cinco tipos (prática, escolha única, booleana, múltipla seleção e dissertativa), com cenário, solução e condições de validação nas questões práticas e alternativas ou critérios de correção nas teóricas, cenários reutilizáveis com sua relação de herança, provas com as questões escolhidas ou as regras de sorteio, e o registro das questões sorteadas para cada aluno.
+Ao lado dessas entidades acadêmicas, o modelo inclui as entidades de conteúdo e de avaliação detalhadas na Seção~\ref{sec:autoria-conteudo}: módulos e seus blocos tipados, com trechos de vídeo e links de referência opcionais, um banco de questões por módulo, com questões de cinco tipos (prática, escolha única, booleana, múltipla seleção e dissertativa) e uso como exercício ou avaliação, com cenário, solução e condições de validação nas questões práticas e alternativas ou critérios de correção nas teóricas, cenários reutilizáveis com sua relação de herança, provas com as questões escolhidas ou as regras de sorteio, e o registro das questões sorteadas para cada aluno.
 
 Além dessas entidades, a plataforma oferece a alunos e professores a gestão do próprio perfil: atualização dos dados de contato, escolha de avatar e troca de senha mediante autenticação. Por serem operações cadastrais convencionais (CRUD, de \textit{create}, \textit{read}, \textit{update} e \textit{delete}), já amplamente padronizadas no desenvolvimento web, essas funcionalidades não são detalhadas neste trabalho. A descrição e a análise concentram-se nas contribuições centrais da arquitetura: o simulador POSIX com VFS no navegador, a proteção contra fraudes pelo console do navegador, a telemetria bidirecional via \textit{WebSockets} e a continuidade das provas em falhas de rede, com validação criptográfica \textit{offline}.
 
@@ -214,7 +214,7 @@ Avisos dados verbalmente em sala ou publicados em fóruns pouco visitados geram 
 
 No protótipo atual, todo o material didático (módulos, lições, exercícios e o preparo do ambiente de cada exercício) está escrito diretamente no código-fonte. Qualquer ajuste, mesmo a troca de uma palavra em um enunciado, exige um programador. A plataforma transfere esse conteúdo para o banco de dados e oferece à professora ferramentas para criá-lo e editá-lo. Na primeira instalação, um \textit{seed} (rotina de carga inicial) converte o conteúdo que hoje está no código para o banco, de modo que a plataforma já começa com o material existente e a professora passa a editá-lo livremente.
 
-Esta seção descreve os módulos de conteúdo, o banco de exercícios com seus cenários, a herança entre cenários, o bloco de teste que garante que tudo funciona antes da publicação e, por fim, a montagem da prova, fixa ou por sorteio.
+Esta seção descreve os módulos de conteúdo, o banco de questões de cada módulo com seus cenários e sua gestão, a herança entre cenários, o bloco de teste que garante que tudo funciona antes da publicação e, por fim, a montagem da prova, fixa ou por sorteio.
 
 \subsection{Módulos de Conteúdo e Blocos Interativos}
 \label{sec:modulos-conteudo}
@@ -264,19 +264,19 @@ O bloco de comando aproveita o reprodutor que já existe no simulador: o botão 
 
 \textbf{Migração do conteúdo atual.} Hoje, parte do visual dos módulos (cartões de curiosidade, vídeo recomendado, passos numerados, cartões de distribuições) está escrita diretamente em HTML dentro dos textos. Aceitar HTML livre na autoria seria arriscado, pois permitiria a inserção de \textit{scripts}, e deixaria cada módulo com uma aparência diferente. Por isso, o \textit{seed} importa esse HTML como um bloco legado, filtrado para manter apenas as marcações visuais conhecidas. O aluno continua vendo o conteúdo como hoje, e a professora o converte para os blocos do Quadro~\ref{qua:tipos-bloco} quando editar o módulo.
 
-Cada módulo pode exigir um cenário inicial, isto é, os arquivos, diretórios, usuários, grupos e permissões que precisam existir para que os comandos façam sentido, como uma lista com cem nomes para os exercícios de ordenação. O cenário é criado da mesma forma que o dos exercícios, descrita a seguir, e é aplicado à máquina simulada sempre que o aluno abre o módulo. Cada módulo termina com uma pequena lista de exercícios, cadastrados no banco de exercícios descrito a seguir.
+Cada módulo pode exigir um cenário inicial, isto é, os arquivos, diretórios, usuários, grupos e permissões que precisam existir para que os comandos façam sentido, como uma lista com cem nomes para os exercícios de ordenação. O cenário é criado da mesma forma que o dos exercícios, descrita a seguir, e é aplicado à máquina simulada sempre que o aluno abre o módulo. Cada módulo tem ainda o seu banco de questões, descrito a seguir, de onde saem tanto os exercícios do módulo quanto as questões de provas e atividades.
 
-\subsection{Banco de Exercícios: Cenário, Solução e Validação}
+\subsection{Banco de Questões do Módulo: Cenário, Solução e Validação}
 \label{sec:banco-exercicios}
 
-Cada exercício do banco reúne tudo o que é necessário para usá-lo em qualquer lugar da plataforma, seja em um módulo, em um simulado ou em uma prova. Todo exercício tem título, enunciado, dica, nível (fácil, médio ou difícil) e tipo; os tipos são descritos na Seção~\ref{sec:tipos-questao}. Todo exercício tem também um \textbf{uso}, definido pela professora:
+Cada módulo tem o seu próprio banco de questões, que reúne todas as questões e atividades ligadas àquele conteúdo. Cada questão do banco traz tudo o que é necessário para usá-la em qualquer lugar da plataforma, seja no próprio módulo, em uma atividade ou em uma prova. Toda questão tem título, enunciado, dica, nível (fácil, médio ou difícil) e tipo; os tipos são descritos na Seção~\ref{sec:tipos-questao}. Toda questão tem também um \textbf{uso}, definido pela professora:
 
 \begin{enumerate}
-    \item \textbf{somente exercício:} aparece nos módulos e nas listas de estudo, onde o aluno pode tentar quantas vezes quiser, e nunca é usado em provas;
-    \item \textbf{banco de questões:} fica reservado para provas e simulados avaliativos e não é exibido aos alunos fora deles, preservando o sigilo da avaliação.
+    \item \textbf{exercício:} aparece no módulo e nas listas de estudo, onde o aluno pode tentar quantas vezes quiser, e nunca é usada em avaliações;
+    \item \textbf{avaliação:} fica reservada para provas e atividades avaliativas, como listas com prazo de entrega, e não é exibida aos alunos fora delas, preservando o sigilo da avaliação.
 \end{enumerate}
 
-A professora pode enviar ao banco de questões um exercício que já foi exibido em um módulo; nesse caso, o sistema avisa que os alunos já tiveram acesso ao enunciado.
+A professora pode mudar o uso de uma questão a qualquer momento. Se uma questão que já foi exibida como exercício passar a ser de avaliação, o sistema avisa que os alunos já tiveram acesso ao enunciado; no caminho inverso, avisa que a questão deixará de ser sigilosa.
 
 O tipo mais característico da plataforma é a questão prática no terminal, que reúne ainda:
 
@@ -300,10 +300,10 @@ A validação não exige programação. A professora resolve o exercício no ter
 \subsection{Tipos de Questão}
 \label{sec:tipos-questao}
 
-Além das tarefas no terminal, a professora usa questões teóricas, como ``descreva como você faria tal configuração'' ou ``qual das opções abaixo\ldots''. Por isso, o banco de exercícios tem cinco tipos de questão, resumidos no Quadro~\ref{qua:tipos-questao}.
+Além das tarefas no terminal, a professora usa questões teóricas, como ``descreva como você faria tal configuração'' ou ``qual das opções abaixo\ldots''. Por isso, o banco de questões tem cinco tipos de questão, resumidos no Quadro~\ref{qua:tipos-questao}.
 
 \begin{quadro}[htbp]
-    \caption{Tipos de questão do banco de exercícios}
+    \caption{Tipos de questão do banco de questões}
     \label{qua:tipos-questao}
     \footnotesize
     \begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{2.6cm}|L|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{3.0cm}|}
@@ -335,6 +335,37 @@ Nas questões teóricas, o terminal fica bloqueado enquanto a questão está abe
 \end{enumerate}
 
 O bloco de teste (Seção~\ref{sec:bloco-teste}) também se adapta ao tipo: nas questões práticas, executa a solução e confere a validação; na escolha única, confere que há exatamente uma alternativa correta; na booleana, que os dois rótulos e a resposta correta foram definidos; na múltipla seleção, que há pelo menos uma; e na dissertativa, que a resposta esperada ou os critérios foram preenchidos.
+
+\subsection{Gestão do Banco de Questões}
+\label{sec:gestao-banco}
+
+A professora administra o banco de questões de cada módulo por uma tela de cadastro, com as operações de criar, consultar, editar e excluir. Diferentemente das rotinas cadastrais comuns (Seção~\ref{sec:modelo-dados}), essas operações seguem as regras próprias das questões, já descritas nesta seção: cenário, herança, bloco de teste e versões. O Quadro~\ref{qua:gestao-banco} resume como cada operação funciona.
+
+\begin{quadro}[htbp]
+    \caption{Operações de gestão do banco de questões}
+    \label{qua:gestao-banco}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{2.7cm}|L|}
+        \hline
+        \textbf{Operação} & \textbf{Como funciona} \\
+        \hline
+        Criar & A professora escolhe o módulo e o tipo, preenche os campos do tipo e, nas questões práticas, monta o cenário (por \texttt{.tar.gz}, pelo terminal ou herdando o de outra questão), a solução e a validação. A questão nasce como rascunho \\
+        \hline
+        Consultar & Lista as questões do banco do módulo, com busca por texto e filtros por tipo, nível, uso (exercício ou avaliação) e situação (rascunho, publicada ou arquivada). Para cada questão, mostra uma pré-visualização como o aluno a verá, as provas e atividades em que foi usada e as questões que herdam o seu cenário \\
+        \hline
+        Editar & Cada edição de uma questão publicada gera uma nova versão. Provas e atividades em andamento ou já aplicadas continuam com a versão que usaram. Para publicar a nova versão, a questão precisa passar de novo no bloco de teste, que também é executado nas questões herdeiras \\
+        \hline
+        Duplicar ou herdar & Cria uma cópia independente ou uma questão herdeira, que reaproveita o cenário da original e acrescenta apenas o que muda \\
+        \hline
+        Mudar o uso & Alterna entre exercício e avaliação, com os avisos de sigilo descritos na Seção~\ref{sec:banco-exercicios} \\
+        \hline
+        Excluir & Rascunhos que nunca foram usados podem ser apagados. Questões já usadas em provas ou atividades são arquivadas: saem das listagens e não entram em novas avaliações, mas continuam guardadas para o histórico e a auditoria, e continuam servindo de base para as questões que herdam o seu cenário \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
+
+A regra de exclusão segue o mesmo princípio adotado para os alunos (Seção~\ref{sec:ciclo-vida-discente}): nada que já fez parte de uma avaliação é apagado de fato, para que a nota de qualquer aluno possa ser conferida depois com as questões exatamente como ele as recebeu.
 
 \subsection{Herança de Cenários e Isolamento entre Questões}
 \label{sec:heranca-cenarios}
@@ -392,7 +423,7 @@ Esse mecanismo leva para a interface da professora a mesma verificação que hoj
 \subsection{Montagem da Prova: Questões Fixas ou Sorteadas}
 \label{sec:montagem-prova}
 
-A prova é montada a partir do banco de questões, ou seja, apenas com exercícios reservados para avaliação (Seção~\ref{sec:banco-exercicios}), de duas formas:
+A prova é montada com as questões de uso avaliação dos bancos de um ou mais módulos (Seção~\ref{sec:banco-exercicios}), de duas formas:
 
 \begin{enumerate}
     \item \textbf{prova fixa:} a professora escolhe exatamente as questões e a ordem, e todos os alunos recebem a mesma prova;
@@ -427,9 +458,12 @@ O sorteio segue estas regras:
     \item \textbf{sorteio no servidor e registrado:} o sorteio é feito pelo servidor quando o aluno entra na prova, e as questões sorteadas ficam registradas na sessão. Assim, ele recebe as mesmas questões se reconectar, trocar de máquina (Seção~\ref{sec:troca-maquina}) ou tiver a sessão reaberta, e a professora pode conferir depois o que cada aluno recebeu;
     \item \textbf{ordem embaralhada (opcional):} a ordem das questões pode variar de aluno para aluno, o que dificulta a consulta ao colega ao lado;
     \item \textbf{repescagem sem repetição (opcional):} em repescagens e segundas chamadas, o sorteio pode evitar as questões que o aluno já recebeu;
+    \item \textbf{módulos (opcional):} a regra pode fixar quantas questões vêm de cada módulo, por exemplo três do módulo de permissões e duas do de usuários e grupos;
     \item \textbf{tipos de questão (opcional):} além do nível, a regra pode fixar quantas questões de cada tipo cada aluno recebe, por exemplo oito práticas e duas dissertativas;
     \item \textbf{grupos inseparáveis (opcional):} quando questões só fazem sentido juntas, a professora pode marcá-las como um grupo, sorteado como uma unidade.
 \end{enumerate}
+
+As atividades avaliativas, como listas com prazo de entrega, são montadas da mesma forma, fixas ou sorteadas, com a diferença de que não exigem o \textit{token} de sala: ficam disponíveis para o aluno durante o prazo definido pela professora.
 
 Como cada questão traz o próprio cenário e roda na própria máquina, qualquer combinação sorteada funciona sem que uma questão interfira na outra. O pacote cifrado enviado ao aluno no início da prova (Seção~\ref{sec:envelope-cifrado}) contém apenas as questões que ele sorteou.
 
