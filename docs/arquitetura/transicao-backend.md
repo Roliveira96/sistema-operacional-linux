@@ -258,3 +258,111 @@ Para evitar que o cliente seja o juiz da própria nota:
 1. **Serialização Mínima de Estado:** Ao invés de enviar centenas de arquivos do sistema (`/bin`, `/usr`), o cliente gera um snapshot apenas das áreas alteradas ou das pastas monitoradas pela questão (ex: `/home/aluno`, `/etc/group`, `/var/www/html`).
 2. **Reconstituição no Servidor:** O servidor carrega a classe `SistemaDeArquivos` em modo headless (Node.js) com o estado inicial da questão e aplica as alterações do snapshot ou executa o replay dos comandos.
 3. **Avaliação das Asserções:** As regras de negócio (ex: "o arquivo `/tmp/relatorio.txt` tem permissão 640 e pertence ao grupo `financeiro`?") são checadas exclusivamente em ambiente de servidor, retornando um veredito criptograficamente auditável.
+
+---
+
+## 6. Arquitetura Reativa WebSocket e Fila de Suporte ("Mãozinha Virtual")
+
+Para suportar tanto o feedback de validação em tempo real quanto a dinâmica pedagógica de sala de aula sem requisições HTTP bloqueantes, a plataforma implementa uma camada reativa bidirecional via **WebSockets (WSS)**.
+
+### 6.1 Topologia de Salas e Canais de Eventos
+- `/ws/avaliacoes/:sessaoId`: Canal privado entre o terminal do aluno e o validador de comandos no servidor.
+- `/ws/turmas/:turmaId/cockpit`: Canal de supervisão docente agregada (telemetria em tempo real, status dos terminais e gerenciamento da fila de suporte).
+
+### 6.2 Ciclo de Vida e Contratos de Eventos da Fila de Suporte
+
+#### 1. Abertura do Chamado (`help:request`)
+O discente preenche obrigatoriamente um resumo textual de sua dificuldade na interface antes de solicitar atendimento.
+
+```typescript
+// Evento emitido pelo cliente do estudante: 'help:request'
+export interface HelpRequestPayload {
+  sessaoId: string;
+  alunoId: string;
+  ra: string;
+  nome: string;
+  terminalId: string;
+  questaoAtualId?: string;
+  resumoDuvida: string; // Obrigatório: síntese da dificuldade enfrentada
+  timestamp: number;
+}
+
+// Evento emitido pelo servidor para o Cockpit docente: 'help:enqueued'
+export interface HelpEnqueuedPayload {
+  ticketId: string;
+  posicaoFila: number;
+  aluno: {
+    id: string;
+    ra: string;
+    nome: string;
+  };
+  terminalId: string;
+  questaoAtualId?: string;
+  resumoDuvida: string;
+  solicitadoEm: string; // ISO 8601
+}
+```
+
+#### 2. Cancelamento Autônomo (`help:cancel`)
+Se o estudante resolver a questão autonomamente ou acompanhar uma explicação presencial, ele pode cancelar o pedido imediatamente.
+
+```typescript
+// Evento emitido pelo cliente do estudante: 'help:cancel'
+export interface HelpCancelPayload {
+  ticketId: string;
+  motivo?: string; // ex: 'resolvido_autonomamente'
+}
+
+// Evento emitido pelo servidor para o Cockpit docente: 'help:removed'
+export interface HelpRemovedPayload {
+  ticketId: string;
+  motivo: 'cancelado_pelo_aluno' | 'expirado';
+}
+```
+
+#### 3. Atendimento Docente 1:1 (`help:respond-private`)
+A professora atende uma dúvida pontual ou atípica abrindo um diálogo privado com o terminal do estudante.
+
+```typescript
+// Evento emitido pelo Cockpit docente: 'help:respond-private'
+export interface HelpRespondPrivatePayload {
+  ticketId: string;
+  alunoId: string;
+  mensagem: string;
+}
+
+// Evento entregue pelo servidor ao terminal do aluno: 'help:private-message'
+export interface HelpPrivateMessagePayload {
+  ticketId: string;
+  docenteNome: string;
+  mensagem: string;
+  enviadoEm: string;
+}
+```
+
+#### 4. Atendimento em Lote por Broadcast Inteligente (`help:broadcast-batch`)
+Para dúvidas recorrentes na turma, a professora seleciona múltiplos cartões na fila e transmite uma orientação unificada.
+
+```typescript
+// Evento emitido pelo Cockpit docente: 'help:broadcast-batch'
+export interface HelpBroadcastBatchPayload {
+  ticketIds: string[]; // IDs dos chamados selecionados via multiselect
+  orientacaoDocente: string; // Texto explicativo / dica pedagógica
+}
+
+// Evento transmitido pelo servidor para a sala inteira: 'classroom:broadcast'
+export interface ClassroomBroadcastPayload {
+  mensagemFormatada: string; // "Respondendo às dúvidas de Aluno A, Aluno B e Aluno C: [orientacaoDocente]"
+  alunosContemplados: Array<{ id: string; nome: string }>;
+  enviadoEm: string;
+}
+
+// Evento despachado para os clientes dos alunos contemplados: 'help:resolved'
+export interface HelpResolvedPayload {
+  ticketId: string;
+  tipoResolucao: 'INDIVIDUAL' | 'BROADCAST_LOTE';
+  mensagem?: string;
+  resolvidoEm: string;
+}
+```
+

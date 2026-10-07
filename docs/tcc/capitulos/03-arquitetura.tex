@@ -1,7 +1,7 @@
 \chapter{Arquitetura da Plataforma}
 \label{cap:arquitetura}
 
-Este capítulo detalha a concepção arquitetural da plataforma educacional, demonstrando como a transição do protótipo inicial executado puramente no cliente para um modelo híbrido e reativo integrado cliente-servidor viabiliza avaliações seguras, supervisão pedagógica em tempo real e escalabilidade no ambiente acadêmico.
+Este capítulo detalha a concepção arquitetural da plataforma educacional, demonstrando como a transição do protótipo inicial executado puramente no cliente para um modelo híbrido e reativo integrado cliente-servidor viabiliza avaliações seguras, supervisão pedagógica em tempo real, suporte síncrono em sala de aula e escalabilidade no ambiente acadêmico.
 
 % ----------------------------------------------------------
 \section{Visão Geral da Arquitetura Híbrida e Reativa}
@@ -56,6 +56,36 @@ Dessa forma, o motor de retaguarda atua em dois níveis complementares:
     \item \textbf{Validação por Estado (Determinística):} O servidor avalia exclusivamente o resultado final refletido no VFS (verificando se o arquivo existe no caminho esperado, se possui o UID correto e se as permissões atendem à máscara exigida), assegurando aprovação pedagógica independentemente da rota sintática adotada pelo discente;
     \item \textbf{Análise Comportamental e Auditoria em Tempo Real:} A persistência cronológica de todas as instruções permite à docente mapear a proficiência dos comandos utilizados, diagnosticar lacunas conceituais recorrentes e garantir a integridade formal da avaliação contra tentativas de trapaça.
 \end{itemize}
+
+% ----------------------------------------------------------
+\section{Dinâmica Pedagógica da Fila de Suporte: A Mãozinha Virtual}
+\label{sec:fila-suporte}
+% ----------------------------------------------------------
+
+Em aulas laboratoriais práticas com turmas numerosas, um dos gargalos pedagógicos mais críticos reside na gestão do atendimento a dúvidas: múltiplos alunos erguem os braços simultaneamente, o docente perde a ordem cronológica dos chamados e dúvidas idênticas acabam sendo respondidas individualmente de forma exaustiva e repetitiva. Para solucionar esse problema, a plataforma incorpora o protocolo síncrono da \textbf{Fila de Suporte (Mãozinha Virtual)}, estruturado em três etapas operacionais integradas via \textit{WebSockets}:
+
+\subsection{Abertura Qualificada do Pedido de Ajuda (Levantar a Mão)}
+Ao acionar o comando de suporte na interface do terminal (``Pedir Ajuda''), o sistema exige obrigatoriamente que o estudante preencha um resumo textual sucinto descrevendo a natureza da sua dúvida ou o obstáculo enfrentado. Essa exigência pedagógica cumpre um duplo papel:
+\begin{enumerate}
+    \item Estimula o discente a exercitar a metacognição e a capacidade de síntese técnica, forçando-o a formular o problema de maneira estruturada antes de solicitar o auxílio docente;
+    \item Evita chamados vazios, desatentos ou acionamentos acidentais do botão de ajuda.
+\end{enumerate}
+
+Uma vez confirmado o envio, o cliente despacha o evento \texttt{help:request} pelo socket. O servidor registra a solicitação e insere um novo cartão na fila do painel docente (\textit{Cockpit}), ordenado rigorosamente pela disciplina cronológica FIFO (\textit{First-In, First-Out}), contendo o carimbo de data/hora, identificação do discente, terminal associado e o texto da dúvida.
+
+\subsection{Cancelamento Autônomo (Abaixar a Mão)}
+Durante o intervalo de espera na fila, é comum que o estudante continue experimentando comandos no terminal, consulte a documentação contextual da plataforma ou ouça um esclarecimento coletivo em sala, conseguindo superar o obstáculo por esforço próprio. 
+
+Nessa situação, o discente tem autonomia para acionar a qualquer momento a opção ``Abaixar a Mão'', despachando o evento \texttt{help:cancel}. O servidor remove instantaneamente o respectivo cartão da fila do painel docente via \textit{WebSocket}, evitando deslocamentos desnecessários da professora e incentivando a autorregulação e a persistência na resolução de problemas.
+
+\subsection{Atendimento Docente: Resposta Privada e Broadcast Inteligente}
+No painel do professor, os chamados acumulados oferecem dois modos de resolução síncrona:
+\begin{itemize}
+    \item \textbf{Atendimento Individual Privado:} Caso a dúvida seja muito específica ou atípica, a professora pode acionar o atendimento individual, abrindo uma janela de diálogo discreta (1:1) sobreposta ao terminal do respectivo estudante, prestando orientações sem interromper a concentração dos demais colegas;
+    \item \textbf{Resposta em Lote por Broadcast Inteligente:} Ao constatar que múltiplos estudantes estão enfrentando a mesma dificuldade conceitual (por exemplo, erros na sintaxe de criação de grupos com \texttt{groupadd} ou confusão entre caminhos relativos e absolutos), a docente pode utilizar o recurso de múltipla seleção (\textit{multiselect}) no painel, selecionando todos os cartões correlatos e redigindo uma única resposta pública.
+\end{itemize}
+
+O sistema processa o evento de transmissão em lote e distribui a resposta globalmente para a turma, formatando a mensagem com menção explícita aos estudantes contemplados (exemplo: ``\textit{Respondendo às dúvidas de Aluno A, Aluno B e Aluno C: [Orientações da Docente]}''). Simultaneamente, o servidor marca todos os chamados selecionados como resolvidos, removendo os respectivos cartões da fila docente e encerrando as notificações de espera nos navegadores dos estudantes atendidos.
 
 % ----------------------------------------------------------
 \section{Segurança de Prova: Tokens Dinâmicos e Janelas Temporais}
