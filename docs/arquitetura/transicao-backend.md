@@ -257,6 +257,17 @@ export interface IniciarSessaoResponse {
       diretorioInicial: string;
       arquivosIniciais?: Record<string, string>;
     };
+    envelopeCifradoOffline: {
+      nonceSessao: string;
+      hashesCriterios: Array<{
+        caminhoAlvoHmac: string;
+        tipoNo: 'ARQUIVO' | 'DIRETORIO' | 'LINK';
+        permissoesOctalHmac: string;
+        conteudoSha256?: string;
+        uidGidHmac?: string;
+      }>;
+      assinaturaServidor: string; // HMAC gerado com chave secreta efêmera do servidor
+    };
   }>;
 }
 ```
@@ -365,16 +376,67 @@ export interface ReabrirSessaoResponse {
   reabertoEm: string;
   sucesso: boolean;
 }
+
+// POST /api/v1/avaliacoes/:avaliacaoId/sessoes/:sessaoId/reconciliar-offline
+export interface ReconciliarOfflineRequest {
+  pacoteProofJson: {
+    sessaoId: string;
+    alunoId: string;
+    ra: string;
+    geradoEm: string;
+    telemetriaIndexedDb: Array<{
+      timestamp: number;
+      questaoId: string;
+      comando: string;
+      exitCode: number;
+      snapshotDiff: VfsSnapshotData;
+    }>;
+    vfsFinalSnapshot: VfsSnapshotData;
+    checksumIntegridade: string;
+  };
+}
+
+export interface ReconciliarOfflineResponse {
+  sessaoId: string;
+  status: 'FINALIZADO';
+  questoesAprovadasTotal: number;
+  questoesTotal: number;
+  notaFinalCalculada: number;
+  discrepanciasDetectadas: Array<{
+    questaoId: string;
+    motivo: string;
+  }>;
+  reconciliadoEm: string;
+  sucesso: boolean;
+}
 ```
 
 ---
 
-## 5. Protocolo de Verificação de Estado VFS Desacoplada
+## 5. Protocolo de Validação Híbrida e Contingência Offline por Asserções Cifradas
 
-Para evitar que o cliente seja o juiz da própria nota:
-1. **Serialização Mínima de Estado:** Ao invés de enviar centenas de arquivos do sistema (`/bin`, `/usr`), o cliente gera um snapshot apenas das áreas alteradas ou das pastas monitoradas pela questão (ex: `/home/aluno`, `/etc/group`, `/var/www/html`).
-2. **Reconstituição no Servidor:** O servidor carrega a classe `SistemaDeArquivos` em modo headless (Node.js) com o estado inicial da questão e aplica as alterações do snapshot ou executa o replay dos comandos.
-3. **Avaliação das Asserções:** As regras de negócio (ex: "o arquivo `/tmp/relatorio.txt` tem permissão 640 e pertence ao grupo `financeiro`?") são checadas exclusivamente em ambiente de servidor, retornando um veredito criptograficamente auditável.
+### 5.1 O Problema da Dependência Estrita de Conectividade de Rede
+A orquestração exclusiva via WebSocket apresenta vulnerabilidade em ambientes acadêmicos com oscilações de link. Sem uma rota de contingência, quedas momentâneas de sinal de rede no laboratório congelariam o avanço das tarefas, interrompendo o raciocínio do discente e desperdiçando tempo letivo.
+
+### 5.2 Envelope Criptografado de Asserções Locais (Zero-Knowledge Validation)
+Para permitir que o terminal valide o cumprimento de tarefas localmente sem revelar respostas via DevTools (F12):
+1. **Hashes Criptográficos Unidirecionais:** Na carga inicial da prova, o servidor transmite critérios de validação estruturados sob hashes HMAC-SHA256 (caminhos de nós, máscaras de permissão octal, nós esperados e hash SHA-256 de conteúdos normalizados);
+2. **Impossibilidade de Engenharia Reversa:** Inspecionar os testes em memória ou no código JavaScript expõe apenas cadeias criptográficas não reversíveis. O discente é incapaz de deduzir a resposta correta por inspeção de código ou forjar o estado interno do avaliador.
+
+### 5.3 Comutação Automática Online/Offline (Graceful Degradation)
+1. **Regime Conectado:** O cliente emite eventos de quebra de linha (`Enter`) via WebSocket e recebe o retorno instantâneo do validador em retaguarda;
+2. **Regime Desconectado:** Ao detectar interrupção do socket, o cliente comuta transparentemente para o motor local alimentado pelos hashes cifrados. A interface confirma o acerto, avança no roteiro de tarefas e persiste todos os comandos, carimbos de tempo e snapshots no **IndexedDB** local do navegador.
+
+### 5.4 Reconciliação Soberana no Servidor Go (Replay Canônico & Auditoria)
+A nota definitiva permanece sob custódia soberana do servidor:
+1. **Replay Determinístico:** Ao restabelecer a conexão ou mediante envio do arquivo `.proof`, o servidor em Go reconstitui sequencialmente o VFS a partir do log de comandos armazenado no IndexedDB;
+2. **Auditoria de Integridade:** O servidor executa a suíte canônica de testes de aceitação e compara os resultados oficiais com os eventos offline. Qualquer discrepância matemática ou temporal é anotada na Timeline Forense como violação de integridade.
+
+### 5.5 Especificação do Pacote de Contingência Física (`.proof`)
+Em situações de pane prolongada de conectividade:
+- O estudante finaliza a prova e o cliente exporta um arquivo assinado `avaliacao_<ra>_<sessaoId>.proof`;
+- O discente entrega o arquivo em pendrive institucional para a professora;
+- A docente importa o pacote via interface do Cockpit docente, acionando o endpoint `/reconciliar-offline` para ingestão e correção soberana.
 
 ---
 

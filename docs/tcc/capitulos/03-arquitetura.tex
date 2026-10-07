@@ -34,27 +34,45 @@ A gestão pedagógica e a persistência de longo prazo assentam-se sobre um banc
 \end{itemize}
 
 % ----------------------------------------------------------
-\section{Protocolo de Validação Desacoplada de VFS e Telemetria em Tempo Real}
+\section{Protocolo de Validação Híbrida e Telemetria Desacoplada de VFS}
 \label{sec:validacao-desacoplada}
 % ----------------------------------------------------------
 
-Para mitigar integralmente os riscos de fraude via ferramentas de desenvolvedor (\textit{DevTools}) e, simultaneamente, eliminar a necessidade de botões manuais de envio que quebram o fluxo de raciocínio do discente, a validação de cada desafio opera através de um fluxo assíncrono de eventos via \textit{WebSockets}.
+A validação de avaliações práticas de sistemas operacionais deve equacionar três desafios fundamentais: eliminar a vulnerabilidade de adulteração de testes via ferramentas de depuração do navegador (\textit{DevTools}), permitir fluxos de digitação contínuos sem botões de submissão manuais e garantir a resiliência operacional contra oscilações de conectividade de rede na infraestrutura universitária. Para solucionar essas demandas, a plataforma implementa um protocolo híbrido de validação baseado em \textit{WebSockets} e envelopes de asserções cifradas com degradação suave.
 
-\subsection{Fluxo Reativo de Feedback Instantâneo}
-A interação entre o terminal local e o motor de avaliação em retaguarda segue um ciclo não-bloqueante de três etapas:
+\subsection{O Problema da Dependência Estrita de Conectividade de Rede}
+\label{sec:dependencia-rede}
+
+No modelo exclusivamente síncrono cliente-servidor, a confirmação de acerto de cada tarefa prática e a liberação da questão subsequente dependem rigorosamente do retorno de um evento de validação transmitido via \textit{WebSocket}. Embora essa abordagem garanta total custódia das regras de correção no servidor durante o regime de conexão normal, sua dependência estrita torna-se um ponto único de falha em laboratórios de informática universitários: oscilações momentâneas de sinal de rede, saturação de banda do laboratório ou instabilidades no roteamento institucional congelariam o fluxo avaliativo do estudante. Nessas circunstâncias, o aluno ficaria impossibilitado de progredir no roteiro de prova, sofrendo fragmentação de sua concentração cognitiva e perda injusta de tempo letivo.
+
+\subsection{Envelope Criptografado de Asserções Locais (Zero-Knowledge Validation)}
+\label{sec:envelope-cifrado}
+
+Para viabilizar a continuidade da avaliação em cenários desconectados sem expor os gabaritos ou as asserções à inspeção no cliente, a plataforma adota o conceito de validação com conhecimento zero (\textit{Zero-Knowledge Validation}) por meio de um envelope de asserções cifradas:
 \begin{enumerate}
-    \item \textbf{Execução e Emissão em Background:} A cada quebra de linha (\texttt{Enter}) no terminal, o simulador executa a instrução instantaneamente no VFS local. Paralelamente à exibição imediata do resultado visual na tela do aluno, um emissor em segundo plano despacha pelo canal \textit{WebSocket} um \textit{payload} leve contendo o comando digitado, o código de retorno (\textit{exit code}), a identificação da questão e a árvore de nós ou metadados alterados (\textit{snapshot} diferencial);
-    \item \textbf{Asserção em Ambiente Seguro:} O motor de avaliação no \textit{back-end} reconstitui o estado do VFS em memória protegida e aplica a bateria de testes de aceitação correspondente à tarefa ativa. Como as regras de teste residem unicamente no servidor, qualquer tentativa de manipulação de variáveis locais no navegador é inócua;
-    \item \textbf{Retorno de Evento e Conclusão Automática:} Se as asserções forem plenamente satisfeitas, o servidor emite de volta pelo socket um evento assíncrono \texttt{task:completed}. A interface do aluno intercepta esse evento e exibe instantaneamente o \textit{feedback} visual de sucesso (animação de conclusão e avanço no roteiro), mantendo o aprendiz em estado contínuo de imersão e foco cognitivo.
+    \item \textbf{Carga Inicial Segura:} No momento em que o discente desbloqueia o exame mediante a validação do token temporário, o servidor despacha ao cliente um pacote cifrado contendo os critérios estruturados de aceite;
+    \item \textbf{Assinaturas e Hashes Unidirecionais (SHA-256 e HMAC):} Em vez de transmitir códigos de teste em texto claro contendo caminhos literais, conteúdos ou comandos esperados, o envelope transporta exclusivamente \textit{hashes} criptográficos unidirecionais das propriedades-alvo do VFS (estrutura de nós normalizada, hash do conteúdo dos arquivos e máscaras de permissão discretas associadas a um \textit{nonce} exclusivo da sessão);
+    \item \textbf{Inviolabilidade via DevTools:} Caso o estudante acione o console de desenvolvedor (F12) e tente examinar as variáveis de teste em memória ou inspecionar o código do motor local, visualizará unicamente cadeias criptográficas não reversíveis. Não há como inferir a resposta correta ou forjar a aprovação de uma questão manipulando variáveis primitivas, preservando a higidez do exame mesmo na camada do cliente.
 \end{enumerate}
 
-\subsection{Natureza Multifacetada do Linux e Auditoria Comportamental}
-Essa abordagem fundamenta-se na própria natureza do ecossistema Linux, no qual inexiste um comando único para resolver determinada tarefa operacional. Por exemplo, a atribuição de permissões de leitura e escrita a um arquivo pode ser executada por notação octal (\texttt{chmod 644 arquivo.txt}) ou simbólica (\texttt{chmod u=rw,go=r arquivo.txt}); a busca por padrões de texto pode ser conduzida combinando \texttt{cat} e \texttt{grep} via \textit{pipes} ou diretamente através do argumento de entrada do utilitário \texttt{grep}.
+\subsection{Comutação Automática Online/Offline (Graceful Degradation)}
+\label{sec:comutacao-offline}
 
-Dessa forma, o motor de retaguarda atua em dois níveis complementares:
+O simulador implementa um mecanismo de degradação suave (\textit{Graceful Degradation}) que gerencia a transição de conectividade de forma transparente:
 \begin{itemize}
-    \item \textbf{Validação por Estado (Determinística):} O servidor avalia exclusivamente o resultado final refletido no VFS (verificando se o arquivo existe no caminho esperado, se possui o UID correto e se as permissões atendem à máscara exigida), assegurando aprovação pedagógica independentemente da rota sintática adotada pelo discente;
-    \item \textbf{Análise Comportamental e Auditoria em Tempo Real:} A persistência cronológica de todas as instruções permite à docente mapear a proficiência dos comandos utilizados, diagnosticar lacunas conceituais recorrentes e garantir a integridade formal da avaliação contra tentativas de trapaça.
+    \item \textbf{Regime Conectado (Fluxo Primário):} O terminal processa comandos no VFS local e despacha em segundo plano o comando e o snapshot diferencial via \textit{WebSocket}. O servidor valida as asserções em ambiente seguro, atualiza o \textit{Cockpit} docente em tempo real e devolve a confirmação visual de conclusão;
+    \item \textbf{Regime Desconectado (Contingência Local):} Diante da perda do canal \textit{WebSocket}, o cliente detecta a desconexão sem emitir alertas intrusivos que desestabilizem o estudante. O motor chaveia automaticamente a checagem para o avaliador local alimentado pelos hashes cifrados. Ao atingir o estado que satisfaz a assinatura matemática da questão, a interface emite a confirmação de conclusão da tarefa e avança para a próxima etapa do roteiro;
+    \item \textbf{Armazenamento Transacional no IndexedDB:} Durante o período desconectado, toda a trilha de comandos executados, tempos de resposta, saídas de erro e \textit{snapshots} intermediários é persistida com assinatura cronológica local no banco transacional \textit{IndexedDB} do navegador, garantindo imunidade contra fechamento acidental de abas ou reinicialização da máquina.
+\end{itemize}
+
+\subsection{Reconciliação Soberana no Servidor (Replay \& Audit)}
+\label{sec:reconciliacao-servidor}
+
+A autoridade final sobre o resultado e a nota definitiva pertence exclusivamente à camada servidora:
+\begin{itemize}
+    \item \textbf{Replay Determinístico e Auditoria Canônica:} Assim que a conectividade for restabelecida (ou quando o estudante realizar a entrega via upload de contingência), a fila acumulada no \textit{IndexedDB} é transmitida ao servidor. O motor em Go reconstitui sequencialmente o VFS a partir do log bruto de comandos e executa a suíte canônica de testes de aceitação em ambiente controlado;
+    \item \textbf{Verificação de Coerência e Detecção de Fraude:} O servidor confronta as asserções validadas localmente pelo motor de hashes com o resultado oficial do \textit{replay} no servidor. Qualquer discrepância entre a progressão local em modo offline e o estado canônico reconstituído é sinalizada como anomalia grave na \textit{Timeline Forense}, assegurando que nenhuma manipulação de scripts no navegador possa adulterar a pontuação homologada;
+    \item \textbf{Fidelidade à Pluralidade POSIX:} Como a reconstituição avalia o estado final refletido no VFS e a consistência da sequência de comandos, o sistema acolhe qualquer caminho sintaticamente válido oferecido pelo ecossistema Linux (notação octal versus simbólica em \texttt{chmod}, encadeamento via \textit{pipes} ou redirecionamentos de arquivo), conferindo aprovação justa independentemente da alternativa técnica selecionada pelo discente.
 \end{itemize}
 
 % ----------------------------------------------------------
@@ -62,7 +80,7 @@ Dessa forma, o motor de retaguarda atua em dois níveis complementares:
 \label{sec:governanca-seguranca}
 % ----------------------------------------------------------
 
-A aplicação de avaliações práticas em ambiente computacional exige um arcabouço rigoroso de governança que equilibre a supervisão pedagógica em tempo real, a prevenção ativa contra tentativas de trapaça e a tolerância a comportamentos acidentais. Em consonância com a arquitetura reativa orientada a eventos, a plataforma estrutura seus mecanismos de controle em oito eixos operacionais: o suporte síncrono em sala de aula, a detecção heurística de ferramentas de inspeção, o bloqueio de concorrência de sessões, a telemetria forense de rede, a gestão de janelas temporais com chaves dinâmicas, a trilha de auditoria cronológica (\textit{Timeline Forense}), o dossiê de avaliação formativa com revisão manual de notas e a contingência operacional com reabertura de sessão e compensação temporal dinâmica.
+A aplicação de avaliações práticas em ambiente computacional exige um arcabouço rigoroso de governança que equilibre a supervisão pedagógica em tempo real, a prevenção ativa contra tentativas de trapaça e a tolerância a comportamentos acidentais. Em consonância com a arquitetura reativa orientada a eventos, a plataforma estrutura seus mecanismos de controle em nove eixos operacionais: o suporte síncrono em sala de aula, a detecção heurística de ferramentas de inspeção, o bloqueio de concorrência de sessões, a telemetria forense de rede, a gestão de janelas temporais com chaves dinâmicas, a trilha de auditoria cronológica (\textit{Timeline Forense}), o dossiê de avaliação formativa com revisão manual de notas, a contingência operacional com compensação temporal dinâmica e a contingência offline com reconciliação de pacotes de prova (\texttt{.proof}).
 
 \subsection{Dinâmica Pedagógica da Fila de Suporte: A Mãozinha Virtual}
 \label{sec:fila-suporte}
@@ -151,4 +169,14 @@ Em cenários reais de avaliação presencial com turmas numerosas, ocorrem situa
     \item \textbf{Restauração Instantânea do Estado via WebSocket:} Ao ser disparada a reabertura no servidor, o canal de \textit{WebSocket} despacha o evento \texttt{session:reopened} para o terminal do aluno. O cliente desbloqueia a tela de digitação e remonta a árvore do VFS exatamente no último \textit{snapshot} serializado capturado antes da paralisação, sem perda de arquivos ou comandos previamente executados;
     \item \textbf{Compensação Automática do Tempo Suspenso ($\Delta t$):} O servidor calcula matematicamente o intervalo exato entre o instante de encerramento/bloqueio ($t_{\text{bloqueio}}$) e o instante de reabertura efetiva ($t_{\text{reabertura}}$), determinando a diferença $\Delta t = t_{\text{reabertura}} - t_{\text{bloqueio}}$. Esse delta temporal é acrescido de maneira automática e atômica à data limite oficial da sessão ($t_{\text{limite}} \leftarrow t_{\text{limite}} + \Delta t$). O temporizador regressivo na tela do discente recalibra-se em tempo real, neutralizando integralmente qualquer prejuízo cognitivo ou de tempo decorrente da interrupção;
     \item \textbf{Consolidação na Linha do Tempo Forense:} O marco de suspensão, a reabertura, a identificação da professora responsável, o motivo declarado e a quantidade exata de minutos ou segundos compensados são inseridos de forma indelével na \textit{Timeline Forense} da avaliação, assegurando rastreabilidade e integridade institucional para futuras auditorias acadêmicas.
+\end{enumerate}
+
+\subsection{Contingência Offline e Reconciliação Soberana de Pacotes de Prova (.proof)}
+\label{sec:contingencia-offline-proof}
+
+Em situações extremas de pane de infraestrutura no laboratório (como a queima generalizada do \textit{switch} de rede ou a perda prolongada de acesso ao servidor durante o horário letivo), a plataforma prevê um protocolo de salvaguarda física da avaliação:
+\begin{enumerate}
+    \item \textbf{Exportação do Pacote Criptográfico (.proof):} Ao término do exame em regime desconectado, o estudante aciona o encerramento local e a interface gera um arquivo encapsulado com extensão \texttt{.proof}. Esse arquivo consolida o log integral de comandos, tempos de resposta, saídas de execução, o snapshot final do VFS persistido no \textit{IndexedDB} e um \textit{checksum} criptografado assinado pelo cliente;
+    \item \textbf{Custódia e Entrega Física à Docente:} O discente entrega o arquivo \texttt{.proof} à professora por meio de mídia física removível (pendrive institucional) ou transferência em rede ad-hoc. O painel administrativo do \textit{Cockpit} disponibiliza uma interface dedicada para importação e ingestão de pacotes de contingência;
+    \item \textbf{Ingestão e Validação Soberana no Servidor Go:} O servidor decodifica o arquivo, valida o \textit{checksum} de integridade, reconstitui a sessão de avaliação no banco de dados relacional e executa o processo soberano de validação canônica por \textit{replay}. O status da tentativa é registrado na \textit{Timeline Forense} sob a rubrica ``\textit{Reconciliado via Pacote Offline}'', preservando integralmente o esforço avaliativo do estudante sem a necessidade de reaplicação do exame.
 \end{enumerate}
