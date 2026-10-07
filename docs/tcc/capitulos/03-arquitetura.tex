@@ -58,41 +58,60 @@ Dessa forma, o motor de retaguarda atua em dois níveis complementares:
 \end{itemize}
 
 % ----------------------------------------------------------
-\section{Dinâmica Pedagógica da Fila de Suporte: A Mãozinha Virtual}
-\label{sec:fila-suporte}
+\section{Governança Avaliativa, Telemetria de Segurança e Políticas Anti-Fraude}
+\label{sec:governanca-seguranca}
 % ----------------------------------------------------------
+
+A aplicação de avaliações práticas em ambiente computacional exige um arcabouço rigoroso de governança que equilibre a supervisão pedagógica em tempo real, a prevenção ativa contra tentativas de trapaça e a tolerância a comportamentos acidentais. Em consonância com a arquitetura reativa orientada a eventos, a plataforma estrutura seus mecanismos de controle em cinco eixos operacionais: o suporte síncrono em sala de aula, a detecção heurística de ferramentas de inspeção, o bloqueio de concorrência de sessões, a telemetria forense de rede e a gestão de janelas temporais com chaves dinâmicas.
+
+\subsection{Dinâmica Pedagógica da Fila de Suporte: A Mãozinha Virtual}
+\label{sec:fila-suporte}
 
 Em aulas laboratoriais práticas com turmas numerosas, um dos gargalos pedagógicos mais críticos reside na gestão do atendimento a dúvidas: múltiplos alunos erguem os braços simultaneamente, o docente perde a ordem cronológica dos chamados e dúvidas idênticas acabam sendo respondidas individualmente de forma exaustiva e repetitiva. Para solucionar esse problema, a plataforma incorpora o protocolo síncrono da \textbf{Fila de Suporte (Mãozinha Virtual)}, estruturado em três etapas operacionais integradas via \textit{WebSockets}:
 
-\subsection{Abertura Qualificada do Pedido de Ajuda (Levantar a Mão)}
-Ao acionar o comando de suporte na interface do terminal (``Pedir Ajuda''), o sistema exige obrigatoriamente que o estudante preencha um resumo textual sucinto descrevendo a natureza da sua dúvida ou o obstáculo enfrentado. Essa exigência pedagógica cumpre um duplo papel:
 \begin{enumerate}
-    \item Estimula o discente a exercitar a metacognição e a capacidade de síntese técnica, forçando-o a formular o problema de maneira estruturada antes de solicitar o auxílio docente;
-    \item Evita chamados vazios, desatentos ou acionamentos acidentais do botão de ajuda.
+    \item \textbf{Abertura Qualificada do Pedido de Ajuda (Levantar a Mão):} Ao acionar o comando de suporte na interface do terminal (``Pedir Ajuda''), o sistema exige obrigatoriamente que o estudante preencha um resumo textual sucinto descrevendo a natureza da sua dúvida ou o obstáculo enfrentado. Essa exigência pedagógica exercita a capacidade de síntese e metacognição do discente, forçando-o a estruturar o problema conceitualmente e eliminando chamados vazios ou acidentais. Uma vez despachado o evento \texttt{help:request}, o servidor insere um novo cartão na fila do painel docente (\textit{Cockpit}), ordenado pela disciplina cronológica FIFO (\textit{First-In, First-Out}), com data/hora, identificação do discente, terminal e descrição;
+    \item \textbf{Cancelamento Autônomo (Abaixar a Mão):} Durante a espera na fila, caso o estudante consiga resolver o problema sozinho ou acompanhar uma explicação coletiva em sala, ele pode acionar a qualquer momento a opção ``Abaixar a Mão'', despachando \texttt{help:cancel}. O servidor remove instantaneamente o cartão da fila docente via \textit{WebSocket}, valorizando a autorregulação e evitando atendimentos desnecessários;
+    \item \textbf{Atendimento Privado e Broadcast Inteligente:} A professora dispõe de dois modos de atendimento: a resposta individual discreta (diálogo 1:1 sobreposto ao terminal do aluno) e a resposta em lote por transmissão pública (\textit{multiselect}). Na resposta em lote, a docente seleciona múltiplos chamados correlatos e redige uma única orientação, a qual é transmitida para a turma mencionando os estudantes contemplados (exemplo: ``\textit{Respondendo às dúvidas de Aluno A, Aluno B e Aluno C: [Orientações da Docente]}''), resolvendo simultaneamente todos os chamados agrupados.
 \end{enumerate}
 
-Uma vez confirmado o envio, o cliente despacha o evento \texttt{help:request} pelo socket. O servidor registra a solicitação e insere um novo cartão na fila do painel docente (\textit{Cockpit}), ordenado rigorosamente pela disciplina cronológica FIFO (\textit{First-In, First-Out}), contendo o carimbo de data/hora, identificação do discente, terminal associado e o texto da dúvida.
+\subsection{Políticas de Integridade e Detecção de DevTools com Avisos Escalonados}
+\label{sec:integridade-devtools}
 
-\subsection{Cancelamento Autônomo (Abaixar a Mão)}
-Durante o intervalo de espera na fila, é comum que o estudante continue experimentando comandos no terminal, consulte a documentação contextual da plataforma ou ouça um esclarecimento coletivo em sala, conseguindo superar o obstáculo por esforço próprio. 
+A integridade de uma avaliação prática computadorizada demanda proteção ativa contra a inspeção e a manipulação do código de execução no cliente. No entanto, em ambientes educacionais, o disparo de atalhos de teclado (como \texttt{F12}, \texttt{Ctrl+Shift+I} ou a alternância rápida de janelas com \texttt{Alt+Tab}) pode ocorrer de forma involuntária ou acidental pelo estudante. Para mitigar esse atrito sem prescindir do rigor avaliativo, o sistema implementa uma política de avisos escalonados e detecção em tempo real:
 
-Nessa situação, o discente tem autonomia para acionar a qualquer momento a opção ``Abaixar a Mão'', despachando o evento \texttt{help:cancel}. O servidor remove instantaneamente o respectivo cartão da fila do painel docente via \textit{WebSocket}, evitando deslocamentos desnecessários da professora e incentivando a autorregulação e a persistência na resolução de problemas.
+\begin{enumerate}
+    \item \textbf{Sensoriamento Contínuo no Cliente:} O cliente mantém sentinelas em segundo plano que monitoram variações anômalas no redimensionamento da janela de exibição (\textit{window inner/outer dimensions mismatch}), limiares de tempo de execução causados por pontos de interrupção (\textit{debugger timing traps}) e eventos de perda de visibilidade da página por meio da API W3C \texttt{visibilitychange};
+    \item \textbf{Primeira Ocorrência (Advertência Pedagógica):} Na primeira detecção de abertura de ferramentas de depuração ou perda de foco prolongada da aba de prova, o sistema não penaliza imediatamente a nota. Em vez disso, bloqueia temporariamente a digitação e apresenta um modal instrutivo em tela cheia, advertindo formalmente o discente sobre as regras de integridade e registrando a advertência local;
+    \item \textbf{Reincidência e Notificação ao Painel Docente:} Caso o comportamento persista ou o estudante reabra as ferramentas de desenvolvedor, o cliente despacha imediatamente o evento \texttt{security:violation} pelo canal \textit{WebSocket}. O servidor registra a infração na trilha de telemetria forense e atualiza o \textit{card} do aluno no painel do professor com um indicador visual de alerta crítico (\textit{badge} de atenção). O sistema preserva a soberania da autoridade pedagógica, conferindo à docente a prerrogativa de verificar os registros circunstanciais, advertir presencialmente o aluno, desconsiderar falsos positivos ou anular a tentativa avaliativa.
+\end{enumerate}
 
-\subsection{Atendimento Docente: Resposta Privada e Broadcast Inteligente}
-No painel do professor, os chamados acumulados oferecem dois modos de resolução síncrona:
+\subsection{Bloqueio de Concorrência de Sessão (Mutex Anti-Proxy)}
+\label{sec:mutex-sessao}
+
+Uma vulnerabilidade recorrente em exames computadorizados é o compartilhamento indevido de credenciais de acesso, no qual um discente presente no laboratório cede seu login a um colaborador externo (\textit{proxy} humano) para a resolução remota paralela da prova.
+
+Para erradicar essa prática, a plataforma implementa uma trava de exclusão mútua de sessão (\textit{Session Mutex}) gerenciada no servidor sobre o protocolo de \textit{WebSockets}:
 \begin{itemize}
-    \item \textbf{Atendimento Individual Privado:} Caso a dúvida seja muito específica ou atípica, a professora pode acionar o atendimento individual, abrindo uma janela de diálogo discreta (1:1) sobreposta ao terminal do respectivo estudante, prestando orientações sem interromper a concentração dos demais colegas;
-    \item \textbf{Resposta em Lote por Broadcast Inteligente:} Ao constatar que múltiplos estudantes estão enfrentando a mesma dificuldade conceitual (por exemplo, erros na sintaxe de criação de grupos com \texttt{groupadd} ou confusão entre caminhos relativos e absolutos), a docente pode utilizar o recurso de múltipla seleção (\textit{multiselect}) no painel, selecionando todos os cartões correlatos e redigindo uma única resposta pública.
+    \item \textbf{Unicidade Estrita de Conexão:} Cada estudante autenticado por Registro Acadêmico (RA) só pode manter exatamente uma conexão \textit{socket} ativa por avaliação;
+    \item \textbf{Derrubada Automática e Registro de Colisão:} Se uma nova tentativa de conexão for estabelecida com as mesmas credenciais (seja a partir de outro navegador, aba em modo anônimo ou dispositivo remoto distinto), o servidor derruba instantaneamente o canal de comunicação anterior com o código de encerramento \texttt{4409 Conflict} e emite a notificação: ``\textit{Conexão Encerrada: Nova sessão de avaliação detectada em outro dispositivo}'';
+    \item \textbf{Alerta Imediato de Fraude:} O evento de colisão gera uma notificação prioritária no painel docente em tempo real, informando o endereço IP de ambas as pontas e o carimbo de data/hora da tentativa, permitindo a flagrância do compartilhamento indevido.
 \end{itemize}
 
-O sistema processa o evento de transmissão em lote e distribui a resposta globalmente para a turma, formatando a mensagem com menção explícita aos estudantes contemplados (exemplo: ``\textit{Respondendo às dúvidas de Aluno A, Aluno B e Aluno C: [Orientações da Docente]}''). Simultaneamente, o servidor marca todos os chamados selecionados como resolvidos, removendo os respectivos cartões da fila docente e encerrando as notificações de espera nos navegadores dos estudantes atendidos.
+\subsection{Telemetria Forense de Rede, Geolocalização e Limitações de Sandbox}
+\label{sec:telemetria-forense}
 
-% ----------------------------------------------------------
-\section{Segurança de Prova: Tokens Dinâmicos e Janelas Temporais}
+Como camada complementar de auditoria pós-exame, cada submissão e evento crítico de sessão é enriquecido com metadados de contexto de rede e ambiente operacional:
+\begin{itemize}
+    \item \textbf{Captura e Triagem de Endereços IP:} O servidor extrai o endereço IP público de origem e analisa o cabeçalho de proxy reverso corporativo. Em exames presenciais, o sistema permite à docente configurar um filtro de sub-rede institucional, confirmando automaticamente se todas as conexões provêm do bloco de rede e do \textit{gateway} exclusivo do laboratório físico da UTFPR;
+    \item \textbf{Fingerprinting de Navegador e Coordenadas:} O cliente realiza uma composição de atributos de ambiente (\textit{User-Agent}, resolução de vídeo, idioma do sistema e \textit{timezone}), associando um \textit{hash} de integridade à sessão. Em avaliações autorizadas para modalidade remota, quando houver consentimento explícito do usuário, o sistema pode coletar as coordenadas aproximadas via API W3C de Geolocalização, subsidiando investigações de comissões acadêmicas em casos de suspeita fundamentada;
+    \item \textbf{Delimitação de Sandbox e Privacidade W3C:} Cabe ressaltar formalmente que, devido às especificações universais de segurança e privacidade dos navegadores modernos mantidas pelo consórcio W3C, aplicações web executadas em modo \textit{sandbox} são estritamente impedidas de acessar identificadores de hardware de camada de enlace (como o endereço físico \textit{MAC Address} da interface de rede). Portanto, a eficácia do modelo de integridade apoia-se deliberadamente na combinação entre barreiras da camada de aplicação (tokens dinâmicos e travas de mutex) e verificações na camada de rede (triagem de IP institucional e canais criptografados TLS).
+\end{itemize}
+
+\subsection{Tokens Dinâmicos de Liberação e Janelas Temporais de Aplicação}
 \label{sec:seguranca-prova}
-% ----------------------------------------------------------
 
-O acesso a avaliações presenciais e exames formais é governado por um protocolo de segurança multicamadas:
+O controle temporal e a circunscrição espacial dos exames completam o protocolo de governança da plataforma:
 \begin{itemize}
     \item \textbf{Tokens Dinâmicos de Liberação em Sala:} No início da aula presencial de avaliação, a docente projeta ou divulga um código de sessão temporário com validade restrita ao horário letivo, impedindo que discentes iniciem a prova antecipadamente ou a realizem fora do laboratório físico;
     \item \textbf{Temporizador Sincronizado no Servidor:} A contagem regressiva e o encerramento do prazo de submissão baseiam-se estritamente no relógio oficial do servidor, inviabilizando fraudes por manipulação do relógio do sistema operacional do computador do aluno;

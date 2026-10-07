@@ -135,8 +135,21 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 - `status`: ENUM (`EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO`)
 - `nota_final`: DECIMAL(5,2) NULL
 - `ip_origem`: VARCHAR(45)
+- `subrede_laboratorio_valida`: BOOLEAN DEFAULT true (Verifica se IP pertence à sub-rede institucional do lab)
 - `user_agent`: TEXT
+- `fingerprint_hash`: VARCHAR(64) (Hash unidirecional dos parâmetros de ambiente do navegador)
+- `resolucao_tela`: VARCHAR(20) (ex: "1920x1080")
+- `geolocalizacao_estimada`: JSONB NULL (Latitude, longitude e precisão quando autorizado na modalidade remota)
+- `conexoes_ativas_count`: INTEGER DEFAULT 1 (Controle de concorrência do mutex de sessão)
 - *Constraint:* UNIQUE(`avaliacao_id`, `aluno_id`, `janela_id`)
+
+#### `InfracaoSeguranca` (Registro Forense e Trilha de Auditoria Anti-Fraude)
+- `id`: UUID (PK)
+- `sessao_id`: UUID (FK ➔ `SessaoAvaliacao.id`)
+- `tipo`: ENUM (`DEVTOOLS_DETECTADO`, `VISIBILITY_TAB_HIDDEN`, `CONCORRENCIA_SESSAO_MUTEX`, `IP_FORA_SUBREDE`)
+- `nivel_advertencia`: ENUM (`PRIMEIRA_ADVERTENCIA_LOCAL`, `REINCIDENCIA_ALERTA_DOCENTE`, `ANULACAO_POTENCIAL`)
+- `detalhes`: JSONB (Metadados da ocorrência: deltas de janela, tempo de aba oculta, IPs conflitantes)
+- `registrado_em`: TIMESTAMP
 
 #### `SubmissaoQuestao` (Resultado por Questão e Telemetria)
 - `id`: UUID (PK)
@@ -365,4 +378,88 @@ export interface HelpResolvedPayload {
   resolvidoEm: string;
 }
 ```
+
+### 6.3 Governança Avaliativa, Telemetria de Segurança e Políticas Anti-Fraude
+
+#### 1. Detecção Heurística de DevTools e Visibilidade (`security:violation`)
+O cliente monitora redimensionamentos discrepantes, sentinelas de depuração e alternância de aba (`visibilitychange`). Na primeira ocorrência, é gerada uma advertência modal local. Na reincidência, despacha-se o evento de violação para registro e exibição no Cockpit docente.
+
+```typescript
+// Evento emitido pelo cliente na reincidência: 'security:violation'
+export interface SecurityViolationPayload {
+  sessaoId: string;
+  alunoId: string;
+  ra: string;
+  tipo: 'DEVTOOLS_DETECTADO' | 'VISIBILITY_TAB_HIDDEN';
+  tempoOcultoMs?: number;
+  janelaDimensoes?: {
+    innerWidth: number;
+    innerHeight: number;
+    outerWidth: number;
+    outerHeight: number;
+  };
+  reincidenciaNumero: number;
+  timestamp: number;
+}
+
+// Evento emitido pelo servidor para o Cockpit docente: 'cockpit:student-security-alert'
+export interface CockpitSecurityAlertPayload {
+  alunoId: string;
+  ra: string;
+  nome: string;
+  terminalId: string;
+  tipo: 'DEVTOOLS_DETECTADO' | 'VISIBILITY_TAB_HIDDEN' | 'CONCORRENCIA_SESSAO_MUTEX';
+  reincidenciasTotal: number;
+  statusBadge: 'ALERTA_AMARELO' | 'ALERTA_VERMELHO_CRITICO';
+  mensagemDescritiva: string;
+  detectadoEm: string;
+}
+```
+
+#### 2. Bloqueio de Concorrência de Sessão e Mutex Anti-Proxy (`session:mutex`)
+Cada avaliação ativa mantém exclusão mútua estrita de conexão. Uma nova conexão com as mesmas credenciais causa a terminação imediata da sessão anterior.
+
+```typescript
+// Evento enviado pelo servidor para a conexão anterior encerrada: 'session:terminated'
+export interface SessionTerminatedPayload {
+  sessaoId: string;
+  motivoCodigo: '4409_CONFLICT';
+  motivoTexto: 'Conexão encerrada: Nova sessão de avaliação detectada em outro dispositivo.';
+  novoIpConexao: string;
+  terminadoEm: string;
+}
+
+// Notificação emitida para o Cockpit docente: 'cockpit:session-collision'
+export interface SessionCollisionAlertPayload {
+  alunoId: string;
+  ra: string;
+  nome: string;
+  sessaoId: string;
+  ipSessaoAnterior: string;
+  ipNovaSessao: string;
+  colisaoDetectadaEm: string;
+}
+```
+
+#### 3. Handshake Forense de Rede e Limitações de Sandbox
+No momento do handshake WebSocket e início da avaliação, o cliente transmite metadados forenses permitidos pela sandbox do navegador:
+
+```typescript
+// Payload transmitido no handshake de conexão: 'session:handshake'
+export interface SessionHandshakePayload {
+  sessaoId: string;
+  tokenLiberacao: string;
+  fingerprintHash: string; // Hash SHA-256 de User-Agent, canvas, WebGL e idioma
+  screenResolution: string; // ex: "1920x1080"
+  timezone: string; // ex: "America/Sao_Paulo"
+  geolocalizacaoOpcional?: {
+    latitude: number;
+    longitude: number;
+    precisaoMetros: number;
+  };
+}
+```
+
+*Nota Técnica sobre Limitações de Sandbox W3C:* Em conformidade com o modelo de segurança e privacidade da W3C, navegadores web modernos operam em sandbox estrita e não fornecem acesso a dados de hardware de nível de enlace (como endereço MAC da placa de rede). Portanto, a higidez das avaliações fundamenta-se na triagem de IP institucional no gateway do laboratório da UTFPR, no controle de concorrência por mutex e nas sentinelas heurísticas de aplicação.
+
 
