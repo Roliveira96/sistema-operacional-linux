@@ -224,6 +224,8 @@ Boa parte desses mecanismos se comunica por eventos trocados via \textit{WebSock
         \hline
         \texttt{session:reopened} & Servidor & Desbloqueia o terminal e restaura o último \textit{snapshot} \\
         \hline
+        \texttt{session:machine-changed} & Servidor & Avisa a professora que o aluno retomou a prova em outra máquina \\
+        \hline
         \texttt{announcement:new} & Servidor & Exibe um novo aviso para os alunos conectados \\
         \hline
         \texttt{cockpit:announcement-receipt} & Servidor & Atualiza no painel do professor quem já confirmou a leitura \\
@@ -304,6 +306,20 @@ Uma fraude comum em provas no computador é o aluno presente no laboratório pas
     \item \textbf{alerta imediato:} a colisão aparece em destaque no \textit{Cockpit}, com o IP das duas conexões e o horário da tentativa.
 \end{enumerate}
 
+\subsection{Troca de Máquina por Falha de Equipamento}
+\label{sec:troca-maquina}
+
+A trava de sessão única não pode prejudicar o aluno quando o problema é do equipamento. Se o computador travar, desligar ou perder a placa de rede no meio da prova, o aluno pode continuar em outra máquina, desde que a sessão anterior esteja encerrada. O fluxo é o seguinte:
+
+\begin{enumerate}
+    \item \textbf{encerramento da sessão anterior:} o servidor considera a sessão encerrada quando a conexão \textit{WebSocket} da máquina antiga é fechada ou deixa de responder às mensagens de verificação de vida (\textit{ping}/\textit{pong}) previstas no protocolo \cite{fette2011websocket}. Enquanto a conexão antiga estiver ativa, vale a regra da sessão única e um novo acesso é tratado como colisão;
+    \item \textbf{retomada em outra máquina:} com a sessão anterior encerrada, o aluno entra pela nova máquina com as mesmas credenciais, dentro da janela da prova;
+    \item \textbf{estado recriado:} como cada comando e cada \textit{snapshot} já vinham sendo enviados ao servidor pelo \textit{WebSocket}, a prova volta exatamente de onde parou. O servidor reconstrói o VFS a partir do último \textit{snapshot} recebido, com arquivos, diretórios, permissões e usuários recriados, e devolve ao terminal o histórico de comandos e o andamento de cada questão;
+    \item \textbf{aviso ao aplicador:} o servidor envia o evento \texttt{session:machine-changed} ao \textit{Cockpit}, informando à professora que aplica a prova que o aluno trocou de máquina, com o IP das duas máquinas e os horários da queda e da retomada. A troca também é registrada na linha do tempo de auditoria.
+\end{enumerate}
+
+Assim, a regra distingue as duas situações: duas conexões simultâneas indicam possível fraude e geram colisão; uma conexão que caiu e foi retomada em outro equipamento é tratada como incidente técnico, com o professor informado para acompanhar.
+
 \subsection{Telemetria Forense de Rede, Geolocalização e Limitações de Sandbox}
 \label{sec:telemetria-forense}
 
@@ -335,7 +351,7 @@ Cada sessão de prova gera uma linha do tempo (\textit{timeline} de auditoria), 
     \item o momento em que o aluno entrou na prova com o \textit{token} da sala;
     \item a ordem em que o aluno navegou entre as questões, com as tentativas intermediárias, os comandos executados e o horário em que cada uma foi concluída;
     \item os pedidos de ajuda: horário, texto da dúvida e como foi resolvido (resposta individual, resposta coletiva ou cancelamento pelo próprio aluno);
-    \item as anomalias: aberturas de \textit{DevTools}, perdas de foco da aba (\texttt{visibilitychange}) e colisões de sessão.
+    \item as anomalias e incidentes: aberturas de \textit{DevTools}, perdas de foco da aba (\texttt{visibilitychange}), colisões de sessão e trocas de máquina.
 \end{enumerate}
 
 Com essa visão, a professora consegue reconstruir o raciocínio do aluno e verificar se hesitações, erros repetidos ou anomalias coincidiram com os comandos mais difíceis.
