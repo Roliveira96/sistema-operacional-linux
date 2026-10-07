@@ -199,7 +199,7 @@ Aplicar provas práticas no computador exige equilibrar três coisas: acompanhar
 
 \begin{enumerate}
     \item \textbf{gestão da turma:} entrada de alunos, mudanças de situação ao longo do semestre e comunicação com a turma (Seções~\ref{sec:onboarding-discente} a~\ref{sec:mural-avisos});
-    \item \textbf{apoio durante a aula:} fila de dúvidas (Seção~\ref{sec:fila-suporte});
+    \item \textbf{apoio durante a prova:} fila de dúvidas, disponível somente enquanto a prova está em andamento (Seção~\ref{sec:fila-suporte});
     \item \textbf{integridade da prova:} detecção de DevTools, sessão única, telemetria de rede, \textit{tokens} e janelas de horário (Seções~\ref{sec:integridade-devtools} a~\ref{sec:seguranca-prova});
     \item \textbf{auditoria e contingência:} linha do tempo, revisão de notas, reabertura de sessão e entrega \textit{offline} (Seções~\ref{sec:timeline-forense} a~\ref{sec:contingencia-offline-proof}).
 \end{enumerate}
@@ -272,7 +272,7 @@ Avisos dados verbalmente em sala ou publicados em fóruns pouco visitados geram 
 \subsection{Dinâmica Pedagógica da Fila de Suporte: A Mãozinha Virtual}
 \label{sec:fila-suporte}
 
-Em turmas grandes, atender dúvidas no laboratório é um gargalo: vários alunos levantam a mão ao mesmo tempo, a ordem de chegada se perde e a mesma dúvida é respondida várias vezes. A \textbf{Fila de Suporte (Mãozinha Virtual)} organiza esse atendimento em três etapas:
+Em provas com turmas grandes, atender dúvidas no laboratório é um gargalo: vários alunos levantam a mão ao mesmo tempo, a ordem de chegada se perde e a mesma dúvida é respondida várias vezes. A \textbf{Fila de Suporte (Mãozinha Virtual)} organiza esse atendimento. Ela existe somente durante a aplicação de uma prova: fica disponível quando o aluno entra com o \textit{token} da sala e é encerrada junto com a prova, já que depende do \textit{Cockpit} e do canal \textit{WebSocket}, que também só funcionam nesse período. O atendimento segue três etapas:
 
 \begin{enumerate}
     \item \textbf{levantar a mão:} ao clicar em ``Pedir ajuda'', o aluno precisa escrever um resumo curto da dúvida. Além de evitar chamados vazios ou acidentais, isso o obriga a organizar o próprio problema, o que já é um exercício de metacognição. O evento \texttt{help:request} cria um cartão na fila do \textit{Cockpit}, em ordem de chegada (FIFO), com horário, nome, terminal e descrição;
