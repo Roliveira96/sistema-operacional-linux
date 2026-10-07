@@ -327,7 +327,7 @@ Além das tarefas no terminal, a professora usa questões teóricas, como ``desc
 Nas questões teóricas, o terminal fica bloqueado enquanto a questão está aberta, para que a resposta reflita o conhecimento do aluno, e não uma consulta ao simulador. Cada tipo tem os próprios campos e regras:
 
 \begin{enumerate}
-    \item \textbf{prática:} cenário, solução e validação, como descrito na seção anterior;
+    \item \textbf{prática (ou laboratório):} desafio técnico executado diretamente no terminal emulado e avaliado de forma determinística pelo estado do VFS. O aluno interage com o sistema operacional para manipular arquivos, diretórios, permissões, usuários e processos; ao término, o motor de asserções valida se o estado final do VFS cumpre rigorosamente as condições pedagógicas cadastradas;
     \item \textbf{escolha única:} alternativas e a indicação da correta, com uma explicação exibida ao aluno após a correção. As questões teóricas que hoje existem no código, no formato de questionário de certificação, são migradas pelo \textit{seed} para este tipo;
     \item \textbf{booleana:} uma afirmação, os rótulos das duas opções, definidos pela professora (``Sim'' e ``Não'', ``Verdadeiro'' e ``Falso'', ``Certo'' e ``Errado''), e qual delas é a correta, com explicação opcional;
     \item \textbf{múltipla seleção:} alternativas, a indicação de todas as corretas e a forma de pontuar, definida pela professora: tudo ou nada, ou pontuação proporcional aos acertos, descontando as marcações erradas;
@@ -402,7 +402,7 @@ A herança copia a \textbf{receita} do cenário, não o estado de uma máquina e
 
 Esse isolamento segue uma regra consolidada na área de testes de \textit{software}: cada teste deve montar o próprio ambiente do zero (\textit{fresh fixture}), pois testes que dependem do que outros deixaram para trás falham de forma imprevisível \cite{meszaros2007xunit}. Ele também é o que permite a navegação livre entre as questões (Seção~\ref{sec:dependencia-rede}) e o sorteio descrito adiante. Manter uma máquina por questão é viável porque cada máquina simulada ocupa cerca de 2\,MB de memória JavaScript (Seção~\ref{sec:impacto-pedagogico}).
 
-Quando a professora edita um cenário que serve de base para outros, os herdeiros passam a usar a versão nova, e o bloco de teste, descrito a seguir, é executado novamente em todos eles, apontando os que deixaram de funcionar.
+Confirma-se, assim, a robustez do \textbf{modelo em camadas}: ao alterar um cenário-base, todas as questões filhas herdam imediatamente as alterações. Para assegurar a integridade do banco e impedir que alterações na receita-base causem falhas silenciosas nas questões derivadas, a plataforma dispara automaticamente uma suíte de testes de validação em cadeia (\textit{cascading validation}): a solução de referência de cada questão filha é reexecutada a partir do novo cenário-base. Caso qualquer validação falhe, o sistema aponta com precisão as quebras e impede a publicação do cenário atualizado até que as pendências sejam sanadas pela professora.
 
 \subsection{Bloco de Teste e Publicação}
 \label{sec:bloco-teste}
@@ -425,12 +425,18 @@ Esse mecanismo leva para a interface da professora a mesma verificação que hoj
 
 Cada turma tem as suas atividades avaliativas e as suas provas, mas, de um semestre para o outro, a professora costuma repetir boa parte delas. Montar de novo, em cada turma, uma lista de atividades com cem questões do banco, ou refazer toda a configuração de uma prova, seria um trabalho repetitivo e sujeito a erros. Por isso, atividades e provas são criadas como \textbf{modelos}, independentes de turma, e depois aplicadas às turmas quantas vezes for preciso.
 
+A plataforma estabelece uma distinção formal entre os dois formatos de avaliação:
+\begin{enumerate}
+    \item \textbf{atividade:} lista de exercícios ou roteiro avaliativo assíncrono com prazo de entrega estendido (definido em dias), realizado de forma autônoma pelo discente fora do laboratório, sem a exigência de \textit{token} presencial de sala e sem acionar a telemetria síncrona no \textit{Cockpit} docente;
+    \item \textbf{prova:} exame formal, síncrono e cronometrado (definido em horas), aplicado presencialmente no laboratório, com liberação condicionada ao \textit{token} dinâmico de presença, exclusão mútua de sessão (\textit{mutex anti-proxy}), telemetria em tempo real no \textit{Cockpit} docente e fila de suporte síncrona (``mãozinha virtual'').
+\end{enumerate}
+
 Um modelo reúne tudo o que define a avaliação, exceto as datas e a turma:
 
 \begin{enumerate}
     \item \textbf{título e descrição;}
-    \item \textbf{tipo:} atividade, como uma lista com prazo de entrega, ou prova, aplicada no laboratório;
-    \item \textbf{duração:} em horas, como uma prova de 4 horas, ou em dias, como uma atividade com 4 dias para entrega;
+    \item \textbf{tipo:} atividade assíncrona ou prova presencial de laboratório;
+    \item \textbf{duração:} em horas para provas, ou em dias para atividades com prazo de entrega;
     \item \textbf{questões:} a seleção fixa de questões ou o conjunto de questões com as regras de sorteio (Seção~\ref{sec:montagem-prova});
     \item \textbf{valor da avaliação:} a nota máxima, dividida igualmente entre as questões, com a possibilidade de valores individuais (Seção~\ref{sec:montagem-prova});
     \item \textbf{configurações:} como grupos inseparáveis e as regras para repescagens.
@@ -476,7 +482,7 @@ As questões de um modelo, seja de prova ou de atividade, vêm das questões de 
     \item \textbf{questões sorteadas:} a professora escolhe um conjunto maior de questões e define quantas questões cada aluno recebe e qual percentual delas deve ser de cada nível, por exemplo 40\% fáceis, 30\% médias e 30\% difíceis.
 \end{enumerate}
 
-Nas duas formas, a nota é ligada à quantidade de questões: o valor da avaliação é dividido igualmente entre as questões que o aluno recebe. Em uma prova de 10 pontos com 10 questões, cada questão vale 1 ponto. A professora pode, se quiser, definir valores individuais. Nas questões fixas, cada questão pode ter o seu valor, desde que a soma seja o valor da avaliação. Nas sorteadas, os valores individuais são definidos por nível, iguais para todas as questões do mesmo nível, para que todos os alunos tenham a mesma nota máxima, sejam quais forem as questões sorteadas.
+Nas duas formas, a nota é vinculada à quantidade de questões: por padrão, o valor da avaliação é dividido igualmente entre as questões que o aluno recebe (por exemplo, em uma prova de 10 pontos com 10 questões, cada questão vale 1 ponto). A professora pode, opcionalmente, definir valores customizados. Nas questões fixas, cada questão pode ter o seu valor individual, desde que a soma atinja o valor total da avaliação. Nas questões sorteadas, vigora formalmente a \textbf{regra de equivalência pedagógica}: caso a professora defina pesos individuais, esses valores são obrigatoriamente uniformes para todas as questões de um mesmo nível de dificuldade (iguais para todas as fáceis, iguais para todas as médias e iguais para todas as difíceis). Essa regra assegura que todos os discentes concorram rigorosamente sob a mesma pontuação máxima total possível, independentemente do subconjunto específico sorteado para cada um, preservando a isonomia avaliativa.
 
 No sorteio, o sistema converte os percentuais em quantidades. Com 10 questões por aluno e a proporção 40/30/30, cada aluno recebe 4 fáceis, 3 médias e 3 difíceis. Quando a conta não dá um número inteiro, o arredondamento distribui as sobras para os níveis com a maior parte fracionária, de modo que a soma seja sempre a quantidade total definida. O Quadro~\ref{qua:exemplo-sorteio} mostra o exemplo completo.
 
@@ -510,7 +516,7 @@ No exemplo do Quadro~\ref{qua:exemplo-sorteio}, dois alunos têm em média 5 das
 O sorteio segue estas regras:
 
 \begin{enumerate}
-    \item \textbf{equilíbrio entre os alunos:} todos recebem a mesma quantidade de questões de cada nível e a mesma nota máxima, ainda que as questões sejam diferentes;
+    \item \textbf{equivalência pedagógica e equilíbrio:} todos recebem a mesma quantidade de questões de cada nível e concorrem sob rigorosamente a mesma nota máxima total, em virtude da uniformidade dos pesos por nível, ainda que as questões sorteadas sejam diferentes entre os colegas;
     \item \textbf{validação da regra:} o sistema só aceita a regra se os percentuais somarem 100\% e se o conjunto tiver, em cada nível, pelo menos a quantidade de questões a sortear;
     \item \textbf{sorteio no servidor e registrado:} o sorteio é feito pelo servidor quando o aluno entra na prova, e as questões sorteadas ficam registradas na sessão. Assim, ele recebe as mesmas questões se reconectar, trocar de máquina (Seção~\ref{sec:troca-maquina}) ou tiver a sessão reaberta, e a professora pode conferir depois o que cada aluno recebeu;
     \item \textbf{embaralhamento dentro de cada nível:} as questões de cada nível são embaralhadas separadamente para cada aluno, o grupo das fáceis, o das médias e o das difíceis, o que dificulta a consulta ao colega ao lado; a ordem dos grupos, porém, nunca muda: primeiro as fáceis, depois as médias e por fim as difíceis (Seção~\ref{sec:modelos-avaliacao});
@@ -561,7 +567,7 @@ A trava de sessão única não pode prejudicar o aluno quando o problema é do e
 \begin{enumerate}
     \item \textbf{encerramento da sessão anterior:} o servidor considera a sessão encerrada quando a conexão \textit{WebSocket} da máquina antiga é fechada ou deixa de responder às mensagens de verificação de vida (\textit{ping}/\textit{pong}) previstas no protocolo \cite{fette2011websocket}. Enquanto a conexão antiga estiver ativa, vale a regra da sessão única e um novo acesso é tratado como colisão;
     \item \textbf{retomada em outra máquina:} com a sessão anterior encerrada, o aluno entra pela nova máquina com as mesmas credenciais, dentro da janela da prova;
-    \item \textbf{estado recriado:} como cada comando e cada \textit{snapshot} já vinham sendo enviados ao servidor pelo \textit{WebSocket}, a prova volta exatamente de onde parou. O servidor reconstrói o VFS a partir do último \textit{snapshot} recebido, com arquivos, diretórios, permissões e usuários recriados, e devolve ao terminal o histórico de comandos e o andamento de cada questão;
+    \item \textbf{estado recriado e ressalva técnica de buffer:} como cada comando submetido e cada \textit{snapshot} já vinham sendo transmitidos ao servidor pelo \textit{WebSocket} (ou gravados localmente no \textit{IndexedDB} em contingência), a prova volta exatamente do ponto confirmado. O servidor reconstrói o VFS a partir do último \textit{snapshot} recebido, com arquivos, diretórios, permissões e usuários recriados, e devolve ao terminal o histórico de comandos e o andamento de cada questão. Cabe ressaltar, contudo, a \textbf{ressalva técnica operacional}: comandos que estavam em curso de digitação no \textit{buffer} volátil do terminal do discente antes de um desligamento físico abrupto, pane elétrica ou travamento de hardware da máquina não são recuperados, sendo restaurado com fidelidade o estado confirmado até o último comando submetido (tecla Enter);
     \item \textbf{aviso ao aplicador:} o servidor envia o evento \texttt{session:machine-changed} ao \textit{Cockpit}, informando à professora que aplica a prova que o aluno trocou de máquina, com o IP das duas máquinas e os horários da queda e da retomada. A troca também é registrada na linha do tempo de auditoria.
 \end{enumerate}
 
@@ -692,16 +698,15 @@ Para a auditoria depois da prova, cada submissão e evento importante carrega in
 \subsection{Bloqueio e Encerramento da Prova pelo Professor}
 \label{sec:bloqueio-docente}
 
-Durante a aplicação, a professora pode interromper a prova de um aluno específico diretamente no \textit{Cockpit}, sem afetar o restante da turma. Isso é útil, por exemplo, para conversar com um aluno após um alerta de integridade, para apurar uma suspeita de fraude ou para encerrar a tentativa de quem saiu do laboratório. Há duas ações:
+Durante a aplicação, a professora pode intervir na prova de um aluno específico diretamente no \textit{Cockpit}, sem afetar o restante da turma. Isso é útil para apurar alertas de integridade, dialogar com um estudante ou consolidar entregas antecipadas. A governança da plataforma diferencia formalmente três operações com naturezas, impactos e fluxos distintos:
 
 \begin{enumerate}
-    \item \textbf{bloqueio:} interrompe temporariamente a prova. O terminal do aluno é travado e exibe uma mensagem informando que a prova foi pausada pela professora. Nada é perdido: o VFS, os arquivos e o histórico de comandos permanecem como estavam, e a professora pode liberar a prova depois, com o tempo parado devolvido (Seção~\ref{sec:reabertura-sessao});
-    \item \textbf{encerramento:} finaliza a tentativa do aluno antes do prazo. A sessão passa ao estado \texttt{BLOQUEADO\_DOCENTE}, o terminal é travado definitivamente e o trabalho feito até ali é corrigido normalmente pelo motor de asserções.
+    \item \textbf{bloqueio (pausa cautelar reversível):} interrompe temporariamente a prova. O terminal do aluno é travado e exibe uma mensagem informando que a sessão foi pausada pela professora. Nada é perdido: a árvore do VFS, os arquivos e o histórico de comandos permanecem intactos em memória, e a professora pode liberar a prova posteriormente pelo \textit{Cockpit}, com a devolução integral do tempo em que a sessão ficou parada ($\Delta t$), conforme detalhado na Seção~\ref{sec:reabertura-sessao};
+    \item \textbf{encerramento (finalização da tentativa pelo docente):} finaliza a tentativa do aluno antes do prazo regulamentar (por exemplo, quando o discente precisa retirar-se do laboratório por indisposição física ou decide entregar a prova antecipadamente). A sessão transiciona para o estado \texttt{BLOQUEADO\_DOCENTE}, o terminal é travado em definitivo e o trabalho executado até aquele instante é consolidado e corrigido normalmente pelo motor de asserções, gerando a nota técnica preliminar sobre o VFS. Enfatiza-se que \textbf{encerrar não significa anular a prova}: todo o esforço computacional e as tarefas cumpridas até a interrupção são devidamente pontuados;
+    \item \textbf{anulação (deliberação pedagógica independente):} ato administrativo formal e deliberativo de competência exclusiva da professora, realizado \textit{a posteriori} no painel de revisão de notas (Seção~\ref{sec:dossie-docente}) após a devida apuração circunstancial (como em casos comprovados de fraude disciplinar ou desvio grave de conduta). A anulação atribui nota zero à tentativa mediante o registro compulsório de justificativa formal na linha do tempo de auditoria, não se confundindo com o encerramento operacional imediato em sala.
 \end{enumerate}
 
-O encerramento antecipado pelo docente finaliza a sessão e consolida a correção técnica das tarefas executadas até o instante da interrupção, não se confundindo com a anulação da prova. Caso seja constatada infração disciplinar passível de anulação sumária, a atribuição de nota zero é realizada como deliberação pedagógica independente no painel de revisão de notas (Seção~\ref{sec:dossie-docente}), acompanhada de justificativa formal registrada na linha do tempo de auditoria.
-
-Nas duas ações, a professora precisa informar o motivo. O servidor envia o evento \texttt{session:blocked} ao terminal do aluno e registra na linha do tempo de auditoria o horário, a ação, quem a fez e o motivo. O bloqueio e o encerramento não alteram a nota por si: decidir se a tentativa será mantida, revisada ou anulada continua sendo uma decisão pedagógica da professora (Seção~\ref{sec:dossie-docente}). Como erros de operação podem acontecer, ambas as ações podem ser desfeitas, conforme descrito a seguir.
+Nas ações de bloqueio e encerramento em sala, a professora precisa informar o motivo operacional. O servidor envia o evento \texttt{session:blocked} ao terminal do aluno e registra na linha do tempo de auditoria o horário, a ação, o aplicador responsável e a justificativa declarada. O bloqueio e o encerramento não alteram a nota por si sós: decidir se a tentativa será mantida, revisada ou anulada continua sendo uma prerrogativa pedagógica da professora na fase de homologação (Seção~\ref{sec:dossie-docente}). Como equívocos de operação podem ocorrer em turmas numerosas, ambas as ações em sala podem ser revertidas, conforme descrito a seguir.
 
 \subsection{Reabertura de Sessão por Equívoco Operacional e Compensação Temporal Dinâmica}
 \label{sec:reabertura-sessao}

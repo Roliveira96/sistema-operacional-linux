@@ -857,6 +857,91 @@ export interface SessionReopenedPayload {
 }
 ```
 
+### 6.4 Governança de Sessão, Ciclo Avaliativo e Padronização Técnica (Decisões do Grupo 1)
+
+#### 1. Diferenciação Operacional: Bloqueio vs. Encerramento vs. Anulação
+
+A plataforma segrega formalmente o ciclo de interrupção e deliberação avaliativa em três ações com naturezas, impactos e fluxos mutuamente exclusivos:
+
+| Operação | Gatilho / Momento | Efeito no Terminal / UI | Estado da Sessão | Cálculo de Nota | Reversibilidade |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Bloqueio** | Cautelar durante a prova (Cockpit) | Digitação travada; modal de pausa pedagógica | `BLOQUEADO_CAUTELAR` | Congelado no último snapshot | Totalmente reversível com compensação de tempo $\Delta t$ (`session:reopened`) |
+| **Encerramento** | Finalização voluntária ou compulsória em sala | Terminal desativado definitivamente | `ENCERRADO_DOCENTE` / `CONCLUIDO` | **Nota preliminar calculada normalmente** sobre o estado do VFS | Reversível administrativamente por equívoco operacional docente |
+| **Anulação** | Deliberação pós-exame no Painel de Revisão | Registro indelével no dossiê acadêmico | `ANULADO_DISCIPLINAR` | **Atribuição compulsória de nota zero** | Irreversível sem recurso formal à coordenação acadêmica |
+
+> **Princípio Pedagógico Fundamental:** *Encerrar não significa anular a prova.* O encerramento antecipado finaliza a sessão e consolida a correção técnica das tarefas executadas até o instante da interrupção. A anulação da prova é uma deliberação punitiva independente e restrita a apurações disciplinares no painel de revisão docente, acompanhada de justificativa formal registrada na linha do tempo de auditoria.
+
+```typescript
+// Rotas administrativas do ciclo de vida da sessão:
+// POST /api/v1/sessoes/:id/bloquear
+export interface BloquearSessaoRequest {
+  motivo: string;
+}
+
+// POST /api/v1/sessoes/:id/encerrar
+export interface EncerrarSessaoRequest {
+  motivo: string; // ex: "Aluno precisou retirar-se da sala" ou "Encerramento preventivo"
+}
+
+// POST /api/v1/sessoes/:id/anular (Painel de Revisão de Notas)
+export interface AnularTentativaRequest {
+  motivoDisciplinar: string; // Justificativa obrigatória para auditoria institucional
+  evidenciaForenseIds?: string[];
+}
+```
+
+#### 2. Ressalva Técnica Operacional na Troca de Máquina (`session:machine-changed`)
+
+Quando um computador sofre falha física (desligamento elétrico, travamento de hardware ou falha de interface de rede), a sessão pode ser retomada em outro terminal após a desconexão ou expiração do ping/pong WebSocket.
+
+> **Ressalva Técnica de Buffer:** Como a sincronização do VFS ocorre por comandos submetidos (evento `onEnter` com snapshot diferencial transmitido via WebSocket e persistido em base relacional ou IndexedDB), instruções em curso de digitação no buffer volátil de linha do terminal (não confirmadas com Enter) são irrecuperáveis após falha física abrupta da máquina. A restauração do VFS reconstitui o estado com exatidão até o último comando efetivamente submetido pelo estudante.
+
+```typescript
+// Evento emitido para o Cockpit quando o aluno retoma em novo computador: 'session:machine-changed'
+export interface SessionMachineChangedPayload {
+  sessaoId: string;
+  alunoId: string;
+  ra: string;
+  ipOrigemAnterior: string;
+  ipOrigemNovo: string;
+  quedaDetectadaEm: string;
+  retomadaEm: string;
+  ultimoComandoSincronizado: string;
+}
+```
+
+#### 3. Regra de Equivalência Pedagógica no Sorteio de Questões por Nível
+
+Para garantir a isonomia avaliativa entre discentes que recebem cadernos de prova gerados randomicamente:
+- Quando a docente opta por pesos individualizados (não homogêneos), os valores são uniformes para todas as questões de um mesmo nível de dificuldade:
+  $$\forall q_i \in \text{Nível}_k \implies \text{Pontos}(q_i) = P_k$$
+- Essa restrição impede que a nota máxima total dependa da aleatoriedade do sorteio, garantindo que $\sum \text{Pontos}(q_i) = \text{Nota Máxima}$ seja rigorosamente idêntica para todos os discentes.
+
+```typescript
+export interface RegraSorteioNivelBackend {
+  nivel: 'FACIL' | 'MEDIO' | 'DIFICIL';
+  percentual: number; // ex: 40 para 40%
+  pontosPorQuestaoDoNivel: number; // Valor uniforme obrigatório para o nível
+  quantidadeMinimaConjunto: number;
+}
+```
+
+#### 4. Herança de Cenários em Camadas e Pipeline de Validação em Cadeia
+
+A criação de questões baseia-se em receitas imutáveis e herança em camadas:
+- **Cenário Base (Pai):** Provisiona a estrutura inicial do VFS (árvore de diretórios, usuários e arquivos de partida);
+- **Cenários Derivados (Filhos):** Herdam a receita do pai e adicionam camadas incrementais;
+- **Cascading Validation Pipeline:** A alteração de um cenário-base aciona automaticamente workers em segundo plano no servidor Go para reexecutar as soluções de referência de todas as questões filhas derivadas. Caso qualquer condição de validação de VFS quebre, a publicação do cenário atualizado é bloqueada com notificação explícita de regressão.
+
+#### 5. Padronização Normativa de Terminologia da Plataforma
+
+| Termo Padronizado | Conceito e Semântica Técnica | Ambiente de Execução e Restrições |
+| :--- | :--- | :--- |
+| **Questão Prática (Laboratório)** | Desafio técnico executado no terminal, validado de forma determinística pelo estado do VFS | Terminal liberado; correção via asserção VFS |
+| **Questão Teórica** | Questão de escolha única, múltipla seleção, booleana ou dissertativa | Terminal bloqueado durante a visualização |
+| **Atividade** | Lista de exercícios assíncrona com prazo estendido (dias) | Fora do laboratório; sem token de sala; sem telemetria síncrona |
+| **Prova** | Exame somativo formal, cronometrado e síncrono (horas) | Laboratório presencial; token de sala; mutex anti-proxy; Cockpit WSS |
+
 ---
 
 ## 7. Arquitetura de Fila Assíncrona e Worker Pool em Go (E-mails Transacionais)
