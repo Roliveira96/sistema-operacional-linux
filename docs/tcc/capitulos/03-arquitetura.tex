@@ -430,12 +430,32 @@ Um modelo reúne tudo o que define a avaliação, exceto as datas e a turma:
 \begin{enumerate}
     \item \textbf{título e descrição;}
     \item \textbf{tipo:} atividade, como uma lista com prazo de entrega, ou prova, aplicada no laboratório;
+    \item \textbf{duração:} em horas, como uma prova de 4 horas, ou em dias, como uma atividade com 4 dias para entrega;
     \item \textbf{questões:} a seleção fixa de questões ou o conjunto de questões com as regras de sorteio (Seção~\ref{sec:montagem-prova});
     \item \textbf{pontuação} de cada questão ou de cada nível;
-    \item \textbf{configurações:} como duração, ordem embaralhada, grupos inseparáveis e as regras para repescagens.
+    \item \textbf{configurações:} como grupos inseparáveis e as regras para repescagens.
 \end{enumerate}
 
-Para usar um modelo, a professora o \textbf{aplica a uma turma} e informa apenas o que é próprio daquela aplicação: o prazo de entrega, no caso de atividades, ou a data e a janela de horário, no caso de provas, além das janelas individuais de repescagens e segundas chamadas (Seção~\ref{sec:seguranca-prova}). Toda a seleção de questões e a configuração vêm do modelo, sem precisar ser refeitas. O mesmo modelo pode ser aplicado a várias turmas do mesmo semestre e reaproveitado nos semestres seguintes.
+Nas atividades, as questões são sempre apresentadas em ordem crescente de dificuldade, das fáceis para as difíceis, para que o aluno avance de forma gradual no conteúdo.
+
+\subsubsection*{Aplicação do modelo em uma turma}
+
+Para usar um modelo, a professora o \textbf{aplica a uma turma} e define quando a avaliação começa: a data e o horário de início da prova ou da abertura da atividade. A duração vem do modelo e determina o fim da prova ou o prazo de entrega da atividade. Também são definidas na aplicação as janelas individuais de repescagens e segundas chamadas (Seção~\ref{sec:seguranca-prova}). O mesmo modelo pode ser aplicado a várias turmas do mesmo semestre e reaproveitado nos semestres seguintes.
+
+A aplicação já nasce com toda a seleção de questões e a configuração do modelo, mas pode ser ajustada para aquela turma: a professora pode alterar título, descrição, duração e pontuação, adicionar e remover questões e editar questões. Ao editar uma questão dentro da aplicação, o sistema pergunta o que fazer com a alteração:
+
+\begin{enumerate}
+    \item \textbf{atualizar no banco:} a alteração gera uma nova versão da questão no banco de questões do módulo e passa a valer também para as próximas avaliações; as aplicações já feitas continuam com a versão que usaram;
+    \item \textbf{somente nesta avaliação:} a alteração vale apenas para aquela aplicação, como uma cópia local da questão, e o banco permanece como estava.
+\end{enumerate}
+
+Esses ajustes podem ser feitos até o início da avaliação. Depois que a prova começa ou a atividade é aberta, as questões ficam travadas, para que todos os alunos respondam às mesmas versões; a partir daí, a professora só pode ajustar datas e janelas, além de usar os recursos de bloqueio e reabertura (Seções~\ref{sec:bloqueio-docente} e~\ref{sec:reabertura-sessao}).
+
+\subsubsection*{Avaliação composta por vários modelos}
+
+Uma prova também pode ser criada a partir de mais de um modelo. O caso típico é a prova de recuperação, em que a professora une as quatro provas do semestre em uma só. Nesse caso, as questões dos modelos escolhidos são reunidas em um único conjunto, sem repetir questões que apareçam em mais de um deles, e a professora configura a nova prova do zero quanto à forma de seleção (questões fixas ou sorteadas, com as respectivas regras), ao valor total da prova e à duração. As configurações dos modelos de origem não são somadas, já que uma recuperação com todas as questões das quatro provas seria longa demais.
+
+\subsubsection*{Regras de versão e preservação}
 
 A relação entre modelo e aplicação segue as mesmas regras de versão das questões (Seção~\ref{sec:bloco-teste}):
 
@@ -482,7 +502,7 @@ O sorteio segue estas regras:
     \item \textbf{equilíbrio entre os alunos:} todos recebem a mesma quantidade de questões de cada nível e a mesma pontuação total, ainda que as questões sejam diferentes;
     \item \textbf{validação da regra:} o sistema só aceita a regra se o conjunto tiver questões suficientes em cada nível;
     \item \textbf{sorteio no servidor e registrado:} o sorteio é feito pelo servidor quando o aluno entra na prova, e as questões sorteadas ficam registradas na sessão. Assim, ele recebe as mesmas questões se reconectar, trocar de máquina (Seção~\ref{sec:troca-maquina}) ou tiver a sessão reaberta, e a professora pode conferir depois o que cada aluno recebeu;
-    \item \textbf{ordem embaralhada (opcional):} a ordem das questões pode variar de aluno para aluno, o que dificulta a consulta ao colega ao lado;
+    \item \textbf{ordem embaralhada (opcional, apenas em provas):} a ordem das questões pode variar de aluno para aluno, o que dificulta a consulta ao colega ao lado; nas atividades, a ordem segue sempre a dificuldade crescente (Seção~\ref{sec:modelos-avaliacao});
     \item \textbf{repescagem sem repetição (opcional):} em repescagens e segundas chamadas, o sorteio pode evitar as questões que o aluno já recebeu;
     \item \textbf{módulos (opcional):} a regra pode fixar quantas questões vêm de cada módulo, por exemplo três do módulo de permissões e duas do de usuários e grupos;
     \item \textbf{tipos de questão (opcional):} além do nível, a regra pode fixar quantas questões de cada tipo cada aluno recebe, por exemplo oito práticas e duas dissertativas;
