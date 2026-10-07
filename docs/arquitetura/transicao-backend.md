@@ -102,18 +102,37 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 #### `Turma` (Instância de Disciplina no Semestre)
 - `id`: UUID (PK)
 - `codigo_disciplina`: VARCHAR(20) (ex: `SI34E` - Sistemas Operacionais)
+- `nome_disciplina`: VARCHAR(150) (ex: "Sistemas Operacionais")
 - `semestre`: VARCHAR(10) (ex: `2026/1`)
 - `docente_id`: UUID (FK ➔ `Usuario.id`)
+- `vigencia_inicio`: DATE (Data de início oficial do semestre letivo)
+- `vigencia_fim`: DATE (Data de encerramento do semestre letivo)
+- `ementa`: TEXT (Ementa acadêmica e eixos curriculares da disciplina)
+- `criterios_avaliacao`: JSONB (Pesos das avaliações, fórmulas de cálculo da média e nota mínima para aprovação)
+- `diretrizes_institucionais`: TEXT (Políticas de assiduidade, conduta em laboratório e código de integridade)
+- `link_convite_token`: VARCHAR(64) UNIQUE (Token alfanumérico seguro para URLs de convite compartilhável)
+- `requer_moderacao`: BOOLEAN DEFAULT true (Exige deferimento da docente para solicitações via link)
 - `ativo`: BOOLEAN DEFAULT true
 - `criado_em`: TIMESTAMP
+- `atualizado_em`: TIMESTAMP
 
-#### `InscricaoTurma` (Matrícula do Aluno na Turma)
+#### `InscricaoTurma` (Matrícula e Ciclo de Ingresso do Aluno na Turma)
 - `id`: UUID (PK)
 - `turma_id`: UUID (FK ➔ `Turma.id`)
-- `aluno_id`: UUID (FK ➔ `Usuario.id`)
+- `aluno_id`: UUID NULL (FK ➔ `Usuario.id` - nulo durante o estágio de pré-matrícula não ativada)
+- `ra_provisorio`: VARCHAR(20) NULL (Registro Acadêmico institucional para reconciliação na importação CSV)
+- `email_provisorio`: VARCHAR(120) NULL (E-mail acadêmico institucional informado na lista)
+- `nome_provisorio`: VARCHAR(120) NULL (Nome completo discente informado na lista)
+- `status`: ENUM (`PENDENTE_MODERACAO`, `DEFERIDO`, `INDEFERIDO`, `PRE_MATRICULA`)
+- `origem_ingresso`: ENUM (`LINK_COMPARTILHADO`, `IMPORTACAO_CSV`, `MATRICULA_DIRETA_DOCENTE`)
+- `token_ativacao_hash`: VARCHAR(64) NULL (Hash SHA-256 do token efêmero de ativação por e-mail)
+- `token_ativacao_expira_em`: TIMESTAMP NULL
+- `solicitado_em`: TIMESTAMP
+- `deliberado_em`: TIMESTAMP NULL (Momento de deferimento ou indeferimento da matrícula)
+- `deliberado_por_id`: UUID NULL (FK ➔ `Usuario.id` - Docente responsável pela deliberação)
+- `motivo_indeferimento`: TEXT NULL
 - `ativo`: BOOLEAN DEFAULT true
-- `data_matricula`: TIMESTAMP
-- *Constraint:* UNIQUE(`turma_id`, `aluno_id`)
+- *Constraint:* UNIQUE(`turma_id`, `aluno_id`) (aplicada para vínculos com `aluno_id` não nulo)
 
 #### `Avaliacao` (Exame ou Prática Laboratorial)
 - `id`: UUID (PK)
@@ -221,7 +240,90 @@ export interface LoginResponse {
 }
 ```
 
-### 4.2 Desbloqueio e Início de Avaliação
+### 4.2 Gestão de Turmas e Onboarding Discente
+
+```typescript
+// POST /api/v1/turmas
+export interface CriarTurmaRequest {
+  codigoDisciplina: string; // ex: "SI34E"
+  nomeDisciplina: string; // ex: "Sistemas Operacionais"
+  semestre: string; // ex: "2026/1"
+  vigenciaInicio: string; // YYYY-MM-DD
+  vigenciaFim: string; // YYYY-MM-DD
+  ementa: string;
+  criteriosAvaliacao: {
+    mediaMinimaAprovacao: number;
+    pesosAvaliacoes: Record<string, number>;
+    formulaCalculo: string;
+  };
+  diretrizesInstitucionais: string;
+  requerModeracao: boolean;
+}
+
+export interface CriarTurmaResponse {
+  turmaId: string;
+  codigoDisciplina: string;
+  linkConviteToken: string;
+  linkConviteUrl: string; // ex: "https://plataforma.utfpr.edu.br/ingressar?token=tk_..."
+  criadoEm: string;
+}
+
+// POST /api/v1/turmas/:turmaId/solicitar-ingresso
+export interface SolicitarIngressoTurmaRequest {
+  linkConviteToken: string;
+}
+
+export interface SolicitarIngressoTurmaResponse {
+  inscricaoId: string;
+  status: 'PENDENTE_MODERACAO' | 'DEFERIDO';
+  mensagem: string;
+}
+
+// GET /api/v1/turmas/:turmaId/inscricoes/pendentes
+export interface FilaModeracaoTurmaResponse {
+  turmaId: string;
+  totalPendentes: number;
+  solicitacoes: Array<{
+    inscricaoId: string;
+    aluno: {
+      id: string;
+      ra: string;
+      nome: string;
+      email: string;
+    };
+    solicitadoEm: string;
+  }>;
+}
+
+// PATCH /api/v1/turmas/:turmaId/inscricoes/:inscricaoId/moderar
+export interface ModerarInscricaoRequest {
+  decisao: 'DEFERIR' | 'INDEFERIR';
+  motivoIndeferimento?: string;
+}
+
+export interface ModerarInscricaoResponse {
+  inscricaoId: string;
+  status: 'DEFERIDO' | 'INDEFERIDO';
+  deliberadoEm: string;
+  sucesso: boolean;
+}
+
+// POST /api/v1/turmas/:turmaId/importar-csv
+// Content-Type: multipart/form-data com arquivo CSV (colunas obrigatórias: ra,nome,email)
+export interface ImportarCsvTurmaResponse {
+  turmaId: string;
+  totalLinhasProcessadas: number;
+  vinculosImediatosDeferidos: number;
+  preMatriculasCriadas: number;
+  emailsEnfileirados: number;
+  errosValidacao?: Array<{
+    linha: number;
+    motivo: string;
+  }>;
+}
+```
+
+### 4.3 Desbloqueio e Início de Avaliação
 ```typescript
 // POST /api/v1/avaliacoes/validar-token
 export interface ValidarTokenRequest {
@@ -272,7 +374,7 @@ export interface IniciarSessaoResponse {
 }
 ```
 
-### 4.3 Submissão Segura e Telemetria
+### 4.4 Submissão Segura e Telemetria
 ```typescript
 // POST /api/v1/avaliacoes/:avaliacaoId/submeter-questao
 export interface SubmeterQuestaoRequest {
@@ -309,7 +411,7 @@ export interface FinalizarAvaliacaoResponse {
 }
 ```
 
-### 4.4 Trilha Forense, Observações e Revisão Manual de Notas
+### 4.5 Trilha Forense, Observações e Revisão Manual de Notas
 
 ```typescript
 // GET /api/v1/avaliacoes/:avaliacaoId/sessoes/:sessaoId/timeline
@@ -643,6 +745,84 @@ export interface SessionReopenedPayload {
   reabertoEm: string;
 }
 ```
+
+---
+
+## 7. Arquitetura de Fila Assíncrona e Worker Pool em Go (E-mails Transacionais)
+
+Na ingestão em lote de turmas a partir de planilhas CSV institucionais com 40 a 60 alunos por turma (ou centenas em múltiplas turmas), o processamento síncrono de notificações de correio eletrônico via SMTP/TLS dentro do ciclo da requisição HTTP causaria bloqueios de rede, esgotamento de conexões e *HTTP 504 Gateway Timeout*.
+
+Para mitigar esse problema com alta escalabilidade, o back-end em Go adota o padrão **Producer-Consumer** com **Buffered Channels** e **Worker Pool**:
+
+```
+[ Gin HTTP Handler: /importar-csv ]
+             │ (Valida CSV & Transação ACID no PostgreSQL)
+             ▼
+[ Buffer de Mensagens: chan EmailJob ]  (Capacidade: 1000 jobs)
+             │
+      ┌──────┼────────────────────────┐
+      ▼      ▼                        ▼
+ [ Worker 1 ] [ Worker 2 ] ... [ Worker N ] (Goroutines em Background)
+      │      │                        │
+      └──────┴──────┬─────────────────┘
+                    ▼ (Rate Limiter: time.Ticker - ex: 5 msgs/seg)
+           [ Servidor SMTP Institucional ]
+                    │
+                    ▼
+      [ Discente: E-mail com Token de Ativação Único ]
+```
+
+### 7.1 Modelagem das Estruturas de Trabalho em Go
+
+```go
+package mailer
+
+import (
+	"time"
+	"github.com/google/uuid"
+)
+
+// EmailJob define a carga de trabalho enfileirada no canal buffereado
+type EmailJob struct {
+	ID                 uuid.UUID `json:"id"`
+	TurmaID            uuid.UUID `json:"turma_id"`
+	InscricaoID        uuid.UUID `json:"inscricao_id"`
+	NomeDestinatario   string    `json:"nome_destinatario"`
+	EmailDestinatario  string    `json:"email_destinatario"`
+	RADestinatario     string    `json:"ra_destinatario"`
+	DisciplinaCodigo   string    `json:"disciplina_codigo"`
+	DisciplinaNome     string    `json:"disciplina_nome"`
+	DocenteNome        string    `json:"docente_nome"`
+	TokenAtivacaoPlano string    `json:"token_ativacao_plano"`
+	ExpiraEm           time.Time `json:"expira_em"`
+	TentativasAtuais   int       `json:"tentativas_atuais"`
+	MaxTentativas      int       `json:"max_tentativas"`
+}
+
+// MailerPool gerencia o conjunto de goroutines operárias
+type MailerPool struct {
+	jobQueue    chan EmailJob
+	workerCount int
+	rateLimiter *time.Ticker
+	smtpConfig  SMTPConfig
+}
+
+type SMTPConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	From     string
+}
+```
+
+### 7.2 Ciclo de Vida do Despacho Assíncrono
+
+1. **Enfileiramento Não-Bloqueante (Produtor):** O handler Gin valida os registros do CSV, efetua inserções atômicas no PostgreSQL e despeja os jobs no canal `jobQueue <- job`. A rota HTTP devolve imediatamente o status `202 Accepted` em menos de 50ms;
+2. **Consumo Concorrente e Rate Limiting (Consumidor):** Cada worker do pool aguarda o disparo do `rateLimiter.C` antes de tentar a conexão SMTP, evitando saturação do servidor da UTFPR ou acionamento de filtros antispam corporativos;
+3. **Template HTML Estilizado:** O e-mail renderiza um template HTML responsivo com tipografia moderna, logotipo institucional, resumo da disciplina e o botão de ação "Ativar Conta e Acessar Turma" contendo o token efêmero assinado;
+4. **Tratamento de Falhas com Backoff Exponencial:** Caso o envio falhe (ex.: erro de rede SMTP temporário), o job é reenfileirado com atraso calculado ($2^{\text{tentativa}} \times t_{\text{base}}$) até o limite configurado (`max_tentativas = 5`). Se esgotadas as tentativas, o status é registrado como `FALHA_ENTREGA` na base de dados para reenvio manual pelo docente.
+
 
 
 

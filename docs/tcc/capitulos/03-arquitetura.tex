@@ -21,14 +21,21 @@ Para superar essa limitação, a plataforma adota uma **arquitetura reativa bidi
 \end{itemize}
 
 % ----------------------------------------------------------
-\section{Modelo de Dados Relacional}
+\section{Modelo de Dados Relacional e Gestão Pedagógica}
 \label{sec:modelo-dados}
 % ----------------------------------------------------------
 
-A gestão pedagógica e a persistência de longo prazo assentam-se sobre um banco de dados relacional estruturado (PostgreSQL), modelado para contemplar as entidades fundamentais do ecossistema acadêmico:
+A gestão pedagógica, o acompanhamento do ciclo de vida das disciplinas e a persistência de longo prazo assentam-se sobre um banco de dados relacional estruturado (PostgreSQL), modelado para contemplar com rigor e integridade referencial as entidades fundamentais do ecossistema acadêmico:
 \begin{itemize}
-    \item \textbf{Usuários e Perfis:} Diferenciação rigorosa entre os níveis de acesso Público, Aluno (vinculado por Registro Acadêmico - RA) e Professor;
-    \item \textbf{Turmas e Inscrições:} Agrupamento semestral de turmas da disciplina de Sistemas Operacionais, possibilitando a matrícula e o acompanhamento de turmas regulares e especiais;
+    \item \textbf{Usuários e Níveis de Acesso (\textit{RBAC}):} Diferenciação rigorosa entre os perfis de acesso: Público (para treinamento autônomo), Estudante (obrigatoriamente vinculado ao Registro Acadêmico institucional --- RA) e Docente (com privilégios para gestão de turmas, autoria de roteiros, orquestração de exames e homologação avaliativa);
+    \item \textbf{Cadastro Pedagógico da Turma:} Modela as instâncias semestrais da disciplina de Sistemas Operacionais contendo: código oficial curricular (ex.: \texttt{SI34E}), período ou semestre letivo (ex.: \texttt{2026/1}), vigência temporal estrita (datas oficiais de início e término do semestre letivo), ementa acadêmica completa, critérios formais de avaliação (pesos de atividades, fórmulas de média ponderada e limiar de aprovação) e diretrizes institucionais (políticas de assiduidade, regras de conduta laboratorial e diretrizes éticas de integridade acadêmica);
+    \item \textbf{Inscrições e Estados de Matrícula:} Associação relacional entre discentes e turmas amparada por uma máquina de estados finitos composta por quatro estados mutuamente exclusivos:
+    \begin{enumerate}
+        \item \texttt{PENDENTE\_MODERACAO}: atribuído a solicitações originadas pelo acesso de discentes a links compartilháveis de convite, exigindo deferimento explícito pelo professor para barrar matrículas indevidas;
+        \item \texttt{DEFERIDO}: estado ativo que habilita plenamente o discente a visualizar os conteúdos da disciplina e participar das avaliações práticas;
+        \item \texttt{INDEFERIDO}: registro formal de recusa pedagógica pelo professor, acompanhado de justificativa circunstanciada;
+        \item \texttt{PRE\_MATRICULA}: registro provisionado automaticamente via importação em lote de listagens acadêmicas institucionais, reservando o RA e o e-mail do discente até que este realize seu primeiro acesso e ative suas credenciais.
+    \end{enumerate}
     \item \textbf{Avaliações e Janelas de Aplicação:} Modelagem de provas práticas associadas a janelas temporais estritas e chaves dinâmicas de liberação (\textit{tokens}), garantindo suporte nativo a repescagens e segundas chamadas isoladas;
     \item \textbf{Sessões e Submissões:} Registro auditável de cada tentativa individual de prova, armazenando o carimbo de data/hora validado pelo servidor, a nota obtida e a trilha completa de telemetria dos comandos executados.
 \end{itemize}
@@ -80,7 +87,21 @@ A autoridade final sobre o resultado e a nota definitiva pertence exclusivamente
 \label{sec:governanca-seguranca}
 % ----------------------------------------------------------
 
-A aplicação de avaliações práticas em ambiente computacional exige um arcabouço rigoroso de governança que equilibre a supervisão pedagógica em tempo real, a prevenção ativa contra tentativas de trapaça e a tolerância a comportamentos acidentais. Em consonância com a arquitetura reativa orientada a eventos, a plataforma estrutura seus mecanismos de controle em nove eixos operacionais: o suporte síncrono em sala de aula, a detecção heurística de ferramentas de inspeção, o bloqueio de concorrência de sessões, a telemetria forense de rede, a gestão de janelas temporais com chaves dinâmicas, a trilha de auditoria cronológica (\textit{Timeline Forense}), o dossiê de avaliação formativa com revisão manual de notas, a contingência operacional com compensação temporal dinâmica e a contingência offline com reconciliação de pacotes de prova (\texttt{.proof}).
+A aplicação de avaliações práticas em ambiente computacional exige um arcabouço rigoroso de governança que equilibre a supervisão pedagógica em tempo real, a prevenção ativa contra tentativas de trapaça e a tolerância a comportamentos acidentais. Em consonância com a arquitetura reativa orientada a eventos, a plataforma estrutura seus mecanismos de controle em dez eixos operacionais: a governança de turmas e fluxos de \textit{onboarding} discente, o suporte síncrono em sala de aula, a detecção heurística de ferramentas de inspeção, o bloqueio de concorrência de sessões, a telemetria forense de rede, a gestão de janelas temporais com chaves dinâmicas, a trilha de auditoria cronológica (\textit{Timeline Forense}), o dossiê de avaliação formativa com revisão manual de notas, a contingência operacional com compensação temporal dinâmica e a contingência offline com reconciliação de pacotes de prova (\texttt{.proof}).
+
+\subsection{Governança de Turmas e Fluxos Duplos de Onboarding Discente}
+\label{sec:onboarding-discente}
+
+A constituição de turmas no ensino superior público impõe desafios operacionais e regulatórios: por um lado, o ingresso irrestrito de usuários não matriculados geraria vulnerabilidades e poluição de dados nas avaliações; por outro, o cadastramento manual discente individual consumiria tempo excessivo de aula. Para equacionar essas demandas, a plataforma implementa um modelo duplo e controlado de \textit{onboarding}:
+
+\begin{enumerate}
+    \item \textbf{Ingresso via Link Compartilhável com Moderação Docente:} A professora pode gerar na interface do sistema um hiperlink ou código alfanumérico compartilhável de convite com período de validade configurável. Ao acessar o link, o estudante solicita ingresso na turma, sendo automaticamente classificado no estado transitório \texttt{PENDENTE\_MODERACAO}. O discente permanece impedido de acessar avaliações ou roteiros até que sua solicitação seja avaliada. No painel de controle docente (\textit{Cockpit}), é apresentada em tempo real uma fila de solicitações exibindo o RA, nome e e-mail institucional do requerente. A professora dispõe da prerrogativa soberana de deferir (\texttt{DEFERIDO}) ou indeferir (\texttt{INDEFERIDO}) a solicitação de forma individual ou em bloco (através de seleção múltipla com um clique), assegurando que apenas alunos formalmente matriculados componham a sala;
+    \item \textbf{Importação em Lote via Arquivo Institucional (CSV):} Para viabilizar a inicialização imediata no início do semestre letivo, o docente pode carregar um arquivo tabular no formato \textit{Comma-Separated Values} (CSV) extraído do sistema de controle acadêmico da instituição, contendo colunas de RA, nome completo e e-mail. O processamento relacional no servidor efetua a correspondência e reconciliação atômica:
+    \begin{itemize}
+        \item Discentes já cadastrados previamente na plataforma têm seus perfis imediatamente vinculados à turma sob o status \texttt{DEFERIDO};
+        \item Novos discentes que ainda não possuem cadastro têm uma entidade de pré-matrícula provisionada (\texttt{PRE\_MATRICULA}), reservando institucionalmente seus dados de identificação acadêmica. O sistema despacha, então, mensagens de boas-vindas e ativação cadastral de forma assíncrona (detalhadas na Seção~\ref{sec:filas-emails-assincronos}), permitindo ao estudante definir sua senha e ter sua matrícula ativada automaticamente no primeiro acesso.
+    \end{itemize}
+\end{enumerate}
 
 \subsection{Dinâmica Pedagógica da Fila de Suporte: A Mãozinha Virtual}
 \label{sec:fila-suporte}
