@@ -269,10 +269,10 @@ Avisos dados verbalmente em sala ou publicados em fóruns pouco visitados geram 
     \item \textbf{entrega em dois canais:} alunos conectados recebem o aviso na hora, pelo evento \texttt{announcement:new}. Todos recebem também um e-mail, enviado em segundo plano por uma fila assíncrona em Go, sem deixar o servidor lento.
 \end{enumerate}
 
-\subsection{Dinâmica Pedagógica da Fila de Suporte: A Mãozinha Virtual}
+\subsection{Fila de Dúvidas Durante a Prova: A Mãozinha Virtual}
 \label{sec:fila-suporte}
 
-Em provas com turmas grandes, atender dúvidas no laboratório é um gargalo: vários alunos levantam a mão ao mesmo tempo, a ordem de chegada se perde e a mesma dúvida é respondida várias vezes. A \textbf{Fila de Suporte (Mãozinha Virtual)} organiza esse atendimento. Ela existe somente durante a aplicação de uma prova: fica disponível quando o aluno entra com o \textit{token} da sala e é encerrada junto com a prova, já que depende do \textit{Cockpit} e do canal \textit{WebSocket}, que também só funcionam nesse período. O atendimento segue três etapas:
+Durante a aplicação de uma prova prática para uma turma grande, atender dúvidas é um gargalo: vários alunos levantam a mão ao mesmo tempo, a ordem de chegada se perde e a mesma dúvida é respondida várias vezes. A \textbf{Fila de Suporte (Mãozinha Virtual)} organiza esse atendimento. Ela existe somente durante a aplicação de uma prova: fica disponível quando o aluno entra com o \textit{token} da sala e é encerrada junto com a prova, já que depende do \textit{Cockpit} e do canal \textit{WebSocket}, que também só funcionam nesse período. O atendimento segue três etapas:
 
 \begin{enumerate}
     \item \textbf{levantar a mão:} ao clicar em ``Pedir ajuda'', o aluno precisa escrever um resumo curto da dúvida. Além de evitar chamados vazios ou acidentais, isso o obriga a organizar o próprio problema, o que já é um exercício de metacognição. O evento \texttt{help:request} cria um cartão na fila do \textit{Cockpit}, em ordem de chegada (FIFO), com horário, nome, terminal e descrição;
