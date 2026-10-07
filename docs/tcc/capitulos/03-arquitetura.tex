@@ -201,7 +201,7 @@ Aplicar provas práticas no computador exige equilibrar três coisas: acompanhar
     \item \textbf{gestão da turma:} entrada de alunos, mudanças de situação ao longo do semestre e comunicação com a turma (Seções~\ref{sec:onboarding-discente} a~\ref{sec:mural-avisos});
     \item \textbf{apoio durante a prova:} fila de dúvidas, disponível somente enquanto a prova está em andamento (Seção~\ref{sec:fila-suporte});
     \item \textbf{integridade da prova:} detecção de DevTools, sessão única, telemetria de rede, \textit{tokens} e janelas de horário (Seções~\ref{sec:integridade-devtools} a~\ref{sec:seguranca-prova});
-    \item \textbf{auditoria e contingência:} linha do tempo, revisão de notas, reabertura de sessão e entrega \textit{offline} (Seções~\ref{sec:timeline-forense} a~\ref{sec:contingencia-offline-proof}).
+    \item \textbf{auditoria e contingência:} linha do tempo, revisão de notas, bloqueio e reabertura de sessão e entrega \textit{offline} (Seções~\ref{sec:timeline-forense} a~\ref{sec:contingencia-offline-proof}).
 \end{enumerate}
 
 Boa parte desses mecanismos se comunica por eventos trocados via \textit{WebSocket}, resumidos no Quadro~\ref{qua:eventos-websocket}.
@@ -221,6 +221,8 @@ Boa parte desses mecanismos se comunica por eventos trocados via \textit{WebSock
         \texttt{help:cancel} & Aluno & Retira o pedido da fila (``abaixar a mão'') \\
         \hline
         \texttt{security:violation} & Aluno & Avisa a professora de cada abertura de DevTools ou perda de foco \\
+        \hline
+        \texttt{session:blocked} & Servidor & Trava o terminal do aluno quando a professora bloqueia ou encerra a prova \\
         \hline
         \texttt{session:reopened} & Servidor & Desbloqueia o terminal e restaura o último \textit{snapshot} \\
         \hline
@@ -367,10 +369,22 @@ Um princípio de projeto da plataforma é que a automação nunca substitui o ju
     \item \textbf{revisão e conversa formativa:} a professora pode aplicar descontos, registrar justificativas ou chamar o aluno para uma conversa. Nesse momento, ela pode projetar a linha do tempo da sessão e pedir que o aluno explique os comandos que digitou, transformando a prova em uma oportunidade de avaliação formativa.
 \end{enumerate}
 
+\subsection{Bloqueio e Encerramento da Prova pelo Professor}
+\label{sec:bloqueio-docente}
+
+Durante a aplicação, a professora pode interromper a prova de um aluno específico diretamente no \textit{Cockpit}, sem afetar o restante da turma. Isso é útil, por exemplo, para conversar com um aluno após um alerta de integridade, para apurar uma suspeita de fraude ou para encerrar a tentativa de quem saiu do laboratório. Há duas ações:
+
+\begin{enumerate}
+    \item \textbf{bloqueio:} interrompe temporariamente a prova. O terminal do aluno é travado e exibe uma mensagem informando que a prova foi pausada pela professora. Nada é perdido: o VFS, os arquivos e o histórico de comandos permanecem como estavam, e a professora pode liberar a prova depois, com o tempo parado devolvido (Seção~\ref{sec:reabertura-sessao});
+    \item \textbf{encerramento:} finaliza a tentativa do aluno antes do prazo. A sessão passa ao estado \texttt{BLOQUEADO\_DOCENTE}, o terminal é travado definitivamente e o trabalho feito até ali é corrigido normalmente pelo motor de asserções.
+\end{enumerate}
+
+Nas duas ações, a professora precisa informar o motivo. O servidor envia o evento \texttt{session:blocked} ao terminal do aluno e registra na linha do tempo de auditoria o horário, a ação, quem a fez e o motivo. O bloqueio e o encerramento não alteram a nota por si: decidir se a tentativa será mantida, revisada ou anulada continua sendo uma decisão pedagógica da professora (Seção~\ref{sec:dossie-docente}). Como erros de operação podem acontecer, ambas as ações podem ser desfeitas, conforme descrito a seguir.
+
 \subsection{Reabertura de Sessão por Equívoco Operacional e Compensação Temporal Dinâmica}
 \label{sec:reabertura-sessao}
 
-Em provas com muitos alunos, erros humanos acontecem: a professora pode, por engano, encerrar a prova de um aluno com nome parecido. Para corrigir isso sem prejudicar ninguém, a plataforma permite reabrir a sessão e devolver o tempo perdido:
+Em provas com muitos alunos, erros humanos acontecem: a professora pode, por engano, bloquear ou encerrar (Seção~\ref{sec:bloqueio-docente}) a prova de um aluno com nome parecido. Para corrigir isso sem prejudicar ninguém, a plataforma permite reabrir a sessão e devolver o tempo perdido:
 
 \begin{enumerate}
     \item \textbf{reabertura justificada:} no painel, a professora desfaz o encerramento ou bloqueio e registra o motivo. A sessão volta a ficar em andamento;
