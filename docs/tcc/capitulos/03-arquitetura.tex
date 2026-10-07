@@ -11,9 +11,26 @@ A arquitetura proposta adota uma separação estrita de responsabilidades entre 
 \label{sec:modelo-dados}
 A gestão pedagógica requer a modelagem de entidades para usuários, turmas semestrais, inscrições, avaliações, janelas de aplicação temporais (com suporte a repescagens e segundas chamadas) e submissões com telemetria de comandos.
 
-\section{Protocolo de Validação Desacoplada de VFS}
+\section{Protocolo de Validação Desacoplada de VFS e Telemetria de Comandos}
 \label{sec:validacao-desacoplada}
-Para mitigar riscos de fraudes via ferramentas de desenvolvedor (\textit{DevTools}), o cliente gera um \textit{snapshot} do estado do Sistema de Arquivos Virtual (VFS), o qual é submetido ao servidor. O motor de avaliação no \textit{back-end} reconstitui o estado e executa as asserções de aprovação em ambiente seguro.
+
+Para mitigar integralmente os riscos de fraude via ferramentas de desenvolvedor (\textit{DevTools}) e prover subsídios didáticos aprofundados, a validação de cada desafio ou questão de prova opera por meio de um protocolo híbrido de duas vias: a persistência do estado resultante e a auditoria da trilha de execução.
+
+No momento da submissão da resposta, o cliente (\textit{front-end}) encapsula e transmite ao \textit{back-end} um \textit{payload} estruturado contendo:
+
+\begin{enumerate}
+    \item \textbf{Snapshot Serializado do VFS:} A representação em árvore dos nós, atributos, metadados e arquivos alterados na sessão do usuário;
+    \item \textbf{Histórico Cronológico de Comandos:} O registro sequencial de todas as instruções digitadas pelo estudante no terminal durante a tentativa, incluindo saídas geradas (\textit{stdout}/\textit{stderr}), tempos de resposta e eventuais comandos intermediários descartados ou falhos.
+\end{enumerate}
+
+Essa abordagem fundamenta-se na própria natureza do ecossistema Linux, no qual inexiste um comando único para resolver determinada tarefa operacional. Por exemplo, a atribuição de permissões de leitura e escrita a um arquivo pode ser executada por notação octal (\texttt{chmod 644 arquivo.txt}) ou simbólica (\texttt{chmod u=rw,go=r arquivo.txt}); a busca por padrões de texto pode ser conduzida combinando \texttt{cat} e \texttt{grep} via \textit{pipes} ou diretamente através do argumento de entrada do \texttt{grep}. 
+
+Dessa forma, o motor de avaliação em retaguarda atua em dois níveis complementares:
+
+\begin{itemize}
+    \item \textbf{Validação por Estado (Determinística):} O servidor reconstitui o estado em memória e aplica asserções estritas sobre o resultado final (verificando se o arquivo existe no caminho esperado, se possui o UID correto e se as permissões atendem à máscara exigida), assegurando aprovação independentemente da rota sintática adotada pelo discente;
+    \item \textbf{Análise Comportamental e Auditoria:} A análise do histórico de comandos permite à docente mapear a eficiência dos comandos utilizados, identificar lacunas conceituais (como o uso redundante de subshells ou comandos desnecessários) e auditar a legitimidade da resolução em exames formais.
+\end{itemize}
 
 \section{Segurança de Prova: Tokens Dinâmicos e Janelas Temporais}
 \label{sec:seguranca-prova}
