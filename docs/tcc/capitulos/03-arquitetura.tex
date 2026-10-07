@@ -432,7 +432,7 @@ Um modelo reúne tudo o que define a avaliação, exceto as datas e a turma:
     \item \textbf{tipo:} atividade, como uma lista com prazo de entrega, ou prova, aplicada no laboratório;
     \item \textbf{duração:} em horas, como uma prova de 4 horas, ou em dias, como uma atividade com 4 dias para entrega;
     \item \textbf{questões:} a seleção fixa de questões ou o conjunto de questões com as regras de sorteio (Seção~\ref{sec:montagem-prova});
-    \item \textbf{pontuação} de cada questão ou de cada nível;
+    \item \textbf{valor da avaliação:} a nota máxima, dividida igualmente entre as questões, com a possibilidade de valores individuais (Seção~\ref{sec:montagem-prova});
     \item \textbf{configurações:} como grupos inseparáveis e as regras para repescagens.
 \end{enumerate}
 
@@ -472,35 +472,46 @@ A relação entre modelo e aplicação segue as mesmas regras de versão das que
 As questões de um modelo, seja de prova ou de atividade, vêm das questões de uso avaliação dos bancos de um ou mais módulos (Seção~\ref{sec:banco-exercicios}) e são definidas de duas formas:
 
 \begin{enumerate}
-    \item \textbf{prova fixa:} a professora escolhe exatamente as questões e a ordem, e todos os alunos recebem a mesma prova;
-    \item \textbf{prova sorteada:} a professora escolhe um conjunto maior de questões, por exemplo vinte, e define quantas de cada nível cada aluno recebe e quanto vale cada nível. O Quadro~\ref{qua:exemplo-sorteio} mostra um exemplo.
+    \item \textbf{questões fixas:} a professora escolhe exatamente as questões, e todos os alunos recebem as mesmas;
+    \item \textbf{questões sorteadas:} a professora escolhe um conjunto maior de questões e define quantas questões cada aluno recebe e qual percentual delas deve ser de cada nível, por exemplo 40\% fáceis, 30\% médias e 30\% difíceis.
 \end{enumerate}
+
+Nas duas formas, a nota é ligada à quantidade de questões: o valor da avaliação é dividido igualmente entre as questões que o aluno recebe. Em uma prova de 10 pontos com 10 questões, cada questão vale 1 ponto. A professora pode, se quiser, definir valores individuais. Nas questões fixas, cada questão pode ter o seu valor, desde que a soma seja o valor da avaliação. Nas sorteadas, os valores individuais são definidos por nível, iguais para todas as questões do mesmo nível, para que todos os alunos tenham a mesma nota máxima, sejam quais forem as questões sorteadas.
+
+No sorteio, o sistema converte os percentuais em quantidades. Com 10 questões por aluno e a proporção 40/30/30, cada aluno recebe 4 fáceis, 3 médias e 3 difíceis. Quando a conta não dá um número inteiro, o arredondamento distribui as sobras para os níveis com a maior parte fracionária, de modo que a soma seja sempre a quantidade total definida. O Quadro~\ref{qua:exemplo-sorteio} mostra o exemplo completo.
 
 \begin{quadro}[htbp]
     \caption{Exemplo de regra de sorteio por nível}
     \label{qua:exemplo-sorteio}
     \footnotesize
-    \begin{tabularx}{\textwidth}{|L|>{\centering\arraybackslash}p{3.2cm}|>{\centering\arraybackslash}p{3.0cm}|>{\centering\arraybackslash}p{2.6cm}|}
+    \begin{tabularx}{\textwidth}{|L|>{\centering\arraybackslash}p{2.0cm}|>{\centering\arraybackslash}p{2.6cm}|>{\centering\arraybackslash}p{2.6cm}|>{\centering\arraybackslash}p{2.6cm}|}
         \hline
-        \textbf{Nível} & \textbf{Questões no conjunto} & \textbf{Sorteadas por aluno} & \textbf{Pontos cada} \\
+        \textbf{Nível} & \textbf{Percentual} & \textbf{Questões no conjunto} & \textbf{Sorteadas por aluno} & \textbf{Em comum com um colega (média)} \\
         \hline
-        Fácil & 8 & 4 & 0,5 \\
+        Fácil & 40\% & 8 & 4 & 2,0 \\
         \hline
-        Médio & 8 & 4 & 1,0 \\
+        Médio & 30\% & 6 & 3 & 1,5 \\
         \hline
-        Difícil & 4 & 2 & 2,0 \\
+        Difícil & 30\% & 6 & 3 & 1,5 \\
         \hline
-        \textbf{Total} & \textbf{20} & \textbf{10} & \textbf{10,0 pontos} \\
+        \textbf{Total} & \textbf{100\%} & \textbf{20} & \textbf{10 (1 ponto cada)} & \textbf{5,0} \\
         \hline
     \end{tabularx}
     \fonte{Autoria própria (2026).}
 \end{quadro}
 
+O conjunto precisa ter, no mínimo, a quantidade de questões sorteadas em cada nível; com exatamente esse mínimo, porém, todos os alunos recebem as mesmas questões, apenas em outra ordem. Quanto maior o conjunto, mais diferentes ficam as provas. Para que a professora decida o tamanho do conjunto com base em um número concreto, o editor mostra quantas questões, em média, dois alunos terão em comum. Se em um nível o aluno recebe $k$ questões sorteadas entre $n$, cada questão aparece na prova de um aluno com probabilidade $k/n$ e, como os sorteios são independentes, na prova de dois alunos ao mesmo tempo com probabilidade $(k/n)^2$. Somando sobre as $n$ questões do nível, o número esperado de questões em comum é:
+\begin{equation}
+    E_{\text{comum}} = n \cdot \left(\frac{k}{n}\right)^{2} = \frac{k^{2}}{n}
+    \label{eq:questoes-comum}
+\end{equation}
+No exemplo do Quadro~\ref{qua:exemplo-sorteio}, dois alunos têm em média 5 das 10 questões em comum. Se a professora quiser reduzir esse número, o próprio editor mostra o efeito de acrescentar questões ao conjunto: com 12 fáceis, 9 médias e 9 difíceis, a média cai para cerca de 3,3 questões em comum.
+
 O sorteio segue estas regras:
 
 \begin{enumerate}
-    \item \textbf{equilíbrio entre os alunos:} todos recebem a mesma quantidade de questões de cada nível e a mesma pontuação total, ainda que as questões sejam diferentes;
-    \item \textbf{validação da regra:} o sistema só aceita a regra se o conjunto tiver questões suficientes em cada nível;
+    \item \textbf{equilíbrio entre os alunos:} todos recebem a mesma quantidade de questões de cada nível e a mesma nota máxima, ainda que as questões sejam diferentes;
+    \item \textbf{validação da regra:} o sistema só aceita a regra se os percentuais somarem 100\% e se o conjunto tiver, em cada nível, pelo menos a quantidade de questões a sortear;
     \item \textbf{sorteio no servidor e registrado:} o sorteio é feito pelo servidor quando o aluno entra na prova, e as questões sorteadas ficam registradas na sessão. Assim, ele recebe as mesmas questões se reconectar, trocar de máquina (Seção~\ref{sec:troca-maquina}) ou tiver a sessão reaberta, e a professora pode conferir depois o que cada aluno recebeu;
     \item \textbf{ordem embaralhada (opcional, apenas em provas):} a ordem das questões pode variar de aluno para aluno, o que dificulta a consulta ao colega ao lado; nas atividades, a ordem segue sempre a dificuldade crescente (Seção~\ref{sec:modelos-avaliacao});
     \item \textbf{repescagem sem repetição (opcional):} em repescagens e segundas chamadas, o sorteio pode evitar as questões que o aluno já recebeu;
