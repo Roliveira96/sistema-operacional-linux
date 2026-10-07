@@ -1,7 +1,27 @@
 \chapter{Arquitetura da Plataforma}
 \label{cap:arquitetura}
 
-Este capítulo descreve a arquitetura da plataforma e mostra como a passagem de um protótipo que rodava só no navegador para um modelo híbrido cliente-servidor permite provas seguras, acompanhadas pelo professor em tempo real, e atendimento de dúvidas durante a aula. O capítulo começa pela visão geral (Seção~\ref{sec:visao-arquitetural}), passa pelo modelo de dados (Seção~\ref{sec:modelo-dados}) e pelo protocolo de validação (Seção~\ref{sec:validacao-desacoplada}) e termina com os mecanismos de gestão e segurança das avaliações (Seção~\ref{sec:governanca-seguranca}).
+Este capítulo descreve a arquitetura da plataforma e mostra como a passagem de um protótipo que rodava só no navegador para um modelo híbrido cliente-servidor permite provas seguras, acompanhadas pelo professor em tempo real, e atendimento de dúvidas durante a prova.
+
+Como a maior parte das funcionalidades existe para apoiar a aplicação de provas práticas, o capítulo segue o ciclo de vida de uma prova, ilustrado na Figura~\ref{fig:ciclo-prova}. Depois da visão geral (Seção~\ref{sec:visao-arquitetural}), são apresentados a preparação da turma (Seção~\ref{sec:gestao-academica}), a abertura da prova e o controle de acesso (Seção~\ref{sec:abertura-prova}), a validação das respostas (Seção~\ref{sec:validacao-desacoplada}), a supervisão e a integridade durante a prova (Seção~\ref{sec:governanca-seguranca}) e, por fim, o encerramento, com contingência, auditoria e notas (Seção~\ref{sec:encerramento-prova}).
+
+\begin{figure}[htbp]
+    \centering
+    \caption{Organização do capítulo segundo o ciclo de vida de uma prova}
+    \label{fig:ciclo-prova}
+    \begin{tikzpicture}[node distance=0.45cm]
+        \tikzset{phase/.style={box, text width=2.25cm, minimum height=2.45cm, font=\footnotesize}}
+        \node[phase] (p1) {\textbf{Preparação}\\turma, matrículas e avisos\\(Seção~\ref{sec:gestao-academica})};
+        \node[phase, right=of p1] (p2) {\textbf{Abertura}\\\textit{token}, janela e sessão única\\(Seção~\ref{sec:abertura-prova})};
+        \node[phase, right=of p2] (p3) {\textbf{Resolução}\\validação das respostas\\(Seção~\ref{sec:validacao-desacoplada})};
+        \node[phase, right=of p3] (p4) {\textbf{Supervisão}\\dúvidas, integridade e bloqueios\\(Seção~\ref{sec:governanca-seguranca})};
+        \node[phase, right=of p4] (p5) {\textbf{Encerramento}\\contingência, auditoria e notas\\(Seção~\ref{sec:encerramento-prova})};
+        \draw[arrow] (p1) -- (p2); \draw[arrow] (p2) -- (p3); \draw[arrow] (p3) -- (p4); \draw[arrow] (p4) -- (p5);
+        \draw[decorate, decoration={brace, mirror, amplitude=6pt}] ([yshift=-4pt]p2.south west) -- ([yshift=-4pt]p5.south east)
+            node[midway, below=7pt, font=\footnotesize] {durante a aplicação da prova};
+    \end{tikzpicture}
+    \fonte{Autoria própria (2026).}
+\end{figure}
 
 % ----------------------------------------------------------
 \section{Visão Geral da Arquitetura Híbrida e Reativa}
@@ -54,10 +74,47 @@ As três camadas atuam juntas durante a aplicação de uma prova, cenário repre
     \fonte{Autoria própria (2026).}
 \end{figure}
 
+Boa parte dos mecanismos descritos neste capítulo se comunica por eventos trocados via \textit{WebSocket}, resumidos no Quadro~\ref{qua:eventos-websocket}.
+
+\begin{quadro}[htbp]
+    \caption{Principais eventos trocados via WebSocket}
+    \label{qua:eventos-websocket}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|p{5.3cm}|p{1.8cm}|L|}
+        \hline
+        \textbf{Evento} & \textbf{Origem} & \textbf{Efeito} \\
+        \hline
+        \texttt{task:completed} & Servidor & Confirma que a questão foi resolvida e a marca como concluída \\
+        \hline
+        \texttt{help:request} & Aluno & Coloca um pedido de ajuda na fila do \textit{Cockpit} \\
+        \hline
+        \texttt{help:cancel} & Aluno & Retira o pedido da fila (``abaixar a mão'') \\
+        \hline
+        \texttt{security:violation} & Aluno & Avisa a professora de cada abertura de DevTools ou perda de foco \\
+        \hline
+        \texttt{session:blocked} & Servidor & Trava o terminal do aluno quando a professora bloqueia ou encerra a prova \\
+        \hline
+        \texttt{session:reopened} & Servidor & Desbloqueia o terminal e restaura o último \textit{snapshot} \\
+        \hline
+        \texttt{session:machine-changed} & Servidor & Avisa a professora que o aluno retomou a prova em outra máquina \\
+        \hline
+        \texttt{announcement:new} & Servidor & Exibe um novo aviso para os alunos conectados \\
+        \hline
+        \texttt{cockpit:announcement-receipt} & Servidor & Atualiza no painel do professor quem já confirmou a leitura \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
+
 % ----------------------------------------------------------
-\section{Modelo de Dados Relacional e Gestão Pedagógica}
+\section{Preparação da Turma: Gestão Acadêmica}
+\label{sec:gestao-academica}
+% ----------------------------------------------------------
+
+Antes de qualquer prova, a turma precisa estar formada: os alunos certos matriculados, com a situação de cada um em dia, e informados sobre datas e regras. Esta seção reúne o modelo de dados que sustenta essa gestão e os fluxos usados pela professora ao longo do semestre.
+
+\subsection{Modelo de Dados Relacional}
 \label{sec:modelo-dados}
-% ----------------------------------------------------------
 
 Os dados de longo prazo ficam em um banco relacional (PostgreSQL), com integridade referencial entre as entidades acadêmicas. As principais são:
 
@@ -109,6 +166,86 @@ Os estados da Figura~\ref{fig:estados-matricula} têm o seguinte significado:
     \item \texttt{DESVINCULADO}: o vínculo com aquela turma foi encerrado;
     \item \texttt{TRANCADO}: o aluno trancou a disciplina no semestre.
 \end{enumerate}
+
+\subsection{Governança de Turmas e Fluxos Duplos de Onboarding Discente}
+\label{sec:onboarding-discente}
+
+Montar uma turma exige equilíbrio: deixar qualquer pessoa entrar poluiria as avaliações; cadastrar aluno por aluno tomaria tempo de aula. Por isso, a plataforma oferece duas formas de entrada:
+
+\begin{enumerate}
+    \item \textbf{link de convite com aprovação da professora:} a professora gera um link ou código de convite com prazo de validade. Quem acessa pede para entrar e fica no estado \texttt{PENDENTE\_MODERACAO}, sem acesso a roteiros e provas. No painel do professor, os pedidos aparecem em tempo real com RA, nome e e-mail institucional, e a professora aprova (\texttt{DEFERIDO}) ou recusa (\texttt{INDEFERIDO}) um a um ou vários de uma vez. Assim, só entram alunos de fato matriculados;
+    \item \textbf{importação da lista oficial (CSV):} no início do semestre, a professora pode enviar o arquivo CSV exportado do sistema acadêmico, com RA, nome e e-mail. O servidor cruza os dados:
+    \begin{enumerate}
+        \item quem já tem conta na plataforma entra direto na turma como \texttt{DEFERIDO};
+        \item quem ainda não tem recebe uma pré-matrícula (\texttt{PRE\_MATRICULA}) e um e-mail de boas-vindas, enviado de forma assíncrona (Seção~\ref{sec:filas-emails-assincronos}); ao definir a senha no primeiro acesso, a matrícula é ativada automaticamente.
+    \end{enumerate}
+\end{enumerate}
+
+\subsection{Ciclo de Vida Discente: Remanejamento, Suspensão Cautelar e Soft Delete Forense}
+\label{sec:ciclo-vida-discente}
+
+A situação dos alunos muda ao longo do semestre. Para que os registros acadêmicos continuem confiáveis, a plataforma trata três tipos de mudança:
+
+\begin{enumerate}
+    \item \textbf{troca de turma ou de turno:} é comum o aluno pedir para mudar de turma, por exemplo do matutino para o noturno por causa de um estágio. A operação é atômica: a matrícula de origem fica como \texttt{TRANSFERIDO} (ou \texttt{DESVINCULADO}), com todas as notas, listas entregues e horários originais preservados, e uma nova matrícula ativa é criada na turma de destino, sem duplicar o usuário nem o RA;
+    \item \textbf{suspensão cautelar:} diante de uma ocorrência disciplinar em apuração, ou para bloquear o acesso antes de uma reavaliação, o professor pode marcar a conta como \texttt{INATIVO}. Os \textit{tokens} JWT são invalidados e as conexões \textit{WebSocket} abertas caem imediatamente, mas os vínculos com as turmas permanecem. O acesso pode ser restabelecido a qualquer momento com um clique;
+    \item \textbf{exclusão lógica com histórico preservado (\textit{soft delete}):} em caso de jubilamento, cancelamento de matrícula ou desligamento do curso, a conta é excluída logicamente: some das listagens e não pode entrar em novas turmas, mas submissões, comandos, notas e eventos de auditoria ficam guardados. Isso dá respaldo documental em eventuais contestações perante a coordenação do curso ou os colegiados da UTFPR.
+\end{enumerate}
+
+\subsection{Comunicação Pedagógica e Mural de Avisos com Agendamento e Confirmação de Leitura}
+\label{sec:mural-avisos}
+
+Avisos dados verbalmente em sala ou publicados em fóruns pouco visitados geram ruído, e é comum ouvir depois que ``ninguém avisou'' sobre um prazo. Para resolver isso, a plataforma tem um mural de avisos com quatro recursos:
+
+\begin{enumerate}
+    \item \textbf{texto formatado e público selecionável:} a professora escreve em Markdown, pode fazer referência a roteiros e comandos e escolhe quem recebe: a turma inteira ou alunos específicos (por exemplo, para convocar uma repescagem ou alertar sobre baixo rendimento);
+    \item \textbf{agendamento:} o aviso pode ser programado para uma data e hora futuras, como um lembrete sete dias ou vinte e quatro horas antes de uma prova. Quem cuida do disparo é o servidor, sem que a professora precise estar on-line;
+    \item \textbf{confirmação obrigatória de leitura:} em avisos importantes (correção de enunciado, convocação, instrução de segurança), a professora pode exigir confirmação. O aviso aparece em destaque no painel do aluno e bloqueia as tarefas até que ele confirme a leitura. No painel do professor, aparecem em tempo real o percentual de adesão, quem já confirmou (com data, hora e IP) e quem ainda não confirmou;
+    \item \textbf{entrega em dois canais:} alunos conectados recebem o aviso na hora, pelo evento \texttt{announcement:new}. Todos recebem também um e-mail, enviado em segundo plano por uma fila assíncrona em Go, sem deixar o servidor lento.
+\end{enumerate}
+
+% ----------------------------------------------------------
+\section{Abertura da Prova e Controle de Acesso}
+\label{sec:abertura-prova}
+% ----------------------------------------------------------
+
+A prova começa quando o aluno, já matriculado, é liberado pela professora no laboratório. A partir desse momento, a plataforma precisa garantir que cada aluno faça a prova no horário certo, de um único lugar por vez, e que uma falha de equipamento não o prejudique.
+
+\subsection{Tokens Dinâmicos de Liberação e Janelas Temporais de Aplicação}
+\label{sec:seguranca-prova}
+
+O controle de quando e onde a prova acontece completa as regras de segurança:
+
+\begin{enumerate}
+    \item \textbf{\textit{token} de sala:} no início da prova presencial, a professora projeta um código temporário, válido só durante a aula. Ninguém começa antes da hora nem de fora do laboratório;
+    \item \textbf{relógio do servidor:} a contagem regressiva e o fim do prazo seguem o relógio do servidor; adiantar ou atrasar o relógio do computador não muda nada;
+    \item \textbf{janelas individuais:} para repescagens e segundas chamadas, a professora agenda janelas vinculadas apenas aos RAs dos alunos envolvidos, sem reabrir a prova para a turma.
+\end{enumerate}
+
+\subsection{Bloqueio de Concorrência de Sessão (Mutex Anti-Proxy)}
+\label{sec:mutex-sessao}
+
+Uma fraude comum em provas no computador é o aluno presente no laboratório passar seu \textit{login} para alguém de fora resolver a prova em paralelo. Para impedir isso, o servidor mantém uma trava de sessão única (\textit{session mutex}) sobre os \textit{WebSockets}:
+
+\begin{enumerate}
+    \item \textbf{uma conexão por aluno:} cada RA pode ter apenas uma conexão ativa por prova;
+    \item \textbf{a conexão antiga cai:} se as mesmas credenciais se conectarem de outro navegador, aba anônima ou dispositivo, o servidor encerra a conexão anterior com o código \texttt{4409 Conflict} e a mensagem ``\textit{Conexão encerrada: nova sessão de avaliação detectada em outro dispositivo}'';
+    \item \textbf{alerta imediato:} a colisão aparece em destaque no \textit{Cockpit}, com o IP das duas conexões e o horário da tentativa.
+\end{enumerate}
+
+\subsection{Troca de Máquina por Falha de Equipamento}
+\label{sec:troca-maquina}
+
+A trava de sessão única não pode prejudicar o aluno quando o problema é do equipamento. Se o computador travar, desligar ou perder a placa de rede no meio da prova, o aluno pode continuar em outra máquina, desde que a sessão anterior esteja encerrada. O fluxo é o seguinte:
+
+\begin{enumerate}
+    \item \textbf{encerramento da sessão anterior:} o servidor considera a sessão encerrada quando a conexão \textit{WebSocket} da máquina antiga é fechada ou deixa de responder às mensagens de verificação de vida (\textit{ping}/\textit{pong}) previstas no protocolo \cite{fette2011websocket}. Enquanto a conexão antiga estiver ativa, vale a regra da sessão única e um novo acesso é tratado como colisão;
+    \item \textbf{retomada em outra máquina:} com a sessão anterior encerrada, o aluno entra pela nova máquina com as mesmas credenciais, dentro da janela da prova;
+    \item \textbf{estado recriado:} como cada comando e cada \textit{snapshot} já vinham sendo enviados ao servidor pelo \textit{WebSocket}, a prova volta exatamente de onde parou. O servidor reconstrói o VFS a partir do último \textit{snapshot} recebido, com arquivos, diretórios, permissões e usuários recriados, e devolve ao terminal o histórico de comandos e o andamento de cada questão;
+    \item \textbf{aviso ao aplicador:} o servidor envia o evento \texttt{session:machine-changed} ao \textit{Cockpit}, informando à professora que aplica a prova que o aluno trocou de máquina, com o IP das duas máquinas e os horários da queda e da retomada. A troca também é registrada na linha do tempo de auditoria.
+\end{enumerate}
+
+Assim, a regra distingue as duas situações: duas conexões simultâneas indicam possível fraude e geram colisão; uma conexão que caiu e foi retomada em outro equipamento é tratada como incidente técnico, com o professor informado para acompanhar.
 
 % ----------------------------------------------------------
 \section{Protocolo de Validação Híbrida e Telemetria Desacoplada de VFS}
@@ -191,87 +328,11 @@ aluno@lab:~$ ls -l relatorio.txt
 \vspace{0.6em}
 
 % ----------------------------------------------------------
-\section{Governança Avaliativa, Telemetria de Segurança e Políticas Anti-Fraude}
+\section{Supervisão e Integridade Durante a Prova}
 \label{sec:governanca-seguranca}
 % ----------------------------------------------------------
 
-Aplicar provas práticas no computador exige equilibrar três coisas: acompanhar a turma em tempo real, prevenir fraudes e tolerar acidentes. As subseções a seguir descrevem os mecanismos que a plataforma oferece para isso, agrupados em quatro frentes:
-
-\begin{enumerate}
-    \item \textbf{gestão da turma:} entrada de alunos, mudanças de situação ao longo do semestre e comunicação com a turma (Seções~\ref{sec:onboarding-discente} a~\ref{sec:mural-avisos});
-    \item \textbf{apoio durante a prova:} fila de dúvidas, disponível somente enquanto a prova está em andamento (Seção~\ref{sec:fila-suporte});
-    \item \textbf{integridade da prova:} detecção de DevTools, sessão única, telemetria de rede, \textit{tokens} e janelas de horário (Seções~\ref{sec:integridade-devtools} a~\ref{sec:seguranca-prova});
-    \item \textbf{auditoria e contingência:} linha do tempo, revisão de notas, bloqueio e reabertura de sessão e entrega \textit{offline} (Seções~\ref{sec:timeline-forense} a~\ref{sec:contingencia-offline-proof}).
-\end{enumerate}
-
-Boa parte desses mecanismos se comunica por eventos trocados via \textit{WebSocket}, resumidos no Quadro~\ref{qua:eventos-websocket}.
-
-\begin{quadro}[htbp]
-    \caption{Principais eventos trocados via WebSocket}
-    \label{qua:eventos-websocket}
-    \footnotesize
-    \begin{tabularx}{\textwidth}{|p{5.3cm}|p{1.8cm}|L|}
-        \hline
-        \textbf{Evento} & \textbf{Origem} & \textbf{Efeito} \\
-        \hline
-        \texttt{task:completed} & Servidor & Confirma que a questão foi resolvida e a marca como concluída \\
-        \hline
-        \texttt{help:request} & Aluno & Coloca um pedido de ajuda na fila do \textit{Cockpit} \\
-        \hline
-        \texttt{help:cancel} & Aluno & Retira o pedido da fila (``abaixar a mão'') \\
-        \hline
-        \texttt{security:violation} & Aluno & Avisa a professora de cada abertura de DevTools ou perda de foco \\
-        \hline
-        \texttt{session:blocked} & Servidor & Trava o terminal do aluno quando a professora bloqueia ou encerra a prova \\
-        \hline
-        \texttt{session:reopened} & Servidor & Desbloqueia o terminal e restaura o último \textit{snapshot} \\
-        \hline
-        \texttt{session:machine-changed} & Servidor & Avisa a professora que o aluno retomou a prova em outra máquina \\
-        \hline
-        \texttt{announcement:new} & Servidor & Exibe um novo aviso para os alunos conectados \\
-        \hline
-        \texttt{cockpit:announcement-receipt} & Servidor & Atualiza no painel do professor quem já confirmou a leitura \\
-        \hline
-    \end{tabularx}
-    \fonte{Autoria própria (2026).}
-\end{quadro}
-
-\subsection{Governança de Turmas e Fluxos Duplos de Onboarding Discente}
-\label{sec:onboarding-discente}
-
-Montar uma turma exige equilíbrio: deixar qualquer pessoa entrar poluiria as avaliações; cadastrar aluno por aluno tomaria tempo de aula. Por isso, a plataforma oferece duas formas de entrada:
-
-\begin{enumerate}
-    \item \textbf{link de convite com aprovação da professora:} a professora gera um link ou código de convite com prazo de validade. Quem acessa pede para entrar e fica no estado \texttt{PENDENTE\_MODERACAO}, sem acesso a roteiros e provas. No painel do professor, os pedidos aparecem em tempo real com RA, nome e e-mail institucional, e a professora aprova (\texttt{DEFERIDO}) ou recusa (\texttt{INDEFERIDO}) um a um ou vários de uma vez. Assim, só entram alunos de fato matriculados;
-    \item \textbf{importação da lista oficial (CSV):} no início do semestre, a professora pode enviar o arquivo CSV exportado do sistema acadêmico, com RA, nome e e-mail. O servidor cruza os dados:
-    \begin{enumerate}
-        \item quem já tem conta na plataforma entra direto na turma como \texttt{DEFERIDO};
-        \item quem ainda não tem recebe uma pré-matrícula (\texttt{PRE\_MATRICULA}) e um e-mail de boas-vindas, enviado de forma assíncrona (Seção~\ref{sec:filas-emails-assincronos}); ao definir a senha no primeiro acesso, a matrícula é ativada automaticamente.
-    \end{enumerate}
-\end{enumerate}
-
-\subsection{Ciclo de Vida Discente: Remanejamento, Suspensão Cautelar e Soft Delete Forense}
-\label{sec:ciclo-vida-discente}
-
-A situação dos alunos muda ao longo do semestre. Para que os registros acadêmicos continuem confiáveis, a plataforma trata três tipos de mudança:
-
-\begin{enumerate}
-    \item \textbf{troca de turma ou de turno:} é comum o aluno pedir para mudar de turma, por exemplo do matutino para o noturno por causa de um estágio. A operação é atômica: a matrícula de origem fica como \texttt{TRANSFERIDO} (ou \texttt{DESVINCULADO}), com todas as notas, listas entregues e horários originais preservados, e uma nova matrícula ativa é criada na turma de destino, sem duplicar o usuário nem o RA;
-    \item \textbf{suspensão cautelar:} diante de uma ocorrência disciplinar em apuração, ou para bloquear o acesso antes de uma reavaliação, o professor pode marcar a conta como \texttt{INATIVO}. Os \textit{tokens} JWT são invalidados e as conexões \textit{WebSocket} abertas caem imediatamente, mas os vínculos com as turmas permanecem. O acesso pode ser restabelecido a qualquer momento com um clique;
-    \item \textbf{exclusão lógica com histórico preservado (\textit{soft delete}):} em caso de jubilamento, cancelamento de matrícula ou desligamento do curso, a conta é excluída logicamente: some das listagens e não pode entrar em novas turmas, mas submissões, comandos, notas e eventos de auditoria ficam guardados. Isso dá respaldo documental em eventuais contestações perante a coordenação do curso ou os colegiados da UTFPR.
-\end{enumerate}
-
-\subsection{Comunicação Pedagógica e Mural de Avisos com Agendamento e Confirmação de Leitura}
-\label{sec:mural-avisos}
-
-Avisos dados verbalmente em sala ou publicados em fóruns pouco visitados geram ruído, e é comum ouvir depois que ``ninguém avisou'' sobre um prazo. Para resolver isso, a plataforma tem um mural de avisos com quatro recursos:
-
-\begin{enumerate}
-    \item \textbf{texto formatado e público selecionável:} a professora escreve em Markdown, pode fazer referência a roteiros e comandos e escolhe quem recebe: a turma inteira ou alunos específicos (por exemplo, para convocar uma repescagem ou alertar sobre baixo rendimento);
-    \item \textbf{agendamento:} o aviso pode ser programado para uma data e hora futuras, como um lembrete sete dias ou vinte e quatro horas antes de uma prova. Quem cuida do disparo é o servidor, sem que a professora precise estar on-line;
-    \item \textbf{confirmação obrigatória de leitura:} em avisos importantes (correção de enunciado, convocação, instrução de segurança), a professora pode exigir confirmação. O aviso aparece em destaque no painel do aluno e bloqueia as tarefas até que ele confirme a leitura. No painel do professor, aparecem em tempo real o percentual de adesão, quem já confirmou (com data, hora e IP) e quem ainda não confirmou;
-    \item \textbf{entrega em dois canais:} alunos conectados recebem o aviso na hora, pelo evento \texttt{announcement:new}. Todos recebem também um e-mail, enviado em segundo plano por uma fila assíncrona em Go, sem deixar o servidor lento.
-\end{enumerate}
+Aplicar provas práticas no computador exige equilibrar três coisas: acompanhar a turma em tempo real, prevenir fraudes e tolerar acidentes. Enquanto a prova acontece, a professora acompanha a turma pelo \textit{Cockpit}, atende às dúvidas e decide sobre os alertas de integridade, com as ferramentas descritas nesta seção.
 
 \subsection{Fila de Dúvidas Durante a Prova: A Mãozinha Virtual}
 \label{sec:fila-suporte}
@@ -297,31 +358,6 @@ Proteger a prova contra a inspeção do código é necessário, mas atalhos como
 
 Em nenhum dos casos o sistema altera a nota por conta própria. Toda ocorrência fica registrada na linha do tempo de auditoria e a decisão é sempre da professora que aplica a prova: ela pode conferir os registros, conversar com o aluno, descartar um falso positivo ou anular a tentativa.
 
-\subsection{Bloqueio de Concorrência de Sessão (Mutex Anti-Proxy)}
-\label{sec:mutex-sessao}
-
-Uma fraude comum em provas no computador é o aluno presente no laboratório passar seu \textit{login} para alguém de fora resolver a prova em paralelo. Para impedir isso, o servidor mantém uma trava de sessão única (\textit{session mutex}) sobre os \textit{WebSockets}:
-
-\begin{enumerate}
-    \item \textbf{uma conexão por aluno:} cada RA pode ter apenas uma conexão ativa por prova;
-    \item \textbf{a conexão antiga cai:} se as mesmas credenciais se conectarem de outro navegador, aba anônima ou dispositivo, o servidor encerra a conexão anterior com o código \texttt{4409 Conflict} e a mensagem ``\textit{Conexão encerrada: nova sessão de avaliação detectada em outro dispositivo}'';
-    \item \textbf{alerta imediato:} a colisão aparece em destaque no \textit{Cockpit}, com o IP das duas conexões e o horário da tentativa.
-\end{enumerate}
-
-\subsection{Troca de Máquina por Falha de Equipamento}
-\label{sec:troca-maquina}
-
-A trava de sessão única não pode prejudicar o aluno quando o problema é do equipamento. Se o computador travar, desligar ou perder a placa de rede no meio da prova, o aluno pode continuar em outra máquina, desde que a sessão anterior esteja encerrada. O fluxo é o seguinte:
-
-\begin{enumerate}
-    \item \textbf{encerramento da sessão anterior:} o servidor considera a sessão encerrada quando a conexão \textit{WebSocket} da máquina antiga é fechada ou deixa de responder às mensagens de verificação de vida (\textit{ping}/\textit{pong}) previstas no protocolo \cite{fette2011websocket}. Enquanto a conexão antiga estiver ativa, vale a regra da sessão única e um novo acesso é tratado como colisão;
-    \item \textbf{retomada em outra máquina:} com a sessão anterior encerrada, o aluno entra pela nova máquina com as mesmas credenciais, dentro da janela da prova;
-    \item \textbf{estado recriado:} como cada comando e cada \textit{snapshot} já vinham sendo enviados ao servidor pelo \textit{WebSocket}, a prova volta exatamente de onde parou. O servidor reconstrói o VFS a partir do último \textit{snapshot} recebido, com arquivos, diretórios, permissões e usuários recriados, e devolve ao terminal o histórico de comandos e o andamento de cada questão;
-    \item \textbf{aviso ao aplicador:} o servidor envia o evento \texttt{session:machine-changed} ao \textit{Cockpit}, informando à professora que aplica a prova que o aluno trocou de máquina, com o IP das duas máquinas e os horários da queda e da retomada. A troca também é registrada na linha do tempo de auditoria.
-\end{enumerate}
-
-Assim, a regra distingue as duas situações: duas conexões simultâneas indicam possível fraude e geram colisão; uma conexão que caiu e foi retomada em outro equipamento é tratada como incidente técnico, com o professor informado para acompanhar.
-
 \subsection{Telemetria Forense de Rede, Geolocalização e Limitações de Sandbox}
 \label{sec:telemetria-forense}
 
@@ -331,42 +367,6 @@ Para a auditoria depois da prova, cada submissão e evento importante carrega in
     \item \textbf{endereço IP:} o servidor registra o IP de origem, considerando o cabeçalho do \textit{proxy} reverso. Em provas presenciais, a professora pode cadastrar a sub-rede do laboratório e o sistema confere se todas as conexões vêm de lá;
     \item \textbf{impressão digital do navegador e localização:} o cliente combina \textit{User-Agent}, resolução de tela, idioma e fuso horário em um \textit{hash} associado à sessão. Em provas remotas autorizadas, e somente com o consentimento do aluno, pode coletar a localização aproximada pela API de Geolocalização do W3C, para subsidiar comissões acadêmicas em casos de suspeita fundamentada;
     \item \textbf{limites do navegador:} por regras de segurança e privacidade do W3C, páginas web não têm acesso a identificadores de \textit{hardware} como o endereço MAC da placa de rede. Por isso, a integridade se apoia na combinação de controles de aplicação (\textit{tokens} e sessão única) com controles de rede (sub-rede do laboratório e canais TLS).
-\end{enumerate}
-
-\subsection{Tokens Dinâmicos de Liberação e Janelas Temporais de Aplicação}
-\label{sec:seguranca-prova}
-
-O controle de quando e onde a prova acontece completa as regras de segurança:
-
-\begin{enumerate}
-    \item \textbf{\textit{token} de sala:} no início da prova presencial, a professora projeta um código temporário, válido só durante a aula. Ninguém começa antes da hora nem de fora do laboratório;
-    \item \textbf{relógio do servidor:} a contagem regressiva e o fim do prazo seguem o relógio do servidor; adiantar ou atrasar o relógio do computador não muda nada;
-    \item \textbf{janelas individuais:} para repescagens e segundas chamadas, a professora agenda janelas vinculadas apenas aos RAs dos alunos envolvidos, sem reabrir a prova para a turma.
-\end{enumerate}
-
-\subsection{Trilha de Auditoria Forense e Linha do Tempo da Avaliação}
-\label{sec:timeline-forense}
-
-Cada sessão de prova gera uma linha do tempo (\textit{timeline} de auditoria), visível no painel do professor. Os eventos são registrados com precisão de milissegundos pelo relógio do servidor e incluem:
-
-\begin{enumerate}
-    \item o momento em que o aluno entrou na prova com o \textit{token} da sala;
-    \item a ordem em que o aluno navegou entre as questões, com as tentativas intermediárias, os comandos executados e o horário em que cada uma foi concluída;
-    \item os pedidos de ajuda: horário, texto da dúvida e como foi resolvido (resposta individual, resposta coletiva ou cancelamento pelo próprio aluno);
-    \item as anomalias e incidentes: aberturas de \textit{DevTools}, perdas de foco da aba (\texttt{visibilitychange}), colisões de sessão e trocas de máquina.
-\end{enumerate}
-
-Com essa visão, a professora consegue reconstruir o raciocínio do aluno e verificar se hesitações, erros repetidos ou anomalias coincidiram com os comandos mais difíceis.
-
-\subsection{Dossiê de Observações Docentes e Prerrogativa de Avaliação Formativa}
-\label{sec:dossie-docente}
-
-Um princípio de projeto da plataforma é que a automação nunca substitui o julgamento pedagógico do professor:
-
-\begin{enumerate}
-    \item \textbf{a nota final é da professora:} o motor de asserções gera uma nota técnica preliminar a partir do estado do VFS, mas quem define a nota final é a professora da disciplina;
-    \item \textbf{observações de sala:} o painel tem um campo para registrar o que acontece fisicamente no laboratório durante a prova, como uso de celular, conversas ou comportamento atípico;
-    \item \textbf{revisão e conversa formativa:} a professora pode aplicar descontos, registrar justificativas ou chamar o aluno para uma conversa. Nesse momento, ela pode projetar a linha do tempo da sessão e pedir que o aluno explique os comandos que digitou, transformando a prova em uma oportunidade de avaliação formativa.
 \end{enumerate}
 
 \subsection{Bloqueio e Encerramento da Prova pelo Professor}
@@ -426,6 +426,13 @@ Em provas com muitos alunos, erros humanos acontecem: a professora pode, por eng
     \fonte{Autoria própria (2026).}
 \end{figure}
 
+% ----------------------------------------------------------
+\section{Encerramento da Prova: Contingência, Auditoria e Notas}
+\label{sec:encerramento-prova}
+% ----------------------------------------------------------
+
+Ao final da prova, o trabalho de cada aluno precisa chegar ao servidor, mesmo que a rede tenha falhado, e a nota precisa ser definida com base em registros confiáveis. Esta seção trata da entrega em contingência, da linha do tempo de auditoria e da revisão das notas pela professora.
+
 \subsection{Contingência Offline e Reconciliação Soberana de Pacotes de Prova (.proof)}
 \label{sec:contingencia-offline-proof}
 
@@ -435,4 +442,29 @@ Se a infraestrutura do laboratório falhar por muito tempo, por exemplo com a qu
     \item \textbf{geração do pacote \texttt{.proof}:} ao terminar a prova sem conexão, o aluno a encerra localmente e a interface gera um arquivo \texttt{.proof} com o registro completo de comandos, tempos, saídas, o \textit{snapshot} final do VFS guardado no IndexedDB \cite{w3c2015indexeddb} e um \textit{checksum} assinado pelo cliente \cite{stallings2017crypto};
     \item \textbf{entrega à professora:} o aluno entrega o arquivo em um \textit{pendrive} institucional ou por uma rede local improvisada. O \textit{Cockpit} tem uma tela própria para importar esses pacotes;
     \item \textbf{validação no servidor:} o servidor lê o arquivo, confere o \textit{checksum}, reconstrói a sessão no banco e executa o \textit{replay} oficial. A tentativa aparece na linha do tempo como ``\textit{Reconciliado via pacote offline}'', e o trabalho do aluno é aproveitado sem necessidade de refazer a prova.
+\end{enumerate}
+
+\subsection{Trilha de Auditoria Forense e Linha do Tempo da Avaliação}
+\label{sec:timeline-forense}
+
+Cada sessão de prova gera uma linha do tempo (\textit{timeline} de auditoria), visível no painel do professor. Os eventos são registrados com precisão de milissegundos pelo relógio do servidor e incluem:
+
+\begin{enumerate}
+    \item o momento em que o aluno entrou na prova com o \textit{token} da sala;
+    \item a ordem em que o aluno navegou entre as questões, com as tentativas intermediárias, os comandos executados e o horário em que cada uma foi concluída;
+    \item os pedidos de ajuda: horário, texto da dúvida e como foi resolvido (resposta individual, resposta coletiva ou cancelamento pelo próprio aluno);
+    \item as anomalias e incidentes: aberturas de \textit{DevTools}, perdas de foco da aba (\texttt{visibilitychange}), colisões de sessão e trocas de máquina.
+\end{enumerate}
+
+Com essa visão, a professora consegue reconstruir o raciocínio do aluno e verificar se hesitações, erros repetidos ou anomalias coincidiram com os comandos mais difíceis.
+
+\subsection{Dossiê de Observações Docentes e Prerrogativa de Avaliação Formativa}
+\label{sec:dossie-docente}
+
+Um princípio de projeto da plataforma é que a automação nunca substitui o julgamento pedagógico do professor:
+
+\begin{enumerate}
+    \item \textbf{a nota final é da professora:} o motor de asserções gera uma nota técnica preliminar a partir do estado do VFS, mas quem define a nota final é a professora da disciplina;
+    \item \textbf{observações de sala:} o painel tem um campo para registrar o que acontece fisicamente no laboratório durante a prova, como uso de celular, conversas ou comportamento atípico;
+    \item \textbf{revisão e conversa formativa:} a professora pode aplicar descontos, registrar justificativas ou chamar o aluno para uma conversa. Nesse momento, ela pode projetar a linha do tempo da sessão e pedir que o aluno explique os comandos que digitou, transformando a prova em uma oportunidade de avaliação formativa.
 \end{enumerate}
