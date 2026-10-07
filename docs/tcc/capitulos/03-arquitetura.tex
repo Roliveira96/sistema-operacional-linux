@@ -128,7 +128,7 @@ Os dados de longo prazo ficam em um banco relacional (PostgreSQL), com integrida
     \item \textbf{avisos e confirmações de leitura:} a tabela \texttt{avisos\_turmas} guarda os comunicados da professora: título, texto em Markdown, público (turma inteira ou lista de alunos), data de publicação (\texttt{publicar\_em}), nível de importância e se a leitura deve ser confirmada (\texttt{requer\_confirmacao}). Cada confirmação vai para \texttt{confirmacoes\_leitura\_avisos}, com aluno, horário e endereço IP, o que permite acompanhar a adesão e comprovar que o aviso foi lido.
 \end{enumerate}
 
-Ao lado dessas entidades acadêmicas, o modelo inclui as entidades de conteúdo e de avaliação detalhadas na Seção~\ref{sec:autoria-conteudo}: módulos e seus blocos, exercícios de cinco tipos (prática, escolha única, booleana, múltipla seleção e dissertativa), com cenário, solução e condições de validação nas questões práticas e alternativas ou critérios de correção nas teóricas, cenários reutilizáveis com sua relação de herança, provas com as questões escolhidas ou as regras de sorteio, e o registro das questões sorteadas para cada aluno.
+Ao lado dessas entidades acadêmicas, o modelo inclui as entidades de conteúdo e de avaliação detalhadas na Seção~\ref{sec:autoria-conteudo}: módulos e seus blocos tipados, com trechos de vídeo e links de referência opcionais, exercícios de cinco tipos (prática, escolha única, booleana, múltipla seleção e dissertativa), com cenário, solução e condições de validação nas questões práticas e alternativas ou critérios de correção nas teóricas, cenários reutilizáveis com sua relação de herança, provas com as questões escolhidas ou as regras de sorteio, e o registro das questões sorteadas para cada aluno.
 
 Além dessas entidades, a plataforma oferece a alunos e professores a gestão do próprio perfil: atualização dos dados de contato, escolha de avatar e troca de senha mediante autenticação. Por serem operações cadastrais convencionais (CRUD, de \textit{create}, \textit{read}, \textit{update} e \textit{delete}), já amplamente padronizadas no desenvolvimento web, essas funcionalidades não são detalhadas neste trabalho. A descrição e a análise concentram-se nas contribuições centrais da arquitetura: o simulador POSIX com VFS no navegador, a proteção contra fraudes pelo console do navegador, a telemetria bidirecional via \textit{WebSockets} e a continuidade das provas em falhas de rede, com validação criptográfica \textit{offline}.
 
@@ -219,14 +219,50 @@ Esta seção descreve os módulos de conteúdo, o banco de exercícios com seus 
 \subsection{Módulos de Conteúdo e Blocos Interativos}
 \label{sec:modulos-conteudo}
 
-Um módulo, como ``Introdução ao Linux'', tem título, descrição e ícone, exibidos na tela inicial. O conteúdo do módulo é formado por blocos interativos, que a professora organiza na ordem que desejar:
+Um módulo, como ``Introdução ao Linux'', tem título, descrição e ícone, exibidos na tela inicial. Opcionalmente, o módulo também pode ter um vídeo geral, como a gravação de uma aula inteira em que a professora explica todos os conceitos, e uma lista de links úteis. O conteúdo é formado por blocos, que a professora organiza na ordem que desejar. O Quadro~\ref{qua:tipos-bloco} apresenta os tipos de bloco.
+
+\begin{quadro}[htbp]
+    \caption{Tipos de bloco de conteúdo}
+    \label{qua:tipos-bloco}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{3.0cm}|L|}
+        \hline
+        \textbf{Bloco} & \textbf{O que a professora preenche} \\
+        \hline
+        Texto & Explicação em Markdown, com tabelas, trechos de código e imagens; as imagens ficam em um serviço de armazenamento de objetos (MinIO), e o banco guarda apenas a referência \\
+        \hline
+        Comando & O comando, a explicação do que ele faz, o terminal em que roda, o usuário com que entra e as respostas a eventuais perguntas (senha, confirmação) \\
+        \hline
+        Dica & Uma orientação curta sobre o uso correto de um comando \\
+        \hline
+        Curiosidades & Quantas curiosidades quiser, cada uma com título e texto \\
+        \hline
+        Passo a passo & Uma lista numerada de etapas \\
+        \hline
+        Cartões & Cartões lado a lado, cada um com título, etiqueta e texto, como a comparação entre distribuições Linux \\
+        \hline
+        Componente interativo & A escolha de um componente do catálogo, como a calculadora de permissões, e seus parâmetros \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
+
+O bloco de comando aproveita o reprodutor que já existe no simulador: o botão ``Rodar este card'' digita e executa os comandos sozinho no terminal indicado, com controles de pausa, retrocesso e velocidade. Como essa animação é gerada a partir dos dados do bloco, a professora não precisa configurá-la.
+
+\textbf{Vídeo explicativo.} Qualquer bloco pode ter, opcionalmente, um vídeo do YouTube que o explique. Como uma aula gravada pode durar horas e a explicação de um único comando costuma levar poucos minutos, a professora define o início e o fim do trecho, e o vídeo é exibido apenas nesse intervalo. O \textit{player} incorporado do YouTube aceita esses limites, em segundos, pelos parâmetros \texttt{start} e \texttt{end} \cite{youtube2026parameters}. Assim, o vídeo geral do módulo pode ser reaproveitado: cada bloco aponta para o trecho em que aquele assunto é tratado, e o aluno consegue reassistir só a explicação de que precisa. Ao salvar, o editor valida o vídeo:
 
 \begin{enumerate}
-    \item \textbf{texto:} explicação com formatação e imagens; as imagens são guardadas em um serviço de armazenamento de objetos (MinIO), e o banco guarda apenas a referência a cada uma;
-    \item \textbf{comando:} um comando que o aluno executa no terminal, acompanhado da explicação do que ele faz;
-    \item \textbf{dica:} orientação curta para o uso correto de um comando;
-    \item \textbf{curiosidades:} um bloco que reúne quantas curiosidades a professora quiser sobre o tema.
+    \item o endereço precisa ser de um vídeo do YouTube;
+    \item o início e o fim são informados no formato minutos e segundos (ou horas, minutos e segundos), e o início precisa ser anterior ao fim;
+    \item o fim não pode passar da duração do vídeo, obtida pelo método \texttt{getDuration} da API do \textit{player} do YouTube depois que os metadados do vídeo são carregados na pré-visualização do editor \cite{youtube2026iframe};
+    \item sem início e fim, o vídeo é exibido inteiro.
 \end{enumerate}
+
+\textbf{Links úteis.} Tanto o módulo quanto cada bloco podem ter uma lista opcional de links para material de referência, cada um com um título escrito pela professora, como ``Especificação do FHS'' ou ``Código-fonte do \textit{kernel} Linux no GitHub''. O editor só aceita endereços \texttt{http} ou \texttt{https}.
+
+\textbf{Componentes interativos.} Alguns recursos não são apenas conteúdo, mas pequenos programas, como a calculadora de permissões, em que marcar \textit{r}, \textit{w} e \textit{x} atualiza o valor octal e o comando \texttt{chmod} correspondente, e a anatomia da saída do \texttt{ls -l}, que explica cada parte da linha. Esses recursos formam um catálogo de componentes mantido no código: a professora apenas escolhe o componente e informa seus parâmetros, como o valor inicial da calculadora ou a linha do \texttt{ls -l} a ser explicada. Criar um componente novo continua sendo tarefa de desenvolvimento, o que é aceitável por serem poucos e raramente alterados.
+
+\textbf{Migração do conteúdo atual.} Hoje, parte do visual dos módulos (cartões de curiosidade, vídeo recomendado, passos numerados, cartões de distribuições) está escrita diretamente em HTML dentro dos textos. Aceitar HTML livre na autoria seria arriscado, pois permitiria a inserção de \textit{scripts}, e deixaria cada módulo com uma aparência diferente. Por isso, o \textit{seed} importa esse HTML como um bloco legado, filtrado para manter apenas as marcações visuais conhecidas. O aluno continua vendo o conteúdo como hoje, e a professora o converte para os blocos do Quadro~\ref{qua:tipos-bloco} quando editar o módulo.
 
 Cada módulo pode exigir um cenário inicial, isto é, os arquivos, diretórios, usuários, grupos e permissões que precisam existir para que os comandos façam sentido, como uma lista com cem nomes para os exercícios de ordenação. O cenário é criado da mesma forma que o dos exercícios, descrita a seguir, e é aplicado à máquina simulada sempre que o aluno abre o módulo. Cada módulo termina com uma pequena lista de exercícios, cadastrados no banco de exercícios descrito a seguir.
 
