@@ -84,6 +84,11 @@ A interface usa React para manter o estado coerente entre os módulos da experi�
     \item \textbf{janelas de apoio:} janelas para pedir ajuda (com descrição obrigatória da dúvida), avisos em tela cheia quando o \textit{DevTools} é detectado e conversas 1:1 com a professora sobre o terminal.
 \end{enumerate}
 
+\subsection{Funcionalidades Utilitárias de Perfil}
+\label{sec:perfil-utilitario}
+
+A interface também inclui as telas de autoedição de perfil, comuns a alunos e professores: dados de contato, avatar e redefinição de senha com o usuário autenticado. Trata-se de formulários e rotas CRUD convencionais, sem particularidades em relação à prática corrente da indústria, e por isso não são aprofundados aqui. Como explicado na Seção~\ref{sec:modelo-dados}, o detalhamento técnico deste capítulo prioriza o que diferencia o projeto: o núcleo de emulação POSIX e o VFS, a mitigação de fraudes via \textit{DevTools}, a telemetria via \textit{WebSockets} e a resiliência a falhas de rede.
+
 % ----------------------------------------------------------
 \section{Back-end e Concorrência de Alta Performance (Server-side)}
 \label{sec:backend-golang}
