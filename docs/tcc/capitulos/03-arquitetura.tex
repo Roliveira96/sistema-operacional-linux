@@ -1,37 +1,70 @@
 \chapter{Arquitetura da Plataforma}
 \label{cap:arquitetura}
 
-Este capítulo detalha a concepção arquitetural da plataforma educacional, demonstrando como a transição do simulador puramente executado em cliente para um modelo integrado cliente-servidor viabiliza avaliações seguras e gestão acadêmica.
+Este capítulo detalha a concepção arquitetural da plataforma educacional, demonstrando como a transição do protótipo inicial executado puramente no cliente para um modelo híbrido e reativo integrado cliente-servidor viabiliza avaliações seguras, supervisão pedagógica em tempo real e escalabilidade no ambiente acadêmico.
 
-\section{Visão Geral da Arquitetura Híbrida}
+% ----------------------------------------------------------
+\section{Visão Geral da Arquitetura Híbrida e Reativa}
 \label{sec:visao-arquitetural}
-A arquitetura proposta adota uma separação estrita de responsabilidades entre a camada de execução interativa (cliente) e a camada de controle avaliativo e persistência (servidor). O cliente processa a digitação, o histórico e o \textit{parsing} em tempo de execução para garantir latência nula, enquanto o servidor atua como autoridade central de validação e notas.
+% ----------------------------------------------------------
 
-\section{Modelo de Dados Relacional}
-\label{sec:modelo-dados}
-A gestão pedagógica requer a modelagem de entidades para usuários, turmas semestrais, inscrições, avaliações, janelas de aplicação temporais (com suporte a repescagens e segundas chamadas) e submissões com telemetria de comandos.
+O projeto arquitetural da plataforma foi concebido para equacionar dois requisitos aparentemente antagônicos: por um lado, a necessidade de proporcionar uma experiência de terminal com \textbf{latência zero e alta responsividade} para o estudante; por outro lado, a exigência indispensável de \textbf{segurança avaliativa, integridade contra fraudes e supervisão docente contínua}.
 
-\section{Protocolo de Validação Desacoplada de VFS e Telemetria de Comandos}
-\label{sec:validacao-desacoplada}
+No modelo convencional de aplicações web educacionais baseadas em requisições HTTP REST síncronas, a validação de tarefas práticas impõe atritos significativos ao usuário: o estudante precisa interromper seu fluxo de digitação no terminal, mudar o foco para a interface gráfica e acionar manualmente botões como ``Enviar Resposta'' ou ``Validar Tarefa''. Esse paradigma fragmenta a concentração do aprendiz e introduz latências de rede indesejadas a cada tentativa.
 
-Para mitigar integralmente os riscos de fraude via ferramentas de desenvolvedor (\textit{DevTools}) e prover subsídios didáticos aprofundados, a validação de cada desafio ou questão de prova opera por meio de um protocolo híbrido de duas vias: a persistência do estado resultante e a auditoria da trilha de execução.
-
-No momento da submissão da resposta, o cliente (\textit{front-end}) encapsula e transmite ao \textit{back-end} um \textit{payload} estruturado contendo:
-
-\begin{enumerate}
-    \item \textbf{Snapshot Serializado do VFS:} A representação em árvore dos nós, atributos, metadados e arquivos alterados na sessão do usuário;
-    \item \textbf{Histórico Cronológico de Comandos:} O registro sequencial de todas as instruções digitadas pelo estudante no terminal durante a tentativa, incluindo saídas geradas (\textit{stdout}/\textit{stderr}), tempos de resposta e eventuais comandos intermediários descartados ou falhos.
-\end{enumerate}
-
-Essa abordagem fundamenta-se na própria natureza do ecossistema Linux, no qual inexiste um comando único para resolver determinada tarefa operacional. Por exemplo, a atribuição de permissões de leitura e escrita a um arquivo pode ser executada por notação octal (\texttt{chmod 644 arquivo.txt}) ou simbólica (\texttt{chmod u=rw,go=r arquivo.txt}); a busca por padrões de texto pode ser conduzida combinando \texttt{cat} e \texttt{grep} via \textit{pipes} ou diretamente através do argumento de entrada do \texttt{grep}. 
-
-Dessa forma, o motor de avaliação em retaguarda atua em dois níveis complementares:
+Para superar essa limitação, a plataforma adota uma **arquitetura reativa bidirecional orientada a eventos**, sustentada por canais persistentes seguros via \textit{WebSockets} (\textit{WSS}), operando em conformidade com o seguinte arranjo de responsabilidades:
 
 \begin{itemize}
-    \item \textbf{Validação por Estado (Determinística):} O servidor reconstitui o estado em memória e aplica asserções estritas sobre o resultado final (verificando se o arquivo existe no caminho esperado, se possui o UID correto e se as permissões atendem à máscara exigida), assegurando aprovação independentemente da rota sintática adotada pelo discente;
-    \item \textbf{Análise Comportamental e Auditoria:} A análise do histórico de comandos permite à docente mapear a eficiência dos comandos utilizados, identificar lacunas conceituais (como o uso redundante de subshells ou comandos desnecessários) e auditar a legitimidade da resolução em exames formais.
+    \item \textbf{Camada de Execução Interativa (Cliente / Navegador):} O núcleo do simulador POSIX, a pilha de sessões Bash e a árvore do Sistema de Arquivos Virtual (\textit{VFS}) operam em memória local no navegador do aluno, desenvolvidos em TypeScript puro. Essa decisão assegura que a digitação de caracteres, a navegação pelo histórico, o autocompletar via tecla \texttt{Tab} e a renderização de cores ANSI ocorram instantaneamente, sem gerar tráfego de rede e sem sobrecarregar os servidores institucionais com a instanciação de contêineres individuais por aluno;
+    \item \textbf{Camada de Validação e Orquestração (Servidor / Back-end):} O servidor atua como autoridade central confiável (\textit{Trusted Authority}). As regras de correção, os gabaritos das questões, os pesos das avaliações e as rotinas de asserção residem com exclusividade no servidor, tornando-os completamente inacessíveis à inspeção discente via console de desenvolvedor (\textit{DevTools});
+    \item \textbf{Canal de Supervisão Docente (Cockpit do Professor):} O fluxo contínuo de eventos transmitidos via \textit{WebSockets} alimenta um painel administrativo em tempo real para o docente. A professora tem a capacidade de monitorar o progresso simultâneo de todos os terminais da turma durante uma prova prática presencial, identificar imediatamente discentes estagnados em mensagens de erro recorrentes e intervir pedagogicamente por meio de mensagens direcionadas ou avisos sincronizados.
 \end{itemize}
 
+% ----------------------------------------------------------
+\section{Modelo de Dados Relacional}
+\label{sec:modelo-dados}
+% ----------------------------------------------------------
+
+A gestão pedagógica e a persistência de longo prazo assentam-se sobre um banco de dados relacional estruturado (PostgreSQL), modelado para contemplar as entidades fundamentais do ecossistema acadêmico:
+\begin{itemize}
+    \item \textbf{Usuários e Perfis:} Diferenciação rigorosa entre os níveis de acesso Público, Aluno (vinculado por Registro Acadêmico - RA) e Professor;
+    \item \textbf{Turmas e Inscrições:} Agrupamento semestral de turmas da disciplina de Sistemas Operacionais, possibilitando a matrícula e o acompanhamento de turmas regulares e especiais;
+    \item \textbf{Avaliações e Janelas de Aplicação:} Modelagem de provas práticas associadas a janelas temporais estritas e chaves dinâmicas de liberação (\textit{tokens}), garantindo suporte nativo a repescagens e segundas chamadas isoladas;
+    \item \textbf{Sessões e Submissões:} Registro auditável de cada tentativa individual de prova, armazenando o carimbo de data/hora validado pelo servidor, a nota obtida e a trilha completa de telemetria dos comandos executados.
+\end{itemize}
+
+% ----------------------------------------------------------
+\section{Protocolo de Validação Desacoplada de VFS e Telemetria em Tempo Real}
+\label{sec:validacao-desacoplada}
+% ----------------------------------------------------------
+
+Para mitigar integralmente os riscos de fraude via ferramentas de desenvolvedor (\textit{DevTools}) e, simultaneamente, eliminar a necessidade de botões manuais de envio que quebram o fluxo de raciocínio do discente, a validação de cada desafio opera através de um fluxo assíncrono de eventos via \textit{WebSockets}.
+
+\subsection{Fluxo Reativo de Feedback Instantâneo}
+A interação entre o terminal local e o motor de avaliação em retaguarda segue um ciclo não-bloqueante de três etapas:
+\begin{enumerate}
+    \item \textbf{Execução e Emissão em Background:} A cada quebra de linha (\texttt{Enter}) no terminal, o simulador executa a instrução instantaneamente no VFS local. Paralelamente à exibição imediata do resultado visual na tela do aluno, um emissor em segundo plano despacha pelo canal \textit{WebSocket} um \textit{payload} leve contendo o comando digitado, o código de retorno (\textit{exit code}), a identificação da questão e a árvore de nós ou metadados alterados (\textit{snapshot} diferencial);
+    \item \textbf{Asserção em Ambiente Seguro:} O motor de avaliação no \textit{back-end} reconstitui o estado do VFS em memória protegida e aplica a bateria de testes de aceitação correspondente à tarefa ativa. Como as regras de teste residem unicamente no servidor, qualquer tentativa de manipulação de variáveis locais no navegador é inócua;
+    \item \textbf{Retorno de Evento e Conclusão Automática:} Se as asserções forem plenamente satisfeitas, o servidor emite de volta pelo socket um evento assíncrono \texttt{task:completed}. A interface do aluno intercepta esse evento e exibe instantaneamente o \textit{feedback} visual de sucesso (animação de conclusão e avanço no roteiro), mantendo o aprendiz em estado contínuo de imersão e foco cognitivo.
+\end{enumerate}
+
+\subsection{Natureza Multifacetada do Linux e Auditoria Comportamental}
+Essa abordagem fundamenta-se na própria natureza do ecossistema Linux, no qual inexiste um comando único para resolver determinada tarefa operacional. Por exemplo, a atribuição de permissões de leitura e escrita a um arquivo pode ser executada por notação octal (\texttt{chmod 644 arquivo.txt}) ou simbólica (\texttt{chmod u=rw,go=r arquivo.txt}); a busca por padrões de texto pode ser conduzida combinando \texttt{cat} e \texttt{grep} via \textit{pipes} ou diretamente através do argumento de entrada do utilitário \texttt{grep}.
+
+Dessa forma, o motor de retaguarda atua em dois níveis complementares:
+\begin{itemize}
+    \item \textbf{Validação por Estado (Determinística):} O servidor avalia exclusivamente o resultado final refletido no VFS (verificando se o arquivo existe no caminho esperado, se possui o UID correto e se as permissões atendem à máscara exigida), assegurando aprovação pedagógica independentemente da rota sintática adotada pelo discente;
+    \item \textbf{Análise Comportamental e Auditoria em Tempo Real:} A persistência cronológica de todas as instruções permite à docente mapear a proficiência dos comandos utilizados, diagnosticar lacunas conceituais recorrentes e garantir a integridade formal da avaliação contra tentativas de trapaça.
+\end{itemize}
+
+% ----------------------------------------------------------
 \section{Segurança de Prova: Tokens Dinâmicos e Janelas Temporais}
 \label{sec:seguranca-prova}
-O acesso a avaliações presenciais é condicionado à validação de \textit{tokens} temporais gerados pelo docente no início da aula, restringindo o início das tentativas a alunos fisicamente presentes e permitindo janelas isoladas para reposições.
+% ----------------------------------------------------------
+
+O acesso a avaliações presenciais e exames formais é governado por um protocolo de segurança multicamadas:
+\begin{itemize}
+    \item \textbf{Tokens Dinâmicos de Liberação em Sala:} No início da aula presencial de avaliação, a docente projeta ou divulga um código de sessão temporário com validade restrita ao horário letivo, impedindo que discentes iniciem a prova antecipadamente ou a realizem fora do laboratório físico;
+    \item \textbf{Temporizador Sincronizado no Servidor:} A contagem regressiva e o encerramento do prazo de submissão baseiam-se estritamente no relógio oficial do servidor, inviabilizando fraudes por manipulação do relógio do sistema operacional do computador do aluno;
+    \item \textbf{Janelas Isoladas para Repescagens e Segundas Chamadas:} Para discentes amparados por justificativas acadêmicas, o sistema permite o agendamento de janelas temporais dedicadas vinculadas exclusivamente aos seus respectivos RAs, liberando a avaliação em regime de reposição sem expor o exame à turma regular.
+\end{itemize}
