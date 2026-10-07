@@ -109,9 +109,11 @@ A interface é escrita em TypeScript puro, manipulando diretamente o DOM (\texti
 
 \begin{enumerate}
     \item \textbf{terminal ANSI:} emulador compatível com sequências de escape ANSI e com a paleta do GNOME Terminal, com autocompletar por \texttt{Tab} para comandos e caminhos, histórico pelas setas e os editores \texttt{nano} e \texttt{vim};
-    \item \textbf{painel de roteiros:} painel retrátil com objetivos, enunciados e progresso, que não cobre o terminal;
-    \item \textbf{entrada da prova e cronômetro:} tela para digitar o \textit{token} projetado pelo professor, com contagem regressiva sincronizada periodicamente com o relógio do servidor;
-    \item \textbf{janelas de apoio:} janelas para pedir ajuda (com descrição obrigatória da dúvida), avisos em tela cheia quando o \textit{DevTools} é detectado e conversas 1:1 com a professora sobre o terminal.
+    \item \textbf{painel de roteiros e telemetria discente:} painel retrátil com objetivos, enunciados, progresso de questões e cronômetro sincronizado periodicamente com o relógio do servidor;
+    \item \textbf{entrada da prova e contingência:} tela para validação do \textit{token} emitido pela professora e captura de pacotes criptográficos em modo desconectado;
+    \item \textbf{grade de supervisão do Cockpit docente:} componente reativo em mosaico que renderiza os \textit{cards} discentes atualizados via \texttt{cockpit:telemetry-update}, ordenando dinamicamente a fila de atendimento prioritário (``mãozinha virtual'') e exibindo métricas de tempo de permanência por questão;
+    \item \textbf{espelhamento ao vivo (\textit{Live Terminal Mirror}):} painel modal do \textit{Cockpit} que renderiza uma réplica visual síncrona do terminal do aluno e da árvore de arquivos do VFS, alimentado pelo evento \texttt{cockpit:terminal-mirror};
+    \item \textbf{janelas de apoio e comunicação direta:} modais para solicitação de ajuda com justificativa obrigatória, telas de advertência escalonada na detecção de \textit{DevTools} e camada sobreposta translúcida para recepção de orientações privadas da professora (\texttt{teacher:direct-message}).
 \end{enumerate}
 
 \subsection{Funcionalidades Utilitárias de Perfil}
@@ -168,12 +170,28 @@ A persistência de dados utiliza a biblioteca \textbf{GORM} integrada ao Postgre
 \subsection{Hub WebSocket Nativo e Streaming de Telemetria}
 \label{sec:websocket-hub}
 
-A comunicação em tempo real passa por um \textbf{Hub de WebSockets} escrito em Go, de acordo com a RFC 6455 \cite{fette2011websocket}:
+A comunicação bidirecional em tempo real é sustentada por um \textbf{Hub de WebSockets} nativo desenvolvido em Go, em estrita conformidade com a RFC 6455 \cite{fette2011websocket}:
 
 \begin{enumerate}
-    \item \textbf{Hub central:} uma \textit{goroutine} dedicada registra novos terminais (\texttt{register}), remove conexões encerradas (\texttt{unregister}) e distribui mensagens por sala (\texttt{broadcast});
-    \item \textbf{duas \textit{goroutines} por conexão:} cada aluno ou professor conectado é atendido por uma rotina de leitura (\textit{readPump}) e outra de escrita (\textit{writePump}), de modo que a lentidão de um navegador não afeta os demais;
-    \item \textbf{correção fora do canal:} quando chega um comando com \textit{snapshot} do VFS, a reconstrução e a correção vão para um conjunto de trabalhadores assíncronos (\textit{worker pool}). O canal fica livre para novas mensagens, sem atraso perceptível para o aluno.
+    \item \textbf{Hub central e roteamento por sala:} uma \textit{goroutine} central opera como despachante de eventos, gerenciando o registro de novos terminais (\texttt{register}), o encerramento seguro (\texttt{unregister}) e a distribuição de mensagens segmentadas por sala de avaliação;
+
+    \item \textbf{arquitetura de duas \textit{goroutines} por conexão:} cada cliente conectado (discente ou docente) é atendido por um par independente de rotinas assíncronas: uma rotina de leitura contínua (\textit{readPump}) e uma de despacho com amortecimento (\textit{writePump}). Esse desacoplamento previne que eventuais latências de rede ou pausas de renderização no navegador de um estudante comprometam a entrega de pacotes aos demais pares da sala;
+
+    \item \textbf{eventos dedicados de supervisão do Cockpit:} o protocolo define mensagens tipadas em formato JSON para operacionalizar a telemetria em tempo real:
+    \begin{itemize}
+        \item \texttt{cockpit:telemetry-update}: transporta cargas leves com o total de questões concluídas e pendentes, a identificação da questão corrente e as métricas de temporização (tempo decorrido na tarefa atual e média acumulada por questão);
+        \item \texttt{cockpit:terminal-mirror}: transmite em fluxo contínuo os blocos incrementais de caracteres digitados no terminal, códigos de retorno, saídas textuais e o estado serializado da árvore do VFS;
+        \item \texttt{teacher:direct-message}: despacha mensagens de intervenção pedagógica direta e orientações privativas (1:1) do docente para a conexão exclusiva do estudante;
+    \end{itemize}
+
+    \item \textbf{desacoplamento de goroutines e prevenção de gargalos de I/O no espelhamento:} o espelhamento contínuo da digitação de múltiplos alunos em tempo real possui potencial para saturar o barramento de rede caso implementado via difusão indiscriminada. Para eliminar qualquer risco de contenção de I/O no servidor:
+    \begin{itemize}
+        \item o Hub adota subscrição seletiva sob demanda (\textit{targeted subscription}): eventos \texttt{cockpit:terminal-mirror} só são despachados aos canais docentes que tenham solicitado ativamente a abertura da tela espelhada daquele discente específico no painel;
+        \item as transmissões utilizam canais com \textit{buffer} calibrados para o tráfego em rajadas típico de digitação (\texttt{chan []byte});
+        \item emprega-se seleção não bloqueante (\texttt{select} com cláusula \texttt{default}) nas filas de espelhamento transitório. Se o canal de saída de um observador atingir a capacidade máxima por congestionamento temporário de rede, quadros intermediários do espelho são graciosamente descartados sem bloquear a \textit{goroutine} de leitura do aluno nem degradar os canais críticos de notas e batimentos de integridade (\textit{heartbeats});
+    \end{itemize}
+
+    \item \textbf{avaliação desacoplada fora do canal de mensageria:} ao término de cada comando prático acompanhado de \textit{snapshot} do sistema de arquivos virtual, a reconstrução e a verificação de asserções são descarregadas para um conjunto de trabalhadores assíncronos (\textit{worker pool}). O canal WebSocket permanece desimpedido para novas interações, assegurando resposta com latência imperceptível para o aluno.
 \end{enumerate}
 
 \subsection{Processamento Assíncrono de Filas, Agendamento e Despacho Multicanal}

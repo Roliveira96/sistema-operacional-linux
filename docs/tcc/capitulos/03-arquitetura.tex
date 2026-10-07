@@ -81,7 +81,7 @@ Boa parte dos mecanismos descritos neste capítulo se comunica por eventos troca
     \caption{Principais eventos trocados via WebSocket}
     \label{qua:eventos-websocket}
     \footnotesize
-    \begin{tabularx}{\textwidth}{|p{5.3cm}|p{1.8cm}|L|}
+    \begin{tabularx}{\textwidth}{|p{5.2cm}|p{2.2cm}|L|}
         \hline
         \textbf{Evento} & \textbf{Origem} & \textbf{Efeito} \\
         \hline
@@ -102,6 +102,12 @@ Boa parte dos mecanismos descritos neste capítulo se comunica por eventos troca
         \texttt{announcement:new} & Servidor & Exibe um novo aviso para os alunos conectados \\
         \hline
         \texttt{cockpit:announcement-receipt} & Servidor & Atualiza no painel do professor quem já confirmou a leitura \\
+        \hline
+        \texttt{cockpit:telemetry-update} & Aluno & Atualiza no \textit{card} do discente acertos, tempos e questão ativa \\
+        \hline
+        \texttt{cockpit:terminal-mirror} & Aluno/Servidor & Transmite em tempo real digitação e VFS para inspeção espelhada \\
+        \hline
+        \texttt{teacher:direct-message} & Servidor & Envia mensagem privada da professora sobreposta ao terminal \\
         \hline
     \end{tabularx}
     \fonte{Autoria própria (2026).}
@@ -659,6 +665,23 @@ aluno@lab:~$ ls -l relatorio.txt
 % ----------------------------------------------------------
 
 Aplicar provas práticas no computador exige equilibrar três coisas: acompanhar a turma em tempo real, prevenir fraudes e tolerar acidentes. Enquanto a prova acontece, a professora acompanha a turma pelo \textit{Cockpit}, atende às dúvidas e decide sobre os alertas de integridade, com as ferramentas descritas nesta seção.
+
+\subsection{Cockpit Docente e Grade de Cards de Supervisão Ativa}
+\label{sec:cockpit-cards}
+
+O acompanhamento simultâneo de turmas numerosas durante exames práticos em laboratório exige do docente uma visão situacional contínua e não invasiva. No modelo tradicional com máquinas virtuais, o professor precisa caminhar fisicamente entre as bancadas para observar telas ou responder a chamados, gerando ruído e atrasos. No ambiente proposto, a supervisão presencial é centralizada no \textit{Cockpit} docente, cuja interface organiza a turma em uma grade responsiva de \textit{cards} de supervisão ativa:
+
+\begin{enumerate}
+    \item \textbf{grade de \textit{cards} discentes:} cada estudante com sessão iniciada na prova ou atividade prática é representado por um \textit{card} dinâmico no painel da professora. Essa disposição em mosaico permite monitorar de relance toda a sala de aula, identificando com rapidez o estado de cada acadêmico e eventuais anomalias de conexão (\textit{online}, reconectando ou desconectado);
+
+    \item \textbf{telemetria de progresso e métricas temporais em tempo real:} cada \textit{card} consolida métricas essenciais atualizadas continuamente via mensagens compactas do evento \texttt{cockpit:}\allowbreak\texttt{telemetry-update}. A docente visualiza instantaneamente o total de questões concluídas com sucesso, o quantitativo de questões em aberto ou puladas, o cronômetro ativo da questão que o aluno está resolvendo no momento e o tempo médio de permanência acumulado por questão resolvida. Esse conjunto de indicadores viabiliza intervenções diagnósticas preventivas: um discente retido por tempo excessivo em um exercício básico pode indicar bloqueio cognitivo conceitual ou equívoco de sintaxe;
+
+    \item \textbf{sinalização visual e priorização da ``mãozinha virtual'':} quando o discente aciona o botão de pedido de auxílio pedagógico (\texttt{help:request}), seu \textit{card} recebe imediatamente um destaque visual ostensivo no painel (borda colorida iluminada e ícone de mão levantada com contagem regressiva). Adicionalmente, o \textit{card} é promovido para as primeiras posições da grade com base na ordem de chegada (FIFO), garantindo que a professora identifique a fila de atendimento sem desviar o olhar do panorama geral da turma;
+
+    \item \textbf{inspeção espelhada em tempo real (\textit{Live Terminal Mirror}):} mediante um clique sobre qualquer \textit{card}, a docente abre instantaneamente a visualização espelhada da estação de trabalho do estudante. Por meio de um fluxo contínuo de transmissão (\texttt{cockpit:terminal-mirror}), o painel renderiza em tempo real os comandos digitados pelo aluno caractere a caractere, as saídas e mensagens de erro do terminal e a árvore completa de diretórios e arquivos do VFS naquele exato instante. A professora pode, assim, averiguar a linha de raciocínio discente sem precisar deslocar-se fisicamente até o computador do aluno nem interromper a sua concentração;
+
+    \item \textbf{comunicação direta bidirecional:} a plataforma viabiliza canais de interlocução flexíveis e discretos. Além dos comunicados coletivos transmitidos em \textit{broadcast} para todos os alunos da sala (\texttt{announcement:new}), a professora dispõe de uma interface de mensagem direta privativa (1:1) disparada pelo evento \texttt{teacher:direct-message}. O texto enviado sobrepõe-se suavemente ao terminal do aluno em uma camada modal translúcida, permitindo que a docente transmita esclarecimentos pedagógicos sutis, alertas de conduta ou dicas orientadoras de forma silenciosa e individualizada.
+\end{enumerate}
 
 \subsection{Fila de Dúvidas Durante a Prova: A Mãozinha Virtual}
 \label{sec:fila-suporte}
