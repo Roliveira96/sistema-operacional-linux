@@ -144,12 +144,16 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 - `data_inicio`: TIMESTAMP
 - `data_limite_entrega`: TIMESTAMP (Calculada pelo servidor: `data_inicio + duracao_minutos`)
 - `data_submissao`: TIMESTAMP NULL
-- `status`: ENUM (`EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO`)
+- `status`: ENUM (`EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO`, `BLOQUEADO_DOCENTE`)
 - `nota_bruta_automatica`: DECIMAL(5,2) NULL (Pontuação emitida automaticamente pelo avaliador VFS)
 - `nota_final_homologada`: DECIMAL(5,2) NULL (Nota definitiva após revisão e prerrogativa docente)
 - `homologado_por_docente_id`: UUID NULL (FK ➔ `Usuario.id`)
 - `homologado_em`: TIMESTAMP NULL
 - `justificativa_revisao_nota`: TEXT NULL
+- `bloqueado_em`: TIMESTAMP NULL (Momento de encerramento compulsório ou bloqueio acidental)
+- `reaberto_em`: TIMESTAMP NULL (Momento da reversão operacional pela professora)
+- `tempo_compensado_segundos`: INTEGER DEFAULT 0 (Total de segundos acrescidos à data limite por delta t)
+- `motivo_reabertura`: TEXT NULL (Justificativa acadêmica da reversão do bloqueio)
 - `ip_origem`: VARCHAR(45)
 - `subrede_laboratorio_valida`: BOOLEAN DEFAULT true (Verifica se IP pertence à sub-rede institucional do lab)
 - `user_agent`: TEXT
@@ -170,7 +174,7 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 #### `EventoTimelineSessao` (Registro Cronológico Consolidado da Timeline Forense)
 - `id`: UUID (PK)
 - `sessao_id`: UUID (FK ➔ `SessaoAvaliacao.id`)
-- `tipo_evento`: ENUM (`INICIO_SESSAO`, `QUESTAO_SUBMETIDA`, `QUESTAO_CONCLUIDA`, `AJUDA_SOLICITADA`, `AJUDA_CANCELADA`, `AJUDA_ATENDIDA_PRIVADA`, `AJUDA_ATENDIDA_LOTE`, `DEVTOOLS_ADVERTENCIA`, `DEVTOOLS_REINCIDENCIA`, `ABA_OCULTA`, `SESSAO_CONFLITO`)
+- `tipo_evento`: ENUM (`INICIO_SESSAO`, `QUESTAO_SUBMETIDA`, `QUESTAO_CONCLUIDA`, `AJUDA_SOLICITADA`, `AJUDA_CANCELADA`, `AJUDA_ATENDIDA_PRIVADA`, `AJUDA_ATENDIDA_LOTE`, `DEVTOOLS_ADVERTENCIA`, `DEVTOOLS_REINCIDENCIA`, `ABA_OCULTA`, `SESSAO_CONFLITO`, `SESSAO_BLOQUEADA_DOCENTE`, `SESSAO_REABERTA_COMPENSADA`)
 - `payload_detalhes`: JSONB (Metadados do evento, textos de dúvidas ou mensagens)
 - `timestamp_servidor`: TIMESTAMP
 
@@ -345,6 +349,20 @@ export interface RevisarNotaResponse {
   notaBrutaOriginal: number;
   notaFinalHomologada: number;
   homologadoEm: string;
+  sucesso: boolean;
+}
+
+// POST /api/v1/avaliacoes/:avaliacaoId/sessoes/:sessaoId/reabrir
+export interface ReabrirSessaoRequest {
+  justificativa: string; // Obrigatório: motivação do cancelamento da suspensão / equívoco operacional
+}
+
+export interface ReabrirSessaoResponse {
+  sessaoId: string;
+  status: 'EM_ANDAMENTO';
+  deltaSegundosCompensados: number;
+  novaDataLimiteEntrega: string; // ISO 8601 recalculada com acréscimo de Delta T
+  reabertoEm: string;
   sucesso: boolean;
 }
 ```
@@ -547,5 +565,22 @@ export interface SessionHandshakePayload {
 ```
 
 *Nota Técnica sobre Limitações de Sandbox W3C:* Em conformidade com o modelo de segurança e privacidade da W3C, navegadores web modernos operam em sandbox estrita e não fornecem acesso a dados de hardware de nível de enlace (como endereço MAC da placa de rede). Portanto, a higidez das avaliações fundamenta-se na triagem de IP institucional no gateway do laboratório da UTFPR, no controle de concorrência por mutex e nas sentinelas heurísticas de aplicação.
+
+#### 4. Reabertura de Sessão e Compensação Temporal Dinâmica (`session:reopened`)
+Quando a professora reverte um encerramento acidental, o servidor calcula $\Delta t = t_{\text{reabertura}} - t_{\text{bloqueio}}$, ajusta a data limite e notifica o terminal do estudante via WebSocket:
+
+```typescript
+// Evento emitido pelo servidor diretamente ao terminal do aluno: 'session:reopened'
+export interface SessionReopenedPayload {
+  sessaoId: string;
+  novaDataLimiteEntrega: string; // ISO 8601 recalculada com Delta T somado
+  deltaSegundosCompensados: number; // Quantidade de segundos acrescidos
+  vfsSnapshotRestaurado: VfsSnapshotData; // Último snapshot válido antes do bloqueio
+  docenteNome: string;
+  justificativa: string;
+  reabertoEm: string;
+}
+```
+
 
 
