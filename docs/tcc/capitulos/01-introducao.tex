@@ -62,11 +62,11 @@ Profissionais sem domínio dos fundamentos de sistemas operacionais recorrem fre
 Nesse contexto, uma plataforma educacional interativa atua como um campo de treinamento seguro (\textit{sandbox} didático). Ao experimentar em um ambiente simulado que reproduz com precisão o comportamento de um servidor Linux, o discente tem a oportunidade de vivenciar a causalidade de suas ações, compreender as mensagens de erro do sistema operacional e desenvolver o senso crítico necessário para avaliar qualquer código sugerido por assistentes automatizados antes de executá-lo em uma infraestrutura produtiva real.
 
 % ----------------------------------------------------------
-\section{Dores Pedagógicas Reais e o Resgate da Motivação Discente}
+\section{Dores Pedagógicas Reais, Dispersão por Dispositivos Móveis e a Carga Cognitiva}
 \label{sec:dores-pedagogicas}
 % ----------------------------------------------------------
 
-Aprofundando os entraves didáticos verificados na rotina acadêmica da UTFPR Câmpus Guarapuava, destacam-se quatro dimensões críticas que afetam diretamente o aproveitamento pedagógico:
+Aprofundando os entraves didáticos verificados na rotina acadêmica da UTFPR Câmpus Guarapuava, destacam-se dimensões pedagógicas e comportamentais críticas que afetam diretamente o aproveitamento e a retenção discente na disciplina:
 
 \subsection{O Resgate dos Perfis Discentes: Da Frustração Técnica ao Engajamento}
 Observa-se na rotina acadêmica a coexistência de dois perfis de discentes que demandam atenção pedagógica urgente:
@@ -74,6 +74,28 @@ Observa-se na rotina acadêmica a coexistência de dois perfis de discentes que 
     \item \textbf{O aluno motivado, mas frustrado por barreiras de infraestrutura:} Aquele estudante que ingressa na disciplina com genuína sede de aprender, mas que ao longo das primeiras semanas se desmotiva profundamente devido a falhas recorrentes no ambiente local --- máquinas virtuais que travam o sistema operacional hospedeiro, recursos de virtualização desabilitados na BIOS do seu computador portátil, falhas crônicas de rede em Subsistemas Windows para Linux (WSL). Ao perder horas tentando fazer o ambiente funcionar em vez de praticar os conceitos de SO, esse estudante experimenta uma sensação paralisante de inaptidão técnica, culminando frequentemente no abandono tácito das práticas da matéria;
     \item \textbf{O aluno desmotivado por enxergar a disciplina como burocracia:} Aquele estudante que chega à disciplina enxergando Sistemas Operacionais como um mero obstáculo burocrático para cumprimento de créditos curriculares obrigatórios, considerando a linha de comando uma tecnologia anacrônica ou árida. Para esse perfil, a imposição de apostilas estáticas e configurações complexas reforça a rejeição. É imperativo oferecer uma experiência interativa, visualmente polida e gamificada, capaz de demonstrar na prática que dominar o terminal não é apenas simples e intuitivo, mas intelectualmente estimulante e prazeroso.
 \end{enumerate}
+
+\subsection{O Perfil da Geração Atual e a Dispersão por Smartphones}
+A transformação nos hábitos cognitivos e no consumo de informação dos estudantes universitários contemporâneos acentuou os desafios em sala de aula. Os novos discentes, inseridos desde a infância na cultura digital, estão habituados com interfaces móveis altamente responsivas, imediaticidade de resposta e multitarefa constante proporcionada pelos \textit{smartphones} \cite{kuznekoff2013impact}.
+
+Essa dinâmica comportamental acarreta uma redução drástica na tolerância ao atrito técnico inicial. Em uma aula prática tradicional de Sistemas Operacionais, quando o discente se depara com 30 a 45 minutos de erros infrutíferos em máquinas virtuais antes de conseguir executar o seu primeiro comando, ocorre um fenômeno crítico de ruptura atencional: frustrado pela inoperância do computador, o aluno desvia imediatamente seu foco para o \textit{smartphone}. Uma vez dispersa a atenção para notificações de redes sociais e aplicativos de mensagens, restabelecer a conexão cognitiva do acadêmico com a atividade prática da aula torna-se uma tarefa quase irreversível para o docente \cite{kuznekoff2013impact, silva2021ensino}.
+
+\subsection{A Teoria da Carga Cognitiva e a Eliminação da Sobrecarga Extrínseca}
+Sob a ótica da Teoria da Carga Cognitiva, formulada por John Sweller \cite{sweller1988cognitive, sweller2011cognitive, paas2003cognitive}, a memória de trabalho humana possui capacidade estritamente limitada para processar novas informações simultâneas. Sweller categoriza a carga cognitiva em três dimensões:
+\begin{itemize}
+    \item \textbf{Carga Intrínseca:} O esforço mental inerente à complexidade dos conceitos a serem aprendidos (no caso, a semântica de processos, modelos de permissão octal, descritores de arquivos e hierarquia de diretórios);
+    \item \textbf{Carga Germana:} O processamento mental construtivo dedicado à criação, assimilação e consolidação de esquemas mentais duradouros na memória de longo prazo;
+    \item \textbf{Carga Extrínseca:} O esforço mental improdutivo gerado pela forma como a informação é apresentada e pelas barreiras operacionais incidentais que não contribuem para o aprendizado real do tema.
+\end{itemize}
+
+No paradigma pedagógico convencional de Sistemas Operacionais, a exigência de configurar hipervisores, solucionar conflitos de virtualização aninhada na BIOS e depurar drivers de rede impõe uma massiva \textbf{carga cognitiva extrínseca}. A capacidade de processamento mental do estudante é saturada e esgotada pelo atrito do ambiente antes mesmo que ele possa mobilizar recursos cognitivos para a carga intrínseca e germana dos conceitos de sistemas operacionais. 
+
+Ao eliminar integralmente qualquer necessidade de instalação prévia e executar um servidor Linux simulado diretamente no navegador web, a presente proposta neutraliza a carga extrínseca, liberando a capacidade atencional e a memória de trabalho do estudante para focar exclusivamente na essência conceitual e prática da disciplina \cite{paas2003cognitive, guo2013online}.
+
+\subsection{O Valor do Microlearning e da Aprendizagem Ativa com Feedback Imediato}
+A superação dos manuais estáticos em PDF encontra respaldo nos princípios da Aprendizagem Ativa (\textit{Active Learning}) e do \textit{Microlearning} \cite{freeman2014active, kapp2019microlearning}. Estudos empíricos demonstram que métodos ativos e interativos aumentam de forma substancial o desempenho acadêmico em áreas de ciências exatas e engenharias em comparação a aulas puramente expositivas \cite{freeman2014active}.
+
+Ao segmentar o conteúdo programático em lições práticas curtas, contextualizadas e encadeadas por desafios objetivos --- acompanhadas por um terminal interativo executado lado a lado com retorno visual instantâneo ---, a plataforma oferece \textit{feedback} imediato para cada ação do discente. O aluno visualiza instantaneamente a consequência de seus comandos na árvore do sistema de arquivos e nas tabelas de permissões, fortalecendo a retenção duradoura de competências e sustentando o engajamento de uma geração habituada à interatividade contínua \cite{guo2013online, kapp2019microlearning}.
 
 \subsection{A Barreira das Máquinas Virtuais e a Heterogeneidade de Hardware}
 A abordagem tradicional de ensino prático baseia-se na instalação de Máquinas Virtuais (VMs), como VirtualBox ou VMware. Essa estratégia exige computadores com capacidade substancial de memória volátil (RAM) e processamento, demandando tipicamente a alocação de no mínimo 2~GB a 4~GB de RAM dedicados por instância, além de dezenas de \textit{gigabytes} de armazenamento em disco. Na realidade dos discentes de graduação, uma fração expressiva possui computadores com limitações severas de \textit{hardware}, além de barreiras como tecnologia de virtualização (Intel VT-x ou AMD-V) bloqueada na BIOS/UEFI de computadores pessoais.
@@ -94,7 +116,7 @@ A aplicação de provas práticas individuais no ambiente de laboratório demand
 \label{sec:justificativa}
 % ----------------------------------------------------------
 
-Diante do diagnóstico apresentado, justifica-se o desenvolvimento de uma plataforma educacional que elimine a dependência de ambientes de virtualização pesados e, simultaneamente, supra a lacuna de integridade nas avaliações práticas e o descompasso entre a teoria acadêmica e a prática corporativa de engenharia de \textit{software}.
+Diante do diagnóstico apresentado, justifica-se o desenvolvimento de uma plataforma educacional que elimine a dependência de ambientes de virtualização pesados e, simultaneamente, supra a lacuna de integridade nas avaliações práticas, responda às demandas cognitivas dos novos discentes e aproxime o aprendizado universitário da realidade corporativa de engenharia de \textit{software}.
 
 A proposta de transição do protótipo funcional de simulador em TypeScript puro para uma plataforma educacional completa permite unir o melhor de dois mundos:
 \begin{itemize}
@@ -129,8 +151,8 @@ Para o cumprimento do objetivo geral, estabelecem-se os seguintes objetivos espe
 
 Este documento está estruturado em seis capítulos:
 \begin{itemize}
-    \item O \textbf{Capítulo \ref{cap:introducao}} contextualiza a gênese do trabalho na interseção entre academia e indústria, analisa a relevância do Linux no mercado corporativo e seu reflexo na engenharia de software, discute os riscos do uso cego de IA, elenca as dores pedagógicas vivenciadas no ensino de SO, estabelece a justificativa do projeto e delineia os objetivos geral e específicos;
-    \item O \textbf{Capítulo 2 (Fundamentação Teórica)} aborda os princípios teóricos de arquitetura de sistemas operacionais, o padrão POSIX, a hierarquia FHS, a semântica de chamadas de sistema, bem como os referenciais pedagógicos de ensino de computação e aprendizagem ativa;
+    \item O \textbf{Capítulo \ref{cap:introducao}} contextualiza a gênese do trabalho na interseção entre academia e indústria, analisa a relevância do Linux no mercado corporativo e seu reflexo na engenharia de software, discute os riscos do uso cego de IA, elenca as dores pedagógicas vivenciadas no ensino de SO sob a ótica da Teoria da Carga Cognitiva e da dispersão por dispositivos móveis, estabelece a justificativa do projeto e delineia os objetivos geral e específicos;
+    \item O \textbf{Capítulo 2 (Fundamentação Teórica)} aborda os princípios teóricos de arquitetura de sistemas operacionais, o padrão POSIX, a hierarquia FHS, a semântica de chamadas de sistema, bem como os referenciais pedagógicos de ensino de computação, aprendizagem ativa, microlearning e cognição humana;
     \item O \textbf{Capítulo 3 (Arquitetura da Plataforma)} detalha o projeto arquitetural da solução, os modelos de dados, o fluxo de comunicação entre cliente e servidor, a especificação das APIs REST e a estratégia de validação desacoplada de VFS;
     \item O \textbf{Capítulo 4 (Implementação)} descreve os aspectos técnicos da engenharia do \textit{software}, englobando o motor de simulação in-memory, o parser de comandos, a construção dos serviços de retaguarda e as camadas de segurança de prova;
     \item O \textbf{Capítulo 5 (Avaliação e Resultados)} apresenta os testes automatizados, a verificação da fidelidade aos comandos Linux, a resistência contra tentativas de manipulação em cliente e a análise comparativa frente a soluções baseadas em VMs;

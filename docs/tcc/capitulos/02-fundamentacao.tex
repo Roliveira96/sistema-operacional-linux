@@ -1,16 +1,80 @@
 \chapter{Fundamentação Teórica}
 \label{cap:fundamentacao}
 
-Este capítulo apresenta a base conceitual que fundamenta a pesquisa e o desenvolvimento da plataforma educacional. São abordados os princípios de arquitetura de sistemas operacionais, o padrão POSIX, a organização hierárquica do sistema de arquivos no Linux e as teorias pedagógicas aplicadas ao ensino de computação.
+Este capítulo estabelece os alicerces conceituais, tecnológicos e pedagógicos que fundamentam o desenvolvimento da plataforma educacional proposta. A primeira parte aborda a arquitetura de sistemas operacionais, a padronização POSIX e a organização hierárquica do sistema de arquivos no ecossistema Linux. A segunda parte examina a literatura de educação em computação, articulando a Teoria da Carga Cognitiva, os princípios da Aprendizagem Ativa e do \textit{Microlearning}, e a análise comportamental sobre dispersão atencional por dispositivos móveis no ensino superior.
 
-\section{Sistemas Operacionais e o Padrão POSIX}
+% ----------------------------------------------------------
+\section{Arquitetura de Sistemas Operacionais e o Padrão POSIX}
 \label{sec:posix}
-O padrão POSIX (\textit{Portable Operating System Interface}) define uma interface padronizada entre aplicações e o sistema operacional, estabelecendo contratos uniformes para chamadas de sistema, utilitários de linha de comando e modelos de processos \cite{posix2018}. A conformidade com esse padrão viabiliza a portabilidade de scripts e aplicações no universo Unix-like \cite{tanenbaum2015modern, silberschatz2018operating}.
+% ----------------------------------------------------------
 
+Um sistema operacional atua como uma camada intermediária fundamental entre o \textit{hardware} do computador e os programas de aplicação executados pelos usuários \cite{silberschatz2018operating, tanenbaum2015modern}. Conforme sintetizam Tanenbaum e Bos \cite{tanenbaum2015modern}, suas funções primordiais dividem-se em duas vertentes: atuar como um gerenciador de recursos (alocando de forma ordenada processadores, memórias, discos e interfaces de entrada e saída entre programas concorrentes) e fornecer uma máquina estendida (\textit{extended machine}), oferecendo abstrações amigáveis (como arquivos, processos e \textit{sockets}) que ocultam a complexidade das instruções de baixo nível do \textit{hardware}.
+
+A interface entre as aplicações em espaço de usuário (\textit{user space}) e o núcleo do sistema operacional (\textit{kernel space}) ocorre por meio das chamadas de sistema (\textit{system calls} ou \textit{syscalls}). Historicamente, a proliferação desordenada de variantes proprietárias da família Unix gerou fragmentação severa de compatibilidade. Para mitigar esse problema, o IEEE em conjunto com a ISO e \textit{The Open Group} estabeleceram o padrão POSIX (\textit{Portable Operating System Interface}) \cite{posix2018}.
+
+O padrão POSIX formaliza contratos de programação uniformes abrangendo operações de Entrada e Saída (I/O) baseadas em descritores de arquivo (\textit{file descriptors}), mecanismos de criação e controle de processos (\texttt{fork}, \texttt{exec}, \texttt{wait}), manipulação de sinais assíncronos e a semântica da Interface de Linha de Comando (\textit{CLI}) e do interpretador de comandos padrão (\textit{Shell}) \cite{kerrisk2010linux}. O domínio das chamadas e utilitários POSIX confere ao desenvolvedor a capacidade de construir aplicações portáveis, resilientes e interoperáveis entre diferentes distribuições Linux e sistemas Unix-like contemporâneos.
+
+% ----------------------------------------------------------
 \section{Sistemas de Arquivos e o Filesystem Hierarchy Standard (FHS)}
 \label{sec:fhs}
-O Linux adota a abstração conceitual na qual ``tudo é um arquivo'', organizando diretórios, dispositivos físicos e fluxos de dados sob uma única árvore unificada. O \textit{Filesystem Hierarchy Standard} (FHS) dita a organização semântica dos diretórios essenciais, tais como \texttt{/etc}, \texttt{/home}, \texttt{/var}, \texttt{/tmp} e \texttt{/dev} \cite{fhs30}. O modelo de segurança baseia-se em proprietários (UID), grupos (GID), permissões \textit{rwx} em formato octal ou simbólico e bits especiais como o \textit{sticky bit} \cite{kerrisk2010linux, nemeth2017unix}.
+% ----------------------------------------------------------
 
-\section{Simulação Educacional e Aprendizagem Ativa}
+No ecossistema Unix e Linux, adota-se o princípio arquitetural consagrado no qual ``tudo é um arquivo'' (\textit{everything is a file}). Sob esse modelo, não apenas dados persistentes em disco, mas também dispositivos físicos de armazenamento, periféricos de entrada e saída, canais de comunicação entre processos e estruturas do próprio núcleo do sistema são expostos na forma de nós dentro de uma única árvore hierárquica unificada de diretórios, com raiz em \texttt{/} \cite{nemeth2017unix, kerrisk2010linux}.
+
+Para evitar que diferentes distribuições de Linux organizassem arquivos e utilitários de modo arbitrário, a \textit{Linux Foundation} mantém o \textit{Filesystem Hierarchy Standard} (FHS) \cite{fhs30}. O FHS define a localização normativa dos componentes do sistema:
+\begin{itemize}
+    \item \texttt{/bin} e \texttt{/sbin}: Binários executáveis essenciais para a operação do sistema e manutenção administrativa;
+    \item \texttt{/etc}: Arquivos e diretórios de configuração estática e global da máquina e dos serviços instalados;
+    \item \texttt{/home}: Diretórios de dados pessoais dos usuários não privilegiados;
+    \item \texttt{/root}: Diretório pessoal exclusivo do superusuário do sistema (\textit{root});
+    \item \texttt{/var}: Dados dinâmicos e variáveis produzidos durante a operação, tais como arquivos de \textit{log} (\texttt{/var/log}), dados de bancos de dados (\texttt{/var/lib}) e filas de impressão ou e-mail (\texttt{/var/spool});
+    \item \texttt{/opt} e \texttt{/usr/local}: Instalações de pacotes de \textit{software} adicionais e utilitários compilados localmente;
+    \item \texttt{/tmp}: Arquivos temporários de livre acesso aos processos, tipicamente protegidos com o \textit{Sticky Bit};
+    \item \texttt{/dev}, \texttt{/proc} e \texttt{/sys}: Pontos de montagem de sistemas de arquivos virtuais que representam nós de dispositivos de \textit{hardware} e estruturas de controle de processos em memória gerenciadas pelo \textit{kernel}.
+\end{itemize}
+
+O modelo de segurança do sistema de arquivos alicerça-se no controle de identidades de usuários (\textit{User ID} -- UID), grupos primários e secundários (\textit{Group ID} -- GID) e na matriz de permissões discretas POSIX: leitura (\textit{r} = 4), escrita (\textit{w} = 2) e execução (\textit{x} = 1), organizadas nos escopos de proprietário (\textit{user}), grupo (\textit{group}) e outros (\textit{others}) \cite{nemeth2017unix}. Além disso, a semântica inclui atributos especiais como \textit{SetUID}, \textit{SetGID} e o \textit{Sticky Bit} (permissão octal 1000), indispensável para diretórios públicos compartilhados como \texttt{/tmp}, onde um usuário comum não pode excluir arquivos criados por outro usuário.
+
+% ----------------------------------------------------------
+\section{A Teoria da Carga Cognitiva no Ensino de Computação}
+\label{sec:carga-cognitiva}
+% ----------------------------------------------------------
+
+A Teoria da Carga Cognitiva (\textit{Cognitive Load Theory} -- CLT), proposta inicialmente por John Sweller \cite{sweller1988cognitive} e ampliada nas décadas seguintes \cite{sweller2011cognitive, paas2003cognitive}, alicerça-se no modelo de arquitetura cognitiva humana, que distingue a memória de trabalho (\textit{working memory}) da memória de longo prazo (\textit{long-term memory}).
+
+Enquanto a memória de longo prazo possui capacidade ilimitada para armazenamento de estruturas complexas de conhecimento (denominadas esquemas mentais), a memória de trabalho opera como um gargalo severo: ela é capaz de reter e manipular simultaneamente apenas uma quantidade estritamente limitada de elementos novos de informação por breves períodos \cite{sweller1988cognitive}. Quando a quantidade de informações demandada por uma atividade instrucional excede a capacidade de processamento da memória de trabalho, ocorre a sobrecarga cognitiva (\textit{cognitive overload}), impedindo a assimilação e a construção de novos esquemas mentais.
+
+Sweller e colaboradores \cite{paas2003cognitive, sweller2011cognitive} categorizam o esforço mental em três formas de carga:
+\begin{enumerate}
+    \item \textbf{Carga Cognitiva Intrínseca:} É determinada pela complexidade dos elementos conceituais que precisam ser aprendidos e pelo seu grau de interatividade. No ensino de Sistemas Operacionais, a compreensão de tópicos como a precedência de permissões octais, a sincronização de processos e o encadeamento de fluxos via \textit{pipes} constitui a carga intrínseca fundamental da disciplina;
+    \item \textbf{Carga Cognitiva Germana:} Representa a energia mental produtiva devotada pelo estudante ao esforço consciente de construir, conectar e consolidar novos esquemas de conhecimento duradouros na memória de longo prazo;
+    \item \textbf{Carga Cognitiva Extrínseca:} É a sobrecarga mental improdutiva gerada por fatores incidentais, tais como instruções desorganizadas, interfaces confusas ou obstáculos técnicos periféricos que em nada contribuem para a aprendizagem do conteúdo visado.
+\end{enumerate}
+
+No contexto tradicional do ensino prático de computação, a exigência de que estudantes novatos instalem hipervisores de virtualização, façam configurações de \textit{firmware} em BIOS/UEFI e depurem falhas de rede de máquinas virtuais impõe uma massiva \textbf{carga cognitiva extrínseca} \cite{silva2021ensino}. Essa sobrecarga incidental satura rapidamente a memória de trabalho do aprendiz, esgotando seus recursos atencionais antes mesmo que ele possa mobilizar esforço mental na carga intrínseca e germana dos conceitos de sistemas operacionais. 
+
+Portanto, o projeto instrucional de ferramentas educacionais inovadoras deve focar prioritariamente na eliminação cirúrgica da carga extrínseca, disponibilizando ambientes acessíveis de forma instantânea e intuitiva \cite{guo2013online}.
+
+% ----------------------------------------------------------
+\section{Aprendizagem Ativa, Microlearning e Ambientes Web Interativos}
 \label{sec:aprendizagem-ativa}
-O ensino de computação é amplamente beneficiado por metodologias que incentivam a experimentação e a resolução de problemas práticos com ciclos imediatos de retroalimentação \cite{papert1980mindstorms, benari2001constructivism, wing2006computational}. A simulação em ambiente web remove a sobrecarga cognitiva e operacional associada à configuração de ambientes, permitindo que o foco discente permaneça nos conceitos estruturantes da disciplina.
+% ----------------------------------------------------------
+
+O modelo tradicional de ensino expositivo, centrado no repasse passivo de conteúdos teóricos e no cumprimento de apostilas longas em formato PDF, apresenta eficácia limitada na retenção de habilidades práticas em computação \cite{benari2001constructivism, freeman2014active}.
+
+Em uma abrangente meta-análise publicada nos anais da \textit{National Academy of Sciences}, Freeman et al. \cite{freeman2014active} examinaram centenas de estudos empíricos comparativos e demonstraram que o emprego de metodologias de Aprendizagem Ativa (\textit{Active Learning}) em disciplinas de ciências, tecnologia, engenharia e matemática (STEM) resulta em um aumento médio expressivo nas notas de exames e em uma redução de 55\% nas taxas de reprovação de alunos em relação a abordagens estritamente expositivas.
+
+Complementarmente, a metodologia do \textit{Microlearning} propõe a segmentação de currículos complexos em pequenas unidades digestíveis de aprendizado (\textit{micro-lessons}), estruturadas em torno de objetivos operacionais únicos e imediatos \cite{kapp2019microlearning}. Cada pequena lição combina uma explicação pontual com um desafio prático de execução instantânea, estimulando a autonomia e propiciando ciclos rápidos de tentativa, erro e sucesso.
+
+Nesse horizonte, a criação de ambientes educacionais interativos baseados na web (executados nativamente no navegador, sem necessidade de instalação local de dependências pesadas) tem se destacado na literatura de Educação em Computação (SIGCSE/ACM) como um vetor transformador de engajamento e democratização do aprendizado \cite{guo2013online, silva2021ensino}. Conforme evidenciado por Guo \cite{guo2013online}, a eliminação da barreira de instalação de compiladores e interpretadores reduz drasticamente o atrito de entrada e maximiza o tempo produtivo dedicado à experimentação interativa.
+
+% ----------------------------------------------------------
+\section{O Perfil dos Novos Discentes e a Dispersão Atencional por Smartphones}
+\label{sec:dispersao-smartphones}
+% ----------------------------------------------------------
+
+O corpo discente que ingressa no ensino superior na presente década pertence a uma geração de nativos digitais cujos padrões de atenção e cognição foram moldados pela onipresença dos dispositivos móveis inteligentes (\textit{smartphones}) e pela conexão ubíqua à internet \cite{kuznekoff2013impact}. Esse público caracteriza-se por um consumo fragmentado de informações, forte expectativa de imediatismo na resposta de sistemas e uma constante inclinação à multitarefa digital.
+
+Estudos sobre o impacto de dispositivos móveis em sala de aula de ensino superior demonstram que a distração digital mediada por celulares afeta negativamente a retenção de conteúdos e o engajamento quando as atividades curriculares perdem dinamismo \cite{kuznekoff2013impact}. Em um laboratório prático, a ocorrência de atrito técnico excessivo --- tais como longas esperas para o provisionamento de máquinas virtuais ou telas congeladas de inicialização --- funciona como um gatilho direto para a dispersão atencional: o estudante abandona a tarefa do computador e volta seus olhos para o \textit{smartphone}.
+
+Uma vez desencadeado o desvio atencional em direção a redes sociais e mensageiros instantâneos, a reativação do foco discente exige um custo cognitivo elevado, gerando um descompasso permanente com o ritmo da aula prática \cite{kuznekoff2013impact, silva2021ensino}. Em contrapartida, ambientes que oferecem resposta visual instantânea, interatividade de linha de comando no navegador e \textit{feedback} imediato funcionam como um poderoso antídoto contra a dispersão, retendo a atenção do estudante na atividade didática desde os momentos iniciais do encontro pedagógico.
