@@ -62,7 +62,7 @@ Dessa forma, o motor de retaguarda atua em dois níveis complementares:
 \label{sec:governanca-seguranca}
 % ----------------------------------------------------------
 
-A aplicação de avaliações práticas em ambiente computacional exige um arcabouço rigoroso de governança que equilibre a supervisão pedagógica em tempo real, a prevenção ativa contra tentativas de trapaça e a tolerância a comportamentos acidentais. Em consonância com a arquitetura reativa orientada a eventos, a plataforma estrutura seus mecanismos de controle em cinco eixos operacionais: o suporte síncrono em sala de aula, a detecção heurística de ferramentas de inspeção, o bloqueio de concorrência de sessões, a telemetria forense de rede e a gestão de janelas temporais com chaves dinâmicas.
+A aplicação de avaliações práticas em ambiente computacional exige um arcabouço rigoroso de governança que equilibre a supervisão pedagógica em tempo real, a prevenção ativa contra tentativas de trapaça e a tolerância a comportamentos acidentais. Em consonância com a arquitetura reativa orientada a eventos, a plataforma estrutura seus mecanismos de controle em sete eixos operacionais: o suporte síncrono em sala de aula, a detecção heurística de ferramentas de inspeção, o bloqueio de concorrência de sessões, a telemetria forense de rede, a gestão de janelas temporais com chaves dinâmicas, a trilha de auditoria cronológica (\textit{Timeline Forense}) e o dossiê de avaliação formativa com revisão manual de notas.
 
 \subsection{Dinâmica Pedagógica da Fila de Suporte: A Mãozinha Virtual}
 \label{sec:fila-suporte}
@@ -116,4 +116,27 @@ O controle temporal e a circunscrição espacial dos exames completam o protocol
     \item \textbf{Tokens Dinâmicos de Liberação em Sala:} No início da aula presencial de avaliação, a docente projeta ou divulga um código de sessão temporário com validade restrita ao horário letivo, impedindo que discentes iniciem a prova antecipadamente ou a realizem fora do laboratório físico;
     \item \textbf{Temporizador Sincronizado no Servidor:} A contagem regressiva e o encerramento do prazo de submissão baseiam-se estritamente no relógio oficial do servidor, inviabilizando fraudes por manipulação do relógio do sistema operacional do computador do aluno;
     \item \textbf{Janelas Isoladas para Repescagens e Segundas Chamadas:} Para discentes amparados por justificativas acadêmicas, o sistema permite o agendamento de janelas temporais dedicadas vinculadas exclusivamente aos seus respectivos RAs, liberando a avaliação em regime de reposição sem expor o exame à turma regular.
+\end{itemize}
+
+\subsection{Trilha de Auditoria Forense e Linha do Tempo da Avaliação}
+\label{sec:timeline-forense}
+
+Para conferir transparência incontestável ao processo avaliativo, cada sessão de prova compõe uma trilha de auditoria visual e cronológica (\textit{Timeline Forense}) acessível no painel do professor. Todos os eventos são registrados com precisão de milissegundos a partir do relógio do servidor, consolidando:
+\begin{enumerate}
+    \item \textbf{Marco Temporal Inicial:} O instante exato de ingresso do estudante na sessão de prova mediante a validação do token temporário fornecido pela professora em sala;
+    \item \textbf{Sequência de Resolução de Questões:} A ordem em que cada desafio prático foi enfrentado, incluindo as tentativas intermediárias, comandos executados no VFS e o carimbo de tempo da conclusão bem-sucedida de cada item;
+    \item \textbf{Ciclo Completo de Pedidos de Suporte:} O histórico de chamados da ``Mãozinha Virtual'', com o horário exato da solicitação, o texto original da dúvida formulada pelo aluno, a forma de resolução (se atendido em chat individual 1:1, via transmissão em lote pela professora ou se cancelado de forma autônoma pelo próprio estudante);
+    \item \textbf{Log de Anomalias Operacionais:} O registro sequencial de advertências de abertura acidental ou intencional de \textit{DevTools}, perda de foco prolongada da aba do navegador (\texttt{visibilitychange}) ou potenciais colisões de acesso simultâneo.
+\end{enumerate}
+
+Essa correlação visual permite ao professor analisar a dinâmica de raciocínio do discente, identificando se picos de hesitação, erros recorrentes ou anomalias de tela coincidiram com a execução de comandos complexos.
+
+\subsection{Dossiê de Observações Docentes e Prerrogativa de Avaliação Formativa}
+\label{sec:dossie-docente}
+
+Um dos pilares de design da plataforma é que a automação técnica jamais deve suplantar o julgamento pedagógico do professor:
+\begin{itemize}
+    \item \textbf{Prerrogativa Docente sobre a Automação:} Embora o motor de asserções emita imediatamente após o término uma nota técnica preliminar calculada sobre o estado do VFS, a custódia da nota final pertence exclusivamente à professora titular da disciplina;
+    \item \textbf{Registro de Ocorrências Presenciais em Sala:} O painel docente disponibiliza um campo de notas contextuais no qual a professora pode registrar observações comportamentais durante a realização física da prova no laboratório (como uso indevido de smartphone, conversas paralelas ou postura atípica na bancada);
+    \item \textbf{Painel de Reavaliação e Diálogo Formativo:} O sistema disponibiliza à docente ferramentas para aplicar descontos parciais, registrar justificativas de penalidade ou até mesmo convocar o estudante para uma entrevista presencial de arguição. Nessa conversa, a docente pode projetar a linha do tempo da sessão e solicitar que o estudante explique a fundamentação dos comandos digitados, convertendo o exame somativo em uma rica oportunidade de avaliação formativa.
 \end{itemize}

@@ -133,7 +133,11 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 - `data_limite_entrega`: TIMESTAMP (Calculada pelo servidor: `data_inicio + duracao_minutos`)
 - `data_submissao`: TIMESTAMP NULL
 - `status`: ENUM (`EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO`)
-- `nota_final`: DECIMAL(5,2) NULL
+- `nota_bruta_automatica`: DECIMAL(5,2) NULL (Pontuação emitida automaticamente pelo avaliador VFS)
+- `nota_final_homologada`: DECIMAL(5,2) NULL (Nota definitiva após revisão e prerrogativa docente)
+- `homologado_por_docente_id`: UUID NULL (FK ➔ `Usuario.id`)
+- `homologado_em`: TIMESTAMP NULL
+- `justificativa_revisao_nota`: TEXT NULL
 - `ip_origem`: VARCHAR(45)
 - `subrede_laboratorio_valida`: BOOLEAN DEFAULT true (Verifica se IP pertence à sub-rede institucional do lab)
 - `user_agent`: TEXT
@@ -142,6 +146,21 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 - `geolocalizacao_estimada`: JSONB NULL (Latitude, longitude e precisão quando autorizado na modalidade remota)
 - `conexoes_ativas_count`: INTEGER DEFAULT 1 (Controle de concorrência do mutex de sessão)
 - *Constraint:* UNIQUE(`avaliacao_id`, `aluno_id`, `janela_id`)
+
+#### `ObservacaoDocenteSessao` (Dossiê Comportamental Presencial em Sala)
+- `id`: UUID (PK)
+- `sessao_id`: UUID (FK ➔ `SessaoAvaliacao.id`)
+- `docente_id`: UUID (FK ➔ `Usuario.id`)
+- `tipo_ocorrencia`: ENUM (`USO_SMARTPHONE`, `CONVERSA_PARALELA`, `COMPORTAMENTO_ATIPICO`, `ANOTACAO_PEDAGOGICA_POSITIVA`, `OUTRO`)
+- `descricao`: TEXT (Registro presencial circunstanciado pelo professor)
+- `registrado_em`: TIMESTAMP
+
+#### `EventoTimelineSessao` (Registro Cronológico Consolidado da Timeline Forense)
+- `id`: UUID (PK)
+- `sessao_id`: UUID (FK ➔ `SessaoAvaliacao.id`)
+- `tipo_evento`: ENUM (`INICIO_SESSAO`, `QUESTAO_SUBMETIDA`, `QUESTAO_CONCLUIDA`, `AJUDA_SOLICITADA`, `AJUDA_CANCELADA`, `AJUDA_ATENDIDA_PRIVADA`, `AJUDA_ATENDIDA_LOTE`, `DEVTOOLS_ADVERTENCIA`, `DEVTOOLS_REINCIDENCIA`, `ABA_OCULTA`, `SESSAO_CONFLITO`)
+- `payload_detalhes`: JSONB (Metadados do evento, textos de dúvidas ou mensagens)
+- `timestamp_servidor`: TIMESTAMP
 
 #### `InfracaoSeguranca` (Registro Forense e Trilha de Auditoria Anti-Fraude)
 - `id`: UUID (PK)
@@ -260,6 +279,61 @@ export interface FinalizarAvaliacaoResponse {
   notaFinal: number;
   dataSubmissao: string;
   aprovado: boolean;
+}
+```
+
+### 4.4 Trilha Forense, Observações e Revisão Manual de Notas
+
+```typescript
+// GET /api/v1/avaliacoes/:avaliacaoId/sessoes/:sessaoId/timeline
+export interface ObterTimelineSessaoResponse {
+  sessaoId: string;
+  aluno: {
+    id: string;
+    ra: string;
+    nome: string;
+  };
+  eventos: Array<{
+    id: string;
+    tipo: 'INICIO_SESSAO' | 'QUESTAO_SUBMETIDA' | 'QUESTAO_CONCLUIDA' |
+          'AJUDA_SOLICITADA' | 'AJUDA_CANCELADA' | 'AJUDA_ATENDIDA_PRIVADA' |
+          'AJUDA_ATENDIDA_LOTE' | 'DEVTOOLS_ADVERTENCIA' | 'DEVTOOLS_REINCIDENCIA' |
+          'ABA_OCULTA' | 'SESSAO_CONFLITO';
+    timestampServidor: string;
+    payload: Record<string, unknown>;
+  }>;
+  observacoesDocente: Array<{
+    id: string;
+    tipo: string;
+    descricao: string;
+    registradoEm: string;
+  }>;
+}
+
+// POST /api/v1/avaliacoes/:avaliacaoId/sessoes/:sessaoId/observacoes
+export interface RegistrarObservacaoDocenteRequest {
+  tipoOcorrencia: 'USO_SMARTPHONE' | 'CONVERSA_PARALELA' | 'COMPORTAMENTO_ATIPICO' | 'ANOTACAO_PEDAGOGICA_POSITIVA' | 'OUTRO';
+  descricao: string;
+}
+
+export interface RegistrarObservacaoDocenteResponse {
+  id: string;
+  registradoEm: string;
+  sucesso: boolean;
+}
+
+// PATCH /api/v1/avaliacoes/:avaliacaoId/sessoes/:sessaoId/revisar-nota
+export interface RevisarNotaRequest {
+  notaFinalHomologada: number;
+  justificativa: string; // Obrigatório: motivação pedagógica do ajuste/penalidade
+}
+
+export interface RevisarNotaResponse {
+  sessaoId: string;
+  notaBrutaOriginal: number;
+  notaFinalHomologada: number;
+  homologadoEm: string;
+  sucesso: boolean;
 }
 ```
 
