@@ -5,7 +5,12 @@ Este capítulo resume as contribuições técnicas e pedagógicas do trabalho, d
 
 \section{Considerações Finais}
 \label{sec:consideracoes-finais}
-A plataforma proposta cumpre o objetivo de democratizar o acesso à prática de Sistemas Operacionais: elimina as barreiras da virtualização e oferece ao professor um ambiente robusto, seguro e com métricas precisas de aprendizagem.
+
+A plataforma desenvolvida neste trabalho cumpre o objetivo fundamental de democratizar e desonerar a prática de Sistemas Operacionais no ensino superior. Ao transpor o ambiente de experimentação para um simulador POSIX executado inteiramente no navegador sobre um sistema de arquivos virtual em memória, superou-se a severa sobrecarga cognitiva extrínseca associada ao provisionamento de máquinas virtuais pesadas. Em vez de despender frações substanciais da aula configurando hipervisores, ajustando permissões de hospedeiro ou aguardando o carregamento de imagens de múltiplos gigabytes, os estudantes têm acesso a um terminal interativo com latência nula em menos de dois segundos, canalizando sua atenção exclusivamente para os conceitos intrínsecos de hierarquia, permissões e manipulação de processos.
+
+No âmbito da governança avaliativa, a arquitetura híbrida consolida um equilíbrio inédito entre supervisão em tempo real e resiliência a falhas de conectividade. O \textit{Cockpit} docente viabiliza telemetria contínua via \textit{WebSockets}, fornecendo à professora visibilidade instantânea sobre o progresso das turmas, detecção de desvios de foco e gestão ordenada de dúvidas por meio da fila de atendimento. Paralelamente, a volatilidade de rede comum a laboratórios acadêmicos é neutralizada pelo protocolo de contingência \textit{offline}: os envelopes de asserções cifradas mantidos em \textit{IndexedDB} e a exportação de pacotes assinados (\texttt{.proof}) asseguram que nenhuma submissão legítima seja perdida, preservando a inviolabilidade das avaliações mediante reconciliação criptográfica no servidor de retaguarda em Go.
+
+Por fim, o projeto consagra a autonomia do corpo docente como autoridade pedagógica máxima em todas as etapas do ciclo instrucional. A automação das correções não substitui o juízo docente, mas atua como suporte objetivo, resguardando prerrogativas essenciais como o ajuste compensatório de tempo, o desvínculo entre encerramento técnico e anulação disciplinar, a revisão de notas e a customização de sorteios por nível de proficiência. Aderente à infraestrutura e à rotina laboratorial da UTFPR Câmpus Guarapuava, a ferramenta demonstra viabilidade técnica e pedagógica plena, estabelecendo uma base sólida para o ensino prático moderno, equitativo e escalável da disciplina.
 
 \section{Trabalhos Futuros}
 \label{sec:trabalhos-futuros}
