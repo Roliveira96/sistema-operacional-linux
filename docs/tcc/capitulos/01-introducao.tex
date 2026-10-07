@@ -202,6 +202,23 @@ Para alcançar o objetivo geral, propõe-se:
 \end{enumerate}
 
 % ----------------------------------------------------------
+\section{Delimitação do Escopo}
+\label{sec:delimitacao-escopo}
+% ----------------------------------------------------------
+
+Para que o trabalho coubesse no cronograma acadêmico, a plataforma adota um modelo de \textbf{docência unificada}: cada turma tem um único professor responsável, que concentra todas as funções docentes descritas no Quadro~\ref{qua:niveis-acesso}. Esse modelo atende diretamente às necessidades da disciplina de Sistemas Operacionais, que motivou o projeto.
+
+Ficaram deliberadamente fora do escopo deste TCC as funcionalidades de governança institucional ampliada:
+\begin{enumerate}
+    \item gestão de vários departamentos ou cursos na mesma instalação;
+    \item turmas com mais de um professor, com permissões cruzadas entre os docentes;
+    \item supervisão pela coordenação de curso;
+    \item perfil de superadministrador institucional.
+\end{enumerate}
+
+A exclusão foi intencional. Cada um desses recursos multiplicaria as regras de autorização e os casos de teste, e o esforço de desenvolvimento foi concentrado nos três pilares do trabalho: a estabilidade do simulador e do VFS, a integridade das avaliações e a telemetria em tempo real das provas. A ampliação para um modelo com vários docentes está prevista como trabalho futuro (Seção~\ref{sec:trabalhos-futuros}).
+
+% ----------------------------------------------------------
 \section{Estrutura do Trabalho}
 \label{sec:estrutura}
 % ----------------------------------------------------------

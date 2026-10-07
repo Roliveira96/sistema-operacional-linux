@@ -91,6 +91,8 @@ Os dados de longo prazo ficam em um banco relacional (PostgreSQL), com integrida
     \fonte{Autoria própria (2026).}
 \end{figure}
 
+Conforme a delimitação de escopo da Seção~\ref{sec:delimitacao-escopo}, o modelo de dados associa cada turma a exatamente um docente responsável. Não há, nesta versão, tabelas de vínculo entre vários professores e uma mesma turma, nem papéis de coordenação ou de administração institucional; todas as permissões de gestão da turma derivam desse vínculo único.
+
 Os estados da Figura~\ref{fig:estados-matricula} têm o seguinte significado:
 \begin{enumerate}
     \item \texttt{PENDENTE\_MODERACAO}: o aluno pediu para entrar pelo link de convite e aguarda a aprovação da professora;
