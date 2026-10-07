@@ -123,12 +123,12 @@ Os dados de longo prazo ficam em um banco relacional (PostgreSQL), com integrida
     \item \textbf{usuários:} cada conta tem um perfil (Público, Estudante ou Docente) e um \textit{status} (\texttt{ATIVO} ou \texttt{INATIVO}). O estudante é obrigatoriamente vinculado ao seu Registro Acadêmico (RA). O \textit{status} \texttt{INATIVO} serve para suspender o acesso de forma cautelar, derrubando na hora as sessões abertas. A entidade também tem exclusão lógica (\textit{soft delete}) pelo campo \texttt{deleted\_at}: um aluno desligado do curso não pode mais entrar em turmas, mas todas as suas submissões, notas, telemetria e eventos de auditoria continuam guardados, como respaldo perante a coordenação do curso;
     \item \textbf{turmas:} representam cada oferta semestral da disciplina: código curricular (por exemplo, \texttt{SI34E}), período letivo (\texttt{2026/1}), datas de início e fim, ementa, critérios de avaliação (pesos, fórmula da média e nota mínima) e regras da disciplina (frequência, conduta no laboratório e integridade acadêmica);
     \item \textbf{matrículas:} a tabela \texttt{matriculas\_turmas} liga estudantes a turmas e controla a situação de cada vínculo por meio de uma máquina de estados, apresentada na Figura~\ref{fig:estados-matricula};
-    \item \textbf{avaliações e janelas de aplicação:} cada prova prática tem uma janela de horário e uma chave de liberação (\textit{token}), com suporte a janelas separadas para repescagens e segundas chamadas;
+    \item \textbf{avaliações e janelas de aplicação:} cada atividade ou prova da turma é a aplicação de um modelo reutilizável (Seção~\ref{sec:modelos-avaliacao}); cada prova prática tem uma janela de horário e uma chave de liberação (\textit{token}), com suporte a janelas separadas para repescagens e segundas chamadas;
     \item \textbf{sessões e submissões:} cada tentativa de prova fica registrada com o horário validado pelo servidor, a nota e o histórico completo dos comandos executados;
     \item \textbf{avisos e confirmações de leitura:} a tabela \texttt{avisos\_turmas} guarda os comunicados da professora: título, texto em Markdown, público (turma inteira ou lista de alunos), data de publicação (\texttt{publicar\_em}), nível de importância e se a leitura deve ser confirmada (\texttt{requer\_confirmacao}). Cada confirmação vai para \texttt{confirmacoes\_leitura\_avisos}, com aluno, horário e endereço IP, o que permite acompanhar a adesão e comprovar que o aviso foi lido.
 \end{enumerate}
 
-Ao lado dessas entidades acadêmicas, o modelo inclui as entidades de conteúdo e de avaliação detalhadas na Seção~\ref{sec:autoria-conteudo}: módulos e seus blocos tipados, com trechos de vídeo e links de referência opcionais, um banco de questões por módulo, com questões de cinco tipos (prática, escolha única, booleana, múltipla seleção e dissertativa) e uso como exercício ou avaliação, com cenário, solução e condições de validação nas questões práticas e alternativas ou critérios de correção nas teóricas, cenários reutilizáveis com sua relação de herança, provas com as questões escolhidas ou as regras de sorteio, e o registro das questões sorteadas para cada aluno.
+Ao lado dessas entidades acadêmicas, o modelo inclui as entidades de conteúdo e de avaliação detalhadas na Seção~\ref{sec:autoria-conteudo}: módulos e seus blocos tipados, com trechos de vídeo e links de referência opcionais, um banco de questões por módulo, com questões de cinco tipos (prática, escolha única, booleana, múltipla seleção e dissertativa) e uso como exercício ou avaliação, com cenário, solução e condições de validação nas questões práticas e alternativas ou critérios de correção nas teóricas, cenários reutilizáveis com sua relação de herança, modelos de atividades e provas com as questões escolhidas ou as regras de sorteio, as aplicações desses modelos em cada turma, e o registro das questões sorteadas para cada aluno.
 
 Além dessas entidades, a plataforma oferece a alunos e professores a gestão do próprio perfil: atualização dos dados de contato, escolha de avatar e troca de senha mediante autenticação. Por serem operações cadastrais convencionais (CRUD, de \textit{create}, \textit{read}, \textit{update} e \textit{delete}), já amplamente padronizadas no desenvolvimento web, essas funcionalidades não são detalhadas neste trabalho. A descrição e a análise concentram-se nas contribuições centrais da arquitetura: o simulador POSIX com VFS no navegador, a proteção contra fraudes pelo console do navegador, a telemetria bidirecional via \textit{WebSockets} e a continuidade das provas em falhas de rede, com validação criptográfica \textit{offline}.
 
@@ -214,7 +214,7 @@ Avisos dados verbalmente em sala ou publicados em fóruns pouco visitados geram 
 
 No protótipo atual, todo o material didático (módulos, lições, exercícios e o preparo do ambiente de cada exercício) está escrito diretamente no código-fonte. Qualquer ajuste, mesmo a troca de uma palavra em um enunciado, exige um programador. A plataforma transfere esse conteúdo para o banco de dados e oferece à professora ferramentas para criá-lo e editá-lo. Na primeira instalação, um \textit{seed} (rotina de carga inicial) converte o conteúdo que hoje está no código para o banco, de modo que a plataforma já começa com o material existente e a professora passa a editá-lo livremente.
 
-Esta seção descreve os módulos de conteúdo, o banco de questões de cada módulo com seus cenários e sua gestão, a herança entre cenários, o bloco de teste que garante que tudo funciona antes da publicação e, por fim, a montagem da prova, fixa ou por sorteio.
+Esta seção descreve os módulos de conteúdo, o banco de questões de cada módulo com seus cenários e sua gestão, a herança entre cenários, o bloco de teste que garante que tudo funciona antes da publicação e, por fim, os modelos de atividades e provas, que podem ser reaproveitados entre turmas, com suas questões fixas ou sorteadas.
 
 \subsection{Módulos de Conteúdo e Blocos Interativos}
 \label{sec:modulos-conteudo}
@@ -420,10 +420,36 @@ Enquanto não passa no bloco de teste, o material fica como \textbf{rascunho}. D
 
 Esse mecanismo leva para a interface da professora a mesma verificação que hoje é feita pela suíte de testes automatizados do projeto (Seção~\ref{sec:testes-cobertura}), em que cada solução de referência precisa ser aprovada pela verificação de estado.
 
+\subsection{Modelos de Atividades e Provas}
+\label{sec:modelos-avaliacao}
+
+Cada turma tem as suas atividades avaliativas e as suas provas, mas, de um semestre para o outro, a professora costuma repetir boa parte delas. Montar de novo, em cada turma, uma lista de atividades com cem questões do banco, ou refazer toda a configuração de uma prova, seria um trabalho repetitivo e sujeito a erros. Por isso, atividades e provas são criadas como \textbf{modelos}, independentes de turma, e depois aplicadas às turmas quantas vezes for preciso.
+
+Um modelo reúne tudo o que define a avaliação, exceto as datas e a turma:
+
+\begin{enumerate}
+    \item \textbf{título e descrição;}
+    \item \textbf{tipo:} atividade, como uma lista com prazo de entrega, ou prova, aplicada no laboratório;
+    \item \textbf{questões:} a seleção fixa de questões ou o conjunto de questões com as regras de sorteio (Seção~\ref{sec:montagem-prova});
+    \item \textbf{pontuação} de cada questão ou de cada nível;
+    \item \textbf{configurações:} como duração, ordem embaralhada, grupos inseparáveis e as regras para repescagens.
+\end{enumerate}
+
+Para usar um modelo, a professora o \textbf{aplica a uma turma} e informa apenas o que é próprio daquela aplicação: o prazo de entrega, no caso de atividades, ou a data e a janela de horário, no caso de provas, além das janelas individuais de repescagens e segundas chamadas (Seção~\ref{sec:seguranca-prova}). Toda a seleção de questões e a configuração vêm do modelo, sem precisar ser refeitas. O mesmo modelo pode ser aplicado a várias turmas do mesmo semestre e reaproveitado nos semestres seguintes.
+
+A relação entre modelo e aplicação segue as mesmas regras de versão das questões (Seção~\ref{sec:bloco-teste}):
+
+\begin{enumerate}
+    \item ao ser aplicado, o modelo tem a sua versão congelada para aquela turma; se a professora editar o modelo depois, as aplicações já feitas não mudam, e apenas as novas aplicações usam a versão editada;
+    \item antes de aplicar, o sistema confere o modelo: todas as questões precisam estar publicadas, e as regras de sorteio precisam ser atendidas pelo conjunto de questões. Se uma questão foi arquivada desde a criação do modelo, a professora é avisada para substituí-la;
+    \item um modelo pode ser duplicado, para criar uma variação sem alterar o original, por exemplo uma versão mais curta para a repescagem;
+    \item modelos que já foram aplicados não são apagados, apenas arquivados, pelo mesmo motivo das questões: as notas precisam poder ser conferidas depois.
+\end{enumerate}
+
 \subsection{Montagem da Prova: Questões Fixas ou Sorteadas}
 \label{sec:montagem-prova}
 
-A prova é montada com as questões de uso avaliação dos bancos de um ou mais módulos (Seção~\ref{sec:banco-exercicios}), de duas formas:
+As questões de um modelo, seja de prova ou de atividade, vêm das questões de uso avaliação dos bancos de um ou mais módulos (Seção~\ref{sec:banco-exercicios}) e são definidas de duas formas:
 
 \begin{enumerate}
     \item \textbf{prova fixa:} a professora escolhe exatamente as questões e a ordem, e todos os alunos recebem a mesma prova;
