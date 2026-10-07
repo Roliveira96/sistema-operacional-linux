@@ -139,6 +139,28 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 - `ativo`: BOOLEAN DEFAULT true
 - *Constraint:* UNIQUE(`turma_id`, `aluno_id`) (aplicada para vínculos com `aluno_id` não nulo)
 
+#### `AvisoTurma` (Comunicados Pedagógicos e Mural da Turma)
+- `id`: UUID (PK)
+- `turma_id`: UUID (FK ➔ `Turma.id`)
+- `docente_id`: UUID (FK ➔ `Usuario.id`)
+- `titulo`: VARCHAR(150)
+- `conteudo_markdown`: TEXT
+- `publico_alvo`: ENUM (`TODOS_MATRICULADOS`, `DISCENTES_SELECIONADOS`)
+- `discentes_alvo_ids`: JSONB NULL (Array de UUIDs quando segmentado via multiselect)
+- `publicar_em`: TIMESTAMP (Data/hora de agendamento de publicação)
+- `requer_confirmacao`: BOOLEAN DEFAULT false (Flag para Read Receipt obrigatório)
+- `status`: ENUM (`RASCUNHO`, `AGENDADO`, `PUBLICADO`, `ARQUIVADO`)
+- `criado_em`: TIMESTAMP
+- `atualizado_em`: TIMESTAMP
+
+#### `ConfirmacaoLeituraAviso` (Registro de Ciência Discente / Read Receipt)
+- `id`: UUID (PK)
+- `aviso_id`: UUID (FK ➔ `AvisoTurma.id`)
+- `aluno_id`: UUID (FK ➔ `Usuario.id`)
+- `confirmado_em`: TIMESTAMP (Momento exato da confirmação de ciência pelo estudante)
+- `ip_origem`: VARCHAR(45)
+- *Constraint:* UNIQUE(`aviso_id`, `aluno_id`)
+
 #### `Avaliacao` (Exame ou Prática Laboratorial)
 - `id`: UUID (PK)
 - `turma_id`: UUID (FK ➔ `Turma.id`)
@@ -365,6 +387,50 @@ export interface ExcluirUsuarioSoftDeleteResponse {
   statusPreservado: 'EXCLUIDO_LOGICO';
   mensagem: string; // "Conta excluída logicamente; histórico de notas e telemetria preservados integralmente para fins de auditoria."
   sucesso: boolean;
+}
+
+// POST /api/v1/turmas/:turmaId/avisos
+export interface CriarAvisoTurmaRequest {
+  titulo: string;
+  conteudoMarkdown: string;
+  publicoAlvo: 'TODOS_MATRICULADOS' | 'DISCENTES_SELECIONADOS';
+  discentesAlvoIds?: string[]; // UUIDs dos discentes selecionados via multiselect
+  publicarEm?: string; // ISO 8601 (se nulo, publica imediatamente)
+  requerConfirmacao: boolean;
+}
+
+export interface CriarAvisoTurmaResponse {
+  avisoId: string;
+  status: 'PUBLICADO' | 'AGENDADO';
+  publicadoEm?: string;
+  sucesso: boolean;
+}
+
+// POST /api/v1/turmas/:turmaId/avisos/:avisoId/confirmar-leitura
+export interface ConfirmarLeituraAvisoResponse {
+  avisoId: string;
+  alunoId: string;
+  confirmadoEm: string;
+  sucesso: boolean;
+}
+
+// GET /api/v1/turmas/:turmaId/avisos/:avisoId/metricas-leitura
+export interface MetricasLeituraAvisoResponse {
+  avisoId: string;
+  totalElegiveis: number;
+  totalConfirmados: number;
+  percentualAdesao: number; // ex: 85.5%
+  confirmados: Array<{
+    alunoId: string;
+    ra: string;
+    nome: string;
+    confirmadoEm: string;
+  }>;
+  pendentes: Array<{
+    alunoId: string;
+    ra: string;
+    nome: string;
+  }>;
 }
 ```
 
