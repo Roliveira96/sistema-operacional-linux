@@ -220,7 +220,7 @@ Boa parte desses mecanismos se comunica por eventos trocados via \textit{WebSock
         \hline
         \texttt{help:cancel} & Aluno & Retira o pedido da fila (``abaixar a mão'') \\
         \hline
-        \texttt{security:violation} & Aluno & Informa reincidência de DevTools ou perda de foco \\
+        \texttt{security:violation} & Aluno & Avisa a professora de cada abertura de DevTools ou perda de foco \\
         \hline
         \texttt{session:reopened} & Servidor & Desbloqueia o terminal e restaura o último \textit{snapshot} \\
         \hline
@@ -287,9 +287,11 @@ Proteger a prova contra a inspeção do código é necessário, mas atalhos como
 
 \begin{enumerate}
     \item \textbf{monitoramento:} o cliente observa diferenças anormais entre as dimensões interna e externa da janela, atrasos de execução causados por pontos de interrupção (\textit{debugger timing traps}) e a perda de visibilidade da página pela API \texttt{visibilitychange};
-    \item \textbf{primeira ocorrência (advertência):} na primeira detecção, a nota não é afetada. A digitação é bloqueada por um instante e um aviso em tela cheia lembra as regras da prova. A advertência fica registrada;
-    \item \textbf{reincidência (alerta à professora):} se o comportamento se repetir, o cliente envia \texttt{security:violation}. O servidor registra a ocorrência e o cartão do aluno no \textit{Cockpit} ganha um alerta visual. A decisão continua com a professora: ela pode conferir os registros, conversar com o aluno, descartar um falso positivo ou anular a tentativa.
+    \item \textbf{primeira ocorrência (advertência e aviso à professora):} a digitação é bloqueada por um instante e um aviso em tela cheia lembra o aluno das regras da prova. Ao mesmo tempo, o cliente envia \texttt{security:violation} e a professora que está aplicando a prova recebe o alerta no \textit{Cockpit}, com o horário e o tipo de ocorrência. A nota não é alterada;
+    \item \textbf{reincidência (alerta reforçado):} se o comportamento se repetir, cada nova ocorrência é enviada da mesma forma e o cartão do aluno no \textit{Cockpit} passa a exibir um alerta de destaque, com a contagem de ocorrências.
 \end{enumerate}
+
+Em nenhum dos casos o sistema altera a nota por conta própria. Toda ocorrência fica registrada na linha do tempo de auditoria e a decisão é sempre da professora que aplica a prova: ela pode conferir os registros, conversar com o aluno, descartar um falso positivo ou anular a tentativa.
 
 \subsection{Bloqueio de Concorrência de Sessão (Mutex Anti-Proxy)}
 \label{sec:mutex-sessao}
