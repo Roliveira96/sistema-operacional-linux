@@ -699,6 +699,8 @@ Durante a aplicação, a professora pode interromper a prova de um aluno especí
     \item \textbf{encerramento:} finaliza a tentativa do aluno antes do prazo. A sessão passa ao estado \texttt{BLOQUEADO\_DOCENTE}, o terminal é travado definitivamente e o trabalho feito até ali é corrigido normalmente pelo motor de asserções.
 \end{enumerate}
 
+O encerramento antecipado pelo docente finaliza a sessão e consolida a correção técnica das tarefas executadas até o instante da interrupção, não se confundindo com a anulação da prova. Caso seja constatada infração disciplinar passível de anulação sumária, a atribuição de nota zero é realizada como deliberação pedagógica independente no painel de revisão de notas (Seção~\ref{sec:dossie-docente}), acompanhada de justificativa formal registrada na linha do tempo de auditoria.
+
 Nas duas ações, a professora precisa informar o motivo. O servidor envia o evento \texttt{session:blocked} ao terminal do aluno e registra na linha do tempo de auditoria o horário, a ação, quem a fez e o motivo. O bloqueio e o encerramento não alteram a nota por si: decidir se a tentativa será mantida, revisada ou anulada continua sendo uma decisão pedagógica da professora (Seção~\ref{sec:dossie-docente}). Como erros de operação podem acontecer, ambas as ações podem ser desfeitas, conforme descrito a seguir.
 
 \subsection{Reabertura de Sessão por Equívoco Operacional e Compensação Temporal Dinâmica}
@@ -786,5 +788,5 @@ Um princípio de projeto da plataforma é que a automação nunca substitui o ju
 \begin{enumerate}
     \item \textbf{a nota final é da professora:} o motor de asserções gera uma nota técnica preliminar a partir do estado do VFS e das questões objetivas, as questões dissertativas aguardam a correção manual, e quem define a nota final é a professora da disciplina;
     \item \textbf{observações de sala:} o painel tem um campo para registrar o que acontece fisicamente no laboratório durante a prova, como uso de celular, conversas ou comportamento atípico;
-    \item \textbf{revisão e conversa formativa:} a professora pode aplicar descontos, registrar justificativas ou chamar o aluno para uma conversa. Nesse momento, ela pode projetar a linha do tempo da sessão e pedir que o aluno explique os comandos que digitou, transformando a prova em uma oportunidade de avaliação formativa.
+    \item \textbf{revisão e conversa formativa:} a professora pode aplicar descontos, registrar justificativas, anular a tentativa com nota zero em caso de infração disciplinar constatada, sempre com justificativa formal registrada na linha do tempo de auditoria, ou chamar o aluno para uma conversa. Nesse momento, ela pode projetar a linha do tempo da sessão e pedir que o aluno explique os comandos que digitou, transformando a prova em uma oportunidade de avaliação formativa.
 \end{enumerate}
