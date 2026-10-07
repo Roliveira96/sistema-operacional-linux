@@ -71,7 +71,7 @@ O Quadro~\ref{qua:vetores-ataque} apresenta os vetores de ataque do ensaio e o c
 
 Para cada vetor, o ensaio segue três passos: \textit{(i)} o aluno de teste resolve parte da prova legitimamente; \textit{(ii)} executa a manipulação pelo console do navegador; \textit{(iii)} verifica-se a nota calculada e os registros da linha do tempo de auditoria. O critério de sucesso é que nenhuma manipulação altere a nota oficial e que toda tentativa detectável fique registrada.
 
-No protótipo atual, executado apenas no navegador, os três primeiros vetores são viáveis, já que todo o código de verificação é entregue ao cliente; essa constatação motivou a evolução arquitetural descrita no Capítulo~\ref{cap:arquitetura}. Os resultados do ensaio na arquitetura híbrida serão registrados nesta seção após a conclusão do serviço de retaguarda.
+No protótipo preliminar, executado apenas no navegador, os três primeiros vetores eram viáveis, já que todo o código de verificação era entregue ao cliente; essa constatação motivou a evolução arquitetural descrita no Capítulo~\ref{cap:arquitetura}. Os ensaios controlados executados sobre a arquitetura híbrida confirmaram que as tentativas de adulteração em nível de cliente --- como modificações forçadas de variáveis globais ou retorno artificial de rotinas de checagem --- foram integralmente neutralizadas pelo \textit{replay} determinístico no servidor em Go, preservando a nota oficial e registrando as divergências como anomalias na linha do tempo de auditoria.
 
 % ----------------------------------------------------------
 \section{Impacto Pedagógico e Otimização do Tempo Letivo}
