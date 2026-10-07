@@ -54,16 +54,16 @@ O servidor central desempenha o papel de autoridade confiável da plataforma, cu
 \subsection{A Linguagem Golang e o Modelo de Concorrência CSP}
 \label{sec:golang-concorrencia}
 
-A escolha de Golang para o desenvolvimento dos serviços de retaguarda decorre de sua capacidade singular de gerenciar concorrência massiva de I/O de rede com baixo consumo de memória:
+A escolha de Golang \cite{donovan2015go} para o desenvolvimento dos serviços de retaguarda decorre de sua capacidade singular de gerenciar concorrência massiva de I/O de rede com baixo consumo de memória \cite{cox2020golang}:
 \begin{itemize}
     \item \textbf{Goroutines e Footprint Reduzido:} Diferente de linguagens baseadas em \textit{threads} pesadas do sistema operacional (que alocam de 1 a 2 MB de pilha por encadeamento) ou de modelos baseados em loop de evento de thread única sujeitos a bloqueios computacionais em tarefas de asserção, as \textit{goroutines} de Go iniciam com pilhas dinâmicas de apenas 2 KB. Isso permite à aplicação manter centenas de conexões \textit{WebSocket} simultâneas por sala com impacto desprezível de memória RAM no servidor;
-    \item \textbf{Comunicação via Channels (CSP):} A troca de mensagens entre a camada de telemetria, a fila de suporte docente e os despachantes de eventos opera sobre canais tipados (\textit{channels}), eliminando riscos de condições de corrida (\textit{race conditions}) e dispensando o uso excessivo de travas manuais de sincronização (\textit{mutexes}).
+    \item \textbf{Comunicação via Channels (CSP):} A troca de mensagens entre a camada de telemetria, a fila de suporte docente e os despachantes de eventos opera sobre canais tipados (\textit{channels}) inspirados no modelo formal de Processos Sequenciais Comunicantes (\textit{Communicating Sequential Processes} --- CSP) \cite{donovan2015go,cox2020golang}, eliminando riscos de condições de corrida (\textit{race conditions}) e dispensando o uso excessivo de travas manuais de sincronização (\textit{mutexes}).
 \end{itemize}
 
 \subsection{Roteamento de APIs REST com Gin-Gonic}
 \label{sec:gin-gonic}
 
-Para a disponibilização das APIs RESTful, adota-se o micro-framework \textbf{Gin-Gonic}. Desenvolvido em Go sobre árvores de prefixo (\textit{Radix tree}), o Gin proporciona roteamento de altíssima velocidade sem alocação desnecessária de memória durante o ciclo de vida das requisições HTTP:
+Para a disponibilização das APIs sob o estilo arquitetural REST \cite{fielding2000rest}, adota-se o micro-framework \textbf{Gin-Gonic}. Desenvolvido em Go sobre árvores de prefixo (\textit{Radix tree}), o Gin proporciona roteamento de altíssima velocidade sem alocação desnecessária de memória durante o ciclo de vida das requisições HTTP:
 \begin{itemize}
     \item \textbf{Autenticação e Autorização JWT:} \textit{Middlewares} dedicados para verificação de tokens criptográficos, validação de papéis de usuário (\textit{RBAC}: Público, Aluno e Professor) e expiração de sessões;
     \item \textbf{Endpoints Estruturados:} Gerenciamento de turmas semestrais, inscrições discentes, criação de roteiros de avaliação, emissão e validação de tokens temporais de sala e homologação manual de notas com justificativa docente.
@@ -83,7 +83,7 @@ A camada de persistência de dados utiliza a biblioteca \textbf{GORM} integrada 
 \subsection{Hub WebSocket Nativo e Streaming de Telemetria}
 \label{sec:websocket-hub}
 
-A orquestração síncrona em tempo real é centralizada em um módulo de \textbf{Hub de WebSockets} implementado em Go puro:
+A orquestração síncrona em tempo real é centralizada em um módulo de \textbf{Hub de WebSockets} implementado em Go puro segundo a padronização RFC 6455 \cite{fette2011websocket}:
 \begin{enumerate}
     \item \textbf{Arquitetura do Hub Concorrente:} O Hub central opera em uma \textit{goroutine} independente, coordenando o registro de novos terminais de estudantes (\texttt{register}), o descarte seguro de desconexões (\texttt{unregister}) e o roteamento de mensagens por salas (\texttt{broadcast});
     \item \textbf{Pares de Goroutines por Cliente:} Cada conexão de estudante ou de professor é atendida por duas rotinas concorrentes: uma responsável pelo bombeamento contínuo de leitura de mensagens do socket (\textit{readPump}) e outra dedicada à escrita não-bloqueante (\textit{writePump}), isolando a comunicação de rede de possíveis lentidões no navegador do usuário;
