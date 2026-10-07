@@ -128,7 +128,7 @@ Os dados de longo prazo ficam em um banco relacional (PostgreSQL), com integrida
     \item \textbf{avisos e confirmações de leitura:} a tabela \texttt{avisos\_turmas} guarda os comunicados da professora: título, texto em Markdown, público (turma inteira ou lista de alunos), data de publicação (\texttt{publicar\_em}), nível de importância e se a leitura deve ser confirmada (\texttt{requer\_confirmacao}). Cada confirmação vai para \texttt{confirmacoes\_leitura\_avisos}, com aluno, horário e endereço IP, o que permite acompanhar a adesão e comprovar que o aviso foi lido.
 \end{enumerate}
 
-Ao lado dessas entidades acadêmicas, o modelo inclui as entidades de conteúdo e de avaliação detalhadas na Seção~\ref{sec:autoria-conteudo}: módulos e seus blocos, exercícios com cenário, solução e condições de validação, cenários reutilizáveis com sua relação de herança, provas com as questões escolhidas ou as regras de sorteio, e o registro das questões sorteadas para cada aluno.
+Ao lado dessas entidades acadêmicas, o modelo inclui as entidades de conteúdo e de avaliação detalhadas na Seção~\ref{sec:autoria-conteudo}: módulos e seus blocos, exercícios de cinco tipos (prática, escolha única, booleana, múltipla seleção e dissertativa), com cenário, solução e condições de validação nas questões práticas e alternativas ou critérios de correção nas teóricas, cenários reutilizáveis com sua relação de herança, provas com as questões escolhidas ou as regras de sorteio, e o registro das questões sorteadas para cada aluno.
 
 Além dessas entidades, a plataforma oferece a alunos e professores a gestão do próprio perfil: atualização dos dados de contato, escolha de avatar e troca de senha mediante autenticação. Por serem operações cadastrais convencionais (CRUD, de \textit{create}, \textit{read}, \textit{update} e \textit{delete}), já amplamente padronizadas no desenvolvimento web, essas funcionalidades não são detalhadas neste trabalho. A descrição e a análise concentram-se nas contribuições centrais da arquitetura: o simulador POSIX com VFS no navegador, a proteção contra fraudes pelo console do navegador, a telemetria bidirecional via \textit{WebSockets} e a continuidade das provas em falhas de rede, com validação criptográfica \textit{offline}.
 
@@ -228,16 +228,23 @@ Um módulo, como ``Introdução ao Linux'', tem título, descrição e ícone, e
     \item \textbf{curiosidades:} um bloco que reúne quantas curiosidades a professora quiser sobre o tema.
 \end{enumerate}
 
-Cada módulo pode exigir um cenário inicial, isto é, os arquivos, diretórios, usuários, grupos e permissões que precisam existir para que os comandos façam sentido, como uma lista com cem nomes para os exercícios de ordenação. O cenário é criado da mesma forma que o dos exercícios, descrita a seguir, e é aplicado à máquina simulada sempre que o aluno abre o módulo. Cada módulo termina com uma pequena lista de exercícios, que também passam a fazer parte do banco de exercícios.
+Cada módulo pode exigir um cenário inicial, isto é, os arquivos, diretórios, usuários, grupos e permissões que precisam existir para que os comandos façam sentido, como uma lista com cem nomes para os exercícios de ordenação. O cenário é criado da mesma forma que o dos exercícios, descrita a seguir, e é aplicado à máquina simulada sempre que o aluno abre o módulo. Cada módulo termina com uma pequena lista de exercícios, cadastrados no banco de exercícios descrito a seguir.
 
 \subsection{Banco de Exercícios: Cenário, Solução e Validação}
 \label{sec:banco-exercicios}
 
-Cada exercício do banco reúne tudo o que é necessário para usá-lo em qualquer lugar da plataforma, seja em um módulo, em um simulado ou em uma prova:
+Cada exercício do banco reúne tudo o que é necessário para usá-lo em qualquer lugar da plataforma, seja em um módulo, em um simulado ou em uma prova. Todo exercício tem título, enunciado, dica, nível (fácil, médio ou difícil) e tipo; os tipos são descritos na Seção~\ref{sec:tipos-questao}. Todo exercício tem também um \textbf{uso}, definido pela professora:
 
 \begin{enumerate}
-    \item \textbf{título, enunciado e dica;}
-    \item \textbf{nível:} fácil, médio ou difícil;
+    \item \textbf{somente exercício:} aparece nos módulos e nas listas de estudo, onde o aluno pode tentar quantas vezes quiser, e nunca é usado em provas;
+    \item \textbf{banco de questões:} fica reservado para provas e simulados avaliativos e não é exibido aos alunos fora deles, preservando o sigilo da avaliação.
+\end{enumerate}
+
+A professora pode enviar ao banco de questões um exercício que já foi exibido em um módulo; nesse caso, o sistema avisa que os alunos já tiveram acesso ao enunciado.
+
+O tipo mais característico da plataforma é a questão prática no terminal, que reúne ainda:
+
+\begin{enumerate}
     \item \textbf{cenário (preparação):} o ambiente que precisa existir antes de o aluno começar;
     \item \textbf{solução:} os comandos que resolvem o exercício, escritos pela professora;
     \item \textbf{validação:} as condições que o estado final da máquina precisa atender.
@@ -253,6 +260,45 @@ A professora monta o cenário de duas formas, que podem ser combinadas:
 \end{enumerate}
 
 A validação não exige programação. A professora resolve o exercício no terminal, a partir do cenário, e o sistema compara o estado inicial com o final para sugerir condições, como ``o arquivo \texttt{/srv/backup/rh.tar.gz} existe'' ou ``a permissão de \texttt{/srv/rh} é 750''. Ela revisa a sugestão e mantém as condições que valem nota. Como as condições são dados, e não código, elas também podem ser transformadas nos \textit{hashes} usados pela validação \textit{offline} (Seção~\ref{sec:envelope-cifrado}).
+
+\subsection{Tipos de Questão}
+\label{sec:tipos-questao}
+
+Além das tarefas no terminal, a professora usa questões teóricas, como ``descreva como você faria tal configuração'' ou ``qual das opções abaixo\ldots''. Por isso, o banco de exercícios tem cinco tipos de questão, resumidos no Quadro~\ref{qua:tipos-questao}.
+
+\begin{quadro}[htbp]
+    \caption{Tipos de questão do banco de exercícios}
+    \label{qua:tipos-questao}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{2.6cm}|L|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{3.0cm}|}
+        \hline
+        \textbf{Tipo} & \textbf{O que o aluno faz} & \textbf{Terminal} & \textbf{Correção} \\
+        \hline
+        Prática (laboratório) & Executa comandos para deixar a máquina no estado pedido & Liberado & Automática, pelo estado final do VFS \\
+        \hline
+        Escolha única & Seleciona a única alternativa correta & Bloqueado & Automática \\
+        \hline
+        Booleana (sim ou não) & Escolhe uma entre duas opções cujos rótulos a professora define, como ``Sim/Não'' ou ``Verdadeiro/Falso'' & Bloqueado & Automática \\
+        \hline
+        Múltipla seleção & Seleciona todas as alternativas corretas, que podem ser mais de uma & Bloqueado & Automática \\
+        \hline
+        Dissertativa & Escreve uma resposta em texto livre, como a descrição de um procedimento & Bloqueado & Manual, pela professora \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
+
+Nas questões teóricas, o terminal fica bloqueado enquanto a questão está aberta, para que a resposta reflita o conhecimento do aluno, e não uma consulta ao simulador. Cada tipo tem os próprios campos e regras:
+
+\begin{enumerate}
+    \item \textbf{prática:} cenário, solução e validação, como descrito na seção anterior;
+    \item \textbf{escolha única:} alternativas e a indicação da correta, com uma explicação exibida ao aluno após a correção. As questões teóricas que hoje existem no código, no formato de questionário de certificação, são migradas pelo \textit{seed} para este tipo;
+    \item \textbf{booleana:} uma afirmação, os rótulos das duas opções, definidos pela professora (``Sim'' e ``Não'', ``Verdadeiro'' e ``Falso'', ``Certo'' e ``Errado''), e qual delas é a correta, com explicação opcional;
+    \item \textbf{múltipla seleção:} alternativas, a indicação de todas as corretas e a forma de pontuar, definida pela professora: tudo ou nada, ou pontuação proporcional aos acertos, descontando as marcações erradas;
+    \item \textbf{dissertativa:} enunciado e uma resposta esperada ou critérios de correção, visíveis apenas para a professora. A resposta do aluno fica pendente até que ela atribua a nota no painel de revisão (Seção~\ref{sec:dossie-docente}).
+\end{enumerate}
+
+O bloco de teste (Seção~\ref{sec:bloco-teste}) também se adapta ao tipo: nas questões práticas, executa a solução e confere a validação; na escolha única, confere que há exatamente uma alternativa correta; na booleana, que os dois rótulos e a resposta correta foram definidos; na múltipla seleção, que há pelo menos uma; e na dissertativa, que a resposta esperada ou os critérios foram preenchidos.
 
 \subsection{Herança de Cenários e Isolamento entre Questões}
 \label{sec:heranca-cenarios}
@@ -310,7 +356,7 @@ Esse mecanismo leva para a interface da professora a mesma verificação que hoj
 \subsection{Montagem da Prova: Questões Fixas ou Sorteadas}
 \label{sec:montagem-prova}
 
-A prova é montada a partir do banco de exercícios, de duas formas:
+A prova é montada a partir do banco de questões, ou seja, apenas com exercícios reservados para avaliação (Seção~\ref{sec:banco-exercicios}), de duas formas:
 
 \begin{enumerate}
     \item \textbf{prova fixa:} a professora escolhe exatamente as questões e a ordem, e todos os alunos recebem a mesma prova;
@@ -345,6 +391,7 @@ O sorteio segue estas regras:
     \item \textbf{sorteio no servidor e registrado:} o sorteio é feito pelo servidor quando o aluno entra na prova, e as questões sorteadas ficam registradas na sessão. Assim, ele recebe as mesmas questões se reconectar, trocar de máquina (Seção~\ref{sec:troca-maquina}) ou tiver a sessão reaberta, e a professora pode conferir depois o que cada aluno recebeu;
     \item \textbf{ordem embaralhada (opcional):} a ordem das questões pode variar de aluno para aluno, o que dificulta a consulta ao colega ao lado;
     \item \textbf{repescagem sem repetição (opcional):} em repescagens e segundas chamadas, o sorteio pode evitar as questões que o aluno já recebeu;
+    \item \textbf{tipos de questão (opcional):} além do nível, a regra pode fixar quantas questões de cada tipo cada aluno recebe, por exemplo oito práticas e duas dissertativas;
     \item \textbf{grupos inseparáveis (opcional):} quando questões só fazem sentido juntas, a professora pode marcá-las como um grupo, sorteado como uma unidade.
 \end{enumerate}
 
@@ -610,7 +657,7 @@ Com essa visão, a professora consegue reconstruir o raciocínio do aluno e veri
 Um princípio de projeto da plataforma é que a automação nunca substitui o julgamento pedagógico do professor:
 
 \begin{enumerate}
-    \item \textbf{a nota final é da professora:} o motor de asserções gera uma nota técnica preliminar a partir do estado do VFS, mas quem define a nota final é a professora da disciplina;
+    \item \textbf{a nota final é da professora:} o motor de asserções gera uma nota técnica preliminar a partir do estado do VFS e das questões objetivas, as questões dissertativas aguardam a correção manual, e quem define a nota final é a professora da disciplina;
     \item \textbf{observações de sala:} o painel tem um campo para registrar o que acontece fisicamente no laboratório durante a prova, como uso de celular, conversas ou comportamento atípico;
     \item \textbf{revisão e conversa formativa:} a professora pode aplicar descontos, registrar justificativas ou chamar o aluno para uma conversa. Nesse momento, ela pode projetar a linha do tempo da sessão e pedir que o aluno explique os comandos que digitou, transformando a prova em uma oportunidade de avaliação formativa.
 \end{enumerate}
