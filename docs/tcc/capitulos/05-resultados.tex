@@ -10,35 +10,33 @@ Este capítulo apresenta como a plataforma foi validada e quais resultados foram
 
 A fidelidade do simulador é verificada por uma suíte de testes automatizados executada com o \textit{framework} \texttt{vitest}. A maior parte dos casos segue o mesmo roteiro de ponta a ponta: cria-se uma máquina simulada nova, prepara-se o cenário exigido pela questão (usuários, grupos, arquivos e permissões), executa-se a sequência de comandos no interpretador e, ao final, chama-se a função de verificação da questão, que inspeciona o estado do sistema de arquivos virtual. Assim, cada teste confirma ao mesmo tempo que os comandos se comportam como no Linux e que a correção por estado, descrita na Seção~\ref{sec:reconciliacao-servidor}, aceita a resposta.
 
-O Quadro~\ref{qua:suite-testes} discrimina os 378 casos de teste da suíte.
+O Quadro~\ref{qua:suite-testes} descreve os grupos de testes que compõem a suíte.
 
 \begin{quadro}[htbp]
     \caption{Composição da suíte de testes automatizados}
     \label{qua:suite-testes}
     \footnotesize
-    \begin{tabularx}{\textwidth}{|p{4.2cm}|L|p{1.4cm}|}
+    \begin{tabularx}{\textwidth}{|p{4.2cm}|L|}
         \hline
-        \textbf{Grupo} & \textbf{O que verifica} & \textbf{Casos} \\
+        \textbf{Grupo} & \textbf{O que verifica} \\
         \hline
-        Desafios oficiais com solução de referência & Seis conjuntos de 30 desafios práticos (Linux Básico, Linux Médio, Linux Avançado, LPI Linux Essentials, LPIC-1 e Servidor Escola): cada solução de referência é executada no simulador e precisa ser aprovada pela verificação de estado; um caso adicional por conjunto confirma que os 30 desafios estão cadastrados & 186 \\
+        Desafios oficiais com solução de referência & Conjuntos de desafios práticos (Linux Básico, Linux Médio, Linux Avançado, LPI Linux Essentials, LPIC-1 e Servidor Escola): cada solução de referência é executada no simulador e precisa ser aprovada pela verificação de estado; um caso adicional por conjunto confirma a quantidade de desafios cadastrados \\
         \hline
-        Formas alternativas de resolução & Para 61 desafios, ao menos três soluções diferentes da oficial (caminhos relativos ou absolutos, notação octal ou simbólica, ordens diferentes de comandos) precisam ser aceitas; um caso adicional confirma que todos os cenários apontam para desafios existentes & 184 \\
+        Formas alternativas de resolução & Para parte dos desafios, ao menos três soluções diferentes da oficial (caminhos relativos ou absolutos, notação octal ou simbólica, ordens diferentes de comandos) precisam ser aceitas; um caso adicional confirma que todos os cenários apontam para desafios existentes \\
         \hline
-        Simulado teórico & Consistência das 30 questões objetivas inspiradas em certificações (alternativas, gabarito e explicação) & 1 \\
+        Simulado teórico & Consistência das questões objetivas inspiradas em certificações (alternativas, gabarito e explicação) \\
         \hline
-        Conteúdo do tópico de permissões & Presença dos conceitos (\texttt{/etc/passwd}, leitura do \texttt{ls -l}, \textit{rwx}, \texttt{chmod}, \texttt{sudo}) e da lição interativa de concessão de privilégios & 5 \\
+        Conteúdo do tópico de permissões & Presença dos conceitos (\texttt{/etc/passwd}, leitura do \texttt{ls -l}, \textit{rwx}, \texttt{chmod}, \texttt{sudo}) e da lição interativa de concessão de privilégios \\
         \hline
-        Cola de comandos & Geração do material de consulta e tratamento de caracteres especiais & 2 \\
-        \hline
-        \multicolumn{2}{|r|}{\textbf{Total}} & \textbf{378} \\
+        Cola de comandos & Geração do material de consulta e tratamento de caracteres especiais \\
         \hline
     \end{tabularx}
     \fonte{Autoria própria (2026).}
 \end{quadro}
 
-Os grupos de desafios cobrem, na prática, as áreas centrais da disciplina: navegação e manipulação de arquivos e diretórios, permissões \textit{rwx} em notação octal e simbólica, máscara \texttt{umask}, \textit{sticky bit}, usuários e grupos, \texttt{sudo}, redirecionamentos e \textit{pipes}, busca de texto e de arquivos, além das tarefas de administração cobradas nas certificações LPI. O grupo de formas alternativas é o que melhor evidencia o princípio de correção por estado: 183 soluções que não são a oficial são aceitas porque deixam o sistema de arquivos no estado esperado.
+Os grupos de desafios cobrem, na prática, as áreas centrais da disciplina: navegação e manipulação de arquivos e diretórios, permissões \textit{rwx} em notação octal e simbólica, máscara \texttt{umask}, \textit{sticky bit}, usuários e grupos, \texttt{sudo}, redirecionamentos e \textit{pipes}, busca de texto e de arquivos, além das tarefas de administração cobradas nas certificações LPI. O grupo de formas alternativas é o que melhor evidencia o princípio de correção por estado: soluções diferentes da oficial são aceitas porque deixam o sistema de arquivos no estado esperado.
 
-Na versão avaliada, todos os 378 casos foram aprovados. Uma particularidade técnica deve ser registrada: dois arquivos de teste importam funções auxiliares do arquivo dos desafios oficiais e, por isso, o \texttt{vitest} reexecuta esses casos e informa 752 execuções. O número que representa a cobertura real é o de casos distintos, 378.
+Na versão avaliada, todos os casos de teste foram aprovados. Como a suíte acompanha a evolução do código, sua composição detalhada pode mudar à medida que a plataforma for implementada; o que se mantém é o critério de validação por estado descrito acima.
 
 % ----------------------------------------------------------
 \section{Resistência a Fraudes em Ambiente de Prova}
