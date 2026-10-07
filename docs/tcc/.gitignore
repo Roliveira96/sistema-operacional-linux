@@ -24,3 +24,6 @@
 capitulos/*.aux
 pre-textual/*.aux
 pos-textual/*.aux
+
+# Artefato final gerado
+*.pdf

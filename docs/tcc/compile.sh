@@ -3,7 +3,6 @@ set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 MAIN="main"
-DOCKER_IMAGE="ghcr.io/xu-cheng/latex-action:latest"
 
 cd "$DIR"
 
@@ -13,6 +12,13 @@ if [ "$1" == "clean" ]; then
     rm -f capitulos/*.aux pre-textual/*.aux pos-textual/*.aux
     echo "Limpeza concluída."
     exit 0
+fi
+
+# Detectar melhor imagem Docker disponível caso LaTeX local não exista
+if docker images --format "{{.Repository}}:{{.Tag}}" | grep -E "^(blang/latex:ubuntu|texlive/texlive:latest)" | head -n1 > /dev/null 2>&1; then
+    DOCKER_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep -E "^(blang/latex:ubuntu|texlive/texlive:latest)" | head -n1)
+else
+    DOCKER_IMAGE="blang/latex:ubuntu"
 fi
 
 if command -v latexmk >/dev/null 2>&1; then
@@ -26,8 +32,13 @@ elif command -v pdflatex >/dev/null 2>&1; then
     pdflatex -interaction=nonstopmode ${MAIN}.tex
 elif command -v docker >/dev/null 2>&1; then
     echo "==> LaTeX local não detectado no host."
-    echo "==> Delegando compilação ao container Docker headless (${DOCKER_IMAGE})..."
-    docker run --rm -v "$DIR":/work -w /work "$DOCKER_IMAGE" latexmk -pdf -synctex=1 -interaction=nonstopmode ${MAIN}.tex
+    echo "==> Compilando via container Docker headless (${DOCKER_IMAGE})..."
+    docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$DIR":/work -w /work "$DOCKER_IMAGE" sh -c "
+        pdflatex -interaction=nonstopmode ${MAIN}.tex &&
+        bibtex ${MAIN} || true &&
+        pdflatex -interaction=nonstopmode ${MAIN}.tex &&
+        pdflatex -interaction=nonstopmode ${MAIN}.tex
+    "
 else
     echo "ERRO: Nenhum compilador TeX (latexmk/pdflatex) ou Docker encontrado no PATH."
     exit 1

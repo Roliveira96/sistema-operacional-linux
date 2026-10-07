@@ -1,9 +1,13 @@
 MAIN = main
-DOCKER_IMAGE = ghcr.io/xu-cheng/latex-action:latest
 
 HAS_LATEXMK := $(shell command -v latexmk 2>/dev/null)
 HAS_PDFLATEX := $(shell command -v pdflatex 2>/dev/null)
 HAS_DOCKER := $(shell command -v docker 2>/dev/null)
+
+DOCKER_IMAGE ?= $(shell docker images --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -E "^(blang/latex:ubuntu|texlive/texlive:latest)" | head -n1)
+ifeq ($(strip $(DOCKER_IMAGE)),)
+  DOCKER_IMAGE = blang/latex:ubuntu
+endif
 
 .PHONY: all pdf docker-pdf watch clean
 
@@ -20,23 +24,24 @@ else ifdef HAS_PDFLATEX
 	pdflatex -interaction=nonstopmode $(MAIN).tex
 	pdflatex -interaction=nonstopmode $(MAIN).tex
 else ifdef HAS_DOCKER
-	@echo "==> Compilador local ausente. Delegando compilação ao container Docker ($(DOCKER_IMAGE))..."
-	docker run --rm -v $(CURDIR):/work -w /work $(DOCKER_IMAGE) latexmk -pdf -synctex=1 -interaction=nonstopmode $(MAIN).tex
+	@echo "==> LaTeX local ausente. Delegando compilação ao container Docker ($(DOCKER_IMAGE))..."
+	docker run --rm --user $(shell id -u):$(shell id -g) -e HOME=/tmp -v $(CURDIR):/work -w /work $(DOCKER_IMAGE) sh -c "\
+		pdflatex -interaction=nonstopmode $(MAIN).tex && \
+		bibtex $(MAIN) || true && \
+		pdflatex -interaction=nonstopmode $(MAIN).tex && \
+		pdflatex -interaction=nonstopmode $(MAIN).tex"
 else
 	@echo "ERRO: Nenhum compilador TeX (latexmk/pdflatex) ou Docker encontrado."
 	@exit 1
 endif
 
 docker-pdf:
-	@echo "==> Compilando explicitamente via container Docker..."
-	docker run --rm -v $(CURDIR):/work -w /work $(DOCKER_IMAGE) latexmk -pdf -synctex=1 -interaction=nonstopmode $(MAIN).tex
-
-watch:
-ifdef HAS_LATEXMK
-	latexmk -pvc -pdf -synctex=1 -interaction=nonstopmode $(MAIN).tex
-else
-	@echo "latexmk não instalado localmente para monitoramento interativo (watch)."
-endif
+	@echo "==> Compilando explicitamente via container Docker ($(DOCKER_IMAGE))..."
+	docker run --rm --user $(shell id -u):$(shell id -g) -e HOME=/tmp -v $(CURDIR):/work -w /work $(DOCKER_IMAGE) sh -c "\
+		pdflatex -interaction=nonstopmode $(MAIN).tex && \
+		bibtex $(MAIN) || true && \
+		pdflatex -interaction=nonstopmode $(MAIN).tex && \
+		pdflatex -interaction=nonstopmode $(MAIN).tex"
 
 clean:
 	@echo "==> Limpando arquivos temporários e auxiliares..."
