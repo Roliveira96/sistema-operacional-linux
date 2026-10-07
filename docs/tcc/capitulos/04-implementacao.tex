@@ -3,6 +3,30 @@
 
 Este capítulo trata da engenharia de \textit{software} da plataforma: como ela foi desenvolvida, quais tecnologias foram escolhidas e como as camadas cliente e servidor foram construídas. O objetivo é unir uma simulação local, rápida e fiel, a um servidor concorrente, seguro e de alto desempenho.
 
+Enquanto o Capítulo~\ref{cap:arquitetura} foi organizado segundo o ciclo de vida da prova, este capítulo segue as camadas técnicas do sistema, pois cada componente atende a mais de uma fase. O Quadro~\ref{qua:fases-componentes} indica, para cada fase da prova, onde estão os componentes que a implementam.
+
+\begin{quadro}[htbp]
+    \caption{Correspondência entre as fases da prova e os componentes implementados}
+    \label{qua:fases-componentes}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{3.0cm}|L|>{\raggedright\arraybackslash}p{2.6cm}|}
+        \hline
+        \textbf{Fase da prova} & \textbf{Componentes} & \textbf{Seções} \\
+        \hline
+        Preparação da turma (Seção~\ref{sec:gestao-academica}) & Modelos GORM de usuários, turmas e matrículas; importação de CSV e envio assíncrono de e-mails & \ref{sec:gorm-persistencia} e \ref{sec:filas-emails-assincronos} \\
+        \hline
+        Abertura da prova (Seção~\ref{sec:abertura-prova}) & Rotas de \textit{token} e janelas no Gin; autenticação JWT; sessão única no Hub WebSocket & \ref{sec:gin-gonic} e \ref{sec:websocket-hub} \\
+        \hline
+        Resolução (Seção~\ref{sec:validacao-desacoplada}) & Simulador POSIX e VFS no navegador; motor de asserções em \textit{worker pool} no servidor & \ref{sec:vfs-typescript} e \ref{sec:websocket-hub} \\
+        \hline
+        Supervisão (Seção~\ref{sec:governanca-seguranca}) & Janelas de ajuda e avisos no cliente; Hub WebSocket com eventos para o \textit{Cockpit} & \ref{sec:react-interface} e \ref{sec:websocket-hub} \\
+        \hline
+        Encerramento (Seção~\ref{sec:encerramento-prova}) & Registro no IndexedDB e pacote \texttt{.proof}; transações e histórico preservado no PostgreSQL & \ref{sec:visao-stack} e \ref{sec:gorm-persistencia} \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
+
 % ----------------------------------------------------------
 \section{Metodologia de Engenharia: Adoção Instrumental de Inteligência Artificial e Governança Humana}
 \label{sec:metodologia-ia}
