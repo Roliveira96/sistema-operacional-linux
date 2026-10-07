@@ -15,6 +15,8 @@ Enquanto o Capítulo~\ref{cap:arquitetura} foi organizado segundo o ciclo de vid
         \hline
         Preparação da turma (Seção~\ref{sec:gestao-academica}) & Modelos GORM de usuários, turmas e matrículas; importação de CSV e envio assíncrono de e-mails & \ref{sec:gorm-persistencia} e \ref{sec:filas-emails-assincronos} \\
         \hline
+        Autoria e montagem da prova (Seção~\ref{sec:autoria-conteudo}) & Serializador do VFS para os cenários; MinIO para imagens e \texttt{.tar.gz}; bloco de teste executado pelo mesmo interpretador do simulador; \textit{seed} do conteúdo atual & \ref{sec:vfs-typescript} e \ref{sec:gorm-persistencia} \\
+        \hline
         Abertura da prova (Seção~\ref{sec:abertura-prova}) & Rotas de \textit{token} e janelas no Gin; autenticação JWT; sessão única no Hub WebSocket & \ref{sec:gin-gonic} e \ref{sec:websocket-hub} \\
         \hline
         Resolução (Seção~\ref{sec:validacao-desacoplada}) & Simulador POSIX e VFS no navegador; motor de asserções em \textit{worker pool} no servidor & \ref{sec:vfs-typescript} e \ref{sec:websocket-hub} \\
@@ -70,6 +72,8 @@ As tecnologias foram escolhidas por quatro critérios: escalabilidade, fidelidad
         Servidor & Gin-Gonic & Roteamento HTTP rápido, com \textit{middlewares} para autenticação e autorização \\
         \hline
         Servidor & GORM e PostgreSQL & Mapeamento objeto-relacional tipado, transações ACID e exclusão lógica \\
+        \hline
+        Servidor & MinIO & Armazenamento de objetos para as imagens dos módulos e os arquivos \texttt{.tar.gz} dos cenários \\
         \hline
         Comunicação & WebSockets (WSS) & Canal bidirecional persistente para telemetria e eventos em tempo real \\
         \hline

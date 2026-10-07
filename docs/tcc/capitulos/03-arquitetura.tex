@@ -3,20 +3,21 @@
 
 Este capítulo descreve a arquitetura da plataforma e mostra como a passagem de um protótipo que rodava só no navegador para um modelo híbrido cliente-servidor permite provas seguras, acompanhadas pelo professor em tempo real, e atendimento de dúvidas durante a prova.
 
-Como a maior parte das funcionalidades existe para apoiar a aplicação de provas práticas, o capítulo segue o ciclo de vida de uma prova, ilustrado na Figura~\ref{fig:ciclo-prova}. Depois da visão geral (Seção~\ref{sec:visao-arquitetural}), são apresentados a preparação da turma (Seção~\ref{sec:gestao-academica}), a abertura da prova e o controle de acesso (Seção~\ref{sec:abertura-prova}), a validação das respostas (Seção~\ref{sec:validacao-desacoplada}), a supervisão e a integridade durante a prova (Seção~\ref{sec:governanca-seguranca}) e, por fim, o encerramento, com contingência, auditoria e notas (Seção~\ref{sec:encerramento-prova}).
+Como a maior parte das funcionalidades existe para apoiar a aplicação de provas práticas, o capítulo segue o ciclo de vida de uma prova, ilustrado na Figura~\ref{fig:ciclo-prova}. Depois da visão geral (Seção~\ref{sec:visao-arquitetural}), são apresentados a preparação da turma (Seção~\ref{sec:gestao-academica}), a autoria do conteúdo e a montagem da prova (Seção~\ref{sec:autoria-conteudo}), a abertura da prova e o controle de acesso (Seção~\ref{sec:abertura-prova}), a validação das respostas (Seção~\ref{sec:validacao-desacoplada}), a supervisão e a integridade durante a prova (Seção~\ref{sec:governanca-seguranca}) e, por fim, o encerramento, com contingência, auditoria e notas (Seção~\ref{sec:encerramento-prova}).
 
 \begin{figure}[htbp]
     \centering
     \caption{Organização do capítulo segundo o ciclo de vida de uma prova}
     \label{fig:ciclo-prova}
-    \begin{tikzpicture}[node distance=0.45cm]
-        \tikzset{phase/.style={box, text width=2.25cm, minimum height=2.45cm, font=\footnotesize}}
-        \node[phase] (p1) {\textbf{Preparação}\\turma, matrículas e avisos\\(Seção~\ref{sec:gestao-academica})};
+    \begin{tikzpicture}[node distance=0.3cm]
+        \tikzset{phase/.style={box, text width=1.9cm, minimum height=2.45cm, font=\scriptsize, inner sep=4pt}}
+        \node[phase] (p0) {\textbf{Preparação}\\turma, matrículas e avisos\\(Seção~\ref{sec:gestao-academica})};
+        \node[phase, right=of p0] (p1) {\textbf{Autoria}\\módulos, exercícios e montagem da prova\\(Seção~\ref{sec:autoria-conteudo})};
         \node[phase, right=of p1] (p2) {\textbf{Abertura}\\\textit{token}, janela e sessão única\\(Seção~\ref{sec:abertura-prova})};
         \node[phase, right=of p2] (p3) {\textbf{Resolução}\\validação das respostas\\(Seção~\ref{sec:validacao-desacoplada})};
         \node[phase, right=of p3] (p4) {\textbf{Supervisão}\\dúvidas, integridade e bloqueios\\(Seção~\ref{sec:governanca-seguranca})};
         \node[phase, right=of p4] (p5) {\textbf{Encerramento}\\contingência, auditoria e notas\\(Seção~\ref{sec:encerramento-prova})};
-        \draw[arrow] (p1) -- (p2); \draw[arrow] (p2) -- (p3); \draw[arrow] (p3) -- (p4); \draw[arrow] (p4) -- (p5);
+        \draw[arrow] (p0) -- (p1); \draw[arrow] (p1) -- (p2); \draw[arrow] (p2) -- (p3); \draw[arrow] (p3) -- (p4); \draw[arrow] (p4) -- (p5);
         \draw[decorate, decoration={brace, mirror, amplitude=6pt}] ([yshift=-4pt]p2.south west) -- ([yshift=-4pt]p5.south east)
             node[midway, below=7pt, font=\footnotesize] {durante a aplicação da prova};
     \end{tikzpicture}
@@ -127,6 +128,8 @@ Os dados de longo prazo ficam em um banco relacional (PostgreSQL), com integrida
     \item \textbf{avisos e confirmações de leitura:} a tabela \texttt{avisos\_turmas} guarda os comunicados da professora: título, texto em Markdown, público (turma inteira ou lista de alunos), data de publicação (\texttt{publicar\_em}), nível de importância e se a leitura deve ser confirmada (\texttt{requer\_confirmacao}). Cada confirmação vai para \texttt{confirmacoes\_leitura\_avisos}, com aluno, horário e endereço IP, o que permite acompanhar a adesão e comprovar que o aviso foi lido.
 \end{enumerate}
 
+Ao lado dessas entidades acadêmicas, o modelo inclui as entidades de conteúdo e de avaliação detalhadas na Seção~\ref{sec:autoria-conteudo}: módulos e seus blocos, exercícios com cenário, solução e condições de validação, cenários reutilizáveis com sua relação de herança, provas com as questões escolhidas ou as regras de sorteio, e o registro das questões sorteadas para cada aluno.
+
 Além dessas entidades, a plataforma oferece a alunos e professores a gestão do próprio perfil: atualização dos dados de contato, escolha de avatar e troca de senha mediante autenticação. Por serem operações cadastrais convencionais (CRUD, de \textit{create}, \textit{read}, \textit{update} e \textit{delete}), já amplamente padronizadas no desenvolvimento web, essas funcionalidades não são detalhadas neste trabalho. A descrição e a análise concentram-se nas contribuições centrais da arquitetura: o simulador POSIX com VFS no navegador, a proteção contra fraudes pelo console do navegador, a telemetria bidirecional via \textit{WebSockets} e a continuidade das provas em falhas de rede, com validação criptográfica \textit{offline}.
 
 \begin{figure}[htbp]
@@ -203,6 +206,149 @@ Avisos dados verbalmente em sala ou publicados em fóruns pouco visitados geram 
     \item \textbf{confirmação obrigatória de leitura:} em avisos importantes (correção de enunciado, convocação, instrução de segurança), a professora pode exigir confirmação. O aviso aparece em destaque no painel do aluno e bloqueia as tarefas até que ele confirme a leitura. No painel do professor, aparecem em tempo real o percentual de adesão, quem já confirmou (com data, hora e IP) e quem ainda não confirmou;
     \item \textbf{entrega em dois canais:} alunos conectados recebem o aviso na hora, pelo evento \texttt{announcement:new}. Todos recebem também um e-mail, enviado em segundo plano por uma fila assíncrona em Go, sem deixar o servidor lento.
 \end{enumerate}
+
+% ----------------------------------------------------------
+\section{Autoria de Conteúdo e Montagem da Prova}
+\label{sec:autoria-conteudo}
+% ----------------------------------------------------------
+
+No protótipo atual, todo o material didático (módulos, lições, exercícios e o preparo do ambiente de cada exercício) está escrito diretamente no código-fonte. Qualquer ajuste, mesmo a troca de uma palavra em um enunciado, exige um programador. A plataforma transfere esse conteúdo para o banco de dados e oferece à professora ferramentas para criá-lo e editá-lo. Na primeira instalação, um \textit{seed} (rotina de carga inicial) converte o conteúdo que hoje está no código para o banco, de modo que a plataforma já começa com o material existente e a professora passa a editá-lo livremente.
+
+Esta seção descreve os módulos de conteúdo, o banco de exercícios com seus cenários, a herança entre cenários, o bloco de teste que garante que tudo funciona antes da publicação e, por fim, a montagem da prova, fixa ou por sorteio.
+
+\subsection{Módulos de Conteúdo e Blocos Interativos}
+\label{sec:modulos-conteudo}
+
+Um módulo, como ``Introdução ao Linux'', tem título, descrição e ícone, exibidos na tela inicial. O conteúdo do módulo é formado por blocos interativos, que a professora organiza na ordem que desejar:
+
+\begin{enumerate}
+    \item \textbf{texto:} explicação com formatação e imagens; as imagens são guardadas em um serviço de armazenamento de objetos (MinIO), e o banco guarda apenas a referência a cada uma;
+    \item \textbf{comando:} um comando que o aluno executa no terminal, acompanhado da explicação do que ele faz;
+    \item \textbf{dica:} orientação curta para o uso correto de um comando;
+    \item \textbf{curiosidades:} um bloco que reúne quantas curiosidades a professora quiser sobre o tema.
+\end{enumerate}
+
+Cada módulo pode exigir um cenário inicial, isto é, os arquivos, diretórios, usuários, grupos e permissões que precisam existir para que os comandos façam sentido, como uma lista com cem nomes para os exercícios de ordenação. O cenário é criado da mesma forma que o dos exercícios, descrita a seguir, e é aplicado à máquina simulada sempre que o aluno abre o módulo. Cada módulo termina com uma pequena lista de exercícios, que também passam a fazer parte do banco de exercícios.
+
+\subsection{Banco de Exercícios: Cenário, Solução e Validação}
+\label{sec:banco-exercicios}
+
+Cada exercício do banco reúne tudo o que é necessário para usá-lo em qualquer lugar da plataforma, seja em um módulo, em um simulado ou em uma prova:
+
+\begin{enumerate}
+    \item \textbf{título, enunciado e dica;}
+    \item \textbf{nível:} fácil, médio ou difícil;
+    \item \textbf{cenário (preparação):} o ambiente que precisa existir antes de o aluno começar;
+    \item \textbf{solução:} os comandos que resolvem o exercício, escritos pela professora;
+    \item \textbf{validação:} as condições que o estado final da máquina precisa atender.
+\end{enumerate}
+
+Essa divisão em preparação, solução e validação é a mesma adotada por plataformas comerciais de laboratórios interativos. No Instruqt, cada desafio tem um \textit{script} de preparação (\textit{setup}), um de verificação (\textit{check}), um de resolução (\textit{solve}) e um de limpeza (\textit{cleanup}) \cite{instruqt2026lifecycle}; nos laboratórios interativos da O'Reilly, derivados do Katacoda, cada etapa só é liberada depois que um \textit{script} de verificação confirma o estado do ambiente \cite{oreilly2026verified}.
+
+A professora monta o cenário de duas formas, que podem ser combinadas:
+
+\begin{enumerate}
+    \item \textbf{envio de um arquivo \texttt{.tar.gz}:} ela prepara a estrutura de diretórios e arquivos na própria máquina, compacta com \texttt{tar -czpf} e envia o arquivo. O formato \texttt{.tar.gz} foi escolhido, em vez do ZIP, porque preserva dono, grupo, permissões e \textit{links} simbólicos. O sistema descompacta o arquivo e o converte em um cenário. Usuários e grupos donos dos arquivos são criados automaticamente no simulador; havendo conflito, os dados do arquivo substituem os existentes, exceto para contas reservadas do sistema, como \texttt{root}, que nunca são substituídas. Por segurança, o envio tem limite de tamanho, não aceita caminhos que saiam do diretório de destino (\texttt{../}) e considera apenas arquivos de texto;
+    \item \textbf{terminal de preparação:} na própria tela do exercício, um terminal permite à professora criar diretórios, arquivos, usuários, grupos e permissões. Ao final, ela salva o estado da máquina, serializado pelo mesmo mecanismo de \textit{snapshot} usado nas provas. O sistema também guarda a lista de comandos executados, para que ela possa revisá-la e, se encontrar um erro, corrigir o comando e reconstruir o cenário a partir do zero.
+\end{enumerate}
+
+A validação não exige programação. A professora resolve o exercício no terminal, a partir do cenário, e o sistema compara o estado inicial com o final para sugerir condições, como ``o arquivo \texttt{/srv/backup/rh.tar.gz} existe'' ou ``a permissão de \texttt{/srv/rh} é 750''. Ela revisa a sugestão e mantém as condições que valem nota. Como as condições são dados, e não código, elas também podem ser transformadas nos \textit{hashes} usados pela validação \textit{offline} (Seção~\ref{sec:envelope-cifrado}).
+
+\subsection{Herança de Cenários e Isolamento entre Questões}
+\label{sec:heranca-cenarios}
+
+A professora costuma criar exercícios em sequência sobre o mesmo material, por exemplo: criar uma lista de usuários, depois ordená-la, depois apagar o último item. Para evitar que ela refaça o cenário a cada exercício, um exercício novo pode \textbf{herdar} o cenário de outro e acrescentar apenas o que muda. No exemplo, o exercício de ordenação herda o cenário do primeiro e já inclui a lista criada.
+
+A herança copia a \textbf{receita} do cenário, não o estado de uma máquina em uso. É o mesmo princípio das imagens Docker, em que uma imagem é construída a partir de outra e as camadas já criadas são imutáveis \cite{docker2026layers}. Na prova, cada questão monta a própria máquina a partir do seu cenário. Assim, se uma questão pede para remover \texttt{emails.txt} e outra, herdeira do mesmo cenário, pede para ler esse arquivo, as duas funcionam: a máquina da segunda nunca foi tocada pela primeira, como mostra a Figura~\ref{fig:heranca-cenarios}.
+
+\begin{figure}[htbp]
+    \centering
+    \caption{Herança de cenários e máquinas isoladas por questão}
+    \label{fig:heranca-cenarios}
+    \begin{tikzpicture}[node distance=0.6cm and 1.1cm]
+        \tikzset{recipe/.style={box, text width=3.3cm, minimum height=1.5cm, font=\footnotesize}}
+        \tikzset{vm/.style={box, text width=3.3cm, minimum height=1.3cm, font=\footnotesize, fill=white, dashed}}
+        \node[recipe] (c1) {\textbf{Cenário Q1}\\\texttt{contatos.txt}, \texttt{emails.txt}};
+        \node[recipe, right=of c1] (c2) {\textbf{Cenário Q2}\\herda Q1\\+ lista ordenada};
+        \node[recipe, right=of c2] (c3) {\textbf{Cenário Q3}\\herda Q1};
+        \draw[arrow] (c1) -- node[lbl, above=2pt] {herda} (c2);
+        \draw[arrow] (c1.north) to[out=25, in=155] node[lbl, above=1pt] {herda} (c3.north);
+
+        \node[vm, below=1.2cm of c1] (m1) {Máquina da Q1\\aluno remove \texttt{emails.txt}};
+        \node[vm, below=1.2cm of c2] (m2) {Máquina da Q2\\aluno apaga o último item};
+        \node[vm, below=1.2cm of c3] (m3) {Máquina da Q3\\aluno lê \texttt{emails.txt}};
+        \draw[arrow] (c1) -- node[lbl, right=2pt] {monta} (m1);
+        \draw[arrow] (c2) -- node[lbl, right=2pt] {monta} (m2);
+        \draw[arrow] (c3) -- node[lbl, right=2pt] {monta} (m3);
+
+        \node[font=\footnotesize\bfseries, anchor=east] at ([xshift=-0.3cm]c1.west) {Receitas};
+        \node[font=\footnotesize\bfseries, anchor=east] at ([xshift=-0.3cm]m1.west) {Prova};
+    \end{tikzpicture}
+    \fonte{Autoria própria (2026).}
+\end{figure}
+
+Esse isolamento segue uma regra consolidada na área de testes de \textit{software}: cada teste deve montar o próprio ambiente do zero (\textit{fresh fixture}), pois testes que dependem do que outros deixaram para trás falham de forma imprevisível \cite{meszaros2007xunit}. Ele também é o que permite a navegação livre entre as questões (Seção~\ref{sec:dependencia-rede}) e o sorteio descrito adiante. Manter uma máquina por questão é viável porque cada máquina simulada ocupa cerca de 2\,MB de memória JavaScript (Seção~\ref{sec:impacto-pedagogico}).
+
+Quando a professora edita um cenário que serve de base para outros, os herdeiros passam a usar a versão nova, e o bloco de teste, descrito a seguir, é executado novamente em todos eles, apontando os que deixaram de funcionar.
+
+\subsection{Bloco de Teste e Publicação}
+\label{sec:bloco-teste}
+
+Todo módulo e todo exercício passam por um bloco de teste antes de serem publicados. É a garantia de que o material funciona exatamente como a professora espera:
+
+\begin{enumerate}
+    \item cada comando dos blocos do módulo é executado, em ordem, em uma máquina nova com o cenário aplicado, e precisa terminar sem erro;
+    \item em cada exercício, a solução da professora é executada a partir do cenário e o estado final precisa atender a todas as condições de validação.
+\end{enumerate}
+
+Às vezes o erro faz parte da aula, como mostrar que um \texttt{rm} sem permissão falha. Para esses casos, a professora marca o comando como \textbf{falha esperada} e informa um trecho da mensagem que deve aparecer, por exemplo ``Permissão negada''. O bloco de teste confere que o comando falhou e que falhou pelo motivo certo; sem esse trecho, um erro de digitação também ``falharia'' e passaria despercebido. O mesmo aviso aparece para o aluno, que sabe que aquele erro é proposital.
+
+Enquanto não passa no bloco de teste, o material fica como \textbf{rascunho}. Depois de publicado, cada edição gera uma nova versão, e uma prova em andamento continua usando a versão vigente no momento em que foi aberta.
+
+Esse mecanismo leva para a interface da professora a mesma verificação que hoje é feita pela suíte de testes automatizados do projeto (Seção~\ref{sec:testes-cobertura}), em que cada solução de referência precisa ser aprovada pela verificação de estado.
+
+\subsection{Montagem da Prova: Questões Fixas ou Sorteadas}
+\label{sec:montagem-prova}
+
+A prova é montada a partir do banco de exercícios, de duas formas:
+
+\begin{enumerate}
+    \item \textbf{prova fixa:} a professora escolhe exatamente as questões e a ordem, e todos os alunos recebem a mesma prova;
+    \item \textbf{prova sorteada:} a professora escolhe um conjunto maior de questões, por exemplo vinte, e define quantas de cada nível cada aluno recebe e quanto vale cada nível. O Quadro~\ref{qua:exemplo-sorteio} mostra um exemplo.
+\end{enumerate}
+
+\begin{quadro}[htbp]
+    \caption{Exemplo de regra de sorteio por nível}
+    \label{qua:exemplo-sorteio}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|L|>{\centering\arraybackslash}p{3.2cm}|>{\centering\arraybackslash}p{3.0cm}|>{\centering\arraybackslash}p{2.6cm}|}
+        \hline
+        \textbf{Nível} & \textbf{Questões no conjunto} & \textbf{Sorteadas por aluno} & \textbf{Pontos cada} \\
+        \hline
+        Fácil & 8 & 4 & 0,5 \\
+        \hline
+        Médio & 8 & 4 & 1,0 \\
+        \hline
+        Difícil & 4 & 2 & 2,0 \\
+        \hline
+        \textbf{Total} & \textbf{20} & \textbf{10} & \textbf{10,0 pontos} \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
+
+O sorteio segue estas regras:
+
+\begin{enumerate}
+    \item \textbf{equilíbrio entre os alunos:} todos recebem a mesma quantidade de questões de cada nível e a mesma pontuação total, ainda que as questões sejam diferentes;
+    \item \textbf{validação da regra:} o sistema só aceita a regra se o conjunto tiver questões suficientes em cada nível;
+    \item \textbf{sorteio no servidor e registrado:} o sorteio é feito pelo servidor quando o aluno entra na prova, e as questões sorteadas ficam registradas na sessão. Assim, ele recebe as mesmas questões se reconectar, trocar de máquina (Seção~\ref{sec:troca-maquina}) ou tiver a sessão reaberta, e a professora pode conferir depois o que cada aluno recebeu;
+    \item \textbf{ordem embaralhada (opcional):} a ordem das questões pode variar de aluno para aluno, o que dificulta a consulta ao colega ao lado;
+    \item \textbf{repescagem sem repetição (opcional):} em repescagens e segundas chamadas, o sorteio pode evitar as questões que o aluno já recebeu;
+    \item \textbf{grupos inseparáveis (opcional):} quando questões só fazem sentido juntas, a professora pode marcá-las como um grupo, sorteado como uma unidade.
+\end{enumerate}
+
+Como cada questão traz o próprio cenário e roda na própria máquina, qualquer combinação sorteada funciona sem que uma questão interfira na outra. O pacote cifrado enviado ao aluno no início da prova (Seção~\ref{sec:envelope-cifrado}) contém apenas as questões que ele sorteou.
 
 % ----------------------------------------------------------
 \section{Abertura da Prova e Controle de Acesso}
