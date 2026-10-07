@@ -12,7 +12,7 @@ A arquitetura precisa conciliar dois requisitos que puxam em direções opostas:
 
 Em aplicações educacionais convencionais, baseadas em requisições HTTP síncronas, corrigir uma tarefa prática obriga o aluno a parar de digitar, ir até a interface gráfica e clicar em ``Enviar resposta''. Cada clique quebra a concentração e acrescenta a espera da rede.
 
-Para evitar isso, a plataforma adota uma \textbf{arquitetura orientada a eventos}, com canais bidirecionais persistentes via \textit{WebSockets} seguros (WSS) \cite{fette2011websocket}. As responsabilidades se dividem em três camadas, ilustradas na Figura~\ref{fig:arquitetura-geral}:
+Para evitar isso, a plataforma adota uma \textbf{arquitetura orientada a eventos}, com canais bidirecionais persistentes via \textit{WebSockets} seguros (WSS) \cite{fette2011websocket}. As responsabilidades se dividem em três camadas:
 
 \begin{enumerate}
     \item \textbf{execução interativa (navegador do aluno):} o simulador POSIX, as sessões Bash e a árvore do Sistema de Arquivos Virtual (VFS) rodam em memória, no navegador, escritos em TypeScript. Digitação, histórico, autocompletar com \texttt{Tab} e cores ANSI respondem na hora, sem tráfego de rede e sem exigir um contêiner por aluno no servidor;
@@ -20,31 +20,35 @@ Para evitar isso, a plataforma adota uma \textbf{arquitetura orientada a eventos
     \item \textbf{supervisão das provas (\textit{Cockpit} do professor):} durante as provas, os eventos que chegam pelos \textit{WebSockets} alimentam um painel em tempo real. A professora acompanha o progresso de todos os terminais, identifica quem está travado no mesmo erro e pode intervir com mensagens individuais ou avisos para a turma.
 \end{enumerate}
 
+As três camadas atuam juntas durante a aplicação de uma prova, cenário representado na Figura~\ref{fig:arquitetura-geral}. O aluno entra na prova com o \textit{token} projetado pela professora; a partir daí, cada comando digitado é executado no VFS local e enviado com o \textit{snapshot} ao servidor, que corrige a questão e repassa os eventos ao \textit{Cockpit}. Se a rede cair, o registro da prova continua no IndexedDB e é reconciliado depois. Fora das provas, o aluno pratica apenas com o simulador local e a API REST, sem telemetria em tempo real.
+
 \begin{figure}[htbp]
     \centering
-    \caption{Visão geral da arquitetura híbrida da plataforma}
+    \caption{Arquitetura da plataforma durante a aplicação de uma prova}
     \label{fig:arquitetura-geral}
     \begin{tikzpicture}
-        % Student browser
-        \node[box, text width=3.0cm] (term) {Terminal ANSI\\(React)};
-        \node[box, text width=3.0cm, below=0.45cm of term] (vfs) {Simulador POSIX\\e VFS em memória\\(TypeScript)};
-        \node[box, text width=3.0cm, below=0.45cm of vfs] (idb) {IndexedDB\\(contingência \textit{offline})};
-        \node[layer, fit=(term)(vfs)(idb), label={[font=\small\bfseries]above:Navegador do aluno}] (client) {};
+        % Student browser (all boxes share the same height so the arrows stay horizontal)
+        \tikzset{exambox/.style={box, text width=3.2cm, minimum height=1.45cm}}
+        \node[exambox] (term) {Terminal ANSI e\\VFS em memória};
+        \node[exambox, below=0.5cm of term] (lobby) {Entrada da prova\\(\textit{token} e cronômetro)};
+        \node[exambox, below=0.5cm of lobby] (idb) {IndexedDB\\(contingência \textit{offline})};
+        \node[layer, fit=(term)(lobby)(idb), label={[font=\small\bfseries]above:Navegador do aluno}] (client) {};
 
         % Server
-        \node[box, text width=3.0cm, right=2.6cm of term] (hub) {Hub WebSocket\\(\textit{goroutines})};
-        \node[box, text width=3.0cm, below=0.45cm of hub] (api) {API REST\\(Gin-Gonic)};
-        \node[box, text width=3.0cm, below=0.45cm of api] (engine) {Motor de asserções\\e \textit{replay} do VFS};
-        \node[layer, fit=(hub)(api)(engine), label={[font=\small\bfseries]above:Servidor (Go)}] (server) {};
+        \node[exambox, right=3.3cm of term] (hub) {Hub WebSocket\\(\textit{goroutines})};
+        \node[exambox, below=0.5cm of hub] (exam) {Controle da prova\\(\textit{tokens} e relógio)};
+        \node[exambox, below=0.5cm of exam] (engine) {Motor de asserções\\e \textit{replay} do VFS};
+        \node[layer, fit=(hub)(exam)(engine), label={[font=\small\bfseries]above:Servidor (Go)}] (server) {};
 
         % Teacher and database
-        \node[box, text width=2.4cm, right=2.4cm of hub] (cockpit) {\textit{Cockpit}\\do professor};
-        \node[box, text width=3.0cm, below=0.9cm of server] (db) {PostgreSQL\\(GORM)};
+        \node[box, text width=2.3cm, minimum height=1.45cm, right=2.4cm of hub] (cockpit) {\textit{Cockpit}\\do professor};
+        \node[box, text width=3.2cm, below=0.9cm of server] (db) {PostgreSQL (sessões,\\notas e linha do tempo)};
 
-        % Arrows
-        \draw[darrow] (term.east) -- node[lbl, above=2pt] {WSS} node[lbl, below=2pt] {comandos} (hub.west);
-        \draw[darrow] (vfs.east) -- node[lbl, above=2pt] {HTTPS} node[lbl, below=2pt] {API} (api.west);
-        \draw[darrow] (hub.east) -- node[lbl, above=2pt] {WSS} node[lbl, below=2pt] {eventos} (cockpit.west);
+        % Arrows (labels above and below, clear of the line)
+        \draw[darrow] (term.east) -- node[lbl, above=3pt] {WSS} node[lbl, below=3pt] {comandos e \textit{snapshots}} (hub.west);
+        \draw[darrow] (lobby.east) -- node[lbl, above=3pt] {HTTPS} node[lbl, below=3pt] {\textit{token} e relógio} (exam.west);
+        \draw[arrow, dashed] (idb.east) -- node[lbl, above=3pt] {ao reconectar} node[lbl, below=3pt] {fila ou \texttt{.proof}} (engine.west);
+        \draw[darrow] (hub.east) -- node[lbl, above=3pt] {WSS} node[lbl, below=3pt] {eventos da prova} (cockpit.west);
         \draw[darrow] (server.south) -- node[lbl, right=2pt] {SQL} (db.north);
     \end{tikzpicture}
     \fonte{Autoria própria (2026).}
@@ -114,7 +118,7 @@ Validar uma prova prática de sistemas operacionais envolve três desafios: impe
 \subsection{O Problema da Dependência Estrita de Conectividade de Rede}
 \label{sec:dependencia-rede}
 
-Em um modelo puramente síncrono, cada acerto só é confirmado, e a questão seguinte só é liberada, depois que o servidor responde pelo \textit{WebSocket}. Isso mantém as regras de correção protegidas no servidor, mas transforma a rede em um ponto único de falha. Uma oscilação de sinal, uma rede congestionada ou um problema no roteamento institucional congelaria a prova, e o aluno perderia tempo e concentração sem ter culpa.
+Durante a prova, o aluno navega livremente entre as questões: pode resolvê-las em qualquer ordem, deixar uma para depois e voltar a uma questão já visitada. A navegação, portanto, não depende do servidor. O que depende dele, em um modelo puramente síncrono, é a confirmação de cada acerto, que só chega quando o servidor responde pelo \textit{WebSocket}. Isso mantém as regras de correção protegidas no servidor, mas transforma a rede em um ponto único de falha. Uma oscilação de sinal, uma rede congestionada ou um problema no roteamento institucional deixaria as respostas sem confirmação, e o aluno, sem saber se seu trabalho foi registrado, perderia tempo e concentração sem ter culpa.
 
 \subsection{Envelope Criptografado de Asserções Locais (Zero-Knowledge Validation)}
 \label{sec:envelope-cifrado}
@@ -134,7 +138,7 @@ O simulador alterna entre os modos conectado e desconectado de forma transparent
 
 \begin{enumerate}
     \item \textbf{modo conectado (fluxo principal):} o terminal executa o comando no VFS local e, em segundo plano, envia o comando e o \textit{snapshot} diferencial pelo \textit{WebSocket}. O servidor valida as asserções, atualiza o \textit{Cockpit} e devolve a confirmação de conclusão;
-    \item \textbf{modo desconectado (contingência local):} se o canal cair, o cliente percebe sem exibir alertas que assustem o aluno e passa a validar com o avaliador local, alimentado pelos \textit{hashes} cifrados. Quando o estado do VFS bate com a assinatura da questão, a interface confirma a conclusão e libera a etapa seguinte;
+    \item \textbf{modo desconectado (contingência local):} se o canal cair, o cliente percebe sem exibir alertas que assustem o aluno e passa a validar com o avaliador local, alimentado pelos \textit{hashes} cifrados. Quando o estado do VFS bate com a assinatura da questão, a interface marca a questão como concluída, e o aluno continua navegando entre as demais normalmente;
     \item \textbf{registro no IndexedDB:} enquanto estiver desconectado, o cliente grava no IndexedDB do navegador \cite{w3c2015indexeddb} todos os comandos, tempos de resposta, saídas de erro e \textit{snapshots} intermediários, com marcação cronológica. Assim, nada se perde se a aba for fechada ou o computador reiniciar.
 \end{enumerate}
 
@@ -207,7 +211,7 @@ Boa parte desses mecanismos se comunica por eventos trocados via \textit{WebSock
         \hline
         \textbf{Evento} & \textbf{Origem} & \textbf{Efeito} \\
         \hline
-        \texttt{task:completed} & Servidor & Confirma que a tarefa foi resolvida e libera a próxima \\
+        \texttt{task:completed} & Servidor & Confirma que a questão foi resolvida e a marca como concluída \\
         \hline
         \texttt{help:request} & Aluno & Coloca um pedido de ajuda na fila do \textit{Cockpit} \\
         \hline
@@ -324,7 +328,7 @@ Cada sessão de prova gera uma linha do tempo (\textit{timeline} de auditoria), 
 
 \begin{enumerate}
     \item o momento em que o aluno entrou na prova com o \textit{token} da sala;
-    \item a ordem em que cada questão foi enfrentada, com as tentativas intermediárias, os comandos executados e o horário em que cada uma foi concluída;
+    \item a ordem em que o aluno navegou entre as questões, com as tentativas intermediárias, os comandos executados e o horário em que cada uma foi concluída;
     \item os pedidos de ajuda: horário, texto da dúvida e como foi resolvido (resposta individual, resposta coletiva ou cancelamento pelo próprio aluno);
     \item as anomalias: aberturas de \textit{DevTools}, perdas de foco da aba (\texttt{visibilitychange}) e colisões de sessão.
 \end{enumerate}
