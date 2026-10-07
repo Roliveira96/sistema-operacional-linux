@@ -1,124 +1,180 @@
 \chapter{Implementação e Stack Tecnológica}
 \label{cap:implementacao}
 
-Este capítulo descreve os aspectos de engenharia de software, a seleção da pilha tecnológica e os detalhes de implementação das camadas cliente e servidora da plataforma educacional. A arquitetura proposta busca harmonizar a execução local interativa de alta fidelidade com uma infraestrutura de retaguarda de alta performance, concorrente e segura.
+Este capítulo trata da engenharia de \textit{software} da plataforma: como ela foi desenvolvida, quais tecnologias foram escolhidas e como as camadas cliente e servidor foram construídas. O objetivo é unir uma simulação local, rápida e fiel, a um servidor concorrente, seguro e de alto desempenho.
 
 % ----------------------------------------------------------
 \section{Metodologia de Engenharia: Adoção Instrumental de Inteligência Artificial e Governança Humana}
 \label{sec:metodologia-ia}
 % ----------------------------------------------------------
 
-O ecossistema contemporâneo de engenharia de \textit{software} atravessa uma transformação estrutural impulsionada pela integração de assistentes de Inteligência Artificial Generativa e Modelos de Linguagem de Grande Escala (\textit{LLMs}) nas esteiras de desenvolvimento corporativo. Longe de representar uma simplificação amadora ou delegação de responsabilidades, o uso instrumental de agentes cognitivos consolidou-se em empresas de tecnologia de ponta como um catalisador de produtividade, prototipação ágil e refinamento de documentação técnica.
+A engenharia de \textit{software} passa por uma mudança estrutural com a chegada de assistentes de IA generativa e de Modelos de Linguagem de Grande Escala (LLMs) aos fluxos de desenvolvimento. Em empresas de tecnologia, o uso desses assistentes como ferramenta já se consolidou para acelerar a produção, prototipar com agilidade e refinar documentação técnica, sem que isso signifique transferir responsabilidade à máquina.
 
-Alinhado à vivência de mais de cinco anos do autor na liderança técnica de arquiteturas de \textit{software} no mercado corporativo, o presente Trabalho de Conclusão de Curso adota expressamente essa metodologia contemporânea de desenvolvimento acelerado. A aplicação da Inteligência Artificial neste trabalho pauta-se pelo princípio ético e técnico do \textit{Human-in-the-Loop} (humano no circuito de controle), no qual a ferramenta atua estritamente como um instrumento amplificador de execução, submetido a rigorosa governança humana:
+Com base em mais de cinco anos de experiência do autor em liderança técnica no mercado, este trabalho adota essa forma de desenvolvimento acelerado. O uso de IA segue o princípio do \textit{Human-in-the-Loop} (humano no circuito de controle): a ferramenta amplia a capacidade de execução, mas tudo passa por controle humano.
 
-\begin{itemize}
-    \item \textbf{Concepção Arquitetural e Decisões de Domínio:} A gênese do projeto, a modelagem de entidades relacionais, os protocolos criptográficos de asserção \textit{offline}, as regras de governança disciplinar e a dinâmica pedagógica de avaliação nasceram exclusivamente do diagnóstico das dores do laboratório da UTFPR e da experiência empírica do autor e da docente orientadora. Nenhuma decisão de regra de negócio, limite de segurança ou arquitetura foi delegada à máquina;
-    \item \textbf{Engenharia Acelerada e Síntese Textual:} O assistente atuou como ferramenta de suporte na automação de tarefas sintáticas, sugestão de rotinas de infraestrutura, conversão ágil de conceitos em especificações e refinamento da redação técnica conforme os padrões acadêmicos vigentes;
-    \item \textbf{Curadoria, Validação Crítica e Auditoria Soberana:} Conforme fundamentado na Seção \ref{sec:risco-ia} deste trabalho quanto aos riscos do uso acrítico de IA, a eficácia do profissional de tecnologia moderno reside na sua capacidade de auditar cada linha de código, verificar asserções formais e validar a coerência teórica do documento. Cada parágrafo, comando simulado e contrato de API contido nesta monografia foi criteriosamente revisado, testado e validado pelo autor.
-\end{itemize}
+\begin{enumerate}
+    \item \textbf{concepção e decisões de domínio:} a ideia do projeto, o modelo de dados, os protocolos criptográficos da contingência \textit{offline}, as regras disciplinares e a dinâmica das avaliações vieram do diagnóstico dos laboratórios da UTFPR e da experiência do autor e da orientadora. Nenhuma regra de negócio, limite de segurança ou decisão de arquitetura foi delegada à máquina;
+    \item \textbf{aceleração e apoio à escrita:} o assistente foi usado para automatizar tarefas repetitivas, sugerir rotinas de infraestrutura, transformar conceitos em especificações e ajustar a redação técnica às normas acadêmicas;
+    \item \textbf{revisão crítica:} como discutido na Seção~\ref{sec:risco-ia}, o valor do profissional de tecnologia hoje está em auditar o que a ferramenta produz. Cada parágrafo, comando simulado e contrato de API desta monografia foi revisado, testado e validado pelo autor.
+\end{enumerate}
 
-Compreende-se, portanto, que, embora a forma expressiva e a aceleração operacional tenham se beneficiado do ferramental inteligente, a essência conceitual, a alma arquitetural e a responsabilidade científica deste produto tecnológico pertencem integralmente à autoria humana, espelhando a realidade das práticas mais avançadas da indústria de \textit{software}.
+Assim, embora a forma do texto e o ritmo de trabalho tenham se beneficiado dessas ferramentas, a concepção, a arquitetura e a responsabilidade científica do trabalho são inteiramente humanas, como já acontece nas práticas mais avançadas da indústria.
 
 % ----------------------------------------------------------
 \section{Visão Geral da Stack Tecnológica}
 \label{sec:visao-stack}
 % ----------------------------------------------------------
 
-A definição das tecnologias fundamentou-se em critérios rigorosos de escalabilidade, fidelidade computacional, facilidade de implantação em infraestruturas universitárias e desacoplamento de responsabilidades:
+As tecnologias foram escolhidas por quatro critérios: escalabilidade, fidelidade da simulação, facilidade de implantação na infraestrutura da universidade e separação clara de responsabilidades. O Quadro~\ref{qua:stack} resume as escolhas.
 
-\begin{itemize}
-    \item \textbf{Camada Cliente (\textit{Front-end} e Simulador):} Combina a robustez de tipos do \textbf{TypeScript} com a componentização declarativa do \textbf{React}, viabilizando um simulador de Sistema de Arquivos Virtual (\textit{VFS}) com latência zero e uma interface amigável e reativa diretamente no navegador web;
-    \item \textbf{Camada Servidora (\textit{Back-end} e Concorrência):} Adota a linguagem \textbf{Golang (Go)} aliada ao framework HTTP \textbf{Gin-Gonic}, ao ORM \textbf{GORM} e a um gerenciador concorrente de \textit{WebSockets} (\textit{Hub}), proporcionando vazão massiva de requisições e orquestração de conexões persistentes com consumo mínimo de recursos de hardware.
-\end{itemize}
+\begin{quadro}[htbp]
+    \caption{Tecnologias adotadas em cada camada}
+    \label{qua:stack}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|p{2.2cm}|p{3.4cm}|L|}
+        \hline
+        \textbf{Camada} & \textbf{Tecnologia} & \textbf{Por que foi escolhida} \\
+        \hline
+        Cliente & TypeScript & Tipagem estática para modelar com precisão as estruturas do POSIX (nós, permissões, credenciais) \\
+        \hline
+        Cliente & React & Componentes declarativos para manter o estado coerente entre terminal, roteiros e provas \\
+        \hline
+        Cliente & Web Crypto API e IndexedDB & \textit{Hashes} e assinaturas nativos do navegador e armazenamento local transacional para a contingência \textit{offline} \\
+        \hline
+        Servidor & Go & Concorrência leve com \textit{goroutines} e canais, ideal para centenas de conexões simultâneas \\
+        \hline
+        Servidor & Gin-Gonic & Roteamento HTTP rápido, com \textit{middlewares} para autenticação e autorização \\
+        \hline
+        Servidor & GORM e PostgreSQL & Mapeamento objeto-relacional tipado, transações ACID e exclusão lógica \\
+        \hline
+        Comunicação & WebSockets (WSS) & Canal bidirecional persistente para telemetria e eventos em tempo real \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
 
 % ----------------------------------------------------------
 \section{Front-end e Núcleo de Simulação (Client-side)}
 \label{sec:frontend-simulacao}
 % ----------------------------------------------------------
 
-A execução em cliente foi desenhada para eliminar a necessidade de máquinas virtuais pesadas ou de instanciar contêineres Docker dedicados para cada discente, o que inviabilizaria o uso simultâneo em laboratórios acadêmicos com restrições orçamentárias de infraestrutura.
+Rodar a simulação no navegador evita tanto as máquinas virtuais quanto um contêiner Docker por aluno, o que seria inviável para laboratórios com orçamento de infraestrutura limitado.
 
 \subsection{Modelagem do VFS e Execução POSIX em TypeScript}
 \label{sec:vfs-typescript}
 
-O núcleo de simulação de sistemas operacionais foi inteiramente desenvolvido em TypeScript puro. O uso da tipagem estática do TypeScript é indispensável para expressar com precisão as complexas estruturas discretas do padrão POSIX:
+O núcleo da simulação foi escrito inteiramente em TypeScript. A tipagem estática é essencial para representar com precisão as estruturas do POSIX:
+
 \begin{enumerate}
-    \item \textbf{Nós e Metadados Virtuais (\textit{i-nodes}):} Cada entrada no VFS é representada por interfaces que modelam atributos de arquivos regulares, diretórios e links simbólicos, mantendo em memória campos como permissões em octal e modo simbólico, identificadores de usuário e grupo proprietários (UID/GID), ponteiros de descendência e carimbos de modificação;
-    \item \textbf{Álgebra de Permissões e Máscara \textit{umask}:} As regras de permissão (\textit{rwx}) e a aplicação de filtros de criação de arquivos via \texttt{umask} operam através de operações aritméticas binárias (\textit{bitwise}) em memória, replicando estritamente a semântica de controle de acesso discricionário (DAC) do núcleo Linux;
-    \item \textbf{Sessão, Identidade e Mudança de Contexto:} O simulador mantém uma pilha de execução que emula a alternância de credenciais por meio dos comandos \texttt{su} e \texttt{sudo}, incluindo regras restritivas do arquivo de configuração \texttt{/etc/sudoers};
-    \item \textbf{Parser Lexical e Pipelines:} O interpretador de linha de comando processa pipelines (\texttt{|}), redirecionamentos de entrada e saída padrão (\texttt{>}, \texttt{>>}, \texttt{<}) e expansão de variáveis de ambiente diretamente no navegador com latência zero de digitação.
+    \item \textbf{nós e metadados (\textit{i-nodes}):} cada entrada do VFS é modelada por interfaces que representam arquivos regulares, diretórios e \textit{links} simbólicos, com permissões em notação octal e simbólica, dono e grupo (UID/GID), referências aos filhos e datas de modificação;
+    \item \textbf{permissões e \texttt{umask}:} as permissões \textit{rwx} e a máscara de criação \texttt{umask} são calculadas com operações bit a bit (\textit{bitwise}), reproduzindo o controle de acesso discricionário (DAC) do Linux;
+    \item \textbf{troca de usuário:} o simulador mantém uma pilha de sessões que reproduz a troca de credenciais com \texttt{su} e \texttt{sudo}, incluindo as restrições do arquivo \texttt{/etc/sudoers};
+    \item \textbf{interpretador de comandos:} o \textit{parser} trata \textit{pipelines} (\texttt{|}), redirecionamentos (\texttt{>}, \texttt{>>}, \texttt{<}) e expansão de variáveis de ambiente, tudo no navegador e sem atraso na digitação.
 \end{enumerate}
 
 \subsection{Componentização e Interface Reativa em React}
 \label{sec:react-interface}
 
-A camada visual da aplicação apoia-se no ecossistema React para desacoplar e manter a coerência de estado entre os diferentes módulos da experiência didática:
-\begin{itemize}
-    \item \textbf{Emulação de Terminal ANSI:} Renderização de um emulador de terminal compatível com sequências de escape ANSI e paleta de cores padrão GNOME Terminal, oferecendo suporte nativo à tecla \texttt{Tab} para autocompletar comandos e caminhos do VFS, navegação pelo histórico de instruções via setas direcionais e editores de texto no terminal (\texttt{nano} e \texttt{vim});
-    \item \textbf{Painel Lateral de Roteiros Guiados:} Interface retrátil que exibe os objetivos de aprendizagem, enunciados das tarefas e o progresso da avaliação sem sobrepor a visualização da tela de trabalho;
-    \item \textbf{Lobby de Prova e Temporizadores Sincronizados:} Módulo de acolhimento para inserção do token temporário de liberação projetado pelo professor, acompanhado de contagem regressiva reativa calibrada periodicamente com o relógio oficial do servidor;
-    \item \textbf{Modais de Apoio e Alertas Pedagógicos:} Componentes flutuantes para acionamento da ``Mãozinha Virtual'' (com preenchimento obrigatório da dúvida), modais de advertência pedagógica em tela cheia na detecção de \textit{DevTools} e janelas discretas de diálogo 1:1 para atendimento docente sobreposto.
-\end{itemize}
+A interface usa React para manter o estado coerente entre os módulos da experiência:
+
+\begin{enumerate}
+    \item \textbf{terminal ANSI:} emulador compatível com sequências de escape ANSI e com a paleta do GNOME Terminal, com autocompletar por \texttt{Tab} para comandos e caminhos, histórico pelas setas e os editores \texttt{nano} e \texttt{vim};
+    \item \textbf{painel de roteiros:} painel retrátil com objetivos, enunciados e progresso, que não cobre o terminal;
+    \item \textbf{entrada da prova e cronômetro:} tela para digitar o \textit{token} projetado pelo professor, com contagem regressiva sincronizada periodicamente com o relógio do servidor;
+    \item \textbf{janelas de apoio:} janelas para pedir ajuda (com descrição obrigatória da dúvida), avisos em tela cheia quando o \textit{DevTools} é detectado e conversas 1:1 com a professora sobre o terminal.
+\end{enumerate}
 
 % ----------------------------------------------------------
 \section{Back-end e Concorrência de Alta Performance (Server-side)}
 \label{sec:backend-golang}
 % ----------------------------------------------------------
 
-O servidor central desempenha o papel de autoridade confiável da plataforma, custodiando regras de negócio, persistência acadêmica e integridade avaliativa.
+O servidor é a autoridade confiável da plataforma: guarda as regras de negócio, os dados acadêmicos e garante a integridade das avaliações.
 
 \subsection{A Linguagem Golang e o Modelo de Concorrência CSP}
 \label{sec:golang-concorrencia}
 
-A escolha de Golang \cite{donovan2015go} para o desenvolvimento dos serviços de retaguarda decorre de sua capacidade singular de gerenciar concorrência massiva de I/O de rede com baixo consumo de memória \cite{cox2020golang}:
-\begin{itemize}
-    \item \textbf{Goroutines e Footprint Reduzido:} Diferente de linguagens baseadas em \textit{threads} pesadas do sistema operacional (que alocam de 1 a 2 MB de pilha por encadeamento) ou de modelos baseados em loop de evento de thread única sujeitos a bloqueios computacionais em tarefas de asserção, as \textit{goroutines} de Go iniciam com pilhas dinâmicas de apenas 2 KB. Isso permite à aplicação manter centenas de conexões \textit{WebSocket} simultâneas por sala com impacto desprezível de memória RAM no servidor;
-    \item \textbf{Comunicação via Channels (CSP):} A troca de mensagens entre a camada de telemetria, a fila de suporte docente e os despachantes de eventos opera sobre canais tipados (\textit{channels}) inspirados no modelo formal de Processos Sequenciais Comunicantes (\textit{Communicating Sequential Processes} -- CSP) \cite{donovan2015go,cox2020golang}, eliminando riscos de condições de corrida (\textit{race conditions}) e dispensando o uso excessivo de travas manuais de sincronização (\textit{mutexes}).
-\end{itemize}
+A linguagem Go \cite{donovan2015go} foi escolhida pela capacidade de lidar com muita concorrência de rede gastando pouca memória \cite{cox2020golang}:
+
+\begin{enumerate}
+    \item \textbf{\textit{goroutines} leves:} \textit{threads} do sistema operacional reservam de 1 a 2\,MB de pilha cada uma, e modelos de \textit{loop} de eventos em uma única \textit{thread} podem travar durante a correção de asserções. Já as \textit{goroutines} começam com pilhas de apenas 2\,KB, que crescem conforme a necessidade. Isso permite manter centenas de conexões \textit{WebSocket} por sala com impacto mínimo na memória do servidor;
+    \item \textbf{canais (CSP):} telemetria, fila de dúvidas e despacho de eventos trocam mensagens por canais tipados (\textit{channels}), inspirados no modelo de Processos Sequenciais Comunicantes (\textit{Communicating Sequential Processes} -- CSP) \cite{donovan2015go,cox2020golang}. Isso evita condições de corrida (\textit{race conditions}) e reduz a necessidade de travas manuais (\textit{mutexes}).
+\end{enumerate}
 
 \subsection{Roteamento de APIs REST com Gin-Gonic}
 \label{sec:gin-gonic}
 
-Para a disponibilização das APIs sob o estilo arquitetural REST \cite{fielding2000rest}, adota-se o micro-framework \textbf{Gin-Gonic}. Desenvolvido em Go sobre árvores de prefixo (\textit{Radix tree}), o Gin proporciona roteamento de altíssima velocidade sem alocação desnecessária de memória durante o ciclo de vida das requisições HTTP:
-\begin{itemize}
-    \item \textbf{Autenticação e Autorização JWT:} \textit{Middlewares} dedicados para verificação de tokens criptográficos, validação de papéis de usuário (\textit{RBAC}: Público, Aluno e Professor) e expiração de sessões;
-    \item \textbf{Endpoints Estruturados:} Gerenciamento de turmas semestrais, inscrições discentes, criação de roteiros de avaliação, emissão e validação de tokens temporais de sala e homologação manual de notas com justificativa docente.
-\end{itemize}
+As APIs seguem o estilo arquitetural REST \cite{fielding2000rest} e são servidas pelo \textit{framework} \textbf{Gin-Gonic}, que usa árvores de prefixo (\textit{radix tree}) para rotear requisições com rapidez e sem alocações desnecessárias de memória:
+
+\begin{enumerate}
+    \item \textbf{autenticação e autorização:} \textit{middlewares} verificam os \textit{tokens} JWT, os papéis de usuário (RBAC: Público, Aluno e Professor) e a expiração das sessões;
+    \item \textbf{rotas de negócio:} gestão de turmas e matrículas, criação de roteiros de avaliação, emissão e validação dos \textit{tokens} de sala e homologação de notas com justificativa do professor.
+\end{enumerate}
 
 \subsection{Persistência e Mapeamento Objeto-Relacional com GORM}
 \label{sec:gorm-persistencia}
 
-A camada de persistência de dados utiliza a biblioteca \textbf{GORM} integrada ao banco de dados relacional PostgreSQL:
-\begin{itemize}
-    \item \textbf{Modelagem Tipada e Migrações Automáticas:} As entidades do sistema (tais como usuários, turmas, matrículas, avaliações, sessões, observações contextuais docentes e eventos de linha do tempo) são declaradas como estruturas tipadas em Go (\textit{structs}) enriquecidas com tags GORM, definindo chaves primárias UUID, índices compostos e integridade referencial estrita;
-    \item \textbf{Transações ACID no Remanejamento Discente:} O remanejamento de estudantes entre turmas ou turnos opera em blocos transacionais atômicos (\texttt{tx.Begin()}, \texttt{tx.Commit()}). O fluxo atualiza a matrícula de origem para o status \texttt{TRANSFERIDO} e insere a nova matrícula como ativa na turma de destino em uma única operação. Esse isolamento assegura que submissões anteriores, notas e comandos históricos permaneçam imutavelmente atrelados ao UUID e ao RA do estudante, evitando registros órfãos ou duplicidades de cadastro;
-    \item \textbf{Exclusão Lógica Forense (\textit{Soft Delete}):} A entidade de usuário incorpora a tipagem especial \texttt{gorm.DeletedAt}. Em rotinas operacionais padrão, o GORM injeta automaticamente o predicado \texttt{deleted\_at IS NULL} nas consultas de seleção. No entanto, para fins de comprovação acadêmica e auditoria institucional perante a coordenação da UTFPR, consultas de retaguarda que utilizam o modificador \texttt{db.Unscoped()} recuperam a totalidade dos dados históricos, incluindo logs forenses de terminais de discentes desligados do curso;
-    \item \textbf{Inativação Cautelar e Revogação Ativa de Sessões:} Quando o docente altera o status de um estudante para \texttt{INATIVO}, o serviço não apenas persiste a restrição no banco, mas despacha imediatamente um sinal pelo canal interno de Go para o Hub de \textit{WebSockets}. As conexões persistentes ativas associadas àquele identificador de usuário são sumariamente derrubadas com código de recusa, e requisições subsequentes à API REST são barradas pelo \textit{middleware} de autenticação JWT.
-\end{itemize}
+A persistência usa a biblioteca \textbf{GORM} sobre PostgreSQL:
+
+\begin{enumerate}
+    \item \textbf{modelos tipados e migrações:} usuários, turmas, matrículas, avaliações, sessões, observações do professor e eventos da linha do tempo são \textit{structs} Go com \textit{tags} GORM, que definem chaves primárias UUID, índices compostos e integridade referencial;
+    \item \textbf{transferência de turma em uma transação:} a troca de turma roda em uma transação ACID (\texttt{tx.Begin()} \ldots{} \texttt{tx.Commit()}): a matrícula de origem passa a \texttt{TRANSFERIDO} e a nova matrícula é criada ativa na turma de destino em uma única operação. Submissões, notas e comandos antigos continuam ligados ao UUID e ao RA do aluno, sem registros órfãos nem cadastros duplicados;
+    \item \textbf{exclusão lógica:} a entidade de usuário usa o tipo \texttt{gorm.DeletedAt}. Nas consultas comuns, o GORM acrescenta automaticamente a condição \texttt{deleted\_at IS NULL}. Para auditorias junto à coordenação da UTFPR, consultas com \texttt{db.Unscoped()} recuperam todo o histórico, inclusive os registros de alunos desligados;
+    \item \textbf{suspensão com efeito imediato:} quando o professor marca um aluno como \texttt{INATIVO}, o serviço grava a mudança no banco e envia um sinal, por canal interno, ao Hub de \textit{WebSockets}. As conexões abertas daquele usuário são encerradas na hora, e as próximas requisições à API são barradas pelo \textit{middleware} de autenticação.
+\end{enumerate}
 
 \subsection{Hub WebSocket Nativo e Streaming de Telemetria}
 \label{sec:websocket-hub}
 
-A orquestração síncrona em tempo real é centralizada em um módulo de \textbf{Hub de WebSockets} implementado em Go puro segundo a padronização RFC 6455 \cite{fette2011websocket}:
+A comunicação em tempo real passa por um \textbf{Hub de WebSockets} escrito em Go, de acordo com a RFC 6455 \cite{fette2011websocket}:
+
 \begin{enumerate}
-    \item \textbf{Arquitetura do Hub Concorrente:} O Hub central opera em uma \textit{goroutine} independente, coordenando o registro de novos terminais de estudantes (\texttt{register}), o descarte seguro de desconexões (\texttt{unregister}) e o roteamento de mensagens por salas (\texttt{broadcast});
-    \item \textbf{Pares de Goroutines por Cliente:} Cada conexão de estudante ou de professor é atendida por duas rotinas concorrentes: uma responsável pelo bombeamento contínuo de leitura de mensagens do socket (\textit{readPump}) e outra dedicada à escrita não-bloqueante (\textit{writePump}), isolando a comunicação de rede de possíveis lentidões no navegador do usuário;
-    \item \textbf{Desacoplamento do Motor de Asserção:} Quando um evento de quebra de linha (\texttt{Enter}) com snapshot do VFS é recebido pelo socket, o servidor despacha a tarefa de reconstituição e avaliação de critérios para um pool de trabalhadores assíncronos (\textit{worker pool}), liberando o canal de socket para receber novas instruções sem introduzir qualquer atraso perceptível na interface do discente.
+    \item \textbf{Hub central:} uma \textit{goroutine} dedicada registra novos terminais (\texttt{register}), remove conexões encerradas (\texttt{unregister}) e distribui mensagens por sala (\texttt{broadcast});
+    \item \textbf{duas \textit{goroutines} por conexão:} cada aluno ou professor conectado é atendido por uma rotina de leitura (\textit{readPump}) e outra de escrita (\textit{writePump}), de modo que a lentidão de um navegador não afeta os demais;
+    \item \textbf{correção fora do canal:} quando chega um comando com \textit{snapshot} do VFS, a reconstrução e a correção vão para um conjunto de trabalhadores assíncronos (\textit{worker pool}). O canal fica livre para novas mensagens, sem atraso perceptível para o aluno.
 \end{enumerate}
 
 \subsection{Processamento Assíncrono de Filas, Agendamento e Despacho Multicanal}
 \label{sec:filas-emails-assincronos}
 
-No fluxo de importação em lote de turmas (por meio de planilhas CSV institucionais contendo dezenas ou centenas de discentes) e na publicação de avisos pedagógicos no mural da turma, a tentativa de disparar mensagens de notificação via protocolo SMTP de forma síncrona dentro da requisição HTTP geraria gargalos severos de I/O de rede. O tempo de negociação de conexão SMTP sob TLS e o envio de mensagens individuais oscilam entre 500 milissegundos e 2 segundos por destinatário, o que fatalmente provocaria o esgotamento do tempo limite do cliente (\textit{Gateway Timeout} / HTTP 504) e degradaria a experiência da docente.
+Importar uma turma por CSV, com dezenas ou centenas de alunos, ou publicar um aviso para a turma gera muitos e-mails. Enviá-los via SMTP dentro da própria requisição HTTP seria inviável: negociar a conexão TLS e enviar cada mensagem leva de 500 milissegundos a 2 segundos por destinatário, o que estouraria o tempo limite (\textit{Gateway Timeout}, HTTP 504) e deixaria a professora esperando.
 
-Para equacionar essa demanda com alto desempenho e confiabilidade, o back-end em Go adota uma arquitetura de mensageria assíncrona fundamentada no padrão produtor-consumidor (\textit{Producer-Consumer}) com \textit{Worker Pool} e rotinas de agendamento temporal:
+Por isso, o servidor usa um modelo produtor-consumidor (\textit{producer-consumer}) com um conjunto fixo de trabalhadores (\textit{worker pool}) e um agendador, ilustrado na Figura~\ref{fig:worker-pool}.
+
+\begin{figure}[htbp]
+    \centering
+    \caption{Envio assíncrono de e-mails com canal e conjunto de trabalhadores}
+    \label{fig:worker-pool}
+    \begin{tikzpicture}[node distance=0.9cm and 1.1cm]
+        \node[box, text width=2.6cm] (csv) {Importação CSV\\(\textit{handler} Gin)};
+        \node[box, text width=2.6cm, below=0.5cm of csv] (sched) {Agendador\\(\texttt{time.Ticker})};
+        \node[box, text width=2.5cm, right=1.4cm of $(csv)!0.5!(sched)$] (chan) {Canal\\\texttt{chan EmailJob}};
+        \node[box, text width=1.9cm, right=1.4cm of chan, yshift=1.0cm] (w1) {\textit{worker} 1};
+        \node[box, text width=1.9cm, right=1.4cm of chan] (w2) {\textit{worker} 2};
+        \node[box, text width=1.9cm, right=1.4cm of chan, yshift=-1.0cm] (wn) {\textit{worker} $N$};
+        \node[box, text width=1.6cm, right=1.1cm of w2] (smtp) {Servidor\\SMTP};
+
+        \draw[arrow] (csv.east) -- (chan);
+        \draw[arrow] (sched.east) -- (chan);
+        \draw[arrow] (chan) -- (w1.west);
+        \draw[arrow] (chan) -- (w2.west);
+        \draw[arrow] (chan) -- (wn.west);
+        \draw[arrow] (w1.east) -- (smtp);
+        \draw[arrow] (w2.east) -- (smtp);
+        \draw[arrow] (wn.east) -- (smtp);
+        \node[font=\scriptsize, below=0.3cm of sched] {responde \texttt{202 Accepted} na hora};
+        \node[font=\scriptsize, below=0.3cm of wn] {limite de taxa e \textit{backoff}};
+    \end{tikzpicture}
+    \fonte{Autoria própria (2026).}
+\end{figure}
+
+O fluxo funciona assim:
 
 \begin{enumerate}
-    \item \textbf{Desacoplamento via Canais Buffereados (\textit{Buffered Channels}):} O \textit{handler} HTTP do framework Gin lê e valida os dados de entrada (seja na ingestão de CSV ou no cadastro de novos comunicados), persiste os registros no banco relacional sob uma transação ACID atômica e imediatamente enfileira os registros de trabalho em um canal buffereado tipado (\texttt{chan EmailJob}). A rota HTTP retorna instantaneamente ao cliente com código \texttt{202 Accepted}, liberando a conexão HTTP em poucos milissegundos;
-    \item \textbf{Agendador Temporal de Comunicados (\textit{Scheduler}):} Para avisos com publicação programada no futuro, uma \textit{goroutine} em segundo plano operando com temporizador periódico (\texttt{time.Ticker}) executa a varredura contínua no PostgreSQL. Ao identificar comunicados cujo carimbo \texttt{publicar\_em} atingiu o horário presente, o serviço transiciona atomicamente o status para \texttt{PUBLICADO}, emite o evento reativo \texttt{announcement:new} pelo Hub de \textit{WebSockets} para streaming instantâneo nas telas dos alunos conectados e despeja as tarefas de notificação por correio eletrônico na fila do \textit{Worker Pool};
-    \item \textbf{Pool Concorrente de Trabalhadores (\textit{Worker Pool}):} Em segundo plano, um conjunto fixo de $N$ \textit{goroutines} operárias (\textit{workers}) consome continuamente as mensagens do canal. A vazão de despacho é regulada por um limitador de taxa temporal (\textit{Rate Limiter} via \texttt{time.Ticker}), garantindo o estrito cumprimento das cotas de envio e políticas antispam estabelecidas pelos servidores de correio eletrônico institucionais da universidade;
-    \item \textbf{Templates HTML Estilizados e Tokens Efêmeros de Ativação:} Cada trabalhador renderiza dinamicamente modelos HTML semânticos com estilos CSS \textit{inline} integrados, compatíveis com os principais clientes de correio eletrônico. As mensagens apresentam o logotipo institucional, identificação da disciplina, mensagem pedagógica formatada e hiperlinks de ação protegidos por tokens de uso único;
-    \item \textbf{Confirmação de Ciência e Atualização Reativa no Cockpit:} Quando um estudante confirma formalmente a leitura de um aviso prioritário via rota REST dedicada, o servidor registra de forma indelével o carimbo de tempo e o IP de origem na tabela relacional de confirmações. Imediatamente após a persistência, o servidor despacha o evento \texttt{cockpit:announcement-receipt} via \textit{WebSocket}, atualizando em tempo real a métrica percentual de adesão e a lista nominal de pendências no painel do professor;
-    \item \textbf{Resiliência e Retentativas com Backoff Exponencial:} Em casos de falha transitória de conectividade com o servidor SMTP (como rejeições temporárias por carga ou recusas de handshake TLS), o trabalhador aplica uma política de retentativas escalonadas (\textit{Exponential Backoff}). Caso o limite máximo de tentativas seja ultrapassado, o erro é catalogado em log estruturado e o status da notificação é marcado como pendente no banco de dados, possibilitando à professora disparar reenvios manuais direcionados a partir do próprio painel administrativo.
+    \item \textbf{fila em canal com \textit{buffer}:} o \textit{handler} HTTP valida os dados (CSV ou novo aviso), grava tudo no banco em uma transação e coloca as tarefas de envio em um canal tipado com \textit{buffer} (\texttt{chan EmailJob}). A resposta \texttt{202 Accepted} volta ao cliente em poucos milissegundos;
+    \item \textbf{agendador de avisos:} para avisos programados, uma \textit{goroutine} com temporizador (\texttt{time.Ticker}) consulta periodicamente o PostgreSQL. Quando chega o horário de \texttt{publicar\_em}, o aviso passa a \texttt{PUBLICADO}, o evento \texttt{announcement:new} é enviado aos alunos conectados e os e-mails entram na fila;
+    \item \textbf{trabalhadores com limite de taxa:} um número fixo $N$ de \textit{goroutines} consome o canal continuamente. Um limitador de taxa (\textit{rate limiter}) controla o ritmo de envio para respeitar as cotas e as regras antispam do servidor de e-mail da universidade;
+    \item \textbf{e-mails em HTML:} cada trabalhador monta a mensagem a partir de modelos HTML com estilos \textit{inline}, compatíveis com os principais leitores de e-mail, com o logotipo da instituição, a identificação da disciplina, o texto do aviso e \textit{links} de ação protegidos por \textit{tokens} de uso único;
+    \item \textbf{confirmação de leitura em tempo real:} quando o aluno confirma a leitura de um aviso importante, o servidor grava data, hora e IP e envia \texttt{cockpit:announcement-receipt}, atualizando na hora o percentual de adesão e a lista de pendentes no painel do professor;
+    \item \textbf{novas tentativas com espera crescente:} se o servidor SMTP falhar temporariamente (sobrecarga ou erro no TLS), o trabalhador tenta de novo com intervalos cada vez maiores (\textit{exponential backoff}). Esgotadas as tentativas, o erro é registrado em \textit{log} e a notificação fica marcada como pendente, para que a professora possa reenviá-la pelo painel.
 \end{enumerate}

@@ -1,8 +1,11 @@
+% Links must be printable annotations to survive the PDF/A conversion required by UTFPR
+\PassOptionsToPackage{pdfa}{hyperref}
 \documentclass[
     12pt,
     openright,
     oneside,
     a4paper,
+    chapter=TITLE,
     english,
     brazil
 ]{abntex2}
@@ -12,7 +15,7 @@
 % ---
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage{newtxtext,newtxmath} % Times, as required by the UTFPR style guide
 \usepackage{indentfirst}
 \usepackage{color}
 \usepackage{xcolor}
@@ -22,6 +25,84 @@
 \usepackage{amsmath}
 \usepackage{listings}
 \usepackage{url}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{ragged2e}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc,backgrounds,decorations.pathreplacing}
+
+% ---
+% LISTS AS ABNT ALINEAS: a), b), c) and subalineas with an en dash (NBR 6024)
+% ---
+\setlist{itemsep=0.25em, topsep=0.5em}
+\setlist[enumerate,1]{label=\alph*), leftmargin=*, labelindent=\parindent}
+\setlist[enumerate,2]{label=--, leftmargin=*}
+\setlist[itemize,1]{label=--, leftmargin=*}
+
+% ---
+% UTFPR TYPOGRAPHY: a single font (Times) at 12pt for every heading
+% Primary sections: UPPERCASE bold; secondary: bold; tertiary: regular
+% ---
+\renewcommand{\ABNTEXchapterfont}{\rmfamily\bfseries}
+\renewcommand{\ABNTEXchapterfontsize}{\normalsize}
+\renewcommand{\ABNTEXsectionfont}{\rmfamily\bfseries}
+\renewcommand{\ABNTEXsectionfontsize}{\normalsize}
+\renewcommand{\ABNTEXsubsectionfont}{\rmfamily}
+\renewcommand{\ABNTEXsubsectionfontsize}{\normalsize}
+\renewcommand{\ABNTEXsubsubsectionfont}{\rmfamily\itshape}
+\renewcommand{\ABNTEXsubsubsectionfontsize}{\normalsize}
+\renewcommand{\cftchapterfont}{\rmfamily\bfseries}
+\renewcommand{\cftchapterpagefont}{\rmfamily\bfseries}
+\renewcommand{\cftsectionfont}{\rmfamily\bfseries}
+\renewcommand{\cftsectionpagefont}{\rmfamily\bfseries}
+\renewcommand{\cftsubsectionfont}{\rmfamily\mdseries}
+\renewcommand{\cftsubsectionpagefont}{\rmfamily\mdseries}
+\renewcommand{\cftsubsubsectionfont}{\rmfamily\itshape}
+\renewcommand{\cftsubsubsectionpagefont}{\rmfamily\mdseries}
+
+% Page number only, top right, size 10 (no running header)
+\makeoddhead{abntheadings}{}{}{\footnotesize\thepage}
+\makeevenhead{abntheadings}{}{}{\footnotesize\thepage}
+\makeheadrule{abntheadings}{0pt}{0pt}
+\makeoddhead{abntchapfirst}{}{}{\footnotesize\thepage}
+\makeevenhead{abntchapfirst}{}{}{\footnotesize\thepage}
+
+% Captions and sources of illustrations: size 10, bold (UTFPR suggestion)
+\captionnamefont{\footnotesize\bfseries}
+\captiontitlefont{\footnotesize\bfseries}
+\captiondelim{ -- }
+\renewcommand{\fonte}[2][Fonte]{\par\vspace{2pt}{\centering\footnotesize\SingleSpacing\textbf{#1: #2}\par}}
+
+% ---
+% "QUADRO" FLOAT (textual tables, as used by UTFPR), following the abnTeX2 recipe
+% ---
+\newcommand{\quadroname}{Quadro}
+\newcommand{\listofquadrosname}{Lista de quadros}
+\newfloat[chapter]{quadro}{loq}{\quadroname}
+\newlistof{listofquadros}{loq}{\listofquadrosname}
+\newlistentry{quadro}{loq}{0}
+\counterwithout{quadro}{chapter}
+\setfloatadjustment{quadro}{\centering}
+\renewcommand{\cftquadroname}{\quadroname\space}
+\renewcommand*{\cftquadroaftersnum}{\hfill--\hfill}
+
+% Ragged-right column type for quadros
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+% ---
+% DIAGRAM STYLES (grayscale-friendly, prints well in black and white)
+% ---
+\tikzset{
+    box/.style={draw, rounded corners=3pt, align=center, inner sep=6pt,
+                font=\small, fill=gray!8, minimum height=1.1cm},
+    layer/.style={draw, dashed, rounded corners=6pt, inner sep=8pt},
+    state/.style={draw, rounded corners=8pt, align=center, font=\footnotesize\ttfamily,
+                  inner sep=5pt, fill=gray!8},
+    arrow/.style={-{Stealth[length=2.5mm]}, thick},
+    darrow/.style={{Stealth[length=2.5mm]}-{Stealth[length=2.5mm]}, thick},
+    lbl/.style={font=\scriptsize, align=center, fill=white, inner sep=1.5pt}
+}
 
 % ---
 % PACOTES DE CITAÇÃO E REFERÊNCIAS (ABNT)
@@ -33,10 +114,10 @@
 % ---
 \hypersetup{
     colorlinks=true,
-    linkcolor=blue,
-    citecolor=blue,
-    filecolor=magenta,
-    urlcolor=blue,
+    linkcolor=black,
+    citecolor=black,
+    filecolor=black,
+    urlcolor=black,
     bookmarksdepth=4
 }
 
@@ -58,26 +139,113 @@
     showtabs=false,
     frame=single,
     tabsize=2,
-    captionpos=b,
+    captionpos=t,
+    numberbychapter=false,
+    literate={á}{{\'a}}1 {à}{{\`a}}1 {ã}{{\~a}}1 {â}{{\^a}}1 {é}{{\'e}}1 {ê}{{\^e}}1
+             {í}{{\'i}}1 {ó}{{\'o}}1 {õ}{{\~o}}1 {ô}{{\^o}}1 {ú}{{\'u}}1 {ç}{{\c{c}}}1,
     breaklines=true,
     breakatwhitespace=false
 }
+\renewcommand{\lstlistingname}{Código}
+
+% Style for simulated terminal sessions
+\lstdefinestyle{terminal}{
+    language={},
+    basicstyle=\ttfamily\footnotesize,
+    numbers=none,
+    frame=single,
+    backgroundcolor=\color{gray!6},
+    keywordstyle={},
+    columns=fullflexible,
+    keepspaces=true
+}
 
 % ---
-% DADOS INSTITUCIONAIS (UTFPR CAMPUS GUARAPUAVA)
+% DADOS DO TRABALHO
 % ---
-\instituicao{UNIVERSIDADE TECNOLÓGICA FEDERAL DO PARANÁ\par CÂMPUS GUARAPUAVA\par DEPARTAMENTO ACADÊMICO DE INFORMÁTICA\par CURSO SUPERIOR DE TECNOLOGIA EM SISTEMAS PARA INTERNET}
-
 \titulo{PLATAFORMA EDUCACIONAL BASEADA EM SIMULAÇÃO POSIX NO NAVEGADOR PARA O ENSINO E AVALIAÇÃO PRÁTICA DE SISTEMAS OPERACIONAIS}
-
+\newcommand{\tituloingles}{Browser-based POSIX simulation educational platform for teaching and practical assessment of operating systems}
 \autor{RICARDO MARTINS DE OLIVEIRA}
-
-\local{Guarapuava}
+\local{GUARAPUAVA}
 \data{2026}
+\orientador{Sediane Carmem Lunardi Hernandes}
+\newcommand{\naturezatrabalho}{Trabalho de conclusão de curso de graduação apresentado como requisito para obtenção do título de Tecnólogo em Sistemas para Internet da Universidade Tecnológica Federal do Paraná (UTFPR).}
 
-\orientador{Profª. Dra. Sediane Carmem Lunardi Hernandes}
+% ---
+% CAPA (UTFPR model): institution, author, title, city and year
+% ---
+\renewcommand{\imprimircapa}{%
+  \begin{titlingpage}
+    \centering\OnehalfSpacing
+    UNIVERSIDADE TECNOLÓGICA FEDERAL DO PARANÁ\par
+    \vspace*{2cm}
+    \imprimirautor\par
+    \vfill
+    {\bfseries\imprimirtitulo\par}
+    \vfill
+    \imprimirlocal\par
+    \imprimirdata\par
+  \end{titlingpage}}
 
-\preambulo{Trabalho de Conclusão de Curso apresentado ao Curso Superior de Tecnologia em Sistemas para Internet do Câmpus Guarapuava da Universidade Tecnológica Federal do Paraná (UTFPR), como requisito parcial para a obtenção do título de Tecnólogo em Sistemas para Internet.}
+% Nature-of-work block, indented 8 cm from the left margin, single spaced
+\newcommand{\blocoNatureza}[1]{%
+  \noindent\hspace*{8cm}%
+  \begin{minipage}{\dimexpr\textwidth-8cm\relax}
+    \SingleSpacing\justifying\setlength{\parindent}{0pt}#1
+  \end{minipage}\par}
+
+% ---
+% FOLHA DE ROSTO (UTFPR model) with Creative Commons license in the footer
+% ---
+\renewcommand{\imprimirfolhaderosto}{%
+  \begin{titlingpage}
+    \thispagestyle{empty}
+    \centering\OnehalfSpacing
+    \imprimirautor\par
+    \vfill
+    {\bfseries\imprimirtitulo\par}
+    \vspace{1em}
+    \tituloingles\par
+    \vfill
+    \blocoNatureza{\naturezatrabalho\par\vspace{1em}Orientadora: Prof.ª Dra. \mbox{\imprimirorientador}.}
+    \vfill
+    \imprimirlocal\par
+    \imprimirdata\par
+    \vspace{1.2cm}
+    \begin{minipage}[c]{3.2cm}
+      \centering
+      \href{https://creativecommons.org/licenses/by-nc-sa/4.0/deed.pt_BR}{\includegraphics[width=2.6cm]{figuras/cc-by-nc-sa.png}}\\
+      {\scriptsize\href{https://creativecommons.org/licenses/by-nc-sa/4.0/deed.pt_BR}{4.0 Internacional}}
+    \end{minipage}\hfill
+    \begin{minipage}[c]{\dimexpr\textwidth-3.6cm\relax}
+      \SingleSpacing\scriptsize\justifying\setlength{\parindent}{0pt}
+      Esta licença permite remixe, adaptação e criação a partir do trabalho, para fins não comerciais, desde que sejam atribuídos créditos ao(s) autor(es) e que licenciem as novas criações sob termos idênticos. Conteúdos elaborados por terceiros, citados e referenciados nesta obra não são cobertos pela licença.
+    \end{minipage}
+  \end{titlingpage}}
+
+% ---
+% FOLHA DE APROVAÇÃO (UTFPR model, no signatures)
+% ---
+\newcommand{\membrobanca}[3]{{\SingleSpacing #1\par #2\par #3\par}\vspace{1.2em}}
+\newcommand{\imprimirfolhadeaprovacao}{%
+  \begin{titlingpage}
+    \thispagestyle{empty}
+    \centering\OnehalfSpacing
+    {\bfseries\imprimirautor\par}
+    \vfill
+    {\bfseries\imprimirtitulo\par}
+    \vfill
+    \blocoNatureza{\naturezatrabalho}
+    \vfill
+    Data de aprovação: \underline{\hspace{1cm}} de \underline{\hspace{3cm}} de 2026.\par
+    \vfill
+    \membrobanca{Prof.ª Dra. Sediane Carmem Lunardi Hernandes}{Doutorado}{Universidade Tecnológica Federal do Paraná}
+    \membrobanca{[Nome completo do membro da banca]}{[Titulação]}{[Instituição por extenso]}
+    \membrobanca{[Nome completo do membro da banca]}{[Titulação]}{[Instituição por extenso]}
+    \vfill
+    \imprimirlocal\par
+    \imprimirdata\par
+  \end{titlingpage}}
 
 % ---
 % INÍCIO DO DOCUMENTO
@@ -90,13 +258,27 @@
 % ELEMENTOS PRÉ-TEXTUAIS
 % ----------------------------------------------------------
 \imprimircapa
-\imprimirfolhaderosto*
+% The cover is not counted; the title page is page 1 (NBR 14724)
+\setcounter{page}{1}
+\imprimirfolhaderosto
+\imprimirfolhadeaprovacao
 
 % Resumo em Português
 \include{pre-textual/resumo}
 
 % Abstract em Inglês
 \include{pre-textual/abstract}
+
+% Listas de ilustrações
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+\pdfbookmark[0]{\listofquadrosname}{loq}
+\listofquadros*
+\cleardoublepage
+\pdfbookmark[0]{\listtablename}{lot}
+\listoftables*
+\cleardoublepage
 
 % Lista de Abreviaturas e Siglas
 \include{pre-textual/siglas}

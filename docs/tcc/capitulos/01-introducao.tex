@@ -1,149 +1,184 @@
 \chapter{Introdução}
 \label{cap:introducao}
 
-A disciplina de Sistemas Operacionais (SO) integra o núcleo estruturante da formação científica e tecnológica em cursos superiores de Computação e Tecnologia da Informação. No âmbito do Curso Superior de Tecnologia em Sistemas para Internet (TSI) da Universidade Tecnológica Federal do Paraná (UTFPR) --- Câmpus Guarapuava, a compreensão profunda sobre o funcionamento de núcleos de sistemas, gerenciamento de processos, sistemas de arquivos hierárquicos e modelos de permissões de acesso constitui uma competência determinante para a atuação dos futuros profissionais em engenharia de \textit{software}, arquitetura de infraestrutura e segurança da informação \cite{silberschatz2018operating, tanenbaum2015modern}.
+A disciplina de Sistemas Operacionais (SO) faz parte do núcleo da formação em Computação e Tecnologia da Informação. No Curso Superior de Tecnologia em Sistemas para Internet (TSI) da Universidade Tecnológica Federal do Paraná (UTFPR), Câmpus Guarapuava, entender como o núcleo do sistema gerencia processos, organiza arquivos e controla permissões é uma competência decisiva para quem vai atuar com engenharia de \textit{software}, infraestrutura ou segurança da informação \cite{silberschatz2018operating, tanenbaum2015modern}.
 
-Historicamente, o padrão POSIX (\textit{Portable Operating System Interface}) e as distribuições do ecossistema GNU/Linux estabeleceram-se como a base operacional definitiva da computação moderna \cite{posix2018, kerrisk2010linux}. Contudo, transpor essa relevância teórica para a prática laboratorial efetiva impõe desafios pedagógicos, tecnológicos e comportamentais complexos, que exigem uma reflexão crítica sobre os métodos de ensino e as ferramentas empregadas nas universidades.
+O padrão POSIX (\textit{Portable Operating System Interface}) e as distribuições GNU/Linux tornaram-se a base operacional da computação moderna \cite{posix2018, kerrisk2010linux}. Levar essa relevância da teoria para a prática de laboratório, porém, esbarra em problemas pedagógicos, tecnológicos e comportamentais que pedem uma revisão das ferramentas usadas em sala.
 
-Este trabalho não nasceu de uma hipótese puramente teórica ou abstrata; sua concepção resulta da convergência direta entre dois pilares empíricos complementares: o diagnóstico pedagógico vivenciado pela docência da disciplina de Sistemas Operacionais na UTFPR e a vivência profissional do próprio autor na liderança técnica de engenharia de \textit{software} no mercado corporativo.
+Este trabalho não partiu de uma hipótese abstrata. Ele nasceu do encontro de duas experiências concretas: o diagnóstico feito pela docência da disciplina na UTFPR e a vivência do autor como líder técnico de engenharia de \textit{software} no mercado.
 
 % ----------------------------------------------------------
 \section{Gênese e Motivação: A Interseção entre Academia e Indústria}
 \label{sec:genese-motivacao}
 % ----------------------------------------------------------
 
-A concepção da presente plataforma educacional fundamenta-se na observação atenta de duas realidades práticas que convergem para a mesma constatação: a urgência de uma abordagem inovadora para o aprendizado prático de sistemas operacionais.
+As duas experiências que deram origem a este trabalho, uma vinda da sala de aula e outra da indústria, chegam à mesma conclusão: o ensino prático de sistemas operacionais precisa de uma abordagem nova.
 
 \subsection{O Diagnóstico Pedagógico com a Docência da Disciplina}
-O primeiro pilar orientador do projeto consolidou-se a partir do levantamento sistemático de dores conduzido em conjunto com a docente orientadora deste trabalho, a Profª. Dra. Sediane Carmem Lunardi Hernandes, responsável pela condução da disciplina de Sistemas Operacionais no Câmpus Guarapuava. 
+O primeiro ponto de partida foi um levantamento de dificuldades conduzido com a orientadora deste trabalho, a Profª. Dra. Sediane Carmem Lunardi Hernandes, responsável pela disciplina de Sistemas Operacionais no Câmpus Guarapuava.
 
-Na rotina acadêmica dos laboratórios, a docente identificou um atrito operacional crônico: o modelo tradicional baseado na instalação e configuração local de Máquinas Virtuais (VMs) impõe uma sobrecarga severa de suporte técnico que corrói o tempo útil de aula. Ademais, constatou-se um desafio pedagógico delicado referente à postura discente: enquanto alunos motivados acabam sucumbindo à frustração diante de erros estéreis de configuração de \textit{hardware} e \textit{firmware}, outro contingente expressivo ingressa na disciplina desmotivado, enxergando Sistemas Operacionais apenas como uma barreira curricular burocrática a ser superada para a obtenção de notas. Esse cenário evidenciou a necessidade premente de uma ferramenta capaz de desmistificar a linha de comando, tornando o aprendizado dinâmico, acessível e intrinsecamente motivador.
+Na rotina dos laboratórios, a docente identificou um atrito recorrente: instalar e configurar Máquinas Virtuais (VMs) gera tanto suporte técnico que consome parte importante do tempo de aula. Ela observou também dois comportamentos opostos entre os alunos. Os motivados acabam se frustrando com erros de configuração de \textit{hardware} e \textit{firmware} que nada têm a ver com o conteúdo. Os desmotivados chegam à disciplina vendo-a apenas como um obstáculo burocrático a ser vencido. Nos dois casos, faltava uma ferramenta que tornasse a linha de comando acessível, dinâmica e interessante.
 
 \subsection{A Perspectiva Prática da Indústria: A Vivência do Autor}
-O segundo pilar decorre da trajetória profissional do próprio autor deste trabalho no mercado de tecnologia, atuando há anos como engenheiro de \textit{software} e líder técnico (\textit{Tech Lead}) no desenvolvimento de arquiteturas de retaguarda (\textit{backend}) e sustentação de infraestruturas corporativas de alta disponibilidade. 
+O segundo ponto de partida vem da trajetória profissional do autor, que atua há anos como engenheiro de \textit{software} e líder técnico (\textit{Tech Lead}) no desenvolvimento de sistemas de retaguarda (\textit{back-end}) e na sustentação de infraestruturas de alta disponibilidade.
 
-Nessa vivência em cenários críticos de produção, o domínio rigoroso dos fundamentos de Sistemas Operacionais e do ecossistema Linux comprovou-se, em reiteradas ocasiões, o fator determinante entre o restabelecimento imediato de um serviço corporativo sob indisponibilidade ou a degradação prolongada de operações de negócio. 
+Em incidentes de produção, o domínio dos fundamentos de Sistemas Operacionais e do Linux mostrou-se, repetidas vezes, a diferença entre restabelecer um serviço em minutos e conviver com horas de indisponibilidade.
 
-Mais recentemente, a liderança de equipes de desenvolvimento expôs um fenômeno contemporâneo alarmante: a difusão do uso acrítico de assistentes de Inteligência Artificial. Comandos destrutivos, permissões inseguras e manipulações incorretas de arquivos sugeridos por assistentes de IA não decorrem primariamente de deficiências intrínsecas dos modelos geradores, mas sim da incapacidade do desenvolvedor --- carente de base conceitual em sistemas operacionais --- de formular instruções precisas e tecnicamente contextualizadas, bem como de auditar criticamente o impacto real de um comando no sistema de arquivos e nos processos antes de submetê-lo a uma máquina de produção.
+Mais recentemente, liderar equipes revelou um problema novo: o uso acrítico de assistentes de Inteligência Artificial (IA). Comandos destrutivos, permissões inseguras e manipulações erradas de arquivos sugeridos por esses assistentes raramente se devem a falhas do modelo. Na maioria das vezes, o desenvolvedor, sem base em sistemas operacionais, não sabe formular a pergunta certa nem avaliar o impacto de um comando antes de executá-lo em uma máquina de produção.
 
 % ----------------------------------------------------------
 \section{A Realidade Corporativa e a Centralidade do Linux no Mercado}
 \label{sec:realidade-mercado}
 % ----------------------------------------------------------
 
-No ecossistema corporativo contemporâneo, a quase totalidade dos servidores de produção, provedores de computação em nuvem (como Amazon Web Services, Google Cloud Platform e Microsoft Azure), contêineres de microsserviços (Docker, Podman) e orquestradores de larga escala (Kubernetes) é executada sobre distribuições Linux \cite{nemeth2017unix}. As esteiras de integração e entrega contínua (\textit{CI/CD}), fundamentais para a cultura DevOps e para a agilidade da engenharia de \textit{software}, dependem de ambientes padronizados em Linux para compilar, testar e publicar aplicações em produção.
+Quase todos os servidores de produção, os grandes provedores de nuvem (Amazon Web Services, Google Cloud Platform e Microsoft Azure), os contêineres de microsserviços (Docker, Podman) e os orquestradores como o Kubernetes rodam sobre Linux \cite{nemeth2017unix}. As esteiras de integração e entrega contínua (CI/CD), base da cultura DevOps, também dependem de ambientes Linux padronizados para compilar, testar e publicar aplicações.
 
-Diante desse panorama, o domínio do terminal de linha de comando (\textit{CLI}) e o entendimento da arquitetura interna do Linux deixaram de representar um diferencial acessório para se consolidarem como um pré-requisito indispensável na contratação e evolução de qualquer desenvolvedor de \textit{software}. Ter apenas uma familiaridade superficial com comandos básicos revela-se insuficiente no cotidiano das organizações: quando um incidente crítico de indisponibilidade ocorre em produção, a capacidade do engenheiro de diagnosticar gargalos de Entrada e Saída (I/O), inspecionar árvores de processos, decifrar arquivos de registro (\textit{logs}) de serviços e auditar privilégios de acesso define o tempo de recuperação do negócio e atesta a maturidade técnica do profissional.
+Nesse cenário, dominar o terminal (CLI) e entender o funcionamento interno do Linux deixou de ser diferencial e passou a ser requisito para qualquer desenvolvedor. Saber meia dúzia de comandos não basta: quando um serviço cai em produção, é a capacidade de diagnosticar gargalos de Entrada e Saída (I/O), inspecionar a árvore de processos, ler \textit{logs} e auditar permissões que determina quanto tempo o negócio fica parado.
 
-A disciplina de Sistemas Operacionais, portanto, não deve ser encarada pelo estudante como uma etapa meramente burocrática da grade curricular, mas sim como um divisor de águas na sua empregabilidade e longevidade na carreira tecnológica.
+Por isso, a disciplina de Sistemas Operacionais não deveria ser vista pelo estudante como etapa burocrática do currículo, e sim como um divisor de águas na sua empregabilidade.
 
 % ----------------------------------------------------------
 \section{O Impacto de Sistemas Operacionais na Engenharia e Arquitetura de Software}
 \label{sec:impacto-engenharia}
 % ----------------------------------------------------------
 
-A ausência de fundamentos sólidos de sistemas operacionais reflete-se de forma direta na qualidade arquitetural das aplicações desenvolvidas no mercado. Em projetos corporativos modernos que exigem portabilidade multiplataforma --- tais como serviços de retaguarda desenvolvidos na linguagem Go (\textit{Golang}), concebidos para compilar e operar tanto em distribuições Linux quanto em ambientes Windows ---, a falta de conhecimento dos padrões operacionais do Linux resulta em falhas graves de projeto, segurança e desempenho.
+A falta de fundamentos de sistemas operacionais aparece diretamente na qualidade das aplicações. Em projetos multiplataforma, como serviços escritos em Go (\textit{Golang}) para rodar tanto em Linux quanto em Windows, desconhecer as convenções do Linux leva a falhas de projeto, de segurança e de desempenho.
 
-Um exemplo recorrente reside no desconhecimento de convenções normativas de sistemas de arquivos, em especial o \textit{Filesystem Hierarchy Standard} (FHS) \cite{fhs30}. Desenvolvedores sem formação prática em Linux frequentemente cometem o erro arquitetural de alocar arquivos binários executáveis, registros de \textit{log}, bancos de dados embutidos ou arquivos temporários diretamente na pasta pessoal do usuário do sistema (\texttt{/home/usuario/}), ignorando a taxonomia padrão do sistema operacional. As boas práticas de engenharia exigem que arquivos de configuração residam em \texttt{/etc/}, arquivos de \textit{log} contínuos em \texttt{/var/log/}, dados dinâmicos em \texttt{/var/lib/}, e binários compilados em \texttt{/opt/} ou \texttt{/usr/local/bin/}. Desconsiderar essa hierarquia quebra mecanismos corporativos de rotação de discos, particionamento de segurança e políticas de isolamento de processos.
+Um exemplo comum é ignorar o \textit{Filesystem Hierarchy Standard} (FHS) \cite{fhs30}. Desenvolvedores sem prática em Linux costumam gravar binários, \textit{logs}, bancos de dados embutidos e arquivos temporários direto na pasta pessoal do usuário (\texttt{/home/usuario/}). O correto é usar \texttt{/etc/} para configurações, \texttt{/var/log/} para \textit{logs}, \texttt{/var/lib/} para dados dinâmicos e \texttt{/opt/} ou \texttt{/usr/local/bin/} para binários. Desrespeitar essa organização quebra a rotação de \textit{logs}, o particionamento de segurança e o isolamento entre processos.
 
-Outro vício de engenharia frequente é a negligência no uso de chamadas de sistema (\textit{syscalls}), descritores de arquivos (\textit{file descriptors}) e fluxos de dados do núcleo. Por desconhecerem as interfaces nativas do sistema, programadores chegam a criar arranjos arquiteturais frágeis --- coloquialmente conhecidos como ``gambiarras'' ---, tais como instanciar processos e \textit{subshells} inteiros do interpretador Bash para executar comandos externos (por exemplo, invocando \texttt{echo} ou \texttt{cat} via linha de comando) unicamente para gravar dados em arquivos temporários em disco. Essa prática gera custos desnecessários de troca de contexto de CPU, desperdício de memória e graves vulnerabilidades a ataques de injeção de comandos (\textit{command injection}), quando uma simples chamada de escrita em descritor de arquivo nativo da linguagem de programação resolveria o problema com alto desempenho e segurança.
+Outro vício frequente é ignorar as chamadas de sistema (\textit{syscalls}) e os descritores de arquivo. Sem conhecer essas interfaces, há quem abra um \textit{subshell} Bash inteiro só para executar um \texttt{echo} ou \texttt{cat} e gravar dados em um arquivo temporário. A ``gambiarra'' custa trocas de contexto de CPU, desperdiça memória e abre espaço para injeção de comandos (\textit{command injection}), quando uma simples escrita em descritor de arquivo, nativa da linguagem, resolveria o problema com desempenho e segurança.
 
-Ademais, compreender como servidores de aplicação e servidores web (como Nginx e Apache) interagem com portas restritas de rede (portas inferiores a 1024 exigindo privilégios especiais), com usuários de serviço sem privilégios administrativos (\texttt{www-data}, \texttt{nobody}) e com permissões granulares de leitura e execução de arquivos estáticos é requisito obrigatório para a construção de arquiteturas escaláveis, resilientes e imunes a brechas de intrusão.
+Da mesma forma, construir sistemas escaláveis e seguros exige entender como servidores web (Nginx, Apache) lidam com portas privilegiadas (abaixo de 1024), com usuários de serviço sem privilégios (\texttt{www-data}, \texttt{nobody}) e com as permissões de leitura e execução dos arquivos que servem.
 
 % ----------------------------------------------------------
 \section{O Risco Crítico do Uso Cego de Inteligência Artificial em Produção}
 \label{sec:risco-ia}
 % ----------------------------------------------------------
 
-O cenário contemporâneo de desenvolvimento é marcado pela onipresença de assistentes baseados em Inteligência Artificial generativa e Modelos de Linguagem de Grande Escala (\textit{LLMs}). Embora tais ferramentas ampliem a produtividade na geração de códigos e automações, o seu uso indiscriminado e acrítico por profissionais sem embasamento conceitual tem introduzido riscos operacionais sem precedentes nas corporações.
+Assistentes baseados em IA generativa e Modelos de Linguagem de Grande Escala (LLMs) estão hoje em todo o processo de desenvolvimento. Eles aumentam a produtividade, mas, nas mãos de profissionais sem base conceitual, também trazem riscos operacionais novos.
 
-Profissionais sem domínio dos fundamentos de sistemas operacionais recorrem frequentemente a assistentes de IA para solucionar problemas de permissões, montagem de volumes ou configuração de redes em servidores de produção. Diante de erros complexos, a IA costuma sugerir soluções paliativas ou extremas --- como comandos recursivos de permissão total (\texttt{chmod -R 777}), exclusões forçadas de árvores de diretórios com interpolações variáveis frágeis (\texttt{rm -rf}), ou scripts com manipulações inseguras de variáveis de ambiente. Sem a base conceitual para julgar a gravidade das recomendações da máquina, o desenvolvedor executa as instruções de forma cega, comprometendo a integridade do sistema de arquivos, destruindo trilhas de auditoria, abrindo portas para invasões e, em casos extremos, causando a perda irrecuperável de dados corporativos.
+Diante de um erro de permissão, montagem de volume ou rede, a IA tende a sugerir soluções extremas: um \texttt{chmod -R 777} recursivo, um \texttt{rm -rf} com variáveis mal interpoladas, \textit{scripts} que manipulam variáveis de ambiente de forma insegura. Quem não tem fundamentos para julgar a sugestão simplesmente a executa e, com isso, pode comprometer o sistema de arquivos, apagar trilhas de auditoria, abrir brechas de invasão ou até perder dados de forma irrecuperável.
 
-Nesse contexto, uma plataforma educacional interativa atua como um campo de treinamento seguro (\textit{sandbox} didático). Ao experimentar em um ambiente simulado que reproduz com precisão o comportamento de um servidor Linux, o discente tem a oportunidade de vivenciar a causalidade de suas ações, compreender as mensagens de erro do sistema operacional e desenvolver o senso crítico necessário para avaliar qualquer código sugerido por assistentes automatizados antes de executá-lo em uma infraestrutura produtiva real.
+É aqui que uma plataforma educacional interativa ajuda: ela funciona como um campo de treino seguro (\textit{sandbox} didático). Em um ambiente que reproduz fielmente um servidor Linux, o estudante vê a consequência de cada comando, aprende a ler as mensagens de erro e desenvolve o senso crítico para avaliar qualquer sugestão automática antes de levá-la a uma máquina real.
 
 % ----------------------------------------------------------
 \section{Dores Pedagógicas Reais, Dispersão por Dispositivos Móveis e a Carga Cognitiva}
 \label{sec:dores-pedagogicas}
 % ----------------------------------------------------------
 
-Aprofundando os entraves didáticos verificados na rotina acadêmica da UTFPR Câmpus Guarapuava, destacam-se dimensões pedagógicas e comportamentais críticas que afetam diretamente o aproveitamento e a retenção discente na disciplina:
+Esta seção detalha os problemas observados na rotina da disciplina na UTFPR Câmpus Guarapuava, que afetam diretamente o aproveitamento e a permanência dos estudantes.
 
 \subsection{O Resgate dos Perfis Discentes: Da Frustração Técnica ao Engajamento}
-Observa-se na rotina acadêmica a coexistência de dois perfis de discentes que demandam atenção pedagógica urgente:
+Dois perfis de estudante pedem atenção especial:
 \begin{enumerate}
-    \item \textbf{O aluno motivado, mas frustrado por barreiras de infraestrutura:} Aquele estudante que ingressa na disciplina com genuína sede de aprender, mas que ao longo das primeiras semanas se desmotiva profundamente devido a falhas recorrentes no ambiente local --- máquinas virtuais que travam o sistema operacional hospedeiro, recursos de virtualização desabilitados na BIOS do seu computador portátil, falhas crônicas de rede em Subsistemas Windows para Linux (WSL). Ao perder horas tentando fazer o ambiente funcionar em vez de praticar os conceitos de SO, esse estudante experimenta uma sensação paralisante de inaptidão técnica, culminando frequentemente no abandono tácito das práticas da matéria;
-    \item \textbf{O aluno desmotivado por enxergar a disciplina como burocracia:} Aquele estudante que chega à disciplina enxergando Sistemas Operacionais como um mero obstáculo burocrático para cumprimento de créditos curriculares obrigatórios, considerando a linha de comando uma tecnologia anacrônica ou árida. Para esse perfil, a imposição de apostilas estáticas e configurações complexas reforça a rejeição. É imperativo oferecer uma experiência interativa, visualmente polida e gamificada, capaz de demonstrar na prática que dominar o terminal não é apenas simples e intuitivo, mas intelectualmente estimulante e prazeroso.
+    \item \textbf{o aluno motivado, mas frustrado pela infraestrutura:} chega com vontade de aprender, mas nas primeiras semanas enfrenta máquinas virtuais que travam o computador, virtualização desabilitada na BIOS do \textit{notebook} e falhas de rede no WSL (\textit{Windows Subsystem for Linux}). Depois de horas tentando fazer o ambiente funcionar, sem praticar nada de SO, sente-se incapaz e, muitas vezes, abandona as práticas em silêncio;
+    \item \textbf{o aluno que vê a disciplina como burocracia:} encara Sistemas Operacionais como créditos a cumprir e a linha de comando como algo ultrapassado e árido. Apostilas estáticas e configurações complicadas só reforçam essa rejeição. Para ele, é preciso uma experiência interativa, visualmente cuidada e com elementos de jogo, que mostre na prática que dominar o terminal é simples e estimulante.
 \end{enumerate}
 
 \subsection{O Perfil da Geração Atual e a Dispersão por Smartphones}
-A transformação nos hábitos cognitivos e no consumo de informação dos estudantes universitários contemporâneos acentuou os desafios em sala de aula. Os novos discentes, inseridos desde a infância na cultura digital, estão habituados com interfaces móveis altamente responsivas, imediaticidade de resposta e multitarefa constante proporcionada pelos \textit{smartphones} \cite{kuznekoff2013impact}.
+Os estudantes de hoje cresceram com interfaces móveis rápidas, respostas imediatas e multitarefa constante nos \textit{smartphones} \cite{kuznekoff2013impact}. O resultado é uma tolerância muito menor ao atrito técnico.
 
-Essa dinâmica comportamental acarreta uma redução drástica na tolerância ao atrito técnico inicial. Em uma aula prática tradicional de Sistemas Operacionais, quando o discente se depara com 30 a 45 minutos de erros infrutíferos em máquinas virtuais antes de conseguir executar o seu primeiro comando, ocorre um fenômeno crítico de ruptura atencional: frustrado pela inoperância do computador, o aluno desvia imediatamente seu foco para o \textit{smartphone}. Uma vez dispersa a atenção para notificações de redes sociais e aplicativos de mensagens, restabelecer a conexão cognitiva do acadêmico com a atividade prática da aula torna-se uma tarefa quase irreversível para o docente \cite{kuznekoff2013impact, silva2021ensino}.
+Considere-se uma aula prática em que o aluno passa de 30 a 45 minutos lutando com a máquina virtual antes de digitar o primeiro comando. Frustrado, ele pega o celular. Uma vez que a atenção migra para redes sociais e mensagens, trazê-la de volta para a atividade é muito difícil para o professor \cite{kuznekoff2013impact, silva2021ensino}.
 
 \subsection{A Teoria da Carga Cognitiva e a Eliminação da Sobrecarga Extrínseca}
-Sob a ótica da Teoria da Carga Cognitiva, formulada por John Sweller \cite{sweller1988cognitive, sweller2011cognitive, paas2003cognitive}, a memória de trabalho humana possui capacidade estritamente limitada para processar novas informações simultâneas. Sweller categoriza a carga cognitiva em três dimensões:
-\begin{itemize}
-    \item \textbf{Carga Intrínseca:} O esforço mental inerente à complexidade dos conceitos a serem aprendidos (no caso, a semântica de processos, modelos de permissão octal, descritores de arquivos e hierarquia de diretórios);
-    \item \textbf{Carga Germana:} O processamento mental construtivo dedicado à criação, assimilação e consolidação de esquemas mentais duradouros na memória de longo prazo;
-    \item \textbf{Carga Extrínseca:} O esforço mental improdutivo gerado pela forma como a informação é apresentada e pelas barreiras operacionais incidentais que não contribuem para o aprendizado real do tema.
-\end{itemize}
+A Teoria da Carga Cognitiva, formulada por John Sweller \cite{sweller1988cognitive, sweller2011cognitive, paas2003cognitive}, parte do fato de que a memória de trabalho humana processa pouca informação nova de cada vez. Ela distingue três tipos de carga (detalhados no Quadro~\ref{qua:cargas-cognitivas}, no Capítulo~\ref{cap:fundamentacao}): a \textbf{intrínseca}, que vem da complexidade do próprio conteúdo; a \textbf{germana}, que é o esforço útil de construir conhecimento; e a \textbf{extrínseca}, que é o esforço desperdiçado com a forma de apresentação e com obstáculos que nada ensinam.
 
-No paradigma pedagógico convencional de Sistemas Operacionais, a exigência de configurar hipervisores, solucionar conflitos de virtualização aninhada na BIOS e depurar drivers de rede impõe uma massiva \textbf{carga cognitiva extrínseca}. A capacidade de processamento mental do estudante é saturada e esgotada pelo atrito do ambiente antes mesmo que ele possa mobilizar recursos cognitivos para a carga intrínseca e germana dos conceitos de sistemas operacionais. 
+No ensino tradicional de SO, configurar hipervisores, resolver conflitos de virtualização na BIOS e depurar \textit{drivers} de rede geram uma enorme \textbf{carga extrínseca}. A memória de trabalho do estudante se esgota com o ambiente antes de chegar ao conteúdo.
 
-Ao eliminar integralmente qualquer necessidade de instalação prévia e executar um servidor Linux simulado diretamente no navegador web, a presente proposta neutraliza a carga extrínseca, liberando a capacidade atencional e a memória de trabalho do estudante para focar exclusivamente na essência conceitual e prática da disciplina \cite{paas2003cognitive, guo2013online}.
+Ao rodar um servidor Linux simulado direto no navegador, sem nenhuma instalação, a proposta deste trabalho elimina essa carga extrínseca e libera a atenção do estudante para o que realmente importa: os conceitos e a prática da disciplina \cite{paas2003cognitive, guo2013online}.
 
 \subsection{O Valor do Microlearning e da Aprendizagem Ativa com Feedback Imediato}
-A superação dos manuais estáticos em PDF encontra respaldo nos princípios da Aprendizagem Ativa (\textit{Active Learning}) e do \textit{Microlearning} \cite{freeman2014active, kapp2019microlearning}. Estudos empíricos demonstram que métodos ativos e interativos aumentam de forma substancial o desempenho acadêmico em áreas de ciências exatas e engenharias em comparação a aulas puramente expositivas \cite{freeman2014active}.
+A Aprendizagem Ativa (\textit{Active Learning}) e o \textit{Microlearning} oferecem a base para superar os manuais estáticos em PDF \cite{freeman2014active, kapp2019microlearning}. Estudos empíricos mostram que métodos ativos melhoram de forma significativa o desempenho em ciências exatas e engenharias, quando comparados a aulas apenas expositivas \cite{freeman2014active}.
 
-Ao segmentar o conteúdo programático em lições práticas curtas, contextualizadas e encadeadas por desafios objetivos --- acompanhadas por um terminal interativo executado lado a lado com retorno visual instantâneo ---, a plataforma oferece \textit{feedback} imediato para cada ação do discente. O aluno visualiza instantaneamente a consequência de seus comandos na árvore do sistema de arquivos e nas tabelas de permissões, fortalecendo a retenção duradoura de competências e sustentando o engajamento de uma geração habituada à interatividade contínua \cite{guo2013online, kapp2019microlearning}.
+A plataforma divide o conteúdo em lições curtas, encadeadas por desafios objetivos, com o terminal ao lado do enunciado. Cada comando gera retorno imediato: o aluno vê na hora o efeito na árvore de arquivos e nas permissões. Esse ciclo curto favorece a retenção e mantém o engajamento de uma geração acostumada à interatividade \cite{guo2013online, kapp2019microlearning}.
 
 \subsection{A Barreira das Máquinas Virtuais, Instalação Nativa e Heterogeneidade de Hardware}
 
-A abordagem tradicional de ensino prático baseia-se primordialmente em duas alternativas: a instalação nativa do sistema operacional Linux (seja em partição dedicada via \textit{dual-boot} ou substituição completa do sistema operacional) ou o uso de hipervisores com Máquinas Virtuais (VMs), como VirtualBox ou VMware. Contudo, ambas as estratégias impõem severos entraves à rotina acadêmica.
+Tradicionalmente, a prática de Linux segue um de dois caminhos: instalar o sistema nativamente (em \textit{dual-boot} ou substituindo o sistema atual) ou usar uma máquina virtual em VirtualBox ou VMware. Os dois caminhos têm custos altos, resumidos no Quadro~\ref{qua:comparativo-ambientes}.
 
-No caso da instalação nativa, exige-se do discente o redimensionamento de partições de disco rígido, desativação de recursos de segurança na placa-mãe (como o \textit{Secure Boot} da UEFI) e configuração de gerenciadores de inicialização (\textit{bootloaders}, como o GRUB). Para estudantes em estágio inicial de graduação, esse procedimento frequentemente resulta em acidentes críticos, tais como a corrupção da tabela de partições, perda irreversível de dados pessoais e inutilização temporária do computador de uso diário. Ademais, a heterogeneidade de configurações de placas de rede sem fio (Wi-Fi) e controladores gráficos dedicados comumente culmina em sistemas operacionais inoperantes após a instalação, demandando intervenção técnica especializada.
+A instalação nativa exige redimensionar partições, desativar o \textit{Secure Boot} da UEFI e configurar o GRUB. Para um estudante iniciante, isso pode terminar em tabela de partições corrompida, perda de dados pessoais e um computador inutilizado por dias. Além disso, placas Wi-Fi e controladoras gráficas variadas frequentemente deixam o sistema recém-instalado sem rede ou sem vídeo.
 
-Por outro lado, a alternativa por virtualização transfere o gargalo para os recursos físicos da máquina hospedeira. A execução de VMs demanda hardware robusto, consumindo no mínimo de 2\,GB a 4\,GB de memória RAM dedicados por instância, além de dezenas de gigabytes de armazenamento em disco de estado sólido (SSD). Na realidade socioeconômica dos discentes, uma fração expressiva possui computadores com limitações severas de capacidade operacional, somada à barreira frequente de tecnologias de virtualização por hardware (Intel VT-x ou AMD-V) desativadas de fábrica na BIOS/UEFI de equipamentos pessoais. Dessa forma, ambas as vias convencionais erguem obstáculos técnicos que alienam o estudante antes mesmo de sua primeira interação com a interface de linha de comando.
+A virtualização desloca o problema para o \textit{hardware}: cada VM pede de 2\,GB a 4\,GB de RAM e dezenas de gigabytes em disco. Muitos estudantes têm computadores modestos, e a virtualização por \textit{hardware} (Intel VT-x ou AMD-V) costuma vir desativada de fábrica. Em ambos os casos, o aluno é barrado antes de digitar o primeiro comando.
+
+\begin{quadro}[htbp]
+    \caption{Comparativo entre os ambientes de prática de Linux}
+    \label{qua:comparativo-ambientes}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|p{3.6cm}|L|L|L|}
+        \hline
+        \textbf{Critério} & \textbf{Instalação nativa} & \textbf{Máquina virtual} & \textbf{Simulação no navegador} \\
+        \hline
+        Instalação prévia & Particionamento, \textit{bootloader} e \textit{drivers} & Hipervisor e imagem do sistema & Nenhuma \\
+        \hline
+        Recursos exigidos & Disco dedicado & 2--4\,GB de RAM e dezenas de GB em disco & Um navegador atual \\
+        \hline
+        Risco ao computador do aluno & Alto (perda de dados, sistema que não inicia) & Médio (travamentos do sistema hospedeiro) & Nenhum \\
+        \hline
+        Privilégios no laboratório & Inviável & Depende de permissões da TI & Não exige \\
+        \hline
+        Uso de \texttt{sudo} e comandos administrativos & Sim & Sim & Sim, simulados \\
+        \hline
+        Correção automática e supervisão & Não & Não & Sim \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
 
 \subsection{Tempo Letivo Desperdiçado com Suporte Técnico e Restrições de Privilégios}
-Como reflexo imediato da instabilidade dos ambientes locais, constata-se com frequência a perda de 30 a 45 minutos do início de cada aula prática exclusivamente no atendimento a chamados de suporte técnico elementar (máquinas virtuais congeladas, placas de rede desconectadas, configurações de teclado corrompidas). Além disso, quando as aulas ocorrem nos laboratórios físicos da própria instituição, surge outro obstáculo severo: por diretrizes de segurança da infraestrutura de TI universitária, os alunos utilizam contas com privilégios estritamente limitados. Essa restrição torna inviável a execução de comandos administrativos essenciais via \textit{sudo} --- tais como gerenciamento de pacotes com \textit{apt}, criação de usuários e grupos no sistema, manipulação de serviços com \textit{systemd} e particionamento de discos ---, forçando o docente a manter a prática apenas em nível conceitual ou a recorrer novamente a camadas instáveis de virtualização. Esse desperdício subtrai o tempo de instrução do professor e a atenção da turma, desviando o foco do aprendizado de conceitos estruturais --- tais como modelos de permissão \textit{rwx}, mascaramento \textit{umask}, grupos complementares, encadeamento de fluxos com \textit{pipes} e sinais de processos --- para a resolução contínua de contingências de suporte de TI e contorno de bloqueios de permissão.
+A instabilidade dos ambientes locais faz com que os primeiros 30 a 45 minutos de muitas aulas práticas sejam gastos com suporte elementar: VMs congeladas, placas de rede desconectadas, teclado desconfigurado.
+
+Nos laboratórios da própria instituição há outro obstáculo: por segurança, os alunos usam contas sem privilégios administrativos. Sem \textit{sudo}, ficam de fora tarefas essenciais como instalar pacotes com \textit{apt}, criar usuários e grupos, gerenciar serviços com \textit{systemd} e particionar discos. O professor acaba limitando a prática ao nível conceitual ou voltando às VMs instáveis.
+
+Esse tempo perdido sai diretamente do que importa: modelos de permissão \textit{rwx}, máscara \textit{umask}, grupos complementares, \textit{pipes} e sinais de processos.
 
 \subsection{Vulnerabilidades e Fraudes em Avaliações Práticas Computadorizadas}
 
-A aplicação de provas práticas individuais no ambiente de laboratório demanda garantias rigorosas de integridade avaliativa. A primeira versão do protótipo desenvolvido e validado preliminarmente no âmbito deste projeto foi concebida sob uma arquitetura puramente executada no cliente (\textit{client-side}), rodando no navegador por meio de TypeScript. Embora essa abordagem tenha demonstrado alta responsividade, baixo consumo de infraestrutura e excelente fidelidade na execução dos comandos didáticos, sua utilização direta em cenários de avaliação formal revelou limitações estruturais que exigem ajustes arquiteturais substantivos:
+Provas práticas no laboratório precisam de garantias de integridade. A primeira versão do protótipo deste projeto rodava inteiramente no navegador (\textit{client-side}), em TypeScript. Ela se mostrou rápida, leve e fiel na execução dos comandos, mas, para avaliações formais, revelou quatro limitações:
 
 \begin{enumerate}
-    \item \textbf{Inspeção e Adulteração via DevTools:} Por residir integralmente no navegador, qualquer estudante dotado de conhecimentos elementares em desenvolvimento web pode acionar as ferramentas de depuração (F12 / \textit{Developer Tools}), inspecionar as rotinas de asserção em JavaScript/TypeScript, identificar as condições exatas esperadas pelos testes e manipular variáveis de estado ou árvores do sistema de arquivos em memória, obtendo pontuação máxima sem a resolução efetiva do problema prático proposto;
-    \item \textbf{Controle Temporal e Presença em Sala:} A ausência de uma camada de autenticação e orquestração centralizada impede a sincronização do início da avaliação presencial via chaves de acesso dinâmicas (\textit{tokens}), abrindo brechas para consultas antecipadas do banco de questões ou vazamento de enunciados;
-    \item \textbf{Gestão de Repescagens e Segundas Chamadas:} Na dinâmica do calendário acadêmico universitário, discentes frequentemente demandam segundas chamadas e repescagens amparadas por justificativas institucionais. Um sistema estático baseado em cliente é incapaz de segregar janelas de aplicação com controle granular por aluno, tornando imperativo um serviço de retaguarda que gerencie permissões, turmas e janelas individualizadas;
-    \item \textbf{Vulnerabilidade a Instabilidades de Conectividade:} Laboratórios universitários frequentemente enfrentam oscilações de infraestrutura de rede cabeada ou Wi-Fi. Uma dependência estrita de conexões contínuas para cada validação arrisca paralisar a resolução de provas em sala, demandando uma estratégia que una rigor contra fraudes a uma resiliência operacional \textit{offline}.
+    \item \textbf{inspeção e adulteração via DevTools:} como todo o código está no navegador, um aluno com noções de desenvolvimento web pode abrir as ferramentas de desenvolvedor (F12), ler as rotinas de correção, descobrir o que os testes esperam e alterar o estado em memória para obter nota máxima sem resolver nada;
+    \item \textbf{controle de horário e presença:} sem autenticação e orquestração central, não há como liberar a prova para todos ao mesmo tempo com uma chave de acesso (\textit{token}), o que abre espaço para consultas antecipadas e vazamento de enunciados;
+    \item \textbf{repescagens e segundas chamadas:} alunos com justificativa precisam de janelas de prova próprias. Um sistema estático não consegue liberar a avaliação para um aluno específico em um horário específico;
+    \item \textbf{instabilidade de rede:} laboratórios sofrem quedas de rede cabeada e Wi-Fi. Depender de conexão contínua para cada validação pode travar uma prova inteira.
 \end{enumerate}
 
-Dessa forma, constata-se a necessidade imperativa de evoluir o protótipo inicial para uma arquitetura híbrida desacoplada, preservando a agilidade e a latência zero da simulação no navegador, porém delegando a custódia das regras de correção, o monitoramento de telemetria e o controle de exames a um ambiente de retaguarda protegido contra fraudes, munido de contingência criptográfica local para tolerância a falhas de rede.
+A conclusão é que o protótipo precisa evoluir para uma arquitetura híbrida: manter a simulação no navegador, com sua resposta instantânea, mas transferir as regras de correção, a telemetria e o controle das provas para um servidor protegido, com um plano de contingência criptográfico para quando a rede falhar.
 
 % ----------------------------------------------------------
 \section{Justificativa}
 \label{sec:justificativa}
 % ----------------------------------------------------------
 
-Diante do diagnóstico apresentado, justifica-se o desenvolvimento de uma plataforma educacional que elimine a dependência de ambientes de virtualização pesados e, simultaneamente, supra a lacuna de integridade nas avaliações práticas e o descompasso entre a teoria acadêmica e a prática corporativa de engenharia de \textit{software}.
+O diagnóstico anterior justifica o desenvolvimento de uma plataforma que dispense ambientes de virtualização pesados, garanta a integridade das avaliações práticas e aproxime a teoria acadêmica da prática profissional de engenharia de \textit{software}.
 
-A proposta de transição do protótipo funcional de simulador em TypeScript puro para uma plataforma educacional completa permite unir o melhor de dois mundos em uma arquitetura híbrida e reativa:
-
-\begin{itemize}
-    \item \textbf{No cliente (\textit{front-end}):} Um simulador de alta fidelidade ao padrão POSIX com Sistema de Arquivos Virtual (\textit{Virtual File System} -- VFS) em memória, executado com latência zero diretamente no navegador web via TypeScript e React, dispensando instalações locais, configurações de BIOS/UEFI e alocações massivas de memória;
-    \item \textbf{No servidor (\textit{back-end}):} Uma arquitetura desacoplada, fortemente tipada e de alta performance desenvolvida em Golang (Gin-Gonic e GORM), responsável pela autenticação institucional, persistência relacional de turmas e submissões, telemetria bidirecional em tempo real via WebSockets (WSS), orquestração de exames e proteção contra adulterações via \textit{DevTools}.
-\end{itemize}
-
-Para viabilizar tanto a democratização do conhecimento quanto a gestão acadêmica rigorosa, o modelo arquitetural da plataforma estrutura-se em três níveis hierárquicos e complementares de acesso, definidos e refinados em estreito alinhamento com a docente orientadora Profª. Dra. Sediane Carmem Lunardi Hernandes:
+A evolução do protótipo em TypeScript para uma plataforma completa combina o melhor de dois mundos:
 
 \begin{enumerate}
-    \item \textbf{Modo Público (Acesso Autônomo e Irrestrito):} Projetado para autodidatas, entusiastas da comunidade de \textit{software} livre e estudantes em fase de estudo extracurricular ou nivelamento. O acesso ocorre sem barreiras de autenticação, dispensa cadastros prévios e possibilita a exploração interativa de módulos teóricos, tutoriais de linha de comando e exercícios práticos no terminal simulado, estimulando o interesse inicial e democratizando o aprendizado dos conceitos fundamentais de Linux sem burocracia de ingresso;
-    \item \textbf{Perfil Aluno (Discente Institucional Vinculado):} Destinado ao acadêmico formalmente matriculado em uma turma regular da disciplina de Sistemas Operacionais. Exige autenticação institucional via Registro Acadêmico (RA) e e-mail institucional, viabilizando o ingresso e vinculação a turmas ativas (por meio de links com moderação docente ou importação institucional de matrículas em lote). Esse perfil garante a persistência longitudinal do histórico de aprendizagem, a resolução de listas de exercícios obrigatórias, a participação em simulados preparatórios e a realização de avaliações práticas somativas com controle temporal rigoroso e \textit{check-in} presencial por \textit{tokens} dinâmicos. Ademais, concede acesso à fila de suporte síncrona (``mãozinha virtual'') para esclarecimento de dúvidas durante a aula e ao motor de contingência \textit{offline} para envio resiliente de avaliações;
-    \item \textbf{Perfil Professor (Docente e Autoridade Pedagógica):} Constitui o nível máximo de governança acadêmica e autoridade avaliativa na plataforma. Concede ao corpo docente prerrogativas completas para: criação, parametrização e gestão do ciclo de vida de turmas (incluindo remanejamentos entre turnos, suspensão cautelar de acessos e inativação lógica com preservação forense de auditoria); autoria e customização de exercícios com parametrização de asserções determinísticas de VFS; planejamento e agendamento de provas com janelas temporais individualizadas para turmas regulares, repescagens e segundas chamadas; supervisão em tempo real do laboratório por meio de um \textit{Cockpit} interativo com telemetria síncrona; mediação pedagógica da fila de suporte com respostas individuais privadas ou orientações em \textit{broadcast}; e consulta à trilha de auditoria forense detalhada (com logs de anomalias, detecção de DevTools e perda de foco da janela), resguardando a prerrogativa docente de revisão formativa de notas.
+    \item \textbf{no cliente (\textit{front-end}):} um simulador fiel ao padrão POSIX, com Sistema de Arquivos Virtual (\textit{Virtual File System} -- VFS) em memória, escrito em TypeScript e React e executado no navegador com resposta instantânea, sem instalação, sem ajustes de BIOS/UEFI e sem consumo pesado de memória;
+    \item \textbf{no servidor (\textit{back-end}):} um serviço em Go (Gin-Gonic e GORM), fortemente tipado e de alto desempenho, responsável pela autenticação institucional, pelo armazenamento de turmas e submissões, pela telemetria das provas em tempo real via WebSockets (WSS), pela orquestração das avaliações e pela proteção contra adulterações via \textit{DevTools}.
 \end{enumerate}
 
-Dessa forma, a pesquisa e a implementação técnica resultam em um produto tecnológico de impacto direto na qualidade do ensino de Sistemas Operacionais na UTFPR, com flexibilidade pedagógica validada pela prática docente e potencial de extensão a outras instituições de ensino superior.
+Para atender tanto quem quer aprender por conta própria quanto a gestão formal da disciplina, a plataforma tem três níveis de acesso, definidos em conjunto com a orientadora e resumidos no Quadro~\ref{qua:niveis-acesso}.
+
+\begin{quadro}[htbp]
+    \caption{Níveis de acesso da plataforma}
+    \label{qua:niveis-acesso}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|p{2.6cm}|L|L|}
+        \hline
+        \textbf{Nível} & \textbf{Para quem} & \textbf{O que permite} \\
+        \hline
+        \textbf{Público} & Autodidatas, entusiastas de \textit{software} livre e estudantes em nivelamento & Explorar módulos teóricos, tutoriais e exercícios no terminal simulado, sem cadastro nem \textit{login} \\
+        \hline
+        \textbf{Aluno} & Estudante matriculado em uma turma da disciplina, autenticado por Registro Acadêmico (RA) e e-mail institucional & Histórico de progresso, listas obrigatórias, simulados, provas com horário controlado e \textit{check-in} por \textit{token}, fila de dúvidas (``mãozinha virtual'') e envio de provas em contingência \textit{offline} \\
+        \hline
+        \textbf{Professor} & Docente responsável pela disciplina & Criar e gerir turmas (transferências, suspensões, desligamentos com histórico preservado), criar exercícios e asserções, agendar provas e repescagens, acompanhar as provas em tempo real no \textit{Cockpit}, responder dúvidas individualmente ou para a turma, consultar a trilha de auditoria e revisar notas \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
+
+O resultado é um produto tecnológico com impacto direto no ensino de Sistemas Operacionais na UTFPR, alinhado à prática docente e com potencial de uso em outras instituições.
 
 % ----------------------------------------------------------
 \section{Objetivos}
@@ -151,19 +186,19 @@ Dessa forma, a pesquisa e a implementação técnica resultam em um produto tecn
 % ----------------------------------------------------------
 
 \subsection{Objetivo Geral}
-Desenvolver, implementar e avaliar uma plataforma educacional integrada e reativa para o ensino e a avaliação prática de Sistemas Operacionais, composta por um simulador Linux/POSIX de alta fidelidade executado no navegador e um ecossistema de \textit{back-end} em Golang de alta concorrência para governança acadêmica, telemetria em tempo real via WebSockets, motor de validação desacoplado contra fraudes e contingência operacional resiliente.
+Desenvolver, implementar e avaliar uma plataforma educacional integrada para o ensino e a avaliação prática de Sistemas Operacionais, composta por um simulador Linux/POSIX executado no navegador e por um \textit{back-end} concorrente em Go responsável pela gestão acadêmica, pela telemetria em tempo real das provas via WebSockets, pela validação de respostas protegida contra fraudes e pela continuidade das provas em caso de falha de rede.
 
 \subsection{Objetivos Específicos}
-Para o cumprimento do objetivo geral, estabelecem-se os seguintes objetivos específicos:
+Para alcançar o objetivo geral, propõe-se:
 \begin{enumerate}
-    \item Mapear e formalizar os contratos de API RESTful e o modelo de dados relacional para representação de usuários, turmas, matrículas, avaliações, janelas temporais de aplicação, comunicados pedagógicos e trilhas de auditoria forense;
-    \item Projetar e implementar o mecanismo de serialização, validação e asserção de estado do Sistema de Arquivos Virtual (VFS), permitindo a correção determinística de tarefas laboratoriais e a mitigação de fraudes por manipulação de código no cliente;
-    \item Desenvolver o \textit{pipeline} de telemetria bidirecional assíncrona em tempo real via WebSockets (WSS), orquestrado pelo servidor em Golang para monitorar o estado dos terminais discentes, eventos de interface e engajamento da turma com alta eficiência concorrente;
-    \item Construir o \textit{Cockpit} interativo docente para supervisão ativa do laboratório em tempo real, integrando a gestão síncrona da fila de suporte (``mãozinha virtual'') com ordenação FIFO, suporte a respostas individuais ou em \textit{broadcast} e intervenções pedagógicas e administrativas imediatas;
-    \item Projetar e implementar o protocolo de contingência \textit{offline} resiliente, amparado por envelopes de asserções cifradas (HMAC-SHA256 via Web Crypto API), persistência local em IndexedDB e reconciliação assíncrona por pacotes assinados de evidência (\texttt{.proof}), garantindo a continuidade do fluxo avaliativo discente mesmo durante instabilidades na rede do laboratório;
-    \item Estruturar o protocolo de segurança avaliativa e governança disciplinar, abrangendo \textit{tokens} dinâmicos de liberação presencial, controle rigoroso de janelas para repescagens e segundas chamadas, detecção de anomalias operacionais (abertura de DevTools e perda de foco de aba) e consolidação de linha do tempo forense com suporte à prerrogativa docente de revisão formativa de notas;
-    \item Integrar a interface do simulador (VFS in-memory, analisador sintático de comandos Bash e emulador de terminal ANSI em TypeScript e React) aos serviços de autenticação, trilhas guiadas de aprendizagem ativa e sincronização de exames da plataforma;
-    \item Validar a fidelidade da simulação, a robustez da infraestrutura concorrente e a viabilidade pedagógica da solução mediante testes automatizados (unitários, de integração e de conformidade POSIX com mais de 750 cenários de teste), analisando a aplicabilidade prática da ferramenta na disciplina de Sistemas Operacionais da UTFPR Câmpus Guarapuava.
+    \item especificar os contratos da API REST e o modelo de dados relacional de usuários, turmas, matrículas, avaliações, janelas de aplicação, avisos e trilhas de auditoria;
+    \item projetar e implementar a serialização, validação e asserção do estado do Sistema de Arquivos Virtual (VFS), permitindo corrigir tarefas de forma determinística e impedir fraudes por manipulação do código no cliente;
+    \item desenvolver o canal de telemetria bidirecional via WebSockets (WSS), orquestrado pelo servidor em Go, para acompanhar em tempo real os terminais dos alunos durante as provas;
+    \item construir o \textit{Cockpit} do professor para supervisão das provas em tempo real, com a fila de dúvidas (``mãozinha virtual'') em ordem de chegada (FIFO), respostas individuais ou para a turma toda e intervenções imediatas;
+    \item projetar e implementar a contingência \textit{offline}, baseada em asserções cifradas (HMAC-SHA256 via Web Crypto API), armazenamento local em IndexedDB e reconciliação posterior por pacotes assinados (\texttt{.proof}), para que o aluno continue a prova mesmo com a rede instável;
+    \item estruturar os mecanismos de segurança das provas: \textit{tokens} de liberação presencial, janelas para repescagens e segundas chamadas, detecção de anomalias (DevTools aberto, troca de aba) e linha do tempo de auditoria, preservando a palavra final do professor sobre a nota;
+    \item integrar o simulador (VFS em memória, interpretador de comandos Bash e emulador de terminal ANSI em TypeScript e React) aos serviços de autenticação, às trilhas guiadas de aprendizagem e à sincronização das provas;
+    \item validar a fidelidade da simulação, a robustez da infraestrutura e a viabilidade pedagógica por meio de testes automatizados (unitários, de integração e de conformidade POSIX, com 378 casos de teste) e analisar a aplicação da ferramenta na disciplina de Sistemas Operacionais da UTFPR Câmpus Guarapuava.
 \end{enumerate}
 
 % ----------------------------------------------------------
@@ -171,12 +206,11 @@ Para o cumprimento do objetivo geral, estabelecem-se os seguintes objetivos espe
 \label{sec:estrutura}
 % ----------------------------------------------------------
 
-Este documento está estruturado em seis capítulos:
-\begin{itemize}
-    \item O \textbf{Capítulo \ref{cap:introducao}} contextualiza a gênese do trabalho na interseção entre academia e indústria, analisa a relevância do Linux no mercado corporativo e seu reflexo na engenharia de software, discute os riscos do uso cego de IA, elenca as dores pedagógicas vivenciadas no ensino de SO sob a ótica da Teoria da Carga Cognitiva e da dispersão por dispositivos móveis, estabelece a justificativa do projeto com seus três níveis de acesso e delineia os objetivos geral e específicos;
-    \item O \textbf{Capítulo 2 (Fundamentação Teórica)} aborda os princípios teóricos de arquitetura de sistemas operacionais, o padrão POSIX, a hierarquia FHS, a semântica de chamadas de sistema, bem como os referenciais pedagógicos de ensino de computação, aprendizagem ativa, microlearning e cognição humana;
-    \item O \textbf{Capítulo 3 (Arquitetura da Plataforma)} detalha o projeto arquitetural da solução, os modelos de dados relacionais, o fluxo de comunicação híbrido cliente-servidor com telemetria síncrona via WebSockets, o Cockpit docente, as políticas de segurança e integridade, o protocolo de contingência offline com validação criptográfica e os fluxos de governança acadêmica e avaliação formativa;
-    \item O \textbf{Capítulo 4 (Implementação)} descreve os aspectos técnicos da engenharia do \textit{software}, englobando a stack tecnológica em TypeScript e React no cliente e Golang (Gin-Gonic e GORM) no servidor, o motor de simulação VFS in-memory, o parser de comandos POSIX, o gerenciamento de concorrência com goroutines e canais para WebSockets, os módulos de contingência com Web Crypto API e IndexedDB, e as filas de processamento assíncrono;
-    \item O \textbf{Capítulo 5 (Avaliação e Resultados)} apresenta os testes automatizados, a verificação da fidelidade aos comandos Linux, a resistência contra tentativas de manipulação em cliente e a análise comparativa frente a soluções baseadas em VMs;
-    \item O \textbf{Capítulo 6 (Conclusão e Trabalhos Futuros)} sintetiza as contribuições alcançadas pelo trabalho acadêmico, discute as limitações remanescentes e sugere direções para continuidade da pesquisa.
-\end{itemize}
+Além desta introdução, o trabalho está organizado em mais cinco capítulos:
+\begin{enumerate}
+    \item o \textbf{Capítulo~\ref{cap:fundamentacao}} reúne a base teórica: arquitetura de sistemas operacionais, padrão POSIX, hierarquia FHS e os referenciais pedagógicos de carga cognitiva, aprendizagem ativa e \textit{microlearning};
+    \item o \textbf{Capítulo~\ref{cap:arquitetura}} apresenta a arquitetura da plataforma: o modelo de dados, a comunicação entre cliente e servidor via WebSockets, o \textit{Cockpit} do professor para as provas, as políticas de segurança, a contingência \textit{offline} e os fluxos de gestão acadêmica;
+    \item o \textbf{Capítulo~\ref{cap:implementacao}} descreve a implementação: TypeScript e React no cliente, Go (Gin-Gonic e GORM) no servidor, o simulador VFS, o interpretador de comandos, a concorrência com \textit{goroutines} e canais, a Web Crypto API, o IndexedDB e as filas assíncronas;
+    \item o \textbf{Capítulo~\ref{cap:resultados}} traz os testes automatizados, a verificação da fidelidade aos comandos Linux, a resistência a manipulações no cliente e a comparação com as soluções baseadas em VMs;
+    \item o \textbf{Capítulo~\ref{cap:conclusao}} resume as contribuições, discute as limitações e sugere trabalhos futuros.
+\end{enumerate}

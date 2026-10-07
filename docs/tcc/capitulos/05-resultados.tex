@@ -1,16 +1,107 @@
 \chapter{Avaliação e Resultados}
 \label{cap:resultados}
 
-Este capítulo apresenta a metodologia e os resultados da validação técnica e pedagógica da plataforma educacional.
+Este capítulo apresenta como a plataforma foi validada e quais resultados foram obtidos até o momento. A Seção~\ref{sec:testes-cobertura} descreve a suíte de testes automatizados que verifica a fidelidade do simulador; a Seção~\ref{sec:resistencia-fraudes} define o ensaio de integridade que avalia a resistência a fraudes; e a Seção~\ref{sec:impacto-pedagogico} compara o custo de preparar o ambiente de aula com máquinas virtuais e com o simulador no navegador.
 
+% ----------------------------------------------------------
 \section{Cobertura de Testes e Fidelidade POSIX}
 \label{sec:testes-cobertura}
-A suíte de testes automatizados conta com mais de 750 casos de teste executados via \texttt{vitest}, cobrindo regras de resolução de caminhos, hierarquia de permissões \textit{rwx}, propagação de \textit{sticky bit}, manipulação de pacotes APT simulados e formas alternativas de resolução para exames oficiais (LPIC-1, Linux Essentials e CompTIA).
+% ----------------------------------------------------------
 
+A fidelidade do simulador é verificada por uma suíte de testes automatizados executada com o \textit{framework} \texttt{vitest}. A maior parte dos casos segue o mesmo roteiro de ponta a ponta: cria-se uma máquina simulada nova, prepara-se o cenário exigido pela questão (usuários, grupos, arquivos e permissões), executa-se a sequência de comandos no interpretador e, ao final, chama-se a função de verificação da questão, que inspeciona o estado do sistema de arquivos virtual. Assim, cada teste confirma ao mesmo tempo que os comandos se comportam como no Linux e que a correção por estado, descrita na Seção~\ref{sec:reconciliacao-servidor}, aceita a resposta.
+
+O Quadro~\ref{qua:suite-testes} discrimina os 378 casos de teste da suíte.
+
+\begin{quadro}[htbp]
+    \caption{Composição da suíte de testes automatizados}
+    \label{qua:suite-testes}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|p{4.2cm}|L|p{1.4cm}|}
+        \hline
+        \textbf{Grupo} & \textbf{O que verifica} & \textbf{Casos} \\
+        \hline
+        Desafios oficiais com solução de referência & Seis conjuntos de 30 desafios práticos (Linux Básico, Linux Médio, Linux Avançado, LPI Linux Essentials, LPIC-1 e Servidor Escola): cada solução de referência é executada no simulador e precisa ser aprovada pela verificação de estado; um caso adicional por conjunto confirma que os 30 desafios estão cadastrados & 186 \\
+        \hline
+        Formas alternativas de resolução & Para 61 desafios, ao menos três soluções diferentes da oficial (caminhos relativos ou absolutos, notação octal ou simbólica, ordens diferentes de comandos) precisam ser aceitas; um caso adicional confirma que todos os cenários apontam para desafios existentes & 184 \\
+        \hline
+        Simulado teórico & Consistência das 30 questões objetivas inspiradas em certificações (alternativas, gabarito e explicação) & 1 \\
+        \hline
+        Conteúdo do tópico de permissões & Presença dos conceitos (\texttt{/etc/passwd}, leitura do \texttt{ls -l}, \textit{rwx}, \texttt{chmod}, \texttt{sudo}) e da lição interativa de concessão de privilégios & 5 \\
+        \hline
+        Cola de comandos & Geração do material de consulta e tratamento de caracteres especiais & 2 \\
+        \hline
+        \multicolumn{2}{|r|}{\textbf{Total}} & \textbf{378} \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
+
+Os grupos de desafios cobrem, na prática, as áreas centrais da disciplina: navegação e manipulação de arquivos e diretórios, permissões \textit{rwx} em notação octal e simbólica, máscara \texttt{umask}, \textit{sticky bit}, usuários e grupos, \texttt{sudo}, redirecionamentos e \textit{pipes}, busca de texto e de arquivos, além das tarefas de administração cobradas nas certificações LPI. O grupo de formas alternativas é o que melhor evidencia o princípio de correção por estado: 183 soluções que não são a oficial são aceitas porque deixam o sistema de arquivos no estado esperado.
+
+Na versão avaliada, todos os 378 casos foram aprovados. Uma particularidade técnica deve ser registrada: dois arquivos de teste importam funções auxiliares do arquivo dos desafios oficiais e, por isso, o \texttt{vitest} reexecuta esses casos e informa 752 execuções. O número que representa a cobertura real é o de casos distintos, 378.
+
+% ----------------------------------------------------------
 \section{Resistência a Fraudes em Ambiente de Prova}
 \label{sec:resistencia-fraudes}
-A validação de segurança analisa a eficácia da separação entre cliente e servidor, demonstrando que manipulações diretas via console de depuração (\textit{DevTools}) são neutralizadas pela checagem estrita de integridade no servidor.
+% ----------------------------------------------------------
 
+A resistência a fraudes é avaliada por um ensaio de integridade que reproduz, de forma controlada, as tentativas de manipulação que um estudante com conhecimentos de desenvolvimento web poderia fazer durante a prova. O ensaio parte da vulnerabilidade descrita na Seção~\ref{sec:dores-pedagogicas}: no protótipo executado apenas no navegador, as regras de correção ficam acessíveis pelo \textit{DevTools}.
+
+O Quadro~\ref{qua:vetores-ataque} apresenta os vetores de ataque do ensaio e o comportamento esperado em cada arquitetura.
+
+\begin{quadro}[htbp]
+    \caption{Vetores de ataque do ensaio de integridade}
+    \label{qua:vetores-ataque}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{|p{3.4cm}|L|L|}
+        \hline
+        \textbf{Vetor} & \textbf{Protótipo somente no cliente} & \textbf{Arquitetura híbrida} \\
+        \hline
+        Ler o código de correção no \textit{DevTools} & As condições de aprovação ficam visíveis no código & O cliente recebe apenas \textit{hashes} irreversíveis (Seção~\ref{sec:envelope-cifrado}) \\
+        \hline
+        Alterar o estado do VFS em memória pelo console & A questão é aprovada sem que os comandos tenham sido executados & O \textit{replay} no servidor não reproduz o estado forjado e a divergência é registrada (Seção~\ref{sec:reconciliacao-servidor}) \\
+        \hline
+        Forçar a função de verificação a retornar verdadeiro & Aprovação indevida & A nota oficial vem apenas do servidor \\
+        \hline
+        Editar o registro de comandos guardado no navegador & Sem efeito, pois não há registro oficial & O \textit{checksum} assinado deixa de conferir e o pacote é rejeitado \\
+        \hline
+        Abrir a prova em um segundo dispositivo & Não detectado & A sessão anterior é encerrada e a colisão aparece no \textit{Cockpit} (Seção~\ref{sec:mutex-sessao}) \\
+        \hline
+    \end{tabularx}
+    \fonte{Autoria própria (2026).}
+\end{quadro}
+
+Para cada vetor, o ensaio segue três passos: \textit{(i)} o aluno de teste resolve parte da prova legitimamente; \textit{(ii)} executa a manipulação pelo console do navegador; \textit{(iii)} verifica-se a nota calculada e os registros da linha do tempo de auditoria. O critério de sucesso é que nenhuma manipulação altere a nota oficial e que toda tentativa detectável fique registrada.
+
+No protótipo atual, executado apenas no navegador, os três primeiros vetores são viáveis, já que todo o código de verificação é entregue ao cliente; essa constatação motivou a evolução arquitetural descrita no Capítulo~\ref{cap:arquitetura}. Os resultados do ensaio na arquitetura híbrida serão registrados nesta seção após a conclusão do serviço de retaguarda.
+
+% ----------------------------------------------------------
 \section{Impacto Pedagógico e Otimização do Tempo Letivo}
 \label{sec:impacto-pedagogico}
-Avaliação comparativa dos tempos de inicialização de aula entre o modelo tradicional (baseado em VMs) e o acesso instantâneo via navegador web proporcionado pela plataforma.
+% ----------------------------------------------------------
+
+Para estimar o ganho operacional, comparou-se o custo de colocar um aluno diante do primeiro comando em dois cenários: uma máquina virtual tradicional e o simulador no navegador. Os valores do simulador foram medidos; os da máquina virtual são estimativas baseadas na alocação de memória usual e na experiência relatada pela docente da disciplina (Seção~\ref{sec:dores-pedagogicas}).
+
+As medições do simulador foram feitas no Google Chrome 152, em modo \textit{headless}, sobre o \textit{build} de produção servido localmente, em um computador com 4 núcleos e 8\,GB de RAM. Foram realizadas cinco execuções com o \textit{cache} desativado; em cada uma, a página de exercícios foi aberta e 20 comandos foram digitados no terminal. A memória total da aba foi obtida pelo PSS (\textit{proportional set size}) do processo renderizador no sistema operacional. A Tabela~\ref{tab:comparativo-recursos} resume os resultados.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Recursos necessários para iniciar a prática: máquina virtual e simulador}
+    \label{tab:comparativo-recursos}
+    \footnotesize
+    \begin{tabular}{p{5.6cm}cc}
+        \toprule
+        \textbf{Indicador} & \textbf{Máquina virtual} & \textbf{Simulador no navegador} \\
+        \midrule
+        Memória dedicada ao ambiente & 2\,048 a 4\,096\,MB\textsuperscript{a} & 105\,MB (aba inteira)\textsuperscript{b} \\
+        Memória além de uma aba vazia & --- & 68\,MB\textsuperscript{b} \\
+        Memória usada pelo código do simulador (\textit{heap} JavaScript) & --- & 2,2\,MB\textsuperscript{b} \\
+        Download ou imagem necessária & Imagem ISO de alguns GB\textsuperscript{a} & 1,4\,MB\textsuperscript{b} \\
+        Tempo até o primeiro comando & Dezenas de minutos\textsuperscript{a} & 0,9 a 1,9\,s\textsuperscript{b} \\
+        Instalação e privilégios administrativos & Necessários & Não necessários \\
+        \bottomrule
+    \end{tabular}
+    \fonte{Autoria própria (2026). \textsuperscript{a}Valores estimados. \textsuperscript{b}Valores medidos.}
+\end{table}
+
+Mesmo considerando a aba inteira, incluindo o motor do navegador, o simulador consome cerca de 20 a 40 vezes menos memória do que a faixa usualmente reservada a uma máquina virtual, e o código do simulador em si ocupa cerca de 2\,MB. O tempo até o primeiro comando cai de dezenas de minutos para cerca de um segundo, o que é coerente com a perda de 30 a 45 minutos por aula relatada na Seção~\ref{sec:dores-pedagogicas}. A medição do tempo de início em aulas reais, com turmas da disciplina, fica como etapa seguinte da avaliação.

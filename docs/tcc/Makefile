@@ -15,28 +15,28 @@ all: pdf
 
 pdf:
 ifdef HAS_LATEXMK
-	@echo "==> Compilando via latexmk local..."
+	@echo "==> Building with local latexmk..."
 	latexmk -pdf -synctex=1 -interaction=nonstopmode -file-line-error $(MAIN).tex
 else ifdef HAS_PDFLATEX
-	@echo "==> Compilando via pdflatex e bibtex local..."
+	@echo "==> Building with local pdflatex and bibtex..."
 	pdflatex -interaction=nonstopmode $(MAIN).tex
 	bibtex $(MAIN) || true
 	pdflatex -interaction=nonstopmode $(MAIN).tex
 	pdflatex -interaction=nonstopmode $(MAIN).tex
 else ifdef HAS_DOCKER
-	@echo "==> LaTeX local ausente. Delegando compilação ao container Docker ($(DOCKER_IMAGE))..."
+	@echo "==> No local LaTeX. Delegating the build to the Docker container ($(DOCKER_IMAGE))..."
 	docker run --rm --user $(shell id -u):$(shell id -g) -e HOME=/tmp -v $(CURDIR):/work -w /work $(DOCKER_IMAGE) sh -c "\
 		pdflatex -interaction=nonstopmode $(MAIN).tex && \
 		bibtex $(MAIN) || true && \
 		pdflatex -interaction=nonstopmode $(MAIN).tex && \
 		pdflatex -interaction=nonstopmode $(MAIN).tex"
 else
-	@echo "ERRO: Nenhum compilador TeX (latexmk/pdflatex) ou Docker encontrado."
+	@echo "ERROR: No TeX compiler (latexmk/pdflatex) or Docker found."
 	@exit 1
 endif
 
 docker-pdf:
-	@echo "==> Compilando explicitamente via container Docker ($(DOCKER_IMAGE))..."
+	@echo "==> Building explicitly in the Docker container ($(DOCKER_IMAGE))..."
 	docker run --rm --user $(shell id -u):$(shell id -g) -e HOME=/tmp -v $(CURDIR):/work -w /work $(DOCKER_IMAGE) sh -c "\
 		pdflatex -interaction=nonstopmode $(MAIN).tex && \
 		bibtex $(MAIN) || true && \
@@ -44,7 +44,7 @@ docker-pdf:
 		pdflatex -interaction=nonstopmode $(MAIN).tex"
 
 clean:
-	@echo "==> Limpando arquivos temporários e auxiliares..."
-	@rm -f *.aux *.bbl *.blg *.brf *.fdb_latexmk *.fls *.idx *.ilg *.ind *.lof *.log *.lot *.nav *.out *.snm *.synctex.gz *.toc *.vrb *.dvi *.ps
+	@echo "==> Removing temporary and auxiliary files..."
+	@rm -f *.aux *.bbl *.blg *.brf *.fdb_latexmk *.fls *.idx *.ilg *.ind *.lof *.log *.lot *.loq *.nav *.out *.snm *.synctex.gz *.toc *.vrb *.dvi *.ps
 	@rm -f capitulos/*.aux pre-textual/*.aux pos-textual/*.aux
-	@echo "Limpeza concluída."
+	@echo "Cleanup finished."
