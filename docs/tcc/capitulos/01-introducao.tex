@@ -125,15 +125,24 @@ Dessa forma, constata-se a necessidade imperativa de evoluir o protótipo inicia
 \label{sec:justificativa}
 % ----------------------------------------------------------
 
-Diante do diagnóstico apresentado, justifica-se o desenvolvimento de uma plataforma educacional que elimine a dependência de ambientes de virtualização pesados e, simultaneamente, supra a lacuna de integridade nas avaliações práticas, responda às demandas cognitivas dos novos discentes e aproxime o aprendizado universitário da realidade corporativa de engenharia de \textit{software}.
+Diante do diagnóstico apresentado, justifica-se o desenvolvimento de uma plataforma educacional que elimine a dependência de ambientes de virtualização pesados e, simultaneamente, supra a lacuna de integridade nas avaliações práticas e o descompasso entre a teoria acadêmica e a prática corporativa de engenharia de software.
 
 A proposta de transição do protótipo funcional de simulador em TypeScript puro para uma plataforma educacional completa permite unir o melhor de dois mundos:
+
 \begin{itemize}
-    \item \textbf{No cliente (\textit{front-end}):} Um simulador de alta fidelidade ao padrão POSIX com Sistema de Arquivos Virtual (\textit{Virtual File System} -- VFS), que roda com latência zero diretamente no navegador web, dispensando instalações locais, configurações de BIOS e alocações massivas de memória;
-    \item \textbf{No servidor (\textit{back-end}):} Uma arquitetura desacoplada capaz de gerenciar turmas e alunos, gerar \textit{tokens} temporais de prova, controlar janelas de aplicação para turmas regulares e repescagens, e executar o motor de validação do estado do VFS de forma isolada, impedindo fraudes originadas no cliente e fornecendo relatórios diagnósticos de aprendizagem para a docente.
+    \item \textbf{No cliente (\textit{front-end}):} Um simulador de alta fidelidade ao padrão POSIX com Sistema de Arquivos Virtual (\textit{Virtual File System} -- VFS), executado com latência zero diretamente no navegador web, dispensando instalações locais, configurações de BIOS e alocações massivas de memória;
+    \item \textbf{No servidor (\textit{back-end}):} Uma arquitetura desacoplada e segura, responsável pela autenticação, controle de integridade contra fraudes via DevTools, persistência de progresso e orquestração de regras de negócio.
 \end{itemize}
 
-Dessa forma, a pesquisa e a implementação técnica resultam em um produto tecnológico de impacto direto na qualidade do ensino de Sistemas Operacionais na UTFPR, com potencial de extensão a outras instituições de ensino superior.
+Para viabilizar tanto a democratização do conhecimento quanto a gestão acadêmica rigorosa, o modelo arquitetural prevê três níveis hierárquicos de acesso, atualmente em estudo e refinamento conjunto com a docente orientadora Profª. Dra. Sediane Carmem Lunardi Hernandes:
+
+\begin{enumerate}
+    \item \textbf{Acesso Público (Aberto):} Permite que qualquer interessado ou autodidata acerte a plataforma e explore os módulos teóricos, tutoriais e desafios práticos no terminal simulado de forma livre, gratuita e sem a obrigatoriedade de cadastro prévio, fomentando a disseminação do conhecimento em Linux;
+    \item \textbf{Perfil Aluno (Discente Vinculado):} Voltado ao estudante formalmente matriculado e associado a uma turma específica. Esse perfil possibilita o registro contínuo de progresso, resolução de listas de exercícios obrigatórias, participação em simulados preparatórios e realização de avaliações práticas cronometradas com liberação condicionada a chaves ou \textit{tokens} de sessão;
+    \item \textbf{Perfil Professor (Docente):} Destinado à gestão pedagógica integral da disciplina. Concede autonomia para criação e manutenção de turmas, autoria ou edição de materiais didáticos existentes, formulação de novos exercícios práticos, parametrização de asserções do VFS e elaboração de provas com janelas temporais individualizadas para turmas regulares e repescagens.
+\end{enumerate}
+
+Dessa forma, a pesquisa e a implementação técnica resultam em um produto tecnológico de impacto direto na qualidade do ensino de Sistemas Operacionais na UTFPR, com flexibilidade pedagógica validada pela prática docente e potencial de extensão a outras instituições de ensino superior.
 
 % ----------------------------------------------------------
 \section{Objetivos}
