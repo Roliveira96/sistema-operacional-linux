@@ -19,7 +19,7 @@ Enquanto o Capítulo~\ref{cap:arquitetura} foi organizado segundo o ciclo de vid
         \hline
         Resolução (Seção~\ref{sec:validacao-desacoplada}) & Simulador POSIX e VFS no navegador; motor de asserções em \textit{worker pool} no servidor & \ref{sec:vfs-typescript} e \ref{sec:websocket-hub} \\
         \hline
-        Supervisão (Seção~\ref{sec:governanca-seguranca}) & Janelas de ajuda e avisos no cliente; Hub WebSocket com eventos para o \textit{Cockpit} & \ref{sec:react-interface} e \ref{sec:websocket-hub} \\
+        Supervisão (Seção~\ref{sec:governanca-seguranca}) & Janelas de ajuda e avisos no cliente; Hub WebSocket com eventos para o \textit{Cockpit} & \ref{sec:interface-ts} e \ref{sec:websocket-hub} \\
         \hline
         Encerramento (Seção~\ref{sec:encerramento-prova}) & Registro no IndexedDB e pacote \texttt{.proof}; transações e histórico preservado no PostgreSQL & \ref{sec:visao-stack} e \ref{sec:gorm-persistencia} \\
         \hline
@@ -61,7 +61,7 @@ As tecnologias foram escolhidas por quatro critérios: escalabilidade, fidelidad
         \hline
         Cliente & TypeScript & Tipagem estática para modelar com precisão as estruturas do POSIX (nós, permissões, credenciais) \\
         \hline
-        Cliente & React & Componentes declarativos para manter o estado coerente entre terminal, roteiros e provas \\
+        Cliente & DOM nativo, sem \textit{framework} & Telas escritas como classes TypeScript que montam e desmontam seus próprios elementos, sem dependências externas de interface \\
         \hline
         Cliente & Web Crypto API e IndexedDB & \textit{Hashes} e assinaturas nativos do navegador e armazenamento local transacional de todo o registro da prova, base da contingência \textit{offline} \\
         \hline
@@ -96,10 +96,10 @@ O núcleo da simulação foi escrito inteiramente em TypeScript. A tipagem está
     \item \textbf{interpretador de comandos:} o \textit{parser} trata \textit{pipelines} (\texttt{|}), redirecionamentos (\texttt{>}, \texttt{>>}, \texttt{<}) e expansão de variáveis de ambiente, tudo no navegador e sem atraso na digitação.
 \end{enumerate}
 
-\subsection{Componentização e Interface Reativa em React}
-\label{sec:react-interface}
+\subsection{Componentização da Interface em TypeScript}
+\label{sec:interface-ts}
 
-A interface usa React para manter o estado coerente entre os módulos da experiência:
+A interface é escrita em TypeScript puro, manipulando diretamente o DOM (\textit{Document Object Model}) do navegador, sem \textit{framework} de interface. Cada tela é uma classe que sabe se montar em um contêiner e se desmontar ao sair, e a navegação entre telas é feita pelo endereço da página. Os principais módulos são:
 
 \begin{enumerate}
     \item \textbf{terminal ANSI:} emulador compatível com sequências de escape ANSI e com a paleta do GNOME Terminal, com autocompletar por \texttt{Tab} para comandos e caminhos, histórico pelas setas e os editores \texttt{nano} e \texttt{vim};
