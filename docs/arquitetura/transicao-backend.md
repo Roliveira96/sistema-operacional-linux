@@ -96,6 +96,8 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 - `email`: VARCHAR(120) UNIQUE
 - `senha_hash`: VARCHAR(255)
 - `perfil`: ENUM (`DOCENTE`, `ESTUDANTE`, `ADMINISTRADOR`)
+- `status_conta`: ENUM (`ATIVO`, `INATIVO`) DEFAULT `ATIVO` (Suspensão administrativa de acesso)
+- `deleted_at`: TIMESTAMP NULL (GORM Soft Delete: exclusão lógica com preservação integral de submissões e telemetria)
 - `criado_em`: TIMESTAMP
 - `atualizado_em`: TIMESTAMP
 
@@ -116,14 +118,17 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 - `criado_em`: TIMESTAMP
 - `atualizado_em`: TIMESTAMP
 
-#### `InscricaoTurma` (Matrícula e Ciclo de Ingresso do Aluno na Turma)
+#### `InscricaoTurma` / `matriculas_turmas` (Matrícula e Ciclo de Ingresso/Vida do Aluno na Turma)
 - `id`: UUID (PK)
 - `turma_id`: UUID (FK ➔ `Turma.id`)
 - `aluno_id`: UUID NULL (FK ➔ `Usuario.id` - nulo durante o estágio de pré-matrícula não ativada)
 - `ra_provisorio`: VARCHAR(20) NULL (Registro Acadêmico institucional para reconciliação na importação CSV)
 - `email_provisorio`: VARCHAR(120) NULL (E-mail acadêmico institucional informado na lista)
 - `nome_provisorio`: VARCHAR(120) NULL (Nome completo discente informado na lista)
-- `status`: ENUM (`PENDENTE_MODERACAO`, `DEFERIDO`, `INDEFERIDO`, `PRE_MATRICULA`)
+- `status`: ENUM (`ATIVO`, `TRANSFERIDO`, `DESVINCULADO`, `TRANCADO`, `PENDENTE_MODERACAO`, `DEFERIDO`, `INDEFERIDO`, `PRE_MATRICULA`)
+- `turma_origem_transferencia_id`: UUID NULL (FK ➔ `Turma.id` - rastreabilidade em caso de remanejamento entre turnos)
+- `transferido_em`: TIMESTAMP NULL (Data/hora em que a migração de turma foi efetuada)
+- `motivo_transferencia`: TEXT NULL (Justificativa pedagógica/administrativa do remanejamento)
 - `origem_ingresso`: ENUM (`LINK_COMPARTILHADO`, `IMPORTACAO_CSV`, `MATRICULA_DIRETA_DOCENTE`)
 - `token_ativacao_hash`: VARCHAR(64) NULL (Hash SHA-256 do token efêmero de ativação por e-mail)
 - `token_ativacao_expira_em`: TIMESTAMP NULL
@@ -320,6 +325,46 @@ export interface ImportarCsvTurmaResponse {
     linha: number;
     motivo: string;
   }>;
+}
+
+// POST /api/v1/turmas/:turmaOrigemId/remanejar-aluno
+export interface RemanejarAlunoTurmaRequest {
+  alunoId: string;
+  turmaDestinoId: string;
+  motivo?: string;
+}
+
+export interface RemanejarAlunoTurmaResponse {
+  alunoId: string;
+  matriculaOrigemId: string;
+  matriculaDestinoId: string;
+  statusOrigem: 'TRANSFERIDO';
+  statusDestino: 'ATIVO';
+  remanejadoEm: string;
+  sucesso: boolean;
+}
+
+// PATCH /api/v1/usuarios/:usuarioId/status
+export interface AlterarStatusContaRequest {
+  status: 'ATIVO' | 'INATIVO';
+  motivo?: string;
+}
+
+export interface AlterarStatusContaResponse {
+  usuarioId: string;
+  novoStatus: 'ATIVO' | 'INATIVO';
+  tokensRevogados: boolean;
+  atualizadoEm: string;
+  sucesso: boolean;
+}
+
+// DELETE /api/v1/usuarios/:usuarioId
+export interface ExcluirUsuarioSoftDeleteResponse {
+  usuarioId: string;
+  deletedAt: string; // ISO 8601
+  statusPreservado: 'EXCLUIDO_LOGICO';
+  mensagem: string; // "Conta excluída logicamente; histórico de notas e telemetria preservados integralmente para fins de auditoria."
+  sucesso: boolean;
 }
 ```
 
@@ -822,6 +867,97 @@ type SMTPConfig struct {
 2. **Consumo Concorrente e Rate Limiting (Consumidor):** Cada worker do pool aguarda o disparo do `rateLimiter.C` antes de tentar a conexão SMTP, evitando saturação do servidor da UTFPR ou acionamento de filtros antispam corporativos;
 3. **Template HTML Estilizado:** O e-mail renderiza um template HTML responsivo com tipografia moderna, logotipo institucional, resumo da disciplina e o botão de ação "Ativar Conta e Acessar Turma" contendo o token efêmero assinado;
 4. **Tratamento de Falhas com Backoff Exponencial:** Caso o envio falhe (ex.: erro de rede SMTP temporário), o job é reenfileirado com atraso calculado ($2^{\text{tentativa}} \times t_{\text{base}}$) até o limite configurado (`max_tentativas = 5`). Se esgotadas as tentativas, o status é registrado como `FALHA_ENTREGA` na base de dados para reenvio manual pelo docente.
+
+---
+
+## 8. Serviços de Persistência GORM e Transações do Ciclo de Vida Discente
+
+Para assegurar a integridade referencial e o cumprimento estrito das três dimensões de governança discente (remanejamento de turno/turma, inativação cautelar e soft delete forense), a camada de repositório em Go implementa padrões de transação atômica ACID e controle de escopo do GORM:
+
+### 8.1 Transação Atômica de Remanejamento entre Turmas
+
+A troca de turma (ex.: matutino para noturno) não remove o registro anterior nem duplica o discente. A operação preserva a imutabilidade do histórico acadêmico:
+
+```go
+func (s *TurmaService) RemanejarAluno(ctx context.Context, alunoID, origemTurmaID, destinoTurmaID uuid.UUID, motivo string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Localiza a matrícula ativa na turma de origem
+		var matriculaOrigem MatriculaTurma
+		if err := tx.Where("turma_id = ? AND aluno_id = ? AND status = ?", origemTurmaID, alunoID, "ATIVO").
+			First(&matriculaOrigem).Error; err != nil {
+			return fmt.Errorf("matrícula ativa não encontrada na turma de origem: %w", err)
+		}
+
+		// 2. Marca a matrícula de origem como TRANSFERIDO, resguardando histórico de notas
+		agora := time.Now()
+		if err := tx.Model(&matriculaOrigem).Updates(map[string]interface{}{
+			"status":               "TRANSFERIDO",
+			"transferido_em":       agora,
+			"motivo_transferencia": motivo,
+		}).Error; err != nil {
+			return fmt.Errorf("falha ao atualizar status da matrícula de origem: %w", err)
+		}
+
+		// 3. Cria a nova matrícula na turma de destino apontando a origem
+		matriculaDestino := MatriculaTurma{
+			ID:                         uuid.New(),
+			TurmaID:                    destinoTurmaID,
+			AlunoID:                    &alunoID,
+			Status:                     "ATIVO",
+			OrigemIngresso:             "TRANSFERENCIA_TURMA",
+			TurmaOrigemTransferenciaID: &origemTurmaID,
+			SolicitadoEm:               agora,
+			DeliberadoEm:               &agora,
+			Ativo:                      true,
+		}
+		if err := tx.Create(&matriculaDestino).Error; err != nil {
+			return fmt.Errorf("falha ao criar nova matrícula na turma de destino: %w", err)
+		}
+
+		return nil
+	})
+}
+```
+
+### 8.2 Inativação Cautelar e Derrubada de Sessão Ativa
+
+Ao suspender uma conta, a persistência no banco é combinada com um comando de encerramento compulsório via WebSocket:
+
+```go
+func (s *UsuarioService) InativarConta(ctx context.Context, usuarioID uuid.UUID, motivo string) error {
+	if err := s.db.Model(&Usuario{}).Where("id = ?", usuarioID).
+		Update("status_conta", "INATIVO").Error; err != nil {
+		return err
+	}
+
+	// Notifica o Hub de WebSockets para fechar conexões ativas imediatamente
+	s.wsHub.ForcedDisconnect(usuarioID, "CONTA_SUSPENSA_ADMINISTRATIVAMENTE")
+	return nil
+}
+```
+
+### 8.3 Exclusão Lógica e Consulta Forense via Unscoped
+
+Para desligamento de curso, o registro é excluído logicamente (`db.Delete`), mas permanece integralmente consultável para a coordenação acadêmica:
+
+```go
+// Exclusão Lógica (Soft Delete padrão GORM)
+func (s *UsuarioService) ExcluirConta(ctx context.Context, usuarioID uuid.UUID) error {
+	return s.db.Delete(&Usuario{}, "id = ?", usuarioID).Error
+}
+
+// Consulta de Auditoria Forense e Histórico Acadêmico (Preserva todos os registros)
+func (s *UsuarioService) ObterDossieForenseCompleto(ctx context.Context, ra string) (*Usuario, error) {
+	var usuario Usuario
+	err := s.db.Unscoped().
+		Preload("Matriculas.Turma").
+		Preload("SessoesAvaliacao.Submissoes").
+		Preload("SessoesAvaliacao.EventosTimeline").
+		Where("ra = ?", ra).
+		First(&usuario).Error
+	return &usuario, err
+}
+```
 
 
 
