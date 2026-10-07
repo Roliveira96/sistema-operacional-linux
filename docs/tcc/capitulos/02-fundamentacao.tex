@@ -1,0 +1,16 @@
+\chapter{Fundamentação Teórica}
+\label{cap:fundamentacao}
+
+Este capítulo apresenta a base conceitual que fundamenta a pesquisa e o desenvolvimento da plataforma educacional. São abordados os princípios de arquitetura de sistemas operacionais, o padrão POSIX, a organização hierárquica do sistema de arquivos no Linux e as teorias pedagógicas aplicadas ao ensino de computação.
+
+\section{Sistemas Operacionais e o Padrão POSIX}
+\label{sec:posix}
+O padrão POSIX (\textit{Portable Operating System Interface}) define uma interface padronizada entre aplicações e o sistema operacional, estabelecendo contratos uniformes para chamadas de sistema, utilitários de linha de comando e modelos de processos \cite{posix2018}. A conformidade com esse padrão viabiliza a portabilidade de scripts e aplicações no universo Unix-like \cite{tanenbaum2015modern, silberschatz2018operating}.
+
+\section{Sistemas de Arquivos e o Filesystem Hierarchy Standard (FHS)}
+\label{sec:fhs}
+O Linux adota a abstração conceitual na qual ``tudo é um arquivo'', organizando diretórios, dispositivos físicos e fluxos de dados sob uma única árvore unificada. O \textit{Filesystem Hierarchy Standard} (FHS) dita a organização semântica dos diretórios essenciais, tais como \texttt{/etc}, \texttt{/home}, \texttt{/var}, \texttt{/tmp} e \texttt{/dev} \cite{fhs30}. O modelo de segurança baseia-se em proprietários (UID), grupos (GID), permissões \textit{rwx} em formato octal ou simbólico e bits especiais como o \textit{sticky bit} \cite{kerrisk2010linux, nemeth2017unix}.
+
+\section{Simulação Educacional e Aprendizagem Ativa}
+\label{sec:aprendizagem-ativa}
+O ensino de computação é amplamente beneficiado por metodologias que incentivam a experimentação e a resolução de problemas práticos com ciclos imediatos de retroalimentação \cite{papert1980mindstorms, benari2001constructivism, wing2006computational}. A simulação em ambiente web remove a sobrecarga cognitiva e operacional associada à configuração de ambientes, permitindo que o foco discente permaneça nos conceitos estruturantes da disciplina.

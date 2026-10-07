@@ -1,0 +1,26 @@
+# Arquivos temporários e auxiliares gerados pela compilação do LaTeX
+*.aux
+*.bbl
+*.blg
+*.brf
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+*.dvi
+*.ps
+
+# Subpastas auxiliares
+capitulos/*.aux
+pre-textual/*.aux
+pos-textual/*.aux

@@ -1,0 +1,128 @@
+\documentclass[
+    12pt,
+    openright,
+    oneside,
+    a4paper,
+    english,
+    brazil
+]{abntex2}
+
+% ---
+% PACOTES ESSENCIAIS
+% ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{indentfirst}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{url}
+
+% ---
+% PACOTES DE CITAÇÃO E REFERÊNCIAS (ABNT)
+% ---
+\usepackage[alf,abnt-emphasize=bf,abnt-repeated-title-omission=yes]{abntex2cite}
+
+% ---
+% CONFIGURAÇÕES DO HYPERREF
+% ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    filecolor=magenta,
+    urlcolor=blue,
+    bookmarksdepth=4
+}
+
+% ---
+% CONFIGURAÇÃO DE CÓDIGO FONTE (LISTINGS)
+% ---
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{teal},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=8pt,
+    backgroundcolor=\color{white},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    frame=single,
+    tabsize=2,
+    captionpos=b,
+    breaklines=true,
+    breakatwhitespace=false
+}
+
+% ---
+% DADOS INSTITUCIONAIS (UTFPR CAMPUS GUARAPUAVA)
+% ---
+\instituicao{UNIVERSIDADE TECNOLÓGICA FEDERAL DO PARANÁ\par CÂMPUS GUARAPUAVA\par DEPARTAMENTO ACADÊMICO DE INFORMÁTICA\par CURSO SUPERIOR DE TECNOLOGIA EM SISTEMAS PARA INTERNET}
+
+\titulo{PLATAFORMA EDUCACIONAL BASEADA EM SIMULAÇÃO POSIX NO NAVEGADOR PARA O ENSINO E AVALIAÇÃO PRÁTICA DE SISTEMAS OPERACIONAIS}
+
+\autor{RICARDO MARTINS DE OLIVEIRA}
+
+\local{Guarapuava}
+\data{2026}
+
+\orientador{Profª. Dra. Sediane Carmem Lunardi Hernandes}
+
+\preambulo{Trabalho de Conclusão de Curso apresentado ao Curso Superior de Tecnologia em Sistemas para Internet do Câmpus Guarapuava da Universidade Tecnológica Federal do Paraná (UTFPR), como requisito parcial para a obtenção do título de Tecnólogo em Sistemas para Internet.}
+
+% ---
+% INÍCIO DO DOCUMENTO
+% ---
+\begin{document}
+\selectlanguage{brazil}
+\frenchspacing
+
+% ----------------------------------------------------------
+% ELEMENTOS PRÉ-TEXTUAIS
+% ----------------------------------------------------------
+\imprimircapa
+\imprimirfolhaderosto*
+
+% Resumo em Português
+\include{pre-textual/resumo}
+
+% Abstract em Inglês
+\include{pre-textual/abstract}
+
+% Lista de Abreviaturas e Siglas
+\include{pre-textual/siglas}
+
+% Sumário
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+% ----------------------------------------------------------
+% ELEMENTOS TEXTUAIS
+% ----------------------------------------------------------
+\textual
+
+\include{capitulos/01-introducao}
+\include{capitulos/02-fundamentacao}
+\include{capitulos/03-arquitetura}
+\include{capitulos/04-implementacao}
+\include{capitulos/05-resultados}
+\include{capitulos/06-conclusao}
+
+% ----------------------------------------------------------
+% ELEMENTOS PÓS-TEXTUAIS
+% ----------------------------------------------------------
+\postextual
+
+\bibliography{pos-textual/referencias}
+
+\end{document}

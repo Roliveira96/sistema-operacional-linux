@@ -1,0 +1,16 @@
+\chapter{Avaliação e Resultados}
+\label{cap:resultados}
+
+Este capítulo apresenta a metodologia e os resultados da validação técnica e pedagógica da plataforma educacional.
+
+\section{Cobertura de Testes e Fidelidade POSIX}
+\label{sec:testes-cobertura}
+A suíte de testes automatizados conta com mais de 750 casos de teste executados via \texttt{vitest}, cobrindo regras de resolução de caminhos, hierarquia de permissões \textit{rwx}, propagação de \textit{sticky bit}, manipulação de pacotes APT simulados e formas alternativas de resolução para exames oficiais (LPIC-1, Linux Essentials e CompTIA).
+
+\section{Resistência a Fraudes em Ambiente de Prova}
+\label{sec:resistencia-fraudes}
+A validação de segurança analisa a eficácia da separação entre cliente e servidor, demonstrando que manipulações diretas via console de depuração (\textit{DevTools}) são neutralizadas pela checagem estrita de integridade no servidor.
+
+\section{Impacto Pedagógico e Otimização do Tempo Letivo}
+\label{sec:impacto-pedagogico}
+Avaliação comparativa dos tempos de inicialização de aula entre o modelo tradicional (baseado em VMs) e o acesso instantâneo via navegador web proporcionado pela plataforma.

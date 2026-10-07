@@ -1,0 +1,84 @@
+\chapter{Introdução}
+\label{cap:introducao}
+
+A disciplina de Sistemas Operacionais (SO) integra o núcleo estruturante da formação científica e tecnológica em cursos superiores de Computação e Tecnologia da Informação. No âmbito do Curso Superior de Tecnologia em Sistemas para Internet (TSI) da Universidade Tecnológica Federal do Paraná (UTFPR) --- Câmpus Guarapuava, a compreensão prática sobre o funcionamento de núcleos de sistemas, gerenciamento de processos, sistemas de arquivos hierárquicos e modelos de permissões de acesso constitui uma competência determinante para a atuação dos discentes em desenvolvimento de \textit{software}, arquitetura de infraestrutura em nuvem e segurança da informação \cite{silberschatz2018operating, nemeth2017unix}.
+
+Historicamente, o padrão POSIX (\textit{Portable Operating System Interface}) e as distribuições do ecossistema GNU/Linux estabeleceram-se como a espinha dorsal dos servidores web, contêineres de microsserviços e sistemas embarcados modernos \cite{posix2018, kerrisk2010linux}. Consequentemente, o domínio prático da Interface de Linha de Comando (\textit{Command-Line Interface} -- CLI) do Linux deixou de ser um conhecimento secundário para se tornar um requisito indispensável no perfil do egresso de TSI.
+
+Entretanto, transpor esse conjunto teórico para a prática laboratorial efetiva impõe desafios logísticos, pedagógicos e tecnológicos que frequentemente comprometem a dinâmica pedagógica do docente e a curva de aprendizagem dos estudantes.
+
+% ----------------------------------------------------------
+\section{Contextualização e Dores Pedagógicas}
+\label{sec:dores-pedagogicas}
+% ----------------------------------------------------------
+
+No contexto das atividades acadêmicas orientadas pela Profª. Dra. Sediane Carmem Lunardi Hernandes na UTFPR Câmpus Guarapuava, a condução das aulas práticas e das avaliações formais de Sistemas Operacionais esbarra em limitações materiais e operacionais recorrentes. Tais limitações podem ser categorizadas em quatro dimensões fundamentais:
+
+\subsection{A Barreira das Máquinas Virtuais e a Heterogeneidade de Hardware}
+A abordagem pedagógica convencional para práticas de laboratório baseia-se na instalação de Máquinas Virtuais (VMs), como VirtualBox ou VMware, ou na ativação do Subsistema Windows para Linux (WSL) nos computadores pessoais dos alunos. Essa estratégia exige computadores com capacidade substancial de memória volátil (RAM) e processamento, demandando tipicamente a alocação de no mínimo 2~GB a 4~GB de RAM para cada instância virtualizada, além de dezenas de \textit{gigabytes} de armazenamento em disco.
+
+Na realidade dos discentes de graduação, uma fração expressiva possui computadores com limitações de \textit{hardware}. Além do consumo elevado de recursos, surgem barreiras de configuração em nível de \textit{firmware}: computadores com tecnologia de virtualização (Intel VT-x ou AMD-V) desativada de fábrica na BIOS/UEFI, conflitos de virtualização aninhada com plataformas antivírus e problemas de placas de rede em modo \textit{bridge} ou NAT.
+
+\subsection{Tempo Letivo Desperdiçado com Suporte Técnico de Infraestrutura}
+Como consequência direta da heterogeneidade e instabilidade dos ambientes locais, constata-se com frequência a perda de 30 a 45 minutos do início de cada aula prática exclusivamente no atendimento a chamados de suporte técnico elementar (``meu VirtualBox não inicializa'', ``minha máquina virtual perdeu a conexão com a rede'', ``meu teclado está desconfigurado no terminal''). 
+
+Esse desperdício de tempo letivo subtrai a energia pedagógica do docente e a atenção da turma, desviando o foco do aprendizado de conceitos estruturais de Sistemas Operacionais --- como permissões de arquivos, mascaramento \textit{umask}, controle de usuários e manipulação de fluxos com \textit{pipes} e redirecionadores --- para a resolução de contingências de suporte de TI.
+
+\subsection{O Desafio do Engajamento e a Fricção na Prática Autônoma}
+A literatura em educação em computação evidencia que o aprendizado ativo e o construcionismo são potencializados quando os aprendizes experimentam ciclos rápidos de tentativa, erro e \textit{feedback} imediato \cite{papert1980mindstorms, benari2001constructivism}. Listas de exercícios estáticas em PDF ou apostilas teóricas sem validação imediata provocam desengajamento discente, pois o aluno, ao executar um comando incorreto no terminal, muitas vezes não compreende a causa da falha ou desiste por falta de orientação contextualizada.
+
+\subsection{Vulnerabilidades e Fraudes em Avaliações Práticas Computadorizadas}
+A aplicação de provas práticas individuais no ambiente de laboratório demanda garantias rigorosas de integridade avaliativa. Soluções de simuladores que operam exclusivamente no navegador do aluno (\textit{client-side}), sem uma arquitetura de retaguarda (\textit{back-end}) segura, apresentam vulnerabilidades críticas:
+\begin{enumerate}
+    \item \textbf{Inspeção e Adulteração via DevTools:} Qualquer estudante dotado de conhecimentos em desenvolvimento web pode abrir as ferramentas de depuração do navegador (F12 / \textit{Developer Tools}), inspecionar as rotinas de validação em JavaScript, descobrir as condições exatas esperadas pelos testes e alterar as variáveis de estado em memória para obter nota máxima sem resolver o desafio;
+    \item \textbf{Controle Temporal e Presença em Sala:} A ausência de um mecanismo de liberação imediata por \textit{tokens} ou senhas dinâmicas impede o professor de sincronizar o início da avaliação presencial, abrindo brechas para acessos antecipados ou compartilhamento indevido de provas;
+    \item \textbf{Gestão de Repescagens e Segundas Chamadas:} Em um semestre letivo universitário, é comum que alunos necessitem de avaliações em regime de segunda chamada ou repescagem por motivos de saúde ou faltas justificadas. A plataforma precisa possibilitar a criação de janelas temporais personalizadas com credenciais restritas a alunos específicos, sem expor a avaliação à turma regular.
+\end{enumerate}
+
+% ----------------------------------------------------------
+\section{Justificativa}
+\label{sec:justificativa}
+% ----------------------------------------------------------
+
+Diante do diagnóstico apresentado, justifica-se o desenvolvimento de uma plataforma educacional que elimine a dependência de ambientes de virtualização pesados e, simultaneamente, supra a lacuna de integridade nas avaliações práticas.
+
+A proposta de transição do protótipo funcional de simulador em TypeScript puro para uma plataforma educacional completa permite unir o melhor de dois mundos:
+\begin{itemize}
+    \item \textbf{No cliente (\textit{front-end}):} Um simulador de alta fidelidade ao padrão POSIX com Sistema de Arquivos Virtual (\textit{Virtual File System} -- VFS), que roda com latência zero diretamente no navegador web, dispensando instalações locais, configurações de BIOS e alocações massivas de memória;
+    \item \textbf{No servidor (\textit{back-end}):} Uma arquitetura desacoplada capaz de gerenciar turmas e alunos, gerar \textit{tokens} temporais de prova, controlar janelas de aplicação para turmas regulares e repescagens, e executar o motor de validação do estado do VFS de forma isolada, impedindo fraudes originadas no cliente e fornecendo relatórios diagnósticos de aprendizagem para a docente.
+\end{itemize}
+
+Dessa forma, a pesquisa e a implementação técnica resultam em um produto tecnológico de impacto direto na qualidade do ensino de Sistemas Operacionais na UTFPR, com potencial de extensão a outras instituições de ensino público e privado.
+
+% ----------------------------------------------------------
+\section{Objetivos}
+\label{sec:objetivos}
+% ----------------------------------------------------------
+
+\subsection{Objetivo Geral}
+Desenvolver e avaliar uma plataforma educacional integrada para o ensino e a avaliação prática de Sistemas Operacionais, composta por um simulador Linux/POSIX interativo executado no navegador e um serviço de \textit{back-end} seguro para gestão acadêmica, controle temporal de exames e motor de correção de VFS desacoplado contra fraudes.
+
+\subsection{Objetivos Específicos}
+Para o cumprimento do objetivo geral, estabelecem-se os seguintes objetivos específicos:
+\begin{enumerate}
+    \item Mapear e formalizar os contratos de API e o modelo de dados relacional para representação de usuários, turmas, avaliações, janelas temporais de aplicação e submissões com telemetria;
+    \item Projetar um mecanismo de serialização e asserção de estado de Sistema de Arquivos Virtual (VFS), permitindo que o \textit{back-end} receba \textit{snapshots} do cliente e execute a correção de tarefas laboratoriais em ambiente protegido;
+    \item Implementar o protocolo de segurança para aplicação de avaliações em tempo real mediante \textit{tokens} dinâmicos de liberação para turmas presenciais e controle de janelas específicas para repescagens e segundas chamadas;
+    \item Integrar a interface do simulador existente (VFS, parser Bash e emulação de terminal) aos serviços de autenticação, carregamento de exercícios guiados e submissão de exames da nova plataforma;
+    \item Validar a fidelidade da simulação e a integridade da plataforma através de testes automatizados unitários e de integração, além de analisar a aplicabilidade da ferramenta no contexto pedagógico da disciplina de Sistemas Operacionais da UTFPR Câmpus Guarapuava.
+\end{enumerate}
+
+% ----------------------------------------------------------
+\section{Estrutura do Trabalho}
+\label{sec:estrutura}
+% ----------------------------------------------------------
+
+Este documento está estruturado em seis capítulos:
+\begin{itemize}
+    \item O \textbf{Capítulo \ref{cap:introducao}} contextualiza a pesquisa, elenca as dores pedagógicas vivenciadas no ensino prático de Sistemas Operacionais, estabelece a justificativa do projeto e delineia os objetivos geral e específicos;
+    \item O \textbf{Capítulo 2 (Fundamentação Teórica)} aborda os princípios teóricos de arquitetura de sistemas operacionais, o padrão POSIX, a hierarquia FHS, a semântica de chamadas de sistema, bem como os referenciais pedagógicos de ensino de computação e aprendizagem ativa;
+    \item O \textbf{Capítulo 3 (Arquitetura da Plataforma)} detalha o projeto arquitetural da solução, os modelos de dados, o fluxo de comunicação entre cliente e servidor, a especificação das APIs REST e a estratégia de validação desacoplada de VFS;
+    \item O \textbf{Capítulo 4 (Implementação)} descreve os aspectos técnicos da engenharia do \textit{software}, englobando o motor de simulação in-memory, o parser de comandos, a construção dos serviços de retaguarda e as camadas de segurança de prova;
+    \item O \textbf{Capítulo 5 (Avaliação e Resultados)} apresenta os testes automatizados, a verificação da fidelidade aos comandos Linux, a resistência contra tentativas de manipulação em cliente e a análise comparativa frente a soluções baseadas em VMs;
+    \item O \textbf{Capítulo 6 (Conclusão e Trabalhos Futuros)} sintetiza as contribuições alcançadas pelo trabalho acadêmico, discute as limitações remanescentes e sugere direções para extensões futuras da plataforma.
+\end{itemize}

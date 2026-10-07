@@ -1,0 +1,16 @@
+\chapter{Implementação}
+\label{cap:implementacao}
+
+Este capítulo descreve os aspectos de engenharia de software empregados na implementação do simulador e dos serviços integrados da plataforma.
+
+\section{Núcleo de Simulação em TypeScript}
+\label{sec:nucleo-simulacao}
+O simulador executa inteiramente em TypeScript puro, estruturado em módulos desacoplados: o Sistema de Arquivos Virtual (\texttt{SistemaDeArquivos.ts}), o controle de permissões octais e simbólicas (\texttt{Permissoes.ts}), a gerência de contas e identidades (\texttt{Contas.ts}) e o interpretador de comandos (\texttt{Interpretador.ts}).
+
+\section{Parser POSIX e Emulação de Terminal}
+\label{sec:parser-terminal}
+A interface gráfica emula o terminal GNOME com suporte a códigos de escape ANSI, histórico de comandos com persistência em sessão, autocompletar via tecla \texttt{Tab} e emulação de editores de texto essenciais (\texttt{nano} e \texttt{vim}).
+
+\section{Serviços de Back-end e APIs REST}
+\label{sec:servicos-backend}
+Os serviços de retaguarda fornecem os pontos de terminação (\textit{endpoints}) para autenticação, controle de turmas, verificação de \textit{tokens} de sala de aula e processamento assíncrono de submissões práticas.
