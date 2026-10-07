@@ -1,16 +1,89 @@
-\chapter{Implementação}
+\chapter{Implementação e Stack Tecnológica}
 \label{cap:implementacao}
 
-Este capítulo descreve os aspectos de engenharia de software empregados na implementação do simulador e dos serviços integrados da plataforma.
+Este capítulo descreve os aspectos de engenharia de software, a seleção da pilha tecnológica e os detalhes de implementação das camadas cliente e servidora da plataforma educacional. A arquitetura proposta busca harmonizar a execução local interativa de alta fidelidade com uma infraestrutura de retaguarda de alta performance, concorrente e segura.
 
-\section{Núcleo de Simulação em TypeScript}
-\label{sec:nucleo-simulacao}
-O simulador executa inteiramente em TypeScript puro, estruturado em módulos desacoplados: o Sistema de Arquivos Virtual (\texttt{SistemaDeArquivos.ts}), o controle de permissões octais e simbólicas (\texttt{Permissoes.ts}), a gerência de contas e identidades (\texttt{Contas.ts}) e o interpretador de comandos (\texttt{Interpretador.ts}).
+% ----------------------------------------------------------
+\section{Visão Geral da Stack Tecnológica}
+\label{sec:visao-stack}
+% ----------------------------------------------------------
 
-\section{Parser POSIX e Emulação de Terminal}
-\label{sec:parser-terminal}
-A interface gráfica emula o terminal GNOME com suporte a códigos de escape ANSI, histórico de comandos com persistência em sessão, autocompletar via tecla \texttt{Tab} e emulação de editores de texto essenciais (\texttt{nano} e \texttt{vim}).
+A definição das tecnologias fundamentou-se em critérios rigorosos de escalabilidade, fidelidade computacional, facilidade de implantação em infraestruturas universitárias e desacoplamento de responsabilidades:
 
-\section{Serviços de Back-end e APIs REST}
-\label{sec:servicos-backend}
-Os serviços de retaguarda fornecem os pontos de terminação (\textit{endpoints}) para autenticação, controle de turmas, verificação de \textit{tokens} de sala de aula e processamento assíncrono de submissões práticas.
+\begin{itemize}
+    \item \textbf{Camada Cliente (\textit{Front-end} e Simulador):} Combina a robustez de tipos do \textbf{TypeScript} com a componentização declarativa do \textbf{React}, viabilizando um simulador de Sistema de Arquivos Virtual (\textit{VFS}) com latência zero e uma interface amigável e reativa diretamente no navegador web;
+    \item \textbf{Camada Servidora (\textit{Back-end} e Concorrência):} Adota a linguagem \textbf{Golang (Go)} aliada ao framework HTTP \textbf{Gin-Gonic}, ao ORM \textbf{GORM} e a um gerenciador concorrente de \textit{WebSockets} (\textit{Hub}), proporcionando vazão massiva de requisições e orquestração de conexões persistentes com consumo mínimo de recursos de hardware.
+\end{itemize}
+
+% ----------------------------------------------------------
+\section{Front-end e Núcleo de Simulação (Client-side)}
+\label{sec:frontend-simulacao}
+% ----------------------------------------------------------
+
+A execução em cliente foi desenhada para eliminar a necessidade de máquinas virtuais pesadas ou de instanciar contêineres Docker dedicados para cada discente, o que inviabilizaria o uso simultâneo em laboratórios acadêmicos com restrições orçamentárias de infraestrutura.
+
+\subsection{Modelagem do VFS e Execução POSIX em TypeScript}
+\label{sec:vfs-typescript}
+
+O núcleo de simulação de sistemas operacionais foi inteiramente desenvolvido em TypeScript puro. O uso da tipagem estática do TypeScript é indispensável para expressar com precisão as complexas estruturas discretas do padrão POSIX:
+\begin{enumerate}
+    \item \textbf{Nós e Metadados Virtuais (\textit{i-nodes}):} Cada entrada no VFS é representada por interfaces que modelam atributos de arquivos regulares, diretórios e links simbólicos, mantendo em memória campos como permissões em octal e modo simbólico, identificadores de usuário e grupo proprietários (UID/GID), ponteiros de descendência e carimbos de modificação;
+    \item \textbf{Álgebra de Permissões e Máscara \textit{umask}:} As regras de permissão (\textit{rwx}) e a aplicação de filtros de criação de arquivos via \texttt{umask} operam através de operações aritméticas binárias (\textit{bitwise}) em memória, replicando estritamente a semântica de controle de acesso discricionário (DAC) do núcleo Linux;
+    \item \textbf{Sessão, Identidade e Mudança de Contexto:} O simulador mantém uma pilha de execução que emula a alternância de credenciais por meio dos comandos \texttt{su} e \texttt{sudo}, incluindo regras restritivas do arquivo de configuração \texttt{/etc/sudoers};
+    \item \textbf{Parser Lexical e Pipelines:} O interpretador de linha de comando processa pipelines (\texttt{|}), redirecionamentos de entrada e saída padrão (\texttt{>}, \texttt{>>}, \texttt{<}) e expansão de variáveis de ambiente diretamente no navegador com latência zero de digitação.
+\end{enumerate}
+
+\subsection{Componentização e Interface Reativa em React}
+\label{sec:react-interface}
+
+A camada visual da aplicação apoia-se no ecossistema React para desacoplar e manter a coerência de estado entre os diferentes módulos da experiência didática:
+\begin{itemize}
+    \item \textbf{Emulação de Terminal ANSI:} Renderização de um emulador de terminal compatível com sequências de escape ANSI e paleta de cores padrão GNOME Terminal, oferecendo suporte nativo à tecla \texttt{Tab} para autocompletar comandos e caminhos do VFS, navegação pelo histórico de instruções via setas direcionais e editores de texto no terminal (\texttt{nano} e \texttt{vim});
+    \item \textbf{Painel Lateral de Roteiros Guiados:} Interface retrátil que exibe os objetivos de aprendizagem, enunciados das tarefas e o progresso da avaliação sem sobrepor a visualização da tela de trabalho;
+    \item \textbf{Lobby de Prova e Temporizadores Sincronizados:} Módulo de acolhimento para inserção do token temporário de liberação projetado pelo professor, acompanhado de contagem regressiva reativa calibrada periodicamente com o relógio oficial do servidor;
+    \item \textbf{Modais de Apoio e Alertas Pedagógicos:} Componentes flutuantes para acionamento da ``Mãozinha Virtual'' (com preenchimento obrigatório da dúvida), modais de advertência pedagógica em tela cheia na detecção de \textit{DevTools} e janelas discretas de diálogo 1:1 para atendimento docente sobreposto.
+\end{itemize}
+
+% ----------------------------------------------------------
+\section{Back-end e Concorrência de Alta Performance (Server-side)}
+\label{sec:backend-golang}
+% ----------------------------------------------------------
+
+O servidor central desempenha o papel de autoridade confiável da plataforma, custodiando regras de negócio, persistência acadêmica e integridade avaliativa.
+
+\subsection{A Linguagem Golang e o Modelo de Concorrência CSP}
+\label{sec:golang-concorrencia}
+
+A escolha de Golang para o desenvolvimento dos serviços de retaguarda decorre de sua capacidade singular de gerenciar concorrência massiva de I/O de rede com baixo consumo de memória:
+\begin{itemize}
+    \item \textbf{Goroutines e Footprint Reduzido:} Diferente de linguagens baseadas em \textit{threads} pesadas do sistema operacional (que alocam de 1 a 2 MB de pilha por encadeamento) ou de modelos baseados em loop de evento de thread única sujeitos a bloqueios computacionais em tarefas de asserção, as \textit{goroutines} de Go iniciam com pilhas dinâmicas de apenas 2 KB. Isso permite à aplicação manter centenas de conexões \textit{WebSocket} simultâneas por sala com impacto desprezível de memória RAM no servidor;
+    \item \textbf{Comunicação via Channels (CSP):} A troca de mensagens entre a camada de telemetria, a fila de suporte docente e os despachantes de eventos opera sobre canais tipados (\textit{channels}), eliminando riscos de condições de corrida (\textit{race conditions}) e dispensando o uso excessivo de travas manuais de sincronização (\textit{mutexes}).
+\end{itemize}
+
+\subsection{Roteamento de APIs REST com Gin-Gonic}
+\label{sec:gin-gonic}
+
+Para a disponibilização das APIs RESTful, adota-se o micro-framework \textbf{Gin-Gonic}. Desenvolvido em Go sobre árvores de prefixo (\textit{Radix tree}), o Gin proporciona roteamento de altíssima velocidade sem alocação desnecessária de memória durante o ciclo de vida das requisições HTTP:
+\begin{itemize}
+    \item \textbf{Autenticação e Autorização JWT:} \textit{Middlewares} dedicados para verificação de tokens criptográficos, validação de papéis de usuário (\textit{RBAC}: Público, Aluno e Professor) e expiração de sessões;
+    \item \textbf{Endpoints Estruturados:} Gerenciamento de turmas semestrais, inscrições discentes, criação de roteiros de avaliação, emissão e validação de tokens temporais de sala e homologação manual de notas com justificativa docente.
+\end{itemize}
+
+\subsection{Persistência e Mapeamento Objeto-Relacional com GORM}
+\label{sec:gorm-persistencia}
+
+A camada de persistência de dados utiliza a biblioteca \textbf{GORM} integrada ao banco de dados relacional PostgreSQL:
+\begin{itemize}
+    \item \textbf{Modelagem Tipada e Migrações Automáticas:} As entidades do sistema (tais como usuários, turmas, avaliações, sessões, observações comportamentais docentes e eventos de linha do tempo) são declaradas como estruturas tipadas em Go (\textit{structs}) enriquecidas com tags GORM, definindo chaves primárias UUID, índices de consulta e regras estritas de integridade referencial;
+    \item \textbf{Transações ACID e Trilha de Auditoria:} Operações sensíveis de finalização de avaliação e revisão de notas operam em blocos transacionais seguros, garantindo que o registro da pontuação homologada, o carimbo de data/hora e a justificativa pedagógica sejam gravados de forma atômica e consistente.
+\end{itemize}
+
+\subsection{Hub WebSocket Nativo e Streaming de Telemetria}
+\label{sec:websocket-hub}
+
+A orquestração síncrona em tempo real é centralizada em um módulo de \textbf{Hub de WebSockets} implementado em Go puro:
+\begin{enumerate}
+    \item \textbf{Arquitetura do Hub Concorrente:} O Hub central opera em uma \textit{goroutine} independente, coordenando o registro de novos terminais de estudantes (\texttt{register}), o descarte seguro de desconexões (\texttt{unregister}) e o roteamento de mensagens por salas (\texttt{broadcast});
+    \item \textbf{Pares de Goroutines por Cliente:} Cada conexão de estudante ou de professor é atendida por duas rotinas concorrentes: uma responsável pelo bombeamento contínuo de leitura de mensagens do socket (\textit{readPump}) e outra dedicada à escrita não-bloqueante (\textit{writePump}), isolando a comunicação de rede de possíveis lentidões no navegador do usuário;
+    \item \textbf{Desacoplamento do Motor de Asserção:} Quando um evento de quebra de linha (\texttt{Enter}) com snapshot do VFS é recebido pelo socket, o servidor despacha a tarefa de reconstituição e avaliação de critérios para um pool de trabalhadores assíncronos (\textit{worker pool}), liberando o canal de socket para receber novas instruções sem introduzir qualquer atraso perceptível na interface do discente.
+\end{enumerate}

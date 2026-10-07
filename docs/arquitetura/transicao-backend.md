@@ -59,9 +59,21 @@ A nova arquitetura adota um **modelo híbrido de baixa latência e alta confiabi
 2. **Correção Desacoplada no Servidor:** O código que decide se o desafio foi cumprido com êxito roda **exclusivamente no servidor**. O cliente apenas envia o estado final do VFS serializado e/ou o log de comandos executados.
 3. **Controle de Acesso por Sessão e Tokens:** No início da aula presencial, a professora gera ou projeta um **Token de Liberação** (ex: `SO-TURMAA-8742`), com validade restrita ao horário da aula. Alunos em repescagem recebem tokens vinculados a janelas específicas.
 
+### 2.2 Stack Tecnológica Definida
+
+| Camada | Tecnologia | Papel Arquitetural e Justificativa Técnica |
+| :--- | :--- | :--- |
+| **Client Core** | **TypeScript** | Modelagem tipada de nós de i-node, matriz de permissões POSIX (`rwx`), cálculo de `umask`, pilha de identidades (`su`/`sudo`) e parser de shell sem latência de rede. |
+| **Client UI** | **React** | Componentização reativa da interface: emulador de terminal xterm/ANSI, painel lateral colapsável de exercícios, lobby de autenticação por token e modais de suporte. |
+| **Server Core** | **Golang (Go)** | Alta performance compilada, gerenciamento de I/O não-bloqueante e concorrência nativa via Goroutines e Channels (pilha inicial de ~2 KB por conexão WSS). |
+| **Server HTTP** | **Gin-Gonic** | Micro-framework HTTP minimalista de alto desempenho (Radix tree router) para roteamento de endpoints RESTful, middlewares JWT e validação de tokens. |
+| **Server ORM** | **GORM** | Mapeamento Objeto-Relacional idiomático para Go, com suporte a migrations automáticas (*AutoMigrate*), integridade referencial e transações atômicas ACID. |
+| **Server Realtime**| **WebSocket Hub (Go)** | Orquestrador concorrente de eventos (*readPump* / *writePump*) para streaming de telemetria, fila de dúvidas FIFO e despacho assíncrono para *worker pool* de correção. |
+| **Banco de Dados**| **PostgreSQL** | SGBD relacional robusto com suporte a tipos complexos (`JSONB` para snapshots e logs de telemetria, UUID nativo e constraints relacionais). |
+
 ---
 
-## 3. Modelo de Dados Relacional (PostgreSQL / Prisma / TypeORM)
+## 3. Modelo de Dados Relacional (PostgreSQL / GORM)
 
 ```
 [ Usuario ] 1 ── * [ InscricaoTurma ] * ── 1 [ Turma ]
