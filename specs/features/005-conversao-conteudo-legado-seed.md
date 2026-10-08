@@ -1,304 +1,149 @@
-08-10-26-spec-conversao-conteudo-legado-seed-dinamico.md
+# SPEC-005: Extração do Conteúdo Legado e Prova de Equivalência
 
-# Tech Spec / SDD: Conversão de Conteúdo Didático Legado em Dados e Mecanismo de Carga Inicial
+| Campo | Valor |
+| :--- | :--- |
+| **ID** | SPEC-005 |
+| **Status** | Rascunho |
+| **Data de criação** | 08/10/2026 |
+| **Última revisão** | 08/10/2026 |
+| **Autor** | Aruna Architect |
+| **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
+| **Escopo** | Legado (somente leitura) e artefato de dados |
+| **Módulo** | `legacy/scripts/extract` |
+| **Contexto de tela** | Não se aplica |
+| **Prioridade** | Alta |
+| **Depende de** | SPEC-010 (módulos de ensino) |
+| **Substitui** | Nenhuma |
+| **Fontes canônicas** | Seção 3.3 da monografia (`docs/tcc/capitulos/03-arquitetura.tex`); insumo `docs/insumos/conversao-conteudo-legado.md`; código em `legacy/src/conteudo/` |
 
-**Data:** 08/10/2026
-
-**Escopo:** Ambos
-
-**Módulo:** content
-
-**Contexto de Tela (se aplicável):** /app/content e /app/assessment-templates
-
-**Prioridade sugerida:** Alta
+> **Divisão aprovada pelo Tech Lead em 08/10/2026:** a SPEC-005 original foi dividida em três. Esta spec (005) extrai o conteúdo e prova a equivalência das correções; a **SPEC-011** cria o banco de conteúdo, o motor de correção em Go e a carga (seed); a **SPEC-012** lê e exibe o conteúdo. Ordem: 005 → 011 → 012.
+> O corpo desta spec já reflete as recomendações da seção 10, marcadas com (P-xx).
 
 ---
 
 ## 1. Contexto e Problema (Context & Problem Statement)
 
-A base didática do simulador educacional encontra-se inteiramente codificada de maneira estática em TypeScript. Tópicos de estudo, lições, passos demonstrativos, exercícios práticos, suítes de validação programática e questões teóricas residem no diretório legado, totalizando milhares de linhas de código rígido. Qualquer ajuste ortográfico, inclusão de nova abordagem explicativa ou alteração em gabaritos exige intervenção manual de desenvolvimento e reconstrução da aplicação.
+Todo o material didático do simulador está escrito em TypeScript em `legacy/src/conteudo/` (cerca de 5.600 linhas): 8 tópicos de estudo e 1 de simulado, cerca de 90 lições, cerca de 700 passos de comando, 42 desafios de tópico, 180 desafios do simulado em 6 modalidades, 30 questões de quiz, as funções que preparam o ambiente e cerca de 220 funções que corrigem os desafios. Qualquer ajuste exige um programador, e a correção roda no navegador, o que permite fraude.
 
-Essa rigidez técnica inviabiliza as ferramentas de autoria docente e a montagem dinâmica de avaliações parametrizadas descritas na Seção 3.3 da monografia. Para que o corpo docente possa criar, versionar e gerir conteúdos de forma autônoma sem perder o material didático já consolidado e validado pela suíte de testes, faz-se indispensável converter o acervo estático em estruturas relacionais persistidas no banco de dados. A falta desse mecanismo de conversão e carga inicial (seed) impede o avanço das funcionalidades de autoria, bloqueia a criação de bancos de questões parametrizados e inviabiliza a montagem de exames.
-
----
+Para a plataforma nascer com esse material e a docente passar a editá-lo, o conteúdo precisa virar **dados**. Como ele é código (preparos e correções são funções), a conversão não pode ser uma tradução manual: precisa executar o legado, capturar o resultado e provar que as correções convertidas decidem igual às originais.
 
 ## 2. Objetivos (Goals)
 
-* Extrair o acervo estático do ambiente legado sem violar a integridade da suíte de testes.
+- Gerar, a partir do legado, **um único artefato de dados versionado** (manifesto) com módulos, blocos, cenários, questões e modelos de avaliação.
+- Capturar os ambientes de partida **executando** os preparos do legado e serializando o estado com o `Serializador` existente (cenários).
+- Converter cada função `verificar` em uma lista de **condições de validação declarativas** do catálogo fechado definido na SPEC-011.
+- **Provar a equivalência** de cada conversão contra a solução de referência, contra todas as formas alternativas da suíte do legado e contra o cenário intocado.
+- Gerar um **relatório de conversão** legível, com contagens, pendências de revisão e o resultado da prova de cada questão.
+- Exportar **fixtures de equivalência** (estados antes e depois de cada solução, com o resultado esperado) para que o motor de correção em Go (SPEC-011) seja testado contra o mesmo veredito.
 
+### 2.1. Fora de escopo (Non-Goals)
 
-* Executar e serializar programaticamente as rotinas de preparação de ambiente do legado em estruturas canônicas de cenários isolados.
-
-
-* Mapear as funções imperativas de verificação do legado em um catálogo declarativo estruturado de condições de validação legíveis para asserções de retaguarda e envelopes criptográficos.
-
-
-* Estabelecer a equivalência estrita de aprovação das condições declarativas geradas frente à solução oficial de referência e a todas as soluções alternativas pré-existentes.
-
-
-* Estruturar os dados extraídos em modelos relacionais normalizados contendo tópicos didáticos, blocos com tipagem semântica, banco de questões com distinção de uso e modelos de avaliação.
-
-
-* Implementar um comando de carga inicial (seed) idempotente na plataforma de retaguarda, capaz de ingerir o artefato gerado sem duplicar registros ou sobrescrever dados editados por docentes.
-
-
-* Higienizar fragmentos visuais de conteúdo em formato HTML, neutralizando qualquer instrução de script e preservando apenas formatações aceitas no catálogo institucional.
-
-
-
----
+- Tabelas, motor de correção em Go e importação no banco: SPEC-011.
+- Telas de leitura do conteúdo: SPEC-012.
+- Telas de autoria (edição de blocos e questões pela docente).
+- Alterar qualquer arquivo existente em `legacy/`: o extrator só **lê** (P-01).
+- Migrar a função `adaptar` e a lógica de adaptação do motor do simulado: com uma máquina por questão, elas deixam de existir (insumo, seção 4.1).
 
 ## 3. Proposta de Solução (Proposed Solution)
 
 ### 3.1. Frontend (Next.js & SCSS Modules)
 
-O frontend consome a estrutura dinâmica carregada no banco de dados e substitui a leitura de arquivos estáticos legados:
+Não se aplica nesta spec.
 
-* **Renderizador de Blocos Dinâmicos:** componente genérico encarregado de iterar a lista ordenada de blocos associados a uma unidade de conteúdo. Para cada bloco, invoca o componente especializado correspondente (texto com formatação enriquecida, comandos interativos acoplados ao terminal, orientações em destaque, curiosidades contextuais ou passos instrucionais numerados).
+### 3.2. Extrator (TypeScript, dentro de `legacy/`)
 
+O extrator fica em `legacy/scripts/extract/`, roda com o Vitest já instalado no legado, por meio de uma configuração própria (`vitest.extract.config.ts`), sem nova dependência (P-02). Ele importa o conteúdo e o motor do legado em modo somente leitura.
 
-* **Integração de Componentes do Catálogo:** preservação dos componentes funcionais (calculadora interativa de permissões e inspeção visual da saída de listagem de arquivos), associando-os aos parâmetros declarativos fornecidos pela carga.
+Regras:
 
-
-* **Filtragem Segura de Marcação:** módulo utilitário de higienização de marcação textual responsável por processar blocos legados, eliminando propriedades perigosas e retendo classes estruturais homologadas.
-
-
-* **Padronização Visual:** folhas de estilo associadas aos blocos estruturadas sob SCSS Modules em co-location, utilizando tokens semânticos centralizados para bordas, fundos e tipografia, mantendo compatibilidade nos modos claro e escuro.
-
-### 3.2. Backend (Go — Camada de Módulo/Service)
-
-A arquitetura no backend Go estabelece a ingestão e o gerenciamento dos conteúdos no módulo de domínio correspondente:
-
-* **Script Utilitário de Extração (Ambiente Legado):** script isolado no ecossistema legado encarregado de instanciar o sistema de arquivos virtual em memória, invocar as rotinas de preparação na ordem homologada, capturar o estado resultante através do serializador já existente e mapear as funções de verificação para o catálogo declarativo. O resultado é exportado como um manifesto estruturado versionado, acompanhado de sumário de auditoria.
-
-
-* **Validador de Equivalência de Asserções:** componente do extrator que submete as condições declarativas propostas a três verificações obrigatórias: validação positiva com a solução de referência, validação positiva com todas as formas alternativas cadastradas e validação negativa com o cenário intocado. Questões com divergência são sinalizadas com pendência de revisão e marcadas com estado de rascunho.
-
-
-* **Comando de Ingestão e Carga (Seed):** rotina de linha de comando no backend Go desacoplada das migrações estruturais do banco de dados. Executa sob transação relacional atômica utilizando o padrão transacional configurado.
-
-
-* **Mapeamento e Idempotência:** utilização das chaves identificadoras originais do legado como chaves naturais de conciliação. Na execução do comando, registros inexistentes são inseridos; registros existentes sem alteração por docentes são atualizados com metadados do pacote; registros que possuam indicação de modificação manual docente são integralmente preservados.
-
-
-* **Tratamento de Erros:** mapeamento de inconsistências no manifesto, corrupção sintática de arquivos e falhas de persistência utilizando o envelope padronizado de Problem Details (RFC 7807).
-
-
-
----
+- **RN-01 (inventário):** percorre `CatalogoDeTopicos`, as modalidades do simulado e o quiz e gera um item para cada tópico, lição, passo, desafio e questão, com a chave de origem do legado (por exemplo, `bas-fac-1`) como identidade estável.
+- **RN-02 (módulos e blocos):** cada tópico vira um módulo de ensino (SPEC-010) com título, descrição, ícone, cor e ordem. Cada lição vira um grupo ordenado de blocos tipados (catálogo de blocos da SPEC-011):
+  - descrição e sintaxe → `TEXT`;
+  - exemplos → `COMMAND`, com comando, explicação, terminal, login e respostas;
+  - opções → `TEXT` com tabela;
+  - dicas → `TIP`;
+  - "na vida real" → `CURIOSITY` e "pegadinha" → `TIP` com destaque de alerta (P-05);
+  - componente extra → `WIDGET` com a referência do componente (`PERMISSION_CALCULATOR` ou `LS_ANATOMY`).
+  
+  Os conceitos em HTML de cada tópico viram `LEGACY_HTML`, já filtrados pela lista de marcações permitidas (RN-08).
+- **RN-03 (simulado):** os 180 desafios e as 30 questões do quiz formam um módulo de ensino próprio, "Simulados de certificação" (P-04), com uso `ASSESSMENT`. As 6 modalidades viram 6 modelos de avaliação de 30 questões fixas cada.
+- **RN-04 (cenários):** para cada questão prática, o extrator cria uma máquina nova, executa o preparo na mesma ordem do motor do legado (preparo do tópico ou da modalidade, preparo do desafio e regras da tabela de pré-requisitos do `MotorQuestoesSimulado`) e serializa o resultado. O preparo do tópico ou da modalidade gera o **cenário base**; o de cada desafio gera um **cenário derivado**, com referência ao base. Nesta fase, o derivado guarda o estado completo, e não só a diferença (P-06).
+- **RN-05 (conversão de correções):** cada `verificar` é convertido em condições do catálogo da SPEC-011 por uma tabela de tradução escrita no extrator, uma entrada por desafio. Desafios sem tradução automática recebem uma **sugestão** gerada pela diferença entre o cenário e o estado depois da solução de referência e ficam com status de revisão pendente.
+- **RN-06 (prova de equivalência):** cada lista de condições só é aceita se, avaliada pelo avaliador TypeScript do catálogo, (a) **aprovar** o estado depois da solução de referência, (b) **aprovar** o estado depois de cada forma alternativa cadastrada em `legacy/tests/simulado_formas_alternativas.test.ts` e (c) **reprovar** o cenário intocado. Os vereditos são comparados com o `verificar` original nos mesmos estados; qualquer divergência rebaixa a questão para revisão pendente.
+- **RN-07 (status inicial):** questão com prova aprovada sai como `PUBLISHED`; com revisão pendente, como `DRAFT`.
+- **RN-08 (HTML seguro):** o HTML legado passa por uma lista fechada de marcações e classes visuais; *scripts*, atributos de evento e URLs `javascript:` são removidos. O backend repete a filtragem na importação (SPEC-011), como defesa em profundidade.
+- **RN-09 (artefato):** o manifesto é gravado em `backend/internal/modules/content/seed/data/content_manifest.json`, com campo de versão do formato, data de geração e *hash* do conteúdo. O relatório vai para `content_report.md`, e as fixtures de equivalência para `equivalence_fixtures.json`, no mesmo diretório (P-03).
+- **RN-10 (reprodutibilidade):** duas execuções seguidas sobre o mesmo legado geram artefatos idênticos byte a byte (ordenação estável e nenhum carimbo de tempo dentro dos itens).
 
 ## 4. Modelo de Dados (Data Model)
 
-A modelagem de dados situa-se no schema relacional `project-manager`:
+Não há tabelas nesta spec. O formato do manifesto segue as entidades da SPEC-011:
 
-* **Tabela `study_topics`:**
-* Armazena as unidades temáticas de estudo.
-
-
-* Colunas: identificador primário UUIDv7, chave de reconciliação de origem (texto, única, indexada), título (texto, não nulo), descrição resumida (texto, não nulo), identificador do ícone institucional (texto, não nulo), identificador cromático (texto, não nulo), ordem ordinal de exibição (inteiro, não nulo), chave do cenário base (UUIDv7, opcional), carimbos de criação, atualização e exclusão lógica.
-
-
-
-
-* **Tabela `content_blocks`:**
-* Armazena os blocos ordenados de cada tópico de estudo.
-
-
-* Colunas: identificador primário UUIDv7, chave estrangeira para `study_topics` (UUIDv7, não nula), tipo de bloco (enum: TEXT, COMMAND, TIP, CURIOSITY, STEP_BY_STEP, CARDS, WIDGET, LEGACY_HTML), ordem sequencial (inteiro, não nulo), payload estruturado em JSONB contendo os dados específicos do tipo de bloco (textos, tabelas, comandos, parâmetros de componentes ou HTML higienizado), carimbos de criação e atualização.
-
-
-* Índices: índice composto sobre tópico e ordem sequencial para acelerar a renderização da trilha.
-
-
-* **Tabela `scenarios`:**
-* Armazena as estruturas de ambiente e receitas de montagem do sistema de arquivos virtual.
-
-
-* Colunas: identificador primário UUIDv7, chave de reconciliação de origem (texto, opcional, indexada), chave estrangeira para cenário ascendente (UUIDv7, opcional, autorreferenciada para suporte à herança em camadas), snapshot estruturado em JSONB (árvore de nós, propriedades de permissão, contas de usuário e grupos), carimbos de criação e atualização.
-
-
-
-
-* **Tabela `questions`:**
-* Banco unificado de itens teóricos e práticos.
-
-
-* Colunas: identificador primário UUIDv7, chave de reconciliação de origem (texto, única, indexada), chave estrangeira para `study_topics` (UUIDv7, não nula), tipo da questão (enum: PRACTICAL, THEORETICAL_SINGLE, THEORETICAL_MULTIPLE, THEORETICAL_BOOLEAN, DISCURSIVE), finalidade de uso (enum: EXERCISE, ASSESSMENT), nível de dificuldade (enum: EASY, MEDIUM, HARD), status de publicação (enum: DRAFT, PUBLISHED, ARCHIVED), título (texto, não nulo), enunciado em Markdown (texto, não nulo), texto de dica (texto, opcional), chave estrangeira para `scenarios` (UUIDv7, opcional, aplicável a questões práticas), passos da solução de referência em JSONB (opcional), lista declarativa de condições de validação em JSONB (opcional), alternativas e gabarito em JSONB (aplicável a questões teóricas), indicador booleano de modificação manual docente, carimbos de criação, atualização e exclusão lógica.
-
-
-* Índices: índices compostos para filtragem por tópico, finalidade de uso, nível de dificuldade e status de publicação.
-
-
-
-
-* **Tabela `assessment_templates`:**
-* Modelos reutilizáveis de provas e simulados.
-
-
-* Colunas: identificador primário UUIDv7, chave de reconciliação de origem (texto, única, indexada), título (texto, não nulo), descrição (texto, não nulo), duração regulamentar em minutos (inteiro, não nulo), nota máxima atribuída (decimal, não nulo), status de disponibilidade (enum: ACTIVE, ARCHIVED), carimbos de criação, atualização e exclusão lógica.
-
-
-
-
-* **Tabela `assessment_template_questions`:**
-* Composição fixa de questões associadas aos modelos de simulado.
-
-
-* Colunas: identificador primário UUIDv7, chave estrangeira para `assessment_templates` (UUIDv7, não nula), chave estrangeira para `questions` (UUIDv7, não nula), ordem ordinal na avaliação (inteiro, não nulo), peso individual atribuído (decimal, não nulo).
-
-
-* Constraints: unicidade composta entre modelo de avaliação e questão.
-
-
-
----
+| Seção do manifesto | Conteúdo |
+| :--- | :--- |
+| `formatVersion`, `generatedFrom`, `contentHash` | Metadados de versão e rastreabilidade |
+| `modules` | Chave de origem, título, descrição, ícone, cor, ordem e lista ordenada de blocos (tipo e conteúdo) |
+| `scenarios` | Chave de origem, chave do cenário base (opcional) e estado serializado da máquina |
+| `questions` | Chave de origem, módulo, tipo, uso, nível, enunciado, dica, cenário, solução de referência, condições de validação ou alternativas e gabarito, status inicial |
+| `assessmentTemplates` | Chave de origem, título, descrição, duração, nota máxima e lista ordenada de questões com peso |
 
 ## 5. Contrato de API (API Contract)
 
-Sem endpoints novos voltados ao usuário final nesta especificação. A funcionalidade é executada internamente via comando de carga inicial (seed) acionado por utilitário de console do backend Go e por rotinas internas de consulta dos módulos.
-
----
+Não se aplica nesta spec: nenhum endpoint é criado.
 
 ## 6. Impacto e Riscos (Impact & Risks)
 
-* **Risco de Quebra na Execução da Suíte Legada:** a criação do script extrator alterar arquivos de regras ou a árvore original do simulador client-side, quebrando testes existentes.
-
-
-*Mitigação:* O extrator deve operar estritamente em modo de leitura sobre o diretório legado, utilizando chamadas idempotentes e gerando o manifesto de saída sem modificar nenhum arquivo fonte ou de teste.
-
-
-* **Risco de Divergência entre Validação Imperativa e Declarativa:** funções antigas de verificação utilizarem lógicas customizadas complexas que não se adaptem ao catálogo declarativo, provocando aprovações ou reprovações indevidas.
-
-
-*Mitigação:* Aplicação compulsória da prova de equivalência tripla no extrator (solução canônica, soluções alternativas cadastradas e cenário inicial). Questões com qualquer inconsistência são marcadas com estado de rascunho para auditoria e aprovação docente antes da entrada em produção.
-
-
-* **Risco de Sobrescrita de Modificações Docentes em Reexecuções de Carga:** reexecutar a carga em ambiente já populado sobrescrever alterações efetuadas pelos professores na interface.
-
-
-*Mitigação:* Avaliação obrigatória do indicador booleano de modificação manual antes de aplicar atualizações vindas do manifesto, preservando alterações humanas de forma definitiva.
-
-
-* **Risco de Execução de Scripts Maliciosos via Conteúdo Histórico:** fragmentos HTML legados possuírem vetores de script que venham a ser executados nos navegadores dos estudantes.
-
-
-*Mitigação:* Passagem obrigatória de todo conteúdo HTML por analisador de segurança no extrator e no renderizador, retendo apenas tags visuais homologadas e rejeitando qualquer manipulação de eventos ou scripts.
-
-
-
----
+- **Alterar o legado sem querer.**
+  *Mitigação:* o extrator só lê; o único conteúdo novo em `legacy/` é `legacy/scripts/extract/` e a configuração `vitest.extract.config.ts`. A revisão do commit confirma que nenhum arquivo existente mudou.
+- **Correção convertida aprovando ou reprovando diferente da original.**
+  *Mitigação:* prova de equivalência (RN-06) e rebaixamento para rascunho em qualquer divergência.
+- **Motor em Go divergindo do avaliador TypeScript.**
+  *Mitigação:* as fixtures de equivalência (RN-09) viram testes obrigatórios do motor em Go na SPEC-011.
+- **HTML legado com código executável.**
+  *Mitigação:* filtragem por lista fechada na extração e de novo na importação (RN-08).
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-* [ ] QUANDO o extrator de dados for executado sobre o módulo legado, O SISTEMA DEVE gerar o manifesto estruturado contendo a totalidade dos tópicos didáticos, lições, passos, exercícios práticos, modalidades do simulado e questões teóricas sem falhas de sintaxe.
-
-
-* [ ] QUANDO as rotinas de preparação de ambiente do legado forem processadas, O SISTEMA DEVE instanciar o sistema de arquivos virtual, aplicar as instruções e serializar o estado resultante em entidades canônicas de cenários.
-
-
-* [ ] QUANDO um cenário herdar de outro na árvore de conteúdo, O SISTEMA DEVE preservar a referência ao cenário ascendente e manter a imutabilidade entre execuções concorrentes de questões práticas.
-
-
-* [ ] QUANDO as funções legadas de verificação forem convertidas, O SISTEMA DEVE mapeá-las unicamente a regras suportadas no catálogo declarativo de condições de validação.
-
-
-* [ ] QUANDO uma condição declarativa for submetida ao validador de equivalência, O SISTEMA DEVE aprovar a solução de referência oficial, aprovar a totalidade das formas alternativas registradas e reprovar o cenário não modificado.
-
-
-* [ ] SE uma questão prática falhar em qualquer etapa da validação tripla de equivalência, ENTÃO O SISTEMA DEVE sinalizar a pendência no relatório e persistir a questão com status de rascunho.
-
-
-* [ ] QUANDO o comando de carga inicial for executado pela primeira vez, O SISTEMA DEVE persistir todos os tópicos didáticos, blocos de conteúdo, cenários, questões e modelos de avaliação dentro de uma transação relacional atômica.
-
-
-* [ ] QUANDO o comando de carga inicial for executado subsequentemente sobre uma base já populada, O SISTEMA DEVE manter a integridade dos dados sem gerar registros duplicados.
-
-
-* [ ] SE um registro no banco de dados possuir a indicação de alteração manual realizada por docente, ENTÃO O SISTEMA DEVE preservar os valores existentes sem sobrescrevê-los pelos dados do manifesto.
-
-
-* [ ] QUANDO blocos de conteúdo contendo marcações HTML forem processados, O SISTEMA DEVE eliminar quaisquer declarações de scripts e propriedades executáveis, preservando exclusivamente elementos visuais estruturados.
-
-
-* [ ] QUANDO a suíte completa de testes automatizados do ecossistema legado for executada, TODOS OS TESTES DEVEM continuar passando com sucesso, sem nenhuma regressão.
-
-
-* [ ] QUANDO os componentes de visualização de blocos e questões forem renderizados no frontend, O SISTEMA DEVE utilizar estritamente tokens semânticos contidos em `_tokens.scss`, mantendo contraste e paridade nos modos claro e escuro.
-
----
+- [ ] **CA-01**: QUANDO o extrator for executado, O SISTEMA DEVE gerar o manifesto com todos os tópicos, lições, passos, desafios, questões de quiz e modalidades do legado, e o relatório DEVE trazer as contagens de cada um.
+- [ ] **CA-02**: QUANDO o extrator for executado duas vezes seguidas, os três artefatos DEVEM ser idênticos byte a byte.
+- [ ] **CA-03**: Para cada questão prática `PUBLISHED`, as condições convertidas DEVEM aprovar o estado depois da solução de referência e de todas as formas alternativas cadastradas, e DEVEM reprovar o cenário intocado.
+- [ ] **CA-04**: SE alguma etapa da prova falhar ou divergir do `verificar` original, ENTÃO a questão DEVE sair como `DRAFT` e constar no relatório com o motivo.
+- [ ] **CA-05**: Todo cenário derivado DEVE referenciar o seu cenário base.
+- [ ] **CA-06**: Nenhum bloco `LEGACY_HTML` do manifesto DEVE conter `<script`, atributos `on*` ou URLs `javascript:`.
+- [ ] **CA-07**: O extrator NÃO DEVE alterar nenhum arquivo existente em `legacy/`.
+- [ ] **CA-08**: As fixtures de equivalência DEVEM conter, para cada questão prática, os estados testados e o veredito esperado.
 
 ## 8. Plano de Testes (Test Plan)
 
-### Backend
-
-* Executar teste de validação do comando de carga inicial garantindo a inserção atômica de todos os itens do manifesto relacional.
-
-
-* Testar a idempotência da carga inicial executando o comando duas vezes consecutivas sobre o mesmo banco de dados e verificando se as contagens totais de linhas nas tabelas permanecem rigorosamente idênticas.
-
-
-* Testar a proteção de edição docente alterando manualmente o enunciado de uma questão no banco, marcando o indicador de edição manual, reexecutando a carga e atestando que a alteração docente foi preservada.
-
-
-* Executar testes de unidade sobre o avaliador de regras declarativas, assegurando que todas as regras cadastradas (existência de nós, integridade de conteúdo, octais de permissão, propriedades de grupos e pacotes) reproduzam com fidelidade o comportamento das chamadas imperativas correspondentes.
-
-
-
-### Frontend
-
-* Testar a renderização dos tópicos didáticos e de seus blocos dinâmicos em tela, validando a alternância visual e o contraste em ambos os temas (claro e escuro).
-* Testar a higienização de blocos contendo marcações HTML, submetendo fragmentos com scripts embutidos e garantindo que o sanitizador remova as instruções perigosas mantendo a estrutura textual íntegra.
-
-
-* Validar a correta exibição dos parâmetros nos componentes interativos preservados (calculadora de permissões e anatomia da listagem).
-
-
-
-### Legado / Integridade
-
-* Executar integralmente a suíte de testes Vitest dentro da pasta legada, atestando que o isolamento do extrator de conteúdo não causou impactos nas execuções de conformidade do terminal e do sistema de arquivos.
-
-
-
----
+- **Extrator (Vitest, dentro de `legacy/`):** testes do avaliador TypeScript para cada tipo de condição (positivo e negativo); da tabela de tradução sobre uma amostra de cada tópico; da filtragem de HTML com *scripts*, eventos e `javascript:` (CA-06); e de reprodutibilidade (CA-02).
+- **Prova de equivalência:** a própria execução é o teste de CA-03 e CA-04; o relatório lista o resultado por questão.
+- **Inspeção:** `git status` depois da execução mostra só arquivos novos (CA-07).
+- **Cobertura:** acima de 80% nas funções do extrator (`ARCHITECTURE.md`, seção 5).
 
 ## 9. Contexto Final da IA (AI Final Context Execution)
 
-Para executar esta especificação, o desenvolvedor ou agente automatizado deve seguir uma sequência coordenada entre os ambientes legado e backend:
+1. **Pré-leitura:** insumo `docs/insumos/conversao-conteudo-legado.md`, SPEC-010, SPEC-011 (catálogo de blocos e condições) e o código de `legacy/src/conteudo/`, `legacy/src/linux/Serializador.ts` e `legacy/src/app/MotorQuestoesSimulado.ts`.
+2. **Ordem:** avaliador TypeScript do catálogo → captura de cenários → tabela de tradução das correções → prova de equivalência → montagem de módulos e blocos → filtragem de HTML → escrita dos três artefatos.
+3. **Arquivos a criar:** `legacy/scripts/extract/` (código e testes), `legacy/vitest.extract.config.ts` e os três artefatos em `backend/internal/modules/content/seed/data/`.
+4. **Definição de pronto:** CA-01 a CA-08 verificados e relatório revisado pelo Tech Lead.
 
-1. Desenvolver o extrator no ecossistema legado (`legacy/scripts/extract_content.ts`), consumindo os tópicos e desafios de `legacy/src/conteudo/`, instanciando a máquina simulada para capturar snapshots de cenários e aplicando a bateria de testes de equivalência de validações declarativas.
+## 10. Pendências para aprovação
 
+| ID | Pendência | Recomendação (já refletida no corpo) |
+| :--- | :--- | :--- |
+| P-01 | O `legacy/` está congelado; o extrator precisa executar o conteúdo, que é código. | Autorizar só a criação de `legacy/scripts/extract/` e `legacy/vitest.extract.config.ts`; nenhum arquivo existente muda. |
+| P-02 | Como executar TypeScript do legado fora do navegador sem dependência nova. | Executar pelo Vitest já instalado no legado, com configuração própria. |
+| P-03 | Formato e local do artefato. | JSON versionado em `backend/internal/modules/content/seed/data/`, com relatório em Markdown e fixtures de equivalência. |
+| P-04 | Simulado: módulo de ensino próprio ou desafios distribuídos pelos módulos de assunto. | Módulo próprio, "Simulados de certificação", que mantém a correspondência um a um com o legado. |
+| P-05 | "Pegadinha" e "na vida real": que tipo de bloco. | "Na vida real" → `CURIOSITY`; "pegadinha" → `TIP` com destaque de alerta. |
+| P-06 | Cenário derivado com o estado completo ou só a diferença. | Estado completo nesta fase (simples e verificável); diferença numa otimização futura. |
+| P-07 | A suíte do legado deixou de ser critério de pronto (congelamento de 08/10/2026), mas a SPEC-005 original exigia mantê-la passando. | Não executar a suíte do legado; a prova de equivalência substitui esse critério. |
 
-2. Executar a extração gerando o manifesto consolidado e o relatório de conversão sob `backend/internal/modules/content/seeds/data/content_manifest.json`.
-3. Implementar as migrações relacionais no banco de dados para criação das tabelas no schema `project-manager`.
+---
 
+## Histórico de revisões
 
-4. Desenvolver as entidades, repositórios e serviços no módulo de conteúdo do backend (`backend/internal/modules/content/...`), implementando o motor de asserções declarativas e o comando utilitário de carga inicial com controle de idempotência.
-
-
-5. Implementar no frontend os componentes dinâmicos de visualização de blocos e sanitização segura em `frontend/src/components/ContentRenderer/...` consumindo os tokens semânticos.
-
-
-
-Arquivos e pacotes a criar ou alterar:
-
-* `legacy/scripts/extract_content.ts`
-* `backend/migrations/[timestamp]_create_content_tables.sql`
-* `backend/internal/modules/content/domain/topic.go`
-* `backend/internal/modules/content/domain/block.go`
-* `backend/internal/modules/content/domain/scenario.go`
-* `backend/internal/modules/content/domain/question.go`
-* `backend/internal/modules/content/domain/assessment_template.go`
-* `backend/internal/modules/content/repository/content_repository.go`
-* `backend/internal/modules/content/service/content_service.go`
-* `backend/internal/modules/content/service/validator_engine.go`
-* `backend/internal/modules/content/seeds/seed_content.go`
-* `backend/internal/modules/content/seeds/data/content_manifest.json`
-* `frontend/src/components/ContentRenderer/ContentRenderer.tsx`
-* `frontend/src/components/ContentRenderer/ContentRenderer.module.scss`
-* `frontend/src/components/ContentRenderer/blocks/TextBlock.tsx`
-* `frontend/src/components/ContentRenderer/blocks/CommandBlock.tsx`
-* `frontend/src/components/ContentRenderer/blocks/LegacyHtmlBlock.tsx`
-* `frontend/src/utils/sanitizer.ts`
-
-Dependências de execução: a implementação depende da conclusão e aprovação da infraestrutura compartilhada (SPEC-004). O comando de carga deve ser executado obrigatoriamente após as migrações estruturais do banco de dados e antes do início das avaliações formais na plataforma.
+| Data | Autor | Alteração |
+| :--- | :--- | :--- |
+| 08/10/2026 | Aruna Architect | Criação (versão única com extração, banco, seed e exibição) |
+| 08/10/2026 | Implementador (Claude) | Divisão aprovada pelo Tech Lead: esta spec fica com a extração e a prova de equivalência; banco, motor de correção e carga vão para a SPEC-011; leitura e exibição, para a SPEC-012. Alinhada à SPEC-010 (módulos de ensino), ao insumo `docs/insumos/conversao-conteudo-legado.md` e ao congelamento do legado. Pendências P-01 a P-07 |
