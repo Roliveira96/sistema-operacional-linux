@@ -1,0 +1,212 @@
+@use "../../styles/mixins";
+
+.wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: calc(100vh - 4rem);
+  padding: var(--space-4);
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 1fr;
+  width: 100%;
+  max-width: 960px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+
+  @include mixins.from("md") {
+    grid-template-columns: 1fr 1.15fr;
+  }
+}
+
+// Left institutional presentation panel
+.brandPanel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-6);
+  background-color: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border);
+
+  @include mixins.from("md") {
+    padding: var(--space-8);
+    border-right: 1px solid var(--color-border);
+    border-bottom: none;
+  }
+}
+
+.badge {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-brand-badge-text);
+  background-color: var(--color-brand-badge-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-4);
+}
+
+.brandTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.25;
+  margin: 0 0 var(--space-3);
+
+  @include mixins.from("md") {
+    font-size: 1.75rem;
+  }
+}
+
+.brandSubtitle {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--space-6);
+}
+
+.terminalBox {
+  border-radius: var(--radius-md);
+  background-color: var(--color-terminal-bg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+}
+
+.terminalHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-terminal-header);
+}
+
+.terminalDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-text-secondary);
+  opacity: 0.6;
+}
+
+.terminalTitle {
+  margin-left: var(--space-2);
+  font-size: 0.6875rem;
+  font-family: monospace;
+  color: var(--color-text-secondary);
+}
+
+.terminalBody {
+  margin: 0;
+  padding: var(--space-3);
+  font-family: monospace;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-terminal-text);
+  overflow-x: auto;
+}
+
+.prompt {
+  color: var(--color-brand-gold);
+  margin-right: var(--space-1);
+}
+
+.output {
+  color: var(--color-text-secondary);
+}
+
+// Right interactive form panel
+.formPanel {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6);
+  background-color: var(--color-surface);
+
+  @include mixins.from("md") {
+    padding: var(--space-8);
+  }
+}
+
+.tabList {
+  display: flex;
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+  margin-bottom: var(--space-6);
+}
+
+.tab {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  @include mixins.focusable;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.tabActive {
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.socialSection {
+  margin-bottom: var(--space-4);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: var(--space-2) 0 var(--space-4);
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+.dividerText {
+  padding: 0 var(--space-3);
+  font-size: 0.8125rem;
+  text-transform: lowercase;
+  color: var(--color-text-secondary);
+}
+
+.formView {
+  animation: auth-slide-fade 0.25s ease-out;
+}
+
+@keyframes auth-slide-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,18 +1,12 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { LoginForm } from "@/components/LoginForm/LoginForm";
+import { AuthContainer } from "@/components/AuthContainer/AuthContainer";
 
 function LoginContent() {
-  const router = useRouter();
   const reason = useSearchParams().get("reason");
-  return (
-    <LoginForm
-      reason={reason}
-      onSuccess={(result) => router.replace(result.mustChangePassword ? "/change-password" : "/app")}
-    />
-  );
+  return <AuthContainer initialMode="LOGIN" reason={reason} />;
 }
 
 export default function LoginPage() {

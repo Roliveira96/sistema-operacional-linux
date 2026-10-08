@@ -14,6 +14,8 @@ describe("authService", () => {
     const svc = createAuthService(createHttpClient(fetcher));
 
     await svc.login("a1234567", "pw");
+    await svc.register("Maria Silva", "maria@utfpr.edu.br", "pw", "1234567");
+    await svc.register("Maria Silva", "maria@utfpr.edu.br", "pw");
     await svc.logout();
     await svc.me();
     await svc.forgotPassword("a1234567");
@@ -23,6 +25,16 @@ describe("authService", () => {
     const calls = fetcher.mock.calls.map(([url, init]) => [url, init.method, init.body]);
     expect(calls).toEqual([
       ["/api/v1/auth/login", "POST", JSON.stringify({ identifier: "a1234567", password: "pw" })],
+      [
+        "/api/v1/auth/register",
+        "POST",
+        JSON.stringify({ name: "Maria Silva", email: "maria@utfpr.edu.br", password: "pw", academicId: "1234567" }),
+      ],
+      [
+        "/api/v1/auth/register",
+        "POST",
+        JSON.stringify({ name: "Maria Silva", email: "maria@utfpr.edu.br", password: "pw" }),
+      ],
       ["/api/v1/auth/logout", "POST", undefined],
       ["/api/v1/auth/me", "GET", undefined],
       ["/api/v1/auth/forgot-password", "POST", JSON.stringify({ identifier: "a1234567" })],
@@ -63,10 +75,17 @@ describe("describeAuthError", () => {
   it("maps every known problem to Portuguese", () => {
     expect(describeAuthError(p("invalid-credentials"))).toMatch(/incorretos/);
     expect(describeAuthError(p("validation-error", { invalidParams: [{ name: "identifier", reason: "x" }] }))).toMatch(/RA/);
+    expect(describeAuthError(p("validation-error", { invalidParams: [{ name: "academicId", reason: "x" }] }))).toMatch(/7 dígitos/);
+    expect(describeAuthError(p("validation-error", { invalidParams: [{ name: "email", reason: "x" }] }))).toMatch(/e-mail válido/);
     expect(describeAuthError(p("validation-error"))).toMatch(/Preencha/);
     expect(describeAuthError(p("rate-limited", { retryAfterSeconds: 30 }))).toMatch(/30 s/);
     expect(describeAuthError(p("rate-limited"))).toMatch(/60 s/);
     expect(describeAuthError(p("reset-token-invalid"))).toMatch(/expirou/);
+    expect(describeAuthError(p("email-taken"))).toMatch(/já está em uso/);
+    expect(describeAuthError(p("academic-id-taken"))).toMatch(/já está em uso/);
+    expect(describeAuthError(p("account-inactive"))).toMatch(/suspensa ou inativa/);
+    expect(describeAuthError(p("oauth-invalid-request"))).toMatch(/Google/);
+    expect(describeAuthError(p("oauth-unauthorized"))).toMatch(/Google/);
     expect(describeAuthError(p("weak-password", { violations: ["TOO_SHORT", "UNKNOWN"] }))).toMatch(/10 caracteres.*UNKNOWN/);
     expect(describeAuthError(p("weak-password"))).toMatch(/inesperado/);
     expect(describeAuthError(new NetworkError(null))).toMatch(/conexão/);

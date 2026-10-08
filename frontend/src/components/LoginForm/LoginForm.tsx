@@ -18,10 +18,18 @@ export interface LoginFormProps {
   /** Why the user landed here: IDLE, ABSOLUTE or LOGOUT. */
   reason?: string | null;
   service?: Pick<AuthService, "login">;
+  embed?: boolean;
+  onSwitchToRegister?: () => void;
 }
 
-/** Login by e-mail or academic id (SPEC-003). */
-export function LoginForm({ onSuccess, reason, service = authService }: LoginFormProps) {
+/** Login by e-mail or academic id (SPEC-003, SPEC-008). */
+export function LoginForm({
+  onSuccess,
+  reason,
+  service = authService,
+  embed = false,
+  onSwitchToRegister,
+}: LoginFormProps) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -60,36 +68,52 @@ export function LoginForm({ onSuccess, reason, service = authService }: LoginFor
   const reasonText = reason ? messages.auth.login.reason[reason] : undefined;
   const locked = lockedSeconds > 0;
 
+  const formElement = (
+    <form className={styles.form} onSubmit={submit} noValidate>
+      {reasonText && <Alert tone="info">{reasonText}</Alert>}
+      {error && <Alert tone="danger">{error}</Alert>}
+      {locked && <Alert tone="warning">{messages.auth.login.rateLimited(lockedSeconds)}</Alert>}
+      <TextField
+        label={messages.auth.login.identifier}
+        hint={messages.auth.login.identifierHint}
+        name="identifier"
+        autoComplete="username"
+        value={identifier}
+        onChange={(e) => setIdentifier(e.target.value)}
+        required
+      />
+      <PasswordField
+        label={messages.auth.login.password}
+        name="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      <Button type="submit" block disabled={submitting || locked}>
+        {submitting ? messages.auth.login.submitting : messages.auth.login.submit}
+      </Button>
+      <Link href="/forgot-password" className={styles.link}>
+        {messages.auth.login.forgot}
+      </Link>
+      {onSwitchToRegister && (
+        <div className={styles.switchWrapper}>
+          <span>{messages.auth.unified.noAccount}</span>{" "}
+          <button type="button" className={styles.linkButton} onClick={onSwitchToRegister}>
+            {messages.auth.unified.registerAction}
+          </button>
+        </div>
+      )}
+    </form>
+  );
+
+  if (embed) {
+    return formElement;
+  }
+
   return (
     <AuthCard title={messages.auth.login.title} subtitle={messages.auth.login.subtitle}>
-      <form className={styles.form} onSubmit={submit} noValidate>
-        {reasonText && <Alert tone="info">{reasonText}</Alert>}
-        {error && <Alert tone="danger">{error}</Alert>}
-        {locked && <Alert tone="warning">{messages.auth.login.rateLimited(lockedSeconds)}</Alert>}
-        <TextField
-          label={messages.auth.login.identifier}
-          hint={messages.auth.login.identifierHint}
-          name="identifier"
-          autoComplete="username"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          required
-        />
-        <PasswordField
-          label={messages.auth.login.password}
-          name="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <Button type="submit" block disabled={submitting || locked}>
-          {submitting ? messages.auth.login.submitting : messages.auth.login.submit}
-        </Button>
-        <Link href="/forgot-password" className={styles.link}>
-          {messages.auth.login.forgot}
-        </Link>
-      </form>
+      {formElement}
     </AuthCard>
   );
 }

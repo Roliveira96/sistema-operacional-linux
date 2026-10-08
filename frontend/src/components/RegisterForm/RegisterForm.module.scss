@@ -1,17 +1,7 @@
-@use "../../styles/mixins";
-
 .form {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.link {
-  align-self: center;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-
-  @include mixins.focusable;
 }
 
 .switchWrapper {
@@ -43,4 +33,3 @@
     outline-offset: 2px;
   }
 }
-

@@ -10,6 +10,13 @@ export interface LoginResult {
   sessionExpiresAt: string;
 }
 
+export interface RegisterResult {
+  userId: string;
+  name: string;
+  email: string;
+  role: Role;
+}
+
 export interface CurrentUser {
   userId: string;
   email: string;
@@ -21,10 +28,17 @@ export interface CurrentUser {
   sessionExpiresAt: string;
 }
 
-/** Auth API calls (SPEC-003). The session cookie is handled by the browser. */
+/** Auth API calls (SPEC-003, SPEC-008). The session cookie is handled by the browser. */
 export function createAuthService(client: HttpClient = httpClient) {
   return {
     login: (identifier: string, password: string) => client.post<LoginResult>("/auth/login", { identifier, password }),
+    register: (name: string, email: string, password: string, academicId?: string) =>
+      client.post<RegisterResult>("/auth/register", {
+        name,
+        email,
+        password,
+        ...(academicId ? { academicId } : {}),
+      }),
     logout: () => client.post<void>("/auth/logout"),
     me: () => client.get<CurrentUser>("/auth/me", { cache: "no-store" }),
     forgotPassword: (identifier: string) => client.post<{ message: string }>("/auth/forgot-password", { identifier }),
