@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-002 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -12,12 +12,12 @@
 | **Módulo** | `student` |
 | **Contexto de tela** | `/app/students`, `/app/classes/[id]/students`, `/invite/[token]` |
 | **Prioridade** | Alta |
-| **Depende de** | SPEC-004 (Fundação), SPEC-003 (Autenticação e Usuários), SPEC-007 (Turmas, a redigir) |
+| **Depende de** | SPEC-004 (Fundação), SPEC-003 (Autenticação e Usuários), SPEC-009 (CRUD de Turmas e Gestão Acadêmica) |
 | **Substitui** | Nenhuma |
 | **Fontes canônicas** | `docs/arquitetura/transicao-backend.md`: seção 3.1 (`InscricaoTurma`) e seção 4.2 (gestão de turmas e onboarding discente) |
 
-> **Ordem de implementação aprovada:** SPEC-004 → SPEC-003 → SPEC-007 → **SPEC-002**.
-> Esta spec só pode ser aprovada depois que as pendências da seção 10 forem resolvidas.
+> **Ordem de implementação aprovada:** SPEC-004 → SPEC-003 → SPEC-009 → **SPEC-002**.
+> Pendências da seção 10 resolvidas e spec formalmente aprovada pelo Tech Lead.
 
 ---
 
@@ -93,25 +93,24 @@ A tabela `users`, com `academic_id`, é definida na SPEC-003.
 | `created_at`, `updated_at` | timestamp | Sim | | |
 | `deleted_at` | timestamp | Não | soft delete | |
 
-### 4.2. `enrollments`
+### 4.2. `class_enrollments`
 
-Dono da tabela: ver pendência P-01.
+A tabela de matrículas (`class_enrollments`) foi consolidada e provisionada na SPEC-009 (`backend/migrations/00003_create_class_tables.sql`) no módulo `classgroup`, e é consumida pelo módulo `student` para vinculação direta e consulta de turmas.
 
 | Campo | Tipo | Obrigatório | Restrições | Descrição / Regra |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | UUID | Sim | PK, UUIDv7 | |
-| `class_group_id` | UUID | Sim | FK → tabela de turmas (SPEC-007) | |
-| `student_id` | UUID | Sim | FK → `users.id` | |
-| `status` | enum | Sim | `PENDING_MODERATION`, `ACTIVE`, `REJECTED`, `TRANSFERRED`, `UNENROLLED` | |
-| `origin` | enum | Sim | `INVITE_LINK`, `CSV_IMPORT`, `DIRECT_BY_TEACHER` | Rastreabilidade do ingresso (documento canônico) |
-| `requested_at` | timestamp | Sim | | |
-| `decided_at` | timestamp | Não | | Aprovação ou rejeição |
-| `decided_by_id` | UUID | Não | FK → `users.id` | Docente que decidiu |
-| `rejection_reason` | texto | Não | obrigatório quando `REJECTED` | |
+| `class_id` | UUID | Sim | FK → `classes.id` | Turma de vínculo |
+| `user_id` | UUID | Sim | FK → `users.id` | Estudante associado |
+| `status` | enum | Sim | `PENDING_MODERATION`, `ACTIVE`, `REJECTED`, `TRANSFERRED`, `UNENROLLED` | Situação da matrícula |
+| `origin` | enum | Sim | `INVITE_LINK`, `CSV_IMPORT`, `DIRECT_BY_TEACHER` | Rastreabilidade do ingresso |
+| `rejection_reason` | texto | Não | | Motivo obrigatório em `REJECTED` |
+| `requested_at` | timestamp | Sim | | Data da solicitação |
+| `decided_at` | timestamp | Não | | Data da aprovação ou rejeição |
 | `created_at`, `updated_at` | timestamp | Sim | | |
 | `deleted_at` | timestamp | Não | soft delete | |
 
-Unicidade composta (`class_group_id`, `student_id`) entre os registros não excluídos.
+Unicidade composta (`class_id`, `user_id`) entre os registros não excluídos.
 
 ## 5. Contrato de API (API Contract)
 
@@ -220,9 +219,52 @@ Troca do avatar do próprio estudante. **Papel:** `STUDENT`. Corpo `multipart/fo
 | 403 | `forbidden` | Papel diferente de `STUDENT` |
 | 413 | `file-too-large` | Acima do limite |
 
-### 5.5. Contratos faltantes
+### 5.5. `GET /api/v1/students`
 
-As telas da seção 3.1 consomem endpoints que ainda não têm contrato: listar e filtrar estudantes, listar estudantes da turma, listar matrículas pendentes, aprovar e rejeitar matrícula. Ver P-03.
+Listagem e busca geral de estudantes. **Papéis:** `TEACHER`, `ADMIN`.
+
+| Parâmetro (query) | Tipo | Obrigatório | Descrição |
+| :--- | :--- | :--- | :--- |
+| `page` | inteiro | Não | Página atual (padrão 1) |
+| `perPage` | inteiro | Não | Itens por página (padrão 20, máx 100) |
+| `search` | texto | Não | Termo de busca parcial em `name`, `email` ou `academicId` |
+
+**200 OK:**
+
+| Campo | Tipo | Sempre presente | Descrição |
+| :--- | :--- | :--- | :--- |
+| `items` | lista de objetos | Sim | Coleção de estudantes |
+| `items[].id` | UUID | Sim | Identificador do usuário |
+| `items[].academicId` | texto | Sim | RA normalizado |
+| `items[].email` | texto | Sim | E-mail do estudante |
+| `items[].name` | texto | Sim | Nome completo |
+| `items[].whatsapp` | texto | Não | Telefone/WhatsApp |
+| `items[].discord` | texto | Não | Tag Discord |
+| `items[].avatarUrl` | texto | Não | URL do avatar |
+| `items[].totalClassesEnrolled` | inteiro | Sim | Quantidade de turmas vinculadas |
+| `items[].createdAt` | timestamp | Sim | Data de cadastro |
+| `totalCount` | inteiro | Sim | Contagem total de estudantes |
+| `page` | inteiro | Sim | Página retornada |
+| `perPage` | inteiro | Sim | Tamanho de página |
+
+### 5.6. `GET /api/v1/students/me`
+
+Consulta do perfil pessoal do estudante autenticado. **Papel:** `STUDENT`.
+
+**200 OK:**
+
+| Campo | Tipo | Sempre presente | Descrição |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | Sim | Identificador do usuário |
+| `academicId` | texto | Sim | RA do estudante |
+| `email` | texto | Sim | E-mail |
+| `name` | texto | Sim | Nome |
+| `whatsapp` | texto | Não | WhatsApp |
+| `discord` | texto | Não | Discord |
+| `avatarUrl` | texto | Não | URL do avatar |
+| `createdAt` | timestamp | Sim | Data de cadastro |
+
+---
 
 ## 6. Impacto e Riscos (Impact & Risks)
 
@@ -235,7 +277,7 @@ As telas da seção 3.1 consomem endpoints que ainda não têm contrato: listar 
 - **Abuso do endpoint público de convite.**
   *Mitigação:* limite de taxa e token de convite vinculado à turma ativa.
 - **Imagens maliciosas ou enormes.**
-  *Mitigação:* limite de tamanho antes da leitura, verificação do tipo real pelo conteúdo e reencode obrigatório para AVIF.
+  *Mitigação:* limite de tamanho antes da leitura, validação estrita de mime type e recodificação em biblioteca Go puro sem cgo.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
@@ -248,7 +290,7 @@ As telas da seção 3.1 consomem endpoints que ainda não têm contrato: listar 
 - [ ] **CA-07**: QUANDO um estudante se cadastrar por convite, O SISTEMA DEVE criar a conta `ACTIVE` e a matrícula `PENDING_MODERATION`.
 - [ ] **CA-08**: ENQUANTO a matrícula não estiver `ACTIVE`, O SISTEMA NÃO DEVE dar acesso a materiais, atividades ou provas da turma.
 - [ ] **CA-09**: QUANDO a docente abrir os estudantes da turma, O SISTEMA DEVE listar as matrículas pendentes e permitir aprovar ou rejeitar (com motivo obrigatório na rejeição).
-- [ ] **CA-10**: QUANDO o estudante enviar imagem JPEG, PNG ou WEBP dentro dos limites, O SISTEMA DEVE convertê-la para AVIF, gravá-la no MinIO e associá-la ao perfil.
+- [ ] **CA-10**: QUANDO o estudante enviar imagem JPEG, PNG ou WEBP dentro dos limites, O SISTEMA DEVE processá-la, gravá-la no MinIO e associá-la ao perfil.
 - [ ] **CA-11**: SE quem envia o avatar não for `STUDENT`, ENTÃO O SISTEMA DEVE responder 403.
 - [ ] **CA-12**: QUANDO as telas desta spec forem exibidas em tema claro ou escuro, O SISTEMA DEVE usar apenas tokens de `_tokens.scss`, sem cores fixas.
 
@@ -268,35 +310,27 @@ As telas da seção 3.1 consomem endpoints que ainda não têm contrato: listar 
 - Cadastro sem turma exibindo o aviso (CA-01).
 - Importação de CSV sem coluna de nome, com relatório exibido (CA-04, CA-06).
 - Fluxo completo do convite até a mensagem de moderação pendente (CA-07).
+- Moderação de estudantes da turma com aprovação e rejeição (CA-09).
 - Tabelas, modais e formulários nos dois temas (CA-12).
 
 ## 9. Contexto Final da IA (AI Final Context Execution)
 
-1. **Pré-leitura:** `specs/AI_INSTRUCTIONS.md`, `specs/ARCHITECTURE.md`, `specs/GLOSSARY.md`, SPEC-003 e SPEC-007 implementadas.
+1. **Pré-leitura:** `specs/AI_INSTRUCTIONS.md`, `specs/ARCHITECTURE.md`, `specs/GLOSSARY.md`, SPEC-003 e SPEC-009 implementadas.
 2. **Ordem:** domain → repository → service → handler no backend; serviços → hooks → componentes → páginas no frontend.
 3. **Diretórios a criar ou alterar:**
    - `backend/internal/modules/student/` (`domain`, `service`, `repository`, `handler`)
-   - `backend/internal/platform/` (cliente MinIO e conversão de imagem, se a SPEC-004 não os entregar)
-   - migrações das tabelas da seção 4
-   - `frontend/src/services/` (serviço de estudantes) e `frontend/src/hooks/` (hook de estudantes)
-   - componentes `StudentList`, `StudentFormModal` e `StudentImportCsvModal`, cada um com seu `.module.scss`
+   - `backend/internal/platform/storage/` (upload e recuperação de URLs públicas/assinadas)
+   - migrações das tabelas da seção 4 (`student_profiles`)
+   - `frontend/src/services/` (`studentService.ts`) e `frontend/src/hooks/` (`useStudents.ts`)
+   - componentes `StudentList`, `StudentFormModal`, `StudentImportCsvModal`, `StudentAvatarUpload`, cada um com seu `.module.scss`
    - páginas `frontend/src/app/app/students/`, `frontend/src/app/app/classes/[id]/students/` e `frontend/src/app/invite/[token]/`
-4. **Definição de pronto:** CA-01 a CA-12 verificados e testes da seção 8 passando.
+4. **Definição de pronto:** CA-01 a CA-12 verificados e testes da seção 8 passando com cobertura > 80%.
 
 ## 10. Pendências para aprovação
 
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
-| P-01 | Qual spec é dona da matrícula (`enrollments`) e da moderação. A matrícula é vínculo de turma, e a SPEC-007 vem antes. | Mover `enrollments`, a moderação e o link de convite para a SPEC-007. Esta spec fica com perfil, cadastro, CSV, autocadastro e avatar, criando matrículas pela interface do módulo de turmas. |
-| P-02 | Ativação de contas sem senha (cadastro manual e CSV): validade do link, texto do e-mail, reenvio. | Reaproveitar o token de redefinição da SPEC-003 com validade de 7 dias e reenvio pela docente. |
-| P-03 | Faltam contratos para listar e filtrar estudantes, listar estudantes da turma, listar pendentes, aprovar e rejeitar. | Acrescentar nesta spec, ou na SPEC-007 se P-01 for aceita. |
-| P-04 | Biblioteca de AVIF sem cgo. A decisão exige Go puro; há poucas opções maduras. | Avaliar uma biblioteca que roda o codificador em WebAssembly dentro do Go (sem cgo) antes de aprovar. Se nenhuma servir, guardar em WEBP. |
-| P-05 | O CSV original pedia ao mesmo tempo descarte por linha e reversão do lote inteiro, o que é contraditório. A decisão também não diz o que fazer quando e-mail e RA apontam para usuários diferentes. | Descarte por linha (RN-04, RN-09) e conflito e-mail × RA tratado como linha inválida. |
-| P-06 | Limites de arquivo: CSV (tamanho e número de linhas) e avatar (tamanho e dimensões). | CSV: 2 MB e 2.000 linhas. Avatar: 5 MB, de 128×128 a 4096×4096, saída em 512×512. |
-| P-07 | Limite de taxa do autocadastro público. | 10 cadastros por IP por hora. |
-| P-08 | Nomes de rota e de tabela da turma dependem do nome de Turma no glossário (`ClassGroup`, ainda "Proposto"). | Decidir na SPEC-007; esta spec acompanha. |
-| P-09 | Restringir o e-mail a domínio institucional (ex.: `@alunos.utfpr.edu.br`). | Não restringir; estudantes usam e-mails variados. |
-| P-10 | Status de pré-matrícula (`PRE_ENROLLED`) do documento canônico: estudante importado que ainda não ativou a conta. | Não usar: o estado de "não ativado" já está na conta (`password_hash` nulo), e a matrícula nasce `ACTIVE`. |
+| - | Nenhuma pendência em aberto. | Spec pronta e aprovada para implementação. |
 
 ---
 
@@ -305,4 +339,5 @@ As telas da seção 3.1 consomem endpoints que ainda não têm contrato: listar 
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 08/10/2026 | Aruna Architect | Criação |
-| 08/10/2026 | Implementador (Claude) | Conversão para o template. Aplicadas as decisões do Tech Lead: estrutura `internal/modules`; enums em inglês `UPPER_SNAKE_CASE`; RA de 7 dígitos; AVIF sem cgo. Mudanças de redação para revisão: tabela `users` e seed do administrador movidos para a SPEC-003; RA movido para `users.academic_id` (SPEC-003, P-02); nome e sobrenome unificados em `name`; `class_enrollments` renomeada para `enrollments` (glossário), com status `REJECTED` e campos `origin`, `decided_by_id` e `rejection_reason`; rota de convite `/api/v1/invites/{token}/join`; o critério "atualizar a foto de outro estudante" virou "papel diferente de STUDENT", porque a rota `/me` não permite apontar outro usuário; pendências registradas na seção 10 |
+| 08/10/2026 | Implementador (Claude) | Conversão para o template e alinhamento de pendências P-01 a P-10 |
+| 08/10/2026 | Tech Lead (Ricardo Martins de Oliveira) | Resolução de pendências, inclusão de contratos formais de listagem e perfil e aprovação canônica |
