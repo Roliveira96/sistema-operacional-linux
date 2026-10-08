@@ -40,7 +40,7 @@ O ingresso precisa acompanhar a dinâmica real da sala de aula e das listas inst
 ### 2.1. Fora de escopo (Non-Goals)
 
 - Entidade `users`, login, senha e seed do administrador: SPEC-003.
-- Cadastro e configuração de turmas e geração do link de convite: SPEC-005.
+- Cadastro e configuração de turmas e geração do link de convite: SPEC-007.
 - Remanejamento entre turmas e trancamento.
 - Edição dos dados do estudante pela docente depois do cadastro.
 
@@ -100,7 +100,7 @@ Dono da tabela: ver pendência P-01.
 | Campo | Tipo | Obrigatório | Restrições | Descrição / Regra |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | UUID | Sim | PK, UUIDv7 | |
-| `class_group_id` | UUID | Sim | FK → tabela de turmas (SPEC-005) | |
+| `class_group_id` | UUID | Sim | FK → tabela de turmas (SPEC-007) | |
 | `student_id` | UUID | Sim | FK → `users.id` | |
 | `status` | enum | Sim | `PENDING_MODERATION`, `ACTIVE`, `REJECTED`, `TRANSFERRED`, `UNENROLLED` | |
 | `origin` | enum | Sim | `INVITE_LINK`, `CSV_IMPORT`, `DIRECT_BY_TEACHER` | Rastreabilidade do ingresso (documento canônico) |
