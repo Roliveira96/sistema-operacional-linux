@@ -21,13 +21,9 @@ export default function ClassSettingsPage({
 
   useEffect(() => {
     let active = true;
-    if ("then" in params) {
-      void params.then((p) => {
-        if (active) setId(p.id);
-      });
-    } else {
-      setId(params.id);
-    }
+    void Promise.resolve(params).then((p) => {
+      if (active) setId(p.id);
+    });
     return () => {
       active = false;
     };

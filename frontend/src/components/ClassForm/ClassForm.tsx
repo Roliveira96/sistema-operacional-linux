@@ -4,7 +4,7 @@ import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { messages } from "@/messages/pt-BR";
-import type { ClassGroup, CreateClassPayload, UpdateClassPayload } from "@/services/classService";
+import type { ClassGroup, CreateClassPayload } from "@/services/classService";
 import styles from "./ClassForm.module.scss";
 
 export interface ClassFormProps {

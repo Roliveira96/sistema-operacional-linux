@@ -19,9 +19,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <div className={styles.actions}>
           {(user.role === "TEACHER" || user.role === "ADMIN") && (
-            <Link href="/app/classes" className={styles.link}>
-              {messages.classes.title}
-            </Link>
+            <>
+              <Link href="/app/classes" className={styles.link}>
+                {messages.classes.title}
+              </Link>
+              <Link href="/app/modules" className={styles.link}>
+                {messages.modules.title}
+              </Link>
+            </>
           )}
           <Link href="/app/profile/security" className={styles.link}>
             {messages.home.security}

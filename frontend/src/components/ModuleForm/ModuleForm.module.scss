@@ -1,0 +1,150 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+
+.errorMessage {
+  padding: var(--space-3);
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.input,
+.textarea,
+.select {
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
+  }
+}
+
+.row {
+  display: flex;
+  gap: var(--space-4);
+
+  @media (width <= 40rem) {
+    flex-direction: column;
+  }
+}
+
+.helperText {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.legend {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  padding: 0 var(--space-2);
+}
+
+.checkboxList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 12rem;
+  overflow-y: auto;
+  padding: var(--space-2);
+  background-color: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+}
+
+.checkboxItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.emptyNotice {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.cancelLink {
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.submitButton {
+  padding: var(--space-2) var(--space-5);
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-accent-hover);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
