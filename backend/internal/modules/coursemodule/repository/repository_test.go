@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	classdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/domain"
+	contentdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	classrepo "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
@@ -82,9 +83,18 @@ func TestCourseModuleRepository(t *testing.T) {
 	err = repo.CreateModule(ctx, &mod, []uuid.UUID{class.ID}, teacher.ID)
 	require.NoError(t, err)
 
-	// 2. Add exercises and materials
-	ex1 := uuid.New()
-	ex2 := uuid.New()
+	// 2. Add exercises and materials. Items must reference real questions
+	// (SPEC-011 RN-10), so two minimal questions are created first.
+	newQuestion := func(title string) uuid.UUID {
+		id, _ := uuid.NewV7()
+		require.NoError(t, db.Conn(ctx).Create(&contentdomain.Question{
+			ID: id, ModuleID: mod.ID, Kind: contentdomain.KindDiscursive, Usage: contentdomain.UsageExercise,
+			Difficulty: "EASY", Status: contentdomain.StatusPublished, Title: title, Statement: title,
+		}).Error)
+		return id
+	}
+	ex1 := newQuestion("Exercise 1")
+	ex2 := newQuestion("Exercise 2")
 	item1ID, _ := uuid.NewV7()
 	item2ID, _ := uuid.NewV7()
 

@@ -422,3 +422,46 @@ func (r *Repository) AddExerciseItem(ctx context.Context, item *domain.ModuleExe
 func (r *Repository) AddMaterial(ctx context.Context, material *domain.ModuleMaterial) error {
 	return r.db.Conn(ctx).Create(material).Error
 }
+
+// FindModuleBySourceKey returns a seeded module, including soft-deleted ones,
+// so a module removed by the teacher is not recreated by a reload.
+func (r *Repository) FindModuleBySourceKey(ctx context.Context, sourceKey string) (domain.CourseModule, error) {
+	var m domain.CourseModule
+	err := r.db.Conn(ctx).Unscoped().Where("source_key = ?", sourceKey).First(&m).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return domain.CourseModule{}, domain.ErrModuleNotFound
+	}
+	if err != nil {
+		return domain.CourseModule{}, err
+	}
+	if m.DeletedAt.Valid && m.EditedByTeacherAt == nil {
+		// A deletion is a teacher decision: treat it as an edit.
+		deletedAt := m.DeletedAt.Time
+		m.EditedByTeacherAt = &deletedAt
+	}
+	return m, nil
+}
+
+// SaveSeededModule inserts or updates a seeded module.
+func (r *Repository) SaveSeededModule(ctx context.Context, module *domain.CourseModule) error {
+	return r.db.Conn(ctx).Save(module).Error
+}
+
+// ExerciseItemExists reports whether the question is already in the module path.
+func (r *Repository) ExerciseItemExists(ctx context.Context, moduleID, exerciseID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.Conn(ctx).Model(&domain.ModuleExerciseItem{}).
+		Where("module_id = ? AND exercise_id = ?", moduleID, exerciseID).Count(&count).Error
+	return count > 0, err
+}
+
+// NextExerciseOrder returns the order after the last item of the module path.
+func (r *Repository) NextExerciseOrder(ctx context.Context, moduleID uuid.UUID) (int, error) {
+	var last *int
+	err := r.db.Conn(ctx).Model(&domain.ModuleExerciseItem{}).
+		Where("module_id = ?", moduleID).Select("MAX(sequence_order)").Scan(&last).Error
+	if err != nil || last == nil {
+		return 1, err
+	}
+	return *last + 1, nil
+}

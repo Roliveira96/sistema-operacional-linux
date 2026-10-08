@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-011 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -209,17 +209,17 @@ Não se aplica nesta spec: o motor é um serviço interno e a carga é um comand
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: QUANDO as migrações rodarem, O SISTEMA DEVE criar as tabelas da seção 4, as colunas novas de `course_modules` e a chave estrangeira de `module_exercise_items.exercise_id`.
-- [ ] **CA-02**: QUANDO o motor avaliar cada caso das fixtures de equivalência, O SISTEMA DEVE produzir exatamente o veredito esperado.
-- [ ] **CA-03**: Cada tipo de condição do catálogo DEVE ter pelo menos um teste positivo e um negativo.
-- [ ] **CA-04**: SE a lista de condições for inválida, ENTÃO O SISTEMA DEVE recusá-la sem aprovar.
-- [ ] **CA-05**: QUANDO a carga rodar num banco vazio, O SISTEMA DEVE inserir tudo numa transação e registrar as contagens.
-- [ ] **CA-06**: QUANDO a carga rodar duas vezes, as contagens de linhas DEVEM ser idênticas.
-- [ ] **CA-07**: SE um item tiver `edited_by_teacher_at` preenchido, ENTÃO a carga NÃO DEVE alterá-lo.
-- [ ] **CA-08**: SE a carga falhar no meio, ENTÃO nenhuma linha DEVE ficar gravada.
-- [ ] **CA-09**: SE a conta de `ADMIN_EMAIL` não existir, ENTÃO o comando DEVE falhar com mensagem clara.
-- [ ] **CA-10**: Nenhum bloco gravado DEVE conter `<script`, atributos `on*` ou URLs `javascript:`.
-- [ ] **CA-11**: Cada questão de uso `EXERCISE` DEVE estar ligada ao seu módulo em `module_exercise_items`, na ordem do legado.
+- [x] **CA-01**: QUANDO as migrações rodarem, O SISTEMA DEVE criar as tabelas da seção 4, as colunas novas de `course_modules` e a chave estrangeira de `module_exercise_items.exercise_id`.
+- [x] **CA-02**: QUANDO o motor avaliar cada caso das fixtures de equivalência, O SISTEMA DEVE produzir exatamente o veredito esperado.
+- [x] **CA-03**: Cada tipo de condição do catálogo DEVE ter pelo menos um teste positivo e um negativo.
+- [x] **CA-04**: SE a lista de condições for inválida, ENTÃO O SISTEMA DEVE recusá-la sem aprovar.
+- [x] **CA-05**: QUANDO a carga rodar num banco vazio, O SISTEMA DEVE inserir tudo numa transação e registrar as contagens.
+- [x] **CA-06**: QUANDO a carga rodar duas vezes, as contagens de linhas DEVEM ser idênticas.
+- [x] **CA-07**: SE um item tiver `edited_by_teacher_at` preenchido, ENTÃO a carga NÃO DEVE alterá-lo.
+- [x] **CA-08**: SE a carga falhar no meio, ENTÃO nenhuma linha DEVE ficar gravada.
+- [x] **CA-09**: SE a conta de `ADMIN_EMAIL` não existir, ENTÃO o comando DEVE falhar com mensagem clara.
+- [x] **CA-10**: Nenhum bloco gravado DEVE conter `<script`, atributos `on*` ou URLs `javascript:`.
+- [x] **CA-11**: Cada questão de uso `EXERCISE` DEVE estar ligada ao seu módulo em `module_exercise_items`, na ordem do legado.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -248,3 +248,4 @@ Nenhuma. P-01 a P-08 aprovadas pelo Tech Lead em 08/10/2026 (ver histórico).
 | :--- | :--- | :--- |
 | 08/10/2026 | Implementador (Claude) | Criação a partir da divisão aprovada da SPEC-005 original (banco, motor de correção e carga), alinhada à SPEC-010 e ao insumo de conversão. Pendências P-01 a P-08 |
 | 08/10/2026 | Tech Lead | Aprovação integral das recomendações P-01 a P-08. Status: `Aprovada` |
+| 08/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Verificação:** o motor em Go reproduziu o veredito do avaliador TypeScript em todos os 625 estados das 221 questões das fixtures (CA-02); 23 tipos com teste positivo e negativo (CA-03); listas inválidas recusadas (CA-04); teste de integração com PostgreSQL real e o manifesto verdadeiro cobrindo CA-01 e CA-05 a CA-11; cobertura de 85,7% (`content/domain`), 91,6% (`content/service`) e 93,6% (`coursemodule/service`); suíte completa do backend passando. Carga real no banco de desenvolvimento: 9 módulos, 394 blocos, 236 cenários, 252 questões (220 publicadas), 7 modelos e 42 exercícios ligados. **Desvios:** (1) `tags` gravado como `jsonb`, e não como lista de texto do PostgreSQL, para não depender de `lib/pq`, que não está autorizado; (2) questão prática em `DRAFT` sem condições é gravada com lista vazia, que o motor nunca aprova, porque o extrator não consegue sugerir condições para todos os rascunhos (ex.: `av-med-10`); as publicadas continuam obrigadas a ter lista válida; (3) o comando `seed` aplica as migrações pendentes antes de carregar e embute o manifesto no binário (`-manifest` permite outro arquivo); (4) a carga passa pelo novo `Seeder` do módulo `coursemodule` (inserir, atualizar ou preservar módulos e ligar exercícios), e a edição de módulo pelo PATCH da SPEC-010 passa a marcar `edited_by_teacher_at`; módulo excluído pela docente conta como editado e não é recriado; (5) cenários da carga são atualizados quando o manifesto muda, porque ainda não há autoria de cenários; a imutabilidade da seção 4.3 vale para cenários criados pela futura autoria; (6) as unicidades de posição de blocos e de questões de modelo são adiáveis (`DEFERRABLE`), para reordenações dentro de uma transação; (7) o teste de repositório da SPEC-010 inseria itens de exercício com IDs aleatórios e passou a criar questões reais, por causa da chave estrangeira desta spec (RN-10); (8) recarga conta itens não editados como "atualizados", sem categoria separada para "sem mudança". |

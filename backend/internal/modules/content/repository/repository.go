@@ -1,0 +1,91 @@
+// Package repository persists content entities with GORM (SPEC-011).
+package repository
+
+import (
+	"context"
+	"errors"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/service"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
+)
+
+// Repository implements service.Store.
+type Repository struct {
+	db *database.DB
+}
+
+// New creates the repository.
+func New(db *database.DB) *Repository {
+	return &Repository{db: db}
+}
+
+func notFound(err error) error {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return service.ErrNotFound
+	}
+	return err
+}
+
+// FindBlockBySourceKey returns the block with the given source key.
+func (r *Repository) FindBlockBySourceKey(ctx context.Context, key string) (domain.ContentBlock, error) {
+	var b domain.ContentBlock
+	err := r.db.Conn(ctx).Where("source_key = ?", key).First(&b).Error
+	return b, notFound(err)
+}
+
+// SaveBlock inserts or updates a block.
+func (r *Repository) SaveBlock(ctx context.Context, b *domain.ContentBlock) error {
+	return r.db.Conn(ctx).Save(b).Error
+}
+
+// FindScenarioBySourceKey returns the scenario with the given source key.
+func (r *Repository) FindScenarioBySourceKey(ctx context.Context, key string) (domain.Scenario, error) {
+	var s domain.Scenario
+	err := r.db.Conn(ctx).Where("source_key = ?", key).First(&s).Error
+	return s, notFound(err)
+}
+
+// SaveScenario inserts or updates a scenario.
+func (r *Repository) SaveScenario(ctx context.Context, s *domain.Scenario) error {
+	return r.db.Conn(ctx).Save(s).Error
+}
+
+// FindQuestionBySourceKey returns the question, including soft-deleted ones.
+func (r *Repository) FindQuestionBySourceKey(ctx context.Context, key string) (domain.Question, error) {
+	var q domain.Question
+	err := r.db.Conn(ctx).Unscoped().Where("source_key = ?", key).First(&q).Error
+	return q, notFound(err)
+}
+
+// SaveQuestion inserts or updates a question.
+func (r *Repository) SaveQuestion(ctx context.Context, q *domain.Question) error {
+	return r.db.Conn(ctx).Save(q).Error
+}
+
+// FindTemplateBySourceKey returns the template, including soft-deleted ones.
+func (r *Repository) FindTemplateBySourceKey(ctx context.Context, key string) (domain.AssessmentTemplate, error) {
+	var t domain.AssessmentTemplate
+	err := r.db.Conn(ctx).Unscoped().Where("source_key = ?", key).First(&t).Error
+	return t, notFound(err)
+}
+
+// SaveTemplate inserts or updates a template.
+func (r *Repository) SaveTemplate(ctx context.Context, t *domain.AssessmentTemplate) error {
+	return r.db.Conn(ctx).Save(t).Error
+}
+
+// ReplaceTemplateQuestions sets the fixed question list of a template.
+func (r *Repository) ReplaceTemplateQuestions(ctx context.Context, templateID uuid.UUID, items []domain.TemplateQuestion) error {
+	conn := r.db.Conn(ctx)
+	if err := conn.Where("template_id = ?", templateID).Delete(&domain.TemplateQuestion{}).Error; err != nil {
+		return err
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	return conn.Create(&items).Error
+}

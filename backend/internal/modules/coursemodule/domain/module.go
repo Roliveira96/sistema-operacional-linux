@@ -51,6 +51,14 @@ type CourseModule struct {
 	Status          ModuleStatus `gorm:"not null;default:'ACTIVE'"`
 	ActivationStart *time.Time
 	ActivationEnd   *time.Time
+
+	// Content seed metadata (SPEC-011). SourceKey identifies modules loaded
+	// from the legacy content; EditedByTeacherAt protects them from reloads.
+	SourceKey         *string
+	Icon              *string
+	Color             *string
+	DisplayOrder      *int
+	EditedByTeacherAt *time.Time
 }
 
 // TableName maps CourseModule to the "course_modules" table.

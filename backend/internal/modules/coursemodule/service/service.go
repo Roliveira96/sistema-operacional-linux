@@ -183,6 +183,9 @@ func (s *Service) UpdateModule(ctx context.Context, input UpdateModuleInput) (do
 
 	module.ActivationStart = start
 	module.ActivationEnd = end
+	// A teacher edit protects the module from content reloads (SPEC-011 RN-04).
+	editedAt := s.now()
+	module.EditedByTeacherAt = &editedAt
 
 	if module.Visibility == domain.VisibilityPrivate && input.ClassIDs != nil {
 		if len(input.ClassIDs) == 0 {

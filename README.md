@@ -169,6 +169,21 @@ npm run dev
 | Caixa de e-mails do Mailpit | `http://192.168.3.111:8125` |
 | Console do MinIO | `http://192.168.3.111:9101` |
 
+Carga do conteúdo do legado (módulos, blocos, questões e simulados), depois que o backend já subiu uma vez e criou a conta de administrador:
+
+```bash
+cd backend
+set -a && . ../.env && set +a
+go run ./cmd/seed   # idempotente: pode rodar de novo sem duplicar nem sobrescrever edições da docente
+```
+
+Para regenerar o manifesto a partir do legado (SPEC-005):
+
+```bash
+cd legacy
+npx vitest run --config vitest.extract.config.ts scripts/extract/extract.run.ts
+```
+
 Testes e verificações:
 
 ```bash

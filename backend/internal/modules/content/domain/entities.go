@@ -1,0 +1,139 @@
+package domain
+
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+// BlockType is a type of the closed block catalog (SPEC-011).
+type BlockType string
+
+// Block types.
+const (
+	BlockText       BlockType = "TEXT"
+	BlockCommand    BlockType = "COMMAND"
+	BlockTip        BlockType = "TIP"
+	BlockCuriosity  BlockType = "CURIOSITY"
+	BlockStepByStep BlockType = "STEP_BY_STEP"
+	BlockCards      BlockType = "CARDS"
+	BlockWidget     BlockType = "WIDGET"
+	BlockLegacyHTML BlockType = "LEGACY_HTML"
+)
+
+// ValidBlockType reports whether t belongs to the catalog.
+func ValidBlockType(t BlockType) bool {
+	switch t {
+	case BlockText, BlockCommand, BlockTip, BlockCuriosity, BlockStepByStep, BlockCards, BlockWidget, BlockLegacyHTML:
+		return true
+	}
+	return false
+}
+
+// Question enums.
+const (
+	KindPractical           = "PRACTICAL"
+	KindTheoreticalSingle   = "THEORETICAL_SINGLE"
+	KindTheoreticalMultiple = "THEORETICAL_MULTIPLE"
+	KindTheoreticalBoolean  = "THEORETICAL_BOOLEAN"
+	KindDiscursive          = "DISCURSIVE"
+
+	UsageExercise   = "EXERCISE"
+	UsageAssessment = "ASSESSMENT"
+
+	StatusDraft     = "DRAFT"
+	StatusPublished = "PUBLISHED"
+	StatusArchived  = "ARCHIVED"
+
+	TemplateActive = "ACTIVE"
+)
+
+// ContentBlock is an ordered piece of a module's content.
+type ContentBlock struct {
+	ID                uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ModuleID          uuid.UUID `gorm:"type:uuid"`
+	SourceKey         *string
+	BlockType         BlockType
+	Position          int
+	Payload           json.RawMessage `gorm:"type:jsonb"`
+	EditedByTeacherAt *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+// TableName pins the table name.
+func (ContentBlock) TableName() string { return "content_blocks" }
+
+// Scenario is an immutable starting state of a practical question.
+type Scenario struct {
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceKey      *string
+	BaseScenarioID *uuid.UUID      `gorm:"type:uuid"`
+	Snapshot       json.RawMessage `gorm:"type:jsonb"`
+	FormatVersion  int
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+// TableName pins the table name.
+func (Scenario) TableName() string { return "scenarios" }
+
+// Question is an item of the question bank (exercise or assessment usage).
+type Question struct {
+	ID                   uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceKey            *string
+	ModuleID             uuid.UUID `gorm:"type:uuid"`
+	Kind                 string
+	Usage                string
+	Difficulty           string
+	Status               string
+	Title                string
+	Statement            string
+	Hint                 *string
+	Explanation          *string
+	ScenarioID           *uuid.UUID      `gorm:"type:uuid"`
+	ReferenceSolution    json.RawMessage `gorm:"type:jsonb"`
+	ValidationConditions json.RawMessage `gorm:"type:jsonb"`
+	Choices              json.RawMessage `gorm:"type:jsonb"`
+	AnswerKey            json.RawMessage `gorm:"type:jsonb"`
+	Tags                 json.RawMessage `gorm:"type:jsonb"`
+	EditedByTeacherAt    *time.Time
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	DeletedAt            gorm.DeletedAt
+}
+
+// TableName pins the table name.
+func (Question) TableName() string { return "questions" }
+
+// AssessmentTemplate is a reusable exam blueprint.
+type AssessmentTemplate struct {
+	ID                uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceKey         *string
+	Title             string
+	Description       string
+	DurationMinutes   int
+	MaxScore          float64
+	Status            string
+	EditedByTeacherAt *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         gorm.DeletedAt
+}
+
+// TableName pins the table name.
+func (AssessmentTemplate) TableName() string { return "assessment_templates" }
+
+// TemplateQuestion places a question in a template.
+type TemplateQuestion struct {
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
+	TemplateID uuid.UUID `gorm:"type:uuid"`
+	QuestionID uuid.UUID `gorm:"type:uuid"`
+	Position   int
+	Weight     float64
+}
+
+// TableName pins the table name.
+func (TemplateQuestion) TableName() string { return "assessment_template_questions" }
