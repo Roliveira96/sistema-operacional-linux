@@ -344,13 +344,13 @@ Estado da sessão e do usuário. Renova a janela de inatividade. **Autenticado.*
 | P-02 | RA em `users.academic_id` ou em `student_profiles` (versão original da SPEC-002). O login por RA é desta spec, que vem antes da SPEC-002; no perfil do estudante, o módulo `auth` dependeria de um módulo que ainda não existe. | Manter em `users.academic_id` (nulo para quem não é estudante). |
 | P-03 | A política de senha não está definida. | Mínimo de 10 e máximo de 128 caracteres, diferente do e-mail e do RA, sem regras de composição obrigatórias (alinhado ao NIST SP 800-63B). |
 | P-04 | Os limites de taxa não estão definidos. | Login: 5 falhas por identificador a cada 15 min e 20 requisições por IP por minuto. Recuperação: 3 por identificador por hora. |
-| P-05 | O envio de e-mail exige um despachante assíncrono e um servidor SMTP, que nenhuma spec define. | Incluir na SPEC-004 a interface de envio e um SMTP de desenvolvimento (ex.: Mailpit) no Docker Compose. |
+| P-05 | O envio de e-mail exige um despachante assíncrono e um servidor SMTP, que nenhuma spec define. | Incluir na SPEC-004 a interface de envio e um SMTP de desenvolvimento (ex.: Mailpit) no Docker Compose. **Já endereçado na SPEC-004 (RN-11, P-05).** |
 | P-06 | A decisão unificou o nome em `name`, mas a SPEC-002 usa nome e sobrenome separados (formulário e colunas do CSV). | Manter `name`; a SPEC-002 passa a receber `name` (no CSV, coluna `name`). |
 | P-07 | Contas criadas por docente ou por CSV (SPEC-002) não têm senha. O fluxo de ativação não está definido. | `password_hash` nulo até a ativação; a ativação reutiliza o mecanismo de token desta spec, com validade maior, definida na SPEC-002. |
 | P-08 | O que a tela `/app/profile/security` exibe além da troca de senha (ex.: lista de sessões ativas e encerramento remoto). | Só troca de senha nesta spec; lista de sessões numa spec futura. |
 | P-09 | Diferença entre `INACTIVE` e `SUSPENDED`: o documento canônico só tem `ATIVO` e `INATIVO`. | `INACTIVE`: desligamento administrativo permanente. `SUSPENDED`: bloqueio temporário e reversível. Ou eliminar `SUSPENDED`. |
 | P-10 | Algoritmo de hash: PBKDF2-HMAC-SHA256 ou Argon2id. | Argon2id (`golang.org/x/crypto/argon2`, Go puro), com parâmetros da OWASP. |
-| P-11 | Topologia BFF: como o Next.js e a API Go compartilham a origem para o cookie `SameSite=Strict`. | Definir na SPEC-004: o Next.js encaminha `/api/*` para o Go na mesma origem. |
+| P-11 | Topologia BFF: como o Next.js e a API Go compartilham a origem para o cookie `SameSite=Strict`. | Definir na SPEC-004: o Next.js encaminha `/api/*` para o Go na mesma origem. **Já endereçado na SPEC-004 (`rewrites`, CA-17).** |
 
 ---
 
