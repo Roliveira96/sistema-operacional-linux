@@ -4,7 +4,7 @@
 COMO USAR ESTE TEMPLATE
 - Copie para specs/features/NNN-slug-em-kebab-case.md, com NNN = próximo número livre (3 dígitos).
 - O número é o ID imutável da spec ("SPEC-NNN"). Nunca reaproveite um número, nem de spec Obsoleta.
-- Preencha todas as 9 seções. Seção sem conteúdo leva a frase explícita "Não se aplica nesta spec." e o motivo.
+- Preencha as seções 1 a 9; a seção 10 lista as pendências. Seção sem conteúdo leva a frase explícita "Não se aplica nesta spec." e o motivo.
 - Proibido: trechos de código, JSON/payloads mockados, SQL, scripts. Estruturas são descritas em tabelas.
 - Use os termos de specs/GLOSSARY.md. Termo novo de domínio entra no glossário na mesma spec.
 - Apague este comentário ao criar a spec.
@@ -123,6 +123,14 @@ Instruções diretas para o agente implementador:
 2. **Ordem de execução:** passos numerados e dependências entre eles.
 3. **Arquivos e diretórios a criar ou alterar:** lista explícita. Alterar qualquer outro arquivo exige justificativa no resumo da entrega.
 4. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, status atualizado para `Implementada`.
+
+## 10. Pendências para aprovação
+
+Dúvidas, contradições e lacunas em aberto, cada uma com uma recomendação. **Uma spec só pode ser aprovada com esta tabela vazia.** Depois de resolvida, a pendência sai daqui e a decisão é incorporada às seções correspondentes e registrada no histórico.
+
+| ID | Pendência | Recomendação |
+| :--- | :--- | :--- |
+| P-01 | | |
 
 ---
 

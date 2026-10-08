@@ -31,7 +31,7 @@ Na ordem:
 ## 4. Fluxo Spec-Driven Development
 
 1. **Nenhuma linha de código de produção sem spec com status `Aprovada`.** Pedido de código sem spec aprovada: o agente para e informa o Tech Lead.
-2. Spec em `Rascunho`: só pode ser lida, discutida e revisada, nunca implementada.
+2. Spec em `Rascunho`: só pode ser lida, discutida e revisada, nunca implementada. Uma spec só pode ser aprovada com a seção 10 (Pendências) vazia.
 3. Ao concluir a implementação e verificar todos os critérios de aceite, o implementador muda o status para `Implementada` e registra a data no histórico de revisões.
 4. Mudança de requisito durante a implementação: **parar**. A spec é revisada primeiro (volta a `Rascunho` se a mudança for substancial) e o código vem depois.
 5. Spec substituída por outra: status `Obsoleta`, com a substituta no campo "Substitui" da nova spec. Specs nunca são apagadas.

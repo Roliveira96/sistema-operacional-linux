@@ -6,7 +6,7 @@ Regras:
 
 - Termo novo só entra por spec (seção 9) e é registrado aqui na mesma entrega.
 - Sinônimos listados em "Evitar" **não** podem aparecer no código.
-- Status **Canônico** = vem de `docs/arquitetura/transicao-backend.md`. Status **Proposto** = nome sugerido que ainda precisa do aval do Tech Lead.
+- Status **Canônico** = vem de `docs/arquitetura/transicao-backend.md`. Status **Decidido** = definido pelo Tech Lead. Status **Proposto** = nome sugerido que ainda precisa do aval do Tech Lead.
 
 ---
 
@@ -19,7 +19,10 @@ Regras:
 | Docente / Professora | `Teacher` (papel `TEACHER`) | Usuário que gerencia turmas e avaliações | `Professor`, `Instructor` | Canônico |
 | Estudante / Aluno / Discente | `Student` (papel `STUDENT`) | Usuário matriculado em turmas | `Pupil`, `Learner` | Canônico |
 | Administrador | `Admin` (papel `ADMIN`) | Gestão institucional da plataforma | `Superuser` | Canônico |
-| RA (Registro Acadêmico) | `academic_id` | Identificador institucional UTFPR do estudante | `ra`, `registration` | Proposto |
+| Status da conta | `ACTIVE`, `INACTIVE`, `SUSPENDED` | Situação da conta do usuário; a semântica de `SUSPENDED` está pendente (SPEC-003, P-09) | `ENABLED`, `BLOCKED` | Decidido |
+| Troca de senha obrigatória | `must_change_password` | Indicador que obriga a trocar a senha no próximo acesso | `first_login` | Decidido |
+| Perfil do estudante | `StudentProfile` | Dados complementares do estudante (WhatsApp, Discord, avatar) | `StudentData` | Proposto |
+| RA (Registro Acadêmico) | `academic_id` | Identificador institucional UTFPR do estudante: exatamente 7 dígitos, aceito na entrada com prefixo opcional "a" ou "A" | `ra`, `registration` | Decidido (formato); nome e tabela em SPEC-003, P-02 |
 
 ## 2. Turmas e matrículas
 
@@ -28,12 +31,22 @@ Regras:
 | Disciplina | `Course` | Componente curricular (ex.: Sistemas Operacionais, código SI34E) | `Subject`, `Discipline` | Canônico |
 | Turma | `ClassGroup` | Oferta de uma disciplina em um semestre, com docente responsável | `Class` (palavra reservada em várias linguagens), `Classroom` (confunde com sala física), `Team`, `Group` | Proposto |
 | Matrícula (inscrição na turma) | `Enrollment` | Vínculo de um estudante com uma turma e o ciclo de vida desse vínculo | `Registration`, `Subscription`, `Inscription` | Canônico |
-| Pré-matrícula | `PRE_ENROLLED` (status) | Estudante importado da lista que ainda não ativou a conta | — | Canônico |
+| Status da matrícula | `PENDING_MODERATION`, `ACTIVE`, `REJECTED`, `TRANSFERRED`, `UNENROLLED` | Ciclo de vida do vínculo com a turma | `PENDING`, `APPROVED`, `REMOVED` | Decidido (`REJECTED` e `UNENROLLED` propostos na SPEC-002) |
+| Origem da matrícula | `INVITE_LINK`, `CSV_IMPORT`, `DIRECT_BY_TEACHER` | Por qual via o estudante entrou na turma | — | Canônico |
+| Pré-matrícula | `PRE_ENROLLED` (status) | Estudante importado da lista que ainda não ativou a conta | — | Canônico; uso em discussão (SPEC-002, P-10) |
 | Moderação (deferir / indeferir) | `approve` / `reject` | Decisão docente sobre um pedido de matrícula feito por link | `accept`, `deny` | Canônico |
 | Remanejamento | `Transfer` | Mudança do estudante de uma turma para outra, com rastreabilidade | `Move`, `Migration` | Canônico |
 | Link de convite | `InviteLink` | URL compartilhável para pedir matrícula na turma | `JoinLink` | Canônico |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
+
+## 2.1. Autenticação e segurança de acesso
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Sessão de login | `AuthSession` | Sessão autenticada de um usuário (cookie opaco). Não confundir com tentativa de prova (`Attempt`) | `Session` sozinho, `Login` | Proposto |
+| Token de redefinição de senha | `PasswordResetToken` | Token de uso único enviado por e-mail | `ResetCode` | Proposto |
+| Log de auditoria de segurança | `SecurityAuditLog` | Registro append-only de eventos de autenticação. Distinto de `SecurityViolation` (infração durante a prova) | `AuthLog`, `AccessLog` | Proposto |
 
 ## 3. Conteúdo e banco de questões
 

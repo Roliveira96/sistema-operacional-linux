@@ -37,17 +37,19 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 | ORM | GORM |
 | Banco | PostgreSQL, schema `project-manager` |
 | Tempo real | Hub WebSocket próprio |
+| Logs | Zap (`go.uber.org/zap`), logger da Uber |
 | Identificadores | UUIDv7, gerado em hook de ciclo de vida do GORM (antes da criação) |
 
 ### 3.2. Organização: Clean Architecture + Modular Monolith + DDD-lite
 
-- Cada **módulo de domínio** (ex.: `classgroup`, `enrollment`, `assessment`, `attempt`) é um pacote isolado, com suas camadas internas:
+- Cada **módulo de domínio** (ex.: `user`, `auth`, `student`, `classgroup`, `assessment`, `attempt`) fica em `backend/internal/modules/<modulo>/`, com suas camadas internas em subpacotes:
   - **domain**: entidades, objetos de valor, enumerações e erros de domínio. Sem dependência de Gin, GORM ou HTTP.
   - **service**: toda a lógica de negócio. Depende apenas de interfaces.
   - **repository**: acesso a dados via GORM, implementando as interfaces que o service declara.
   - **handler**: transporte HTTP/WebSocket.
 - Um módulo **NÃO DEVE** acessar o repository de outro módulo. A comunicação entre módulos se dá pela interface pública de service do outro módulo.
-- Infraestrutura transversal (configuração, conexão com banco, erros RFC 7807, middlewares, logger, hub WebSocket) fica em pacotes compartilhados, fora dos módulos de domínio.
+- Infraestrutura transversal (configuração, conexão com banco, erros RFC 7807, middlewares globais, logger, armazenamento de objetos, envio de e-mail, hub WebSocket) fica em `backend/internal/platform/`, nunca dentro de um módulo.
+- **NÃO DEVE** haver diretórios de camada técnica na raiz de `internal/` (como `internal/domain`, `internal/infrastructure` ou `internal/delivery`). A organização é sempre por módulo.
 - O ponto de entrada (composition root) faz toda a injeção de dependência explicitamente.
 
 ### 3.3. Responsabilidades por camada
@@ -64,7 +66,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 - **NÃO DEVE** haver variáveis globais mutáveis nem estado compartilhado fora da injeção de dependência.
 - O `context.Context` é propagado da requisição até o repository em todas as chamadas.
 - Erros são encapsulados com contexto e nunca ignorados silenciosamente.
-- Logs estruturados, sem dados sensíveis (senhas, hashes, tokens).
+- Logs estruturados, sem dados sensíveis (senhas, hashes, tokens). Regras detalhadas na seção 3.10.
 
 ### 3.5. Erros: RFC 7807 (Problem Details)
 
@@ -96,6 +98,23 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 - Hub concorrente central, com rotinas de leitura e escrita **separadas por conexão**.
 - Eventos nomeados como `domain:action` (ex.: `help:request`, `session:reopened`).
 - Toda mensagem recebida do cliente é validada como entrada não confiável.
+
+### 3.10. Logs (Zap)
+
+- Logger único: `*zap.Logger` do Zap, com os níveis `Debug`, `Info`, `Warn` e `Error`.
+- O logger **DEVE** ser injetado por dependência (construtor de handler, service, repository e middleware), criado uma vez no composition root e configurado em `backend/internal/platform/`.
+- **NÃO DEVE** haver logger global: proibidos `zap.L()`, `zap.S()`, `zap.ReplaceGlobals`, o pacote `log` da biblioteca padrão e `fmt.Print*` para logs.
+- Usar o `zap.Logger` tipado, com campos estruturados (`zap.String`, `zap.Error`, etc.). O `SugaredLogger` não é usado.
+- Formato por ambiente: JSON em uma linha por evento em produção (próprio para agregadores como AWS CloudWatch); saída legível em console no desenvolvimento.
+- O nível mínimo vem de configuração (`debug` em desenvolvimento, `info` em produção), sem precisar recompilar.
+- Cada requisição HTTP ganha um logger filho com o ID da requisição (correlation ID), que segue por contexto até o repository. Os eventos de WebSocket também carregam o ID da conexão.
+- Uso dos níveis:
+  - `Debug`: detalhes de diagnóstico, desligados em produção;
+  - `Info`: eventos de negócio e de ciclo de vida (subida do serviço, migração aplicada);
+  - `Warn`: situação anômala que se recupera sozinha (limite de taxa atingido, nova tentativa);
+  - `Error`: falha que exige atenção, sempre com o campo `zap.Error(err)`.
+- Um erro é registrado **uma única vez**, na borda (handler ou middleware), e não a cada camada que o repassa.
+- Mensagens de log em inglês, como todo o código.
 
 ## 4. Frontend (Next.js)
 
@@ -138,7 +157,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 
 Itens ainda não decididos. Spec que dependa de algum deles precisa decidi-lo primeiro, com aprovação do Tech Lead:
 
-- Mecanismo de autenticação (o documento canônico cita JWT; falta definir armazenamento e renovação).
+- Mecanismo de autenticação: a SPEC-003 (Rascunho) propõe sessão opaca em cookie `HttpOnly` gravada no banco, em vez do JWT citado no documento canônico.
 - Ferramentas de teste do frontend e de testes de integração do backend.
 - Estratégia de reaproveitamento do motor POSIX/VFS de `legacy/` pelo frontend e pelo corretor do servidor.
 - Nome do schema PostgreSQL: o hífen de `project-manager` obriga a usar aspas em todo SQL. Avaliar um nome sem hífen.
