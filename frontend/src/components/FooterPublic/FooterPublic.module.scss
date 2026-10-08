@@ -1,0 +1,85 @@
+@use "@/styles/mixins" as *;
+
+.footer {
+  width: 100%;
+  margin-top: auto;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-4) var(--space-6);
+
+  @include from("md") {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+}
+
+.primaryColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.brandTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.institution {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.course {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.academicColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.advisorship {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-regular);
+}
+
+.author {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.tccNotice {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bottomBar {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+  padding: var(--space-3) var(--space-4);
+}
+
+.bottomContainer {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.copyright {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
