@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-009 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -330,30 +330,16 @@ A modelagem de dados situa-se no schema do banco de dados (resolvido dinamicamen
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-* [ ] QUANDO um docente autenticado submeter dados válidos de uma turma, O SISTEMA DEVE persistir a entidade com status inicial configurado e associar o docente como responsável exclusivo.
-
-
-* [ ] QUANDO a turma for criada informando discentes com RA, sem RA ou composição mista, O SISTEMA DEVE vincular todos os estudantes fornecidos com status ativo na mesma transação.
-
-
-* [ ] QUANDO a opção de link de convite for habilitada na criação ou edição, O SISTEMA DEVE exigir datas e horas válidas de abertura e expiração, gerando token único.
-
-
-* [ ] QUANDO um estudante acionar um link de convite ativo dentro da janela temporal válida, O SISTEMA DEVE criar a matrícula com status `PENDING_MODERATION`.
-
-
-* [ ] SE um estudante acionar um link de convite desativado ou com data expirada, ENTÃO O SISTEMA DEVE rejeitar a solicitação retornando código HTTP 410 (RFC 7807).
-* [ ] ENQUANTO a matrícula do discente estiver em `PENDING_MODERATION`, O SISTEMA NÃO DEVE liberar o acesso a tarefas, simulados ou notas da turma.
-
-
-* [ ] QUANDO uma turma atingir intervalo inferior a 15 dias para a data de término de sua vigência, A INTERFACE DEVE exibir alerta visual de expiração próxima para o docente.
-* [ ] QUANDO o docente atualizar as datas de vigência da turma para contornar interrupções letivas, O SISTEMA DEVE persistir os novos prazos sem quebrar ou alterar matrículas e notas existentes.
-
-
-* [ ] QUANDO um docente solicitar o encerramento de uma turma ativa, O SISTEMA DEVE exigir justificativa textual obrigatória e aplicar arquivamento lógico sem deletar registros físicos.
-
-
-* [ ] QUANDO qualquer tela do módulo de turmas for renderizada em tema claro ou escuro, O SISTEMA DEVE utilizar exclusivamente tokens semânticos de `_tokens.scss`, garantindo paridade de contraste e ausência de cores fixas.
+* [x] QUANDO um docente autenticado submeter dados válidos de uma turma, O SISTEMA DEVE persistir a entidade com status inicial configurado e associar o docente como responsável exclusivo.
+* [x] QUANDO a turma for criada informando discentes com RA, sem RA ou composição mista, O SISTEMA DEVE vincular todos os estudantes fornecidos com status ativo na mesma transação.
+* [x] QUANDO a opção de link de convite for habilitada na criação ou edição, O SISTEMA DEVE exigir datas e horas válidas de abertura e expiração, gerando token único.
+* [x] QUANDO um estudante acionar um link de convite ativo dentro da janela temporal válida, O SISTEMA DEVE criar a matrícula com status `PENDING_MODERATION`.
+* [x] SE um estudante acionar um link de convite desativado ou com data expirada, ENTÃO O SISTEMA DEVE rejeitar a solicitação retornando código HTTP 410 (RFC 7807).
+* [x] ENQUANTO a matrícula do discente estiver em `PENDING_MODERATION`, O SISTEMA NÃO DEVE liberar o acesso a tarefas, simulados ou notas da turma.
+* [x] QUANDO uma turma atingir intervalo inferior a 15 dias para a data de término de sua vigência, A INTERFACE DEVE exibir alerta visual de expiração próxima para o docente.
+* [x] QUANDO o docente atualizar as datas de vigência da turma para contornar interrupções letivas, O SISTEMA DEVE persistir os novos prazos sem quebrar ou alterar matrículas e notas existentes.
+* [x] QUANDO um docente solicitar o encerramento de uma turma ativa, O SISTEMA DEVE exigir justificativa textual obrigatória e aplicar arquivamento lógico sem deletar registros físicos.
+* [x] QUANDO qualquer tela do módulo de turmas for renderizada em tema claro ou escuro, O SISTEMA DEVE utilizar exclusivamente tokens semânticos de `_tokens.scss`, garantindo paridade de contraste e ausência de cores fixas.
 
 ---
 
@@ -448,3 +434,4 @@ Nenhuma pendência em aberto. Spec aprovada para implementação.
 | :--- | :--- | :--- |
 | 08/10/2026 | Aruna Architect | Criação da spec inicial |
 | 08/10/2026 | Tech Lead (Ricardo Martins de Oliveira) | Aprovação para implementação |
+| 08/10/2026 | Ricardo Martins de Oliveira | Implementação concluída com cobertura de testes e critérios de aceite verificados |
