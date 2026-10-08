@@ -12,7 +12,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 | :--- | :--- |
 | `backend/` | Serviço único em Go (monólito modular): API REST, hub WebSocket, correção no servidor, persistência |
 | `frontend/` | Aplicação Next.js (interface de docentes e estudantes) |
-| `legacy/` | Simulador client-side original, preservado e executável. O motor POSIX/VFS será reaproveitado pelo frontend conforme spec própria |
+| `legacy/` | Simulador client-side original, congelado como referência de leitura. O motor POSIX/VFS será reaproveitado pelo frontend conforme spec própria |
 | `specs/` | Governança Spec-Driven Development |
 | `docs/` | Fontes canônicas (arquitetura da transição e monografia) |
 
@@ -154,7 +154,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 - Ferramentas: `go test` no backend, com `testcontainers-go` para integração com PostgreSQL real; Vitest e Testing Library no frontend.
 - Verificação estática obrigatória no frontend: ESLint e Stylelint. O Stylelint proíbe cores literais em qualquer arquivo de estilo, exceto `_tokens.scss`.
 - Backend: testes de unidade de services, com repositories substituídos por implementações de teste das interfaces, e testes de integração de repositories contra PostgreSQL real.
-- A suíte do `legacy/` (Vitest) **DEVE** continuar passando enquanto o diretório existir.
+- A suíte do `legacy/` (Vitest) **NÃO** faz parte da verificação do projeto: o legado está congelado e não é executado nem testado como critério de pronto. Ele só volta a ser testado se uma spec aprovada o alterar.
 
 ## 6. Decisões em aberto
 

@@ -104,6 +104,6 @@ Ao final de cada tarefa, o implementador informa:
 | `specs/features/` | Specs funcionais numeradas (`NNN-slug.md`) |
 | `backend/` | Serviço Go (ver `ARCHITECTURE.md`) |
 | `frontend/` | Aplicação Next.js (ver `ARCHITECTURE.md`) |
-| `legacy/` | Simulador client-side original "Linux na Prática" (TypeScript + Vite + Vitest). Base de conhecimento do motor POSIX/VFS. Executável de forma autônoma dentro da própria pasta. |
+| `legacy/` | Simulador client-side original "Linux na Prática" (TypeScript + Vite + Vitest). Base de conhecimento do motor POSIX/VFS, congelada: serve só para leitura. **Não rode os testes nem o build do legado** como verificação de entrega. |
 | `docs/arquitetura/` | Fontes canônicas de requisitos da transição |
 | `docs/tcc/` | Monografia em LaTeX (fonte canônica de domínio) |
