@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-003 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -17,7 +17,6 @@
 | **Fontes canônicas** | `docs/arquitetura/transicao-backend.md`: seção 3.1 (`Usuario`), seção 6.3 item 2 (mutex de sessão) e seção 8.2 (inativação e derrubada de sessão) |
 
 > **Ordem de implementação aprovada:** SPEC-004 (Fundação) → **SPEC-003** → SPEC-007 (Turmas) → SPEC-002 (Alunos).
-> Esta spec só pode ser aprovada depois que as pendências da seção 10 forem resolvidas.
 
 ---
 
@@ -58,7 +57,7 @@ Esta spec também define a entidade canônica de **usuário** (`users`), base de
 - **Solicitação de recuperação (`/forgot-password`):** pede e-mail ou RA. Depois do envio, mostra sempre a mesma mensagem neutra, exista a conta ou não, para não permitir enumeração.
 - **Redefinição (`/reset-password`):** lê o token do parâmetro de busca, valida a política de senha durante a digitação e impede reenvio depois do sucesso.
 - **Troca obrigatória de senha (`/change-password`):** enquanto o usuário tiver troca de senha pendente, toda navegação autenticada redireciona para esta tela.
-- **Segurança do perfil (`/app/profile/security`):** troca voluntária de senha. *(Conteúdo restante: ver pendência P-08.)*
+- **Segurança do perfil (`/app/profile/security`):** troca voluntária de senha. A lista de sessões ativas fica para uma spec futura.
 - **Sessão expirada:** quando um serviço recebe o erro de sessão expirada, o estado global de autenticação é limpo e o usuário vai para `/login`, com aviso do motivo (inatividade ou teto de 5 horas).
 - **Camada de serviços:** toda chamada fica em `frontend/src/services/`. Nenhum componente lê ou manipula o cookie de sessão.
 - **Estilo:** SCSS Modules em co-location e somente tokens de `_tokens.scss`, com paridade entre tema claro e escuro (`ARCHITECTURE.md`, seção 4).
@@ -71,18 +70,19 @@ Regras de negócio:
 
 - **RN-01 (normalização do RA):** remover espaços nas pontas e um único prefixo "a" ou "A" opcional. O restante DEVE ter exatamente 7 dígitos; qualquer outro formato é inválido. Um identificador com "@" é tratado como e-mail; os demais, como RA.
 - **RN-02 (e-mail):** normalizado para minúsculas antes de gravar e antes de consultar.
-- **RN-03 (seed do administrador):** na inicialização, se não existir usuário com o e-mail `admin@rmo.dev.br` (padrão confirmado pelo Tech Lead, configurável por `ADMIN_EMAIL`), cria um usuário com papel `ADMIN`, status `ACTIVE` e `must_change_password` verdadeiro. A senha provisória vem de variável de ambiente (P-01). Se o usuário já existir, nada muda, nem a senha.
+- **RN-03 (seed do administrador):** na inicialização, se não existir usuário com o e-mail `admin@rmo.dev.br` (padrão confirmado pelo Tech Lead, configurável por `ADMIN_EMAIL`), cria um usuário com papel `ADMIN`, status `ACTIVE` e `must_change_password` verdadeiro. A senha provisória vem da variável obrigatória `ADMIN_INITIAL_PASSWORD` (a aplicação não sobe sem ela) e precisa atender à política de senha (RN-14). Se o usuário já existir, nada muda, nem a senha.
 - **RN-04 (verificação de senha):** a comparação do hash é feita em tempo constante. Quando o usuário não existe, o service ainda executa uma verificação de hash fictícia, para que o tempo de resposta não revele quais contas existem.
 - **RN-05 (status da conta):** só contas `ACTIVE` autenticam. As contas `INACTIVE` e `SUSPENDED` recebem o mesmo erro genérico de credenciais inválidas; o motivo real vai só para a auditoria.
 - **RN-06 (emissão de sessão):** o servidor gera um token opaco aleatório com 256 bits de entropia, grava apenas o seu hash SHA-256 em `auth_sessions` e envia o token puro no cookie. A expiração absoluta é a emissão mais 5 horas.
 - **RN-07 (validação de sessão):** a cada requisição autenticada, o middleware localiza a sessão pelo hash do token. Se a última atividade tiver mais de 1 hora, a sessão é encerrada como `EXPIRED_IDLE`; se passou da expiração absoluta, como `EXPIRED_ABSOLUTE`. Nos dois casos a resposta é 401. Se a sessão estiver válida, a última atividade é atualizada.
 - **RN-08 (troca obrigatória):** enquanto `must_change_password` for verdadeiro, toda rota autenticada responde 403 `password-change-required`, exceto `GET /auth/me`, `POST /auth/change-password` e `POST /auth/logout`.
-- **RN-09 (limite de taxa):** aplicado antes de qualquer consulta ao banco ou operação criptográfica, por IP e por identificador normalizado, em janela deslizante. Os limites estão na pendência P-04.
-- **RN-10 (recuperação):** gera um token de uso único com 256 bits de entropia, grava apenas o hash, com validade de 1 hora, e entrega o envio do e-mail ao despachante assíncrono (P-05). Identificador inexistente produz a mesma resposta 202 e nenhum e-mail.
+- **RN-09 (limite de taxa):** aplicado antes de qualquer consulta ao banco ou operação criptográfica, por IP e por identificador normalizado, em janela deslizante. Limites: login, 5 falhas por identificador a cada 15 minutos e 20 requisições por IP por minuto; recuperação, 3 pedidos por identificador por hora e 20 requisições por IP por minuto.
+- **RN-10 (recuperação):** gera um token de uso único com 256 bits de entropia, grava apenas o hash, com validade de 1 hora, e entrega o envio do e-mail ao despachante assíncrono de `platform/mailer` (SPEC-004). O link aponta para `/reset-password` no endereço público do frontend, configurado em `APP_PUBLIC_URL`. Identificador inexistente produz a mesma resposta 202 e nenhum e-mail.
 - **RN-11 (redefinição):** em uma única transação, troca o hash da senha, marca o token como usado, zera `must_change_password` e revoga todas as sessões ativas do usuário como `REVOKED_PASSWORD_RESET`.
 - **RN-12 (revogação concorrente):** operação interna do service, sem endpoint, que revoga todas as sessões ativas do usuário, exceto uma sessão informada, como `REVOKED_CONCURRENCY`, e registra auditoria. Quem aciona é uma spec futura.
 - **RN-13 (auditoria):** todo evento listado no enum de `security_audit_logs` é gravado com IP, User-Agent, identificador informado e horário do servidor. A gravação não bloqueia a resposta, mas uma falha ao gravar gera log de erro e nunca é ignorada em silêncio.
-- **RN-14 (política de senha):** ver pendência P-03.
+- **RN-14 (política de senha):** de 10 a 128 caracteres, diferente do e-mail e do RA do usuário, sem regras obrigatórias de composição (alinhado ao NIST SP 800-63B).
+- **RN-15 (hash de senha):** Argon2id (`golang.org/x/crypto/argon2`) com os parâmetros mínimos da OWASP (19 MiB de memória, 2 iterações, paralelismo 1, salt aleatório de 16 bytes), gravado em formato autodescritivo.
 
 ## 4. Modelo de Dados (Data Model)
 
@@ -93,12 +93,12 @@ Schema PostgreSQL definido na SPEC-004. Chaves UUIDv7 geradas em hook do GORM.
 | Campo | Tipo | Obrigatório | Restrições | Descrição / Regra |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | UUID | Sim | PK, UUIDv7 | |
-| `name` | texto | Não | | Nome completo; pode faltar em contas importadas (P-06) |
+| `name` | texto | Não | | Nome completo; pode faltar em contas importadas |
 | `email` | texto | Sim | único entre os registros não excluídos; minúsculas | RN-02 |
-| `academic_id` | texto (7) | Não | único entre os registros não excluídos; apenas dígitos | RA normalizado (RN-01). Nulo para quem não é estudante (P-02) |
-| `password_hash` | texto | Não | | Hash em formato autodescritivo (algoritmo, parâmetros e salt na própria string). Nulo = conta ainda sem senha definida (P-07) |
+| `academic_id` | texto (7) | Não | único entre os registros não excluídos; apenas dígitos | RA normalizado (RN-01). Nulo para quem não é estudante |
+| `password_hash` | texto | Não | | Hash em formato autodescritivo (algoritmo, parâmetros e salt na própria string). Nulo = conta ainda sem senha definida (a ativação dessas contas é definida na SPEC-002) |
 | `role` | enum | Sim | `ADMIN`, `TEACHER`, `STUDENT` | |
-| `status` | enum | Sim | `ACTIVE`, `INACTIVE`, `SUSPENDED`; padrão `ACTIVE` | Semântica de cada valor: P-09 |
+| `status` | enum | Sim | `ACTIVE`, `INACTIVE`, `SUSPENDED`; padrão `ACTIVE` | `INACTIVE`: desligamento administrativo permanente. `SUSPENDED`: bloqueio temporário e reversível |
 | `must_change_password` | booleano | Sim | padrão falso | RN-08 |
 | `created_at`, `updated_at` | timestamp | Sim | | |
 | `deleted_at` | timestamp | Não | soft delete | |
@@ -152,7 +152,7 @@ Valores de `event_type`: `LOGIN_SUCCEEDED`, `LOGIN_FAILED_WRONG_PASSWORD`, `LOGI
 
 ## 5. Contrato de API (API Contract)
 
-Todo erro segue a RFC 7807 (`ARCHITECTURE.md`, seção 3.5). O cookie de sessão tem nome definido na SPEC-004 e os atributos `HttpOnly`, `Secure`, `SameSite=Strict` e `Path=/`.
+Todo erro segue a RFC 7807 (`ARCHITECTURE.md`, seção 3.5). O cookie de sessão se chama `linux_lab_session` e tem os atributos `HttpOnly`, `SameSite=Strict`, `Path=/` e expiração igual ao teto absoluto da sessão. O atributo `Secure` é ligado em todo ambiente, exceto com `APP_ENV=development`, porque o desenvolvimento é acessado pelo IP da máquina por HTTP e o navegador descartaria o cookie.
 
 ### 5.1. `POST /api/v1/auth/login`
 
@@ -279,7 +279,7 @@ Estado da sessão e do usuário. Renova a janela de inatividade. **Autenticado.*
 - **Vazamento do banco expondo sessões e tokens.**
   *Mitigação:* apenas hashes SHA-256 de tokens são gravados (RN-06, RN-10).
 - **Senha padrão do administrador conhecida.**
-  *Mitigação:* troca obrigatória no primeiro acesso (RN-08) e senha vinda de variável de ambiente (P-01).
+  *Mitigação:* troca obrigatória no primeiro acesso (RN-08) e senha vinda de variável de ambiente, nunca escrita no repositório.
 - **Crescimento da tabela de auditoria.**
   *Mitigação:* tabela append-only com índices por usuário, tipo e horário; gravação fora do caminho crítico da resposta.
 
@@ -287,7 +287,7 @@ Estado da sessão e do usuário. Renova a janela de inatividade. **Autenticado.*
 
 - [ ] **CA-01**: QUANDO a aplicação iniciar sem usuário com o e-mail de administrador configurado, O SISTEMA DEVE criar esse usuário com papel `ADMIN`, status `ACTIVE` e `must_change_password` verdadeiro.
 - [ ] **CA-02**: QUANDO a aplicação iniciar e o administrador já existir, O SISTEMA NÃO DEVE alterar nenhum dado dele.
-- [ ] **CA-03**: QUANDO o usuário informar e-mail, ou RA com prefixo "a", "A" ou sem prefixo, junto com a senha correta, O SISTEMA DEVE autenticar e emitir cookie com `HttpOnly`, `Secure` e `SameSite=Strict`.
+- [ ] **CA-03**: QUANDO o usuário informar e-mail, ou RA com prefixo "a", "A" ou sem prefixo, junto com a senha correta, O SISTEMA DEVE autenticar e emitir cookie com `HttpOnly` e `SameSite=Strict`, e com `Secure` fora de `APP_ENV=development`.
 - [ ] **CA-04**: SE o RA informado, depois de normalizado, não tiver exatamente 7 dígitos, ENTÃO O SISTEMA DEVE responder 400 `validation-error`.
 - [ ] **CA-05**: SE o usuário não existir, a senha estiver errada ou a conta não estiver `ACTIVE`, ENTÃO O SISTEMA DEVE responder 401 `invalid-credentials` com corpo idêntico nos três casos e registrar o evento específico na auditoria.
 - [ ] **CA-06**: ENQUANTO `must_change_password` for verdadeiro, O SISTEMA DEVE responder 403 `password-change-required` a toda rota autenticada, exceto `me`, `change-password` e `logout`.
@@ -338,20 +338,7 @@ Estado da sessão e do usuário. Renova a janela de inatividade. **Autenticado.*
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | O e-mail padrão do administrador, `admin@rmo.dev.br`, foi **confirmado** pelo Tech Lead em 08/10/2026. Falta decidir a senha provisória: gravá-la literal num repositório público permite que alguém entre antes do dono em um ambiente recém-implantado. | Senha provisória lida de `ADMIN_INITIAL_PASSWORD`; valor de exemplo só no `.env.example` de desenvolvimento; em produção, sem a variável, a aplicação não sobe. |
-| P-02 | RA em `users.academic_id` ou em `student_profiles` (versão original da SPEC-002). O login por RA é desta spec, que vem antes da SPEC-002; no perfil do estudante, o módulo `auth` dependeria de um módulo que ainda não existe. | Manter em `users.academic_id` (nulo para quem não é estudante). |
-| P-03 | A política de senha não está definida. | Mínimo de 10 e máximo de 128 caracteres, diferente do e-mail e do RA, sem regras de composição obrigatórias (alinhado ao NIST SP 800-63B). |
-| P-04 | Os limites de taxa não estão definidos. | Login: 5 falhas por identificador a cada 15 min e 20 requisições por IP por minuto. Recuperação: 3 por identificador por hora. |
-| P-05 | O envio de e-mail exige um despachante assíncrono e um servidor SMTP, que nenhuma spec define. | Incluir na SPEC-004 a interface de envio e um SMTP de desenvolvimento (ex.: Mailpit) no Docker Compose. **Já endereçado na SPEC-004 (RN-11, P-05).** |
-| P-06 | A decisão unificou o nome em `name`, mas a SPEC-002 usa nome e sobrenome separados (formulário e colunas do CSV). | Manter `name`; a SPEC-002 passa a receber `name` (no CSV, coluna `name`). |
-| P-07 | Contas criadas por docente ou por CSV (SPEC-002) não têm senha. O fluxo de ativação não está definido. | `password_hash` nulo até a ativação; a ativação reutiliza o mecanismo de token desta spec, com validade maior, definida na SPEC-002. |
-| P-08 | O que a tela `/app/profile/security` exibe além da troca de senha (ex.: lista de sessões ativas e encerramento remoto). | Só troca de senha nesta spec; lista de sessões numa spec futura. |
-| P-09 | Diferença entre `INACTIVE` e `SUSPENDED`: o documento canônico só tem `ATIVO` e `INATIVO`. | `INACTIVE`: desligamento administrativo permanente. `SUSPENDED`: bloqueio temporário e reversível. Ou eliminar `SUSPENDED`. |
-| P-10 | Algoritmo de hash: PBKDF2-HMAC-SHA256 ou Argon2id. | Argon2id (`golang.org/x/crypto/argon2`, Go puro), com parâmetros da OWASP. |
-| P-11 | Topologia BFF: como o Next.js e a API Go compartilham a origem para o cookie `SameSite=Strict`. | Definir na SPEC-004: o Next.js encaminha `/api/*` para o Go na mesma origem. **Já endereçado na SPEC-004 (`rewrites`, CA-17).** |
-| P-12 | O ambiente de desenvolvimento é acessado pelo IP da máquina por HTTP (decisão do Tech Lead em 08/10/2026). Navegadores só tratam `localhost` como contexto seguro; em `http://192.168.3.111`, cookies com o atributo `Secure` são descartados, e o login não funcionaria. | Atributo `Secure` controlado por configuração: ligado em produção (HTTPS obrigatório) e desligado só com `APP_ENV=development`. Alternativa: HTTPS local com certificado autoassinado. |
+Nenhuma. P-01 a P-12 aprovadas pelo Tech Lead em 08/10/2026 e incorporadas ao corpo (ver histórico).
 
 ---
 
@@ -361,3 +348,4 @@ Estado da sessão e do usuário. Renova a janela de inatividade. **Autenticado.*
 | :--- | :--- | :--- |
 | 08/10/2026 | Aruna Architect | Criação |
 | 08/10/2026 | Implementador (Claude) | Conversão para o template. Aplicadas as decisões do Tech Lead: estrutura `internal/modules` + `internal/platform`; enums em inglês `UPPER_SNAKE_CASE`; `password_hash` em `users`; RA de 7 dígitos; hash nativo em Go sem Keycloak. Mudanças de redação para revisão: tabela `users` e seed do administrador trazidos da SPEC-002; `user_credentials` removida; acionamento da revogação no início da prova e WebSocket movidos para fora de escopo; tokens gravados só como hash; endpoint `change-password`, status `REVOKED_PASSWORD_RESET` e eventos `LOGIN_FAILED_ACCOUNT_NOT_ACTIVE`, `PASSWORD_CHANGED` e `ADMIN_SEEDED` acrescentados; booleano de uso do token substituído por `used_at`; pendências registradas na seção 10 |
+| 08/10/2026 | Tech Lead | Aprovação integral das recomendações: P-01 `ADMIN_INITIAL_PASSWORD`; P-02 RA em `users.academic_id`; P-03 política de senha NIST; P-04 limites de taxa; P-05 e P-11 resolvidas pela SPEC-004; P-06 `name`; P-07 `password_hash` nulo até a ativação; P-08 só troca de senha no perfil; P-09 `INACTIVE` permanente e `SUSPENDED` temporário; P-10 Argon2id; P-12 `Secure` desligado só em desenvolvimento. Status: `Aprovada` |
