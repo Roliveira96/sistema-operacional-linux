@@ -1,0 +1,87 @@
+@use "@/styles/mixins" as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  background: var(--color-bg);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.container {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+  width: 100%;
+}
+
+.featuresSection {
+  width: 100%;
+  padding: var(--space-12) 0;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.metricsSection {
+  width: 100%;
+  padding: var(--space-12) 0;
+  background: var(--color-bg);
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: var(--space-8);
+  gap: var(--space-2);
+
+  h2 {
+    font-size: 1.75rem;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    line-height: var(--line-height-body);
+
+    @include from("md") {
+      font-size: 2.25rem;
+    }
+  }
+
+  p {
+    font-size: var(--font-size-md);
+    color: var(--color-text-secondary);
+    max-width: 36rem;
+  }
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+
+  @include from("md") {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+
+  @include from("sm") {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @include from("lg") {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

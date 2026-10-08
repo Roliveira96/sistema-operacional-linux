@@ -182,10 +182,10 @@
   width: 0.55rem;
   height: 1rem;
   background: var(--color-brand-gold);
-  animation: blinkCursor 1s step-start infinite;
+  animation: blink-cursor 1s step-start infinite;
 }
 
-@keyframes blinkCursor {
+@keyframes blink-cursor {
   0%,
   50% {
     opacity: 1;

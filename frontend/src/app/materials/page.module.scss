@@ -1,0 +1,65 @@
+@use "@/styles/mixins" as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  background: var(--color-bg);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--space-8) 0 var(--space-12);
+}
+
+.container {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: var(--space-8);
+  gap: var(--space-2);
+
+  h1 {
+    font-size: 2rem;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    line-height: var(--line-height-body);
+
+    @include from("md") {
+      font-size: 2.5rem;
+    }
+  }
+
+  p {
+    font-size: var(--font-size-md);
+    color: var(--color-text-secondary);
+    max-width: 40rem;
+    line-height: var(--line-height-body);
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+
+  @include from("md") {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @include from("lg") {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
