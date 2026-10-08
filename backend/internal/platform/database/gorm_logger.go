@@ -27,6 +27,12 @@ func newGormLogger(log *zap.Logger) gormlogger.Interface {
 
 func (g gormLogger) LogMode(gormlogger.LogLevel) gormlogger.Interface { return g }
 
+// ParamsFilter drops query parameters before GORM renders the SQL for the
+// log, so secrets such as password and token hashes never reach the logs.
+func (g gormLogger) ParamsFilter(_ context.Context, sql string, _ ...any) (string, []any) {
+	return sql, nil
+}
+
 func (g gormLogger) Info(ctx context.Context, msg string, args ...any) {
 	g.from(ctx).Info(fmt.Sprintf(msg, args...))
 }

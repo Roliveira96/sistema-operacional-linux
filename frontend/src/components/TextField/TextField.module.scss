@@ -1,0 +1,53 @@
+@use "../../styles/mixins";
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+
+  @include mixins.transition(border-color, box-shadow);
+
+  &:focus-within {
+    @include mixins.focus-ring;
+  }
+
+  &.invalid {
+    border-color: var(--color-danger);
+  }
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  outline: none;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}

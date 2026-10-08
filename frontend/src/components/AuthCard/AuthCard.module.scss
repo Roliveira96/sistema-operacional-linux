@@ -1,0 +1,29 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: 100%;
+  max-width: 26rem;
+  margin: var(--space-8) auto;
+  padding: var(--space-8) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--color-text-secondary);
+}

@@ -1,4 +1,4 @@
-package database
+package database_test
 
 import (
 	"context"
@@ -6,66 +6,21 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/zap"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/config"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database/dbtest"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/migrations"
 )
 
-const testSchema = "linux_lab"
+const testSchema = dbtest.Schema
 
-// startPostgres runs a disposable PostgreSQL container. Integration tests are
-// skipped with -short.
-func startPostgres(t *testing.T) config.DatabaseConfig {
+func openMigrated(t *testing.T) *database.DB {
 	t.Helper()
-	if testing.Short() {
-		t.Skip("integration test skipped in short mode")
-	}
-	ctx := context.Background()
-	container, err := postgres.Run(ctx, "postgres:18-alpine",
-		postgres.WithDatabase("linux_lab_test"),
-		postgres.WithUsername("test"),
-		postgres.WithPassword("test"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").WithOccurrence(2).WithStartupTimeout(60*time.Second)),
-	)
-	if err != nil {
-		t.Fatalf("start postgres container: %v", err)
-	}
-	t.Cleanup(func() { _ = testcontainers.TerminateContainer(container) })
-
-	host, err := container.Host(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	port, err := container.MappedPort(ctx, "5432/tcp")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return config.DatabaseConfig{
-		Host: host, Port: int(port.Num()), Name: "linux_lab_test", User: "test", Password: "test",
-		Schema: testSchema, MaxOpenConns: 5, MaxIdleConns: 2, ConnMaxLifetime: time.Minute,
-	}
-}
-
-func openMigrated(t *testing.T) *DB {
-	t.Helper()
-	cfg := startPostgres(t)
-	db, err := Open(context.Background(), cfg, zap.NewNop())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := db.Migrate(context.Background(), cfg.Schema, migrations.FS, zap.NewNop()); err != nil {
-		t.Fatal(err)
-	}
-	return db
+	return dbtest.Open(t)
 }
 
 // Covers SPEC-004 CA-03.
@@ -91,11 +46,16 @@ func TestMigrateCreatesSchemaAndIsIdempotent(t *testing.T) {
 // treats as fatal before starting the HTTP server.
 func TestMigrateFailsOnBrokenMigration(t *testing.T) {
 	db := openMigrated(t)
-	broken := fstest.MapFS{
-		"00001_baseline.sql": {Data: mustRead(t, "00001_baseline.sql")},
-		"00002_broken.sql":   {Data: []byte("-- +goose Up\nCREATE TABLE broken (;\n")},
+	broken := fstest.MapFS{}
+	entries, err := migrations.FS.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
 	}
-	err := db.Migrate(context.Background(), testSchema, broken, zap.NewNop())
+	for _, e := range entries {
+		broken[e.Name()] = &fstest.MapFile{Data: mustRead(t, e.Name())}
+	}
+	broken["00099_broken.sql"] = &fstest.MapFile{Data: []byte("-- +goose Up\nCREATE TABLE broken (;\n")}
+	err = db.Migrate(context.Background(), testSchema, broken, zap.NewNop())
 	if err == nil || !strings.Contains(err.Error(), "apply migrations") {
 		t.Fatalf("expected migration error, got %v", err)
 	}
@@ -111,12 +71,12 @@ func mustRead(t *testing.T, name string) []byte {
 }
 
 type alpha struct {
-	Model
+	database.Model
 	Name string
 }
 
 type beta struct {
-	Model
+	database.Model
 	Name string
 }
 
@@ -146,7 +106,7 @@ func TestModelAndTransactions(t *testing.T) {
 
 	t.Run("keeps an explicit id", func(t *testing.T) {
 		id := uuid.New()
-		row := alpha{Model: Model{ID: id}, Name: "explicit"}
+		row := alpha{Model: database.Model{ID: id}, Name: "explicit"}
 		if err := db.Conn(ctx).Create(&row).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -209,7 +169,7 @@ func TestModelAndTransactions(t *testing.T) {
 }
 
 func TestDSNQuotesValues(t *testing.T) {
-	dsn := DSN(config.DatabaseConfig{Host: "h", Port: 1, User: "u", Password: "p'w d", Name: "n", Schema: "s"})
+	dsn := database.DSN(config.DatabaseConfig{Host: "h", Port: 1, User: "u", Password: "p'w d", Name: "n", Schema: "s"})
 	if !strings.Contains(dsn, `password='p\'w d'`) || !strings.Contains(dsn, "search_path=s") {
 		t.Errorf("unexpected dsn %q", dsn)
 	}

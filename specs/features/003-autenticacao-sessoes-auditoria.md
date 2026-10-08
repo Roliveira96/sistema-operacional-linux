@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-003 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -285,22 +285,22 @@ Estado da sessão e do usuário. Renova a janela de inatividade. **Autenticado.*
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: QUANDO a aplicação iniciar sem usuário com o e-mail de administrador configurado, O SISTEMA DEVE criar esse usuário com papel `ADMIN`, status `ACTIVE` e `must_change_password` verdadeiro.
-- [ ] **CA-02**: QUANDO a aplicação iniciar e o administrador já existir, O SISTEMA NÃO DEVE alterar nenhum dado dele.
-- [ ] **CA-03**: QUANDO o usuário informar e-mail, ou RA com prefixo "a", "A" ou sem prefixo, junto com a senha correta, O SISTEMA DEVE autenticar e emitir cookie com `HttpOnly` e `SameSite=Strict`, e com `Secure` fora de `APP_ENV=development`.
-- [ ] **CA-04**: SE o RA informado, depois de normalizado, não tiver exatamente 7 dígitos, ENTÃO O SISTEMA DEVE responder 400 `validation-error`.
-- [ ] **CA-05**: SE o usuário não existir, a senha estiver errada ou a conta não estiver `ACTIVE`, ENTÃO O SISTEMA DEVE responder 401 `invalid-credentials` com corpo idêntico nos três casos e registrar o evento específico na auditoria.
-- [ ] **CA-06**: ENQUANTO `must_change_password` for verdadeiro, O SISTEMA DEVE responder 403 `password-change-required` a toda rota autenticada, exceto `me`, `change-password` e `logout`.
-- [ ] **CA-07**: SE a última atividade da sessão tiver mais de 1 hora, ENTÃO O SISTEMA DEVE encerrar a sessão como `EXPIRED_IDLE` e responder 401 `session-expired`.
-- [ ] **CA-08**: SE a sessão tiver mais de 5 horas desde a emissão, ENTÃO O SISTEMA DEVE encerrá-la como `EXPIRED_ABSOLUTE` e responder 401, mesmo com atividade recente.
-- [ ] **CA-09**: SE as requisições a login ou recuperação excederem o limite na janela, ENTÃO O SISTEMA DEVE responder 429 `rate-limited` com `Retry-After`, sem consultar o banco.
-- [ ] **CA-10**: QUANDO a recuperação for pedida com identificador existente, O SISTEMA DEVE gerar token válido por 1 hora e enfileirar o e-mail; QUANDO o identificador não existir, O SISTEMA DEVE responder com o mesmo 202 sem enviar e-mail.
-- [ ] **CA-11**: QUANDO a redefinição usar token válido, O SISTEMA DEVE, em uma única transação, trocar a senha, marcar o token como usado, zerar `must_change_password` e revogar todas as sessões ativas do usuário.
-- [ ] **CA-12**: SE o token de redefinição estiver expirado, já usado ou não existir, ENTÃO O SISTEMA DEVE responder 410 `reset-token-invalid`.
-- [ ] **CA-13**: QUANDO a operação de revogação concorrente for acionada, O SISTEMA DEVE revogar todas as sessões ativas do usuário, exceto a informada, como `REVOKED_CONCURRENCY`.
-- [ ] **CA-14**: QUANDO ocorrer qualquer evento listado em `security_audit_logs`, O SISTEMA DEVE gravar um registro com IP, User-Agent, identificador informado e horário do servidor.
-- [ ] **CA-15**: O SISTEMA NÃO DEVE gravar token de sessão nem de redefinição em texto puro.
-- [ ] **CA-16**: QUANDO as telas desta spec forem exibidas em tema claro ou escuro, O SISTEMA DEVE usar apenas tokens de `_tokens.scss`, sem cores fixas.
+- [x] **CA-01**: QUANDO a aplicação iniciar sem usuário com o e-mail de administrador configurado, O SISTEMA DEVE criar esse usuário com papel `ADMIN`, status `ACTIVE` e `must_change_password` verdadeiro.
+- [x] **CA-02**: QUANDO a aplicação iniciar e o administrador já existir, O SISTEMA NÃO DEVE alterar nenhum dado dele.
+- [x] **CA-03**: QUANDO o usuário informar e-mail, ou RA com prefixo "a", "A" ou sem prefixo, junto com a senha correta, O SISTEMA DEVE autenticar e emitir cookie com `HttpOnly` e `SameSite=Strict`, e com `Secure` fora de `APP_ENV=development`.
+- [x] **CA-04**: SE o RA informado, depois de normalizado, não tiver exatamente 7 dígitos, ENTÃO O SISTEMA DEVE responder 400 `validation-error`.
+- [x] **CA-05**: SE o usuário não existir, a senha estiver errada ou a conta não estiver `ACTIVE`, ENTÃO O SISTEMA DEVE responder 401 `invalid-credentials` com corpo idêntico nos três casos e registrar o evento específico na auditoria.
+- [x] **CA-06**: ENQUANTO `must_change_password` for verdadeiro, O SISTEMA DEVE responder 403 `password-change-required` a toda rota autenticada, exceto `me`, `change-password` e `logout`.
+- [x] **CA-07**: SE a última atividade da sessão tiver mais de 1 hora, ENTÃO O SISTEMA DEVE encerrar a sessão como `EXPIRED_IDLE` e responder 401 `session-expired`.
+- [x] **CA-08**: SE a sessão tiver mais de 5 horas desde a emissão, ENTÃO O SISTEMA DEVE encerrá-la como `EXPIRED_ABSOLUTE` e responder 401, mesmo com atividade recente.
+- [x] **CA-09**: SE as requisições a login ou recuperação excederem o limite na janela, ENTÃO O SISTEMA DEVE responder 429 `rate-limited` com `Retry-After`, sem consultar o banco.
+- [x] **CA-10**: QUANDO a recuperação for pedida com identificador existente, O SISTEMA DEVE gerar token válido por 1 hora e enfileirar o e-mail; QUANDO o identificador não existir, O SISTEMA DEVE responder com o mesmo 202 sem enviar e-mail.
+- [x] **CA-11**: QUANDO a redefinição usar token válido, O SISTEMA DEVE, em uma única transação, trocar a senha, marcar o token como usado, zerar `must_change_password` e revogar todas as sessões ativas do usuário.
+- [x] **CA-12**: SE o token de redefinição estiver expirado, já usado ou não existir, ENTÃO O SISTEMA DEVE responder 410 `reset-token-invalid`.
+- [x] **CA-13**: QUANDO a operação de revogação concorrente for acionada, O SISTEMA DEVE revogar todas as sessões ativas do usuário, exceto a informada, como `REVOKED_CONCURRENCY`.
+- [x] **CA-14**: QUANDO ocorrer qualquer evento listado em `security_audit_logs`, O SISTEMA DEVE gravar um registro com IP, User-Agent, identificador informado e horário do servidor.
+- [x] **CA-15**: O SISTEMA NÃO DEVE gravar token de sessão nem de redefinição em texto puro.
+- [x] **CA-16**: QUANDO as telas desta spec forem exibidas em tema claro ou escuro, O SISTEMA DEVE usar apenas tokens de `_tokens.scss`, sem cores fixas.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -349,3 +349,4 @@ Nenhuma. P-01 a P-12 aprovadas pelo Tech Lead em 08/10/2026 e incorporadas ao co
 | 08/10/2026 | Aruna Architect | Criação |
 | 08/10/2026 | Implementador (Claude) | Conversão para o template. Aplicadas as decisões do Tech Lead: estrutura `internal/modules` + `internal/platform`; enums em inglês `UPPER_SNAKE_CASE`; `password_hash` em `users`; RA de 7 dígitos; hash nativo em Go sem Keycloak. Mudanças de redação para revisão: tabela `users` e seed do administrador trazidos da SPEC-002; `user_credentials` removida; acionamento da revogação no início da prova e WebSocket movidos para fora de escopo; tokens gravados só como hash; endpoint `change-password`, status `REVOKED_PASSWORD_RESET` e eventos `LOGIN_FAILED_ACCOUNT_NOT_ACTIVE`, `PASSWORD_CHANGED` e `ADMIN_SEEDED` acrescentados; booleano de uso do token substituído por `used_at`; pendências registradas na seção 10 |
 | 08/10/2026 | Tech Lead | Aprovação integral das recomendações: P-01 `ADMIN_INITIAL_PASSWORD`; P-02 RA em `users.academic_id`; P-03 política de senha NIST; P-04 limites de taxa; P-05 e P-11 resolvidas pela SPEC-004; P-06 `name`; P-07 `password_hash` nulo até a ativação; P-08 só troca de senha no perfil; P-09 `INACTIVE` permanente e `SUSPENDED` temporário; P-10 Argon2id; P-12 `Secure` desligado só em desenvolvimento. Status: `Aprovada` |
+| 08/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Verificação:** `go test ./...` com cobertura de 100% (`auth/domain`, `auth/handler`, `user/domain`, `user/service`) e 92,5% (`auth/service`); repositórios testados contra PostgreSQL real (96,3% e 95,5%), incluindo a recusa de UPDATE e DELETE na auditoria; frontend com 68 testes no Vitest e 99% de cobertura (linhas), ESLint, Stylelint e `tsc` limpos. Fluxo completo exercitado pela API numa instância descartável: login, troca obrigatória, recuperação com o link recebido no Mailpit, redefinição revogando a sessão antiga, token reutilizado (410), bloqueio após 5 falhas (429) e eventos na auditoria. No navegador, só a parte visual: login nos dois temas, redirecionamento de `/` e link de redefinição inválido; as telas logadas foram cobertas pelos testes automatizados, porque as regras de segurança do navegador não permitem digitar senhas num endereço de rede. **Desvios:** (1) o seed do administrador fica no service do módulo `auth`, chamado pelo `main`, e não em `platform/`, para que a plataforma não dependa de módulos; `platform/authn` guarda o contrato de sessão e os middlewares, e a validação fica no service; (2) o módulo `user` não tem handler, porque esta spec não cria endpoints de usuário; (3) variáveis novas: `HTTP_TRUSTED_PROXIES` (para obter o IP real do cliente atrás do Next.js), `ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD` e `APP_PUBLIC_URL`; (4) conta sem senha definida falha no login com o evento `LOGIN_FAILED_ACCOUNT_NOT_ACTIVE`; (5) a troca voluntária de senha revoga as demais sessões com o status `REVOKED_PASSWORD_RESET`, porque o enum não tem status próprio para troca; (6) pedido de recuperação para conta não ativa não envia e-mail e audita `sent=false`; (7) login bem-sucedido zera o contador de falhas do identificador; (8) a tabela de auditoria recusa UPDATE e DELETE por trigger, e os enums têm CHECK no banco; (9) `/` redireciona para `/app` e a página de status foi para `/status`; (10) **correção de segurança na plataforma:** o log de SQL do GORM imprimia valores (inclusive hashes de senha) e agora registra só os marcadores; (11) componentes de apoio além da lista: `TextField`, `PasswordField`, `Button`, `Alert`, `AuthCard`, `AppShell`, `AuthProvider`, `hooks/useAuth`, `lib/passwordPolicy`, `services/sessionEvents` e `services/authErrors`, além da página inicial `/app`. |

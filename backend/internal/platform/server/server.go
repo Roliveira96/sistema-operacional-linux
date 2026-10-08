@@ -23,9 +23,15 @@ type Routes interface {
 
 // NewEngine builds the Gin engine with the global middlewares, in order:
 // correlation ID, access log, panic recovery and RFC 7807 errors.
-func NewEngine(log *zap.Logger, routes ...Routes) *gin.Engine {
+func NewEngine(log *zap.Logger, trustedProxies []string, routes ...Routes) *gin.Engine {
 	engine := gin.New()
 	engine.HandleMethodNotAllowed = false
+	// Only the configured proxies (the Next.js server) may set the client IP
+	// through X-Forwarded-For; otherwise the TCP peer address is used.
+	if err := engine.SetTrustedProxies(trustedProxies); err != nil {
+		log.Error("invalid trusted proxies; trusting none", zap.Error(err))
+		_ = engine.SetTrustedProxies(nil)
+	}
 	engine.Use(
 		middleware.CorrelationID(log),
 		middleware.AccessLog(log),

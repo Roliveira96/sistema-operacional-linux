@@ -29,7 +29,7 @@ func checks(postgres, minio, smtp func(context.Context) error) []Check {
 func serve(t *testing.T, cs []Check) (*httptest.ResponseRecorder, map[string]any) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	engine := server.NewEngine(zap.NewNop(), NewHandler(NewChecker(time.Second, cs...), "test", zap.NewNop()))
+	engine := server.NewEngine(zap.NewNop(), nil, NewHandler(NewChecker(time.Second, cs...), "test", zap.NewNop()))
 	rec := httptest.NewRecorder()
 	engine.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/health", nil))
 	var body map[string]any

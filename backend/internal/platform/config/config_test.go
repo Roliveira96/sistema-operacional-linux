@@ -19,6 +19,9 @@ func validEnv() map[string]string {
 		"SMTP_HOST":        "localhost",
 		"SMTP_PORT":        "1025",
 		"SMTP_FROM":        "no-reply@example.com",
+
+		"ADMIN_INITIAL_PASSWORD": "a-long-initial-password",
+		"APP_PUBLIC_URL":         "http://192.168.3.111:3010/",
 	}
 }
 
@@ -86,5 +89,33 @@ func TestLoadTreatsBlankAsMissing(t *testing.T) {
 	env["DB_PASSWORD"] = "   "
 	if _, err := LoadFrom(lookupFrom(env)); err == nil || !strings.Contains(err.Error(), "DB_PASSWORD") {
 		t.Fatalf("expected DB_PASSWORD error, got %v", err)
+	}
+}
+
+func TestLoadAuthSettings(t *testing.T) {
+	env := validEnv()
+	env["HTTP_TRUSTED_PROXIES"] = "192.168.3.111, 10.0.0.0/8"
+	cfg, err := LoadFrom(lookupFrom(env))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Auth.AdminEmail != "admin@rmo.dev.br" || cfg.Auth.PublicURL != "http://192.168.3.111:3010" {
+		t.Errorf("unexpected auth config: %+v", cfg.Auth)
+	}
+	if len(cfg.TrustedProxies) != 2 || !cfg.IsDevelopment() {
+		t.Errorf("unexpected proxies %v", cfg.TrustedProxies)
+	}
+}
+
+func TestLoadRejectsInvalidAuthSettings(t *testing.T) {
+	env := validEnv()
+	delete(env, "ADMIN_INITIAL_PASSWORD")
+	env["APP_PUBLIC_URL"] = "ftp://host"
+	env["HTTP_TRUSTED_PROXIES"] = "not-an-ip"
+	_, err := LoadFrom(lookupFrom(env))
+	for _, key := range []string{"ADMIN_INITIAL_PASSWORD", "APP_PUBLIC_URL", "HTTP_TRUSTED_PROXIES"} {
+		if err == nil || !strings.Contains(err.Error(), key) {
+			t.Errorf("error does not mention %s: %v", key, err)
+		}
 	}
 }

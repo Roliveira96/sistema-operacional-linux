@@ -5,6 +5,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -23,9 +25,21 @@ type Config struct {
 	HTTPAddr        string
 	LogLevel        string
 	ShutdownTimeout time.Duration
-	Database        DatabaseConfig
-	Storage         StorageConfig
-	Mail            MailConfig
+	// TrustedProxies lists the proxy addresses (the Next.js server) whose
+	// X-Forwarded-For header is trusted to resolve the client IP.
+	TrustedProxies []string
+	Database       DatabaseConfig
+	Storage        StorageConfig
+	Mail           MailConfig
+	Auth           AuthConfig
+}
+
+// AuthConfig holds authentication settings (SPEC-003).
+type AuthConfig struct {
+	AdminEmail           string
+	AdminInitialPassword string
+	// PublicURL is the frontend address used in e-mail links.
+	PublicURL string
 }
 
 // DatabaseConfig holds PostgreSQL connection and pool settings.
@@ -60,6 +74,11 @@ type MailConfig struct {
 	Workers  int
 }
 
+// IsDevelopment reports whether the application runs in development mode.
+func (c Config) IsDevelopment() bool {
+	return c.AppEnv == EnvDevelopment
+}
+
 // IsProduction reports whether the application runs in production mode.
 func (c Config) IsProduction() bool {
 	return c.AppEnv == EnvProduction
@@ -82,6 +101,7 @@ func LoadFrom(lookup LookupFunc) (Config, error) {
 		AppEnv:          r.oneOf("APP_ENV", EnvDevelopment, EnvDevelopment, EnvProduction),
 		HTTPAddr:        r.optional("HTTP_ADDR", ":8080"),
 		ShutdownTimeout: r.duration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		TrustedProxies:  r.ipList("HTTP_TRUSTED_PROXIES"),
 		Database: DatabaseConfig{
 			Host:            r.required("DB_HOST"),
 			Port:            r.port("DB_PORT", 5432),
@@ -107,6 +127,11 @@ func LoadFrom(lookup LookupFunc) (Config, error) {
 			Username: r.optional("SMTP_USERNAME", ""),
 			Password: r.optional("SMTP_PASSWORD", ""),
 			Workers:  r.positiveInt("MAILER_WORKERS", 2),
+		},
+		Auth: AuthConfig{
+			AdminEmail:           strings.ToLower(r.optional("ADMIN_EMAIL", "admin@rmo.dev.br")),
+			AdminInitialPassword: r.required("ADMIN_INITIAL_PASSWORD"),
+			PublicURL:            r.httpURL("APP_PUBLIC_URL"),
 		},
 	}
 
@@ -244,4 +269,41 @@ func (r *reader) identifier(key, fallback string) string {
 		}
 	}
 	return v
+}
+
+// ipList reads an optional comma-separated list of IP addresses or CIDRs.
+func (r *reader) ipList(key string) []string {
+	v, ok := r.value(key)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for _, item := range strings.Split(v, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if net.ParseIP(item) == nil {
+			if _, _, err := net.ParseCIDR(item); err != nil {
+				r.fail(key, "must contain IP addresses or CIDRs, got %q", item)
+				continue
+			}
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+// httpURL reads a required absolute http(s) URL without a trailing slash.
+func (r *reader) httpURL(key string) string {
+	v := r.required(key)
+	if v == "" {
+		return ""
+	}
+	u, err := url.Parse(v)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		r.fail(key, "must be an absolute http or https URL, got %q", v)
+		return ""
+	}
+	return strings.TrimRight(v, "/")
 }

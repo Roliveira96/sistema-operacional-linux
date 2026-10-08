@@ -2,6 +2,8 @@
 // directly. Requests go to the same origin under /api/v1 and Next.js rewrites
 // them to the Go backend, so session cookies stay first-party.
 
+import { emitSessionEvent } from "./sessionEvents";
+
 export const API_BASE_PATH = "/api/v1";
 const PROBLEM_CONTENT_TYPE = "application/problem+json";
 
@@ -96,7 +98,13 @@ export function createHttpClient(fetcher: Fetcher = (...args) => fetch(...args))
     const contentType = response.headers.get("Content-Type") ?? "";
     if (contentType.includes(PROBLEM_CONTENT_TYPE)) {
       const problem = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-      throw new ApiProblemError(problem, response.status);
+      const error = new ApiProblemError(problem, response.status);
+      if (error.type === "session-expired") {
+        emitSessionEvent({ kind: "session-expired", reason: String(error.extensions.reason ?? "") });
+      } else if (error.type === "password-change-required") {
+        emitSessionEvent({ kind: "password-change-required" });
+      }
+      throw error;
     }
     if (!response.ok) {
       throw new UnexpectedResponseError(response.status);
