@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-011 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -16,7 +16,6 @@
 | **Substitui** | Parte da SPEC-005 original (banco e carga) |
 | **Fontes canônicas** | Seção 3.3 da monografia; insumo `docs/insumos/conversao-conteudo-legado.md`; `docs/arquitetura/transicao-backend.md`, seção 6.4 (herança de cenários) e seção 2.1 (correção no servidor) |
 
-> O corpo desta spec já reflete as recomendações da seção 10, marcadas com (P-xx).
 
 ---
 
@@ -47,13 +46,13 @@ Não se aplica nesta spec.
 
 ### 3.2. Backend (Go — Camada de Módulo/Service)
 
-Módulo `backend/internal/modules/content/` (`domain`, `service`, `repository`) e comando `backend/cmd/seed/` (P-04).
+Módulo `backend/internal/modules/content/` (`domain`, `service`, `repository`) e comando `backend/cmd/seed/`.
 
 **Catálogo de blocos (`block_type`)** e o conteúdo de cada um (`payload`):
 
 | Tipo | Conteúdo |
 | :--- | :--- |
-| `TEXT` | Título opcional e HTML filtrado (P-07) |
+| `TEXT` | Título opcional e HTML filtrado |
 | `COMMAND` | Lista de passos: comando, explicação, terminal (1 a 3), login opcional e respostas |
 | `TIP` | Texto e variante (`DEFAULT` ou `WARNING`) |
 | `CURIOSITY` | Título e texto |
@@ -90,18 +89,18 @@ Módulo `backend/internal/modules/content/` (`domain`, `service`, `repository`) 
 | `SERVICE_STATE` | `service`, `active` opcional, `enabled` opcional | Ativo = arquivo de execução da unidade; habilitado = link em `multi-user.target.wants` (como o systemd simplificado do legado) |
 | `APT_LISTS_UPDATED` | — | Lista de pacotes atualizada presente |
 
-Um tipo novo só entra por revisão desta spec, antes de ser usado (P-03).
+Um tipo novo só entra por revisão desta spec, antes de ser usado.
 
 Regras de negócio:
 
 - **RN-01 (motor de correção):** função pura do domínio que recebe o estado serializado da máquina (formato `exame-so/maquina`, versão 1, do `Serializador` do legado) e a lista de condições, e devolve o veredito geral e o resultado de cada condição. Não acessa banco, rede nem relógio.
 - **RN-02 (paridade com o TypeScript):** o motor DEVE produzir, para cada caso das fixtures de equivalência da SPEC-005, o mesmo veredito esperado. As fixtures são um teste obrigatório do módulo.
 - **RN-03 (validação de condições):** tipo desconhecido, parâmetro ausente ou `mode` não octal invalidam a lista inteira; o motor nunca aprova uma lista inválida.
-- **RN-04 (carga idempotente):** o comando lê o manifesto e grava tudo numa única transação, usando a chave de origem como identidade natural. Item novo é inserido; item existente **sem** edição docente é atualizado com os dados do manifesto; item existente **com** edição docente (`edited_by_teacher_at` preenchido) não é tocado. A carga nunca exclui registros (P-05).
-- **RN-05 (dono dos módulos carregados):** os módulos criados pela carga pertencem à conta de administrador configurada em `ADMIN_EMAIL`; se ela não existir, o comando falha com mensagem clara (P-06).
-- **RN-06 (visibilidade inicial):** módulos de estudo nascem `PUBLIC`; o módulo "Simulados de certificação" nasce `AUTHENTICATED` (P-08).
+- **RN-04 (carga idempotente):** o comando lê o manifesto e grava tudo numa única transação, usando a chave de origem como identidade natural. Item novo é inserido; item existente **sem** edição docente é atualizado com os dados do manifesto; item existente **com** edição docente (`edited_by_teacher_at` preenchido) não é tocado. A carga nunca exclui registros.
+- **RN-05 (dono dos módulos carregados):** os módulos criados pela carga pertencem à conta de administrador configurada em `ADMIN_EMAIL`; se ela não existir, o comando falha com mensagem clara.
+- **RN-06 (visibilidade inicial):** módulos de estudo nascem `PUBLIC`; o módulo "Simulados de certificação" nasce `AUTHENTICATED`.
 - **RN-07 (exercícios dos módulos):** cada questão com uso `EXERCISE` é ligada ao seu módulo em `module_exercise_items` (SPEC-010), na ordem do legado, como obrigatória.
-- **RN-08 (HTML seguro):** o conteúdo `TEXT` e `LEGACY_HTML` é filtrado de novo na importação por lista fechada de marcações e classes, com a biblioteca `bluemonday` (P-07).
+- **RN-08 (HTML seguro):** o conteúdo `TEXT` e `LEGACY_HTML` é filtrado de novo na importação por lista fechada de marcações e classes, com a biblioteca `bluemonday`.
 - **RN-09 (relatório da carga):** ao final, o comando registra com o logger as contagens de inseridos, atualizados e preservados por tipo de entidade.
 - **RN-10 (integridade):** a migração acrescenta a chave estrangeira de `module_exercise_items.exercise_id` para `questions.id`, que a SPEC-010 deixou sem referência porque a tabela ainda não existia.
 
@@ -239,16 +238,7 @@ Não se aplica nesta spec: o motor é um serviço interno e a carga é um comand
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação (já refletida no corpo) |
-| :--- | :--- | :--- |
-| P-01 | "Exercício × questão" (conflito 2 do glossário). | Tudo é `Question`; "exercício" vira o uso `EXERCISE`, e "avaliação" o uso `ASSESSMENT`. |
-| P-02 | Termos novos fora do glossário: módulo de ensino, bloco e tipos, componente interativo, condição de validação, uso da questão, cenário base e derivado. | Registrar no `GLOSSARY.md` junto com esta spec. |
-| P-03 | O catálogo de condições pode não cobrir algum `verificar` do legado. | Catálogo fechado; tipo novo só por revisão desta spec. Casos não cobertos ficam em `DRAFT` com revisão pendente (SPEC-005). |
-| P-04 | Carga como comando separado ou dentro das migrações. | Comando separado (`backend/cmd/seed`): migração cria estrutura; carga traz conteúdo. |
-| P-05 | O que fazer com itens que sumirem do manifesto. | Nunca excluir automaticamente; a carga só insere e atualiza. |
-| P-06 | Dono dos módulos carregados, já que `course_modules.teacher_id` é obrigatório. | A conta de `ADMIN_EMAIL`; a docente pode assumir os módulos depois pela autoria. |
-| P-07 | `TEXT` em Markdown (exige biblioteca nova no frontend) ou HTML filtrado. | HTML filtrado pela mesma lista fechada, com `bluemonday` no backend; o frontend só exibe conteúdo já filtrado. |
-| P-08 | Visibilidade inicial dos módulos carregados. | Estudo `PUBLIC` (era material aberto no legado); simulados `AUTHENTICATED`. |
+Nenhuma. P-01 a P-08 aprovadas pelo Tech Lead em 08/10/2026 (ver histórico).
 
 ---
 
@@ -257,3 +247,4 @@ Não se aplica nesta spec: o motor é um serviço interno e a carga é um comand
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 08/10/2026 | Implementador (Claude) | Criação a partir da divisão aprovada da SPEC-005 original (banco, motor de correção e carga), alinhada à SPEC-010 e ao insumo de conversão. Pendências P-01 a P-08 |
+| 08/10/2026 | Tech Lead | Aprovação integral das recomendações P-01 a P-08. Status: `Aprovada` |

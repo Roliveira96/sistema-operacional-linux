@@ -61,6 +61,20 @@ Regras:
 | Cenário (base / derivado) | `Scenario` | Receita imutável do estado inicial do VFS; cenários derivados herdam do cenário base | `Environment`, `Setup` | Canônico |
 | Solução de referência | `ReferenceSolution` | Sequência de comandos que comprova que a questão é solucionável | `Answer`, `Key` | Proposto |
 
+## 3.1. Conteúdo didático (SPEC-010, SPEC-011)
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Módulo de ensino | `CourseModule` (módulo de backend `coursemodule`) | Unidade didática com blocos, materiais e questões. Não confundir com "módulo de domínio" do `ARCHITECTURE.md` | `Topic`, `Unit`, `Lesson` | Decidido |
+| Bloco | `ContentBlock` | Trecho ordenado do conteúdo de um módulo | `Section`, `Chunk` | Decidido |
+| Tipo de bloco | `TEXT`, `COMMAND`, `TIP`, `CURIOSITY`, `STEP_BY_STEP`, `CARDS`, `WIDGET`, `LEGACY_HTML` | Catálogo fechado da SPEC-011 | — | Decidido |
+| Componente interativo | `Widget` (`PERMISSION_CALCULATOR`, `LS_ANATOMY`) | Componente de código referenciado por um bloco | `Plugin` | Decidido |
+| Uso da questão | `EXERCISE` (exercício), `ASSESSMENT` (avaliação) | Finalidade da questão; "exercício" é questão com uso `EXERCISE` | — | Decidido (resolve o conflito 2) |
+| Condição de validação | `ValidationCondition` | Regra declarativa do catálogo fechado que a correção avalia sobre o estado da máquina | `Check`, `Assertion` | Decidido |
+| Motor de correção | `Grader` | Avaliador das condições de validação no servidor | `Corrector`, `Judge` | Decidido |
+| Chave de origem | `source_key` | Identificador do item no legado, usado pela carga idempotente | `legacy_id` | Decidido |
+| Carga inicial | `seed` | Comando que importa o manifesto do conteúdo para o banco | `import`, `fixture` | Decidido |
+
 ## 4. Avaliações e aplicação
 
 | Português | Código (EN) | Definição | Evitar | Status |
@@ -103,5 +117,5 @@ Regras:
 Divergências encontradas em `docs/arquitetura/transicao-backend.md`. Nenhuma spec que dependa delas pode ser aprovada antes de resolvê-las:
 
 1. **Status da tentativa:** a seção 3.1 lista `EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO` e `BLOQUEADO_DOCENTE`; a seção 6.4 usa `BLOQUEADO_CAUTELAR`, `ENCERRADO_DOCENTE`, `CONCLUIDO` e `ANULADO_DISCIPLINAR`. É preciso definir a lista final.
-2. **Exercício × Questão:** o documento canônico só usa "questão", mas o pedido da docente cita "exercícios" e "banco de exercícios". É preciso confirmar se são sinônimos (proposta: sim, ambos viram `Question`).
+2. ~~**Exercício × Questão**~~ — resolvido em 08/10/2026 (SPEC-011): tudo é `Question`; exercício é o uso `EXERCISE`.
 3. **Modelo de avaliação:** o documento canônico vincula `Avaliacao` direto à turma e não prevê modelos reutilizáveis. `AssessmentTemplate` é proposta nova.

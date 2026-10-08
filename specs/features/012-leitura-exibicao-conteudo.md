@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-012 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -16,7 +16,6 @@
 | **Substitui** | Parte da SPEC-005 original (exibição) |
 | **Fontes canônicas** | Seção 3.3 da monografia; insumo `docs/insumos/conversao-conteudo-legado.md` |
 
-> O corpo desta spec já reflete as recomendações da seção 10, marcadas com (P-xx).
 
 ---
 
@@ -46,7 +45,7 @@ Depois da carga da SPEC-011, o conteúdo do legado está no banco, mas ninguém 
 - **`/app/modules/[id]`:** a mesma leitura para módulos `AUTHENTICATED` ou `PRIVATE` liberados ao usuário.
 - **`/simulations`:** lista os modelos de avaliação ativos (título, descrição, duração, quantidade de questões). Substitui os dados fixos da SPEC-007.
 - **`ContentRenderer`:** recebe a lista de blocos e escolhe o componente de cada tipo: `TextBlock`, `CommandBlock` (passos com comando, explicação e terminal indicado), `TipBlock` (variante de alerta), `CuriosityBlock`, `StepByStepBlock`, `CardsBlock`, `WidgetBlock` e `LegacyHtmlBlock`. Tipo desconhecido é ignorado com aviso discreto, sem quebrar a página.
-- **HTML:** `TextBlock` e `LegacyHtmlBlock` exibem o HTML que o backend já filtrou (SPEC-011, RN-08); o frontend não acrescenta biblioteca de filtragem (P-02).
+- **HTML:** `TextBlock` e `LegacyHtmlBlock` exibem o HTML que o backend já filtrou (SPEC-011, RN-08); o frontend não acrescenta biblioteca de filtragem.
 - **Componentes interativos:** `PermissionCalculator` e `LsAnatomy`, portados do legado (`legacy/src/app/Widgets.ts`) para React, com tokens de tema.
 - **Estilo:** SCSS Modules, tokens e paridade entre temas; as cores de módulo vêm de tokens nomeados, nunca de valores fixos.
 
@@ -142,11 +141,7 @@ Modelos de avaliação ativos. **Público.**
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação (já refletida no corpo) |
-| :--- | :--- | :--- |
-| P-01 | Onde ficam os endpoints de leitura: no módulo `coursemodule` (SPEC-010) ou no novo `content`. | No `content`, que consulta a visibilidade pela interface pública do `coursemodule`. |
-| P-02 | Filtrar HTML de novo no navegador (DOMPurify) ou confiar no backend. | Confiar no backend, que filtra na extração e na importação; nenhuma biblioteca nova no frontend. |
-| P-03 | `/simulations` lista modelos para visitantes, mas fazer o simulado exige sessão. | Lista pública; o botão de iniciar leva ao login e fica sem efeito até a spec de aplicação de provas. |
+Nenhuma. P-01 a P-03 aprovadas pelo Tech Lead em 08/10/2026 (ver histórico).
 
 ---
 
@@ -155,3 +150,4 @@ Modelos de avaliação ativos. **Público.**
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 08/10/2026 | Implementador (Claude) | Criação a partir da divisão aprovada da SPEC-005 original (leitura e exibição), alinhada às SPECs 007, 010 e 011. Pendências P-01 a P-03 |
+| 08/10/2026 | Tech Lead | Aprovação integral das recomendações P-01 a P-03. Status: `Aprovada` |
