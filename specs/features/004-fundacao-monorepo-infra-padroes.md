@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-004 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -172,27 +172,27 @@ Estado da aplicação e das dependências. **Público.**
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: QUANDO o Docker Compose for iniciado, O SISTEMA DEVE subir PostgreSQL, MinIO e Mailpit com volumes persistentes locais.
-- [ ] **CA-02**: SE faltar variável obrigatória ou houver valor inválido, ENTÃO O SISTEMA DEVE encerrar na inicialização com log `Error` listando todas as falhas.
-- [ ] **CA-03**: QUANDO o backend iniciar, O SISTEMA DEVE aplicar as migrações pendentes, criando o schema se necessário, antes de aceitar requisições HTTP.
-- [ ] **CA-04**: SE uma migração falhar, ENTÃO O SISTEMA NÃO DEVE iniciar o servidor HTTP.
-- [ ] **CA-05**: QUANDO uma requisição for atendida, O SISTEMA DEVE devolver `X-Request-ID` e incluir o mesmo ID em todo log emitido durante ela.
-- [ ] **CA-06**: ONDE `APP_ENV=production`, O SISTEMA DEVE emitir logs em JSON, um evento por linha; caso contrário, em formato legível de console.
-- [ ] **CA-07**: QUANDO um handler registrar um erro mapeado, O SISTEMA DEVE responder no formato RFC 7807 com o status e o `type` correspondentes.
-- [ ] **CA-08**: SE ocorrer erro não mapeado ou pânico, ENTÃO O SISTEMA DEVE responder 500 RFC 7807 sem detalhes internos e registrar o detalhe uma única vez no log.
-- [ ] **CA-09**: QUANDO uma entidade com o modelo base for criada sem `id`, O SISTEMA DEVE atribuir um UUIDv7.
-- [ ] **CA-10**: SE uma função executada no gerenciador de transação retornar erro, ENTÃO O SISTEMA DEVE desfazer todas as gravações feitas por todos os repositories dentro dela.
-- [ ] **CA-11**: QUANDO todas as dependências estiverem disponíveis, O SISTEMA DEVE responder `GET /api/v1/health` com 200 e `HEALTHY`.
-- [ ] **CA-12**: SE o MinIO ou o SMTP estiver indisponível com o PostgreSQL disponível, ENTÃO O SISTEMA DEVE responder 200 com `DEGRADED` e o componente marcado `UNHEALTHY`.
-- [ ] **CA-13**: SE o PostgreSQL estiver indisponível, ENTÃO O SISTEMA DEVE responder 503 RFC 7807 `service-unavailable`.
-- [ ] **CA-14**: QUANDO um e-mail for enfileirado no despachante, O SISTEMA DEVE entregá-lo ao SMTP configurado (visível no Mailpit em desenvolvimento).
-- [ ] **CA-15**: QUANDO o processo receber SIGTERM, O SISTEMA DEVE concluir as requisições em andamento dentro de `SHUTDOWN_TIMEOUT`, drenar a fila de e-mails, fechar o banco e descarregar os logs antes de sair.
-- [ ] **CA-16**: QUANDO o backend iniciar, O SISTEMA DEVE garantir a existência do bucket MinIO configurado.
-- [ ] **CA-17**: QUANDO o navegador chamar qualquer caminho `/api/*` no endereço do frontend, O SISTEMA DEVE encaminhar a chamada ao backend sem requisição de origem cruzada.
-- [ ] **CA-18**: SE algum arquivo de estilo além de `_tokens.scss` contiver cor literal, ENTÃO a verificação do Stylelint DEVE falhar.
-- [ ] **CA-19**: QUANDO a página for aberta, O SISTEMA DEVE aplicar o tema salvo ou, sem preferência salva, o do sistema operacional, antes da primeira pintura.
-- [ ] **CA-20**: QUANDO o usuário alternar o tema, O SISTEMA DEVE trocar todos os tokens sem recarregar a página e lembrar a escolha.
-- [ ] **CA-21**: QUANDO o cliente HTTP receber resposta `application/problem+json` ou sofrer falha de rede, O SISTEMA DEVE entregar um erro tipado ao chamador, sem quebrar a renderização.
+- [x] **CA-01**: QUANDO o Docker Compose for iniciado, O SISTEMA DEVE subir PostgreSQL, MinIO e Mailpit com volumes persistentes locais.
+- [x] **CA-02**: SE faltar variável obrigatória ou houver valor inválido, ENTÃO O SISTEMA DEVE encerrar na inicialização com log `Error` listando todas as falhas.
+- [x] **CA-03**: QUANDO o backend iniciar, O SISTEMA DEVE aplicar as migrações pendentes, criando o schema se necessário, antes de aceitar requisições HTTP.
+- [x] **CA-04**: SE uma migração falhar, ENTÃO O SISTEMA NÃO DEVE iniciar o servidor HTTP.
+- [x] **CA-05**: QUANDO uma requisição for atendida, O SISTEMA DEVE devolver `X-Request-ID` e incluir o mesmo ID em todo log emitido durante ela.
+- [x] **CA-06**: ONDE `APP_ENV=production`, O SISTEMA DEVE emitir logs em JSON, um evento por linha; caso contrário, em formato legível de console.
+- [x] **CA-07**: QUANDO um handler registrar um erro mapeado, O SISTEMA DEVE responder no formato RFC 7807 com o status e o `type` correspondentes.
+- [x] **CA-08**: SE ocorrer erro não mapeado ou pânico, ENTÃO O SISTEMA DEVE responder 500 RFC 7807 sem detalhes internos e registrar o detalhe uma única vez no log.
+- [x] **CA-09**: QUANDO uma entidade com o modelo base for criada sem `id`, O SISTEMA DEVE atribuir um UUIDv7.
+- [x] **CA-10**: SE uma função executada no gerenciador de transação retornar erro, ENTÃO O SISTEMA DEVE desfazer todas as gravações feitas por todos os repositories dentro dela.
+- [x] **CA-11**: QUANDO todas as dependências estiverem disponíveis, O SISTEMA DEVE responder `GET /api/v1/health` com 200 e `HEALTHY`.
+- [x] **CA-12**: SE o MinIO ou o SMTP estiver indisponível com o PostgreSQL disponível, ENTÃO O SISTEMA DEVE responder 200 com `DEGRADED` e o componente marcado `UNHEALTHY`.
+- [x] **CA-13**: SE o PostgreSQL estiver indisponível, ENTÃO O SISTEMA DEVE responder 503 RFC 7807 `service-unavailable`.
+- [x] **CA-14**: QUANDO um e-mail for enfileirado no despachante, O SISTEMA DEVE entregá-lo ao SMTP configurado (visível no Mailpit em desenvolvimento).
+- [x] **CA-15**: QUANDO o processo receber SIGTERM, O SISTEMA DEVE concluir as requisições em andamento dentro de `SHUTDOWN_TIMEOUT`, drenar a fila de e-mails, fechar o banco e descarregar os logs antes de sair.
+- [x] **CA-16**: QUANDO o backend iniciar, O SISTEMA DEVE garantir a existência do bucket MinIO configurado.
+- [x] **CA-17**: QUANDO o navegador chamar qualquer caminho `/api/*` no endereço do frontend, O SISTEMA DEVE encaminhar a chamada ao backend sem requisição de origem cruzada.
+- [x] **CA-18**: SE algum arquivo de estilo além de `_tokens.scss` contiver cor literal, ENTÃO a verificação do Stylelint DEVE falhar.
+- [x] **CA-19**: QUANDO a página for aberta, O SISTEMA DEVE aplicar o tema salvo ou, sem preferência salva, o do sistema operacional, antes da primeira pintura.
+- [x] **CA-20**: QUANDO o usuário alternar o tema, O SISTEMA DEVE trocar todos os tokens sem recarregar a página e lembrar a escolha.
+- [x] **CA-21**: QUANDO o cliente HTTP receber resposta `application/problem+json` ou sofrer falha de rede, O SISTEMA DEVE entregar um erro tipado ao chamador, sem quebrar a renderização.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -261,3 +261,4 @@ Nenhuma. As pendências P-01 a P-11 foram aprovadas pelo Tech Lead em 08/10/2026
 | 08/10/2026 | Aruna Architect | Criação (duas versões) |
 | 08/10/2026 | Implementador (Claude) | Conversão para o template, com pedido do Tech Lead de preencher a seção 10 com recomendações. Arquivo renomeado (sem `spec-`); referências às outras specs por ID; critérios numerados e ampliados de 10 para 21; seção 10 original ("nenhuma pendência") substituída pelas pendências P-01 a P-11; acrescentados `config`, `storage`, `mailer`, `health`, migrações, encerramento gracioso, variáveis de ambiente, dependências autorizadas, script de tema, arquivo de mensagens e Stylelint |
 | 08/10/2026 | Tech Lead | Aprovação integral das recomendações: P-01 goose; P-02 construtores 400, 401, 403, 404, 409, 410, 413, 429, 500 e 503; P-03 regra 503 × `DEGRADED`; P-04 sem `system_health_checks`; P-05 fila de e-mail em memória; P-06 `platform/config`; P-07 encerramento gracioso e pacote `problem`; P-08 `testcontainers-go`, Vitest, Testing Library, ESLint e Stylelint; P-09 tema salvo ou do sistema antes da primeira pintura; P-10 versões estáveis mais recentes (Go 1.27, Next.js 16); P-11 schema `linux_lab`. Status: `Aprovada` |
+| 08/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. Verificado: `go test ./...` (unitários e integração com PostgreSQL via testcontainers), Vitest (19 testes), ESLint, Stylelint, `tsc`, `next build`, teste ponta a ponta pelo IP da máquina e inspeção visual dos dois temas no navegador. **Desvios:** (1) o schema é criado pelo executor de migrações antes do goose, porque a tabela de versões do goose fica dentro dele; a migração 00001 é só a linha de base; (2) MinIO indisponível na subida não impede o início: o erro é registrado e o serviço sobe `DEGRADED`, coerente com a RN-12; (3) a pedido do Tech Lead, o ambiente usa o IP da máquina em vez de `localhost`: Next.js escuta em `0.0.0.0` e foram acrescentadas as variáveis `FRONTEND_ALLOWED_DEV_ORIGINS`, `MINIO_API_HOST_PORT`, `MINIO_CONSOLE_HOST_PORT` e `MAILPIT_UI_HOST_PORT`; (4) portas de host padrão alteradas no `.env.example` (5440, 9100/9101, 1125, 8125; frontend em 3010) porque as portas usuais estavam ocupadas por outro projeto na máquina; (5) o `next.config.ts` carrega o `.env` da raiz com `@next/env`, dependência interna do próprio Next.js; (6) TypeScript 6 e ESLint 9 em vez das versões mais recentes, por compatibilidade de dependências; (7) arquivos além da lista da seção 9: componente `HealthStatus`, `src/theme/theme.ts`, módulos SCSS do layout e da página e configurações do Vitest; (8) o teste real de SMTP (CA-14) só roda quando `SMTP_TEST_HOST` e `SMTP_TEST_PORT` estão definidas; (9) o detector de condições de corrida (`go test -race`) não foi executado: a máquina não tem `gcc`. |

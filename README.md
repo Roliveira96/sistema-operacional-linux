@@ -138,6 +138,45 @@ Na branch `projeto-tcc2`, o projeto evolui para uma plataforma cliente-servidor 
 
 Antes de contribuir, leia [`specs/AI_INSTRUCTIONS.md`](specs/AI_INSTRUCTIONS.md).
 
+### Como subir a plataforma (TCC 2)
+
+Pré-requisitos: Docker com Compose, Go (o `go.mod` baixa sozinho a versão exigida) e Node.js 20.19+.
+
+O ambiente de desenvolvimento é acessado pelo **IP da máquina na rede** (ex.: `192.168.3.111`), não por `localhost`, para poder ser usado de outros computadores do laboratório.
+
+```bash
+# 1. Configuração única na raiz (troque 192.168.3.111 pelo IP da sua máquina)
+cp .env.example .env
+
+# 2. Infraestrutura: PostgreSQL, MinIO e Mailpit
+docker compose up -d
+
+# 3. Backend Go (aplica as migrações e sobe em :8080)
+cd backend
+set -a && . ../.env && set +a
+go run ./cmd/api
+
+# 4. Frontend Next.js (em outro terminal; lê o mesmo .env da raiz)
+cd frontend
+npm install
+npm run dev
+```
+
+| Serviço | Endereço (com o `.env.example`) |
+| :--- | :--- |
+| Aplicação | `http://192.168.3.111:3010` |
+| API (pela mesma origem) | `http://192.168.3.111:3010/api/v1/health` |
+| Caixa de e-mails do Mailpit | `http://192.168.3.111:8125` |
+| Console do MinIO | `http://192.168.3.111:9101` |
+
+Testes e verificações:
+
+```bash
+cd backend && go test ./...          # inclui integração com PostgreSQL via testcontainers (requer Docker)
+cd backend && go test -short ./...   # só testes unitários
+cd frontend && npm test && npm run lint && npm run typecheck
+```
+
 ---
 
 ## 🏗️ Arquitetura do Simulador

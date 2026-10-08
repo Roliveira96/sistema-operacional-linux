@@ -1,3 +1,12 @@
 node_modules
 dist
 *.pdf
+
+# Local environment and build output
+.env
+.env.local
+.next
+next-env.d.ts
+*.tsbuildinfo
+backend/bin
+coverage

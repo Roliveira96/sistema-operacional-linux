@@ -351,6 +351,7 @@ Estado da sessão e do usuário. Renova a janela de inatividade. **Autenticado.*
 | P-09 | Diferença entre `INACTIVE` e `SUSPENDED`: o documento canônico só tem `ATIVO` e `INATIVO`. | `INACTIVE`: desligamento administrativo permanente. `SUSPENDED`: bloqueio temporário e reversível. Ou eliminar `SUSPENDED`. |
 | P-10 | Algoritmo de hash: PBKDF2-HMAC-SHA256 ou Argon2id. | Argon2id (`golang.org/x/crypto/argon2`, Go puro), com parâmetros da OWASP. |
 | P-11 | Topologia BFF: como o Next.js e a API Go compartilham a origem para o cookie `SameSite=Strict`. | Definir na SPEC-004: o Next.js encaminha `/api/*` para o Go na mesma origem. **Já endereçado na SPEC-004 (`rewrites`, CA-17).** |
+| P-12 | O ambiente de desenvolvimento é acessado pelo IP da máquina por HTTP (decisão do Tech Lead em 08/10/2026). Navegadores só tratam `localhost` como contexto seguro; em `http://192.168.3.111`, cookies com o atributo `Secure` são descartados, e o login não funcionaria. | Atributo `Secure` controlado por configuração: ligado em produção (HTTPS obrigatório) e desligado só com `APP_ENV=development`. Alternativa: HTTPS local com certificado autoassinado. |
 
 ---
 

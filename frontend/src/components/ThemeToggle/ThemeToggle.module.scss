@@ -1,0 +1,27 @@
+@use "../../styles/mixins";
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  @include mixins.transition(background-color, border-color);
+  @include mixins.focusable;
+
+  &:hover {
+    border-color: var(--color-border-strong);
+    background: var(--color-surface-sunken);
+  }
+}
+
+.icon {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
