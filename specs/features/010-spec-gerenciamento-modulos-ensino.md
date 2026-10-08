@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-010 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -316,16 +316,16 @@ Atualização em lote da ordem sequencial obrigatória dos exercícios da trilha
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: O SISTEMA DEVE permitir a criação, consulta e edição de módulos com título, descrição, visibilidade e intervalo de vigência temporal por docentes e administradores autenticados.
-- [ ] **CA-02**: QUANDO um visitante não autenticado acessar a rota pública de materiais (`GET /api/v1/modules/public` ou `/materials`), O SISTEMA DEVE retornar exclusivamente módulos com visibilidade `PUBLIC`, status manual `ACTIVE` e cujo horário do servidor esteja dentro do intervalo de vigência.
-- [ ] **CA-03**: QUANDO um módulo for configurado como `PRIVATE`, O SISTEMA DEVE exigir a indicação de pelo menos uma turma gerenciada pelo docente e bloquear o acesso de estudantes não matriculados ativamente nas turmas vinculadas.
-- [ ] **CA-04**: ENQUANTO o horário do servidor estiver fora do período de vigência (`activationStart` / `activationEnd`), O SISTEMA DEVE bloquear o acesso de discentes e visitantes públicos, retornando HTTP 403.
-- [ ] **CA-05**: ENQUANTO o status manual do módulo for `INACTIVE` ou `ARCHIVED`, O SISTEMA DEVE bloquear o acesso de estudantes e visitantes, sobrepondo-se ao intervalo de datas de vigência.
-- [ ] **CA-06**: O SISTEMA DEVE computar e expor contadores consolidados do total de materiais e exercícios vinculados nas listagens e detalhes do módulo.
-- [ ] **CA-07**: QUANDO um docente atualizar a ordem da trilha de exercícios via `PUT /api/v1/modules/:id/exercises/order`, O SISTEMA DEVE persistir a nova sequência ordinal de forma atômica sob transação.
-- [ ] **CA-08**: SE um discente com papel `STUDENT` tentar criar, alterar ou reordenar módulos, ENTÃO O SISTEMA DEVE rejeitar a solicitação com código HTTP 403 (RFC 7807).
-- [ ] **CA-09**: SE a data de início da vigência for posterior à data de término, ENTÃO O SISTEMA DEVE rejeitar a requisição com código HTTP 400 (RFC 7807).
-- [ ] **CA-10**: QUANDO qualquer tela do módulo de ensino for renderizada em tema claro ou escuro, A INTERFACE DEVE utilizar exclusivamente tokens semânticos de `_tokens.scss`.
+- [x] **CA-01**: O SISTEMA DEVE permitir a criação, consulta e edição de módulos com título, descrição, visibilidade e intervalo de vigência temporal por docentes e administradores autenticados.
+- [x] **CA-02**: QUANDO um visitante não autenticado acessar a rota pública de materiais (`GET /api/v1/modules/public` ou `/materials`), O SISTEMA DEVE retornar exclusivamente módulos com visibilidade `PUBLIC`, status manual `ACTIVE` e cujo horário do servidor esteja dentro do intervalo de vigência.
+- [x] **CA-03**: QUANDO um módulo for configurado como `PRIVATE`, O SISTEMA DEVE exigir a indicação de pelo menos uma turma gerenciada pelo docente e bloquear o acesso de estudantes não matriculados ativamente nas turmas vinculadas.
+- [x] **CA-04**: ENQUANTO o horário do servidor estiver fora do período de vigência (`activationStart` / `activationEnd`), O SISTEMA DEVE bloquear o acesso de discentes e visitantes públicos, retornando HTTP 403.
+- [x] **CA-05**: ENQUANTO o status manual do módulo for `INACTIVE` ou `ARCHIVED`, O SISTEMA DEVE bloquear o acesso de estudantes e visitantes, sobrepondo-se ao intervalo de datas de vigência.
+- [x] **CA-06**: O SISTEMA DEVE computar e expor contadores consolidados do total de materiais e exercícios vinculados nas listagens e detalhes do módulo.
+- [x] **CA-07**: QUANDO um docente atualizar a ordem da trilha de exercícios via `PUT /api/v1/modules/:id/exercises/order`, O SISTEMA DEVE persistir a nova sequência ordinal de forma atômica sob transação.
+- [x] **CA-08**: SE um discente com papel `STUDENT` tentar criar, alterar ou reordenar módulos, ENTÃO O SISTEMA DEVE rejeitar a solicitação com código HTTP 403 (RFC 7807).
+- [x] **CA-09**: SE a data de início da vigência for posterior à data de término, ENTÃO O SISTEMA DEVE rejeitar a requisição com código HTTP 400 (RFC 7807).
+- [x] **CA-10**: QUANDO qualquer tela do módulo de ensino for renderizada em tema claro ou escuro, A INTERFACE DEVE utilizar exclusivamente tokens semânticos de `_tokens.scss`.
 
 ---
 
@@ -378,7 +378,7 @@ Meta de cobertura: Superior a 80% tanto no backend quanto no frontend.
 
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
-| - | Nenhuma pendência em aberto. | Spec pronta e aprovada para implementação. |
+| - | Nenhuma pendência em aberto. | Spec implementada com sucesso. |
 
 ---
 
@@ -388,3 +388,4 @@ Meta de cobertura: Superior a 80% tanto no backend quanto no frontend.
 | :--- | :--- | :--- |
 | 08/10/2026 | Aruna Architect | Criação da spec inicial |
 | 08/10/2026 | Tech Lead (Ricardo Martins de Oliveira) | Padronização e aprovação canônica para implementação |
+| 08/10/2026 | Ricardo Martins de Oliveira | Implementação concluída com cobertura de testes e critérios de aceite verificados |
