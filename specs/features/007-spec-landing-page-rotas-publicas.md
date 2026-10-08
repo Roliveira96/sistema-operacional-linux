@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-007 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -134,26 +134,16 @@ Sem endpoints novos. As telas públicas utilizam coleções estáticas tipadas l
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-* [ ] QUANDO a rota raiz `/` for acessada, O SISTEMA DEVE renderizar a Landing Page completa com Navbar, Hero animado, grade de pilares institucionais, métricas do simulador e rodapé.
-
-
-* [ ] QUANDO o usuário interagir com a barra de navegação pública, O SISTEMA DEVE exibir o logotipo institucional da universidade, links para `/`, `/materials`, `/simulations` e alternador de tema.
-
-
-* [ ] QUANDO o botão "Entrar" na barra de navegação for acionado, O SISTEMA DEVE redirecionar o navegador para a rota `/login`.
-* [ ] QUANDO o botão "Cadastrar" na barra de navegação for acionado, O SISTEMA DEVE redirecionar o navegador para a rota `/register`.
-* [ ] QUANDO a rota `/materials` for acessada, O SISTEMA DEVE renderizar a grade pública de módulos didáticos contendo título, descrição, ícone e nível a partir dos dados mockados.
-
-
-* [ ] QUANDO a rota `/simulations` for acessada, O SISTEMA DEVE renderizar a listagem de simulados práticos contendo duração, quantidade de questões e complexidade a partir dos dados mockados.
-
-
-* [ ] QUANDO o tema for alternado entre claro e escuro, O SISTEMA DEVE aplicar a mudança instantaneamente em todas as seções e rotas públicas sem recarregar a página.
-* [ ] QUANDO os componentes visuais forem renderizados, O SISTEMA DEVE aplicar exclusivamente variáveis semânticas de `_tokens.scss`, preservando a identidade Amarelo Ouro e Grafite da UTFPR.
-
-
-* [ ] QUANDO as animações visuais forem executadas, O SISTEMA DEVE utilizar unicamente transições e `@keyframes` de SCSS Modules sem bibliotecas de animação de terceiros.
-* [ ] QUANDO executados os testes automatizados da interface, O SISTEMA DEVE comprovar renderização íntegra e presença de todos os nós estruturais nos modos claro e escuro com cobertura superior a 80%.
+* [x] QUANDO a rota raiz `/` for acessada, O SISTEMA DEVE renderizar a Landing Page completa com Navbar, Hero animado, grade de pilares institucionais, métricas do simulador e rodapé.
+* [x] QUANDO o usuário interagir com a barra de navegação pública, O SISTEMA DEVE exibir o logotipo institucional da universidade, links para `/`, `/materials`, `/simulations` e alternador de tema.
+* [x] QUANDO o botão "Entrar" na barra de navegação for acionado, O SISTEMA DEVE redirecionar o navegador para a rota `/login`.
+* [x] QUANDO o botão "Cadastrar" na barra de navegação for acionado, O SISTEMA DEVE redirecionar o navegador para a rota `/register`.
+* [x] QUANDO a rota `/materials` for acessada, O SISTEMA DEVE renderizar a grade pública de módulos didáticos contendo título, descrição, ícone e nível a partir dos dados mockados.
+* [x] QUANDO a rota `/simulations` for acessada, O SISTEMA DEVE renderizar a listagem de simulados práticos contendo duração, quantidade de questões e complexidade a partir dos dados mockados.
+* [x] QUANDO o tema for alternado entre claro e escuro, O SISTEMA DEVE aplicar a mudança instantaneamente em todas as seções e rotas públicas sem recarregar a página.
+* [x] QUANDO os componentes visuais forem renderizados, O SISTEMA DEVE aplicar exclusivamente variáveis semânticas de `_tokens.scss`, preservando a identidade Amarelo Ouro e Grafite da UTFPR.
+* [x] QUANDO as animações visuais forem executadas, O SISTEMA DEVE utilizar unicamente transições e `@keyframes` de SCSS Modules sem bibliotecas de animação de terceiros.
+* [x] QUANDO executados os testes automatizados da interface, O SISTEMA DEVE comprovar renderização íntegra e presença de todos os nós estruturais nos modos claro e escuro com cobertura superior a 80%.
 
 ---
 
@@ -225,4 +215,14 @@ Dependências de execução: Esta especificação consome a fundação de fronte
 
 ## 10. Pendências (Open Issues / Questions)
 
-Nenhuma pendência em aberto. Spec aprovada para implementação.
+Nenhuma pendência em aberto. Spec aprovada e implementada.
+
+---
+
+## Histórico de revisões
+
+| Data | Autor | Alteração |
+| :--- | :--- | :--- |
+| 08/10/2026 | Aruna Architect | Criação da spec inicial |
+| 08/10/2026 | Tech Lead (Ricardo Martins de Oliveira) | Aprovação para implementação |
+| 08/10/2026 | Implementador (Antigravity) | Implementação completa com 105 testes no frontend, paridade de temas e status alterado para `Implementada` |
