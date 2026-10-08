@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-008 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -164,16 +164,16 @@ Sem alteração de schema. A tabela `users` estruturada no schema `project-manag
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-* [ ] QUANDO a rota `/login` for acessada, O SISTEMA DEVE carregar a interface no modo de login por padrão, exibindo os campos de entrada e o botão de acesso via Google.
-* [ ] QUANDO o usuário clicar na ação de alternância para cadastro, O SISTEMA DEVE executar transição visual animada sem recarregar a página e exibir o formulário de registro.
-* [ ] QUANDO o usuário submeter o cadastro manual fornecendo nome, e-mail e senha válidos sem preencher o RA, O SISTEMA DEVE criar a conta com sucesso atribuindo papel `STUDENT` e emitir a sessão.
-* [ ] QUANDO o usuário informar um RA no cadastro manual contendo prefixo alfanumérico e 7 numerais, O SISTEMA DEVE normalizar o valor gravando unicamente os dígitos numéricos.
-* [ ] SE o RA informado no cadastro manual contiver quantidade de dígitos diferente de 7, ENTÃO O SISTEMA DEVE rejeitar a requisição com erro de validação sintática (RFC 7807).
-* [ ] QUANDO o usuário acionar o botão de acesso via Google, O SISTEMA DEVE redirecionar para a página de autorização do provedor com os escopos adequados.
-* [ ] QUANDO o retorno do Google for processado com sucesso para um e-mail inédito, O SISTEMA DEVE provisionar a conta como `STUDENT`, salvar uma senha aleatória em hash com flag de troca falsa, gerar a sessão e redirecionar para `/app`.
-* [ ] QUANDO o retorno do Google corresponder a um e-mail já cadastrado previamente, O SISTEMA DEVE unificar o acesso autenticando o usuário sem duplicar a conta no banco de dados.
-* [ ] SE a conta vinculada ao e-mail retornado pelo Google estiver suspensa ou inativa, ENTÃO O SISTEMA DEVE barrar o acesso e exibir mensagem de erro apropriada.
-* [ ] QUANDO o tema for alternado entre claro e escuro, A INTERFACE DEVE manter a legibilidade, contraste dos campos e alinhamento visual utilizando exclusivamente tokens semânticos de `_tokens.scss`.
+* [x] QUANDO a rota `/login` for acessada, O SISTEMA DEVE carregar a interface no modo de login por padrão, exibindo os campos de entrada e o botão de acesso via Google.
+* [x] QUANDO o usuário clicar na ação de alternância para cadastro, O SISTEMA DEVE executar transição visual animada sem recarregar a página e exibir o formulário de registro.
+* [x] QUANDO o usuário submeter o cadastro manual fornecendo nome, e-mail e senha válidos sem preencher o RA, O SISTEMA DEVE criar a conta com sucesso atribuindo papel `STUDENT` e emitir a sessão.
+* [x] QUANDO o usuário informar um RA no cadastro manual contendo prefixo alfanumérico e 7 numerais, O SISTEMA DEVE normalizar o valor gravando unicamente os dígitos numéricos.
+* [x] SE o RA informado no cadastro manual contiver quantidade de dígitos diferente de 7, ENTÃO O SISTEMA DEVE rejeitar a requisição com erro de validação sintática (RFC 7807).
+* [x] QUANDO o usuário acionar o botão de acesso via Google, O SISTEMA DEVE redirecionar para a página de autorização do provedor com os escopos adequados.
+* [x] QUANDO o retorno do Google for processado com sucesso para um e-mail inédito, O SISTEMA DEVE provisionar a conta como `STUDENT`, salvar uma senha aleatória em hash com flag de troca falsa, gerar a sessão e redirecionar para `/app`.
+* [x] QUANDO o retorno do Google corresponder a um e-mail já cadastrado previamente, O SISTEMA DEVE unificar o acesso autenticando o usuário sem duplicar a conta no banco de dados.
+* [x] SE a conta vinculada ao e-mail retornado pelo Google estiver suspensa ou inativa, ENTÃO O SISTEMA DEVE barrar o acesso e exibir mensagem de erro apropriada.
+* [x] QUANDO o tema for alternado entre claro e escuro, A INTERFACE DEVE manter a legibilidade, contraste dos campos e alinhamento visual utilizando exclusivamente tokens semânticos de `_tokens.scss`.
 
 ---
 
@@ -236,4 +236,14 @@ Dependências de execução: Esta especificação estende o módulo `auth` estru
 
 ## 10. Pendências (Open Issues / Questions)
 
-Nenhuma pendência em aberto. Spec aprovada para implementação.
+Nenhuma pendência em aberto. Spec aprovada e implementada.
+
+---
+
+## 11. Histórico de revisões
+
+| Data | Autor | Alteração |
+| :--- | :--- | :--- |
+| 08/10/2026 | Aruna Architect | Criação da spec inicial |
+| 08/10/2026 | Tech Lead (Ricardo Martins de Oliveira) | Aprovação para implementação |
+| 08/10/2026 | Implementador (Antigravity) | Implementação completa com suporte a Google OAuth2, registro dinâmico, AuthContainer no frontend e critérios de aceite verificados (status alterado para `Implementada`) |
