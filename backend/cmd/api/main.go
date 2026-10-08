@@ -21,6 +21,9 @@ import (
 	classgrouphandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/handler"
 	classgrouprepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
 	classgroupservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/service"
+	coursemodulehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/handler"
+	coursemodulerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
+	coursemoduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/service"
 	userrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/repository"
 	userservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/service"
 
@@ -143,6 +146,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	classService := classgroupservice.New(classRepo)
 	classHandler := classgrouphandler.New(classService, auth)
 
+	moduleRepo := coursemodulerepository.New(db)
+	moduleService := coursemoduleservice.New(moduleRepo)
+	moduleHandler := coursemodulehandler.New(moduleService, auth)
+
 	checker := health.NewChecker(health.DefaultTimeout,
 		health.Check{Name: "postgres", Critical: true, Ping: db.Ping},
 		health.Check{Name: "minio", Ping: store.Ping},
@@ -154,6 +161,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		health.NewHandler(checker, version, log),
 		authHandler,
 		classHandler,
+		moduleHandler,
 	)
 	srv := server.New(cfg.HTTPAddr, engine, log)
 
