@@ -23,6 +23,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/app/classes" className={styles.link}>
                 {messages.classes.title}
               </Link>
+              <Link href="/app/students" className={styles.link}>
+                {messages.students.title}
+              </Link>
               <Link href="/app/modules" className={styles.link}>
                 {messages.modules.title}
               </Link>
