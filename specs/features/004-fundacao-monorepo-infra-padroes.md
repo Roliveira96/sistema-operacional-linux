@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-004 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -17,7 +17,6 @@
 | **Fontes canônicas** | `docs/arquitetura/transicao-backend.md`: seção 2.2 (stack) e seção 7 (fila assíncrona e worker pool de e-mails) |
 
 > **Ordem de implementação aprovada:** **SPEC-004** → SPEC-003 (Autenticação) → SPEC-005 (Turmas, a redigir) → SPEC-002 (Alunos).
-> O corpo desta spec já reflete as recomendações da seção 10, marcadas com (P-xx). Aprovar uma pendência é aprovar o trecho correspondente; recusar exige revisar esse trecho.
 
 ---
 
@@ -44,7 +43,7 @@ Sem uma fundação canônica, as configurações se espalham, o ciclo de vida da
 - Qualquer módulo de negócio (`user`, `auth`, `student`, turmas): SPEC-003, SPEC-005 e SPEC-002.
 - Hub WebSocket: spec própria.
 - Execução do backend e do frontend em contêiner, implantação em produção e pipeline de CI/CD.
-- Persistência da fila de e-mails: nesta fase a fila é em memória (P-05).
+- Persistência da fila de e-mails: nesta fase a fila é em memória.
 - Componentes de interface além da casca da aplicação e do alternador de tema.
 
 ## 3. Proposta de Solução (Proposed Solution)
@@ -54,38 +53,38 @@ Sem uma fundação canônica, as configurações se espalham, o ciclo de vida da
 - **Mesma origem:** os `rewrites` do Next.js encaminham todo caminho iniciado em `/api` para o endereço interno do backend, lido de variável de ambiente. O navegador só conversa com a origem do frontend, e por isso não há CORS.
 - **Tokens:** `frontend/src/styles/_tokens.scss` define, só como CSS Custom Properties, tokens semânticos de fundo, superfícies, texto primário e secundário, bordas, cores de feedback (sucesso, aviso, erro, informação), estados de interação, foco, espaçamento, raio, sombra e tipografia. O tema escuro redefine os valores sob `[data-theme="dark"]` no elemento raiz.
 - **Mixins:** `frontend/src/styles/_mixins.scss` com pontos de quebra responsivos, foco acessível e truncamento de texto.
-- **Tema inicial (P-09):** um script mínimo e bloqueante no `<head>` define `data-theme` antes da primeira pintura: usa o tema salvo pelo usuário; se não houver, usa a preferência do sistema operacional. O alternador do cabeçalho troca o atributo sem recarregar a página e salva a escolha. Falha ao ler ou gravar a preferência não quebra a página; ela cai na preferência do sistema.
+- **Tema inicial:** um script mínimo e bloqueante no `<head>` define `data-theme` antes da primeira pintura: usa o tema salvo pelo usuário; se não houver, usa a preferência do sistema operacional. O alternador do cabeçalho troca o atributo sem recarregar a página e salva a escolha. Falha ao ler ou gravar a preferência não quebra a página; ela cai na preferência do sistema.
 - **Cliente HTTP:** em `frontend/src/services/`, sobre o `fetch` nativo, com envio de credenciais em todas as chamadas e caminho base relativo `/api/v1`. Respostas com `Content-Type: application/problem+json` viram um erro tipado com `type`, `title`, `status`, `detail`, `instance` e, quando houver, campos inválidos e `retryAfterSeconds`. Falha de rede vira um erro tipado distinto. Nenhuma exceção não tratada chega à renderização.
 - **Textos:** os textos de interface ficam em arquivo de mensagens em português, em `frontend/src/messages/`.
 - **Casca:** o layout raiz carrega os estilos globais e o cabeçalho com o alternador de tema. A página inicial provisória exibe o estado do health check, consumido pelo cliente HTTP.
-- **Verificação estática (P-08):** ESLint (configuração do Next.js) e Stylelint com regra que proíbe cores literais (hexadecimais, nomeadas e funções de cor) em qualquer arquivo de estilo, exceto `_tokens.scss`.
+- **Verificação estática:** ESLint (configuração do Next.js) e Stylelint com regra que proíbe cores literais (hexadecimais, nomeadas e funções de cor) em qualquer arquivo de estilo, exceto `_tokens.scss`.
 
 ### 3.2. Backend (Go — Camada de Módulo/Service)
 
 Pacotes em `backend/internal/platform/`:
 
-- **RN-01 (configuração, P-06):** `config` lê as variáveis da seção 4.2, aplica os valores padrão e valida tudo na inicialização. Faltando variável obrigatória ou com valor inválido, a aplicação encerra com log `Error` listando todas as falhas de uma vez.
+- **RN-01 (configuração):** `config` lê as variáveis da seção 4.2, aplica os valores padrão e valida tudo na inicialização. Faltando variável obrigatória ou com valor inválido, a aplicação encerra com log `Error` listando todas as falhas de uma vez.
 - **RN-02 (logs):** `logger` cria um `*zap.Logger` uma vez, no `main`, e o injeta em todos os componentes. Em produção (`APP_ENV=production`): JSON, uma linha por evento, com buffer de escrita. Em desenvolvimento: console legível. O nível mínimo vem de `LOG_LEVEL`. Logger global é proibido (`ARCHITECTURE.md`, seção 3.10).
 - **RN-03 (correlation ID):** um middleware aceita o cabeçalho `X-Request-ID` recebido se ele for um UUID válido; caso contrário, gera um UUIDv7. O ID vai para o contexto, para um logger filho da requisição e para o cabeçalho `X-Request-ID` da resposta.
-- **RN-04 (erros, P-02 e P-07):** o pacote `problem` define a estrutura RFC 7807 e construtores para 400 (`validation-error`, com a lista de campos inválidos), 401, 403, 404, 409, 410, 413, 429 (com `retryAfterSeconds` e cabeçalho `Retry-After`), 500 e 503. Um middleware do Gin converte os erros registrados no contexto em `application/problem+json`. Erro sem mapeamento vira 500 genérico; o detalhe interno vai só para o log `Error`, uma única vez.
+- **RN-04 (erros):** o pacote `problem` define a estrutura RFC 7807 e construtores para 400 (`validation-error`, com a lista de campos inválidos), 401, 403, 404, 409, 410, 413, 429 (com `retryAfterSeconds` e cabeçalho `Retry-After`), 500 e 503. Um middleware do Gin converte os erros registrados no contexto em `application/problem+json`. Erro sem mapeamento vira 500 genérico; o detalhe interno vai só para o log `Error`, uma única vez.
 - **RN-05 (recuperação):** um middleware de recuperação converte pânicos em 500 RFC 7807 e registra a pilha só no log.
-- **RN-06 (banco):** `database` abre a conexão GORM com o PostgreSQL, com `search_path` fixo no schema do projeto (P-11) e pool configurável (conexões abertas, ociosas e tempo de vida).
-- **RN-07 (migrações, P-01):** migrações versionadas e sequenciais em `backend/migrations/`, executadas com goose na inicialização, antes de o servidor HTTP aceitar conexões. A primeira migração cria o schema. `AutoMigrate` do GORM é proibido. Migração com falha impede a subida.
+- **RN-06 (banco):** `database` abre a conexão GORM com o PostgreSQL, com `search_path` fixo no schema do projeto e pool configurável (conexões abertas, ociosas e tempo de vida).
+- **RN-07 (migrações):** migrações versionadas e sequenciais em `backend/migrations/`, executadas com goose na inicialização, antes de o servidor HTTP aceitar conexões. A primeira migração cria o schema. `AutoMigrate` do GORM é proibido. Migração com falha impede a subida.
 - **RN-08 (modelo base):** estrutura com `id` (UUIDv7), `created_at`, `updated_at` e `deleted_at`, mais um hook que gera o UUIDv7 antes da criação quando o `id` vem vazio.
 - **RN-09 (transações):** um gerenciador de transação executa uma função dentro de uma transação aberta e propagada pelo contexto. Os repositories usam a transação do contexto quando ela existe e a conexão comum caso contrário. Se a função retornar erro ou entrar em pânico, há rollback.
 - **RN-10 (armazenamento):** `storage` encapsula o cliente MinIO, garante a existência do bucket configurado na inicialização e oferece verificação de saúde.
-- **RN-11 (e-mail, P-05):** `mailer` define a interface de envio e um despachante assíncrono com fila em memória e pool de workers (documento canônico, seção 7). Cada mensagem tem até 3 tentativas com espera crescente; a falha final gera log `Error`. A implementação SMTP aponta para o Mailpit em desenvolvimento.
-- **RN-12 (health check, P-03 e P-04):** verifica PostgreSQL, MinIO e SMTP em paralelo, com tempo limite de 2 segundos cada, sem gravar nada no banco. Regra de resposta: PostgreSQL indisponível → 503; PostgreSQL ok e MinIO ou SMTP indisponível → 200 `DEGRADED`; tudo ok → 200 `HEALTHY`.
-- **RN-13 (encerramento gracioso, P-07):** ao receber SIGINT ou SIGTERM, o servidor para de aceitar conexões, aguarda as requisições em andamento até `SHUTDOWN_TIMEOUT`, drena a fila de e-mails dentro do mesmo prazo, fecha o banco e executa `Sync()` do logger.
+- **RN-11 (e-mail):** `mailer` define a interface de envio e um despachante assíncrono com fila em memória e pool de workers (documento canônico, seção 7). Cada mensagem tem até 3 tentativas com espera crescente; a falha final gera log `Error`. A implementação SMTP aponta para o Mailpit em desenvolvimento.
+- **RN-12 (health check):** verifica PostgreSQL, MinIO e SMTP em paralelo, com tempo limite de 2 segundos cada, sem gravar nada no banco. Regra de resposta: PostgreSQL indisponível → 503; PostgreSQL ok e MinIO ou SMTP indisponível → 200 `DEGRADED`; tudo ok → 200 `HEALTHY`.
+- **RN-13 (encerramento gracioso):** ao receber SIGINT ou SIGTERM, o servidor para de aceitar conexões, aguarda as requisições em andamento até `SHUTDOWN_TIMEOUT`, drena a fila de e-mails dentro do mesmo prazo, fecha o banco e executa `Sync()` do logger.
 - **RN-14 (servidor):** o `main` (`backend/cmd/api/`) é o composition root: carrega a configuração, cria o logger, aplica as migrações, cria as dependências, registra as rotas e inicia o servidor. Nenhum outro pacote instancia dependências por conta própria.
 
 ## 4. Modelo de Dados (Data Model)
 
 ### 4.1. Banco
 
-- **Schema** do projeto (nome: P-11), criado pela primeira migração.
+- **Schema** do projeto: `linux_lab`, criado pela primeira migração.
 - **Tabela de controle de versão das migrações**, gerida pelo goose dentro do schema.
-- Nenhuma tabela de negócio. A tabela `system_health_checks` da versão anterior foi removida (P-04).
+- Nenhuma tabela de negócio.
 
 ### 4.2. Variáveis de ambiente
 
@@ -98,7 +97,7 @@ Todas documentadas em `.env.example` (sem segredos reais). O `.env` local não �
 | `LOG_LEVEL` | Não | `debug` em desenvolvimento, `info` em produção | `debug`, `info`, `warn` ou `error` |
 | `SHUTDOWN_TIMEOUT` | Não | `15s` | Prazo do encerramento gracioso |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Sim (porta com padrão `5432`) | | Conexão PostgreSQL |
-| `DB_SCHEMA` | Não | nome decidido em P-11 | Schema do projeto |
+| `DB_SCHEMA` | Não | `linux_lab` | Schema do projeto |
 | `DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME` | Não | `25`, `5`, `30m` | Pool de conexões |
 | `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET` | Sim | | Armazenamento de objetos |
 | `MINIO_USE_SSL` | Não | `false` | |
@@ -119,13 +118,13 @@ Toda dependência nova exige spec (`AI_INSTRUCTIONS.md`, seção 7). Esta spec a
 | Backend | GORM e driver PostgreSQL do GORM | Persistência |
 | Backend | Zap | Logs |
 | Backend | `github.com/google/uuid` | UUIDv7 |
-| Backend | goose | Migrações (P-01) |
+| Backend | goose | Migrações |
 | Backend | `minio-go` | Armazenamento |
 | Backend | `go-mail` (`github.com/wneessen/go-mail`) | SMTP; o `net/smtp` da biblioteca padrão está congelado |
-| Backend (teste) | `testcontainers-go` | PostgreSQL real nos testes de integração (P-08) |
+| Backend (teste) | `testcontainers-go` | PostgreSQL real nos testes de integração |
 | Frontend | Next.js, React, TypeScript, `sass` | Aplicação e estilos |
 | Frontend (dev) | ESLint, Stylelint e a configuração SCSS do Stylelint | Verificação estática |
-| Frontend (dev) | Vitest e Testing Library | Testes (P-08) |
+| Frontend (dev) | Vitest e Testing Library | Testes |
 | Infra | Imagens oficiais de PostgreSQL, MinIO e Mailpit | Docker Compose |
 
 ## 5. Contrato de API (API Contract)
@@ -163,13 +162,13 @@ Estado da aplicação e das dependências. **Público.**
 - **Custo de desempenho dos logs.**
   *Mitigação:* Zap com buffer em produção e `Debug` desligado fora do desenvolvimento.
 - **Perda de logs ou e-mails ao encerrar.**
-  *Mitigação:* encerramento gracioso com drenagem da fila e `Sync()` do logger (RN-13). E-mails enfileirados no momento de uma queda abrupta se perdem; isso é aceito nesta fase (P-05).
+  *Mitigação:* encerramento gracioso com drenagem da fila e `Sync()` do logger (RN-13). E-mails enfileirados no momento de uma queda abrupta se perdem; isso é aceito nesta fase.
 - **Schema público usado por engano.**
   *Mitigação:* `search_path` fixo na conexão e schema criado pela primeira migração (RN-06, RN-07).
 - **Vazamento de detalhes internos em erros.**
   *Mitigação:* erro sem mapeamento vira 500 genérico; o detalhe fica só no log (RN-04).
 - **Tema errado piscando na abertura.**
-  *Mitigação:* script bloqueante no `<head>` antes da primeira pintura (P-09).
+  *Mitigação:* script bloqueante no `<head>` antes da primeira pintura.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
@@ -251,21 +250,7 @@ Estado da aplicação e das dependências. **Público.**
 
 ## 10. Pendências para aprovação
 
-O corpo da spec já aplica cada recomendação abaixo. Para aprovar, basta aceitar ou corrigir linha a linha.
-
-| ID | Pendência | Recomendação (já refletida no corpo) |
-| :--- | :--- | :--- |
-| P-01 | O mecanismo de migrações não estava definido. `AutoMigrate` não cria índices parciais nem bloqueia alterações em tabela append-only. | goose, com migrações versionadas em `backend/migrations/`, aplicadas na inicialização; `AutoMigrate` proibido. |
-| P-02 | A lista de construtores de erro não cobria os códigos que a SPEC-002 e a SPEC-003 usam. | 400, 401, 403, 404, 409, 410, 413, 429, 500 e 503. |
-| P-03 | Não estava definido quando o health check responde 200 `DEGRADED` e quando responde 503. | PostgreSQL fora → 503; só MinIO ou SMTP fora → 200 `DEGRADED`. |
-| P-04 | A tabela `system_health_checks` gravaria uma linha a cada verificação (chamada a cada poucos segundos), com um expurgo que nenhuma regra define. | Remover a tabela; o health check não grava nada. |
-| P-05 | O envio assíncrono de e-mail, exigido pela SPEC-003, não tinha onde morar. | `platform/mailer` com fila em memória, workers, 3 tentativas e drenagem no encerramento. Perda em queda abrupta aceita nesta fase; fila persistente numa spec futura. |
-| P-06 | Nenhum pacote cumpria a regra "não subir sem variáveis obrigatórias". | `platform/config`, com a lista da seção 4.2. |
-| P-07 | Faltava encerramento gracioso; com o Zap em buffer, uma saída abrupta perde logs. O pacote `errors` escondia o `errors` da biblioteca padrão. | Encerramento gracioso (RN-13) e pacote renomeado para `problem`. |
-| P-08 | As ferramentas de teste e de verificação estavam em aberto no `ARCHITECTURE.md`, e o critério "sem cores fixas" só era verificável à mão. | Backend: `go test` com `testcontainers-go`. Frontend: Vitest, Testing Library, ESLint e Stylelint com regra contra cores literais. Depois de aprovado, registrar no `ARCHITECTURE.md`. |
-| P-09 | Não estava definido como se escolhe o tema na abertura, e a página podia piscar no tema errado. | Preferência salva; senão, preferência do sistema; aplicada por script no `<head>` antes da primeira pintura. |
-| P-10 | O Go 1.24 está defasado em outubro de 2026. | Usar a versão estável mais recente do Go no momento da implementação, conferida com `go version`, e atualizar o `ARCHITECTURE.md`. O mesmo vale para o Next.js (≥ 15). |
-| P-11 | O hífen do schema `project-manager` obriga a usar aspas em todo SQL, e o nome não tem relação com o projeto. | Renomear para `linux_lab`, configurável por `DB_SCHEMA`, e atualizar `ARCHITECTURE.md`, SPEC-002 e SPEC-003. |
+Nenhuma. As pendências P-01 a P-11 foram aprovadas pelo Tech Lead em 08/10/2026 e incorporadas ao corpo (ver histórico).
 
 ---
 
@@ -275,3 +260,4 @@ O corpo da spec já aplica cada recomendação abaixo. Para aprovar, basta aceit
 | :--- | :--- | :--- |
 | 08/10/2026 | Aruna Architect | Criação (duas versões) |
 | 08/10/2026 | Implementador (Claude) | Conversão para o template, com pedido do Tech Lead de preencher a seção 10 com recomendações. Arquivo renomeado (sem `spec-`); referências às outras specs por ID; critérios numerados e ampliados de 10 para 21; seção 10 original ("nenhuma pendência") substituída pelas pendências P-01 a P-11; acrescentados `config`, `storage`, `mailer`, `health`, migrações, encerramento gracioso, variáveis de ambiente, dependências autorizadas, script de tema, arquivo de mensagens e Stylelint |
+| 08/10/2026 | Tech Lead | Aprovação integral das recomendações: P-01 goose; P-02 construtores 400, 401, 403, 404, 409, 410, 413, 429, 500 e 503; P-03 regra 503 × `DEGRADED`; P-04 sem `system_health_checks`; P-05 fila de e-mail em memória; P-06 `platform/config`; P-07 encerramento gracioso e pacote `problem`; P-08 `testcontainers-go`, Vitest, Testing Library, ESLint e Stylelint; P-09 tema salvo ou do sistema antes da primeira pintura; P-10 versões estáveis mais recentes (Go 1.27, Next.js 16); P-11 schema `linux_lab`. Status: `Aprovada` |

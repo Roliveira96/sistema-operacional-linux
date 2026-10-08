@@ -32,10 +32,11 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 
 | Item | Escolha |
 | :--- | :--- |
-| Linguagem | Go 1.24 |
+| Linguagem | Go 1.27 (versão estável mais recente; atualizar junto com o `go.mod`) |
 | HTTP | Gin-Gonic |
 | ORM | GORM |
-| Banco | PostgreSQL, schema `project-manager` |
+| Banco | PostgreSQL, schema `linux_lab` |
+| Migrações | goose, versionadas em `backend/migrations/` (`AutoMigrate` proibido) |
 | Tempo real | Hub WebSocket próprio |
 | Logs | Zap (`go.uber.org/zap`), logger da Uber |
 | Identificadores | UUIDv7, gerado em hook de ciclo de vida do GORM (antes da criação) |
@@ -122,7 +123,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 
 | Item | Escolha |
 | :--- | :--- |
-| Framework | Next.js 15+ com App Router |
+| Framework | Next.js 16 com App Router |
 | Linguagem | TypeScript em modo estrito |
 | Estilo | SCSS Modules |
 
@@ -150,6 +151,8 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 ## 5. Testes
 
 - Cada critério de aceite de uma spec é coberto por pelo menos um teste automatizado ou por um roteiro manual descrito na própria spec.
+- Ferramentas: `go test` no backend, com `testcontainers-go` para integração com PostgreSQL real; Vitest e Testing Library no frontend.
+- Verificação estática obrigatória no frontend: ESLint e Stylelint. O Stylelint proíbe cores literais em qualquer arquivo de estilo, exceto `_tokens.scss`.
 - Backend: testes de unidade de services, com repositories substituídos por implementações de teste das interfaces, e testes de integração de repositories contra PostgreSQL real.
 - A suíte do `legacy/` (Vitest) **DEVE** continuar passando enquanto o diretório existir.
 
@@ -158,6 +161,4 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 Itens ainda não decididos. Spec que dependa de algum deles precisa decidi-lo primeiro, com aprovação do Tech Lead:
 
 - Mecanismo de autenticação: a SPEC-003 (Rascunho) propõe sessão opaca em cookie `HttpOnly` gravada no banco, em vez do JWT citado no documento canônico.
-- Ferramentas de teste do frontend e de testes de integração do backend.
 - Estratégia de reaproveitamento do motor POSIX/VFS de `legacy/` pelo frontend e pelo corretor do servidor.
-- Nome do schema PostgreSQL: o hífen de `project-manager` obriga a usar aspas em todo SQL. Avaliar um nome sem hífen.
