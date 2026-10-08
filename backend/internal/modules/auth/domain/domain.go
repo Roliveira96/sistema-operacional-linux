@@ -95,6 +95,10 @@ const (
 	EventPasswordResetCompleted      EventType = "PASSWORD_RESET_COMPLETED"
 	EventPasswordChanged             EventType = "PASSWORD_CHANGED"
 	EventAdminSeeded                 EventType = "ADMIN_SEEDED"
+	EventOAuthLoginSucceeded        EventType = "OAUTH_LOGIN_SUCCEEDED"
+	EventOAuthLoginFailed           EventType = "OAUTH_LOGIN_FAILED"
+	EventRegisterSucceeded          EventType = "REGISTER_SUCCEEDED"
+	EventRegisterFailed             EventType = "REGISTER_FAILED"
 )
 
 // AuditLog is one append-only security audit entry.

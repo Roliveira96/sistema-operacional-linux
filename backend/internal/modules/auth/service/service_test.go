@@ -382,3 +382,170 @@ func TestRecordRateLimited(t *testing.T) {
 	assert.Equal(t, []domain.EventType{domain.EventLoginBlockedRateLimit}, h.auditor.events())
 	assert.Equal(t, "192.168.3.50", h.auditor.entries[0].Request.IP, "CA-14: the IP is recorded")
 }
+
+// SPEC-008: Register tests
+func TestRegister_SuccessWithoutAcademicID(t *testing.T) {
+	h := newHarness()
+	res, err := h.svc.Register(context.Background(), "Maria Silva", "maria@utfpr.edu.br", nil, "senhaSegura123!", req)
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, res.Token)
+	assert.Equal(t, userdomain.RoleStudent, res.User.Role)
+	assert.Equal(t, userdomain.StatusActive, res.User.Status)
+	assert.False(t, res.User.MustChangePassword)
+	assert.Nil(t, res.User.AcademicID)
+	assert.Equal(t, "Maria Silva", *res.User.Name)
+	assert.Equal(t, "maria@utfpr.edu.br", res.User.Email)
+
+	assert.Equal(t, []domain.EventType{domain.EventRegisterSucceeded}, h.auditor.events())
+}
+
+func TestRegister_SuccessWithAcademicID(t *testing.T) {
+	h := newHarness()
+	ra := "a1234567"
+	res, err := h.svc.Register(context.Background(), "João Santos", "joao@utfpr.edu.br", &ra, "senhaSegura123!", req)
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, res.Token)
+	require.NotNil(t, res.User.AcademicID)
+	assert.Equal(t, "1234567", *res.User.AcademicID, "prefix 'a' must be stripped")
+	assert.Equal(t, []domain.EventType{domain.EventRegisterSucceeded}, h.auditor.events())
+}
+
+func TestRegister_InvalidAcademicID(t *testing.T) {
+	h := newHarness()
+	ra := "12345" // only 5 digits
+	_, err := h.svc.Register(context.Background(), "João", "joao@utfpr.edu.br", &ra, "senhaSegura123!", req)
+	assert.ErrorIs(t, err, userdomain.ErrInvalidAcademicID)
+}
+
+func TestRegister_EmptyName(t *testing.T) {
+	h := newHarness()
+	_, err := h.svc.Register(context.Background(), "   ", "joao@utfpr.edu.br", nil, "senhaSegura123!", req)
+	assert.ErrorIs(t, err, domain.ErrNameRequired)
+}
+
+func TestRegister_InvalidEmail(t *testing.T) {
+	h := newHarness()
+	_, err := h.svc.Register(context.Background(), "João", "invalido", nil, "senhaSegura123!", req)
+	assert.ErrorIs(t, err, userdomain.ErrInvalidEmail)
+}
+
+func TestRegister_PasswordPolicyViolation(t *testing.T) {
+	h := newHarness()
+	_, err := h.svc.Register(context.Background(), "João", "joao@utfpr.edu.br", nil, "curta", req)
+	var polErr *domain.PolicyError
+	assert.ErrorAs(t, err, &polErr)
+	assert.Equal(t, []domain.EventType{domain.EventRegisterFailed}, h.auditor.events())
+}
+
+// SPEC-008: Google OAuth tests
+func TestInitiateGoogleLogin(t *testing.T) {
+	h := newHarness()
+	authURL, state, err := h.svc.InitiateGoogleLogin(context.Background(), req)
+	require.NoError(t, err)
+	assert.NotEmpty(t, state)
+	assert.Contains(t, authURL, state)
+
+	h.googleOAuth.configured = false
+	_, _, err = h.svc.InitiateGoogleLogin(context.Background(), req)
+	assert.ErrorIs(t, err, domain.ErrGoogleOAuthNotConfigured)
+}
+
+func TestHandleGoogleCallback_ValidationErrors(t *testing.T) {
+	h := newHarness()
+
+	// Missing code
+	_, err := h.svc.HandleGoogleCallback(context.Background(), "", "state-123", "state-123", req)
+	assert.ErrorIs(t, err, domain.ErrOAuthCodeMissing)
+
+	// State mismatch
+	_, err = h.svc.HandleGoogleCallback(context.Background(), "code-123", "state-bad", "state-good", req)
+	assert.ErrorIs(t, err, domain.ErrOAuthStateMismatch)
+
+	// Unverified email
+	h.googleOAuth.userInfo = domain.GoogleUserInfo{
+		Sub:           "sub-1",
+		Email:         "unverified@utfpr.edu.br",
+		Name:          "Unverified User",
+		EmailVerified: false,
+	}
+	_, err = h.svc.HandleGoogleCallback(context.Background(), "code-123", "state-123", "state-123", req)
+	assert.ErrorIs(t, err, domain.ErrGoogleEmailNotVerified)
+
+	// OAuth exchange error
+	h.googleOAuth.err = errors.New("network error")
+	_, err = h.svc.HandleGoogleCallback(context.Background(), "code-123", "state-123", "state-123", req)
+	assert.ErrorIs(t, err, domain.ErrOAuthExchangeFailed)
+}
+
+func TestHandleGoogleCallback_NewUser_ProvisionStudent(t *testing.T) {
+	h := newHarness()
+	h.googleOAuth.userInfo = domain.GoogleUserInfo{
+		Sub:           "sub-goog-999",
+		Email:         "novato@utfpr.edu.br",
+		Name:          "Novato Google",
+		EmailVerified: true,
+	}
+
+	res, err := h.svc.HandleGoogleCallback(context.Background(), "code-valid", "state-xyz", "state-xyz", req)
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, res.Token)
+	assert.Equal(t, userdomain.RoleStudent, res.User.Role)
+	assert.Equal(t, userdomain.StatusActive, res.User.Status)
+	assert.False(t, res.User.MustChangePassword)
+	assert.Nil(t, res.User.AcademicID)
+	assert.Equal(t, "Novato Google", *res.User.Name)
+	assert.Equal(t, "novato@utfpr.edu.br", res.User.Email)
+	assert.True(t, res.User.HasPassword(), "random hashed password must be set")
+
+	assert.Equal(t, []domain.EventType{domain.EventOAuthLoginSucceeded}, h.auditor.events())
+}
+
+func TestHandleGoogleCallback_ExistingUser_Reconcile(t *testing.T) {
+	h := newHarness()
+	ra := "7654321"
+	existing := h.users.add(userdomain.User{
+		Email:      "veterano@utfpr.edu.br",
+		AcademicID: &ra,
+		Role:       userdomain.RoleStudent,
+		Status:     userdomain.StatusActive,
+	})
+
+	h.googleOAuth.userInfo = domain.GoogleUserInfo{
+		Sub:           "sub-goog-888",
+		Email:         "veterano@utfpr.edu.br",
+		Name:          "Veterano Google",
+		EmailVerified: true,
+	}
+
+	res, err := h.svc.HandleGoogleCallback(context.Background(), "code-valid", "state-xyz", "state-xyz", req)
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, res.Token)
+	assert.Equal(t, existing.ID, res.User.ID, "must authenticate existing user without duplicate")
+	assert.Equal(t, &ra, res.User.AcademicID, "existing RA preserved")
+	assert.Equal(t, []domain.EventType{domain.EventOAuthLoginSucceeded}, h.auditor.events())
+}
+
+func TestHandleGoogleCallback_ExistingUser_InactiveOrSuspended(t *testing.T) {
+	h := newHarness()
+	h.users.add(userdomain.User{
+		Email:  "bloqueado@utfpr.edu.br",
+		Role:   userdomain.RoleStudent,
+		Status: userdomain.StatusSuspended,
+	})
+
+	h.googleOAuth.userInfo = domain.GoogleUserInfo{
+		Sub:           "sub-goog-777",
+		Email:         "bloqueado@utfpr.edu.br",
+		Name:          "Bloqueado Google",
+		EmailVerified: true,
+	}
+
+	_, err := h.svc.HandleGoogleCallback(context.Background(), "code-valid", "state-xyz", "state-xyz", req)
+	assert.ErrorIs(t, err, domain.ErrAccountInactive)
+	assert.Equal(t, []domain.EventType{domain.EventOAuthLoginFailed}, h.auditor.events())
+}
+

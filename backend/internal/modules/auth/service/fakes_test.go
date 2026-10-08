@@ -229,30 +229,48 @@ func (f *fakeHasher) Verify(password, encoded string) bool {
 	return encoded == "hashed:"+password
 }
 
+type fakeGoogleOAuth struct {
+	configured bool
+	authURL    string
+	userInfo   domain.GoogleUserInfo
+	err        error
+}
+
+func (f *fakeGoogleOAuth) Configured() bool { return f.configured }
+func (f *fakeGoogleOAuth) AuthCodeURL(state string) string { return f.authURL + "?state=" + state }
+func (f *fakeGoogleOAuth) Exchange(_ context.Context, code string) (domain.GoogleUserInfo, error) {
+	if f.err != nil {
+		return domain.GoogleUserInfo{}, f.err
+	}
+	return f.userInfo, nil
+}
+
 type harness struct {
-	svc     *Service
-	users   *fakeUsers
-	store   *fakeStore
-	auditor *fakeAuditor
-	mail    *fakeMailer
-	tx      *fakeTx
-	hasher  *fakeHasher
-	now     time.Time
+	svc         *Service
+	users       *fakeUsers
+	store       *fakeStore
+	auditor     *fakeAuditor
+	mail        *fakeMailer
+	tx          *fakeTx
+	hasher      *fakeHasher
+	googleOAuth *fakeGoogleOAuth
+	now         time.Time
 }
 
 func newHarness() *harness {
 	h := &harness{
-		users:   newFakeUsers(),
-		store:   newFakeStore(),
-		auditor: &fakeAuditor{},
-		mail:    &fakeMailer{},
-		tx:      &fakeTx{},
-		hasher:  &fakeHasher{},
-		now:     time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC),
+		users:       newFakeUsers(),
+		store:       newFakeStore(),
+		auditor:     &fakeAuditor{},
+		mail:        &fakeMailer{},
+		tx:          &fakeTx{},
+		hasher:      &fakeHasher{},
+		googleOAuth: &fakeGoogleOAuth{configured: true, authURL: "https://accounts.google.com/o/oauth2/auth"},
+		now:         time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC),
 	}
 	svc, err := New(Deps{
 		Users: h.users, Store: h.store, NotFound: errNotFound, Auditor: h.auditor, Mailer: h.mail,
-		Tx: h.tx, Hasher: h.hasher, PublicURL: "http://192.168.3.111:3010", Log: zap.NewNop(),
+		Tx: h.tx, Hasher: h.hasher, GoogleOAuth: h.googleOAuth, PublicURL: "http://192.168.3.111:3010", Log: zap.NewNop(),
 		Now: func() time.Time { return h.now },
 	})
 	if err != nil {

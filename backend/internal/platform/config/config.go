@@ -34,12 +34,20 @@ type Config struct {
 	Auth           AuthConfig
 }
 
-// AuthConfig holds authentication settings (SPEC-003).
+// AuthConfig holds authentication settings (SPEC-003, SPEC-008).
 type AuthConfig struct {
 	AdminEmail           string
 	AdminInitialPassword string
 	// PublicURL is the frontend address used in e-mail links.
 	PublicURL string
+	Google    GoogleOAuthConfig
+}
+
+// GoogleOAuthConfig holds Google OAuth2 credentials (SPEC-008).
+type GoogleOAuthConfig struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
 }
 
 // DatabaseConfig holds PostgreSQL connection and pool settings.
@@ -132,6 +140,11 @@ func LoadFrom(lookup LookupFunc) (Config, error) {
 			AdminEmail:           strings.ToLower(r.optional("ADMIN_EMAIL", "admin@rmo.dev.br")),
 			AdminInitialPassword: r.required("ADMIN_INITIAL_PASSWORD"),
 			PublicURL:            r.httpURL("APP_PUBLIC_URL"),
+			Google: GoogleOAuthConfig{
+				ClientID:     r.optional("GOOGLE_CLIENT_ID", ""),
+				ClientSecret: r.optional("GOOGLE_CLIENT_SECRET", ""),
+				RedirectURL:  r.optional("GOOGLE_REDIRECT_URL", ""),
+			},
 		},
 	}
 

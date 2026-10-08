@@ -4,8 +4,12 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,16 +67,17 @@ type Hasher interface {
 
 // Deps groups the service dependencies.
 type Deps struct {
-	Users     Users
-	Store     Store
-	NotFound  error
-	Auditor   Auditor
-	Mailer    Mailer
-	Tx        TxRunner
-	Hasher    Hasher
-	PublicURL string
-	Log       *zap.Logger
-	Now       func() time.Time
+	Users       Users
+	Store       Store
+	NotFound    error
+	Auditor     Auditor
+	Mailer      Mailer
+	Tx          TxRunner
+	Hasher      Hasher
+	GoogleOAuth GoogleOAuthProvider
+	PublicURL   string
+	Log         *zap.Logger
+	Now         func() time.Time
 }
 
 // Service is the auth use-case layer.
@@ -396,6 +401,200 @@ func (s *Service) SeedAdmin(ctx context.Context, email, initialPassword string) 
 	}
 	s.audit(ctx, &u.ID, domain.EventAdminSeeded, email, domain.RequestInfo{IP: "system", UserAgent: "system"}, nil)
 	return true, nil
+}
+
+// Register registers a new student user, creates their initial session and audits the event (SPEC-008).
+func (s *Service) Register(ctx context.Context, name, email string, rawAcademicID *string, password string, req domain.RequestInfo) (LoginResult, error) {
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		return LoginResult{}, domain.ErrNameRequired
+	}
+
+	normEmail, err := userdomain.NormalizeEmail(email)
+	if err != nil {
+		return LoginResult{}, err
+	}
+
+	var academicID *string
+	academicIDStr := ""
+	if rawAcademicID != nil && strings.TrimSpace(*rawAcademicID) != "" {
+		normRA, err := userdomain.NormalizeAcademicID(*rawAcademicID)
+		if err != nil {
+			return LoginResult{}, err
+		}
+		academicID = &normRA
+		academicIDStr = normRA
+	}
+
+	if err := domain.CheckPassword(password, normEmail, academicIDStr); err != nil {
+		s.audit(ctx, nil, domain.EventRegisterFailed, normEmail, req, map[string]any{"reason": "password_policy"})
+		return LoginResult{}, err
+	}
+
+	hash, err := s.Hasher.Hash(password)
+	if err != nil {
+		return LoginResult{}, fmt.Errorf("hash password: %w", err)
+	}
+
+	u := userdomain.User{
+		Name:               &trimmedName,
+		Email:              normEmail,
+		AcademicID:         academicID,
+		PasswordHash:       &hash,
+		Role:               userdomain.RoleStudent,
+		Status:             userdomain.StatusActive,
+		MustChangePassword: false,
+	}
+
+	if err := s.Users.Create(ctx, &u); err != nil {
+		s.audit(ctx, nil, domain.EventRegisterFailed, normEmail, req, map[string]any{"error": err.Error()})
+		return LoginResult{}, err
+	}
+
+	rawToken, tokenHash, err := newToken()
+	if err != nil {
+		return LoginResult{}, err
+	}
+	sessionID, err := uuid.NewV7()
+	if err != nil {
+		return LoginResult{}, err
+	}
+	now := s.Now().UTC()
+	session := domain.Session{
+		ID:             sessionID,
+		UserID:         u.ID,
+		TokenHash:      tokenHash,
+		IPAddress:      req.IP,
+		UserAgent:      req.UserAgent,
+		Status:         domain.SessionActive,
+		LastActivityAt: now,
+		ExpiresAt:      now.Add(domain.AbsoluteTimeout),
+		CreatedAt:      now,
+	}
+	if err := s.Store.CreateSession(ctx, &session); err != nil {
+		return LoginResult{}, fmt.Errorf("create session: %w", err)
+	}
+
+	s.audit(ctx, &u.ID, domain.EventRegisterSucceeded, normEmail, req, map[string]any{"session_id": session.ID})
+	return LoginResult{Token: rawToken, Session: session, User: u}, nil
+}
+
+// InitiateGoogleLogin generates a secure CSRF state token and returns the Google authorization URL (SPEC-008).
+func (s *Service) InitiateGoogleLogin(ctx context.Context, req domain.RequestInfo) (string, string, error) {
+	if s.GoogleOAuth == nil || !s.GoogleOAuth.Configured() {
+		return "", "", domain.ErrGoogleOAuthNotConfigured
+	}
+	state, err := domain.GenerateRandomState()
+	if err != nil {
+		return "", "", fmt.Errorf("generate random state: %w", err)
+	}
+	authURL := s.GoogleOAuth.AuthCodeURL(state)
+	return authURL, state, nil
+}
+
+// HandleGoogleCallback processes the OAuth2 callback from Google, reconciling existing accounts or provisioning a new student (SPEC-008).
+func (s *Service) HandleGoogleCallback(ctx context.Context, code, state, expectedState string, req domain.RequestInfo) (LoginResult, error) {
+	if strings.TrimSpace(code) == "" {
+		s.audit(ctx, nil, domain.EventOAuthLoginFailed, "", req, map[string]any{"reason": "missing_code"})
+		return LoginResult{}, domain.ErrOAuthCodeMissing
+	}
+	if state == "" || expectedState == "" || subtle.ConstantTimeCompare([]byte(state), []byte(expectedState)) != 1 {
+		s.audit(ctx, nil, domain.EventOAuthLoginFailed, "", req, map[string]any{"reason": "state_mismatch"})
+		return LoginResult{}, domain.ErrOAuthStateMismatch
+	}
+	if s.GoogleOAuth == nil || !s.GoogleOAuth.Configured() {
+		s.audit(ctx, nil, domain.EventOAuthLoginFailed, "", req, map[string]any{"reason": "not_configured"})
+		return LoginResult{}, domain.ErrGoogleOAuthNotConfigured
+	}
+
+	userInfo, err := s.GoogleOAuth.Exchange(ctx, code)
+	if err != nil {
+		s.audit(ctx, nil, domain.EventOAuthLoginFailed, "", req, map[string]any{"error": err.Error()})
+		return LoginResult{}, domain.ErrOAuthExchangeFailed
+	}
+	if !userInfo.EmailVerified {
+		s.audit(ctx, nil, domain.EventOAuthLoginFailed, userInfo.Email, req, map[string]any{"reason": "unverified_email"})
+		return LoginResult{}, domain.ErrGoogleEmailNotVerified
+	}
+
+	normEmail, err := userdomain.NormalizeEmail(userInfo.Email)
+	if err != nil {
+		s.audit(ctx, nil, domain.EventOAuthLoginFailed, userInfo.Email, req, map[string]any{"reason": "invalid_email"})
+		return LoginResult{}, domain.ErrOAuthExchangeFailed
+	}
+
+	u, err := s.Users.FindByEmail(ctx, normEmail)
+	if err == nil {
+		// Existing account: verify it is active
+		if u.Status != userdomain.StatusActive {
+			s.audit(ctx, &u.ID, domain.EventOAuthLoginFailed, normEmail, req, map[string]any{"status": u.Status, "reason": "inactive_or_suspended"})
+			return LoginResult{}, domain.ErrAccountInactive
+		}
+	} else if errors.Is(err, userdomain.ErrNotFound) {
+		// New account: provision student
+		randomPass, err := generateRandomPassword(32)
+		if err != nil {
+			return LoginResult{}, fmt.Errorf("generate random password: %w", err)
+		}
+		hash, err := s.Hasher.Hash(randomPass)
+		if err != nil {
+			return LoginResult{}, fmt.Errorf("hash random password: %w", err)
+		}
+		name := userInfo.Name
+		if strings.TrimSpace(name) == "" {
+			name = normEmail
+		}
+		u = userdomain.User{
+			Name:               &name,
+			Email:              normEmail,
+			AcademicID:         nil,
+			PasswordHash:       &hash,
+			Role:               userdomain.RoleStudent,
+			Status:             userdomain.StatusActive,
+			MustChangePassword: false,
+		}
+		if err := s.Users.Create(ctx, &u); err != nil {
+			s.audit(ctx, nil, domain.EventOAuthLoginFailed, normEmail, req, map[string]any{"error": err.Error()})
+			return LoginResult{}, fmt.Errorf("provision user: %w", err)
+		}
+	} else {
+		return LoginResult{}, fmt.Errorf("find user: %w", err)
+	}
+
+	rawToken, tokenHash, err := newToken()
+	if err != nil {
+		return LoginResult{}, err
+	}
+	sessionID, err := uuid.NewV7()
+	if err != nil {
+		return LoginResult{}, err
+	}
+	now := s.Now().UTC()
+	session := domain.Session{
+		ID:             sessionID,
+		UserID:         u.ID,
+		TokenHash:      tokenHash,
+		IPAddress:      req.IP,
+		UserAgent:      req.UserAgent,
+		Status:         domain.SessionActive,
+		LastActivityAt: now,
+		ExpiresAt:      now.Add(domain.AbsoluteTimeout),
+		CreatedAt:      now,
+	}
+	if err := s.Store.CreateSession(ctx, &session); err != nil {
+		return LoginResult{}, fmt.Errorf("create session: %w", err)
+	}
+
+	s.audit(ctx, &u.ID, domain.EventOAuthLoginSucceeded, normEmail, req, map[string]any{"session_id": session.ID})
+	return LoginResult{Token: rawToken, Session: session, User: u}, nil
+}
+
+func generateRandomPassword(length int) (string, error) {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 func (s *Service) audit(ctx context.Context, userID *uuid.UUID, event domain.EventType, identifier string, req domain.RequestInfo, meta map[string]any) {
