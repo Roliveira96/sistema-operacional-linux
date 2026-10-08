@@ -4,6 +4,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -13,8 +14,10 @@ import (
 
 // Storage gives access to the configured bucket.
 type Storage struct {
-	client *minio.Client
-	bucket string
+	client   *minio.Client
+	bucket   string
+	endpoint string
+	useSSL   bool
 }
 
 // New creates the MinIO client. It does not contact the server.
@@ -26,7 +29,12 @@ func New(cfg config.StorageConfig) (*Storage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create minio client: %w", err)
 	}
-	return &Storage{client: client, bucket: cfg.Bucket}, nil
+	return &Storage{
+		client:   client,
+		bucket:   cfg.Bucket,
+		endpoint: cfg.Endpoint,
+		useSSL:   cfg.UseSSL,
+	}, nil
 }
 
 // EnsureBucket creates the configured bucket when it does not exist yet.
@@ -55,3 +63,27 @@ func (s *Storage) Ping(ctx context.Context) error {
 	}
 	return nil
 }
+
+// PutObject uploads an object to the configured storage bucket.
+func (s *Storage) PutObject(ctx context.Context, objectKey string, reader io.Reader, size int64, contentType string) error {
+	_, err := s.client.PutObject(ctx, s.bucket, objectKey, reader, size, minio.PutObjectOptions{
+		ContentType: contentType,
+	})
+	if err != nil {
+		return fmt.Errorf("put object %s: %w", objectKey, err)
+	}
+	return nil
+}
+
+// GetObjectURL returns a URL to access the object key.
+func (s *Storage) GetObjectURL(objectKey string) string {
+	if objectKey == "" {
+		return ""
+	}
+	scheme := "http"
+	if s.useSSL {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s/%s/%s", scheme, s.endpoint, s.bucket, objectKey)
+}
+
