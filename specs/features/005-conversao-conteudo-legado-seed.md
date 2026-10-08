@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-005 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -103,14 +103,14 @@ Não se aplica nesta spec: nenhum endpoint é criado.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: QUANDO o extrator for executado, O SISTEMA DEVE gerar o manifesto com todos os tópicos, lições, passos, desafios, questões de quiz e modalidades do legado, e o relatório DEVE trazer as contagens de cada um.
-- [ ] **CA-02**: QUANDO o extrator for executado duas vezes seguidas, os três artefatos DEVEM ser idênticos byte a byte.
-- [ ] **CA-03**: Para cada questão prática `PUBLISHED`, as condições convertidas DEVEM aprovar o estado depois da solução de referência e de todas as formas alternativas cadastradas, e DEVEM reprovar o cenário intocado.
-- [ ] **CA-04**: SE alguma etapa da prova falhar ou divergir do `verificar` original, ENTÃO a questão DEVE sair como `DRAFT` e constar no relatório com o motivo.
-- [ ] **CA-05**: Todo cenário derivado DEVE referenciar o seu cenário base.
-- [ ] **CA-06**: Nenhum bloco `LEGACY_HTML` do manifesto DEVE conter `<script`, atributos `on*` ou URLs `javascript:`.
-- [ ] **CA-07**: O extrator NÃO DEVE alterar nenhum arquivo existente em `legacy/`.
-- [ ] **CA-08**: As fixtures de equivalência DEVEM conter, para cada questão prática, os estados testados e o veredito esperado.
+- [x] **CA-01**: QUANDO o extrator for executado, O SISTEMA DEVE gerar o manifesto com todos os tópicos, lições, passos, desafios, questões de quiz e modalidades do legado, e o relatório DEVE trazer as contagens de cada um.
+- [x] **CA-02**: QUANDO o extrator for executado duas vezes seguidas, os três artefatos DEVEM ser idênticos byte a byte.
+- [x] **CA-03**: Para cada questão prática `PUBLISHED`, as condições convertidas DEVEM aprovar o estado depois da solução de referência e de todas as formas alternativas cadastradas, e DEVEM reprovar o cenário intocado.
+- [x] **CA-04**: SE alguma etapa da prova falhar ou divergir do `verificar` original, ENTÃO a questão DEVE sair como `DRAFT` e constar no relatório com o motivo.
+- [x] **CA-05**: Todo cenário derivado DEVE referenciar o seu cenário base.
+- [x] **CA-06**: Nenhum bloco `LEGACY_HTML` do manifesto DEVE conter `<script`, atributos `on*` ou URLs `javascript:`.
+- [x] **CA-07**: O extrator NÃO DEVE alterar nenhum arquivo existente em `legacy/`.
+- [x] **CA-08**: As fixtures de equivalência DEVEM conter, para cada questão prática, os estados testados e o veredito esperado.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -139,3 +139,4 @@ Nenhuma. P-01 a P-07 aprovadas pelo Tech Lead em 08/10/2026 (ver histórico).
 | 08/10/2026 | Aruna Architect | Criação (versão única com extração, banco, seed e exibição) |
 | 08/10/2026 | Implementador (Claude) | Divisão aprovada pelo Tech Lead: esta spec fica com a extração e a prova de equivalência; banco, motor de correção e carga vão para a SPEC-011; leitura e exibição, para a SPEC-012. Alinhada à SPEC-010 (módulos de ensino), ao insumo `docs/insumos/conversao-conteudo-legado.md` e ao congelamento do legado. Pendências P-01 a P-07 |
 | 08/10/2026 | Tech Lead | Aprovação integral das recomendações P-01 a P-07. Status: `Aprovada` |
+| 08/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Resultado:** 9 módulos, 394 blocos, 236 cenários, 222 questões práticas e 30 teóricas, 7 modelos de avaliação; 204 de 222 correções traduzidas automaticamente; 61 questões provadas também contra as 183 formas alternativas; **190 questões publicadas** (prova aprovada, sem nenhuma divergência entre condição e correção original) e **32 em rascunho**. **Verificação:** 43 testes do extrator (cobertura de 94% das instruções e 90% dos ramos, medida com o Vitest do frontend, porque o legado não tem provedor de cobertura e o `package.json` dele está congelado); artefatos idênticos byte a byte em execuções seguidas; nenhum HTML perigoso nos 646 blocos e enunciados; todos os 222 cenários derivados apontam para um base; `git status` mostra só arquivos novos em `legacy/`. **Rascunhos por motivo:** 13 cenários já nascem resolvidos (no legado dependiam da adaptação de alvo, que não é migrada) e precisam de revisão da docente; 18 usam lógica fora do catálogo aprovado (contagem de linhas: 7; negação de conteúdo: 4; "nenhum pacote atualizável": 4; alternativa com "ou": 3, com um caso que soma dois motivos; sessão aberta: 1); 1 (`arq-6`) tem a solução de referência falhando mesmo com o cenário encadeado. **Desvios:** (1) manifesto e fixtures gravados compactados (`content_manifest.json.gz` e `equivalence_fixtures.json.gz`), porque os 236 estados completos somam 19 MB em JSON puro; (2) a tradução das correções é automática, lendo o código de cada função `verificar` e reconhecendo as expressões do `Verificar` (com expansão de listas `.every` e substituição de constantes), em vez de uma tabela escrita à mão por desafio; não foi preciso nenhuma entrada manual; (3) 10 desafios de tópico dependem dos anteriores (no legado todos dividem uma máquina): o cenário deles aplica antes as soluções dos desafios anteriores do mesmo tópico; (4) o quiz teórico vira um 7º modelo de avaliação, além dos 6 práticos; (5) a lista própria do tópico "simulado" repete a modalidade "Servidor Escola" e é ignorada; (6) relógio, `performance` e números aleatórios são congelados durante a extração, para a reprodutibilidade. **Sugestão para revisão futura do catálogo (SPEC-011):** os tipos `CONTENT_NOT_CONTAINS`, `CONTENT_LINE_COUNT`, `ANY_OF` e `PACKAGES_UP_TO_DATE` recuperariam 17 dos 18 rascunhos por falta de tipo. |
