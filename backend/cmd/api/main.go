@@ -18,6 +18,9 @@ import (
 	authhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/auth/handler"
 	authrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/auth/repository"
 	authservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/auth/service"
+	classgrouphandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/handler"
+	classgrouprepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
+	classgroupservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/service"
 	userrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/repository"
 	userservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/service"
 
@@ -136,6 +139,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		ForgotID:      ratelimit.New(3, time.Hour),
 	}, !cfg.IsDevelopment())
 
+	classRepo := classgrouprepository.New(db)
+	classService := classgroupservice.New(classRepo)
+	classHandler := classgrouphandler.New(classService, auth)
+
 	checker := health.NewChecker(health.DefaultTimeout,
 		health.Check{Name: "postgres", Critical: true, Ping: db.Ping},
 		health.Check{Name: "minio", Ping: store.Ping},
@@ -146,6 +153,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	engine := server.NewEngine(log, cfg.TrustedProxies,
 		health.NewHandler(checker, version, log),
 		authHandler,
+		classHandler,
 	)
 	srv := server.New(cfg.HTTPAddr, engine, log)
 
