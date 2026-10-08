@@ -58,7 +58,7 @@ O ingresso precisa acompanhar a dinâmica real da sala de aula e das listas inst
 
 ### 3.2. Backend (Go — Camada de Módulo/Service)
 
-Módulo `backend/internal/modules/student/` (`domain`, `service`, `repository`, `handler`). O usuário é criado pela interface pública do service do módulo `user` (SPEC-003); a turma é consultada pela interface pública do módulo de turmas (SPEC-005). Nenhum repository de outro módulo é acessado diretamente.
+Módulo `backend/internal/modules/student/` (`domain`, `service`, `repository`, `handler`). O usuário é criado pela interface pública do service do módulo `user` (SPEC-003); a turma é consultada pela interface pública do módulo de turmas (SPEC-007). Nenhum repository de outro módulo é acessado diretamente.
 
 Regras de negócio:
 
