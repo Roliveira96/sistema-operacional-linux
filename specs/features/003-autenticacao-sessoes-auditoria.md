@@ -16,7 +16,7 @@
 | **Substitui** | Nenhuma |
 | **Fontes canônicas** | `docs/arquitetura/transicao-backend.md`: seção 3.1 (`Usuario`), seção 6.3 item 2 (mutex de sessão) e seção 8.2 (inativação e derrubada de sessão) |
 
-> **Ordem de implementação aprovada:** SPEC-004 (Fundação) → **SPEC-003** → SPEC-005 (Turmas) → SPEC-002 (Alunos).
+> **Ordem de implementação aprovada:** SPEC-004 (Fundação) → **SPEC-003** → SPEC-007 (Turmas) → SPEC-002 (Alunos).
 > Esta spec só pode ser aprovada depois que as pendências da seção 10 forem resolvidas.
 
 ---

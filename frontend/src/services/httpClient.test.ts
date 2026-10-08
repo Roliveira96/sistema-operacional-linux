@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ApiProblemError, createHttpClient, NetworkError, UnexpectedResponseError } from "./httpClient";
+import { ApiProblemError, createHttpClient, isApiError, NetworkError, UnexpectedResponseError } from "./httpClient";
 
 function jsonResponse(body: unknown, status: number, contentType = "application/json") {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": contentType } });
@@ -57,5 +57,40 @@ describe("httpClient", () => {
   it("reports network failures", async () => {
     const fetcher = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
     await expect(createHttpClient(fetcher).get("/health")).rejects.toBeInstanceOf(NetworkError);
+  });
+});
+
+describe("httpClient edge cases", () => {
+  it("sends FormData untouched and supports patch and delete", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => jsonResponse({}, 200));
+    const client = createHttpClient(fetcher);
+    const form = new FormData();
+    await client.patch("/students/me/avatar", form);
+    await client.delete("/x");
+
+    const [, patchInit] = fetcher.mock.calls[0]!;
+    expect(patchInit.method).toBe("PATCH");
+    expect(patchInit.body).toBe(form);
+    expect(new Headers(patchInit.headers).has("Content-Type")).toBe(false);
+    expect(fetcher.mock.calls[1]![1].method).toBe("DELETE");
+  });
+
+  it("fills defaults when the problem body is incomplete or invalid", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response("not json", { status: 500, headers: { "Content-Type": "application/problem+json" } }));
+    const error = (await createHttpClient(fetcher).get("/x").catch((e: unknown) => e)) as ApiProblemError;
+    expect(error.type).toBe("about:blank");
+    expect(error.status).toBe(500);
+    expect(error.title).toBe("Request failed");
+    expect(error.invalidParams).toEqual([]);
+    expect(error.retryAfterSeconds).toBeUndefined();
+  });
+
+  it("identifies API errors", () => {
+    expect(isApiError(new NetworkError(null))).toBe(true);
+    expect(isApiError(new UnexpectedResponseError(502))).toBe(true);
+    expect(isApiError(new ApiProblemError({}, 400))).toBe(true);
+    expect(isApiError(new Error("x"))).toBe(false);
   });
 });

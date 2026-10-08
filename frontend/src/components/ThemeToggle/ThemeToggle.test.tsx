@@ -26,3 +26,14 @@ describe("ThemeToggle", () => {
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
   });
 });
+
+describe("ThemeToggle without an initial theme", () => {
+  it("assumes light and switches to dark", async () => {
+    delete document.documentElement.dataset.theme;
+    await act(async () => {
+      render(<ThemeToggle />);
+    });
+    fireEvent.click(screen.getByRole("button", { name: messages.theme.switchToDark }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+});

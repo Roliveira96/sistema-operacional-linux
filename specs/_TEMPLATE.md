@@ -113,7 +113,9 @@ Sintaxe EARS obrigatória. Cada critério é verificável por teste automatizado
 - **Frontend:** testes de componente e de fluxo, por critério de aceite, nos dois temas.
 - **Manual:** roteiro passo a passo para o que não for automatizável.
 
-Cada teste referencia o critério que cobre (ex.: "cobre CA-03").
+Cada teste referencia o critério que cobre (ex.: "cobre CA-03"). Todo CA tem pelo menos um teste automatizado nomeado ou um roteiro manual justificado.
+
+- **Cobertura:** meta acima de 80% no escopo da spec (`ARCHITECTURE.md`, seção 5), medida com `go test -cover` e com o Vitest em modo de cobertura.
 
 ## 9. Contexto Final da IA (AI Final Context Execution)
 

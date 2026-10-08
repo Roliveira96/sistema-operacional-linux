@@ -12,11 +12,11 @@
 | **Módulo** | `student` |
 | **Contexto de tela** | `/app/students`, `/app/classes/[id]/students`, `/invite/[token]` |
 | **Prioridade** | Alta |
-| **Depende de** | SPEC-004 (Fundação), SPEC-003 (Autenticação e Usuários), SPEC-005 (Turmas, a redigir) |
+| **Depende de** | SPEC-004 (Fundação), SPEC-003 (Autenticação e Usuários), SPEC-007 (Turmas, a redigir) |
 | **Substitui** | Nenhuma |
 | **Fontes canônicas** | `docs/arquitetura/transicao-backend.md`: seção 3.1 (`InscricaoTurma`) e seção 4.2 (gestão de turmas e onboarding discente) |
 
-> **Ordem de implementação aprovada:** SPEC-004 → SPEC-003 → SPEC-005 → **SPEC-002**.
+> **Ordem de implementação aprovada:** SPEC-004 → SPEC-003 → SPEC-007 → **SPEC-002**.
 > Esta spec só pode ser aprovada depois que as pendências da seção 10 forem resolvidas.
 
 ---
@@ -272,7 +272,7 @@ As telas da seção 3.1 consomem endpoints que ainda não têm contrato: listar 
 
 ## 9. Contexto Final da IA (AI Final Context Execution)
 
-1. **Pré-leitura:** `specs/AI_INSTRUCTIONS.md`, `specs/ARCHITECTURE.md`, `specs/GLOSSARY.md`, SPEC-003 e SPEC-005 implementadas.
+1. **Pré-leitura:** `specs/AI_INSTRUCTIONS.md`, `specs/ARCHITECTURE.md`, `specs/GLOSSARY.md`, SPEC-003 e SPEC-007 implementadas.
 2. **Ordem:** domain → repository → service → handler no backend; serviços → hooks → componentes → páginas no frontend.
 3. **Diretórios a criar ou alterar:**
    - `backend/internal/modules/student/` (`domain`, `service`, `repository`, `handler`)
@@ -287,14 +287,14 @@ As telas da seção 3.1 consomem endpoints que ainda não têm contrato: listar 
 
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
-| P-01 | Qual spec é dona da matrícula (`enrollments`) e da moderação. A matrícula é vínculo de turma, e a SPEC-005 vem antes. | Mover `enrollments`, a moderação e o link de convite para a SPEC-005. Esta spec fica com perfil, cadastro, CSV, autocadastro e avatar, criando matrículas pela interface do módulo de turmas. |
+| P-01 | Qual spec é dona da matrícula (`enrollments`) e da moderação. A matrícula é vínculo de turma, e a SPEC-007 vem antes. | Mover `enrollments`, a moderação e o link de convite para a SPEC-007. Esta spec fica com perfil, cadastro, CSV, autocadastro e avatar, criando matrículas pela interface do módulo de turmas. |
 | P-02 | Ativação de contas sem senha (cadastro manual e CSV): validade do link, texto do e-mail, reenvio. | Reaproveitar o token de redefinição da SPEC-003 com validade de 7 dias e reenvio pela docente. |
-| P-03 | Faltam contratos para listar e filtrar estudantes, listar estudantes da turma, listar pendentes, aprovar e rejeitar. | Acrescentar nesta spec, ou na SPEC-005 se P-01 for aceita. |
+| P-03 | Faltam contratos para listar e filtrar estudantes, listar estudantes da turma, listar pendentes, aprovar e rejeitar. | Acrescentar nesta spec, ou na SPEC-007 se P-01 for aceita. |
 | P-04 | Biblioteca de AVIF sem cgo. A decisão exige Go puro; há poucas opções maduras. | Avaliar uma biblioteca que roda o codificador em WebAssembly dentro do Go (sem cgo) antes de aprovar. Se nenhuma servir, guardar em WEBP. |
 | P-05 | O CSV original pedia ao mesmo tempo descarte por linha e reversão do lote inteiro, o que é contraditório. A decisão também não diz o que fazer quando e-mail e RA apontam para usuários diferentes. | Descarte por linha (RN-04, RN-09) e conflito e-mail × RA tratado como linha inválida. |
 | P-06 | Limites de arquivo: CSV (tamanho e número de linhas) e avatar (tamanho e dimensões). | CSV: 2 MB e 2.000 linhas. Avatar: 5 MB, de 128×128 a 4096×4096, saída em 512×512. |
 | P-07 | Limite de taxa do autocadastro público. | 10 cadastros por IP por hora. |
-| P-08 | Nomes de rota e de tabela da turma dependem do nome de Turma no glossário (`ClassGroup`, ainda "Proposto"). | Decidir na SPEC-005; esta spec acompanha. |
+| P-08 | Nomes de rota e de tabela da turma dependem do nome de Turma no glossário (`ClassGroup`, ainda "Proposto"). | Decidir na SPEC-007; esta spec acompanha. |
 | P-09 | Restringir o e-mail a domínio institucional (ex.: `@alunos.utfpr.edu.br`). | Não restringir; estudantes usam e-mails variados. |
 | P-10 | Status de pré-matrícula (`PRE_ENROLLED`) do documento canônico: estudante importado que ainda não ativou a conta. | Não usar: o estado de "não ativado" já está na conta (`password_hash` nulo), e a matrícula nasce `ACTIVE`. |
 

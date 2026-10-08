@@ -61,6 +61,7 @@ O agente **não pode**:
 - Violar qualquer regra de `ARCHITECTURE.md`, mesmo "temporariamente".
 - Alterar arquivos em `legacy/`, exceto quando uma spec aprovada mandar.
 - Colocar código, JSON mockado, SQL ou scripts dentro de documentos de spec.
+- Entregar código de produção sem os testes automatizados correspondentes no mesmo commit, ou com cobertura igual ou abaixo de 80% no escopo definido em `ARCHITECTURE.md`, seção 5.
 - Trabalhar fora da branch `projeto-tcc2`.
 - Mudar o status de uma spec para `Aprovada`.
 
@@ -93,7 +94,7 @@ Ao final de cada tarefa, o implementador informa:
 
 1. Spec implementada (ID) e critérios de aceite cobertos.
 2. Arquivos criados ou alterados.
-3. Resultado dos testes, com números reais. Se algo falhou ou foi pulado, dizer explicitamente.
+3. Resultado dos testes, com números reais: quantidade, cobertura medida por pacote ou escopo e o mapeamento critério de aceite → teste. Se algo falhou ou foi pulado, dizer explicitamente.
 4. Desvios em relação à spec, com justificativa, ou "nenhum desvio".
 
 ## 9. Mapa do repositório

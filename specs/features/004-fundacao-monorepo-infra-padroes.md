@@ -16,7 +16,7 @@
 | **Substitui** | Nenhuma |
 | **Fontes canônicas** | `docs/arquitetura/transicao-backend.md`: seção 2.2 (stack) e seção 7 (fila assíncrona e worker pool de e-mails) |
 
-> **Ordem de implementação aprovada:** **SPEC-004** → SPEC-003 (Autenticação) → SPEC-005 (Turmas, a redigir) → SPEC-002 (Alunos).
+> **Ordem de implementação aprovada:** **SPEC-004** → SPEC-003 (Autenticação) → SPEC-007 (Turmas, a redigir) → SPEC-002 (Alunos).
 
 ---
 
@@ -40,7 +40,7 @@ Sem uma fundação canônica, as configurações se espalham, o ciclo de vida da
 
 ### 2.1. Fora de escopo (Non-Goals)
 
-- Qualquer módulo de negócio (`user`, `auth`, `student`, turmas): SPEC-003, SPEC-005 e SPEC-002.
+- Qualquer módulo de negócio (`user`, `auth`, `student`, turmas): SPEC-003, SPEC-007 e SPEC-002.
 - Hub WebSocket: spec própria.
 - Execução do backend e do frontend em contêiner, implantação em produção e pipeline de CI/CD.
 - Persistência da fila de e-mails: nesta fase a fila é em memória.

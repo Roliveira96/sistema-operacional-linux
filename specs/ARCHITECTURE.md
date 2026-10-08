@@ -151,7 +151,15 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 ## 5. Testes
 
 - Cada critério de aceite de uma spec é coberto por pelo menos um teste automatizado ou por um roteiro manual descrito na própria spec.
-- Ferramentas: `go test` no backend, com `testcontainers-go` para integração com PostgreSQL real; Vitest e Testing Library no frontend.
+- **Obrigatoriedade (SPEC-006):** toda funcionalidade, refatoração ou correção entrega seus testes automatizados no mesmo commit.
+- **Backend:** `testing` com `testify` (`assert` e `require`).
+  - Services: testes unitários no mesmo pacote, com dependências substituídas por implementações de teste escritas à mão sobre as interfaces que o service declara (sem geradores de mock) e sem conexão real com PostgreSQL, MinIO ou SMTP.
+  - Handlers: testes contra o roteador Gin real com `httptest`, conferindo validação, status HTTP e envelope RFC 7807.
+  - Repositories: integração com PostgreSQL real via `testcontainers-go`.
+  - Condições de corrida: `go test -race` sempre que houver cgo; obrigatório na futura CI.
+- **Frontend:** Vitest e Testing Library, com cobertura pelo provedor `v8`. Testes ao lado da implementação para todo serviço, hook e componente; rede simulada injetando um `fetch` falso; componentes renderizados com `data-theme` claro e escuro, verificando estrutura e classes equivalentes (sem comparar cores).
+- **Cobertura mínima: mais de 80%** das instruções (backend) e de linhas e ramos (frontend). Vale para `domain`, `service` e `handler` de cada módulo em `backend/internal/modules/` e para serviços, hooks e componentes do frontend. Os pacotes de `backend/internal/platform/` ficam fora do limite e são cobertos por integração e roteiro manual.
+- **Qualidade:** cada critério de aceite é mapeado a pelo menos um teste nomeado; asserções verificam saídas, estados e erros, não contagem de chamadas internas.
 - Verificação estática obrigatória no frontend: ESLint e Stylelint. O Stylelint proíbe cores literais em qualquer arquivo de estilo, exceto `_tokens.scss`.
 - Backend: testes de unidade de services, com repositories substituídos por implementações de teste das interfaces, e testes de integração de repositories contra PostgreSQL real.
 - A suíte do `legacy/` (Vitest) **NÃO** faz parte da verificação do projeto: o legado está congelado e não é executado nem testado como critério de pronto. Ele só volta a ser testado se uma spec aprovada o alterar.
