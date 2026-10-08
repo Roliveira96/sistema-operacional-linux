@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-002 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -281,18 +281,18 @@ Consulta do perfil pessoal do estudante autenticado. **Papel:** `STUDENT`.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: QUANDO a docente cadastrar um estudante sem turma, O SISTEMA DEVE criá-lo e a interface DEVE exibir o aviso de estudante sem turma.
-- [ ] **CA-02**: QUANDO qualquer cadastro ou busca receber RA com "a", "A" ou sem prefixo, O SISTEMA DEVE tratar todas as formas como o mesmo RA de 7 dígitos.
-- [ ] **CA-03**: SE o e-mail ou o RA já existir no cadastro manual ou no convite, ENTÃO O SISTEMA DEVE responder 409 com o `type` correspondente.
-- [ ] **CA-04**: QUANDO a docente importar um CSV só com as colunas `email` e `academic_id` válidas, O SISTEMA DEVE processar todas as linhas, sem exigir nome.
-- [ ] **CA-05**: QUANDO o CSV trouxer estudante já cadastrado, O SISTEMA NÃO DEVE recriá-lo, DEVE matriculá-lo na turma informada se ainda não estiver matriculado e DEVE contabilizá-lo no relatório.
-- [ ] **CA-06**: SE uma linha do CSV for inválida, ENTÃO O SISTEMA DEVE descartá-la, reportar número e motivo e continuar o lote.
-- [ ] **CA-07**: QUANDO um estudante se cadastrar por convite, O SISTEMA DEVE criar a conta `ACTIVE` e a matrícula `PENDING_MODERATION`.
-- [ ] **CA-08**: ENQUANTO a matrícula não estiver `ACTIVE`, O SISTEMA NÃO DEVE dar acesso a materiais, atividades ou provas da turma.
-- [ ] **CA-09**: QUANDO a docente abrir os estudantes da turma, O SISTEMA DEVE listar as matrículas pendentes e permitir aprovar ou rejeitar (com motivo obrigatório na rejeição).
-- [ ] **CA-10**: QUANDO o estudante enviar imagem JPEG, PNG ou WEBP dentro dos limites, O SISTEMA DEVE processá-la, gravá-la no MinIO e associá-la ao perfil.
-- [ ] **CA-11**: SE quem envia o avatar não for `STUDENT`, ENTÃO O SISTEMA DEVE responder 403.
-- [ ] **CA-12**: QUANDO as telas desta spec forem exibidas em tema claro ou escuro, O SISTEMA DEVE usar apenas tokens de `_tokens.scss`, sem cores fixas.
+- [x] **CA-01**: QUANDO a docente cadastrar um estudante sem turma, O SISTEMA DEVE criá-lo e a interface DEVE exibir o aviso de estudante sem turma.
+- [x] **CA-02**: QUANDO qualquer cadastro ou busca receber RA com "a", "A" ou sem prefixo, O SISTEMA DEVE tratar todas as formas como o mesmo RA de 7 dígitos.
+- [x] **CA-03**: SE o e-mail ou o RA já existir no cadastro manual ou no convite, ENTÃO O SISTEMA DEVE responder 409 com o `type` correspondente.
+- [x] **CA-04**: QUANDO a docente importar um CSV só com as colunas `email` e `academic_id` válidas, O SISTEMA DEVE processar todas as linhas, sem exigir nome.
+- [x] **CA-05**: QUANDO o CSV trouxer estudante já cadastrado, O SISTEMA NÃO DEVE recriá-lo, DEVE matriculá-lo na turma informada se ainda não estiver matriculado e DEVE contabilizá-lo no relatório.
+- [x] **CA-06**: SE uma linha do CSV for inválida, ENTÃO O SISTEMA DEVE descartá-la, reportar número e motivo e continuar o lote.
+- [x] **CA-07**: QUANDO um estudante se cadastrar por convite, O SISTEMA DEVE criar a conta `ACTIVE` e a matrícula `PENDING_MODERATION`.
+- [x] **CA-08**: ENQUANTO a matrícula não estiver `ACTIVE`, O SISTEMA NÃO DEVE dar acesso a materiais, atividades ou provas da turma.
+- [x] **CA-09**: QUANDO a docente abrir os estudantes da turma, O SISTEMA DEVE listar as matrículas pendentes e permitir aprovar ou rejeitar (com motivo obrigatório na rejeição).
+- [x] **CA-10**: QUANDO o estudante enviar imagem JPEG, PNG ou WEBP dentro dos limites, O SISTEMA DEVE processá-la, gravá-la no MinIO e associá-la ao perfil.
+- [x] **CA-11**: SE quem envia o avatar não for `STUDENT`, ENTÃO O SISTEMA DEVE responder 403.
+- [x] **CA-12**: QUANDO as telas desta spec forem exibidas em tema claro ou escuro, O SISTEMA DEVE usar apenas tokens de `_tokens.scss`, sem cores fixas.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -341,3 +341,4 @@ Consulta do perfil pessoal do estudante autenticado. **Papel:** `STUDENT`.
 | 08/10/2026 | Aruna Architect | Criação |
 | 08/10/2026 | Implementador (Claude) | Conversão para o template e alinhamento de pendências P-01 a P-10 |
 | 08/10/2026 | Tech Lead (Ricardo Martins de Oliveira) | Resolução de pendências, inclusão de contratos formais de listagem e perfil e aprovação canônica |
+| 08/10/2026 | Implementador (Antigravity) | Implementação completa do backend e frontend com testes automatizados (>80% cobertura) e validação de todos os critérios de aceite (CA-01 a CA-12) |
