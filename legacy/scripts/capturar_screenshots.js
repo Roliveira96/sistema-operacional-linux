@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer-core';
 import fs from 'fs';
 import path from 'path';
 
-const SCREENSHOTS_DIR = path.resolve('docs/screenshots');
+const SCREENSHOTS_DIR = path.resolve('../docs/screenshots');
 
 async function capturar() {
   if (!fs.existsSync(SCREENSHOTS_DIR)) {
@@ -104,7 +104,7 @@ async function capturar() {
   }
 
   await browser.close();
-  console.log('Sucesso absoluto! Todas as 5 imagens foram salvas em docs/screenshots/.');
+  console.log('Sucesso absoluto! Todas as 5 imagens foram salvas em ../docs/screenshots/.');
 }
 
 capturar().catch(err => {

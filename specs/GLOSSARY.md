@@ -1,0 +1,94 @@
+# Glossário do Domínio (PT ↔ EN)
+
+Linguagem ubíqua do projeto. As specs e a conversa usam o **termo em português**. Todo código usa **exatamente** o nome em inglês desta tabela: tipos, tabelas, rotas, eventos e enumerações.
+
+Regras:
+
+- Termo novo só entra por spec (seção 9) e é registrado aqui na mesma entrega.
+- Sinônimos listados em "Evitar" **não** podem aparecer no código.
+- Status **Canônico** = vem de `docs/arquitetura/transicao-backend.md`. Status **Proposto** = nome sugerido que ainda precisa do aval do Tech Lead.
+
+---
+
+## 1. Pessoas e acesso
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Usuário | `User` | Conta autenticável na plataforma | `Account`, `Person` | Canônico |
+| Perfil (papel) | `Role` | `ADMIN`, `TEACHER` ou `STUDENT` | `Profile`, `Type` | Canônico |
+| Docente / Professora | `Teacher` (papel `TEACHER`) | Usuário que gerencia turmas e avaliações | `Professor`, `Instructor` | Canônico |
+| Estudante / Aluno / Discente | `Student` (papel `STUDENT`) | Usuário matriculado em turmas | `Pupil`, `Learner` | Canônico |
+| Administrador | `Admin` (papel `ADMIN`) | Gestão institucional da plataforma | `Superuser` | Canônico |
+| RA (Registro Acadêmico) | `academic_id` | Identificador institucional UTFPR do estudante | `ra`, `registration` | Proposto |
+
+## 2. Turmas e matrículas
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Disciplina | `Course` | Componente curricular (ex.: Sistemas Operacionais, código SI34E) | `Subject`, `Discipline` | Canônico |
+| Turma | `ClassGroup` | Oferta de uma disciplina em um semestre, com docente responsável | `Class` (palavra reservada em várias linguagens), `Classroom` (confunde com sala física), `Team`, `Group` | Proposto |
+| Matrícula (inscrição na turma) | `Enrollment` | Vínculo de um estudante com uma turma e o ciclo de vida desse vínculo | `Registration`, `Subscription`, `Inscription` | Canônico |
+| Pré-matrícula | `PRE_ENROLLED` (status) | Estudante importado da lista que ainda não ativou a conta | — | Canônico |
+| Moderação (deferir / indeferir) | `approve` / `reject` | Decisão docente sobre um pedido de matrícula feito por link | `accept`, `deny` | Canônico |
+| Remanejamento | `Transfer` | Mudança do estudante de uma turma para outra, com rastreabilidade | `Move`, `Migration` | Canônico |
+| Link de convite | `InviteLink` | URL compartilhável para pedir matrícula na turma | `JoinLink` | Canônico |
+| Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
+| Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
+
+## 3. Conteúdo e banco de questões
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Material | `StudyMaterial` | Conteúdo didático disponibilizado à turma | `Resource`, `Content`, `File` | Proposto |
+| Questão | `Question` | Item avaliável, prático ou teórico | `Item`, `Task`, `Problem` | Canônico |
+| Questão prática (laboratório) | `PRACTICAL` (tipo de `Question`) | Desafio no terminal, corrigido de forma determinística pelo estado do VFS | `Lab`, `Hands-on` | Canônico |
+| Questão teórica | `THEORETICAL` (tipo de `Question`) | Escolha única, múltipla seleção, booleana ou dissertativa; terminal bloqueado | `Quiz` | Canônico |
+| Banco de questões | `QuestionBank` | Acervo reutilizável de questões da docente | `Pool`, `Repository` | Proposto |
+| Nível de dificuldade | `DifficultyLevel` | `EASY`, `MEDIUM`, `HARD` | `Level` | Canônico |
+| Cenário (base / derivado) | `Scenario` | Receita imutável do estado inicial do VFS; cenários derivados herdam do cenário base | `Environment`, `Setup` | Canônico |
+| Solução de referência | `ReferenceSolution` | Sequência de comandos que comprova que a questão é solucionável | `Answer`, `Key` | Proposto |
+
+## 4. Avaliações e aplicação
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Modelo de avaliação (de prova ou atividade) | `AssessmentTemplate` | Estrutura reutilizável: regras de sorteio, pesos e duração, sem turma nem data | `Blueprint`, `ExamModel` | Proposto |
+| Avaliação | `Assessment` | Instância avaliativa vinculada a uma turma | `Evaluation`, `Test` | Canônico |
+| Prova | `EXAM` (tipo de `Assessment`) | Somativa, síncrona, cronometrada, presencial, com token de sala | `Test` | Canônico |
+| Atividade | `ASSIGNMENT` (tipo de `Assessment`) | Lista assíncrona com prazo em dias, sem token e sem telemetria síncrona | `Homework`, `Task` | Canônico |
+| Regra de sorteio | `DrawRule` | Percentual e pontuação uniforme por nível de dificuldade | `RandomRule` | Canônico |
+| Janela de aplicação | `AssessmentWindow` | Período em que a avaliação pode ser feita | `Slot`, `Schedule` | Canônico |
+| Tipo de janela | `REGULAR`, `RETAKE` (repescagem), `MAKEUP` (segunda chamada), `FREE_PRACTICE` (treino livre) | — | — | Canônico |
+| Token de liberação | `UnlockCode` | Código que a docente projeta em sala para liberar a prova | `Token` sozinho (confunde com token de autenticação), `Password` | Proposto |
+| Tentativa (sessão de avaliação) | `Attempt` | Execução de uma avaliação por um estudante em uma janela | `Session` (confunde com sessão de login e com o `Sessao` do legado), `Try` | Proposto |
+| Submissão de questão | `QuestionSubmission` | Resultado e telemetria de uma questão em uma tentativa | `Answer` | Canônico |
+| Snapshot do VFS | `VfsSnapshot` | Estado serializado do sistema de arquivos virtual enviado para correção | `Dump` | Canônico |
+| Log de comandos | `CommandLog` | Sequência cronológica de comandos executados | `History` | Canônico |
+| Pacote de contingência | `ContingencyProof` (arquivo `.proof`) | Envelope cifrado para entrega offline | `Backup` | Canônico |
+
+## 5. Condução da prova e auditoria
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Cockpit | `Cockpit` | Painel de acompanhamento da docente durante a prova | `Dashboard`, `Monitor` | Canônico |
+| Bloqueio (cautelar) | `lock` → status `LOCKED` | Pausa reversível da tentativa | `pause`, `freeze` | Proposto (ver conflito 1) |
+| Reabertura | `reopen` → status `IN_PROGRESS` | Reversão do bloqueio, com compensação de tempo | `resume`, `unlock` | Proposto (ver conflito 1) |
+| Compensação de tempo | `TimeCompensation` | Segundos acrescidos ao prazo após a reabertura | `Extension` | Canônico |
+| Encerramento | `close` → status `CLOSED_BY_TEACHER` | Finalização antecipada; a nota é calculada normalmente | `finish`, `end`, `kill` | Proposto (ver conflito 1) |
+| Anulação | `annul` → status `ANNULLED` | Deliberação disciplinar pós-prova; nota zero | `cancel`, `void`, `invalidate` | Proposto (ver conflito 1) |
+| Homologação de nota | `GradeApproval` | Confirmação docente da nota final, com justificativa quando difere da nota automática | `ratify`, `confirm` | Canônico |
+| Nota automática (bruta) | `auto_score` | Pontuação emitida pelo corretor do servidor | `raw_grade` | Canônico |
+| Nota final homologada | `final_grade` | Nota definitiva após revisão docente | `score` | Canônico |
+| Resultado | `Result` | Consolidação de notas por estudante e por avaliação | `Report`, `Outcome` | Proposto |
+| Observação docente | `ProctorNote` | Registro presencial da docente sobre a tentativa | `Comment`, `Remark` | Canônico |
+| Evento da linha do tempo | `TimelineEvent` | Registro cronológico de auditoria da tentativa | `Log`, `Activity` | Canônico |
+| Infração de segurança | `SecurityViolation` | Detecção de DevTools, aba oculta, conflito de sessão ou IP fora da sub-rede | `Infraction`, `Cheat` | Canônico |
+| Pedido de ajuda ("mãozinha virtual") | `HelpRequest` / fila `HelpQueue` | Dúvida do estudante durante a prova, atendida em fila FIFO | `Ticket`, `Support` | Canônico |
+
+## 6. Conflitos conhecidos nas fontes canônicas
+
+Divergências encontradas em `docs/arquitetura/transicao-backend.md`. Nenhuma spec que dependa delas pode ser aprovada antes de resolvê-las:
+
+1. **Status da tentativa:** a seção 3.1 lista `EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO` e `BLOQUEADO_DOCENTE`; a seção 6.4 usa `BLOQUEADO_CAUTELAR`, `ENCERRADO_DOCENTE`, `CONCLUIDO` e `ANULADO_DISCIPLINAR`. É preciso definir a lista final.
+2. **Exercício × Questão:** o documento canônico só usa "questão", mas o pedido da docente cita "exercícios" e "banco de exercícios". É preciso confirmar se são sinônimos (proposta: sim, ambos viram `Question`).
+3. **Modelo de avaliação:** o documento canônico vincula `Avaliacao` direto à turma e não prevê modelos reutilizáveis. `AssessmentTemplate` é proposta nova.

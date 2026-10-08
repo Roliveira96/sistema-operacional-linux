@@ -7,9 +7,7 @@
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "tcc:build": "./docs/tcc/compile.sh",
-    "tcc:clean": "./docs/tcc/compile.sh clean"
+    "test": "vitest run"
   },
   "devDependencies": {
     "puppeteer-core": "^25.12.0",

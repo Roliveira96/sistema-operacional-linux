@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="public/utfpr-logo.svg" alt="UTFPR" width="280" />
+<img src="legacy/public/utfpr-logo.svg" alt="UTFPR" width="280" />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<img src="public/tsi.png" alt="TSI UTFPR" width="130" />
+<img src="legacy/public/tsi.png" alt="TSI UTFPR" width="130" />
 
 <br/>
 
@@ -19,7 +19,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
 ![Ubuntu](https://img.shields.io/badge/simula-Ubuntu%2024.04-E95420?logo=ubuntu&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-558%20passando-success?logo=vitest&logoColor=white)
+![Testes](https://img.shields.io/badge/testes-752%20passando-success?logo=vitest&logoColor=white)
 ![UTFPR](https://img.shields.io/badge/UTFPR-Campus%20Guarapuava-F6C212?logoColor=231F20)
 
 **Aluno Desenvolvedor:** Ricardo Martins de Oliveira · [GitHub](https://github.com/Roliveira96) · [LinkedIn](https://www.linkedin.com/in/ricardodeoliveira96/) · [rmo.dev.br](https://rmo.dev.br)  
@@ -76,7 +76,12 @@ Diploma emitido com padrão gráfico institucional nas cores oficiais da UTFPR (
 
 ### Execução Local e na Rede
 
+O simulador fica em `legacy/` e todos os comandos abaixo rodam dentro dessa pasta.
+
 ```bash
+# 0. Entrar no diretório do simulador
+cd legacy
+
 # 1. Instalar dependências
 npm install
 
@@ -89,10 +94,10 @@ Acesse no navegador:
 - Pelo IP da rede local (ex.): **http://192.168.3.111:5173**
 - Modelo de certificado oficial direto: **http://localhost:5173/certificado-exemplo.html**
 
-### Testes Automatizados (558 Testes)
+### Testes Automatizados (752 Testes)
 
 ```bash
-# Executa toda a suíte de testes (validações oficiais e formas alternativas)
+# Dentro de legacy/: executa toda a suíte de testes (validações oficiais e formas alternativas)
 npm test
 
 # Executa build de produção com verificação rigorosa de tipos TypeScript
@@ -119,12 +124,28 @@ O simulador cobre integralmente a ementa de Sistemas Operacionais da UTFPR e os 
 
 ---
 
+## 🗂️ Estrutura do Monorepo (TCC 2)
+
+Na branch `projeto-tcc2`, o projeto evolui para uma plataforma cliente-servidor desenvolvida por Spec-Driven Development:
+
+| Diretório | Conteúdo |
+| :--- | :--- |
+| `specs/` | Governança: instruções para IAs, arquitetura, glossário, template e specs numeradas em `specs/features/` |
+| `backend/` | Serviço em Go (em construção) |
+| `frontend/` | Aplicação Next.js (em construção) |
+| `legacy/` | Simulador client-side original descrito neste README |
+| `docs/` | Arquitetura da transição, monografia e capturas de tela |
+
+Antes de contribuir, leia [`specs/AI_INSTRUCTIONS.md`](specs/AI_INSTRUCTIONS.md).
+
+---
+
 ## 🏗️ Arquitetura do Simulador
 
 O projeto foi arquitetado em **TypeScript puro**, sem dependência de emuladores pesados ou WebAssembly, funcionando com alta fidelidade às chamadas POSIX:
 
 ```
-src/
+legacy/src/
 ├── linux/              ← O "Kernel" Virtual
 │   ├── No.ts               Arquivo, Diretorio, ArquivoGerado (/etc/passwd, shadow), Buraco (/dev/null)
 │   ├── SistemaDeArquivos.ts Resolução de caminhos (/, ./, ../, ~) e checagem de permissões rwx
