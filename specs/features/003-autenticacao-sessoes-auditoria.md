@@ -71,7 +71,7 @@ Regras de negócio:
 
 - **RN-01 (normalização do RA):** remover espaços nas pontas e um único prefixo "a" ou "A" opcional. O restante DEVE ter exatamente 7 dígitos; qualquer outro formato é inválido. Um identificador com "@" é tratado como e-mail; os demais, como RA.
 - **RN-02 (e-mail):** normalizado para minúsculas antes de gravar e antes de consultar.
-- **RN-03 (seed do administrador):** na inicialização, se não existir usuário com o e-mail de administrador configurado, cria um usuário com papel `ADMIN`, status `ACTIVE` e `must_change_password` verdadeiro. O e-mail e a senha provisória vêm de variáveis de ambiente (P-01). Se o usuário já existir, nada muda, nem a senha.
+- **RN-03 (seed do administrador):** na inicialização, se não existir usuário com o e-mail `admin@rmo.dev.br` (padrão confirmado pelo Tech Lead, configurável por `ADMIN_EMAIL`), cria um usuário com papel `ADMIN`, status `ACTIVE` e `must_change_password` verdadeiro. A senha provisória vem de variável de ambiente (P-01). Se o usuário já existir, nada muda, nem a senha.
 - **RN-04 (verificação de senha):** a comparação do hash é feita em tempo constante. Quando o usuário não existe, o service ainda executa uma verificação de hash fictícia, para que o tempo de resposta não revele quais contas existem.
 - **RN-05 (status da conta):** só contas `ACTIVE` autenticam. As contas `INACTIVE` e `SUSPENDED` recebem o mesmo erro genérico de credenciais inválidas; o motivo real vai só para a auditoria.
 - **RN-06 (emissão de sessão):** o servidor gera um token opaco aleatório com 256 bits de entropia, grava apenas o seu hash SHA-256 em `auth_sessions` e envia o token puro no cookie. A expiração absoluta é a emissão mais 5 horas.
@@ -340,7 +340,7 @@ Estado da sessão e do usuário. Renova a janela de inatividade. **Autenticado.*
 
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
-| P-01 | O e-mail do administrador (`admin@rmo.dev.br`) e a senha provisória foram decididos. Gravar a senha literal num repositório público permite que alguém entre antes do dono em um ambiente recém-implantado. | Ler o e-mail e a senha de variáveis de ambiente. Valor de exemplo só no `.env.example` de desenvolvimento. Em produção, sem a variável, a aplicação não sobe. |
+| P-01 | O e-mail padrão do administrador, `admin@rmo.dev.br`, foi **confirmado** pelo Tech Lead em 08/10/2026. Falta decidir a senha provisória: gravá-la literal num repositório público permite que alguém entre antes do dono em um ambiente recém-implantado. | Senha provisória lida de `ADMIN_INITIAL_PASSWORD`; valor de exemplo só no `.env.example` de desenvolvimento; em produção, sem a variável, a aplicação não sobe. |
 | P-02 | RA em `users.academic_id` ou em `student_profiles` (versão original da SPEC-002). O login por RA é desta spec, que vem antes da SPEC-002; no perfil do estudante, o módulo `auth` dependeria de um módulo que ainda não existe. | Manter em `users.academic_id` (nulo para quem não é estudante). |
 | P-03 | A política de senha não está definida. | Mínimo de 10 e máximo de 128 caracteres, diferente do e-mail e do RA, sem regras de composição obrigatórias (alinhado ao NIST SP 800-63B). |
 | P-04 | Os limites de taxa não estão definidos. | Login: 5 falhas por identificador a cada 15 min e 20 requisições por IP por minuto. Recuperação: 3 por identificador por hora. |
