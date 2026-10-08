@@ -27,18 +27,25 @@ import (
 
 // fakeService is a hand-written Service with configurable results.
 type fakeService struct {
-	principal    authn.Principal
-	authErr      error
-	loginErr     error
-	loginCalls   int
-	rateLimited  int
-	logoutErr    error
-	meErr        error
-	forgotCalls  int
-	forgotErr    error
-	resetErr     error
-	resetRevoked int64
-	changeErr    error
+	principal       authn.Principal
+	authErr         error
+	loginErr        error
+	loginCalls      int
+	rateLimited     int
+	logoutErr       error
+	meErr           error
+	forgotCalls     int
+	forgotErr       error
+	resetErr        error
+	resetRevoked    int64
+	changeErr       error
+	registerErr     error
+	registerResult  service.LoginResult
+	initGoogleURL   string
+	initGoogleState string
+	initGoogleErr   error
+	callbackErr     error
+	callbackResult  service.LoginResult
 }
 
 func (f *fakeService) Authenticate(context.Context, string) (authn.Principal, error) {
@@ -56,6 +63,27 @@ func (f *fakeService) Login(_ context.Context, id userdomain.Identifier, _ strin
 		Session: domain.Session{ExpiresAt: time.Now().Add(5 * time.Hour)},
 		User:    userdomain.User{Email: id.Email, Name: &name, Role: userdomain.RoleAdmin, MustChangePassword: true},
 	}, nil
+}
+
+func (f *fakeService) Register(_ context.Context, name, email string, rawAcademicID *string, _ string, _ domain.RequestInfo) (service.LoginResult, error) {
+	if f.registerErr != nil {
+		return service.LoginResult{}, f.registerErr
+	}
+	return f.registerResult, nil
+}
+
+func (f *fakeService) InitiateGoogleLogin(_ context.Context, _ domain.RequestInfo) (string, string, error) {
+	if f.initGoogleErr != nil {
+		return "", "", f.initGoogleErr
+	}
+	return f.initGoogleURL, f.initGoogleState, nil
+}
+
+func (f *fakeService) HandleGoogleCallback(_ context.Context, _, _, _ string, _ domain.RequestInfo) (service.LoginResult, error) {
+	if f.callbackErr != nil {
+		return service.LoginResult{}, f.callbackErr
+	}
+	return f.callbackResult, nil
 }
 
 func (f *fakeService) RecordRateLimited(context.Context, string, domain.RequestInfo) { f.rateLimited++ }
@@ -339,3 +367,154 @@ func TestChangePassword(t *testing.T) {
 }
 
 func modelWithID(id uuid.UUID) database.Model { return database.Model{ID: id} }
+
+// SPEC-008 Handler Tests
+func TestRegister_Success(t *testing.T) {
+	uid := uuid.New()
+	name := "Maria Silva"
+	svc := &fakeService{
+		registerResult: service.LoginResult{
+			Token:   "new-session-token",
+			Session: domain.Session{ExpiresAt: time.Now().Add(5 * time.Hour)},
+			User: userdomain.User{
+				Model: modelWithID(uid),
+				Name:  &name,
+				Email: "maria@utfpr.edu.br",
+				Role:  userdomain.RoleStudent,
+			},
+		},
+	}
+	body := `{"name":"Maria Silva","email":"maria@utfpr.edu.br","password":"password123!","academicId":"1234567"}`
+	res := send(newEngine(svc, true), http.MethodPost, "/register", body, false)
+	require.Equal(t, http.StatusCreated, res.code)
+	assert.Equal(t, uid.String(), res.body["userId"])
+	assert.Equal(t, "Maria Silva", res.body["name"])
+	assert.Equal(t, "maria@utfpr.edu.br", res.body["email"])
+	assert.Equal(t, "STUDENT", res.body["role"])
+	require.NotNil(t, res.cookie)
+	assert.Equal(t, "new-session-token", res.cookie.Value)
+}
+
+func TestRegister_ValidationAndConflictErrors(t *testing.T) {
+	// Missing required fields
+	missing := send(newEngine(&fakeService{}, false), http.MethodPost, "/register", `{}`, false)
+	assert.Equal(t, http.StatusBadRequest, missing.code)
+	assert.Len(t, missing.body["invalidParams"], 3)
+
+	// Email taken
+	takenEmail := send(newEngine(&fakeService{registerErr: userdomain.ErrEmailTaken}, false),
+		http.MethodPost, "/register", `{"name":"N","email":"e@utfpr.edu.br","password":"pass"}`, false)
+	assert.Equal(t, http.StatusConflict, takenEmail.code)
+	assert.Equal(t, "email-taken", takenEmail.body["type"])
+
+	// Academic ID taken
+	takenRA := send(newEngine(&fakeService{registerErr: userdomain.ErrAcademicIDTaken}, false),
+		http.MethodPost, "/register", `{"name":"N","email":"e@utfpr.edu.br","password":"pass"}`, false)
+	assert.Equal(t, http.StatusConflict, takenRA.code)
+	assert.Equal(t, "academic-id-taken", takenRA.body["type"])
+
+	// Invalid Academic ID format
+	invalidRA := send(newEngine(&fakeService{registerErr: userdomain.ErrInvalidAcademicID}, false),
+		http.MethodPost, "/register", `{"name":"N","email":"e@utfpr.edu.br","password":"pass"}`, false)
+	assert.Equal(t, http.StatusBadRequest, invalidRA.code)
+
+	// Weak password
+	weak := send(newEngine(&fakeService{registerErr: &domain.PolicyError{Violations: []string{domain.ViolationTooShort}}}, false),
+		http.MethodPost, "/register", `{"name":"N","email":"e@utfpr.edu.br","password":"short"}`, false)
+	assert.Equal(t, http.StatusBadRequest, weak.code)
+	assert.Equal(t, "weak-password", weak.body["type"])
+}
+
+func TestGoogleLogin_RedirectAndCookie(t *testing.T) {
+	svc := &fakeService{
+		initGoogleURL:   "https://accounts.google.com/o/oauth2/v2/auth?state=csrf-token-123",
+		initGoogleState: "csrf-token-123",
+	}
+	engine := newEngine(svc, true)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/login", nil)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusTemporaryRedirect, rec.Code)
+	assert.Equal(t, "https://accounts.google.com/o/oauth2/v2/auth?state=csrf-token-123", rec.Header().Get("Location"))
+
+	var stateCookie *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == oauthStateCookieName {
+			stateCookie = c
+		}
+	}
+	require.NotNil(t, stateCookie)
+	assert.Equal(t, "csrf-token-123", stateCookie.Value)
+	assert.True(t, stateCookie.HttpOnly)
+	assert.True(t, stateCookie.Secure)
+}
+
+func TestGoogleLogin_NotConfigured(t *testing.T) {
+	svc := &fakeService{
+		initGoogleErr: domain.ErrGoogleOAuthNotConfigured,
+	}
+	engine := newEngine(svc, false)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/login", nil)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestGoogleCallback_Success(t *testing.T) {
+	svc := &fakeService{
+		callbackResult: service.LoginResult{
+			Token:   "google-session-token",
+			Session: domain.Session{ExpiresAt: time.Now().Add(5 * time.Hour)},
+		},
+	}
+	engine := newEngine(svc, true)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback?code=auth-code&state=csrf-123", nil)
+	req.AddCookie(&http.Cookie{Name: oauthStateCookieName, Value: "csrf-123"})
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusFound, rec.Code)
+	assert.Equal(t, "/app", rec.Header().Get("Location"))
+
+	var sessionCookie *http.Cookie
+	var stateCookie *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == authn.CookieName {
+			sessionCookie = c
+		}
+		if c.Name == oauthStateCookieName {
+			stateCookie = c
+		}
+	}
+	require.NotNil(t, sessionCookie)
+	assert.Equal(t, "google-session-token", sessionCookie.Value)
+	require.NotNil(t, stateCookie)
+	assert.Equal(t, -1, stateCookie.MaxAge, "oauth_state cookie must be cleared")
+}
+
+func TestGoogleCallback_Errors(t *testing.T) {
+	// State mismatch
+	svc := &fakeService{callbackErr: domain.ErrOAuthStateMismatch}
+	engine := newEngine(svc, false)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback?code=code&state=bad", nil)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	// Account inactive/suspended
+	svc.callbackErr = domain.ErrAccountInactive
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback?code=code&state=good", nil)
+	rec = httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+
+	// Token exchange failure
+	svc.callbackErr = domain.ErrOAuthExchangeFailed
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback?code=code&state=good", nil)
+	rec = httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+

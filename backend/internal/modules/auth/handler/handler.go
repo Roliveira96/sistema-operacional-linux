@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,9 @@ import (
 type Service interface {
 	authn.Validator
 	Login(ctx context.Context, id userdomain.Identifier, rawIdentifier, password string, req domain.RequestInfo) (service.LoginResult, error)
+	Register(ctx context.Context, name, email string, rawAcademicID *string, password string, req domain.RequestInfo) (service.LoginResult, error)
+	InitiateGoogleLogin(ctx context.Context, req domain.RequestInfo) (authURL string, state string, err error)
+	HandleGoogleCallback(ctx context.Context, code, state, expectedState string, req domain.RequestInfo) (service.LoginResult, error)
 	RecordRateLimited(ctx context.Context, rawIdentifier string, req domain.RequestInfo)
 	Logout(ctx context.Context, p authn.Principal, req domain.RequestInfo) error
 	Me(ctx context.Context, p authn.Principal) (userdomain.User, error)
@@ -64,6 +68,9 @@ func New(svc Service, limits Limiters, secureCookie bool) *Handler {
 func (h *Handler) Register(r gin.IRouter) {
 	g := r.Group("/auth")
 	g.POST("/login", h.login)
+	g.POST("/register", h.register)
+	g.GET("/google/login", h.googleLogin)
+	g.GET("/google/callback", h.googleCallback)
 	g.POST("/forgot-password", h.forgotPassword)
 	g.POST("/reset-password", h.resetPassword)
 
@@ -141,6 +148,107 @@ func (h *Handler) login(c *gin.Context) {
 		MustChangePassword: result.User.MustChangePassword,
 		SessionExpiresAt:   result.Session.ExpiresAt.UTC(),
 	})
+}
+
+const oauthStateCookieName = "oauth_state"
+
+type registerRequest struct {
+	Name       string  `json:"name"`
+	Email      string  `json:"email"`
+	AcademicID *string `json:"academicId,omitempty"`
+	Password   string  `json:"password"`
+}
+
+type registerResponse struct {
+	UserID uuid.UUID `json:"userId"`
+	Name   string    `json:"name"`
+	Email  string    `json:"email"`
+	Role   string    `json:"role"`
+}
+
+func (h *Handler) register(c *gin.Context) {
+	var body registerRequest
+	if !bind(c, &body) {
+		return
+	}
+	var params []problem.InvalidParam
+	if strings.TrimSpace(body.Name) == "" {
+		params = append(params, problem.InvalidParam{Name: "name", Reason: "required"})
+	}
+	if strings.TrimSpace(body.Email) == "" {
+		params = append(params, problem.InvalidParam{Name: "email", Reason: "required"})
+	}
+	if body.Password == "" {
+		params = append(params, problem.InvalidParam{Name: "password", Reason: "required"})
+	}
+	if len(params) > 0 {
+		fail(c, problem.Validation("Required fields are missing.", params...))
+		return
+	}
+
+	result, err := h.svc.Register(c.Request.Context(), body.Name, body.Email, body.AcademicID, body.Password, requestInfo(c))
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+
+	h.setSessionCookie(c, result.Token, result.Session.ExpiresAt)
+	name := ""
+	if result.User.Name != nil {
+		name = *result.User.Name
+	}
+	c.JSON(http.StatusCreated, registerResponse{
+		UserID: result.User.ID,
+		Name:   name,
+		Email:  result.User.Email,
+		Role:   string(result.User.Role),
+	})
+}
+
+func (h *Handler) googleLogin(c *gin.Context) {
+	authURL, state, err := h.svc.InitiateGoogleLogin(c.Request.Context(), requestInfo(c))
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     oauthStateCookieName,
+		Value:    state,
+		Path:     "/",
+		MaxAge:   600,
+		HttpOnly: true,
+		Secure:   h.secureCookie,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	c.Redirect(http.StatusTemporaryRedirect, authURL)
+}
+
+func (h *Handler) googleCallback(c *gin.Context) {
+	code := c.Query("code")
+	state := c.Query("state")
+
+	cookieState, _ := c.Cookie(oauthStateCookieName)
+
+	result, err := h.svc.HandleGoogleCallback(c.Request.Context(), code, state, cookieState, requestInfo(c))
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     oauthStateCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.secureCookie,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	h.setSessionCookie(c, result.Token, result.Session.ExpiresAt)
+	c.Redirect(http.StatusFound, "/app")
 }
 
 func (h *Handler) logout(c *gin.Context) {
@@ -350,6 +458,24 @@ func toProblem(err error) error {
 	case errors.As(err, &policy):
 		return problem.BadRequest("weak-password", "The password does not meet the policy.").
 			WithExtension("violations", policy.Violations)
+	case errors.Is(err, domain.ErrOAuthStateMismatch), errors.Is(err, domain.ErrOAuthCodeMissing):
+		return problem.BadRequest("oauth-invalid-request", err.Error())
+	case errors.Is(err, domain.ErrOAuthExchangeFailed), errors.Is(err, domain.ErrGoogleEmailNotVerified):
+		return problem.Unauthorized("oauth-unauthorized", err.Error())
+	case errors.Is(err, domain.ErrAccountInactive):
+		return problem.Forbidden("account-inactive", "Account is inactive or suspended.")
+	case errors.Is(err, domain.ErrGoogleOAuthNotConfigured):
+		return problem.Internal()
+	case errors.Is(err, domain.ErrNameRequired):
+		return problem.Validation("Name is required.", problem.InvalidParam{Name: "name", Reason: "required"})
+	case errors.Is(err, userdomain.ErrInvalidAcademicID):
+		return problem.Validation("Invalid academic ID.", problem.InvalidParam{Name: "academicId", Reason: "academic id must have exactly 7 digits, optionally prefixed by 'a'"})
+	case errors.Is(err, userdomain.ErrInvalidEmail):
+		return problem.Validation("Invalid e-mail address.", problem.InvalidParam{Name: "email", Reason: "invalid email format"})
+	case errors.Is(err, userdomain.ErrEmailTaken):
+		return problem.Conflict("email-taken", "E-mail address is already registered.")
+	case errors.Is(err, userdomain.ErrAcademicIDTaken):
+		return problem.Conflict("academic-id-taken", "Academic ID is already registered.")
 	}
 	return err
 }

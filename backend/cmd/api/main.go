@@ -102,16 +102,22 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	users := userservice.New(userrepository.New(db))
 	authStore := authrepository.New(db)
 	auditor := authservice.NewAsyncAuditor(authStore, log)
+	googleOAuth := authservice.NewGoogleOAuthProvider(
+		cfg.Auth.Google.ClientID,
+		cfg.Auth.Google.ClientSecret,
+		cfg.Auth.Google.RedirectURL,
+	)
 	auth, err := authservice.New(authservice.Deps{
-		Users:     users,
-		Store:     authStore,
-		NotFound:  authrepository.ErrNotFound,
-		Auditor:   auditor,
-		Mailer:    dispatcher,
-		Tx:        db,
-		Hasher:    authservice.Argon2Hasher{},
-		PublicURL: cfg.Auth.PublicURL,
-		Log:       log,
+		Users:       users,
+		Store:       authStore,
+		NotFound:    authrepository.ErrNotFound,
+		Auditor:     auditor,
+		Mailer:      dispatcher,
+		Tx:          db,
+		Hasher:      authservice.Argon2Hasher{},
+		GoogleOAuth: googleOAuth,
+		PublicURL:   cfg.Auth.PublicURL,
+		Log:         log,
 	})
 	if err != nil {
 		return err
