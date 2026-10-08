@@ -15,6 +15,10 @@ export interface CourseModuleSummary {
   totalExercises: number;
   totalMaterials: number;
   isActiveNow: boolean;
+  /** Visual metadata of modules loaded from the legacy content (SPEC-011). */
+  icon?: string;
+  color?: string;
+  displayOrder?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -110,6 +110,7 @@ export default function ModulesPage() {
             <ModuleCard
               key={mod.id}
               module={mod}
+              href={`/app/modules/${mod.id}`}
               canManage
               onToggleStatus={handleToggleStatus}
             />

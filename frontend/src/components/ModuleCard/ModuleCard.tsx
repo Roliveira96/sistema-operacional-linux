@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { contentMessages } from "@/messages/content.pt-BR";
 import { ptBR } from "@/messages/pt-BR";
 import type { CourseModuleSummary } from "@/services/moduleService";
 import styles from "./ModuleCard.module.scss";
 
 interface ModuleCardProps {
   module: CourseModuleSummary;
+  /** Reading page of the module (SPEC-012); shows a "study" link when set. */
+  href?: string;
   canManage?: boolean;
   onToggleStatus?: (module: CourseModuleSummary) => void;
 }
@@ -23,7 +26,7 @@ const statusClassMap: Record<string, string | undefined> = {
   ARCHIVED: styles.statusArchived,
 };
 
-export function ModuleCard({ module, canManage, onToggleStatus }: ModuleCardProps) {
+export function ModuleCard({ module, href, canManage, onToggleStatus }: ModuleCardProps) {
   const m = ptBR.modules;
 
   const isExpired = module.status === "ACTIVE" && !module.isActiveNow;
@@ -44,7 +47,10 @@ export function ModuleCard({ module, canManage, onToggleStatus }: ModuleCardProp
             </span>
           )}
         </div>
-        <h3 className={styles.title}>{module.title}</h3>
+        <h3 className={styles.title}>
+          {module.icon && <span aria-hidden="true">{module.icon} </span>}
+          {href ? <Link href={href}>{module.title}</Link> : module.title}
+        </h3>
       </header>
 
       <p className={styles.description}>{module.description}</p>
@@ -67,6 +73,11 @@ export function ModuleCard({ module, canManage, onToggleStatus }: ModuleCardProp
       </div>
 
       <footer className={styles.footer}>
+        {href && (
+          <Link href={href} className={styles.editLink}>
+            {contentMessages.study}
+          </Link>
+        )}
         {canManage && (
           <div className={styles.actions}>
             {onToggleStatus && module.status !== "ARCHIVED" && (

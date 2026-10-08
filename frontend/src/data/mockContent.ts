@@ -14,7 +14,7 @@ export interface SimulationMode {
   slug: string;
   title: string;
   description: string;
-  difficulty: "Iniciante" | "Intermediário" | "Avançado";
+  difficulty?: "Iniciante" | "Intermediário" | "Avançado";
   durationMinutes: number;
   questionCount: number;
   topicsCovered: string[];

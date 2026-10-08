@@ -100,6 +100,19 @@ func Required(v Validator) gin.HandlerFunc {
 	}
 }
 
+// Optional stores the principal when the request carries a valid session and
+// continues anonymously otherwise (public routes that adapt to the user).
+func Optional(v Validator) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if token, err := c.Cookie(CookieName); err == nil && token != "" {
+			if p, err := v.Authenticate(c.Request.Context(), token); err == nil {
+				c.Request = c.Request.WithContext(WithPrincipal(c.Request.Context(), p))
+			}
+		}
+		c.Next()
+	}
+}
+
 // PasswordChanged blocks principals that must change their password.
 // Must run after Required.
 func PasswordChanged() gin.HandlerFunc {

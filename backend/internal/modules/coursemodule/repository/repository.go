@@ -230,7 +230,7 @@ func (r *Repository) ListPublicModules(ctx context.Context, now time.Time, filte
 		"course_modules.*, " +
 			"(SELECT COUNT(*) FROM module_exercise_items WHERE module_exercise_items.module_id = course_modules.id) AS total_exercises, " +
 			"(SELECT COUNT(*) FROM module_materials WHERE module_materials.module_id = course_modules.id AND module_materials.deleted_at IS NULL) AS total_materials",
-	).Order("course_modules.created_at DESC").Limit(limit).Offset(offset)
+	).Order("course_modules.display_order ASC NULLS LAST, course_modules.created_at DESC").Limit(limit).Offset(offset)
 
 	if err := selectQuery.Find(&items).Error; err != nil {
 		return ListResult{}, err
@@ -286,7 +286,7 @@ func (r *Repository) ListStudentModules(ctx context.Context, studentID uuid.UUID
 		"course_modules.*, " +
 			"(SELECT COUNT(*) FROM module_exercise_items WHERE module_exercise_items.module_id = course_modules.id) AS total_exercises, " +
 			"(SELECT COUNT(*) FROM module_materials WHERE module_materials.module_id = course_modules.id AND module_materials.deleted_at IS NULL) AS total_materials",
-	).Order("course_modules.created_at DESC").Limit(limit).Offset(offset)
+	).Order("course_modules.display_order ASC NULLS LAST, course_modules.created_at DESC").Limit(limit).Offset(offset)
 
 	if err := selectQuery.Find(&items).Error; err != nil {
 		return ListResult{}, err

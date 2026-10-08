@@ -5,6 +5,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -105,4 +106,39 @@ func TestSeedWithRealManifest(t *testing.T) {
 	require.Error(t, err)
 	require.NoError(t, db.Conn(ctx).Table("course_modules").Select("title").Where("source_key = 'historia'").Scan(&title).Error)
 	assert.Equal(t, "before", title, "the module update of the failed run was rolled back")
+
+	// SPEC-012 read queries over the loaded content.
+	repo := repository.New(db)
+	var moduleID, simuladoID string
+	require.NoError(t, db.Conn(ctx).Table("course_modules").Select("id").Where("source_key = 'diretorios'").Scan(&moduleID).Error)
+	require.NoError(t, db.Conn(ctx).Table("course_modules").Select("id").Where("source_key = 'simulado'").Scan(&simuladoID).Error)
+	mid := uuid.MustParse(moduleID)
+
+	blocks, err := repo.ListBlocks(ctx, mid)
+	require.NoError(t, err)
+	require.NotEmpty(t, blocks)
+	for i, b := range blocks {
+		assert.Equal(t, i+1, b.Position, "blocks come in position order")
+	}
+
+	published, err := repo.ListQuestions(ctx, mid, "EXERCISE", false)
+	require.NoError(t, err)
+	all, err := repo.ListQuestions(ctx, mid, "", true)
+	require.NoError(t, err)
+	assert.NotEmpty(t, published)
+	assert.GreaterOrEqual(t, len(all), len(published))
+	for _, q := range published {
+		assert.Equal(t, "PUBLISHED", q.Status)
+	}
+	drafts, err := repo.ListQuestions(ctx, uuid.MustParse(simuladoID), "ASSESSMENT", true)
+	require.NoError(t, err)
+	assert.Len(t, drafts, 210, "180 practical and 30 quiz questions, drafts included")
+
+	templates, err := repo.ListActiveTemplates(ctx)
+	require.NoError(t, err)
+	require.Len(t, templates, len(manifest.AssessmentTemplates))
+	assert.Equal(t, "Linux Básico", templates[0].Title, "templates keep the legacy order")
+	for _, tpl := range templates {
+		assert.Equal(t, 30, tpl.QuestionCount)
+	}
 }

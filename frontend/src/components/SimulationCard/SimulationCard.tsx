@@ -12,7 +12,7 @@ export function SimulationCard({ simulation, onStart }: SimulationCardProps) {
   return (
     <article className={styles.card}>
       <div className={styles.topRow}>
-        <span className={styles.badge}>{simulation.difficulty}</span>
+        {simulation.difficulty && <span className={styles.badge}>{simulation.difficulty}</span>}
         <div className={styles.metaGroup}>
           <span className={styles.metaItem}>
             ⏱️ {messages.public.simulations.durationLabel(simulation.durationMinutes)}

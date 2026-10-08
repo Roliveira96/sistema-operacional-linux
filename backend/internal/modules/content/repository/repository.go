@@ -89,3 +89,37 @@ func (r *Repository) ReplaceTemplateQuestions(ctx context.Context, templateID uu
 	}
 	return conn.Create(&items).Error
 }
+
+// ListBlocks returns the blocks of a module ordered by position.
+func (r *Repository) ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error) {
+	var blocks []domain.ContentBlock
+	err := r.db.Conn(ctx).Where("module_id = ?", moduleID).Order("position").Find(&blocks).Error
+	return blocks, err
+}
+
+// ListQuestions returns the questions of a module, optionally filtered by
+// usage; drafts and archived questions only when includeDrafts is true.
+func (r *Repository) ListQuestions(ctx context.Context, moduleID uuid.UUID, usage string, includeDrafts bool) ([]domain.Question, error) {
+	q := r.db.Conn(ctx).Where("module_id = ?", moduleID)
+	if usage != "" {
+		q = q.Where("usage = ?", usage)
+	}
+	if !includeDrafts {
+		q = q.Where("status = ?", domain.StatusPublished)
+	}
+	var out []domain.Question
+	err := q.Order("created_at, id").Find(&out).Error
+	return out, err
+}
+
+// ListActiveTemplates returns active templates with their question counts.
+func (r *Repository) ListActiveTemplates(ctx context.Context) ([]service.TemplateSummary, error) {
+	var out []service.TemplateSummary
+	err := r.db.Conn(ctx).Table("assessment_templates AS t").
+		Select("t.id, t.title, t.description, t.duration_minutes, "+
+			"(SELECT COUNT(*) FROM assessment_template_questions q WHERE q.template_id = t.id) AS question_count").
+		Where("t.status = ? AND t.deleted_at IS NULL", domain.TemplateActive).
+		Order("t.created_at, t.id").
+		Scan(&out).Error
+	return out, err
+}

@@ -86,6 +86,17 @@
 
   // Layout
   --content-max-width: 72rem;
+
+  // Module accents (SPEC-012), named after the legacy topic colors.
+  --color-module-hist: #8a6400;
+  --color-module-est: #0f766e;
+  --color-module-dir: #1d63b8;
+  --color-module-arq: #137a4f;
+  --color-module-rm: #b42318;
+  --color-module-perm: #9a5b00;
+  --color-module-usr: #7a3fc4;
+  --color-module-pac: #4b55c9;
+  --color-module-sim: #c2410c;
 }
 
 :root[data-theme="dark"] {
@@ -128,4 +139,13 @@
   --color-info-subtle: #10213a;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
   --shadow-md: 0 4px 12px rgb(0 0 0 / 50%);
+  --color-module-hist: #f4c95d;
+  --color-module-est: #5fd3c6;
+  --color-module-dir: #4aa8ff;
+  --color-module-arq: #3ddc97;
+  --color-module-rm: #ff6b6b;
+  --color-module-perm: #ffb020;
+  --color-module-usr: #c38bff;
+  --color-module-pac: #8f9bff;
+  --color-module-sim: #e95420;
 }

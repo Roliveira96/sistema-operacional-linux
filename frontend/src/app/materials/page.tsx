@@ -62,7 +62,7 @@ export default function MaterialsPage() {
           ) : (
             <div className={styles.grid}>
               {modules.map((mod) => (
-                <ModuleCard key={mod.id} module={mod} />
+                <ModuleCard key={mod.id} module={mod} href={`/materials/${mod.id}`} />
               ))}
             </div>
           )}

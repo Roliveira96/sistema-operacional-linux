@@ -21,6 +21,9 @@ import (
 	classgrouphandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/handler"
 	classgrouprepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
 	classgroupservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/service"
+	contenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/handler"
+	contentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/repository"
+	contentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/service"
 	coursemodulehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/handler"
 	coursemodulerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
 	coursemoduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/service"
@@ -152,6 +155,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	moduleRepo := coursemodulerepository.New(db)
 	moduleService := coursemoduleservice.New(moduleRepo)
 	moduleHandler := coursemodulehandler.New(moduleService, auth)
+	contentHandler := contenthandler.New(contentservice.NewReader(moduleService, contentrepository.New(db)), auth)
 
 	studentRepo := studentrepository.New(db)
 	studentService := studentservice.New(studentservice.Deps{
@@ -175,6 +179,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		authHandler,
 		classHandler,
 		moduleHandler,
+		contentHandler,
 		studentHandler,
 	)
 	srv := server.New(cfg.HTTPAddr, engine, log)

@@ -1,0 +1,53 @@
+// Interface text of the content screens (SPEC-012), kept apart from the main
+// messages file. Portuguese, per ARCHITECTURE.md section 4.4.
+export const contentMessages = {
+  loading: "Carregando o conteúdo…",
+  notFound: "Este módulo não existe ou não está disponível.",
+  needsLogin: "Entre na plataforma para ver este módulo.",
+  forbidden: "Este módulo é restrito às turmas liberadas pela docente.",
+  unexpected: "Não foi possível carregar o conteúdo. Tente novamente.",
+  goToLogin: "Entrar",
+  backToMaterials: "Voltar aos materiais",
+  study: "Estudar",
+  exercisesTitle: "Exercícios práticos",
+  exercisesIntro: "Faça no terminal simulado. A correção automática chega numa próxima etapa da plataforma.",
+  noExercises: "Este módulo ainda não tem exercícios publicados.",
+  hint: "Dica",
+  difficulty: { EASY: "Fácil", MEDIUM: "Médio", HARD: "Difícil" } as Record<string, string>,
+  terminal: (n: number) => `Terminal ${n}`,
+  loginAs: (user: string) => `entra como ${user}`,
+  tipTitle: "Dica",
+  warningTitle: "Atenção",
+  unknownBlock: "Este trecho usa um formato que a página ainda não exibe.",
+  calculator: {
+    title: "Calculadora de permissões: marque e veja o número",
+    who: { u: "Dono (u)", g: "Grupo (g)", o: "Outros (o)" } as Record<string, string>,
+    bits: [
+      ["r", "4", "ler"],
+      ["w", "2", "escrever"],
+      ["x", "1", "executar"],
+    ] as const,
+    sum: "soma",
+    octal: "Octal",
+    command: (octal: string) => `chmod ${octal} arquivo`,
+  },
+  anatomy: {
+    title: "Como ler uma linha do ls -l",
+    parts: [
+      ["-", "tipo", "– arquivo · d diretório · l link"],
+      ["rwx", "dono", "o que o dono pode"],
+      ["r-x", "grupo", "o que o grupo pode"],
+      ["r--", "outros", "o que os outros podem"],
+      ["1", "links", "nº de links"],
+      ["maria", "dono", "usuário dono"],
+      ["dev", "grupo", "grupo do arquivo"],
+      ["1024", "tamanho", "tamanho em bytes"],
+      ["set 25 10:00", "data", "última modificação"],
+      ["script.sh", "nome", "nome"],
+    ] as const,
+  },
+  simulations: {
+    start: "Começar (exige login)",
+    empty: "Nenhum simulado disponível no momento.",
+  },
+} as const;

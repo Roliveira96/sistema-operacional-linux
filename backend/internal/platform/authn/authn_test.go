@@ -117,3 +117,28 @@ func TestSessionExpiredErrorMessage(t *testing.T) {
 	_, ok := FromContext(context.Background())
 	assert.False(t, ok)
 }
+
+func TestOptionalKeepsVisitorsAnonymous(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	build := func(v Validator) *gin.Engine {
+		return server.NewEngine(zap.NewNop(), nil, routes(func(r gin.IRouter) {
+			r.GET("/maybe", Optional(v), func(c *gin.Context) {
+				p, ok := FromContext(c.Request.Context())
+				if !ok {
+					c.String(http.StatusOK, "anonymous")
+					return
+				}
+				c.String(http.StatusOK, p.Role)
+			})
+		}))
+	}
+	signedIn := build(validatorFunc(func(context.Context, string) (Principal, error) { return Principal{Role: RoleStudent}, nil }))
+	rec, _ := call(signedIn, "/maybe", true)
+	assert.Equal(t, RoleStudent, rec.Body.String())
+	rec, _ = call(signedIn, "/maybe", false)
+	assert.Equal(t, "anonymous", rec.Body.String())
+
+	expired := build(validatorFunc(func(context.Context, string) (Principal, error) { return Principal{}, ErrNotAuthenticated }))
+	rec, _ = call(expired, "/maybe", true)
+	assert.Equal(t, "anonymous", rec.Body.String())
+}

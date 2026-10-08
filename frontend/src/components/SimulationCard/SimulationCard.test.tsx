@@ -14,7 +14,7 @@ describe("SimulationCard", () => {
 
     expect(screen.getByRole("heading", { level: 3, name: sampleSim.title })).toBeTruthy();
     expect(screen.getByText(sampleSim.description)).toBeTruthy();
-    expect(screen.getByText(sampleSim.difficulty)).toBeTruthy();
+    expect(screen.getByText(sampleSim.difficulty!)).toBeTruthy();
     expect(screen.getByText(new RegExp(`${sampleSim.durationMinutes}`)) ).toBeTruthy();
     expect(screen.getByText(new RegExp(`${sampleSim.questionCount}`)) ).toBeTruthy();
 

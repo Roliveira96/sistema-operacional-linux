@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-012 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -115,16 +115,16 @@ Modelos de avaliação ativos. **Público.**
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: QUANDO um visitante abrir `/materials`, O SISTEMA DEVE listar os módulos públicos do banco, na ordem da carga.
-- [ ] **CA-02**: QUANDO um visitante abrir `/materials/[id]` de um módulo público, O SISTEMA DEVE exibir todos os blocos na ordem, cada um com o seu componente.
-- [ ] **CA-03**: SE o módulo não for público e não houver sessão, ENTÃO O SISTEMA DEVE responder 401; SE for privado e não liberado, 403.
-- [ ] **CA-04**: Nenhuma resposta das rotas 5.1, 5.2 e 5.4 DEVE conter `validation_conditions`, `answer_key`, `reference_solution` ou `explanation`.
-- [ ] **CA-05**: ENQUANTO a questão estiver em `DRAFT`, O SISTEMA NÃO DEVE exibi-la a visitantes e estudantes.
-- [ ] **CA-06**: QUANDO um docente dono do módulo consultar a rota 5.3, O SISTEMA DEVE devolver as questões com gabarito e status.
-- [ ] **CA-07**: QUANDO `/simulations` for aberta, O SISTEMA DEVE listar os modelos de avaliação ativos.
-- [ ] **CA-08**: A calculadora de permissões e a anatomia do `ls -l` DEVEM funcionar como no legado.
-- [ ] **CA-09**: SE o bloco tiver tipo desconhecido, ENTÃO a página DEVE continuar renderizando os demais.
-- [ ] **CA-10**: As telas desta spec DEVEM usar só tokens de `_tokens.scss`, com paridade entre temas.
+- [x] **CA-01**: QUANDO um visitante abrir `/materials`, O SISTEMA DEVE listar os módulos públicos do banco, na ordem da carga.
+- [x] **CA-02**: QUANDO um visitante abrir `/materials/[id]` de um módulo público, O SISTEMA DEVE exibir todos os blocos na ordem, cada um com o seu componente.
+- [x] **CA-03**: SE o módulo não for público e não houver sessão, ENTÃO O SISTEMA DEVE responder 401; SE for privado e não liberado, 403.
+- [x] **CA-04**: Nenhuma resposta das rotas 5.1, 5.2 e 5.4 DEVE conter `validation_conditions`, `answer_key`, `reference_solution` ou `explanation`.
+- [x] **CA-05**: ENQUANTO a questão estiver em `DRAFT`, O SISTEMA NÃO DEVE exibi-la a visitantes e estudantes.
+- [x] **CA-06**: QUANDO um docente dono do módulo consultar a rota 5.3, O SISTEMA DEVE devolver as questões com gabarito e status.
+- [x] **CA-07**: QUANDO `/simulations` for aberta, O SISTEMA DEVE listar os modelos de avaliação ativos.
+- [x] **CA-08**: A calculadora de permissões e a anatomia do `ls -l` DEVEM funcionar como no legado.
+- [x] **CA-09**: SE o bloco tiver tipo desconhecido, ENTÃO a página DEVE continuar renderizando os demais.
+- [x] **CA-10**: As telas desta spec DEVEM usar só tokens de `_tokens.scss`, com paridade entre temas.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -151,3 +151,4 @@ Nenhuma. P-01 a P-03 aprovadas pelo Tech Lead em 08/10/2026 (ver histórico).
 | :--- | :--- | :--- |
 | 08/10/2026 | Implementador (Claude) | Criação a partir da divisão aprovada da SPEC-005 original (leitura e exibição), alinhada às SPECs 007, 010 e 011. Pendências P-01 a P-03 |
 | 08/10/2026 | Tech Lead | Aprovação integral das recomendações P-01 a P-03. Status: `Aprovada` |
+| 08/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Verificação:** backend com cobertura de 93,8% (`content/handler`), 92,2% (`content/service`) e 95% (`content/repository`, integração com o manifesto real); frontend com 100% de linhas em todos os arquivos novos, ESLint, Stylelint, `tsc` e `next build` limpos; endpoints exercitados contra o banco carregado (8 módulos públicos na ordem do legado, blocos tipados, questões sem gabarito, 7 modelos e 401 para o módulo de simulados sem sessão); no navegador, a leitura do módulo de Permissões com a calculadora interativa respondendo (754 → 640) e o `/simulations` com os 7 modelos do banco, sem erros no console. **Desvios:** (1) os textos das telas ficam em `messages/content.pt-BR.ts`, separados do arquivo principal de mensagens, que tinha alterações não commitadas de outra sessão; (2) a listagem pública e a de estudante do `coursemodule` passam a ordenar por `display_order` e a devolver `icon`, `color` e `displayOrder`; (3) a autenticação opcional virou middleware da plataforma (`authn.Optional`); (4) visitante em módulo `AUTHENTICATED` recebe 401 nas rotas desta spec (o `GET /modules/:id` da SPEC-010 continua devolvendo 403); (5) a página de módulo busca primeiro os blocos, cujo endpoint aplica a visibilidade com o erro mais claro, e depois os detalhes e os exercícios; (6) o `/simulations` ganhou estados de carregamento, vazio e erro, e o botão leva ao login (P-03); o tipo `SimulationMode` dos dados de exemplo da SPEC-007 passou a ter `difficulty` opcional e dois testes da SPEC-007 foram ajustados; (7) as cores de módulo do legado viraram tokens `--color-module-*`, com versões mais escuras no tema claro para manter o contraste. **Pendente fora do meu escopo:** 5 testes do `AppShell` e do `AuthProvider` falham por causa de alterações não commitadas de outra sessão no `AppShell`; no último commit eles passam. |
