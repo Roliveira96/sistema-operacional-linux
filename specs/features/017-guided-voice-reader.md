@@ -77,7 +77,7 @@ O módulo `tts` não tem `repository`, porque não persiste nada.
 - **RN-06 (resposta completa ou erro):** a síntese só é bem-sucedida se o provedor sinalizar o fim normal do turno de fala e entregar pelo menos um quadro de áudio. Conexão que cai antes do fim, ou áudio vazio, é erro (502), nunca uma resposta de sucesso com áudio parcial.
 - **RN-07 (marcas de palavra):** cada palavra devolvida traz o texto, o instante inicial e o instante final em milissegundos inteiros, na ordem em que são faladas. O provedor informa tempos em unidades de 100 nanossegundos; a conversão é dividir por 10.000.
 - **RN-08 (proteção contra abuso):**
-  - limite de taxa por usuário autenticado: 20 requisições por minuto;
+  - limite de taxa por usuário autenticado: 60 requisições por minuto, configurável por `TTS_RATE_PER_MINUTE` (era 20; revisado pela SPEC-018, P-02);
   - limite de concorrência global: no máximo 4 sínteses ao mesmo tempo; acima disso responde 503 imediatamente, sem enfileirar.
 
 **Autorização:** a rota exige sessão autenticada e senha já trocada (`authn.Required` e `authn.PasswordChanged`, como as demais rotas privadas). Qualquer papel (`ADMIN`, `TEACHER`, `STUDENT`) pode usar. Visitante sem sessão recebe 401 (P-02).
@@ -86,7 +86,7 @@ O módulo `tts` não tem `repository`, porque não persiste nada.
 
 **Logs (Zap, seção 3.10 do `ARCHITECTURE.md`):** um erro é registrado uma só vez, no handler, com `zap.Error`. O texto enviado **não** é registrado; só o tamanho em caracteres, a voz e a duração da chamada.
 
-**Configuração (`platform/config`):** `TTS_TIMEOUT` (padrão 15s) e `TTS_MAX_CONCURRENT` (padrão 4). Valores inválidos entram na lista de problemas de configuração, como as demais variáveis.
+**Configuração (`platform/config`):** `TTS_TIMEOUT` (padrão 15s), `TTS_MAX_CONCURRENT` (padrão 4) e `TTS_RATE_PER_MINUTE` (padrão 60, ver SPEC-018). Valores inválidos entram na lista de problemas de configuração, como as demais variáveis.
 
 ## 4. Modelo de Dados (Data Model)
 
@@ -179,7 +179,7 @@ Gera o áudio falado de um texto e as marcas de palavra. Não cria recurso persi
 - [ ] **CA-09** (indesejado): SE a voz não pertencer à lista permitida, ENTÃO O SISTEMA DEVE responder 400 `validation-error`; QUANDO a voz estiver ausente, DEVE usar `pt-BR-FranciscaNeural` (RN-03).
 - [ ] **CA-10** (indesejado): SE não houver sessão, ENTÃO O SISTEMA DEVE responder 401 `not-authenticated` sem chamar o provedor.
 - [ ] **CA-11** (estado): ENQUANTO houver 4 sínteses em andamento, O SISTEMA DEVE responder 503 `speech-busy` a uma nova requisição, sem enfileirá-la (RN-08).
-- [ ] **CA-12** (indesejado): SE um usuário passar de 20 requisições por minuto, ENTÃO O SISTEMA DEVE responder 429 `rate-limited` com `Retry-After` (RN-08).
+- [ ] **CA-12** (indesejado): SE um usuário passar do limite de requisições por minuto (60 por padrão), ENTÃO O SISTEMA DEVE responder 429 `rate-limited` com `Retry-After` (RN-08).
 - [ ] **CA-13** (indesejado): SE o provedor estiver inalcançável, ENTÃO O SISTEMA DEVE responder 503 `speech-unavailable`, e a plataforma DEVE continuar atendendo as demais rotas.
 - [ ] **CA-14** (ubíquo): O SISTEMA NÃO DEVE registrar o texto da síntese em nenhum log, apenas tamanho, voz e duração (seção 3.2).
 

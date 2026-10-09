@@ -51,7 +51,7 @@ O Tech Lead quer que o material seja **lido em voz alta, com a palavra falada de
 | :--- | :--- | :--- |
 | Título do card | Lido primeiro | O título |
 | `TEXT`, `LEGACY_HTML`, `TIP`, `CURIOSITY`, `STEP_BY_STEP`, `CARDS` | Narrado, com destaque palavra a palavra | O texto do bloco, sem marcação |
-| `COMMAND` (cada passo) | O comando é digitado e executado no terminal **enquanto** a voz fala | A explicação do passo; sem explicação, o próprio comando (ver P-03) |
+| `COMMAND` (cada passo) | O comando é digitado e executado no terminal **enquanto** a voz fala | Sempre, nesta ordem: o aviso "Veja no terminal ao lado o comando sendo executado", o **comando por extenso** (com destaque no comando inteiro) e a **explicação** do passo, palavra a palavra, quando houver (ver P-03, revisada) |
 | `WIDGET` | Ignorado | Nada |
 
 **Regras do karaokê:**
@@ -59,6 +59,7 @@ O Tech Lead quer que o material seja **lido em voz alta, com a palavra falada de
 - **RF-02 (um trecho por vez):** o texto longo é dividido em trechos de até 2000 caracteres, em fim de frase (limite da SPEC-017). O trecho seguinte é pedido enquanto o atual toca, para não haver pausa.
 - **RF-03 (comando e fala juntos):** em um passo de comando, a digitação no terminal e a fala começam juntas. O próximo item só começa quando **os dois** terminam.
 - **RF-04 (sempre fala):** passos de comando falam sempre que o som estiver ligado.
+- **RF-12 (comando por extenso):** o comando é dito em português falado: símbolos viram palavras (`-` "traço", `/` "barra", `|` "pipe", `>` "redireciona para", `.` "ponto", `~` "til", `&&` "e depois" e assim por diante), e opções curtas juntas são soletradas (`-la` vira "traço l a"). O destaque do comando cobre o comando inteiro, não cada palavra.
 - **RF-05 (parar):** parar o card, pausar o play ou clicar em outro card interrompe a voz na hora e cancela os pedidos pendentes.
 - **RF-06 (falha da voz):** se um trecho não puder ser gerado (limite, serviço fora, sem sessão), o item segue em silêncio, o texto é mostrado sem destaque e um aviso aparece uma vez por card.
 - **RF-07 (velocidade):** a velocidade do player vale para a digitação; para a voz, a velocidade de reprodução acompanha o seletor até o limite de 2× (ver P-05).
@@ -111,6 +112,7 @@ Usa a rota 5.1 da SPEC-017 sem mudar o contrato (`POST /api/v1/speech-syntheses`
 - [ ] **CA-01** (evento): QUANDO o estudante, logado e com o som ligado, clicar em "Rodar este card", O SISTEMA DEVE falar o título e o texto do card, em ordem, destacando a palavra falada.
 - [ ] **CA-02** (evento): QUANDO a narração chegar a um passo de comando, O SISTEMA DEVE digitar e executar o comando no terminal enquanto fala, e SÓ DEVE passar ao próximo item quando a fala e o comando tiverem terminado.
 - [ ] **CA-03** (ubíquo): ENQUANTO o som estiver ligado, O SISTEMA DEVE falar todo passo de comando, o executado pelo ▶ do comando, pelo card ou pelo play do cabeçalho.
+- [ ] **CA-15** (ubíquo): Em todo passo de comando falado, O SISTEMA DEVE dizer, nesta ordem, o aviso "Veja no terminal ao lado o comando sendo executado", o comando por extenso (RF-12) e a explicação do passo, quando houver.
 - [ ] **CA-04** (evento): QUANDO o estudante parar o card, pausar o play ou clicar em outro card, O SISTEMA DEVE interromper a voz e cancelar os pedidos pendentes na hora.
 - [ ] **CA-05** (indesejado): SE a voz de um trecho falhar, ENTÃO O SISTEMA DEVE seguir em silêncio nesse item, avisar uma vez por card e NÃO DEVE travar a execução dos comandos.
 - [ ] **CA-06** (indesejado): SE não houver sessão, ENTÃO O SISTEMA DEVE manter o material em silêncio e mostrar o convite para entrar (P-01).
@@ -158,7 +160,7 @@ Nenhuma. P-01 a P-06 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações
 
 - **P-01:** narração só para usuários logados; visitantes veem o convite para entrar.
 - **P-02:** limite de taxa da rota de voz passa de 20 para 60 por minuto, configurável por `TTS_RATE_PER_MINUTE` (revisa a RN-08 e a CA-12 da SPEC-017).
-- **P-03:** nos comandos, fala a explicação do passo; sem explicação, fala o comando.
+- **P-03:** nos comandos, fala a explicação do passo; sem explicação, fala o comando. **Revisada pelo Tech Lead em 09/10/2026** (RF-12 e CA-15): em todo comando a voz diz o aviso "veja no terminal ao lado o comando sendo executado", o comando por extenso e o que ele faz.
 - **P-04:** destaque pela API de realce do navegador, com degradação para navegadores sem ela.
 - **P-05:** velocidade da voz limitada a 2×.
 - **P-06:** som ligado por padrão para usuários logados, com a escolha guardada em `localStorage`.
@@ -171,3 +173,4 @@ Nenhuma. P-01 a P-06 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações
 | :--- | :--- | :--- |
 | 09/10/2026 | Implementador (Claude) | Criação a pedido do Tech Lead ("leitor estilo karaokê"; narrar o material ao dar play e falar os comandos enquanto rodam no terminal). Pendências P-01 a P-06 |
 | 09/10/2026 | Tech Lead | Aprovação integral de P-01 a P-06 nas recomendações. Status: `Aprovada` |
+| 09/10/2026 | Tech Lead | Revisão da P-03, pedida durante a implementação ("nessa parte devemos sempre falar: veja ao terminal ao lado o comando sendo executado; devemos falar o comando e o que ele faz na narração"): aviso, comando por extenso e explicação em todo passo. Incluídos RF-12 e CA-15; tabela da seção 3.1 atualizada |
