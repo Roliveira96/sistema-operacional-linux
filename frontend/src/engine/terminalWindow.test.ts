@@ -18,6 +18,9 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
+// The first mount loads the whole legacy engine, which is slow when the machine is busy.
+vi.setConfig({ testTimeout: 30_000 });
+
 describe("mountTerminalWindow", () => {
   // Covers SPEC-016 CA-01: the prototype window opens ready, as root, in tab 1.
   it("opens the terminal window with the root terminal connected", async () => {
