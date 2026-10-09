@@ -82,6 +82,8 @@ Regras:
 | Síntese de fala | `SpeechSynthesis` | Resultado de converter um texto em áudio falado, com as marcas de palavra | `TTSResult`, `Audio` sozinho | Decidido |
 | Marca de palavra | `WordTiming` | Instante inicial e final, em milissegundos, de uma palavra no áudio | `WordBoundary` (termo do provedor, fica restrito ao adaptador), `Timestamp` | Decidido |
 | Voz | `Voice` | Voz neural escolhida de uma lista fechada (`pt-BR-FranciscaNeural`, `pt-BR-AntonioNeural`) | `Speaker`, `Narrator` | Decidido |
+| Narração | `Narration` | Leitura em voz alta, com destaque palavra a palavra, do material de um card (SPEC-018) | `Karaoke`, `Playback` | Proposto |
+| Trecho de narração | `NarrationChunk` | Parte de até 2000 caracteres de um bloco, com o áudio e as marcas de palavra | `Segment`, `Part` | Proposto |
 
 ## 4. Avaliações e aplicação
 
