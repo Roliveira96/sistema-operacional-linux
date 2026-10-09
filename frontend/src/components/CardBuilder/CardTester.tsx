@@ -65,6 +65,8 @@ interface CardTesterProps {
   onClose: () => void;
   /** Called when a test ran to the end: true when the snapshots and every command ended as expected. */
   onFinish?: (passed: boolean) => void;
+  /** The title of the card each command starts, by command index, for a test of several cards in sequence. */
+  sections?: Record<number, string>;
 }
 
 /**
@@ -73,7 +75,7 @@ interface CardTesterProps {
  * fails is a conflict and is reported with what the terminal said. It shows whether each command ended as
  * expected and, when one fails, what the terminal said. It works on a throwaway machine: nothing is saved.
  */
-export function CardTester({ commands, loadBase, layers, onClose, onFinish }: CardTesterProps) {
+export function CardTester({ commands, loadBase, layers, onClose, onFinish, sections }: CardTesterProps) {
   const [base, setBase] = useState<{ machine: unknown } | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -255,7 +257,8 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish }: Ca
               const r = results[i] ?? { state: "pending" as const };
               const bad = r.state === "done" && !isGood(r.verdict);
               return (
-                <li key={c.id} className={`${styles.result} ${bad ? styles.resultBad : ""} ${r.state === "done" && !bad ? styles.resultGood : ""}`} aria-label={m.item(i + 1, c.command)}>
+                <li key={c.id} data-section={sections?.[i]} className={`${styles.result} ${bad ? styles.resultBad : ""} ${r.state === "done" && !bad ? styles.resultGood : ""}`} aria-label={m.item(i + 1, c.command)}>
+                  {sections?.[i] && <span className={styles.outputLabel}>{m.section(sections[i])}</span>}
                   <code>{c.command || "—"}</code>
                   <span className={styles.resultText}>{r.state === "pending" ? m.pending : r.state === "running" ? m.running : verdictText(r.verdict)}</span>
                   {bad && r.output && (

@@ -95,13 +95,17 @@ describe("ContentTab", () => {
     expect(await screen.findByText("alterado desde o teste")).toBeDefined();
   });
 
-  it("opens the test of all the cards from the button", async () => {
+  it("opens the test of the module from its button and shows whether the module was tested", async () => {
     service.content.mockResolvedValue({ blocks: [], setup: undefined });
-    render(<ContentTab moduleId="mod-1" service={service as unknown as ContentAuthoringService} practice={{ topicScenario: vi.fn() }} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Testar todas as atividades" }));
+    renderTab();
+    expect(await screen.findByText("módulo não testado")).toBeDefined();
+    // The button that tested only the cards is gone: the test of the module does it first.
+    expect(screen.queryByRole("button", { name: "Testar todas as atividades" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Testar o módulo" }));
     expect(await screen.findByText("Nenhum card tem comandos ou snapshot para testar.")).toBeDefined();
+    expect(screen.getByRole("region", { name: "Teste do módulo" })).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
-    expect(screen.queryByRole("region", { name: "Teste de todas as atividades" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Teste do módulo" })).toBeNull();
   });
 
   it("shows the empty state and the error state with a retry", async () => {

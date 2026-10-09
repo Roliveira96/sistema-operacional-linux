@@ -1,8 +1,9 @@
 // What the last test of a card said, shown in the content list. It is kept in this browser
 // (ponytail: per author and device; move to the server if the whole team must see it).
 
-import type { CardModel } from "./cardModel";
-import { setupPayload } from "./setup";
+import { groupCards, parseCard, type CardModel } from "./cardModel";
+import type { AuthoredBlock } from "@/services/contentAuthoringService";
+import { setupPayload, type Setup } from "./setup";
 
 export interface TestRecord {
   passed: boolean;
@@ -48,4 +49,39 @@ export function testStatus(moduleId: string, cardKey: string, card: Pick<CardMod
   if (!record) return "untested";
   if (record.fingerprint !== fingerprint(card)) return "stale";
   return record.passed ? "passed" : "failed";
+}
+
+// ---- the test of the whole module: the environment, then every exercise in sequence on one machine
+
+const moduleKey = (moduleId: string) => `module-test:${moduleId}`;
+
+/** What the module test depends on: the snapshot of the module and the commands and snapshot of each card. */
+export function moduleFingerprint(cards: Pick<CardModel, "commands" | "setup">[], setup?: Setup): string {
+  return JSON.stringify({ setup: setup ? setupPayload(setup) : null, cards: cards.map(fingerprint) });
+}
+
+export function saveModuleTest(moduleId: string, passed: boolean, fingerprintOfModule: string) {
+  try {
+    const record: TestRecord = { passed, at: new Date().toISOString(), fingerprint: fingerprintOfModule };
+    localStorage.setItem(moduleKey(moduleId), JSON.stringify(record));
+  } catch {
+    // Storage can be blocked; the test still ran.
+  }
+}
+
+export function moduleTestStatus(moduleId: string, fingerprintOfModule: string): Exclude<TestStatus, "none"> {
+  try {
+    const raw = localStorage.getItem(moduleKey(moduleId));
+    if (!raw) return "untested";
+    const record = JSON.parse(raw) as TestRecord;
+    if (record.fingerprint !== fingerprintOfModule) return "stale";
+    return record.passed ? "passed" : "failed";
+  } catch {
+    return "untested";
+  }
+}
+
+/** The cards students get: the ones that are active, in order. */
+export function activeCards(blocks: AuthoredBlock[]): CardModel[] {
+  return groupCards(blocks.filter((b) => b.active)).map(parseCard);
 }

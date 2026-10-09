@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ContentRenderer } from "@/components/ContentRenderer/ContentRenderer";
 import { cardCounts, groupCards, parseCard, type CardGroup } from "@/lib/cardModel";
-import { testStatus } from "@/lib/testRecord";
+import type { Setup } from "@/lib/setup";
+import { activeCards, moduleFingerprint, moduleTestStatus, testStatus } from "@/lib/testRecord";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import { practiceService, type PracticeService } from "@/services/practiceService";
@@ -50,7 +51,8 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
   const [viewing, setViewing] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [testingAll, setTestingAll] = useState(0);
+  const [testingModule, setTestingModule] = useState(0);
+  const [moduleSetup, setModuleSetup] = useState<Setup | undefined>();
   // Each result of the test of all cards redraws the list, which reads the marks from storage.
   const [, setMarks] = useState(0);
 
@@ -64,6 +66,10 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
         setFailed(false);
       })
       .catch(() => active && setFailed(true));
+    // The snapshot of the module is part of what the test of the module depends on.
+    Promise.resolve(service.content?.(moduleId))
+      .then((c) => active && setModuleSetup(c?.setup))
+      .catch(() => {});
     return () => {
       active = false;
     };
@@ -123,13 +129,23 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
         <div>
           <h2 className={styles.title}>{m.title}</h2>
           <p className={styles.hint}>{m.hint}</p>
+          {(() => {
+            const cards = activeCards(blocks);
+            if (!cards.some((c) => c.commands.length > 0)) return null;
+            const status = moduleTestStatus(moduleId, moduleFingerprint(cards, moduleSetup));
+            return (
+              <span className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`} title={m.testAll.moduleTitle}>
+                {m.testAll.moduleTest[status]}
+              </span>
+            );
+          })()}
         </div>
         <div className={styles.add}>
           <Link href={`/app/modules/${moduleId}/cards/new`} className={`${styles.primary}`}>
             {m.add}
           </Link>
-          <button type="button" className={styles.secondary} title={m.testAll.openTitle} onClick={() => setTestingAll((n) => n + 1)}>
-            {m.testAll.open}
+          <button type="button" className={styles.secondary} title={m.testAll.moduleOpenTitle} onClick={() => setTestingModule((n) => n + 1)}>
+            {m.testAll.moduleOpen}
           </button>
           <Link href={`/app/modules/${moduleId}`} className={styles.link}>
             {m.preview}
@@ -137,7 +153,7 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
         </div>
       </div>
 
-      {testingAll > 0 && <TestAll key={testingAll} moduleId={moduleId} service={service} practice={practice} onResult={() => setMarks((n) => n + 1)} onClose={() => setTestingAll(0)} />}
+      {testingModule > 0 && <TestAll key={testingModule} moduleId={moduleId} service={service} practice={practice} onResult={() => setMarks((n) => n + 1)} onClose={() => setTestingModule(0)} />}
 
       {note && (
         <p className={styles.flash} role="status">
