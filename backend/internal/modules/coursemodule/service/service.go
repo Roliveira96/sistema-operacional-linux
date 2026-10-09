@@ -24,6 +24,7 @@ type ModuleRepository interface {
 	FindModuleByID(ctx context.Context, id uuid.UUID) (domain.CourseModule, error)
 	FindModuleWithDetails(ctx context.Context, id uuid.UUID) (repository.ModuleDetails, error)
 	ListTeacherModules(ctx context.Context, teacherID uuid.UUID, filter repository.ListFilter) (repository.ListResult, error)
+	ListAllModules(ctx context.Context, filter repository.ListFilter) (repository.ListResult, error)
 	ListPublicModules(ctx context.Context, now time.Time, filter repository.ListFilter) (repository.ListResult, error)
 	ListStudentModules(ctx context.Context, studentID uuid.UUID, now time.Time, filter repository.ListFilter) (repository.ListResult, error)
 	UpdateModule(ctx context.Context, module *domain.CourseModule, classIDs []uuid.UUID, assignedBy uuid.UUID) error
@@ -269,7 +270,11 @@ func (s *Service) GetModuleByID(ctx context.Context, moduleID uuid.UUID, userCtx
 
 // ListModules lists modules according to caller's role.
 func (s *Service) ListModules(ctx context.Context, userCtx UserAccessContext, filter repository.ListFilter) (repository.ListResult, error) {
-	if userCtx.IsAdmin || userCtx.IsTeacher {
+	// An administrator manages every module, whoever created it; a teacher only their own (RN-01).
+	if userCtx.IsAdmin {
+		return s.repo.ListAllModules(ctx, filter)
+	}
+	if userCtx.IsTeacher {
 		if userCtx.UserID == nil {
 			return repository.ListResult{}, domain.ErrForbidden
 		}

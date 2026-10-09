@@ -30,7 +30,11 @@ export function UserBadge({ identity }: { identity: Identity }) {
       )}
       <div className={styles.text}>
         <span className={styles.name}>{identity.name}</span>
-        {identity.academicId && <span className={styles.academicId}>{m.academicId(identity.academicId)}</span>}
+        {identity.academicId ? (
+          <span className={styles.academicId}>{m.academicId(identity.academicId)}</span>
+        ) : (
+          identity.detail && <span className={styles.academicId}>{identity.detail}</span>
+        )}
       </div>
     </div>
   );

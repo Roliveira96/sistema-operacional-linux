@@ -20,55 +20,6 @@
   padding: var(--space-3) var(--space-4);
 }
 
-.brandGroup {
-  display: flex;
-  align-items: center;
-}
-
-.brandLink {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  text-decoration: none;
-  color: var(--color-text-primary);
-  border-radius: var(--radius-sm);
-
-  @include focusable;
-}
-
-// The real logo of the university, on the white seal it needs to be legible (SPEC-007).
-.logoBadge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-brand-seal-bg);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
-}
-
-.logo {
-  display: block;
-  width: auto;
-  height: 22px;
-}
-
-.brandText {
-  display: flex;
-  flex-direction: column;
-}
-
-.brandTitle {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  line-height: var(--line-height-body);
-
-  @include from("sm") {
-    font-size: var(--font-size-lg);
-  }
-}
-
 .nav {
   display: none;
   align-items: center;

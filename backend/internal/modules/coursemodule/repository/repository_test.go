@@ -167,6 +167,22 @@ func TestCourseModuleRepository(t *testing.T) {
 	assert.Equal(t, int64(2), teacherList.Items[0].TotalExercises)
 	assert.Equal(t, int64(1), teacherList.Items[0].TotalMaterials)
 
+	// 6b. ListAllModules: an administrator lists the modules of every teacher, a teacher only their own.
+	otherName := "Outra Docente"
+	otherTeacher := userdomain.User{Name: &otherName, Email: "outra@utfpr.edu.br", Role: userdomain.RoleTeacher, Status: userdomain.StatusActive}
+	require.NoError(t, userRepo.Create(ctx, &otherTeacher))
+	otherModule := domain.CourseModule{TeacherID: otherTeacher.ID, Title: "Módulo de outra docente", Visibility: domain.VisibilityPrivate, Status: domain.ModuleStatusActive}
+	require.NoError(t, repo.CreateModule(ctx, &otherModule, nil, otherTeacher.ID))
+	all, err := repo.ListAllModules(ctx, repository.ListFilter{Page: 1, Limit: 50})
+	require.NoError(t, err)
+	assert.Equal(t, teacherList.TotalCount+1, all.TotalCount, "the other teacher's module is included")
+	own, err := repo.ListTeacherModules(ctx, teacher.ID, repository.ListFilter{Page: 1, Limit: 50})
+	require.NoError(t, err)
+	assert.Equal(t, teacherList.TotalCount, own.TotalCount, "a teacher still sees only their own")
+	allFiltered, err := repo.ListAllModules(ctx, repository.ListFilter{Page: 1, Limit: 50, Search: "outra docente"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), allFiltered.TotalCount, "filters apply to the administrative listing too")
+
 	// 7. ListStudentModules (student is enrolled in class, so should see the private module)
 	studentList, err := repo.ListStudentModules(ctx, student.ID, now, repository.ListFilter{Page: 1, Limit: 10})
 	require.NoError(t, err)

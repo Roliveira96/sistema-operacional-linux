@@ -26,6 +26,7 @@ type mockRepository struct {
 	reorderErr      error
 	enrolledErr     error
 	listTeacherRes  repository.ListResult
+	listAllRes      repository.ListResult
 	listPublicRes   repository.ListResult
 	listStudentRes  repository.ListResult
 	reorderedCalled bool
@@ -73,6 +74,10 @@ func (m *mockRepository) FindModuleWithDetails(ctx context.Context, id uuid.UUID
 
 func (m *mockRepository) ListTeacherModules(ctx context.Context, teacherID uuid.UUID, filter repository.ListFilter) (repository.ListResult, error) {
 	return m.listTeacherRes, nil
+}
+
+func (m *mockRepository) ListAllModules(ctx context.Context, filter repository.ListFilter) (repository.ListResult, error) {
+	return m.listAllRes, nil
 }
 
 func (m *mockRepository) ListPublicModules(ctx context.Context, now time.Time, filter repository.ListFilter) (repository.ListResult, error) {
@@ -615,6 +620,7 @@ func TestService_ListModules(t *testing.T) {
 	studentID := uuid.New()
 	repo := newMockRepository()
 	repo.listTeacherRes = repository.ListResult{TotalCount: 3}
+	repo.listAllRes = repository.ListResult{TotalCount: 9}
 	repo.listStudentRes = repository.ListResult{TotalCount: 2}
 	repo.listPublicRes = repository.ListResult{TotalCount: 1}
 
@@ -628,6 +634,24 @@ func TestService_ListModules(t *testing.T) {
 		}, repository.ListFilter{})
 		require.NoError(t, err)
 		assert.Equal(t, int64(3), res.TotalCount)
+	})
+
+	// SPEC-010: an administrator manages every module, so the listing is not limited to their own.
+	t.Run("admin listing sees every module, not only their own", func(t *testing.T) {
+		adminID := uuid.New()
+		res, err := svc.ListModules(context.Background(), service.UserAccessContext{
+			UserID:  &adminID,
+			Role:    "ADMIN",
+			IsAdmin: true,
+		}, repository.ListFilter{})
+		require.NoError(t, err)
+		assert.Equal(t, int64(9), res.TotalCount)
+	})
+
+	t.Run("admin listing does not need a user id", func(t *testing.T) {
+		res, err := svc.ListModules(context.Background(), service.UserAccessContext{Role: "ADMIN", IsAdmin: true}, repository.ListFilter{})
+		require.NoError(t, err)
+		assert.Equal(t, int64(9), res.TotalCount)
 	})
 
 	t.Run("teacher listing without user id is forbidden", func(t *testing.T) {

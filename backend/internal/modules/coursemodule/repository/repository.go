@@ -146,10 +146,22 @@ func (r *Repository) FindModuleWithDetails(ctx context.Context, id uuid.UUID) (M
 
 // ListTeacherModules lists modules belonging to the specified teacher.
 func (r *Repository) ListTeacherModules(ctx context.Context, teacherID uuid.UUID, filter ListFilter) (ListResult, error) {
+	return r.listManaged(ctx, &teacherID, filter)
+}
+
+// ListAllModules lists the modules of every teacher: an administrator manages them all.
+func (r *Repository) ListAllModules(ctx context.Context, filter ListFilter) (ListResult, error) {
+	return r.listManaged(ctx, nil, filter)
+}
+
+// listManaged is the administrative listing; a nil teacher means every module.
+func (r *Repository) listManaged(ctx context.Context, teacherID *uuid.UUID, filter ListFilter) (ListResult, error) {
 	conn := r.db.Conn(ctx)
 
-	query := conn.Model(&domain.CourseModule{}).
-		Where("teacher_id = ? AND deleted_at IS NULL", teacherID)
+	query := conn.Model(&domain.CourseModule{}).Where("deleted_at IS NULL")
+	if teacherID != nil {
+		query = query.Where("teacher_id = ?", *teacherID)
+	}
 
 	if filter.Status != "" {
 		query = query.Where("status = ?", filter.Status)

@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BrandMark } from "@/components/BrandMark/BrandMark";
 import { Button } from "@/components/Button/Button";
 import { UserBadge } from "@/components/UserBadge/UserBadge";
 import { useIdentity, type IdentitySources } from "@/hooks/useIdentity";
@@ -42,16 +42,7 @@ export function NavbarPublic({ identity: sources, logout = () => authService.log
   return (
     <header className={styles.header}>
       <div className={styles.container}>
-        <div className={styles.brandGroup}>
-          <Link href="/" className={styles.brandLink} aria-label={`${messages.public.nav.brand} - ${messages.public.nav.institution}`}>
-            <div className={styles.logoBadge}>
-              <Image src="/utfpr-logo.svg" alt={messages.public.nav.logoAlt} width={78} height={22} className={styles.logo} unoptimized />
-            </div>
-            <div className={styles.brandText}>
-              <span className={styles.brandTitle}>{messages.public.nav.brand}</span>
-            </div>
-          </Link>
-        </div>
+        <BrandMark href="/" />
 
         <nav className={styles.nav} aria-label={messages.public.nav.ariaLabel}>
           <Link href="/" className={styles.navLink}>

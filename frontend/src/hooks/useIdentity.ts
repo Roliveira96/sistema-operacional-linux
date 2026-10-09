@@ -10,6 +10,8 @@ export interface Identity {
   /** Only students have an academic ID and a photo in their profile. */
   academicId?: string;
   avatarUrl?: string;
+  /** Shown under the name when there is no academic ID, such as the role of a teacher. */
+  detail?: string;
 }
 
 export interface IdentitySources {
