@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-018 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 09/10/2026 |
 | **Última revisão** | 09/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -154,14 +154,14 @@ Usa a rota 5.1 da SPEC-017 sem mudar o contrato (`POST /api/v1/speech-syntheses`
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | **Visitantes.** A SPEC-017 (P-02) limitou a rota de voz a usuários logados, mas `/materials` é pública; sem login o card toca em silêncio. | Manter só para logados e mostrar o convite "Entre para ouvir o material". É a decisão já aprovada e protege a cota do serviço de voz. Se quiser voz para visitantes, a SPEC-017 precisa ser revista (limite por IP). |
-| P-02 | **Limite de taxa.** 20 requisições por minuto não cobrem um card longo (cada trecho é um pedido). | Subir para 60 por minuto, configurável (`TTS_RATE_PER_MINUTE`), e manter o cache e a pré-busca de um trecho por vez. Revisa a RN-08 da SPEC-017. |
-| P-03 | **O que falar nos comandos.** O comando puro ("ls -l /etc") soa mal em voz sintética. | Falar a **explicação** do passo (ex.: "lista o conteúdo detalhado da pasta etc") enquanto o comando aparece no terminal; passos sem explicação falam o próprio comando. |
-| P-04 | **Destaque palavra a palavra.** Usa a API de realce de texto do navegador (Chrome, Edge e Safari recentes; Firefox só nas versões novas). | Aprovar. Navegadores sem a API ouvem a narração sem destaque, e o texto continua legível. |
-| P-05 | **Velocidade da voz.** Acima de 2× a voz sintética fica ininteligível. | A voz acompanha o seletor até 2×; em 4× fica em 2× enquanto a digitação vai a 4×. |
-| P-06 | **Som ligado por padrão?** | Ligado por padrão para quem está logado, com o botão 🔊/🔇 sempre visível e a escolha lembrada. |
+Nenhuma. P-01 a P-06 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações:
+
+- **P-01:** narração só para usuários logados; visitantes veem o convite para entrar.
+- **P-02:** limite de taxa da rota de voz passa de 20 para 60 por minuto, configurável por `TTS_RATE_PER_MINUTE` (revisa a RN-08 e a CA-12 da SPEC-017).
+- **P-03:** nos comandos, fala a explicação do passo; sem explicação, fala o comando.
+- **P-04:** destaque pela API de realce do navegador, com degradação para navegadores sem ela.
+- **P-05:** velocidade da voz limitada a 2×.
+- **P-06:** som ligado por padrão para usuários logados, com a escolha guardada em `localStorage`.
 
 ---
 
@@ -170,3 +170,4 @@ Usa a rota 5.1 da SPEC-017 sem mudar o contrato (`POST /api/v1/speech-syntheses`
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 09/10/2026 | Implementador (Claude) | Criação a pedido do Tech Lead ("leitor estilo karaokê"; narrar o material ao dar play e falar os comandos enquanto rodam no terminal). Pendências P-01 a P-06 |
+| 09/10/2026 | Tech Lead | Aprovação integral de P-01 a P-06 nas recomendações. Status: `Aprovada` |
