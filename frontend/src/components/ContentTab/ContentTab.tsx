@@ -8,7 +8,9 @@ import { cardCounts, groupCards, parseCard, type CardGroup } from "@/lib/cardMod
 import { testStatus } from "@/lib/testRecord";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringService } from "@/services/contentAuthoringService";
+import { practiceService, type PracticeService } from "@/services/practiceService";
 import { ActionMenu } from "./ActionMenu";
+import { TestAll } from "./TestAll";
 import styles from "./ContentTab.module.scss";
 
 const m = authoringMessages.cards;
@@ -16,6 +18,7 @@ const m = authoringMessages.cards;
 interface ContentTabProps {
   moduleId: string;
   service?: ContentAuthoringService;
+  practice?: Pick<PracticeService, "topicScenario">;
 }
 
 /** "3 comandos · 1 dica", or "sem conteúdo". */
@@ -39,7 +42,7 @@ const editHref = (moduleId: string, group: CardGroup) => `/app/modules/${moduleI
  * The "Conteúdo" tab of the module edit page: one card per row, as the student sees them, with
  * an action menu (see, edit, inactivate, remove) and buttons to move it (SPEC-019).
  */
-export function ContentTab({ moduleId, service = contentAuthoringService }: ContentTabProps) {
+export function ContentTab({ moduleId, service = contentAuthoringService, practice = practiceService }: ContentTabProps) {
   const router = useRouter();
   const [blocks, setBlocks] = useState<AuthoredBlock[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -47,6 +50,9 @@ export function ContentTab({ moduleId, service = contentAuthoringService }: Cont
   const [viewing, setViewing] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [testingAll, setTestingAll] = useState(0);
+  // Each result of the test of all cards redraws the list, which reads the marks from storage.
+  const [, setMarks] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -122,11 +128,16 @@ export function ContentTab({ moduleId, service = contentAuthoringService }: Cont
           <Link href={`/app/modules/${moduleId}/cards/new`} className={`${styles.primary}`}>
             {m.add}
           </Link>
+          <button type="button" className={styles.secondary} title={m.testAll.openTitle} onClick={() => setTestingAll((n) => n + 1)}>
+            {m.testAll.open}
+          </button>
           <Link href={`/app/modules/${moduleId}`} className={styles.link}>
             {m.preview}
           </Link>
         </div>
       </div>
+
+      {testingAll > 0 && <TestAll key={testingAll} moduleId={moduleId} service={service} practice={practice} onResult={() => setMarks((n) => n + 1)} onClose={() => setTestingAll(0)} />}
 
       {note && (
         <p className={styles.flash} role="status">

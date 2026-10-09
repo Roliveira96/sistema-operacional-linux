@@ -95,6 +95,15 @@ describe("ContentTab", () => {
     expect(await screen.findByText("alterado desde o teste")).toBeDefined();
   });
 
+  it("opens the test of all the cards from the button", async () => {
+    service.content.mockResolvedValue({ blocks: [], setup: undefined });
+    render(<ContentTab moduleId="mod-1" service={service as unknown as ContentAuthoringService} practice={{ topicScenario: vi.fn() }} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Testar todas as atividades" }));
+    expect(await screen.findByText("Nenhum card tem comandos ou snapshot para testar.")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByRole("region", { name: "Teste de todas as atividades" })).toBeNull();
+  });
+
   it("shows the empty state and the error state with a retry", async () => {
     service.list.mockResolvedValueOnce([]);
     renderTab();
