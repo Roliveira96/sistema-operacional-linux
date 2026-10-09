@@ -429,6 +429,18 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             ))}
           </Section>
 
+          <Section title={m.environment.title} hint={m.environment.hint}>
+            <EnvironmentRecorder
+              moduleId={moduleId}
+              environment={card.environment}
+              hasTitle={card.title.trim() !== ""}
+              service={service}
+              loadBase={loadBase}
+              onChange={(environment) => set({ environment })}
+            />
+            <Errors id="environment" errors={errors} />
+          </Section>
+
           <Section
             title={m.commands.title}
             hint={m.commands.hint}
@@ -463,18 +475,6 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             <BoxList boxes={card.tips} labels={m.boxes.tips} errors={errors} onChange={(tips) => set({ tips })} />
             <BoxList boxes={card.realWorld} labels={m.boxes.real} errors={errors} onChange={(realWorld) => set({ realWorld })} />
             <BoxList boxes={card.exams} labels={m.boxes.exams} errors={errors} onChange={(exams) => set({ exams })} />
-          </Section>
-
-          <Section title={m.environment.title} hint={m.environment.hint}>
-            <EnvironmentRecorder
-              moduleId={moduleId}
-              environment={card.environment}
-              hasTitle={card.title.trim() !== ""}
-              service={service}
-              loadBase={loadBase}
-              onChange={(environment) => set({ environment })}
-            />
-            <Errors id="environment" errors={errors} />
           </Section>
         </div>
 

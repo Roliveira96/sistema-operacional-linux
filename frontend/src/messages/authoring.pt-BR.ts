@@ -134,7 +134,7 @@ export const authoringMessages = {
       text: "Texto",
     },
     commands: {
-      title: "3. Comandos práticos",
+      title: "4. Comandos práticos",
       hint: "Comandos que o aluno roda no terminal, com a explicação antes e a descrição oculta depois de rodar.",
       add: "+ Novo comando",
       empty: "Nenhum comando ainda.",
@@ -178,7 +178,7 @@ export const authoringMessages = {
       item: (n: number, command: string) => `Comando ${n}: ${command}`,
     },
     environment: {
-      title: "5. Ambiente do card (snapshot)",
+      title: "3. Ambiente do card (snapshot)",
       hint: "Prepare a máquina do aluno: pastas, arquivos, usuários, grupos e configurações.",
       help: "Abra o terminal, rode os comandos que montam o cenário e grave. O aluno recebe a máquina exatamente assim quando abre a página de estudo, e vale a partir deste card para o módulo todo. Cada ambiente parte do ambiente do card anterior; se você mudar um card do meio, refaça os seguintes.",
       open: "Abrir terminal para preparar o ambiente",
@@ -201,7 +201,7 @@ export const authoringMessages = {
       needsTitleError: "Dê um título ao card para guardar o ambiente.",
     },
     boxes: {
-      title: "4. Blocos especiais e certificações",
+      title: "5. Blocos especiais e certificações",
       hint: "Dicas de certificação, casos da vida real e avisos de prova.",
       tips: { title: "Dicas de certificação (LPIC / CompTIA)", add: "+ Adicionar dica", empty: "Nenhuma dica adicionada.", name: "Certificação", placeholder: "ex.: LPIC-1 102.4", item: (n: number) => `Dica ${n}` },
       real: { title: "Na vida real (casos de produção)", add: "+ Adicionar caso real", empty: "Nenhum caso adicionado.", name: "Título", placeholder: "Na vida real", item: (n: number) => `Caso ${n}` },

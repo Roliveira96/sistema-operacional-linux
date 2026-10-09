@@ -42,7 +42,7 @@ Há também comandos que **devem falhar de propósito** (por exemplo, `curl` par
 
 ### 3.1. Frontend
 
-**Seção "5. Ambiente do card (snapshot)"** na tela do card, depois das caixas especiais:
+**Seção "3. Ambiente do card (snapshot)"** na tela do card, antes dos comandos práticos, porque o ambiente é o ponto de partida dos comandos (Tech Lead, 09/10/2026):
 
 - Texto de apoio: o que é o ambiente e que ele vale para o módulo inteiro a partir deste card.
 - Botão **"Abrir terminal para preparar o ambiente"**: monta o terminal Linux da aplicação (o mesmo da tela de estudo) na própria tela. A máquina começa no **ambiente anterior**: o do card mais próximo antes deste que tem ambiente, ou o cenário do tópico quando não há nenhum (RN-03). Aparece "Preparando máquina…" enquanto ela carrega.
@@ -52,9 +52,9 @@ Há também comandos que **devem falhar de propósito** (por exemplo, `curl` par
 - O ambiente vive no cabeçalho do card; o card sem título não tem onde guardá-lo, e a seção pede o título primeiro.
 - Gravar o ambiente é uma alteração do card: vale quando o card é salvo, como o resto.
 
-**Erro esperado.** Cada comando da seção 3 do card ganha a caixa **"Erro esperado (este comando deve falhar de propósito)"**. Na tela de estudo o comando aparece com a marca **"erro esperado"**, e a voz avisa antes de rodá-lo ("Atenção: este comando vai dar erro de propósito.").
+**Erro esperado.** Cada comando da seção 4 do card ganha a caixa **"Erro esperado (este comando deve falhar de propósito)"**. Na tela de estudo o comando aparece com a marca **"erro esperado"**, e a voz avisa antes de rodá-lo ("Atenção: este comando vai dar erro de propósito.").
 
-**Testar o card.** Como o card tem muitos comandos Linux, a seção 3 ganha o botão **"Testar comandos"**, que confere se o ambiente serve ao aluno. Ele abre o terminal da aplicação na máquina que o aluno terá neste card (o ambiente gravado do próprio card, ou o do card anterior, ou o cenário do tópico), roda **todos os comandos da lista, na ordem**, cada um no terminal e com o login que pede, e mostra o resultado de cada um:
+**Testar o card.** Como o card tem muitos comandos Linux, a seção 4 ganha o botão **"Testar comandos"**, que confere se o ambiente serve ao aluno. Ele abre o terminal da aplicação na máquina que o aluno terá neste card (o ambiente gravado do próprio card, ou o do card anterior, ou o cenário do tópico), roda **todos os comandos da lista, na ordem**, cada um no terminal e com o login que pede, e mostra o resultado de cada um:
 
 - **Como esperado:** o comando terminou com sucesso, ou terminou com erro e estava marcado como **erro esperado**.
 - **Fora do esperado:** terminou com erro sem estar marcado ("deu erro, e não era esperado"), ou terminou com sucesso mas estava marcado como erro esperado ("era para dar erro e não deu").
@@ -157,3 +157,4 @@ Nenhuma em aberto. O Tech Lead respondeu em 09/10/2026:
 | 09/10/2026 | Implementador (Claude) | Criação, a partir do pedido do Tech Lead de gravar o snapshot pelo terminal da aplicação e marcar comandos com erro esperado, e das respostas dele às três perguntas. Aprovada na mesma data |
 | 09/10/2026 | Implementador (Claude) | Implementada. Backend: campo `environment` no cabeçalho e `expectError` no passo, gravar e ler ambientes (5.1 e 5.2) e `GET /modules/{id}/scenario` com o ambiente efetivo. Frontend: seção 5 da tela do card com o terminal da aplicação (comandos do terminal 1 listados, estado final gravado), caixa de erro esperado, marca e aviso de voz na tela de estudo. Verificado no navegador: dois comandos digitados no terminal (`mkdir /financeiro`, `useradd ana`), gravados e salvos com o card; a rota do aluno devolveu a máquina com os dois. A carga (`go run ./cmd/seed`) não mexe nos ambientes, que não têm chave de origem |
 | 09/10/2026 | Tech Lead | Pedido: um botão de teste na tela do card, que rode todos os comandos, para garantir que o ambiente serve ao aluno. Incluídos: "Testar comandos" (3.1), RN-08 e CA-10 a CA-12 |
+| 09/10/2026 | Tech Lead | A seção do ambiente passa a vir **antes** dos comandos práticos, porque a máquina preparada é o ponto de partida deles. As seções da tela do card ficam: 1 Cabeçalho, 2 Descrição, 3 Ambiente, 4 Comandos práticos, 5 Blocos especiais |
