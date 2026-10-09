@@ -75,6 +75,14 @@ Regras:
 | Chave de origem | `source_key` | Identificador do item no legado, usado pela carga idempotente | `legacy_id` | Decidido |
 | Carga inicial | `seed` | Comando que importa o manifesto do conteúdo para o banco | `import`, `fixture` | Decidido |
 
+## 3.2. Leitura em voz alta (SPEC-017)
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Síntese de fala | `SpeechSynthesis` | Resultado de converter um texto em áudio falado, com as marcas de palavra | `TTSResult`, `Audio` sozinho | Decidido |
+| Marca de palavra | `WordTiming` | Instante inicial e final, em milissegundos, de uma palavra no áudio | `WordBoundary` (termo do provedor, fica restrito ao adaptador), `Timestamp` | Decidido |
+| Voz | `Voice` | Voz neural escolhida de uma lista fechada (`pt-BR-FranciscaNeural`, `pt-BR-AntonioNeural`) | `Speaker`, `Narrator` | Decidido |
+
 ## 4. Avaliações e aplicação
 
 | Português | Código (EN) | Definição | Evitar | Status |
