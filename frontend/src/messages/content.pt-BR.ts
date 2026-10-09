@@ -64,6 +64,16 @@ export const contentMessages = {
     terminalLabel: "Terminal do exercício",
     inputLabel: "Comando",
     hiddenInput: "(entrada oculta)",
+    // Opening of the prototype terminal (SPEC-015, P-04).
+    connected: (user: string) => `Conectado a 192.168.0.10 via SSH como ${user}.`,
+    windowControls: "Controles da janela (decorativos)",
+    shortcutsLabel: "Atalhos do terminal",
+    shortcuts: [
+      [["↑", "↓"], "histórico"],
+      [["Ctrl", "C"], "cancela"],
+      [["Ctrl", "L"], "limpa"],
+      [["nano"], "edita arquivos"],
+    ] as const,
   },
   nano: {
     title: (path: string) => `nano — ${path}`,

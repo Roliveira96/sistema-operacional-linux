@@ -31,8 +31,28 @@ export interface TerminalProps {
   onError?: (error: unknown) => void;
 }
 
-function promptText(p: Prompt): string {
-  return `${p.user}@${p.host}:${p.path}${p.isRoot ? "#" : "$"} `;
+/** Colored bash prompt: user@host in green, path in blue, as in Ubuntu. */
+function PromptView({ prompt }: { prompt: Prompt }) {
+  return (
+    <span className={styles.prompt}>
+      <span className={styles.promptUser}>
+        {prompt.user}@{prompt.host}
+      </span>
+      :<span className={styles.promptPath}>{prompt.path}</span>
+      {prompt.isRoot ? "# " : "$ "}
+    </span>
+  );
+}
+
+/** Lines printed by sshd and the Ubuntu motd when the session opens. */
+function welcome(user: string, now: Date): Entry[] {
+  const lines: OutputChunk[] = [
+    { text: contentMessages.practice.connected(user) + "\n", tone: "info" },
+    { text: "Welcome to Ubuntu 24.04 LTS (GNU/Linux 6.8.0-45-generic x86_64)\n\n" },
+    { text: " * Documentation:  https://help.ubuntu.com\n * Management:     https://landscape.canonical.com\n\n" },
+    { text: `Last login: ${now.toString().substring(0, 24)} from 192.168.0.51\n` },
+  ];
+  return lines.map((chunk) => ({ kind: "output", chunk }));
 }
 
 /** Shell terminal backed by the legacy engine (SPEC-014). Keyboard operable. */
@@ -44,6 +64,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   const session = useRef<EngineSession | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const [ready, setReady] = useState(false);
+  const [current, setCurrent] = useState<Prompt | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [line, setLine] = useState("");
   const [busy, setBusy] = useState(false);
@@ -66,6 +87,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
       .then((s) => {
         if (!active) return;
         session.current = s;
+        const prompt = s.prompt();
+        setCurrent(prompt);
+        setEntries(welcome(prompt.user, new Date()));
         setReady(true);
       })
       .catch((error: unknown) => onError?.(error));
@@ -97,6 +121,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     try {
       await s.run(command, (chunk) => append({ kind: "output", chunk }));
     } finally {
+      // Commands like cd, su and exit change the prompt.
+      setCurrent(s.prompt());
       setBusy(false);
     }
   }
@@ -136,50 +162,79 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     }
   }
 
-  const current = session.current?.prompt();
-  const currentPrompt = question ? question.text : current ? promptText(current) : "";
-  const currentIsRoot = !question && current?.isRoot === true;
-
   return (
-    <div className={styles.terminal} onClick={() => input.current?.focus()}>
-      {!ready ? (
-        <p className={styles.loading} role="status">
-          {m.loadingTerminal}
-        </p>
-      ) : (
-        <>
-          <pre className={styles.screen} role="log" aria-live="polite" aria-label={m.terminalLabel}>
-            {entries.map((entry, i) =>
-              entry.kind === "command" ? (
-                <span key={i}>
-                  <span className={entry.prompt.isRoot ? styles.promptRoot : styles.prompt}>{promptText(entry.prompt)}</span>
-                  {entry.command + "\n"}
-                </span>
+    <div className={styles.window}>
+      <div className={styles.bar}>
+        <span className={`${styles.tab} ${current?.isRoot ? styles.tabRoot : ""}`}>
+          <span className={styles.tabNumber}>1</span>
+          <span className={styles.tabTitle}>
+            {current ? `${current.user}@${current.host}: ${current.path}` : m.terminalLabel}
+          </span>
+        </span>
+        <span className={styles.spacer} />
+        <span className={styles.controls} role="img" aria-label={m.windowControls}>
+          <i />
+          <i />
+          <i className={styles.closeControl} />
+        </span>
+      </div>
+      <div className={styles.terminal} onClick={() => input.current?.focus()}>
+        {!ready ? (
+          <p className={styles.loading} role="status">
+            {m.loadingTerminal}
+          </p>
+        ) : (
+          <>
+            <pre className={styles.screen} role="log" aria-live="polite" aria-label={m.terminalLabel}>
+              {entries.map((entry, i) =>
+                entry.kind === "command" ? (
+                  <span key={i}>
+                    <PromptView prompt={entry.prompt} />
+                    {entry.command + "\n"}
+                  </span>
+                ) : (
+                  <span key={i} className={entry.chunk.tone ? styles[entry.chunk.tone] : undefined}>
+                    {entry.chunk.text}
+                  </span>
+                ),
+              )}
+            </pre>
+            <label className={styles.inputRow}>
+              {question ? (
+                <span className={styles.prompt}>{question.text}</span>
               ) : (
-                <span key={i} className={entry.chunk.tone ? styles[entry.chunk.tone] : undefined}>
-                  {entry.chunk.text}
-                </span>
-              ),
-            )}
-          </pre>
-          <label className={styles.inputRow}>
-            <span className={currentIsRoot ? styles.promptRoot : styles.prompt}>{currentPrompt}</span>
-            <input
-              ref={input}
-              className={styles.input}
-              type={question?.hidden ? "password" : "text"}
-              value={line}
-              onChange={(e) => setLine(e.target.value)}
-              onKeyDown={onKeyDown}
-              disabled={busy}
-              aria-label={question?.hidden ? m.hiddenInput : m.inputLabel}
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-            />
-          </label>
-        </>
-      )}
+                current && <PromptView prompt={current} />
+              )}
+              <input
+                ref={input}
+                className={styles.input}
+                type={question?.hidden ? "password" : "text"}
+                value={line}
+                onChange={(e) => setLine(e.target.value)}
+                onKeyDown={onKeyDown}
+                disabled={busy}
+                aria-label={question?.hidden ? m.hiddenInput : m.inputLabel}
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+              />
+            </label>
+          </>
+        )}
+      </div>
+      <ul className={styles.shortcuts} aria-label={m.shortcutsLabel}>
+        {m.shortcuts.map(([keys, action]) => (
+          <li key={action}>
+            {keys.map((key, i) => (
+              <span key={key}>
+                {i > 0 && (keys[0] === "Ctrl" ? "+" : " ")}
+                <kbd>{key}</kbd>
+              </span>
+            ))}{" "}
+            {action}
+          </li>
+        ))}
+      </ul>
       {edit && (
         <NanoDialog
           request={edit.request}

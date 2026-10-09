@@ -65,13 +65,23 @@ describe("Terminal", () => {
     expect(ref.current?.snapshot()).toEqual({ state: 1 });
   });
 
-  it("colors the current prompt like the history prompts for root", async () => {
+  // Covers SPEC-015 CA-03.
+  it("shows the GNOME window, the Ubuntu welcome and the prompt in the prototype colors", async () => {
     const { type } = await mount();
+    const log = screen.getByRole("log");
+    expect(log.textContent).toContain("Conectado a 192.168.0.10 via SSH como root.");
+    expect(log.textContent).toContain("Welcome to Ubuntu 24.04 LTS");
+    expect(log.textContent).toMatch(/Last login: .+ from 192\.168\.0\.51/);
+    expect(screen.getByText("root@lab: ~")).toBeTruthy();
+    expect(screen.getByRole("img", { name: m.windowControls })).toBeTruthy();
+    const shortcuts = screen.getByRole("list", { name: m.shortcutsLabel });
+    expect(shortcuts.textContent).toContain("Ctrl+C cancela");
+
     await type("ls");
-    const history = screen.getByText("root@lab:~#", { selector: "pre span span" });
-    const current = screen.getByText("root@lab:~#", { selector: "label span" });
-    expect(current.className).toBe(history.className);
-    expect(current.className).toContain("promptRoot");
+    const users = screen.getAllByText("root@lab");
+    expect(users).toHaveLength(2);
+    for (const user of users) expect(user.className).toContain("promptUser");
+    for (const path of screen.getAllByText("~", { selector: "span" })) expect(path.className).toContain("promptPath");
   });
 
   it("navigates the history with the arrow keys and clears with Ctrl+L", async () => {
