@@ -18,6 +18,8 @@ export interface PublicQuestion {
   statement: string;
   hint?: string;
   choices?: string[];
+  /** Reference solution of practical exercises (SPEC-016, P-02); never sent on assessments. */
+  solution?: { command: string; terminal?: number }[];
 }
 
 export interface AssessmentTemplateSummary {

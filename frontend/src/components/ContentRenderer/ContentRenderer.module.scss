@@ -33,6 +33,11 @@
     vertical-align: top;
   }
 
+  // As in the prototype: the first column (years, commands) never wraps.
+  td:first-child {
+    white-space: nowrap;
+  }
+
   pre {
     padding: var(--space-3);
     overflow-x: auto;
@@ -123,9 +128,16 @@
   background: var(--color-warning-subtle);
 }
 
+// "Na vida real" box of the prototype (".na-pratica"): blue, with a thick left edge.
 .curiosity {
-  border-left-color: var(--color-success);
-  background: var(--color-success-subtle);
+  border: 1px solid var(--color-info-line);
+  border-left: 3px solid var(--color-info);
+  background: var(--color-info-faint);
+
+  .tipTitle {
+    font-size: 13px;
+    color: var(--color-info-text);
+  }
 }
 
 .tipTitle {

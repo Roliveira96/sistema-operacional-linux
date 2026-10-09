@@ -87,6 +87,24 @@
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
   --shadow-md: 0 20px 50px -22px rgb(0 0 0 / 70%);
 
+  // Translucent layers of the topic study screen (SPEC-016).
+  --color-overlay-soft: rgb(255 255 255 / 5%);
+  --color-zebra: rgb(255 255 255 / 2%);
+  --color-hairline: rgb(255 255 255 / 6%);
+  --color-success-line: rgb(61 220 151 / 55%);
+  --color-success-faint: rgb(61 220 151 / 6%);
+  --color-warning-line: rgb(255 176 32 / 35%);
+  --color-warning-faint: rgb(255 176 32 / 12%);
+  --color-danger-line: rgb(255 107 107 / 35%);
+  --color-danger-faint: rgb(255 107 107 / 20%);
+  --color-info-line: rgb(74 168 255 / 30%);
+  --color-info-faint: rgb(74 168 255 / 7%);
+  --color-info-text: #9ccaff;
+  --color-orange-faint: rgb(233 84 32 / 12%);
+  --color-orange-line: rgb(233 84 32 / 40%);
+  --color-orange-text: #ffe2cf;
+  --color-reset-text: #fca5a5;
+
   // Spacing scale
   --space-1: 0.25rem;
   --space-2: 0.5rem;

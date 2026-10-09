@@ -34,3 +34,18 @@ export function splitDescription(description: string): ModuleDescription {
 export function orderLabel(displayOrder?: number): string | null {
   return displayOrder && displayOrder > 0 ? String(displayOrder).padStart(2, "0") : null;
 }
+
+/**
+ * Accent variables of a topic screen (SPEC-016): the module color and its tints.
+ * Tints are mixed here, on the element, because the accent changes per module.
+ */
+export function topicAccentVars(color?: string): CSSProperties {
+  const key = color?.match(/^--cor-([a-z]+)$/)?.[1];
+  return {
+    "--accent": key ? `var(--color-module-${key})` : "var(--color-accent)",
+    "--accent-soft": "color-mix(in srgb, var(--accent) 18%, transparent)",
+    "--accent-faint": "color-mix(in srgb, var(--accent) 8%, transparent)",
+    "--accent-line": "color-mix(in srgb, var(--accent) 55%, transparent)",
+    "--accent-glow": "color-mix(in srgb, var(--accent) 35%, transparent)",
+  } as CSSProperties;
+}

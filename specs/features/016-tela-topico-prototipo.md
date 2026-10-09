@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-016 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 09/10/2026 |
 | **Última revisão** | 09/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -186,16 +186,16 @@ Se a P-02 for aprovada, a lista de questões de uso `EXERCISE` (SPEC-012) passa 
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: QUANDO o estudante abrir um módulo, O SISTEMA DEVE mostrar o cabeçalho com o player e a velocidade, as abas "Comandos e dicas" e "Desafios" à esquerda e a janela de terminais do protótipo à direita, aberta e pronta.
-- [ ] **CA-02**: A máquina DEVE começar no cenário do tópico; QUANDO o estudante clicar em Reset Máquina, O SISTEMA DEVE voltar a ele.
-- [ ] **CA-10**: QUANDO o estudante iniciar um exercício, O SISTEMA DEVE mostrar "Preparando máquina…" no terminal, carregar o cenário do exercício na mesma janela e manter o histórico de comandos de cada terminal.
-- [ ] **CA-03**: QUANDO o estudante clicar em ▶ de um comando, em "Rodar este card" ou no player, O SISTEMA DEVE digitar e executar os comandos na velocidade escolhida, no terminal e com o usuário indicados no passo.
-- [ ] **CA-04**: QUANDO um comando terminar e o estudante tiver sessão, O SISTEMA DEVE conferir os desafios no servidor e marcar os atendidos, registrando a primeira aprovação.
-- [ ] **CA-05**: SE o visitante não tiver sessão, ENTÃO a aba de desafios DEVE convidar a entrar, e a rota 5.2 DEVE responder 401.
-- [ ] **CA-06**: A máquina DEVE sobreviver a uma recarga da página; 💾 DEVE baixar o JSON e 📂 DEVE carregá-lo.
-- [ ] **CA-07**: QUANDO o estudante clicar em Cola, O SISTEMA DEVE abrir a cola de comandos do protótipo.
-- [ ] **CA-08**: Nenhum arquivo fora de `frontend/src/engine/` DEVE importar o legado.
-- [ ] **CA-09**: As rotas 5.1 e 5.2 DEVEM seguir as regras de acesso e os erros da seção 5.
+- [x] **CA-01**: QUANDO o estudante abrir um módulo, O SISTEMA DEVE mostrar o cabeçalho com o player e a velocidade, as abas "Comandos e dicas" e "Desafios" à esquerda e a janela de terminais do protótipo à direita, aberta e pronta.
+- [x] **CA-02**: A máquina DEVE começar no cenário do tópico; QUANDO o estudante clicar em Reset Máquina, O SISTEMA DEVE voltar a ele.
+- [x] **CA-10**: QUANDO o estudante iniciar um exercício, O SISTEMA DEVE mostrar "Preparando máquina…" no terminal, carregar o cenário do exercício na mesma janela e manter o histórico de comandos de cada terminal.
+- [x] **CA-03**: QUANDO o estudante clicar em ▶ de um comando, em "Rodar este card" ou no player, O SISTEMA DEVE digitar e executar os comandos na velocidade escolhida, no terminal e com o usuário indicados no passo.
+- [x] **CA-04**: QUANDO um comando terminar e o estudante tiver sessão, O SISTEMA DEVE conferir os desafios no servidor e marcar os atendidos, registrando a primeira aprovação.
+- [x] **CA-05**: SE o visitante não tiver sessão, ENTÃO a aba de desafios DEVE convidar a entrar, e a rota 5.2 DEVE responder 401.
+- [x] **CA-06**: A máquina DEVE sobreviver a uma recarga da página; 💾 DEVE baixar o JSON e 📂 DEVE carregá-lo.
+- [x] **CA-07**: QUANDO o estudante clicar em Cola, O SISTEMA DEVE abrir a cola de comandos do protótipo.
+- [x] **CA-08**: Nenhum arquivo fora de `frontend/src/engine/` DEVE importar o legado.
+- [x] **CA-09**: As rotas 5.1 e 5.2 DEVEM seguir as regras de acesso e os erros da seção 5.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -240,3 +240,4 @@ Nenhuma. P-01 a P-04 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações
 | 09/10/2026 | Implementador (Claude) | Criação, a pedido do Tech Lead ("use o que tem no protótipo como base"; "temos que usar o que foi feito"), depois de comparar o frontend novo com o protótipo rodando. Decisões já tomadas pelo Tech Lead: rota da máquina do tópico, conferência automática após cada comando, Cola, salvar e abrir e até 3 terminais. Pendências P-01 a P-04 |
 | 09/10/2026 | Implementador (Claude) | Ajustes pedidos pelo Tech Lead ao ver a tela: largura total, sem abas por exercício (máquina única), "Iniciar" exercício com "Preparando máquina…" mantendo o histórico (CA-10), e Reset Máquina, player e velocidade visíveis |
 | 09/10/2026 | Tech Lead | Aprovação de P-01 a P-04 nas recomendações. Status: `Aprovada` |
+| 09/10/2026 | Implementador (Claude) | Implementação do frontend concluída (o backend das rotas 5.1 e 5.2 já estava no commit `b83bfc1`); status `Implementada`. **Verificação:** frontend com `vitest` (300 testes, 68 arquivos, sem falhas), cobertura geral de 95% das linhas e 87,5% dos ramos (`TopicStudy` 97% e 87%), ESLint, Stylelint, `tsc` e `next build` limpos. **CA → testes:** CA-01 `TopicStudy.test.tsx` ("shows the header, the tabs…") e `TerminalPane.test.tsx`; CA-02 "resets the machine after confirming" e `terminalWindow.test.ts` ("resets to a snapshot"); CA-03 `useTopicPlayer.test.ts`, "runs a whole card…" e `terminalWindow.test.ts` (passo com terminal 2 e login); CA-04 `useModuleCheck.test.ts` e "checks the machine after the quiet time…"; CA-05 "invites a visitor to sign in…" e a rota 5.2 no backend; CA-06 `machineStorage.test.ts`, "starts from the machine saved…" e "exports and imports the machine"; CA-07 "opens and closes the cheat sheet"; CA-08 regra de ESLint (`no-restricted-imports`, limpa); CA-09 testes de backend do commit `b83bfc1`; CA-10 `terminalWindow.test.ts` ("loads a scenario keeping the screen and the history") e "loads the scenario of the exercise in the same window". **Comparação com o protótipo** (rodando em `http://192.168.3.104:5173`), feita por capturas de tela automatizadas (Edge sem cabeça) do módulo História, nas abas Comandos e Desafios e na Cola, além de um teste de fumaça dos 8 módulos públicos (abrir, tocar o primeiro card, sem erros de console); não houve comparação visual manual dos outros 7 módulos. **Desvios:** (1) o `Rodar este card` só aparece em cards com comandos; (2) a janela do terminal é montada em um elemento próprio a cada montagem, porque o modo estrito do React monta duas vezes e uma montagem apagava a outra; (3) na CA-10 a máquina é trocada sob os terminais abertos por campos privados do `TerminalUbuntu` (sem alterar o legado), copiando o histórico de cada sessão; (4) o Reset Máquina usa `window.confirm`, como o protótipo; (5) o realce de cada módulo usa variáveis `--accent*` montadas no componente (`topicAccentVars`), porque a cor varia por módulo e `color-mix` é proibido nas folhas; foram acrescentados tokens translúcidos em `_tokens.scss`; (6) o Stylelint ganhou uma exceção só para `CheatSheetModal.module.scss` (classes `:global` do HTML da cola); (7) o `ContentRenderer` passou a manter a primeira coluna das tabelas sem quebra e a caixa "Na vida real" ficou azul, como no protótipo; (8) `engine/engine.ts`, as mensagens `practice` e `nano` e o alias do `Shell` foram removidos junto com a interface antiga; (9) em `/app/modules/[id]` a tela desconta a barra da conta (`--topic-offset`); (10) `frontend/src/test/domMatchers.ts` traz cinco verificações de DOM locais, sem nova dependência. **Fora de escopo, como na spec:** a aba "Simulados e Questões" do tópico de simulados |

@@ -15,6 +15,7 @@ declare module "@legacy-engine/linux/Sessao" {
   export interface Sessao {
     atual(): { usuario: Usuario; cwd: string };
     caminhoCurto(): string;
+    readonly historico: string[];
   }
 }
 
@@ -25,6 +26,9 @@ declare module "@legacy-engine/linux/Maquina" {
     hostname: string;
     contas: { usuario(nome: string): Usuario | undefined };
     abrirSessao(usuario: Usuario): Sessao;
+    fecharSessao(sessao: Sessao): void;
+    atualizarProc(): void;
+    static criar(): Maquina;
   }
 }
 
@@ -36,39 +40,54 @@ declare module "@legacy-engine/linux/Serializador" {
   }
 }
 
-declare module "@legacy-engine/shell/Contexto" {
-  export interface PedidoDeEdicao {
-    editor: "nano" | "vim";
-    caminho: string;
-    conteudo: string;
-    novo: boolean;
-    somenteLeitura: boolean;
-    aviso: string | null;
-    gravar(texto: string): string | null;
-  }
-  export interface Interacao {
-    perguntar(pergunta: string, oculto: boolean): Promise<string>;
-    limparTela(): void;
-    editar(pedido: PedidoDeEdicao): Promise<void>;
-    desconectar(): void;
-  }
-}
-
-declare module "@legacy-engine/shell/Saida" {
-  export interface Saida {
-    escrever(texto: string, classe?: string): void;
-  }
-}
-
-declare module "@legacy-engine/shell/Shell" {
+// SPEC-016: the terminal window of the prototype and the cheat sheet.
+declare module "@legacy-engine/terminal/JanelaDeTerminais" {
   import type { Maquina } from "@legacy-engine/linux/Maquina";
-  import type { Sessao } from "@legacy-engine/linux/Sessao";
-  import type { Interacao } from "@legacy-engine/shell/Contexto";
-  import type { Saida } from "@legacy-engine/shell/Saida";
-  export interface Interpretador {
-    executarLinha(linha: string, maquina: Maquina, sessao: Sessao, saida: Saida, interacao: Interacao): Promise<number>;
+
+  export interface TerminalUbuntu {
+    readonly numero: number;
+    executarAutomatico(comando: string, respostas?: string[]): Promise<void>;
+    escrever(texto: string, classe?: string): void;
+    usuarioAtual(): string | null;
+    focar(): void;
   }
-  export class Shell {
-    static criarInterpretador(): Interpretador;
+
+  export interface OuvinteDaJanela {
+    aoExecutar(): void;
   }
+
+  export class JanelaDeTerminais {
+    constructor(container: HTMLElement, maquina: Maquina, ouvinte: OuvinteDaJanela, emColunas?: boolean);
+    obter(numero: number, login?: { usuario: string; senha: string }): Promise<TerminalUbuntu>;
+    trocarMaquina(maquina: Maquina): void;
+    executarResetAnimado(recriar: () => Maquina): Promise<void>;
+    definirVelocidade(velocidade: number): void;
+    aoMudarTitulo(): void;
+    destruir(): void;
+  }
+}
+
+declare module "@legacy-engine/app/ArmazemDeMaquinas" {
+  import type { Maquina } from "@legacy-engine/linux/Maquina";
+  export class ArmazemDeMaquinas {
+    static baixar(maquina: Maquina, nome: string): void;
+    static importar(): Promise<Maquina>;
+  }
+}
+
+declare module "@legacy-engine/conteudo/CatalogoDeTopicos" {
+  export class CatalogoDeTopicos {
+    listar(): unknown[];
+  }
+}
+
+declare module "@legacy-engine/app/ColaDeComandos" {
+  export class ColaDeComandos {
+    static html(topicos: unknown[]): string;
+  }
+}
+
+declare module "@legacy-engine/estilos/terminal.css" {
+  const stylesheet: string;
+  export default stylesheet;
 }

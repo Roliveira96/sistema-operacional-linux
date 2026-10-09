@@ -23,3 +23,23 @@ describe("practiceService", () => {
     expect(fetcher.mock.calls[1]![1].body).toBe(JSON.stringify({ snapshot: { a: 1 } }));
   });
 });
+
+describe("practiceService topic endpoints (SPEC-016)", () => {
+  it("reads the topic scenario and checks the module", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(json({ moduleId: "m 1", snapshot: { a: 1 } }))
+      .mockResolvedValueOnce(json({ moduleId: "m 1", snapshot: null }))
+      .mockResolvedValueOnce(json({ passed: ["q1"], progress: [{ questionId: "q1", completedAt: "t" }] }));
+    const svc = createPracticeService(createHttpClient(fetcher));
+    expect(await svc.topicScenario("m 1")).toEqual({ a: 1 });
+    expect(await svc.topicScenario("m 1")).toBeNull();
+    expect(await svc.checkModule("m 1", { b: 2 })).toEqual({ passed: ["q1"], progress: [{ questionId: "q1", completedAt: "t" }] });
+    expect(fetcher.mock.calls.map(([url, init]) => [url, init.method])).toEqual([
+      ["/api/v1/modules/m%201/scenario", "GET"],
+      ["/api/v1/modules/m%201/scenario", "GET"],
+      ["/api/v1/modules/m%201/check", "POST"],
+    ]);
+    expect(fetcher.mock.calls[2]![1].body).toBe(JSON.stringify({ snapshot: { b: 2 } }));
+  });
+});

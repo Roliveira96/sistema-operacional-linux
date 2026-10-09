@@ -1,21 +1,10 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { FooterPublic } from "@/components/FooterPublic/FooterPublic";
-import { ModuleContentView } from "@/components/ModuleContentView/ModuleContentView";
-import { NavbarPublic } from "@/components/NavbarPublic/NavbarPublic";
-import styles from "./page.module.scss";
+import { TopicStudy } from "@/components/TopicStudy/TopicStudy";
 
-/** Public reading page of a module (SPEC-012). */
+/** Study screen of a public module: material on the left, terminal on the right (SPEC-016). */
 export default function MaterialPage() {
   const { id } = useParams<{ id: string }>();
-  return (
-    <div className={styles.page}>
-      <NavbarPublic />
-      <main className={styles.main}>
-        <ModuleContentView moduleId={id} backHref="/materials" />
-      </main>
-      <FooterPublic />
-    </div>
-  );
+  return <TopicStudy moduleId={id} backHref="/materials" />;
 }

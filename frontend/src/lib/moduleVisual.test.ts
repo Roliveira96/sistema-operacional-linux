@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moduleAccent, orderLabel, splitDescription } from "./moduleVisual";
+import { moduleAccent, orderLabel, splitDescription, topicAccentVars } from "./moduleVisual";
 
 // Covers SPEC-015 CA-04 (card data).
 describe("moduleVisual", () => {
@@ -23,5 +23,14 @@ describe("moduleVisual", () => {
     expect(orderLabel(12)).toBe("12");
     expect(orderLabel(0)).toBeNull();
     expect(orderLabel()).toBeNull();
+  });
+
+  // Covers SPEC-016: the topic screen takes the module color and mixes its tints.
+  it("builds the accent variables of the topic screen", () => {
+    const vars = topicAccentVars("--cor-dir") as Record<string, string>;
+    expect(vars["--accent"]).toBe("var(--color-module-dir)");
+    expect(vars["--accent-soft"]).toContain("color-mix");
+    expect((topicAccentVars("red") as Record<string, string>)["--accent"]).toBe("var(--color-accent)");
+    expect((topicAccentVars() as Record<string, string>)["--accent"]).toBe("var(--color-accent)");
   });
 });

@@ -1,0 +1,47 @@
+// Right column of the topic screen. The terminal window itself is the one of
+// the prototype (legacy/src/estilos/terminal.css, loaded by src/engine/); only
+// the variables it reads are mapped here, from the design tokens.
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 16px 10px;
+  background: var(--color-surface-sunken);
+}
+
+.host {
+  --terminal-fundo: var(--color-terminal-bg);
+  --terminal-texto: var(--color-terminal-text);
+  --laranja: var(--color-ubuntu-orange);
+  --fonte: var(--font-sans);
+  --fonte-codigo: var(--font-terminal);
+
+  flex: 1;
+  min-height: 0;
+}
+
+.status {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+}
+
+.footer {
+  margin: 10px 2px 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+
+  b {
+    color: var(--color-text-primary);
+  }
+
+  code,
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+  }
+}
+
+.window {
+  height: 100%;
+}
