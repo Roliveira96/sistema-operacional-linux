@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-019 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 09/10/2026 |
 | **Última revisão** | 09/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -242,10 +242,11 @@ Resposta 200 com a lista na nova ordem.
 3. **Arquivos e diretórios a criar ou alterar:** `backend/internal/modules/content/` (domain, service, repository, handler e testes), `backend/cmd/api/main.go` (rotas), `frontend/src/services/contentAuthoringService.ts` e teste, `frontend/src/components/BlockEditor/` (lista, editores por tipo e testes), `frontend/src/app/app/modules/[id]/edit/page.tsx`, `frontend/src/messages/` (textos), `specs/GLOSSARY.md`. Qualquer outro arquivo exige justificativa no resumo da entrega.
 4. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, cobertura acima de 80%, ESLint, Stylelint, `tsc` e `next build` limpos, roteiro manual registrado e status `Implementada`.
 
-## 10. Pendências para aprovação
+## 10. Pendências
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
+Nenhuma em aberto. O Tech Lead aprovou em 09/10/2026 as recomendações de P-01 a P-08: Tiptap 3 (versão fixada, dentro de um componente `RichTextEditor`), remoção definitiva com confirmação, docente edita só os seus módulos, conflito com recarregar ou gravar por cima, ordem de entrega (progresso já commitado), limites e 120 gravações por minuto, descrição do módulo em HTML filtrado com função única de texto simples, e `<code>` como marca de comando.
+
+--- | :--- | :--- |
 | P-01 | **Editor visual: qual biblioteca.** O Tech Lead decidiu em 09/10/2026 que o texto formatado e a descrição do módulo usam um editor WYSIWYG (opção b). Falta aprovar a **dependência nova** (`AI_INSTRUCTIONS.md`, seção 7). Candidatas, todas gratuitas: **Tiptap 3** (`@tiptap/react`, `@tiptap/starter-kit` e `@tiptap/pm`, licença MIT, aceita React 19, versão 3.31.4 conferida no registro), **Lexical** (Meta, MIT, versão 0.52, ainda abaixo da 1.0) e **Quill 2** (BSD-3, feito para JavaScript puro, sem integração própria com React). | **Tiptap 3**, em versão fixada, usado só dentro de um componente `RichTextEditor` (a troca futura de biblioteca não toca nas telas). Motivos: integra bem com React 19 e o Next, é modular, sai e entra em HTML sem conversão extra (o conteúdo do projeto já é HTML) e é a opção mais difundida. Lexical é boa, mas está em 0.x. |
 | P-02 | **Remover bloco é definitivo.** Não há lixeira, e o progresso dos estudantes no bloco é apagado em cascata. | Manter definitivo, com confirmação clara. Lixeira e histórico exigiriam mudança de schema e ficam para depois. |
 | P-03 | **Docente edita só os blocos dos seus módulos?** Os 9 módulos da carga pertencem ao administrador que rodou a carga. | Sim (SPEC-010, RN-01). Docentes editam os módulos que criarem; o administrador edita todos. |
@@ -264,3 +265,4 @@ Resposta 200 com a lista na nova ordem.
 | 09/10/2026 | Implementador (Claude) | Criação, a partir da reclamação do cliente: o painel não permite editar os blocos de conteúdo dos módulos. Confirmado no código e no banco: a tela de edição só altera dados do módulo e a ordem dos exercícios, e não existe rota de blocos. Pendências P-01 a P-06 |
 | 09/10/2026 | Tech Lead | Decisão sobre a P-01, dada ao ver o formulário de edição do módulo ("isso deve ser um editor estilo WYSIWYG", sobre a caixa "Descrição e Ementa"): o texto formatado dos blocos e a descrição do módulo usam editor visual. Incluídos o objetivo, o editor na seção 3.1, a RN-11 e as CA-15 a CA-18. Pendências: biblioteca (P-01, dependência nova) e formato da descrição (P-07) |
 | 09/10/2026 | Tech Lead | Pedido de escopo: a aba **Conteúdo** mostra cada bloco da visualização do aluno; o professor **adiciona** e **edita** blocos; o editor de texto permite **marcar o que é comando** para o leitor por voz ler a tela. Incluídos: abas na seção 3.1, botão "Comando" (mapeado em `<code>`, já lido como comando pela SPEC-018), CA-19, CA-20 e a P-08. P-05 resolvida (progresso por bloco já commitado) |
+| 09/10/2026 | Tech Lead | Aprovação das recomendações P-01 a P-08 ("claro, pode fazer aprovado"). Status passa a Aprovada e a implementação começa pelo backend |
