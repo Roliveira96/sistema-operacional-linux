@@ -79,8 +79,11 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
       expect(screen.getByRole("heading", { level: 1, name: "Editar Módulo de Ensino" })).toBeDefined();
     });
 
+    // The blocks live in the "Conteúdo" tab and the exercise order in "Exercícios".
+    fireEvent.click(screen.getByRole("tab", { name: "Conteúdo" }));
     expect(await screen.findByText("Listar arquivos")).toBeDefined();
     expect(screen.getByText("Comando")).toBeDefined();
+    fireEvent.click(screen.getByRole("tab", { name: "Detalhes" }));
 
     // Save module update: the page stays on the module and shows the confirmation
     fireEvent.change(screen.getByLabelText(/Título do Módulo/i), { target: { value: "Módulo Novo" } });
@@ -94,6 +97,7 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
     expect(mockPush).not.toHaveBeenCalled();
 
     // Reorder exercises
+    fireEvent.click(screen.getByRole("tab", { name: "Exercícios" }));
     const reorderBtn = screen.getByRole("button", { name: "Salvar Ordem" });
     fireEvent.click(reorderBtn);
 

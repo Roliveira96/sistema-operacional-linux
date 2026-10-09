@@ -395,6 +395,12 @@ export const messages = {
       successCreate: "Módulo de ensino criado com sucesso!",
       successUpdate: "Módulo atualizado com sucesso!",
     },
+    tabs: {
+      label: "Seções do módulo",
+      details: "Detalhes",
+      content: "Conteúdo",
+      exercises: "Exercícios",
+    },
     blocks: {
       title: "Conteúdo do módulo",
       hint: "Os blocos que o aluno estuda, na ordem em que aparecem. A edição dos blocos chega na SPEC-019.",

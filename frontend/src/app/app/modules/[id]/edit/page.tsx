@@ -10,6 +10,9 @@ import { contentService, type ContentBlock } from "@/services/contentService";
 import { moduleService, type CourseModuleDetails, type UpdateModulePayload } from "@/services/moduleService";
 import styles from "./page.module.scss";
 
+type Tab = "details" | "content" | "exercises";
+const TABS: Tab[] = ["details", "content", "exercises"];
+
 /** A block has no single title field: use the title, else the command, else the start of its text. */
 function blockLabel(block: ContentBlock): string {
   for (const key of ["title", "command", "text", "body", "html"]) {
@@ -31,6 +34,7 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
   const [blocks, setBlocks] = useState<ContentBlock[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [tab, setTab] = useState<Tab>("details");
   /** Changes every time the module is saved, so the form starts again from what is stored. */
   const [formVersion, setFormVersion] = useState(0);
 
@@ -139,12 +143,31 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      <ModuleForm key={formVersion} initialData={moduleData} availableClasses={availableClasses} onSubmit={handleSubmit} isEditing />
+      <div role="tablist" aria-label={m.tabs.label} className={styles.tabs}>
+        {TABS.map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            id={`tab-${key}`}
+            aria-selected={tab === key}
+            aria-controls={`panel-${key}`}
+            className={styles.tab}
+            onClick={() => setTab(key)}
+          >
+            {m.tabs[key]}
+          </button>
+        ))}
+      </div>
 
-      <section className={styles.section} aria-labelledby="module-blocks-title">
+      <div role="tabpanel" id="panel-details" aria-labelledby="tab-details" hidden={tab !== "details"}>
+        <ModuleForm key={formVersion} initialData={moduleData} availableClasses={availableClasses} onSubmit={handleSubmit} isEditing />
+      </div>
+
+      <section className={styles.section} role="tabpanel" id="panel-content" aria-labelledby="tab-content" hidden={tab !== "content"}>
         <div className={styles.sectionHeader}>
           <div>
-            <h2 id="module-blocks-title" className={styles.sectionTitle}>
+            <h2 className={styles.sectionTitle}>
               {m.blocks.title}
             </h2>
             <p className={styles.sectionHint}>{m.blocks.hint}</p>
@@ -172,7 +195,7 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
         )}
       </section>
 
-      <section className={styles.section}>
+      <section className={styles.section} role="tabpanel" id="panel-exercises" aria-labelledby="tab-exercises" hidden={tab !== "exercises"}>
         <ExerciseOrderList exercises={moduleData.exerciseItems || []} onSaveOrder={handleReorder} />
       </section>
     </main>
