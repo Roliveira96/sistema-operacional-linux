@@ -370,13 +370,13 @@ textarea.input {
   gap: var(--space-4);
 
   @include mixins.from("lg") {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   }
 }
 
 .terminalBox {
   min-width: 0;
-  height: 32rem;
+  height: clamp(32rem, 75vh, 52rem);
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
