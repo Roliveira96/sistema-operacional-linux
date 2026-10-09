@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearMachine, loadMachine, loadNarration, loadSpeed, machineKey, saveMachine, saveNarration, saveSpeed, scenarioHash } from "./machineStorage";
+import { clearMachine, loadMachine, loadNarration, loadSpeed, loadVoiceSpeed, machineKey, saveMachine, saveNarration, saveSpeed, saveVoiceSpeed, scenarioHash } from "./machineStorage";
 
 afterEach(() => {
   localStorage.clear();
@@ -30,12 +30,27 @@ describe("machineStorage", () => {
     expect(loadMachine("k")).toBeNull();
   });
 
-  it("remembers the speed and falls back to 1x for unknown values", () => {
+  // Covers SPEC-018 RF-07 and CA-13: two independent speeds, each within its own range.
+  it("remembers the typing speed, from 0.5x to 4x, and falls back to 1x outside it", () => {
     expect(loadSpeed()).toBe(1);
     saveSpeed(4);
     expect(loadSpeed()).toBe(4);
-    localStorage.setItem("exame-so:velocidade", "7");
-    expect(loadSpeed()).toBe(1);
+    saveSpeed(2.75);
+    expect(loadSpeed()).toBe(2.75);
+    for (const bad of ["7", "0.1", "abc"]) {
+      localStorage.setItem("exame-so:velocidade", bad);
+      expect(loadSpeed()).toBe(1);
+    }
+  });
+
+  it("remembers the voice speed, from 0.5x to 2x, apart from the typing speed", () => {
+    expect(loadVoiceSpeed()).toBe(1);
+    saveSpeed(4);
+    saveVoiceSpeed(1.5);
+    expect(loadVoiceSpeed()).toBe(1.5);
+    expect(loadSpeed()).toBe(4);
+    localStorage.setItem("exame-so:velocidade-voz", "4");
+    expect(loadVoiceSpeed()).toBe(1);
   });
 
   // Covers SPEC-018 CA-08: sound is on by default and the choice is remembered.
@@ -60,8 +75,10 @@ describe("machineStorage", () => {
     expect(loadMachine("k")).toBeNull();
     expect(loadSpeed()).toBe(1);
     expect(loadNarration()).toBe(true);
+    expect(loadVoiceSpeed()).toBe(1);
     expect(() => {
       saveMachine("k", {});
+      saveVoiceSpeed(2);
       saveNarration(false);
       saveSpeed(2);
       clearMachine("k");

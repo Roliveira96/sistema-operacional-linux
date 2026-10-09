@@ -1,6 +1,7 @@
 "use client";
 
 import type { TopicPlayer } from "@/hooks/useTopicPlayer";
+import { TYPING_SPEED, VOICE_SPEED } from "@/lib/machineStorage";
 import { cardOfStep, type TopicScript } from "@/lib/topicScript";
 import { contentMessages } from "@/messages/content.pt-BR";
 import styles from "./PlayerBar.module.scss";
@@ -10,10 +11,42 @@ const m = contentMessages.topic.player;
 export interface PlayerBarProps {
   script: TopicScript;
   player: TopicPlayer;
+  /** Reading speed of the voice, 0.5x to 2x (SPEC-018, RF-07). */
+  voiceSpeed: number;
+  onVoiceSpeed(speed: number): void;
+}
+
+interface SpeedSliderProps {
+  label: string;
+  title: string;
+  range: { min: number; max: number; step: number };
+  value: number;
+  onChange(value: number): void;
+}
+
+/** One of the two speed controls: a short label, a slider and the value. */
+function SpeedSlider({ label, title, range, value, onChange }: SpeedSliderProps) {
+  return (
+    <label className={styles.slider} title={title}>
+      <span className={styles.sliderLabel}>{label}</span>
+      <input
+        type="range"
+        className={styles.range}
+        min={range.min}
+        max={range.max}
+        step={range.step}
+        value={value}
+        aria-label={title}
+        aria-valuetext={m.speedValue(value)}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+      <output className={styles.sliderValue}>{m.speedValue(value)}</output>
+    </label>
+  );
 }
 
 /** The reader of the header: back, play, next, progress and typing speed (SPEC-016). */
-export function PlayerBar({ script, player }: PlayerBarProps) {
+export function PlayerBar({ script, player, voiceSpeed, onVoiceSpeed }: PlayerBarProps) {
   const total = script.steps.length;
   const target = player.running ?? player.index + 1;
   const cardIndex = cardOfStep(script.cards, target);
@@ -62,13 +95,10 @@ export function PlayerBar({ script, player }: PlayerBarProps) {
           <div className={styles.progress} style={{ width: `${total ? ((player.index + 1) / total) * 100 : 0}%` }} />
         </div>
       </div>
-      <select className={styles.speed} value={player.speed} onChange={(event) => player.setSpeed(Number(event.target.value))} title={m.speed} aria-label={m.speed}>
-        {m.speeds.map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
+      <div className={styles.sliders}>
+        <SpeedSlider label={m.voiceSpeedLabel} title={m.voiceSpeed} range={VOICE_SPEED} value={voiceSpeed} onChange={onVoiceSpeed} />
+        <SpeedSlider label={m.typingSpeedLabel} title={m.typingSpeed} range={TYPING_SPEED} value={player.speed} onChange={player.setSpeed} />
+      </div>
     </div>
   );
 }

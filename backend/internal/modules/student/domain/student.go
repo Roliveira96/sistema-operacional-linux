@@ -66,14 +66,14 @@ type StudentSummary struct {
 
 // StudentProfileResponse represents the self profile view of a student.
 type StudentProfileResponse struct {
-	ID         uuid.UUID
-	AcademicID string
-	Email      string
-	Name       string
-	Whatsapp   *string
-	Discord    *string
-	AvatarURL  *string
-	CreatedAt  time.Time
+	ID         uuid.UUID `json:"id"`
+	AcademicID string    `json:"academicId"`
+	Email      string    `json:"email"`
+	Name       string    `json:"name"`
+	Whatsapp   *string   `json:"whatsapp,omitempty"`
+	Discord    *string   `json:"discord,omitempty"`
+	AvatarURL  *string   `json:"avatarUrl,omitempty"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 // CSVRowError records a skipped/invalid row during batch CSV import.

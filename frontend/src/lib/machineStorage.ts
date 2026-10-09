@@ -5,7 +5,20 @@
 const MACHINE_PREFIX = "exame-so:maquina:v3:";
 const SPEED_KEY = "exame-so:velocidade";
 const NARRATION_KEY = "exame-so:narracao";
-export const SPEEDS = [0.5, 1, 2, 4] as const;
+const VOICE_SPEED_KEY = "exame-so:velocidade-voz";
+/** Ranges of the two speed controls of the player (SPEC-018, RF-07). */
+export const TYPING_SPEED = { min: 0.5, max: 4, step: 0.25 } as const;
+export const VOICE_SPEED = { min: 0.5, max: 2, step: 0.25 } as const;
+
+function loadWithin(key: string, range: { min: number; max: number }): number {
+  try {
+    const raw = localStorage.getItem(key);
+    const value = raw === null ? Number.NaN : Number(raw);
+    return value >= range.min && value <= range.max ? value : 1;
+  } catch {
+    return 1;
+  }
+}
 
 /** Short, stable hash of a scenario, so a changed scenario drops stale saves. */
 export function scenarioHash(snapshot: unknown): string {
@@ -44,13 +57,9 @@ export function clearMachine(key: string): void {
   }
 }
 
+/** Typing speed of the commands in the terminal. */
 export function loadSpeed(): number {
-  try {
-    const speed = Number(localStorage.getItem(SPEED_KEY));
-    return (SPEEDS as readonly number[]).includes(speed) ? speed : 1;
-  } catch {
-    return 1;
-  }
+  return loadWithin(SPEED_KEY, TYPING_SPEED);
 }
 
 export function saveSpeed(speed: number): void {
@@ -73,6 +82,19 @@ export function loadNarration(): boolean {
 export function saveNarration(enabled: boolean): void {
   try {
     localStorage.setItem(NARRATION_KEY, enabled ? "on" : "off");
+  } catch {
+    // no storage
+  }
+}
+
+/** Reading speed of the voice. */
+export function loadVoiceSpeed(): number {
+  return loadWithin(VOICE_SPEED_KEY, VOICE_SPEED);
+}
+
+export function saveVoiceSpeed(speed: number): void {
+  try {
+    localStorage.setItem(VOICE_SPEED_KEY, String(speed));
   } catch {
     // no storage
   }

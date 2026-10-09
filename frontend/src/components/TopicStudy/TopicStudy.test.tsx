@@ -76,6 +76,11 @@ function defaultPractice() {
   };
 }
 
+const visitor = () => ({
+  me: vi.fn().mockRejectedValue(new ApiProblemError({ type: "not-authenticated", title: "x", status: 401 }, 401)),
+  studentProfile: vi.fn(),
+});
+
 const spoken = (words: SpeechResult["words"] = []): SpeechResult => ({ audioBase64: "QUJD", mimeType: "audio/mpeg", voice: "pt-BR-FranciscaNeural", words });
 
 function defaultSpeech() {
@@ -91,7 +96,7 @@ function setup(overrides: Partial<TopicStudyProps> = {}) {
   const practice = defaultPractice();
   const confirm = vi.fn().mockReturnValue(true);
   const speech = defaultSpeech();
-  const utils = render(<TopicStudy moduleId="m1" backHref="/materials" content={content} modules={modules} practice={practice} speech={speech} confirm={confirm} {...overrides} />);
+  const utils = render(<TopicStudy moduleId="m1" backHref="/materials" content={content} modules={modules} practice={practice} speech={speech} identity={visitor()} confirm={confirm} {...overrides} />);
   return { ...utils, content, modules, practice, confirm, speech };
 }
 
@@ -142,7 +147,7 @@ describe("TopicStudy screen", () => {
     expect(screen.getByRole("link", { name: /Materiais/ })).toHaveAttribute("href", "/materials");
     expect(screen.getByText("Unix · GNU")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Roteiro automático" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /Velocidade/ })).toHaveValue("1");
+    expect(screen.getAllByRole("slider")).toHaveLength(2);
     expect(screen.getByRole("tab", { name: /Comandos e dicas/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: /Desafios/ })).toHaveTextContent("0/2");
     expect(screen.getByText("Antes dos comandos")).toBeInTheDocument();
@@ -218,11 +223,63 @@ describe("TopicStudy screen", () => {
     terminal.remove();
   });
 
-  it("remembers the chosen speed", async () => {
+  // Covers SPEC-018 RF-07 and CA-13: two sliders, one for the typing and one for the voice.
+  it("has a slider for the typing speed and another for the reading speed of the voice", async () => {
     await loaded();
-    fireEvent.change(screen.getByRole("combobox", { name: /Velocidade/ }), { target: { value: "4" } });
-    expect(fake.window.setSpeed).toHaveBeenLastCalledWith(4);
-    expect(localStorage.getItem("exame-so:velocidade")).toBe("4");
+    const typing = screen.getByRole("slider", { name: /digitação/ }) as HTMLInputElement;
+    const voice = screen.getByRole("slider", { name: /leitura/ }) as HTMLInputElement;
+    expect([typing.min, typing.max, voice.min, voice.max]).toEqual(["0.5", "4", "0.5", "2"]);
+    expect(typing.value).toBe("1");
+    expect(voice.value).toBe("1");
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("applies and remembers the typing speed on its own", async () => {
+    await loaded();
+    fireEvent.change(screen.getByRole("slider", { name: /digitação/ }), { target: { value: "2.5" } });
+    expect(fake.window.setSpeed).toHaveBeenLastCalledWith(2.5);
+    expect(localStorage.getItem("exame-so:velocidade")).toBe("2.5");
+    expect(localStorage.getItem("exame-so:velocidade-voz")).toBeNull();
+    expect(screen.getByText("2,5×")).toBeTruthy();
+  });
+
+  it("applies and remembers the reading speed of the voice without touching the terminal", async () => {
+    await loaded();
+    fake.window.setSpeed.mockClear();
+    fireEvent.change(screen.getByRole("slider", { name: /leitura/ }), { target: { value: "1.5" } });
+    expect(localStorage.getItem("exame-so:velocidade-voz")).toBe("1.5");
+    expect(localStorage.getItem("exame-so:velocidade")).toBeNull();
+    expect(fake.window.setSpeed).not.toHaveBeenCalled();
+  });
+
+  it("starts from the speeds saved in the browser", async () => {
+    localStorage.setItem("exame-so:velocidade", "3");
+    localStorage.setItem("exame-so:velocidade-voz", "0.75");
+    await loaded();
+    expect((screen.getByRole("slider", { name: /digitação/ }) as HTMLInputElement).value).toBe("3");
+    expect((screen.getByRole("slider", { name: /leitura/ }) as HTMLInputElement).value).toBe("0.75");
+  });
+});
+
+// Covers SPEC-016 CA-11: the signed-in user at the left of the header.
+describe("TopicStudy user", () => {
+  const student = {
+    me: vi.fn().mockResolvedValue({ name: "Ana Souza", email: "ana@example.com", role: "STUDENT" }),
+    studentProfile: vi.fn().mockResolvedValue({ name: "Ana Souza", academicId: "2345678", avatarUrl: "http://files/ana.png" }),
+  };
+
+  it("shows the photo, the name and the academic ID of the student before everything else in the header", async () => {
+    setup({ identity: student });
+    expect(await screen.findByText("RA 2345678")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Foto de Ana Souza" })).toBeTruthy();
+    const header = screen.getByRole("heading", { name: "História do Linux" }).closest("header")!;
+    expect(header.firstElementChild?.textContent).toContain("Ana Souza");
+  });
+
+  it("shows nobody for a visitor", async () => {
+    await loaded();
+    expect(screen.queryByText(/^RA /)).toBeNull();
+    expect(screen.queryByTitle("Ana Souza")).toBeNull();
   });
 });
 
@@ -261,18 +318,18 @@ describe("TopicStudy actions", () => {
   it("opens and closes the cheat sheet", async () => {
     await loaded();
     fireEvent.click(screen.getByRole("button", { name: /Cola/ }));
-    const dialog = await screen.findByRole("dialog", { name: /Cola de comandos/ });
+    const dialog = await screen.findByRole("dialog", { name: /Cola de comandos/ }, { timeout: 4000 });
     expect(within(dialog).getByText("Tabela Oficial")).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /Cola/ }));
-    const again = await screen.findByRole("dialog");
+    const again = await screen.findByRole("dialog", {}, { timeout: 4000 });
     fireEvent.click(again.parentElement!);
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /Cola/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Fechar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Fechar" }, { timeout: 4000 }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });

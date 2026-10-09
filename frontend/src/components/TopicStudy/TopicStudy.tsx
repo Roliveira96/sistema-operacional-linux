@@ -4,11 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useModuleCheck } from "@/hooks/useModuleCheck";
+import { useIdentity, type IdentitySources } from "@/hooks/useIdentity";
 import { useNarrator, type NarrationPart, type NarrationWarning } from "@/hooks/useNarrator";
 import { useTopicPlayer } from "@/hooks/useTopicPlayer";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { cheatSheetHtml } from "@/engine/terminalWindow";
-import { clearMachine, loadMachine, loadSpeed, machineKey, saveMachine, saveSpeed } from "@/lib/machineStorage";
+import { clearMachine, loadMachine, loadSpeed, loadVoiceSpeed, machineKey, saveMachine, saveSpeed, saveVoiceSpeed } from "@/lib/machineStorage";
 import { pickVariation, spokenCommand } from "@/lib/narration";
 import { splitDescription, topicAccentVars } from "@/lib/moduleVisual";
 import { buildTopicScript, type ScriptStep, type TimelineItem, type TopicScript } from "@/lib/topicScript";
@@ -22,6 +23,7 @@ import { ChallengePanel } from "./ChallengePanel";
 import { CheatSheetModal } from "./CheatSheetModal";
 import { LessonPanel } from "./LessonPanel";
 import { PlayerBar } from "./PlayerBar";
+import { UserBadge } from "./UserBadge";
 import { TerminalPane } from "./TerminalPane";
 import styles from "./TopicStudy.module.scss";
 
@@ -36,6 +38,8 @@ export interface TopicStudyProps {
   practice?: Pick<PracticeService, "scenario" | "topicScenario" | "checkModule" | "progress">;
   /** Voice of the karaoke reader (SPEC-018). */
   speech?: Pick<SpeechService, "synthesize">;
+  /** Where the signed-in user is read from (SPEC-016, CA-11). */
+  identity?: IdentitySources;
   /** Asks the student to confirm a destructive action (the prototype uses window.confirm). */
   confirm?: (message: string) => boolean;
 }
@@ -69,6 +73,7 @@ export function TopicStudy({
   modules = moduleService,
   practice = practiceService,
   speech = speechService,
+  identity,
   confirm = (message) => window.confirm(message),
 }: TopicStudyProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -127,7 +132,7 @@ export function TopicStudy({
     );
   }
 
-  return <TopicScreen {...state} moduleId={moduleId} backHref={backHref} practice={practice} speech={speech} confirm={confirm} />;
+  return <TopicScreen {...state} moduleId={moduleId} backHref={backHref} practice={practice} speech={speech} identitySources={identity} confirm={confirm} />;
 }
 
 type ScreenProps = Loaded & {
@@ -135,10 +140,11 @@ type ScreenProps = Loaded & {
   backHref: string;
   practice: NonNullable<TopicStudyProps["practice"]>;
   speech: NonNullable<TopicStudyProps["speech"]>;
+  identitySources?: IdentitySources;
   confirm: (message: string) => boolean;
 };
 
-function TopicScreen({ module, script, challenges, scenario, storageKey, initialSnapshot, initialCompleted, moduleId, backHref, practice, speech, confirm }: ScreenProps) {
+function TopicScreen({ module, script, challenges, scenario, storageKey, initialSnapshot, initialCompleted, moduleId, backHref, practice, speech, identitySources, confirm }: ScreenProps) {
   const win = useRef<TerminalWindow | null>(null);
   const study = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<"lesson" | "challenges">(script.cards.length > 0 ? "lesson" : "challenges");
@@ -155,12 +161,14 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
   }, []);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
+  const [voiceSpeed, setVoiceSpeedState] = useState(loadVoiceSpeed);
+  const identity = useIdentity(identitySources);
   const narrator = useNarrator({
     service: speech,
-    initialSpeed: loadSpeed(),
+    initialSpeed: voiceSpeed,
     onWarning: (warning: NarrationWarning) => notify(t.narration[warning]),
   });
-  const { speak, stop: stopNarration, setSpeed: setVoiceSpeed } = narrator;
+  const { speak, stop: stopNarration, setSpeed: applyVoiceSpeed } = narrator;
   const lastNotice = useRef(-1);
 
   /** The element of the page a timeline item or a command is read from. */
@@ -209,10 +217,7 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
         clearMachine(storageKey);
         win.current?.reset(scenario);
       },
-      setTerminalSpeed: (speed) => {
-        win.current?.setSpeed(speed);
-        setVoiceSpeed(speed);
-      },
+      setTerminalSpeed: (speed) => win.current?.setSpeed(speed),
       onCardStart: (card) => {
         setTab("lesson");
         window.setTimeout(() => study.current?.querySelector(`[data-card="${card}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" }), 0);
@@ -229,6 +234,14 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
       saveSpeed(value);
     },
     [setSpeed],
+  );
+  const changeVoiceSpeed = useCallback(
+    (value: number) => {
+      setVoiceSpeedState(value);
+      applyVoiceSpeed(value);
+      saveVoiceSpeed(value);
+    },
+    [applyVoiceSpeed],
   );
   const playerWithSavedSpeed = useMemo(() => ({ ...player, setSpeed: changeSpeed }), [player, changeSpeed]);
 
@@ -317,6 +330,7 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
   return (
     <div className={styles.screen} style={topicAccentVars(module.color)}>
       <header className={styles.header}>
+        {identity && <UserBadge identity={identity} />}
         <Link href={backHref} className={styles.back}>
           {t.back}
         </Link>
@@ -335,7 +349,7 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
           <Image src="/utfpr-logo.svg" alt="UTFPR" width={78} height={22} unoptimized />
           <span className={styles.campus}>{t.seal}</span>
         </span>
-        {script.steps.length > 0 && <PlayerBar script={script} player={playerWithSavedSpeed} />}
+        {script.steps.length > 0 && <PlayerBar script={script} player={playerWithSavedSpeed} voiceSpeed={voiceSpeed} onVoiceSpeed={changeVoiceSpeed} />}
         <nav className={styles.actions}>
           <button type="button" className={styles.action} onClick={() => void openCheatSheet()}>
             {t.actions.cheatSheet}
