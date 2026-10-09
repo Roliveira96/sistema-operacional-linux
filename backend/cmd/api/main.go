@@ -27,6 +27,9 @@ import (
 	coursemodulehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/handler"
 	coursemodulerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
 	coursemoduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/service"
+	practicehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/handler"
+	practicerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/repository"
+	practiceservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/service"
 	studenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/handler"
 	studentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/repository"
 	studentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/service"
@@ -155,7 +158,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	moduleRepo := coursemodulerepository.New(db)
 	moduleService := coursemoduleservice.New(moduleRepo)
 	moduleHandler := coursemodulehandler.New(moduleService, auth)
-	contentHandler := contenthandler.New(contentservice.NewReader(moduleService, contentrepository.New(db)), auth)
+	contentReader := contentservice.NewReader(moduleService, contentrepository.New(db))
+	contentHandler := contenthandler.New(contentReader, auth)
+	practiceHandler := practicehandler.New(
+		practiceservice.New(contentReader, practicerepository.New(db)), auth, ratelimit.New(30, time.Minute))
 
 	studentRepo := studentrepository.New(db)
 	studentService := studentservice.New(studentservice.Deps{
@@ -180,6 +186,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		classHandler,
 		moduleHandler,
 		contentHandler,
+		practiceHandler,
 		studentHandler,
 	)
 	srv := server.New(cfg.HTTPAddr, engine, log)

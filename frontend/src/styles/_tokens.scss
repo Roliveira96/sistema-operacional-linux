@@ -87,6 +87,9 @@
   // Layout
   --content-max-width: 72rem;
 
+  // Modal backdrop (SPEC-014).
+  --color-backdrop: rgb(27 31 36 / 45%);
+
   // Module accents (SPEC-012), named after the legacy topic colors.
   --color-module-hist: #8a6400;
   --color-module-est: #0f766e;
@@ -148,4 +151,5 @@
   --color-module-usr: #c38bff;
   --color-module-pac: #8f9bff;
   --color-module-sim: #e95420;
+  --color-backdrop: rgb(0 0 0 / 60%);
 }

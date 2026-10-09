@@ -65,3 +65,10 @@ func TestSweepRemovesStaleKeys(t *testing.T) {
 	assert.False(t, exists)
 	assert.NotNil(t, New(1, time.Second))
 }
+
+func TestZeroLimitRefusesWithoutPanicking(t *testing.T) {
+	l := New(0, time.Minute)
+	ok, retry := l.Allow("k")
+	assert.False(t, ok)
+	assert.Equal(t, time.Minute, retry)
+}

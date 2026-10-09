@@ -18,6 +18,9 @@ var (
 	ErrModuleNotFound = errors.New("module not found or not available")
 	ErrAuthRequired   = errors.New("authentication required")
 	ErrForbidden      = errors.New("access to this module is not allowed")
+	// ErrQuestionNotFound covers missing, draft, theoretical and assessment
+	// questions: only published practical exercises can be practiced (SPEC-014).
+	ErrQuestionNotFound = errors.New("practice question not found")
 )
 
 // ModuleAccess applies the visibility rules of SPEC-010 (coursemodule).
@@ -30,6 +33,17 @@ type ReadStore interface {
 	ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error)
 	ListQuestions(ctx context.Context, moduleID uuid.UUID, usage string, includeDrafts bool) ([]domain.Question, error)
 	ListActiveTemplates(ctx context.Context) ([]TemplateSummary, error)
+	FindQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error)
+	FindScenario(ctx context.Context, id uuid.UUID) (domain.Scenario, error)
+}
+
+// PracticeItem is what the practice module needs from an exercise: the
+// starting state for the browser and the conditions for the server.
+type PracticeItem struct {
+	QuestionID uuid.UUID
+	ModuleID   uuid.UUID
+	Snapshot   json.RawMessage
+	Conditions []domain.Condition
 }
 
 // TemplateSummary is the public view of an assessment template (RN-04).
@@ -171,4 +185,31 @@ func publicView(q domain.Question) PublicQuestion {
 		p.Choices = q.Choices
 	}
 	return p
+}
+
+// PracticeItem returns a published practical exercise the viewer can access
+// (SPEC-014 RN-01, RN-05). The conditions are for server-side grading only.
+func (r *Reader) PracticeItem(ctx context.Context, questionID uuid.UUID, v Viewer) (PracticeItem, error) {
+	q, err := r.store.FindQuestion(ctx, questionID)
+	if errors.Is(err, ErrNotFound) {
+		return PracticeItem{}, ErrQuestionNotFound
+	}
+	if err != nil {
+		return PracticeItem{}, err
+	}
+	if q.Kind != domain.KindPractical || q.Usage != domain.UsageExercise || q.Status != domain.StatusPublished || q.ScenarioID == nil {
+		return PracticeItem{}, ErrQuestionNotFound
+	}
+	if _, err := r.module(ctx, q.ModuleID, v); err != nil {
+		return PracticeItem{}, err
+	}
+	scenario, err := r.store.FindScenario(ctx, *q.ScenarioID)
+	if err != nil {
+		return PracticeItem{}, err
+	}
+	var conditions []domain.Condition
+	if err := json.Unmarshal(q.ValidationConditions, &conditions); err != nil {
+		return PracticeItem{}, err
+	}
+	return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Snapshot: scenario.Snapshot, Conditions: conditions}, nil
 }

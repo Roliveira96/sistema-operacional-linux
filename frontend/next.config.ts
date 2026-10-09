@@ -21,8 +21,20 @@ const allowedDevOrigins = (process.env.FRONTEND_ALLOWED_DEV_ORIGINS ?? "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// SPEC-014: the frontend reuses the legacy POSIX/VFS engine read-only. The
+// alias points at legacy/src; only src/engine/ may import it.
+const monorepoRoot = path.resolve(process.cwd(), "..");
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  turbopack: {
+    root: monorepoRoot,
+    // Exact aliases: src/engine/ imports only these two entry points of the engine.
+    resolveAlias: {
+      "@legacy-engine/linux/Serializador": "../legacy/src/linux/Serializador.ts",
+      "@legacy-engine/shell/Shell": "../legacy/src/shell/Shell.ts",
+    },
+  },
   allowedDevOrigins,
   poweredByHeader: false,
   async rewrites() {

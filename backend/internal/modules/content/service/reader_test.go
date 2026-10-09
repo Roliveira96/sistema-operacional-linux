@@ -34,6 +34,26 @@ type fakeReadStore struct {
 	questions     []domain.Question
 	includeDrafts bool
 	usage         string
+	question      *domain.Question
+	scenario      *domain.Scenario
+	findErr       error
+}
+
+func (f *fakeReadStore) FindQuestion(context.Context, uuid.UUID) (domain.Question, error) {
+	if f.findErr != nil {
+		return domain.Question{}, f.findErr
+	}
+	if f.question == nil {
+		return domain.Question{}, ErrNotFound
+	}
+	return *f.question, nil
+}
+
+func (f *fakeReadStore) FindScenario(context.Context, uuid.UUID) (domain.Scenario, error) {
+	if f.scenario == nil {
+		return domain.Scenario{}, ErrNotFound
+	}
+	return *f.scenario, nil
 }
 
 func (f *fakeReadStore) ListBlocks(context.Context, uuid.UUID) ([]domain.ContentBlock, error) {
@@ -136,4 +156,47 @@ func TestBlocksTemplatesAndRoles(t *testing.T) {
 	ts, err := r.Templates(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, 30, ts[0].QuestionCount)
+}
+
+func practical() domain.Question {
+	scenario := uuid.New()
+	return domain.Question{ID: uuid.New(), ModuleID: uuid.New(), Kind: domain.KindPractical, Usage: domain.UsageExercise,
+		Status: domain.StatusPublished, ScenarioID: &scenario,
+		ValidationConditions: json.RawMessage(`[{"type":"DIRECTORY_EXISTS","path":"/a"}]`)}
+}
+
+// Covers SPEC-014 RN-01 and RN-05 (content side).
+func TestPracticeItem(t *testing.T) {
+	q := practical()
+	store := &fakeReadStore{question: &q, scenario: &domain.Scenario{Snapshot: json.RawMessage(`{"formato":"exame-so/maquina"}`)}}
+	item, err := NewReader(&fakeAccess{}, store).PracticeItem(context.Background(), q.ID, Viewer{})
+	require.NoError(t, err)
+	assert.Equal(t, q.ModuleID, item.ModuleID)
+	assert.JSONEq(t, `{"formato":"exame-so/maquina"}`, string(item.Snapshot))
+	assert.Equal(t, domain.CondDirectoryExists, item.Conditions[0].Type)
+
+	for name, mutate := range map[string]func(*domain.Question){
+		"theoretical": func(q *domain.Question) { q.Kind = domain.KindTheoreticalSingle },
+		"assessment":  func(q *domain.Question) { q.Usage = domain.UsageAssessment },
+		"draft":       func(q *domain.Question) { q.Status = domain.StatusDraft },
+		"no scenario": func(q *domain.Question) { q.ScenarioID = nil },
+	} {
+		bad := practical()
+		mutate(&bad)
+		_, err := NewReader(&fakeAccess{}, &fakeReadStore{question: &bad}).PracticeItem(context.Background(), bad.ID, Viewer{})
+		assert.ErrorIs(t, err, ErrQuestionNotFound, name)
+	}
+
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{}).PracticeItem(context.Background(), uuid.New(), Viewer{})
+	assert.ErrorIs(t, err, ErrQuestionNotFound)
+	_, err = NewReader(&fakeAccess{err: cmdomain.ErrForbidden}, &fakeReadStore{question: &q}).PracticeItem(context.Background(), q.ID, Viewer{})
+	assert.ErrorIs(t, err, ErrAuthRequired)
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{findErr: errors.New("db down")}).PracticeItem(context.Background(), q.ID, Viewer{})
+	assert.EqualError(t, err, "db down")
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{question: &q}).PracticeItem(context.Background(), q.ID, Viewer{})
+	assert.ErrorIs(t, err, ErrNotFound, "missing scenario surfaces as an error")
+	broken := practical()
+	broken.ValidationConditions = json.RawMessage(`{`)
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{question: &broken, scenario: &domain.Scenario{}}).PracticeItem(context.Background(), broken.ID, Viewer{})
+	assert.Error(t, err)
 }

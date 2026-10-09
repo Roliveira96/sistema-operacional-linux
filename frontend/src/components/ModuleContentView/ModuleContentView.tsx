@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { ContentRenderer } from "@/components/ContentRenderer/ContentRenderer";
+import { ExercisePractice } from "@/components/ExercisePractice/ExercisePractice";
 import { contentMessages as m } from "@/messages/content.pt-BR";
 import { contentService, type ContentBlock, type ContentService, type PublicQuestion } from "@/services/contentService";
 import { ApiProblemError } from "@/services/httpClient";
 import { moduleService, type CourseModuleDetails } from "@/services/moduleService";
+import { practiceService, type PracticeService } from "@/services/practiceService";
 import styles from "./ModuleContentView.module.scss";
 
 type State =
@@ -19,6 +21,7 @@ export interface ModuleContentViewProps {
   backHref: string;
   content?: Pick<ContentService, "blocks" | "questions">;
   modules?: Pick<typeof moduleService, "getModuleById">;
+  practice?: Pick<PracticeService, "scenario" | "check" | "progress">;
 }
 
 function describe(error: unknown): { message: string; login: boolean } {
@@ -37,8 +40,15 @@ function accent(color?: string): CSSProperties | undefined {
 }
 
 /** Reading view of a module: blocks in order and its exercises (SPEC-012). */
-export function ModuleContentView({ moduleId, backHref, content = contentService, modules = moduleService }: ModuleContentViewProps) {
+export function ModuleContentView({
+  moduleId,
+  backHref,
+  content = contentService,
+  modules = moduleService,
+  practice = practiceService,
+}: ModuleContentViewProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
+  const [completed, setCompleted] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -48,6 +58,9 @@ export function ModuleContentView({ moduleId, backHref, content = contentService
         const blocks = await content.blocks(moduleId);
         const [module, exercises] = await Promise.all([modules.getModuleById(moduleId), content.questions(moduleId, "EXERCISE")]);
         if (active) setState({ kind: "loaded", module, blocks, exercises });
+        // Progress needs a session; visitors simply see no completions.
+        const progress = await practice.progress(moduleId).catch(() => []);
+        if (active) setCompleted(new Set(progress.filter((p) => p.completedAt).map((p) => p.questionId)));
       } catch (error) {
         if (active) setState({ kind: "error", ...describe(error) });
       }
@@ -55,7 +68,7 @@ export function ModuleContentView({ moduleId, backHref, content = contentService
     return () => {
       active = false;
     };
-  }, [moduleId, content, modules]);
+  }, [moduleId, content, modules, practice]);
 
   if (state.kind === "loading") {
     return (
@@ -116,6 +129,14 @@ export function ModuleContentView({ moduleId, backHref, content = contentService
                       <summary>{m.hint}</summary>
                       <div dangerouslySetInnerHTML={{ __html: q.hint }} />
                     </details>
+                  )}
+                  {q.kind === "PRACTICAL" && (
+                    <ExercisePractice
+                      questionId={q.id}
+                      completed={completed.has(q.id)}
+                      onCompleted={(id) => setCompleted((prev) => new Set(prev).add(id))}
+                      service={practice}
+                    />
                   )}
                 </li>
               ))}

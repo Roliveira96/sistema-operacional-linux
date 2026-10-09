@@ -82,6 +82,10 @@ func (l *Limiter) check(key string) (bool, time.Duration) {
 	if len(events) < l.limit {
 		return true, 0
 	}
+	if len(events) == 0 {
+		// A limit of zero refuses everything for a whole window.
+		return false, l.window
+	}
 	retry := events[0].Add(l.window).Sub(l.now())
 	if retry < time.Second {
 		retry = time.Second

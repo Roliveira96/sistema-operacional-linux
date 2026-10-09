@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-014 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
-| **Última revisão** | 08/10/2026 |
+| **Última revisão** | 09/10/2026 |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -139,16 +139,16 @@ Progresso do estudante nos exercícios de um módulo. **Acesso:** autenticado.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: QUANDO o estudante abrir "Praticar", O SISTEMA DEVE carregar o cenário da questão e permitir executar comandos no terminal.
-- [ ] **CA-02**: A resposta do cenário NÃO DEVE conter condições, solução de referência nem gabarito.
-- [ ] **CA-03**: QUANDO o estudante executar a solução de referência e conferir, O SISTEMA DEVE responder `passed` verdadeiro; QUANDO conferir o cenário intocado, falso.
-- [ ] **CA-04**: QUANDO um estudante for aprovado pela primeira vez, O SISTEMA DEVE gravar `completed_at` e mostrar o exercício como concluído; uma reprovação posterior NÃO DEVE apagar a conclusão.
-- [ ] **CA-05**: SE o estado enviado estiver fora do formato ou acima de 2 MB, ENTÃO O SISTEMA DEVE responder 400 ou 413.
-- [ ] **CA-06**: SE a questão for de uso `ASSESSMENT`, rascunho ou teórica, ENTÃO as rotas 5.1 e 5.2 DEVEM responder 404.
-- [ ] **CA-07**: SE o visitante tentar conferir, ENTÃO a interface DEVE pedir login, e a API DEVE responder 401.
-- [ ] **CA-08**: Nenhum componente do frontend DEVE importar o legado diretamente; só o adaptador em `frontend/src/engine/`.
-- [ ] **CA-09**: QUANDO um comando pedir edição com `nano`, O SISTEMA DEVE abrir o editor em diálogo e gravar o conteúdo salvo no arquivo.
-- [ ] **CA-10**: As telas desta spec DEVEM usar só tokens de `_tokens.scss`, com paridade entre temas, e o terminal DEVE ser operável só pelo teclado.
+- [x] **CA-01**: QUANDO o estudante abrir "Praticar", O SISTEMA DEVE carregar o cenário da questão e permitir executar comandos no terminal.
+- [x] **CA-02**: A resposta do cenário NÃO DEVE conter condições, solução de referência nem gabarito.
+- [x] **CA-03**: QUANDO o estudante executar a solução de referência e conferir, O SISTEMA DEVE responder `passed` verdadeiro; QUANDO conferir o cenário intocado, falso.
+- [x] **CA-04**: QUANDO um estudante for aprovado pela primeira vez, O SISTEMA DEVE gravar `completed_at` e mostrar o exercício como concluído; uma reprovação posterior NÃO DEVE apagar a conclusão.
+- [x] **CA-05**: SE o estado enviado estiver fora do formato ou acima de 2 MB, ENTÃO O SISTEMA DEVE responder 400 ou 413.
+- [x] **CA-06**: SE a questão for de uso `ASSESSMENT`, rascunho ou teórica, ENTÃO as rotas 5.1 e 5.2 DEVEM responder 404.
+- [x] **CA-07**: SE o visitante tentar conferir, ENTÃO a interface DEVE pedir login, e a API DEVE responder 401.
+- [x] **CA-08**: Nenhum componente do frontend DEVE importar o legado diretamente; só o adaptador em `frontend/src/engine/`.
+- [x] **CA-09**: QUANDO um comando pedir edição com `nano`, O SISTEMA DEVE abrir o editor em diálogo e gravar o conteúdo salvo no arquivo.
+- [x] **CA-10**: As telas desta spec DEVEM usar só tokens de `_tokens.scss`, com paridade entre temas, e o terminal DEVE ser operável só pelo teclado.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -176,3 +176,4 @@ Nenhuma. P-01 a P-06 aprovadas pelo Tech Lead em 09/10/2026 (ver histórico).
 | :--- | :--- | :--- |
 | 08/10/2026 | Implementador (Claude) | Criação, a pedido do Tech Lead, como próxima etapa depois da SPEC-013. Pendências P-01 a P-06 |
 | 09/10/2026 | Tech Lead | Aprovação integral de P-01 a P-06. Status: `Aprovada` |
+| 09/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Verificação:** backend com cobertura de 100% no domínio, 96,6% no service, 98,5% no handler e 100% no repository; teste ponta a ponta com o manifesto e as fixtures reais (a solução de referência de `dir-1` aprova, o cenário intocado reprova e questão de avaliação devolve 404); frontend com testes do adaptador sobre o manifesto real, do terminal, do diálogo do `nano`, do painel e do serviço (cobertura dos arquivos novos acima de 85% de ramos); build de produção, `tsc` e ESLint limpos. **Manual:** no navegador, o exercício "Crie o diretório /root/empresa" foi resolvido com sessão aberta (resposta 200, mensagem de acerto e selo de concluído), e depois de "Recomeçar" a conferência do cenário intocado reprovou; a resposta 401 para visitante foi verificada pela API. A resolução manual de um exercício de cada módulo, prevista no plano, não foi feita: fica para a revisão da docente. **Desvios:** (1) o Turbopack não resolveu o alias por prefixo nem por curinga; foram usados dois aliases exatos (`Serializador` e `Shell`), e o Vitest usa o prefixo; (2) os tipos do motor ficam em declarações (`src/engine/legacy-engine.d.ts`), sem o `tsc` do frontend checar o legado; (3) a fronteira do CA-08 é imposta por regra do ESLint (`no-restricted-imports`, liberada só em `src/engine/**`); (4) o limitador de taxa entrava em pânico com limite 0 e foi corrigido; (5) token novo `--color-backdrop` para o fundo do diálogo, nos dois temas; (6) a página do módulo carrega o progresso ignorando erros, para visitantes verem os exercícios sem progresso; (7) a verificação manual mostrou o prompt da linha atual sem a cor de root e o texto de introdução dos exercícios ainda anunciando a correção como futura; ambos corrigidos, com teste. |

@@ -18,6 +18,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 
 - Branch única de desenvolvimento: `projeto-tcc2`.
 - `backend/` e `frontend/` têm dependências independentes. Nenhum dos dois importa código do outro nem de `legacy/` por caminho relativo. O compartilhamento de código entre eles exige spec dedicada.
+- **Exceção aprovada (SPEC-014):** o frontend usa o motor POSIX/VFS do legado (`legacy/src/linux` e `legacy/src/shell`), somente leitura, pelo alias `@legacy-engine/*`. Só `frontend/src/engine/` pode importá-lo, e uma regra de ESLint impõe isso; os tipos usados ficam em declarações próprias (`legacy-engine.d.ts`). O legado mantém os identificadores em português. A correção continua no servidor, pelo motor em Go da SPEC-011.
 
 ## 2. Princípios gerais
 
@@ -169,4 +170,3 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 Itens ainda não decididos. Spec que dependa de algum deles precisa decidi-lo primeiro, com aprovação do Tech Lead:
 
 - Mecanismo de autenticação: a SPEC-003 (Rascunho) propõe sessão opaca em cookie `HttpOnly` gravada no banco, em vez do JWT citado no documento canônico.
-- Estratégia de reaproveitamento do motor POSIX/VFS de `legacy/` pelo frontend e pelo corretor do servidor.

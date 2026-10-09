@@ -123,3 +123,17 @@ func (r *Repository) ListActiveTemplates(ctx context.Context) ([]service.Templat
 		Scan(&out).Error
 	return out, err
 }
+
+// FindQuestion returns a question that is not deleted.
+func (r *Repository) FindQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error) {
+	var q domain.Question
+	err := r.db.Conn(ctx).Where("id = ?", id).First(&q).Error
+	return q, notFound(err)
+}
+
+// FindScenario returns a scenario by ID.
+func (r *Repository) FindScenario(ctx context.Context, id uuid.UUID) (domain.Scenario, error) {
+	var s domain.Scenario
+	err := r.db.Conn(ctx).Where("id = ?", id).First(&s).Error
+	return s, notFound(err)
+}

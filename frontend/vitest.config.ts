@@ -3,7 +3,11 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    alias: { "@": path.resolve(import.meta.dirname, "src") },
+    alias: {
+      "@": path.resolve(import.meta.dirname, "src"),
+      // SPEC-014: read-only legacy engine, used only by src/engine/.
+      "@legacy-engine": path.resolve(import.meta.dirname, "../legacy/src"),
+    },
   },
   test: {
     environment: "jsdom",
