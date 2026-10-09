@@ -1,25 +1,29 @@
 import { httpClient, type HttpClient } from "./httpClient";
 
-export interface CheckResult {
-  passed: boolean;
-  completedAt: string | null;
-}
-
 export interface ProgressItem {
   questionId: string;
   completedAt: string | null;
   attempts: number;
 }
 
-/** Practice endpoints of SPEC-014. */
+export interface ModuleCheckResult {
+  /** Exercises the submitted machine satisfies now. */
+  passed: string[];
+  progress: ProgressItem[];
+}
+
+/** Practice endpoints of SPEC-014 and SPEC-016. */
 export function createPracticeService(client: HttpClient = httpClient) {
+  const moduleUrl = (moduleId: string) => `/modules/${encodeURIComponent(moduleId)}`;
   return {
+    /** Starting machine of one exercise. */
     scenario: async (questionId: string) =>
       (await client.get<{ snapshot: unknown }>(`/questions/${encodeURIComponent(questionId)}/scenario`)).snapshot,
-    check: (questionId: string, snapshot: unknown) =>
-      client.post<CheckResult>(`/questions/${encodeURIComponent(questionId)}/check`, { snapshot }),
-    progress: async (moduleId: string) =>
-      (await client.get<{ items: ProgressItem[] }>(`/modules/${encodeURIComponent(moduleId)}/progress`)).items,
+    /** Prepared machine of the module topic; null means the default machine. */
+    topicScenario: async (moduleId: string) => (await client.get<{ snapshot: unknown }>(`${moduleUrl(moduleId)}/scenario`)).snapshot ?? null,
+    /** Grades every exercise of the module against the machine. */
+    checkModule: (moduleId: string, snapshot: unknown) => client.post<ModuleCheckResult>(`${moduleUrl(moduleId)}/check`, { snapshot }),
+    progress: async (moduleId: string) => (await client.get<{ items: ProgressItem[] }>(`${moduleUrl(moduleId)}/progress`)).items,
   };
 }
 

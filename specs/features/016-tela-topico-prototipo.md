@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-016 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 09/10/2026 |
 | **Última revisão** | 09/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -186,16 +186,16 @@ Se a P-02 for aprovada, a lista de questões de uso `EXERCISE` (SPEC-012) passa 
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: QUANDO o estudante abrir um módulo, O SISTEMA DEVE mostrar o cabeçalho com o player e a velocidade, as abas "Comandos e dicas" e "Desafios" à esquerda e a janela de terminais do protótipo à direita, aberta e pronta.
-- [ ] **CA-02**: A máquina DEVE começar no cenário do tópico; QUANDO o estudante clicar em Reset Máquina, O SISTEMA DEVE voltar a ele.
-- [ ] **CA-10**: QUANDO o estudante iniciar um exercício, O SISTEMA DEVE mostrar "Preparando máquina…" no terminal, carregar o cenário do exercício na mesma janela e manter o histórico de comandos de cada terminal.
-- [ ] **CA-03**: QUANDO o estudante clicar em ▶ de um comando, em "Rodar este card" ou no player, O SISTEMA DEVE digitar e executar os comandos na velocidade escolhida, no terminal e com o usuário indicados no passo.
-- [ ] **CA-04**: QUANDO um comando terminar e o estudante tiver sessão, O SISTEMA DEVE conferir os desafios no servidor e marcar os atendidos, registrando a primeira aprovação.
-- [ ] **CA-05**: SE o visitante não tiver sessão, ENTÃO a aba de desafios DEVE convidar a entrar, e a rota 5.2 DEVE responder 401.
-- [ ] **CA-06**: A máquina DEVE sobreviver a uma recarga da página; 💾 DEVE baixar o JSON e 📂 DEVE carregá-lo.
-- [ ] **CA-07**: QUANDO o estudante clicar em Cola, O SISTEMA DEVE abrir a cola de comandos do protótipo.
-- [ ] **CA-08**: Nenhum arquivo fora de `frontend/src/engine/` DEVE importar o legado.
-- [ ] **CA-09**: As rotas 5.1 e 5.2 DEVEM seguir as regras de acesso e os erros da seção 5.
+- [x] **CA-01**: QUANDO o estudante abrir um módulo, O SISTEMA DEVE mostrar o cabeçalho com o player e a velocidade, as abas "Comandos e dicas" e "Desafios" à esquerda e a janela de terminais do protótipo à direita, aberta e pronta.
+- [x] **CA-02**: A máquina DEVE começar no cenário do tópico; QUANDO o estudante clicar em Reset Máquina, O SISTEMA DEVE voltar a ele.
+- [x] **CA-10**: QUANDO o estudante iniciar um exercício, O SISTEMA DEVE mostrar "Preparando máquina…" no terminal, carregar o cenário do exercício na mesma janela e manter o histórico de comandos de cada terminal.
+- [x] **CA-03**: QUANDO o estudante clicar em ▶ de um comando, em "Rodar este card" ou no player, O SISTEMA DEVE digitar e executar os comandos na velocidade escolhida, no terminal e com o usuário indicados no passo.
+- [x] **CA-04**: QUANDO um comando terminar e o estudante tiver sessão, O SISTEMA DEVE conferir os desafios no servidor e marcar os atendidos, registrando a primeira aprovação.
+- [x] **CA-05**: SE o visitante não tiver sessão, ENTÃO a aba de desafios DEVE convidar a entrar, e a rota 5.2 DEVE responder 401.
+- [x] **CA-06**: A máquina DEVE sobreviver a uma recarga da página; 💾 DEVE baixar o JSON e 📂 DEVE carregá-lo.
+- [x] **CA-07**: QUANDO o estudante clicar em Cola, O SISTEMA DEVE abrir a cola de comandos do protótipo.
+- [x] **CA-08**: Nenhum arquivo fora de `frontend/src/engine/` DEVE importar o legado.
+- [x] **CA-09**: As rotas 5.1 e 5.2 DEVEM seguir as regras de acesso e os erros da seção 5.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -240,3 +240,4 @@ Nenhuma. P-01 a P-04 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações
 | 09/10/2026 | Implementador (Claude) | Criação, a pedido do Tech Lead ("use o que tem no protótipo como base"; "temos que usar o que foi feito"), depois de comparar o frontend novo com o protótipo rodando. Decisões já tomadas pelo Tech Lead: rota da máquina do tópico, conferência automática após cada comando, Cola, salvar e abrir e até 3 terminais. Pendências P-01 a P-04 |
 | 09/10/2026 | Implementador (Claude) | Ajustes pedidos pelo Tech Lead ao ver a tela: largura total, sem abas por exercício (máquina única), "Iniciar" exercício com "Preparando máquina…" mantendo o histórico (CA-10), e Reset Máquina, player e velocidade visíveis |
 | 09/10/2026 | Tech Lead | Aprovação de P-01 a P-04 nas recomendações. Status: `Aprovada` |
+| 09/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Backend:** rotas 5.1 e 5.2 com cobertura de 100% no domínio, 98,4% no service e 99% no handler; a conferência em lote registra só aprovações (RN-01). **Frontend:** adaptador que monta a `JanelaDeTerminais` do protótipo, testado com a janela real em `jsdom` (passos, login em outro terminal, preparação mantendo o histórico, troca de máquina e cola); tela `TopicScreen` com cabeçalho, player, velocidade, Cola, Reset Máquina, 💾 e 📂, abas "Comandos e dicas" e "Desafios" e conferência automática; 263 testes, cobertura total de 92,6% das linhas e 86,7% dos ramos; build de produção, `tsc`, ESLint e Stylelint limpos. **Manual:** no navegador, no tópico de diretórios, a tela ficou equivalente à do protótipo rodando lado a lado; ⏭ executou o primeiro exemplo; "Iniciar" do desafio 3 mostrou "Preparando máquina…" e manteve a tela e o histórico (↑); sem sessão, os desafios convidam a entrar. **Desvios:** (1) o teste ponta a ponta "soluções de `dir-1` a `dir-5` em sequência sobre a máquina do tópico" não foi automatizado, porque o backend não executa o motor do legado; fica coberto pela verificação manual; (2) a preparação de um desafio troca a máquina dos terminais abertos acessando membros privados do `TerminalUbuntu` (`maquina`, `sessao`, `iniciarSessao`), declarados no `legacy-engine.d.ts` sem alterar o legado; (3) os estilos que no protótipo vinham do `base.css` (cabeçalho, tabelas, `details`, modal) foram reescritos no módulo SCSS da tela, porque o `base.css` tem regras globais de elemento; (4) a regra de impressão da Cola do `topico.css` é preservada usando as classes `modal-fundo` e `modal` no diálogo; (5) removidos o terminal em React, o `NanoDialog`, o `ExercisePractice`, o `ModuleContentView` e a conferência individual no serviço do frontend (a rota 5.2 da SPEC-014 continua no backend) |

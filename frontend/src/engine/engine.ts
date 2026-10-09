@@ -1,133 +1,171 @@
-// Adapter of the legacy POSIX/VFS engine (SPEC-014). It is the only module of
-// the frontend that imports the legacy code; components use the types below.
-// The engine is loaded on demand, when a terminal opens.
+// Adapter of the prototype terminal window and its engine (SPEC-014,
+// SPEC-016). It is the only module of the frontend that imports the legacy
+// code; components use the types below. The legacy code is loaded on demand.
 
-/** A piece of terminal output. tone mirrors the legacy output classes. */
-export interface OutputChunk {
-  text: string;
-  tone?: OutputTone;
+import type { Maquina } from "@legacy-engine/linux/Maquina";
+import type { Sessao } from "@legacy-engine/linux/Sessao";
+import type { JanelaDeTerminais, TerminalUbuntu } from "@legacy-engine/terminal/JanelaDeTerminais";
+
+/** One example command of the content (COMMAND blocks, SPEC-011). */
+export interface Step {
+  command: string;
+  explanation?: string;
+  terminal?: number;
+  login?: { user: string; password: string };
+  /** Automatic answers to the questions of the command (passwords, nano text). */
+  answers?: string[];
 }
 
-export type OutputTone = "directory" | "executable" | "link" | "error" | "success" | "info" | "bold" | "warning" | "match";
-
-/** A file opened by an editor command. */
-export interface EditRequest {
-  editor: "nano" | "vim";
-  path: string;
-  content: string;
-  isNew: boolean;
-  readOnly: boolean;
-  warning: string | null;
-}
-
-/** What only the terminal can do for the engine. */
-export interface EngineIO {
-  /** Shows a prompt (password, confirmation) and resolves with the answer. */
-  ask(question: string, hidden: boolean): Promise<string>;
-  /** Opens an editor; resolves with the saved text, or null when cancelled. */
-  edit(request: EditRequest): Promise<string | null>;
-  clear(): void;
-}
-
-export interface Prompt {
-  user: string;
-  host: string;
-  path: string;
-  isRoot: boolean;
-}
-
-export interface EngineSession {
-  prompt(): Prompt;
-  /** Runs one command line, streaming its output. */
-  run(line: string, write: (chunk: OutputChunk) => void): Promise<void>;
-  /** Serialized machine (format exame-so/maquina) for server-side grading. */
+export interface TerminalWindow {
+  /** Types and runs a step in the terminal it names, logging in when asked. */
+  run(step: Step): Promise<void>;
+  /** Typing speed of the automated steps (1 = normal). */
+  setSpeed(speed: number): void;
+  /** Serialized machine (format exame-so/maquina). */
   snapshot(): unknown;
+  /** Factory reset with the prototype animation, back to the given machine. */
+  reset(snapshot: unknown): Promise<void>;
+  /** Swaps the machine at once, reopening the terminals (used by ⏮). */
+  load(snapshot: unknown): void;
+  /**
+   * Prepares the machine of an exercise in the open terminals, keeping their
+   * screens and command history (SPEC-016 CA-10).
+   */
+  prepare(snapshot: unknown, lines: readonly string[]): Promise<void>;
+  /** Downloads the machine as JSON. */
+  exportJson(name: string): void;
+  /** Asks for a JSON file and loads it; resolves false when it is invalid. */
+  importJson(): Promise<boolean>;
+  focus(): void;
+  destroy(): void;
 }
 
-const TONES: Record<string, OutputTone> = {
-  "c-dir": "directory",
-  "c-exe": "executable",
-  "c-link": "link",
-  "c-erro": "error",
-  "c-ok": "success",
-  "c-info": "info",
-  "c-negrito": "bold",
-  "c-laranja": "warning",
-  "c-sticky": "warning",
-  "c-dispositivo": "warning",
-  "c-grep": "match",
-  "c-grep-arquivo": "info",
-  "c-grep-numero": "success",
-};
-
-/** Maps a legacy output class to a tone; unknown classes are plain text. */
-export function toneOf(legacyClass?: string): OutputTone | undefined {
-  return legacyClass ? TONES[legacyClass] : undefined;
+export interface TerminalWindowEvents {
+  /** Called after each command of any terminal. */
+  onCommand(): void;
 }
 
-/** Message shown when a command asks for vim, which is out of scope. */
-export const VIM_UNSUPPORTED = "vim: this terminal supports nano only. Use: nano ";
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Creates a shell session as root on a machine restored from the snapshot. */
-export async function createSession(snapshot: unknown, io: EngineIO): Promise<EngineSession> {
-  const [{ Serializador }, { Shell }] = await Promise.all([
+/** Waits until the terminal is idle (an automated step may be typing). */
+async function idle(terminal: TerminalUbuntu): Promise<void> {
+  for (let i = 0; i < 600 && !terminal.estaLivre(); i++) await sleep(50);
+}
+
+/**
+ * Mounts the prototype terminal window (up to 3 terminals, side by side,
+ * Tab completion, nano and vim) in the container, on the given machine or on
+ * the default prototype machine when the snapshot is null.
+ */
+export async function mountTerminalWindow(
+  container: HTMLElement,
+  snapshot: unknown,
+  events: TerminalWindowEvents,
+): Promise<TerminalWindow> {
+  const [{ Maquina }, { Serializador }, { JanelaDeTerminais }, { ArmazemDeMaquinas }] = await Promise.all([
+    import("@legacy-engine/linux/Maquina"),
     import("@legacy-engine/linux/Serializador"),
-    import("@legacy-engine/shell/Shell"),
+    import("@legacy-engine/terminal/JanelaDeTerminais"),
+    import("@legacy-engine/app/ArmazemDeMaquinas"),
   ]);
-  const machine = Serializador.deJson(snapshot);
-  const root = machine.contas.usuario("root");
-  if (!root) throw new Error("snapshot has no root account");
 
-  const interpreter = Shell.criarInterpretador();
-  let session = machine.abrirSessao(root);
-  let write: (chunk: OutputChunk) => void = () => {};
+  const restore = (json: unknown): Maquina => {
+    const machine = json == null ? Maquina.criar() : Serializador.deJson(json);
+    machine.atualizarProc();
+    return machine;
+  };
 
-  const interaction = {
-    perguntar: (question: string, hidden: boolean) => io.ask(question, hidden),
-    limparTela: () => io.clear(),
-    editar: async (request: {
-      editor: "nano" | "vim";
-      caminho: string;
-      conteudo: string;
-      novo: boolean;
-      somenteLeitura: boolean;
-      aviso: string | null;
-      gravar(text: string): string | null;
-    }) => {
-      if (request.editor === "vim") {
-        write({ text: VIM_UNSUPPORTED + request.caminho + "\n", tone: "warning" });
-        return;
-      }
-      const saved = await io.edit({
-        editor: request.editor,
-        path: request.caminho,
-        content: request.conteudo,
-        isNew: request.novo,
-        readOnly: request.somenteLeitura,
-        warning: request.aviso,
-      });
-      if (saved === null) return;
-      const error = request.gravar(saved);
-      if (error) write({ text: error + "\n", tone: "error" });
-    },
-    // "exit" in the last shell closes the connection: start a fresh root shell.
-    desconectar: () => {
-      session = machine.abrirSessao(root);
-    },
+  let machine = restore(snapshot);
+  const terminalWindow: JanelaDeTerminais = new JanelaDeTerminais(container, machine, {
+    aoExecutar: () => events.onCommand(),
+  });
+
+  const swap = (next: Maquina) => {
+    machine = next;
+    terminalWindow.trocarMaquina(next);
+    events.onCommand();
   };
 
   return {
-    prompt() {
-      const frame = session.atual();
-      return { user: frame.usuario.nome, host: machine.hostname, path: session.caminhoCurto(), isRoot: frame.usuario.uid === 0 };
+    async run(step) {
+      const login = step.login ? { usuario: step.login.user, senha: step.login.password } : undefined;
+      const terminal = await terminalWindow.obter(step.terminal ?? 1, login);
+      await terminal.executarAutomatico(step.command, step.answers ?? []);
     },
-    async run(line, sink) {
-      write = sink;
-      const output = { escrever: (text: string, legacyClass?: string) => sink({ text, tone: toneOf(legacyClass) }) };
-      await interpreter.executarLinha(line, machine, session, output, interaction);
+    setSpeed(speed) {
+      terminalWindow.definirVelocidade(speed);
     },
     snapshot() {
       return Serializador.paraJson(machine);
     },
+    async reset(json) {
+      await terminalWindow.executarResetAnimado(() => {
+        machine = restore(json);
+        return machine;
+      });
+      events.onCommand();
+    },
+    load(json) {
+      swap(restore(json));
+    },
+    async prepare(json, lines) {
+      const next = restore(json);
+      const previous = machine;
+      machine = next;
+      // Terminals opened later connect to the new machine.
+      terminalWindow.maquina = next;
+      for (const terminal of terminalWindow.terminais) {
+        if (!terminal) continue;
+        await idle(terminal);
+        for (const line of lines) {
+          terminal.escrever(line + "\n", "c-laranja");
+          await sleep(120);
+        }
+        const user = terminal.usuarioAtual();
+        const history = terminal.sessao?.historico.slice() ?? [];
+        if (terminal.sessao) previous.fecharSessao(terminal.sessao);
+        terminal.sessao = null;
+        terminal.maquina = next;
+        const account = user ? next.contas.usuario(user) : undefined;
+        if (!account) {
+          terminal.pedirLogin();
+          continue;
+        }
+        terminal.iniciarSessao(account);
+        // iniciarSessao opened a new session; the cast drops the narrowing to null.
+        (terminal.sessao as Sessao | null)?.historico.push(...history);
+        terminal.posicaoHistorico = history.length;
+      }
+      events.onCommand();
+    },
+    exportJson(name) {
+      ArmazemDeMaquinas.baixar(machine, name);
+    },
+    async importJson() {
+      try {
+        const imported = await ArmazemDeMaquinas.importar();
+        imported.atualizarProc();
+        swap(imported);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    focus() {
+      terminalWindow.focar();
+    },
+    destroy() {
+      terminalWindow.destruir();
+      container.innerHTML = "";
+    },
   };
+}
+
+/** HTML of the prototype cheat sheet (P-04: reused as it is). */
+export async function cheatSheetHtml(): Promise<string> {
+  const [{ ColaDeComandos }, { CatalogoDeTopicos }] = await Promise.all([
+    import("@legacy-engine/app/ColaDeComandos"),
+    import("@legacy-engine/conteudo/CatalogoDeTopicos"),
+  ]);
+  return ColaDeComandos.html(new CatalogoDeTopicos().listar());
 }

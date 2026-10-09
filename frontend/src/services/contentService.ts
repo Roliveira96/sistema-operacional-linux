@@ -18,6 +18,8 @@ export interface PublicQuestion {
   statement: string;
   hint?: string;
   choices?: string[];
+  /** Reference solution of practical training exercises (SPEC-016 P-02). */
+  solution?: Array<{ command: string; terminal?: number; login?: { user: string; password: string }; answers?: string[] }>;
 }
 
 export interface AssessmentTemplateSummary {

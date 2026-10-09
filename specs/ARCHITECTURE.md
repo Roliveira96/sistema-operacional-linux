@@ -18,7 +18,13 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 
 - Branch única de desenvolvimento: `projeto-tcc2`.
 - `backend/` e `frontend/` têm dependências independentes. Nenhum dos dois importa código do outro nem de `legacy/` por caminho relativo. O compartilhamento de código entre eles exige spec dedicada.
-- **Exceção aprovada (SPEC-014):** o frontend usa o motor POSIX/VFS do legado (`legacy/src/linux` e `legacy/src/shell`), somente leitura, pelo alias `@legacy-engine/*`. Só `frontend/src/engine/` pode importá-lo, e uma regra de ESLint impõe isso; os tipos usados ficam em declarações próprias (`legacy-engine.d.ts`). O legado mantém os identificadores em português. A correção continua no servidor, pelo motor em Go da SPEC-011.
+- **Exceção aprovada (SPEC-014 e SPEC-016):** o frontend reaproveita do legado, somente leitura e pelo alias `@legacy-engine/*`:
+  - o motor POSIX/VFS (`legacy/src/linux` e `legacy/src/shell`);
+  - a janela de terminais do protótipo (`legacy/src/terminal`);
+  - a cola de comandos e o armazenamento de máquinas (`legacy/src/app/ColaDeComandos.ts`, `ArmazemDeMaquinas.ts` e `legacy/src/conteudo`);
+  - as folhas `terminal.css` e `topico.css`, cujas variáveis são mapeadas para os tokens.
+
+  Só `frontend/src/engine/` pode importá-lo, e uma regra de ESLint impõe isso; os tipos usados ficam em declarações próprias (`legacy-engine.d.ts`). O legado mantém os identificadores em português. A correção continua no servidor, pelo motor em Go da SPEC-011.
 
 ## 2. Princípios gerais
 
