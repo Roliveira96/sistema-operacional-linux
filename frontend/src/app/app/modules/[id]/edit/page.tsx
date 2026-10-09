@@ -2,28 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { ContentTab } from "@/components/BlockEditor/ContentTab";
 import { ExerciseOrderList } from "@/components/ExerciseOrderList/ExerciseOrderList";
 import { ModuleForm } from "@/components/ModuleForm/ModuleForm";
 import { ptBR } from "@/messages/pt-BR";
 import { classService } from "@/services/classService";
-import { contentService, type ContentBlock } from "@/services/contentService";
 import { moduleService, type CourseModuleDetails, type UpdateModulePayload } from "@/services/moduleService";
 import styles from "./page.module.scss";
 
 type Tab = "details" | "content" | "exercises";
 const TABS: Tab[] = ["details", "content", "exercises"];
-
-/** A block has no single title field: use the title, else the command, else the start of its text. */
-function blockLabel(block: ContentBlock): string {
-  for (const key of ["title", "command", "text", "body", "html"]) {
-    const value = block.payload[key];
-    if (typeof value === "string" && value.trim()) {
-      const plain = value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-      return plain.length > 90 ? `${plain.slice(0, 90)}…` : plain;
-    }
-  }
-  return "—";
-}
 
 export default function EditModulePage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const m = ptBR.modules;
@@ -31,7 +19,6 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
   const [id, setId] = useState<string | null>(null);
   const [moduleData, setModuleData] = useState<CourseModuleDetails | null>(null);
   const [availableClasses, setAvailableClasses] = useState<{ id: string; name: string }[]>([]);
-  const [blocks, setBlocks] = useState<ContentBlock[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<Tab>("details");
@@ -66,18 +53,6 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
         if (active) setLoading(false);
       });
 
-    return () => {
-      active = false;
-    };
-  }, [id]);
-
-  useEffect(() => {
-    if (!id) return;
-    let active = true;
-    contentService
-      .blocks(id)
-      .then((list) => active && setBlocks(list))
-      .catch(() => active && setBlocks([]));
     return () => {
       active = false;
     };
@@ -165,34 +140,7 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
       </div>
 
       <section className={styles.section} role="tabpanel" id="panel-content" aria-labelledby="tab-content" hidden={tab !== "content"}>
-        <div className={styles.sectionHeader}>
-          <div>
-            <h2 className={styles.sectionTitle}>
-              {m.blocks.title}
-            </h2>
-            <p className={styles.sectionHint}>{m.blocks.hint}</p>
-          </div>
-          <Link href={`/app/modules/${id}`} className={styles.back}>
-            {m.blocks.preview}
-          </Link>
-        </div>
-        {blocks === null ? (
-          <p className={styles.sectionHint}>{m.blocks.loading}</p>
-        ) : blocks.length === 0 ? (
-          <p className={styles.sectionHint}>{m.blocks.empty}</p>
-        ) : (
-          <ol className={styles.blockList}>
-            {blocks.map((block) => {
-              const label = blockLabel(block);
-              return (
-                <li key={block.id} className={styles.blockItem}>
-                  <span className={styles.blockType}>{m.blocks.types[block.type as keyof typeof m.blocks.types] ?? block.type}</span>
-                  <span className={styles.blockTitle}>{label}</span>
-                </li>
-              );
-            })}
-          </ol>
-        )}
+        {id && <ContentTab moduleId={id} />}
       </section>
 
       <section className={styles.section} role="tabpanel" id="panel-exercises" aria-labelledby="tab-exercises" hidden={tab !== "exercises"}>
