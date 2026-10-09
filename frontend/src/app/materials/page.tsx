@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FooterPublic } from "@/components/FooterPublic/FooterPublic";
 import { ModuleCard } from "@/components/ModuleCard/ModuleCard";
 import { NavbarPublic } from "@/components/NavbarPublic/NavbarPublic";
+import { contentMessages } from "@/messages/content.pt-BR";
 import { ptBR } from "@/messages/pt-BR";
 import { moduleService, type CourseModuleSummary } from "@/services/moduleService";
 import styles from "./page.module.scss";
@@ -41,6 +42,7 @@ export default function MaterialsPage() {
       <main className={styles.main}>
         <div className={styles.container}>
           <header className={styles.header}>
+            <span className={styles.seal}>{contentMessages.materialsSeal}</span>
             <h1>{m.publicTitle}</h1>
             <p>{m.publicSubtitle}</p>
             <div className={styles.searchBar}>

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { ContentRenderer } from "@/components/ContentRenderer/ContentRenderer";
 import { ExercisePractice } from "@/components/ExercisePractice/ExercisePractice";
+import { moduleAccent } from "@/lib/moduleVisual";
 import { contentMessages as m } from "@/messages/content.pt-BR";
 import { contentService, type ContentBlock, type ContentService, type PublicQuestion } from "@/services/contentService";
 import { ApiProblemError } from "@/services/httpClient";
@@ -31,12 +32,6 @@ function describe(error: unknown): { message: string; login: boolean } {
     if (error.status === 403) return { message: m.forbidden, login: false };
   }
   return { message: m.unexpected, login: false };
-}
-
-/** Maps the legacy color variable (e.g. "--cor-dir") to the module accent token. */
-function accent(color?: string): CSSProperties | undefined {
-  const key = color?.match(/^--cor-([a-z]+)$/)?.[1];
-  return key ? ({ "--module-accent": `var(--color-module-${key})` } as CSSProperties) : undefined;
 }
 
 /** Reading view of a module: blocks in order and its exercises (SPEC-012). */
@@ -92,7 +87,7 @@ export function ModuleContentView({
 
   const { module, blocks, exercises } = state;
   return (
-    <article className={styles.view} style={accent(module.color)}>
+    <article className={styles.view} style={moduleAccent(module.color)}>
       <header className={styles.header}>
         <Link href={backHref} className={styles.back}>
           ← {m.backToMaterials}

@@ -23,15 +23,38 @@ const mockModule: CourseModuleSummary = {
 };
 
 describe("ModuleCard", () => {
-  it("renders module basic details, badges and counters", () => {
+  it("renders module basic details and counters without management badges", () => {
     render(<ModuleCard module={mockModule} />);
 
     expect(screen.getByText("Processos e Concorrência")).toBeDefined();
     expect(screen.getByText("Estudo detalhado do escalonamento de processos.")).toBeDefined();
-    expect(screen.getByText("Público")).toBeDefined();
-    expect(screen.getByText("Ativo")).toBeDefined();
+    expect(screen.queryByText("Público")).toBeNull();
     expect(screen.getByText("3 materiais")).toBeDefined();
     expect(screen.getByText("5 exercícios")).toBeDefined();
+  });
+
+  // Covers SPEC-015 CA-04.
+  it("renders the prototype card: order, icon, accent, tags and a card-wide link", () => {
+    const legacy: CourseModuleSummary = {
+      ...mockModule,
+      description: "pwd · ls · cd — Onde estou e o que tem aqui.",
+      icon: "📁",
+      color: "--cor-dir",
+      displayOrder: 3,
+    };
+    render(<ModuleCard module={legacy} href="/materials/mod-123" />);
+
+    expect(screen.getByText("03")).toBeDefined();
+    expect(screen.getByText("📁")).toBeDefined();
+    expect(screen.getByText("Onde estou e o que tem aqui.")).toBeDefined();
+    const tags = screen.getByRole("list", { name: "Comandos e conceitos do módulo" });
+    expect(Array.from(tags.querySelectorAll("code")).map((c) => c.textContent)).toEqual(["pwd", "ls", "cd"]);
+    expect(screen.getByTestId("module-card-mod-123").getAttribute("style")).toContain("--module-accent: var(--color-module-dir)");
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0]!.textContent).toBe("Processos e Concorrência");
+    expect(links[0]!.getAttribute("href")).toBe("/materials/mod-123");
+    expect(screen.getByText("Estudar →")).toBeDefined();
   });
 
   it("renders expired badge and alert when active but not active now", () => {
@@ -51,6 +74,9 @@ describe("ModuleCard", () => {
   it("renders management controls and triggers toggle callback", () => {
     const handleToggle = vi.fn();
     render(<ModuleCard module={mockModule} canManage onToggleStatus={handleToggle} />);
+
+    expect(screen.getByText("Público")).toBeDefined();
+    expect(screen.getByText("Ativo")).toBeDefined();
 
     const toggleBtn = screen.getByRole("button", { name: "Desativar" });
     expect(toggleBtn).toBeDefined();

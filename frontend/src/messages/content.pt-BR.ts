@@ -9,6 +9,8 @@ export const contentMessages = {
   goToLogin: "Entrar",
   backToMaterials: "Voltar aos materiais",
   study: "Estudar",
+  cardTags: "Comandos e conceitos do módulo",
+  materialsSeal: "Preparatório certificações Linux · LPIC-1 · Linux Essentials",
   exercisesTitle: "Exercícios práticos",
   exercisesIntro: "Clique em Praticar, resolva no terminal simulado e use Conferir para o servidor verificar a máquina.",
   noExercises: "Este módulo ainda não tem exercícios publicados.",
