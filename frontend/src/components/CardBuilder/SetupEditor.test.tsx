@@ -103,3 +103,50 @@ describe("SetupEditor, recording in the terminal", () => {
     expect(screen.getByRole("button", { name: "Gravar no terminal" })).toBeDefined();
   });
 });
+
+// The text an author types inside an editor while recording is read from the file and kept as printf.
+describe("SetupEditor, files written with an editor", () => {
+  async function record(typedCommands: string[], files: Record<string, { status: number; output: string }>) {
+    let onCommand: ((snapshot: unknown) => void) | undefined;
+    const execute = vi.fn(async ({ command }: { command: string }) => files[command] ?? { status: 0, output: "" });
+    let history: string[] = [];
+    const win = { execute, setSpeed: vi.fn(), history: () => history, destroy: vi.fn() };
+    mount.mockImplementation(async (_c: HTMLElement, _s: unknown, callbacks: { onCommand(s: unknown): void }) => {
+      onCommand = callbacks.onCommand;
+      return win;
+    });
+    const view = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
+    await waitFor(() => expect(mount).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText("Nenhum comando ainda.")).toBeDefined());
+    history = typedCommands;
+    onCommand?.({});
+    await waitFor(() => expect((screen.getByRole("button", { name: "Usar estes comandos" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes comandos" }));
+    await waitFor(() => expect(view.onChange).toHaveBeenCalled());
+    return { ...view, execute };
+  }
+
+  it("turns a nano session into the printf that writes what was typed, and says so", async () => {
+    const { onChange, execute } = await record(["mkdir -p /home/ricardo/utfpr/teste", "nano /home/ricardo/utfpr/teste/ricardo.txt"], {
+      "cat '/home/ricardo/utfpr/teste/ricardo.txt'": { status: 0, output: "maçã" + String.fromCharCode(10) + "banana" },
+    });
+    const steps = (onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command);
+    expect(steps).toEqual(["mkdir -p /home/ricardo/utfpr/teste", "printf '%s" + String.fromCharCode(92) + "n' 'maçã' 'banana' > '/home/ricardo/utfpr/teste/ricardo.txt'"]);
+    expect(execute).toHaveBeenCalledWith({ command: "cat '/home/ricardo/utfpr/teste/ricardo.txt'" });
+    expect(screen.getByRole("status", { name: "O que foi feito com os editores" })).toHaveTextContent("virou printf: grava em /home/ricardo/utfpr/teste/ricardo.txt o texto que você digitou");
+  });
+
+  it("keeps the command and warns when the path is relative or the file cannot be read", async () => {
+    const { onChange } = await record(["vim notas.txt", "nano /nao/existe.txt"], { "cat '/nao/existe.txt'": { status: 1, output: "No such file" } });
+    expect((onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["vim notas.txt", "nano /nao/existe.txt"]);
+    const notes = screen.getByRole("status", { name: "O que foi feito com os editores" });
+    expect(notes).toHaveTextContent('"vim notas.txt" usa caminho relativo');
+    expect(notes).toHaveTextContent('Não foi possível ler o arquivo de "nano /nao/existe.txt"');
+  });
+
+  it("writes an empty file with touch", async () => {
+    const { onChange } = await record(["nano /srv/vazio.txt"], { "cat '/srv/vazio.txt'": { status: 0, output: "" } });
+    expect((onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["touch '/srv/vazio.txt'"]);
+  });
+});

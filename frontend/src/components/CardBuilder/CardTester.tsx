@@ -69,6 +69,8 @@ interface CardTesterProps {
   onVerdicts?: (good: boolean[]) => void;
   /** The title of the card each command starts, by command index, for a test of several cards in sequence. */
   sections?: Record<number, string>;
+  /** Inside the panel of the test of the module: no title, help or buttons, and a smaller terminal. */
+  compact?: boolean;
 }
 
 /**
@@ -77,7 +79,7 @@ interface CardTesterProps {
  * fails is a conflict and is reported with what the terminal said. It shows whether each command ended as
  * expected and, when one fails, what the terminal said. It works on a throwaway machine: nothing is saved.
  */
-export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVerdicts, sections }: CardTesterProps) {
+export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVerdicts, sections, compact = false }: CardTesterProps) {
   const [base, setBase] = useState<{ machine: unknown } | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -214,26 +216,30 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
   const envText = env === "pending" ? m.pending : env === "running" ? m.progress(envProgress, stepCount(layers)) : env === "ok" ? m.environmentOk : m.environmentFailed(conflicts.length);
 
   return (
-    <div className={styles.tester} role="region" aria-label={m.title}>
-      <div className={styles.groupHead}>
-        <h3 className={styles.groupTitle}>{m.title}</h3>
-        <div className={styles.rowButtons}>
-          {!finished && (
-            <button type="button" className={styles.secondary} onClick={() => (stop.current = true)} disabled={!terminal}>
-              {m.stop}
+    <div className={`${styles.tester} ${compact ? styles.compactTester : ""}`} role="region" aria-label={m.title}>
+      {!compact && (
+        <>
+        <div className={styles.groupHead}>
+          <h3 className={styles.groupTitle}>{m.title}</h3>
+          <div className={styles.rowButtons}>
+            {!finished && (
+              <button type="button" className={styles.secondary} onClick={() => (stop.current = true)} disabled={!terminal}>
+                {m.stop}
+              </button>
+            )}
+            {finished && (
+              <button type="button" className={styles.add} onClick={again}>
+                {m.again}
+              </button>
+            )}
+            <button type="button" className={styles.secondary} onClick={onClose}>
+              {m.close}
             </button>
-          )}
-          {finished && (
-            <button type="button" className={styles.add} onClick={again}>
-              {m.again}
-            </button>
-          )}
-          <button type="button" className={styles.secondary} onClick={onClose}>
-            {m.close}
-          </button>
+          </div>
         </div>
-      </div>
-      <p className={styles.hint}>{m.help}</p>
+        <p className={styles.hint}>{m.help}</p>
+        </>
+      )}
 
       <div className={styles.recorder}>
         <div>
@@ -287,7 +293,7 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
               );
             })}
           </ol>
-          {finished && (
+          {finished && !compact && (
             <p className={env !== "failed" && done.length > 0 && good === commands.length ? styles.saved : styles.error} role="status">
               {env === "failed" ? m.envFailedSummary : `${m.summary(good, commands.length)}. ${good === commands.length ? m.allGood : m.someBad}`}
             </p>

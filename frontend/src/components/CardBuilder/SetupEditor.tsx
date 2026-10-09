@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { TerminalPane } from "@/components/TopicStudy/TerminalPane";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { emptySetup, type Setup, type SetupLayer, type SetupStep } from "@/lib/setup";
+import { isPlainText, printfSteps, shellQuote, writtenFile } from "@/lib/setupContent";
 import { isConflict, runLayers, type StepResult } from "@/lib/setupRunner";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import styles from "./CardBuilder.module.scss";
@@ -104,6 +105,8 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
   const [ready, setReady] = useState(false);
   const [typed, setTyped] = useState<string[]>([]);
   const [conflicts, setConflicts] = useState<StepResult[]>([]);
+  const [notice, setNotice] = useState<string[]>([]);
+  const [converting, setConverting] = useState(false);
   const terminal = useRef<TerminalWindow | null>(null);
   const started = useRef(0);
   const latest = useRef({ before, loadBase });
@@ -157,14 +160,42 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
     setReady(true);
   };
 
-  const useTyped = () => {
-    patch([...current.steps, ...typed.map((command) => ({ command }))]);
+  // What was typed inside an editor is not a command: the text is read back from the file and kept as printf.
+  const adoptTyped = async () => {
+    const win = terminal.current;
+    setConverting(true);
+    const notes: string[] = [];
+    const steps: SetupStep[] = [];
+    for (const command of typed) {
+      const path = writtenFile(command);
+      if (!path || !win) {
+        steps.push({ command });
+        continue;
+      }
+      if (!path.startsWith("/")) {
+        steps.push({ command });
+        notes.push(m.relativePath(command));
+        continue;
+      }
+      const { status, output } = await win.execute({ command: `cat ${shellQuote(path)}` });
+      if (status !== 0 || !isPlainText(output)) {
+        steps.push({ command });
+        notes.push(m.notConverted(command));
+        continue;
+      }
+      steps.push(...printfSteps(path, output));
+      notes.push(m.converted(command, path));
+    }
+    patch([...current.steps, ...steps]);
+    setNotice(notes);
+    setConverting(false);
     close();
   };
 
   return (
     <div className={styles.environment}>
       <p className={styles.hint}>{help ?? m.help}</p>
+      <p className={styles.hint}>{m.fileTips}</p>
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor="setup-summary">
@@ -172,6 +203,14 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
         </label>
         <input id="setup-summary" className={styles.input} value={current.summary} placeholder={m.summaryPlaceholder} onChange={(e) => onChange({ ...current, summary: e.target.value })} />
       </div>
+
+      {notice.length > 0 && (
+        <ul className={styles.commandList} role="status" aria-label={m.noticeLabel}>
+          {notice.map((text) => (
+            <li key={text}>{text}</li>
+          ))}
+        </ul>
+      )}
 
       {current.steps.length === 0 && <p className={styles.hint}>{m.empty}</p>}
       {current.steps.map((step, i) => (
@@ -243,8 +282,8 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
               <button type="button" className={styles.secondary} onClick={close}>
                 {m.cancel}
               </button>
-              <button type="button" className={styles.primary} onClick={useTyped} disabled={!ready || typed.length === 0}>
-                {m.useTyped}
+              <button type="button" className={styles.primary} onClick={() => void adoptTyped()} disabled={!ready || typed.length === 0 || converting}>
+                {converting ? m.converting : m.useTyped}
               </button>
             </div>
           </div>

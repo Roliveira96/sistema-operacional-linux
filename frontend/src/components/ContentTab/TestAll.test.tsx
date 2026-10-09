@@ -46,17 +46,21 @@ const blocks = [
 const practice = { topicScenario: vi.fn().mockResolvedValue({}) };
 const service = (content: unknown = { blocks, setup: { summary: "", steps: [{ command: "m1" }] } }) => ({ content: vi.fn().mockResolvedValue(content) });
 
-// Covers the test of the module (SPEC-021): the unit test of each card, then the whole module in sequence.
+const DONE = /Módulo (aprovado|reprovado)/;
+const steps = () => screen.getByRole("tablist", { name: "Etapas do teste do módulo" });
+const totals = () => screen.getByLabelText("Total de testes");
+
+// Covers the test of the module (SPEC-021): each activity alone, the whole module in sequence, and the reverse order.
 describe("TestAll", () => {
-  it("tests each card on its own, then the module in sequence, and records every result", async () => {
+  it("runs the three steps, records every result, and says what went wrong and where", async () => {
     run.failing.add("b-cmd");
     const onResult = vi.fn();
     render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={onResult} onClose={vi.fn()} />);
 
-    expect(await screen.findByText(/O módulo não passou/, {}, { timeout: 25000 })).toBeDefined();
-    // Unit tests: card A (module, own snapshot, command) and card B (module, A's snapshot, command).
-    // Then the module: the whole environment once, and the commands of A and B on the same machine.
-    // Then the inverse: the same machine setup with the exercises from the last to the first.
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo reprovado");
+    // Unit: card A (module, own snapshot, command) and card B (module, A's snapshot, command).
+    // Sequence: the whole environment once, then the commands of A and B on the same machine.
+    // Inverse: the same environment, then B and A.
     expect(run.calls).toEqual(["m1", "a-setup", "a-cmd", "m1", "a-setup", "b-cmd", "m1", "a-setup", "a-cmd", "b-cmd", "m1", "a-setup", "b-cmd", "a-cmd"]);
     expect(onResult).toHaveBeenCalledTimes(3);
     expect(readTest("mod-1", "a")?.passed).toBe(true);
@@ -64,22 +68,54 @@ describe("TestAll", () => {
     // A card with only text, and an inactive one, have nothing to test.
     expect(readTest("mod-1", "c")).toBeUndefined();
     expect(readTest("mod-1", "d")).toBeUndefined();
-    expect(screen.getByText("Passou")).toBeDefined();
-    expect(screen.getAllByText("Falhou").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Card: A")).toHaveLength(2);
-    expect(screen.getAllByText("Card: B")).toHaveLength(2);
+
+    expect(steps()).toHaveTextContent("1. Cada atividade sozinha1 de 2 atividades passaram");
+    expect(steps()).toHaveTextContent("2. Módulo em sequência1 de 2 comandos como esperado");
+    const problems = screen.getByRole("alert", { name: "O que precisa de atenção" });
+    expect(problems).toHaveTextContent('BSozinha, falhou no comando "b-cmd".');
+    expect(problems).toHaveTextContent('BNa sequência, falhou no comando "b-cmd".');
+
     const fp = moduleFingerprint(activeCards(blocks), { summary: "", steps: [{ command: "m1" }] });
     expect(moduleTestStatus("mod-1", fp)).toBe("failed");
     expect(moduleTestStatus("mod-1", fp + " ")).toBe("stale");
     expect(moduleTestStatus("other", fp)).toBe("untested");
   }, 40000);
 
-  it("passes the module when every card and the sequence pass", async () => {
+  it("shows how many tests were done: the activities alone, the commands in sequence and the commands in reverse order", async () => {
     render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
-    expect(await screen.findByText(/O módulo passou/, {}, { timeout: 25000 })).toBeDefined();
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo aprovado");
+    // 2 activities + 2 commands + 2 commands.
+    expect(totals()).toHaveTextContent("Testes feitos: 6 · passaram: 6 · falharam: 0");
+    expect(totals()).toHaveTextContent("2 atividades sozinhas + 2 comandos em sequência + 2 comandos na ordem inversa");
+  }, 40000);
+
+  it("counts the tests that failed", async () => {
+    run.failing.add("a-cmd");
+    render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo reprovado");
+    // A fails alone, in the sequence and in reverse: 3 failed tests of 6.
+    expect(totals()).toHaveTextContent("Testes feitos: 6 · passaram: 3 · falharam: 3");
+  }, 40000);
+
+  it("approves the module when every card and the sequence pass, and no activity depends on another", async () => {
+    render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo aprovado");
+    expect(steps()).toHaveTextContent("1. Cada atividade sozinha2 de 2 atividades passaram");
+    expect(steps()).toHaveTextContent("3. Dependências (ordem inversa)Nenhuma atividade depende de outra");
+    expect(screen.queryByRole("alert", { name: "O que precisa de atenção" })).toBeNull();
     const fp = moduleFingerprint(activeCards(blocks), { summary: "", steps: [{ command: "m1" }] });
     expect(moduleTestStatus("mod-1", fp)).toBe("passed");
-    expect(screen.getByText(/2 de 2 cards passaram/)).toBeDefined();
+  }, 40000);
+
+  it("lets the author open the detail of another step", async () => {
+    render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
+    await screen.findByText(DONE, {}, { timeout: 30000 });
+    const [units, sequence] = screen.getAllByRole("tab");
+    // Everything passed, so the first step is the one on screen.
+    expect(units).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(sequence!);
+    expect(sequence).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText(/Uma máquina nova: o ambiente e, em seguida/)).toBeDefined();
   }, 40000);
 
   it("says when nothing can be tested, when the cards cannot be loaded, and can be closed", async () => {
@@ -96,34 +132,22 @@ describe("TestAll", () => {
   });
 });
 
-// The inverse test: the activities that depend on others (SPEC-021).
-describe("TestAll, the inverse test", () => {
-  it("shows the three results, and finds no dependency when the activities are independent", async () => {
-    render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
-    expect(await screen.findByText(/O módulo passou/, {}, { timeout: 25000 })).toBeDefined();
-    const board = screen.getByRole("list", { name: "Resultado do teste do módulo" });
-    expect(board).toHaveTextContent("Teste unitário (cada atividade sozinha)OK");
-    expect(board).toHaveTextContent("Teste funcional sequencialOK");
-    expect(board).toHaveTextContent("Teste inverso (dependências entre atividades)Nenhuma atividade depende de outra");
-    expect(screen.queryByRole("list", { name: "Atividades que dependem de outras" })).toBeNull();
-  }, 40000);
-
+// The inverse test: the activities that depend on others.
+describe("TestAll, the activities that depend on others", () => {
   it("finds the activity that needs what another one did", async () => {
     // B only works after A ran: alone it fails, and in the reverse order it fails too.
     run.needs = { "b-cmd": "a-cmd" };
     render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
-    expect(await screen.findByText(/O módulo não passou/, {}, { timeout: 25000 })).toBeDefined();
-    const board = screen.getByRole("list", { name: "Resultado do teste do módulo" });
-    expect(board).toHaveTextContent("Teste funcional sequencialOK");
-    expect(board).toHaveTextContent("1 atividade depende de outras");
-    const dependents = screen.getByRole("list", { name: "Atividades que dependem de outras" });
-    expect(dependents).toHaveTextContent("B");
-    expect(dependents).toHaveTextContent("passa na sequência e falha sozinha");
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo reprovado");
+    expect(steps()).toHaveTextContent("2. Módulo em sequência2 de 2 comandos como esperado");
+    expect(steps()).toHaveTextContent("1 atividade depende de outras");
+    expect(screen.getByRole("alert", { name: "O que precisa de atenção" })).toHaveTextContent("Passa na sequência e falha sozinha: depende do que outra atividade fez.");
   }, 40000);
 
   it("needs two activities with commands to compare the order", async () => {
     const one = { blocks: blocks.slice(0, 2), setup: undefined };
     render(<TestAll moduleId="mod-1" service={service(one)} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
-    expect(await screen.findByText("É preciso ao menos duas atividades com comandos para comparar a ordem.", {}, { timeout: 25000 })).toBeDefined();
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toBeDefined();
+    expect(steps()).toHaveTextContent("São necessárias ao menos duas atividades com comandos.");
   }, 40000);
 });

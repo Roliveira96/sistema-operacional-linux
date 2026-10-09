@@ -428,6 +428,20 @@ textarea.input {
   background: var(--color-surface-sunken);
 }
 
+// Inside the panel of the test of the module the frame, the title and the buttons are the panel's.
+.compactTester {
+  padding: 0;
+  border: 0;
+
+  .terminalBox {
+    height: clamp(18rem, 50vh, 30rem);
+  }
+
+  .results {
+    max-height: clamp(18rem, 50vh, 30rem);
+  }
+}
+
 .results {
   display: flex;
   flex-direction: column;
