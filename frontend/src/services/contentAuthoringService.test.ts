@@ -24,13 +24,15 @@ describe("contentAuthoringService", () => {
     expect(client.put).toHaveBeenCalledWith("/teacher/modules/m/cards", request);
   });
 
-  it("records an environment and reads it back (SPEC-020)", async () => {
-    vi.mocked(client.post).mockResolvedValueOnce({ scenarioId: "s-1" });
-    expect(await service.createEnvironment("m 1", { formato: "x" })).toBe("s-1");
-    expect(client.post).toHaveBeenCalledWith("/teacher/modules/m%201/environments", { snapshot: { formato: "x" } });
-    vi.mocked(client.get).mockResolvedValueOnce({ scenarioId: "s-1", snapshot: { formato: "x" } });
-    expect(await service.getEnvironment("s-1")).toEqual({ formato: "x" });
-    expect(client.get).toHaveBeenLastCalledWith("/teacher/environments/s-1");
+  it("reads the blocks with the snapshot of the module and stores a new one (SPEC-021)", async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({ blocks: [{ id: "b" }], setup: { summary: "s", steps: [{ command: "mkdir /x" }] } });
+    expect(await service.content("m 1")).toEqual({ blocks: [{ id: "b" }], setup: { summary: "s", steps: [{ command: "mkdir /x" }] } });
+    vi.mocked(client.get).mockResolvedValueOnce({ blocks: [], setup: null });
+    expect((await service.content("m")).setup).toBeUndefined();
+
+    vi.mocked(client.put).mockResolvedValueOnce({ setup: { steps: [{ command: "ls" }] } });
+    expect(await service.setModuleSetup("m 1", { summary: " ", steps: [{ command: " ls " }] })).toEqual({ summary: "", steps: [{ command: "ls" }] });
+    expect(client.put).toHaveBeenCalledWith("/teacher/modules/m%201/setup", { steps: [{ command: "ls" }] });
   });
 
   it("inactivates the blocks of a card", async () => {

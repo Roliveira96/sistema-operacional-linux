@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { environmentBefore, groupCards, type CardGroup } from "@/lib/cardModel";
+import { groupCards, type CardGroup } from "@/lib/cardModel";
+import { allLayers, type Setup, type SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import { CardBuilder } from "./CardBuilder";
@@ -20,7 +21,7 @@ interface CardScreenProps {
   service?: ContentAuthoringService;
 }
 
-type State = { status: "loading" } | { status: "missing" } | { status: "ready"; group?: CardGroup; baseId?: string };
+type State = { status: "loading" } | { status: "missing" } | { status: "ready"; group?: CardGroup; before: SetupLayer[] };
 
 /**
  * The screen of one card of a module: create (`/cards/new`) or edit (`/cards/[blockId]`). It loads
@@ -34,17 +35,19 @@ export function CardScreen({ moduleId, cardKey, afterId, service = contentAuthor
   useEffect(() => {
     let active = true;
     service
-      .list(moduleId)
-      .then((blocks) => {
+      .content(moduleId)
+      .then(({ blocks, setup }) => {
         if (!active) return;
         const groups = groupCards(blocks);
+        // The snapshots that run before the card: the module, then the cards above it (SPEC-021 RN-03).
+        const layersBefore = (index: number) => allLayers(setup as Setup | undefined, groups.slice(0, index).flatMap((g) => g.blocks));
         if (!cardKey) {
           // A new card goes after the card that holds `afterId`, or at the end.
           const after = afterId ? groups.findIndex((g) => g.blocks.some((b) => b.id === afterId)) : -1;
-          return setState({ status: "ready", baseId: environmentBefore(groups, after >= 0 ? after + 1 : groups.length) });
+          return setState({ status: "ready", before: layersBefore(after >= 0 ? after + 1 : groups.length) });
         }
         const at = groups.findIndex((g) => g.key === cardKey);
-        setState(at >= 0 ? { status: "ready", group: groups[at], baseId: environmentBefore(groups, at) } : { status: "missing" });
+        setState(at >= 0 ? { status: "ready", group: groups[at], before: layersBefore(at) } : { status: "missing" });
       })
       .catch(() => active && setState({ status: "missing" }));
     return () => {
@@ -77,7 +80,7 @@ export function CardScreen({ moduleId, cardKey, afterId, service = contentAuthor
           moduleId={moduleId}
           group={state.group}
           afterId={afterId}
-          environmentBaseId={state.baseId}
+          before={state.before}
           service={service}
           onCancel={() => router.push(back)}
           onCreated={(blocks) => router.replace(`/app/modules/${moduleId}/cards/${blocks[0]!.id}`)}

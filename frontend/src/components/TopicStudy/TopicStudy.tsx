@@ -7,6 +7,8 @@ import { useModuleCheck } from "@/hooks/useModuleCheck";
 import { useIdentity, type IdentitySources } from "@/hooks/useIdentity";
 import { useNarrator, type NarrationPart, type NarrationWarning } from "@/hooks/useNarrator";
 import { useTopicPlayer } from "@/hooks/useTopicPlayer";
+import { allLayers, type Setup, type SetupLayer } from "@/lib/setup";
+import { runLayers } from "@/lib/setupRunner";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { cheatSheetHtml } from "@/engine/terminalWindow";
 import {
@@ -46,7 +48,7 @@ const TOAST_MS = 3200;
 export interface TopicStudyProps {
   moduleId: string;
   backHref: string;
-  content?: Pick<ContentService, "blocks" | "questions">;
+  content?: Pick<ContentService, "content" | "questions">;
   modules?: Pick<typeof moduleService, "getModuleById">;
   practice?: Pick<PracticeService, "scenario" | "topicScenario" | "checkModule" | "progress">;
   /** Voice of the karaoke reader (SPEC-018). */
@@ -62,6 +64,10 @@ interface Loaded {
   script: TopicScript;
   challenges: PublicQuestion[];
   scenario: unknown;
+  /** The snapshots of the module and of the cards, in the order they prepare the machine (SPEC-021). */
+  layers: SetupLayer[];
+  /** The machine starts from the scenario, so the snapshots still have to run. */
+  needsSetup: boolean;
   storageKey: string;
   initialSnapshot: unknown;
   initialCompleted: string[];
@@ -96,7 +102,7 @@ export function TopicStudy({
     (async () => {
       try {
         // The blocks endpoint applies the visibility rules and gives the clearest error.
-        const blocks: ContentBlock[] = await content.blocks(moduleId);
+        const { blocks, setup }: { blocks: ContentBlock[]; setup?: Setup } = await content.content(moduleId);
         const [module, questions, scenario] = await Promise.all([
           modules.getModuleById(moduleId),
           content.questions(moduleId, "EXERCISE"),
@@ -105,15 +111,20 @@ export function TopicStudy({
         // Progress needs a session; visitors simply see no completions.
         const progress = await practice.progress(moduleId).catch(() => []);
         if (!active) return;
-        const storageKey = machineKey(moduleId, scenario);
+        const layers = allLayers(setup, blocks);
+        // A change in a snapshot drops the saved machine, as a change in the scenario does.
+        const storageKey = machineKey(moduleId, layers.length > 0 ? { scenario, layers: layers.map((l) => l.setup) } : scenario);
+        const saved = loadMachine(storageKey);
         setState({
           kind: "loaded",
           module,
           script: buildTopicScript(blocks),
           challenges: questions.filter((q) => q.kind === "PRACTICAL"),
           scenario,
+          layers,
+          needsSetup: saved === null && layers.length > 0,
           storageKey,
-          initialSnapshot: loadMachine(storageKey) ?? scenario,
+          initialSnapshot: saved ?? scenario,
           initialCompleted: progress.filter((p) => p.completedAt).map((p) => p.questionId),
         });
       } catch (error) {
@@ -157,8 +168,17 @@ type ScreenProps = Loaded & {
   confirm: (message: string) => boolean;
 };
 
-function TopicScreen({ module, script, challenges, scenario, storageKey, initialSnapshot, initialCompleted, moduleId, backHref, practice, speech, identitySources, confirm }: ScreenProps) {
+function TopicScreen({ module, script, challenges, scenario, layers, needsSetup, storageKey, initialSnapshot, initialCompleted, moduleId, backHref, practice, speech, identitySources, confirm }: ScreenProps) {
   const win = useRef<TerminalWindow | null>(null);
+  const typingSpeed = useRef(1);
+
+  /** Runs the snapshots of the module and of the cards on the fresh machine, then keeps it (SPEC-021 RN-05). */
+  const prepare = async () => {
+    const machine = win.current;
+    if (!machine || layers.length === 0) return;
+    await runLayers(machine, layers, { restoreSpeed: typingSpeed.current });
+    saveMachine(storageKey, machine.snapshot());
+  };
   const study = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<"lesson" | "challenges">(script.cards.length > 0 ? "lesson" : "challenges");
   const [toast, setToast] = useState<string | null>(null);
@@ -243,9 +263,10 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
       },
       stopNarration,
       onStop: stopNarration,
-      resetMachine: () => {
+      resetMachine: async () => {
         clearMachine(storageKey);
         win.current?.reset(scenario);
+        await prepare();
       },
       setTerminalSpeed: (speed) => win.current?.setSpeed(speed),
       onCardStart: (card) => {
@@ -258,6 +279,9 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
   );
 
   const { speed, setSpeed } = player;
+  useEffect(() => {
+    typingSpeed.current = speed;
+  }, [speed]);
   const changeSpeed = useCallback(
     (value: number) => {
       setSpeed(value);
@@ -279,8 +303,11 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
     (window: TerminalWindow) => {
       win.current = window;
       window.setSpeed(speed);
+      if (needsSetup) void prepare();
     },
-    [speed],
+    // prepare only reads refs and props that never change in this screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [speed, needsSetup],
   );
 
   const onCommand = useCallback(
@@ -318,6 +345,7 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
     clearMachine(storageKey);
     player.rewind();
     await win.current.resetAnimated(scenario);
+    await prepare();
     notify(t.actions.resetDone);
   };
 

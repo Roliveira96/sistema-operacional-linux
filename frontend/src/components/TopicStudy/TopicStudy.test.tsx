@@ -12,6 +12,8 @@ import { TopicStudy, type TopicStudyProps } from "./TopicStudy";
 const fake = vi.hoisted(() => {
   const window = {
     run: vi.fn(async () => {}),
+    execute: vi.fn(async (step: { command: string; terminal?: number }) => ({ status: step.command ? 0 : 1, output: "" })),
+    history: vi.fn(() => []),
     setSpeed: vi.fn(),
     reset: vi.fn(),
     resetAnimated: vi.fn(async () => {}),
@@ -89,7 +91,7 @@ function defaultSpeech() {
 
 function setup(overrides: Partial<TopicStudyProps> = {}) {
   const content = {
-    blocks: vi.fn().mockResolvedValue(blocks),
+    content: vi.fn().mockResolvedValue({ blocks, setup: undefined }),
     questions: vi.fn().mockResolvedValue([challenge("q1"), challenge("q2"), challenge("t1", { kind: "THEORETICAL" })]),
   };
   const modules = { getModuleById: vi.fn().mockResolvedValue(moduleDetails) };
@@ -133,7 +135,7 @@ describe("TopicStudy loading", () => {
     [403, /restrito/i, false],
     [500, /Não foi possível/, false],
   ])("shows the message for a %s", async (status, text, login) => {
-    setup({ content: { blocks: vi.fn().mockRejectedValue(new ApiProblemError({ type: "x", title: "x", status }, status)), questions: vi.fn() } });
+    setup({ content: { content: vi.fn().mockRejectedValue(new ApiProblemError({ type: "x", title: "x", status }, status)), questions: vi.fn() } });
     expect(await screen.findByRole("alert")).toHaveTextContent(text);
     expect(Boolean(screen.queryByRole("link", { name: "Entrar" }))).toBe(login);
     expect(screen.getByRole("link", { name: /Voltar aos materiais/ })).toHaveAttribute("href", "/materials");
@@ -368,6 +370,52 @@ describe("TopicStudy user", () => {
   });
 });
 
+// Covers SPEC-021 RN-05: the student's machine is prepared by the snapshots, the module first and then the cards.
+describe("TopicStudy snapshots", () => {
+  const withSetups = () => ({
+    content: {
+      content: vi.fn().mockResolvedValue({
+        blocks: [block(1, "TEXT", { title: "A", html: "<p>a</p>", setup: { steps: [{ command: "card-a" }] } }), block(2, "TEXT", { title: "B", html: "<p>b</p>", setup: { steps: [{ command: "card-b", terminal: 2 }] } })],
+        setup: { steps: [{ command: "module-1" }] },
+      }),
+      questions: vi.fn().mockResolvedValue([]),
+    },
+  });
+  const ran = () => fake.window.execute.mock.calls.map(([step]) => step.command);
+
+  it("runs the snapshot of the module and then those of the cards, in order, on a new machine, and keeps the result", async () => {
+    setup(withSetups());
+    await waitFor(() => expect(ran()).toEqual(["module-1", "card-a", "card-b"]));
+    expect(fake.window.execute.mock.calls[2]![0]).toMatchObject({ terminal: 2 });
+    await waitFor(() => expect(Object.keys(localStorage).some((k) => k.startsWith("exame-so:maquina:") && localStorage.getItem(k)?.includes("exame-so/maquina"))).toBe(true));
+  });
+
+  it("does not run them again when the student comes back to a saved machine", async () => {
+    const first = setup(withSetups());
+    await waitFor(() => expect(ran()).toHaveLength(3));
+    first.unmount();
+    fake.window.execute.mockClear();
+    setup(withSetups());
+    await screen.findByRole("heading", { name: "História do Linux" });
+    await waitFor(() => expect(fake.window.setSpeed).toHaveBeenCalled());
+    expect(ran()).toEqual([]);
+  });
+
+  it("runs them again after the machine is reset", async () => {
+    setup(withSetups());
+    await waitFor(() => expect(ran()).toHaveLength(3));
+    fake.window.execute.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /Reset Máquina/ }));
+    await waitFor(() => expect(ran()).toEqual(["module-1", "card-a", "card-b"]));
+    expect(fake.window.resetAnimated).toHaveBeenCalled();
+  });
+
+  it("starts at once when there are no snapshots", async () => {
+    await loaded();
+    expect(fake.window.execute).not.toHaveBeenCalled();
+  });
+});
+
 describe("TopicStudy actions", () => {
   // Covers CA-02: Reset Máquina asks for confirmation and returns to the topic scenario.
   it("resets the machine after confirming", async () => {
@@ -491,13 +539,13 @@ describe("TopicStudy challenges", () => {
   });
 
   it("shows an empty state for a module without challenges", async () => {
-    setup({ content: { blocks: vi.fn().mockResolvedValue(blocks), questions: vi.fn().mockResolvedValue([]) } });
+    setup({ content: { content: vi.fn().mockResolvedValue({ blocks, setup: undefined }), questions: vi.fn().mockResolvedValue([]) } });
     fireEvent.click(await screen.findByRole("tab", { name: /Desafios/ }));
     expect(await screen.findByText(/ainda não tem desafios práticos/)).toBeInTheDocument();
   });
 
   it("opens straight on the challenges when the module has no lesson content", async () => {
-    setup({ content: { blocks: vi.fn().mockResolvedValue([]), questions: vi.fn().mockResolvedValue([challenge("q1")]) } });
+    setup({ content: { content: vi.fn().mockResolvedValue({ blocks: [], setup: undefined }), questions: vi.fn().mockResolvedValue([challenge("q1")]) } });
     expect(await screen.findByText(/Enunciado q1/)).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Roteiro automático" })).not.toBeInTheDocument();
   });
@@ -552,7 +600,7 @@ describe("TopicStudy narration", () => {
   // Covers SPEC-020 CA-07: a command that must fail on purpose is marked and announced.
   it("marks a command that must fail on purpose and warns before running it", async () => {
     const content = {
-      blocks: vi.fn().mockResolvedValue([block(1, "TEXT", { title: "T", html: "<p>x</p>" }), block(2, "COMMAND", { steps: [{ command: "uname -o", expectError: true }, { command: "pwd" }] })]),
+      content: vi.fn().mockResolvedValue({ blocks: [block(1, "TEXT", { title: "T", html: "<p>x</p>" }), block(2, "COMMAND", { steps: [{ command: "uname -o", expectError: true }, { command: "pwd" }] })], setup: undefined }),
       questions: vi.fn().mockResolvedValue([]),
     };
     const { speech } = setup({ content });

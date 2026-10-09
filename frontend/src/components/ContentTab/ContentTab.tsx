@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ContentRenderer } from "@/components/ContentRenderer/ContentRenderer";
-import { cardCounts, groupCards, type CardGroup } from "@/lib/cardModel";
+import { cardCounts, groupCards, parseCard, type CardGroup } from "@/lib/cardModel";
+import { testStatus } from "@/lib/testRecord";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import { ActionMenu } from "./ActionMenu";
@@ -153,6 +154,14 @@ export function ContentTab({ moduleId, service = contentAuthoringService }: Cont
                     <span className={styles.cardTitle}>{title || m.untitled}</span>
                     <span className={styles.counts}>{summaryOf(group)}</span>
                   </div>
+                  {(() => {
+                    const status = testStatus(moduleId, group.key, parseCard(group));
+                    return status === "none" ? null : (
+                      <span className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`} title={m.test.title}>
+                        {m.test[status]}
+                      </span>
+                    );
+                  })()}
                   {edited && <span className={styles.badge}>{m.edited}</span>}
                   {inactive && <span className={`${styles.badge} ${styles.badgeOff}`}>{m.inactive}</span>}
                   <div className={styles.rowActions}>

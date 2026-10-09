@@ -1,3 +1,4 @@
+import { parseSetup } from "@/lib/setup";
 import { httpClient, type HttpClient } from "./httpClient";
 
 export type BlockType = "TEXT" | "COMMAND" | "TIP" | "CURIOSITY" | "STEP_BY_STEP" | "CARDS" | "WIDGET" | "LEGACY_HTML";
@@ -45,8 +46,11 @@ export interface ModuleBlockProgressResult {
 /** Read endpoints of SPEC-012. Answers never reach these responses. */
 export function createContentService(client: HttpClient = httpClient) {
   return {
-    blocks: async (moduleId: string) =>
-      (await client.get<{ blocks: ContentBlock[] }>(`/modules/${encodeURIComponent(moduleId)}/blocks`)).blocks,
+    /** The blocks of the module and its snapshot, the commands that prepare the machine (SPEC-021). */
+    content: async (moduleId: string) => {
+      const r = await client.get<{ blocks: ContentBlock[]; setup?: unknown }>(`/modules/${encodeURIComponent(moduleId)}/blocks`);
+      return { blocks: r.blocks, setup: parseSetup(r.setup) };
+    },
     questions: async (moduleId: string, usage?: "EXERCISE" | "ASSESSMENT") =>
       (
         await client.get<{ questions: PublicQuestion[] }>(

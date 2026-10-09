@@ -4,6 +4,7 @@
 // that stays so the reading progress of the students is not lost.
 
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
+import { legacySetup, parseSetup, setupPayload, type Setup } from "./setup";
 
 type Payload = Record<string, unknown>;
 
@@ -48,16 +49,9 @@ export interface CardBox {
   html: string;
 }
 
-/** The machine the author prepared for the module from this card on (SPEC-020). */
-export interface CardEnvironment {
-  scenarioId: string;
-  summary: string;
-  /** What the author typed in the terminal, for consulting only. */
-  commands: string[];
-}
-
 export interface CardModel {
-  environment?: CardEnvironment;
+  /** The snapshot of this card: commands run after the ones of the module and of the earlier cards (SPEC-021). */
+  setup?: Setup;
   headerId?: string;
   headerUpdatedAt?: string;
   pill: string;
@@ -222,10 +216,7 @@ export function parseCard(group: CardGroup): CardModel {
     model.headerUpdatedAt = group.header.updatedAt;
     model.pill = str(group.header.payload.command);
     model.title = str(group.header.payload.title);
-    const env = group.header.payload.environment as { scenarioId?: unknown; summary?: unknown; commands?: unknown } | undefined;
-    if (env && str(env.scenarioId)) {
-      model.environment = { scenarioId: str(env.scenarioId), summary: str(env.summary), commands: Array.isArray(env.commands) ? env.commands.map(str) : [] };
-    }
+    model.setup = parseSetup(group.header.payload.setup) ?? legacySetup(group.header.payload.environment);
     const headerHtml = str(group.header.payload.html);
     if (headerHtml.trim() !== "") model.elements.push({ id: newId(), ...classify(headerHtml) });
   }
@@ -297,7 +288,7 @@ export function buildBlocks(card: CardModel): BuiltCard {
   }
   if (hasHeader) {
     const payload: Payload = { title: card.title.trim(), command: card.pill.trim(), html: headerHtml };
-    if (card.environment) payload.environment = { scenarioId: card.environment.scenarioId, summary: card.environment.summary.trim(), commands: card.environment.commands };
+    if (card.setup && card.setup.steps.length > 0) payload.setup = setupPayload(card.setup);
     push({ id: card.headerId, updatedAt: card.headerUpdatedAt, type: "TEXT", payload }, headerFrom);
   }
 
@@ -345,7 +336,8 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
   const plain = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
   if (requireTitle && card.title.trim() === "") add("title", "required");
-  if (card.environment && card.title.trim() === "") add("environment", "needs-title");
+  if (card.setup && card.setup.steps.length > 0 && card.title.trim() === "") add("setup", "needs-title");
+  card.setup?.steps.forEach((s, i) => s.command.trim() === "" && add(`setup-${i}`, "required"));
   for (const el of card.elements) {
     if (el.kind === "text" && plain(el.html) === "") add(el.id, "required");
     if (el.kind === "code" && el.code.trim() === "") add(el.id, "required");
@@ -375,20 +367,11 @@ export function placeServerErrors(built: BuiltCard, params: { name: string; reas
     const step = /^steps\[(\d+)\]/.exec(field);
     let target = from[0] ?? "title";
     if (step) target = from[Number(step[1])] ?? target;
-    else if (from[0] === "header") target = field.startsWith("environment") ? "environment" : field === "html" && from[1] ? from[1] : "title";
+    else if (from[0] === "header") target = /^setup\.steps\[(\d+)\]/.test(field) ? `setup-${/^setup\.steps\[(\d+)\]/.exec(field)![1]}` : field.startsWith("setup") ? "setup" : field === "html" && from[1] ? from[1] : "title";
     const shown = step ? field.slice((step[0] ?? "").length).replace(/^\./, "") : field;
     errors[target] = [...(errors[target] ?? []), `${shown}: ${p.reason}`];
   }
   return { errors, rest };
-}
-
-/** The id of the environment a card starts from: the one of the closest earlier card that has one (SPEC-020 RN-03). */
-export function environmentBefore(groups: CardGroup[], index: number): string | undefined {
-  for (let i = Math.min(index, groups.length) - 1; i >= 0; i--) {
-    const env = groups[i]?.header?.payload.environment as { scenarioId?: unknown } | undefined;
-    if (env && str(env.scenarioId)) return str(env.scenarioId);
-  }
-  return undefined;
 }
 
 /** A short summary of what a card holds, for the list. */

@@ -37,7 +37,7 @@ const onCancel = vi.fn();
 const onCreated = vi.fn();
 
 beforeEach(() => {
-  service = { list: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn(), createEnvironment: vi.fn(), getEnvironment: vi.fn() };
+  service = { list: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn() };
 });
 
 const renderBuilder = (props: Partial<React.ComponentProps<typeof CardBuilder>> = {}) =>
@@ -300,7 +300,7 @@ describe("CardBuilder, raw html", () => {
   });
 });
 
-describe("CardBuilder, expected error and environment (SPEC-020)", () => {
+describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => {
   it("marks a command that must fail on purpose (CA-07)", async () => {
     service.saveCard.mockResolvedValue([]);
     renderBuilder();
@@ -317,67 +317,95 @@ describe("CardBuilder, expected error and environment (SPEC-020)", () => {
     expect(request.blocks[1]!.payload.steps).toEqual([{ command: "curl http://localhost", terminal: 1, expectError: true }]);
   });
 
-  it("keeps the recorded environment in the card header when the card is saved (CA-02)", async () => {
-    service.saveCard.mockResolvedValue([]);
-    const group = groupCards([block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", environment: { scenarioId: "11111111-1111-4111-8111-111111111111", summary: "pronto", commands: ["mkdir /x"] } })])[0]!;
-    renderBuilder({ group });
-    expect(screen.getByRole("status")).toHaveTextContent("Ambiente gravado (1 comando digitado)");
+  const withSetup = () => groupCards([block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", setup: { summary: "pronto", steps: [{ command: "mkdir /x" }] } })])[0]!;
+  const savedPayload = () => (service.saveCard.mock.calls[0]![1] as { blocks: { payload: Record<string, unknown> }[] }).blocks[0]!.payload;
 
-    // Taking it away is a change of the card, saved with it.
-    fireEvent.click(screen.getByRole("button", { name: "Remover ambiente" }));
+  it("shows the snapshot kept in the card header, lets the author change it and saves it with the card (SPEC-021 CA-02)", async () => {
+    service.saveCard.mockResolvedValue([]);
+    renderBuilder({ group: withSetup() });
+    expect(input("Comando (1)").value).toBe("mkdir /x");
+    expect(input("Resumo do cenário preparado").value).toBe("pronto");
+
+    fireEvent.change(input("Comando (1)"), { target: { value: "mkdir /y" } });
+    fireEvent.click(screen.getByRole("button", { name: "+ Adicionar comando de ambiente" }));
+    fireEvent.change(input("Comando (2)"), { target: { value: "touch /y/a" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
+    await waitFor(() => expect(service.saveCard).toHaveBeenCalled());
+    expect(savedPayload().setup).toEqual({ summary: "pronto", steps: [{ command: "mkdir /y" }, { command: "touch /y/a" }] });
+  });
+
+  it("takes the snapshot away with the card, without keeping a trace", async () => {
+    service.saveCard.mockResolvedValue([]);
+    renderBuilder({ group: withSetup() });
+    fireEvent.click(screen.getByRole("button", { name: "Remover o ambiente" }));
     expect(screen.getByText("Há alterações não salvas.")).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
     await waitFor(() => expect(service.saveCard).toHaveBeenCalled());
-    const request = service.saveCard.mock.calls[0]![1] as { blocks: { payload: Record<string, unknown> }[] };
-    expect(request.blocks[0]!.payload).not.toHaveProperty("environment");
+    expect(savedPayload()).not.toHaveProperty("setup");
   });
 
-  it("records an environment from the terminal and saves it with the card (CA-01, CA-02)", async () => {
+  it("refuses an empty snapshot command before sending anything", async () => {
+    renderBuilder({ group: withSetup() });
+    fireEvent.change(input("Comando (1)"), { target: { value: " " } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
+    expect(await screen.findByText("Informe o comando.")).toBeDefined();
+    expect(service.saveCard).not.toHaveBeenCalled();
+  });
+
+  it("records the commands typed in the terminal as steps, on the machine prepared by the earlier snapshots (SPEC-021 CA-03, CA-04)", async () => {
     let typed: string[] = [];
-    mount.mockResolvedValue({ snapshot: () => ({ formato: "exame-so/maquina" }), history: () => typed, destroy: vi.fn() });
-    service.createEnvironment.mockResolvedValue("22222222-2222-4222-8222-222222222222");
+    let onCommand: ((snapshot: unknown) => void) | undefined;
+    const win = { execute: vi.fn(async () => ({ status: 0, output: "" })), setSpeed: vi.fn(), history: () => ["m1", ...typed], snapshot: () => ({}), destroy: vi.fn() };
+    mount.mockImplementation(async (_c: HTMLElement, _s: unknown, callbacks: { onCommand(s: unknown): void }) => {
+      onCommand = callbacks.onCommand;
+      return win;
+    });
     service.saveCard.mockResolvedValue([]);
     const practice = { topicScenario: vi.fn().mockResolvedValue({ formato: "do-topico" }) };
-    renderBuilder({ practice: practice as never });
+    const before = [{ id: "module", kind: "module" as const, label: "Módulo", setup: { summary: "", steps: [{ command: "m1" }] } }];
+    renderBuilder({ practice: practice as never, before });
     fireEvent.change(screen.getByLabelText("Título principal do card"), { target: { value: "T" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Abrir terminal para preparar o ambiente" }));
-    await waitFor(() => expect((screen.getByRole("button", { name: "Gravar ambiente" }) as HTMLButtonElement).disabled).toBe(false));
-    // With no earlier environment, the author starts from the topic scenario.
+    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
+    await waitFor(() => expect(win.execute).toHaveBeenCalledWith(expect.objectContaining({ command: "m1" })));
     expect(practice.topicScenario).toHaveBeenCalledWith("mod-1");
     expect(mount.mock.calls[0]![1]).toEqual({ formato: "do-topico" });
+    await waitFor(() => expect(screen.queryByText("Preparando a máquina com o módulo e os cards anteriores…")).toBeNull());
+
     typed = ["mkdir /financeiro"];
-    fireEvent.click(screen.getByRole("button", { name: "Gravar ambiente" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("Ambiente gravado");
+    act(() => onCommand?.({}));
+    expect(await screen.findByText("mkdir /financeiro")).toBeDefined();
+    expect(screen.queryByText("m1")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes comandos" }));
+    expect(input("Comando (1)").value).toBe("mkdir /financeiro");
 
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
     await waitFor(() => expect(service.saveCard).toHaveBeenCalled());
-    const request = service.saveCard.mock.calls[0]![1] as { blocks: { payload: Record<string, unknown> }[] };
-    expect(request.blocks[0]!.payload.environment).toEqual({ scenarioId: "22222222-2222-4222-8222-222222222222", summary: "", commands: ["mkdir /financeiro"] });
+    expect(savedPayload().setup).toEqual({ steps: [{ command: "mkdir /financeiro" }] });
   });
 
-  it("starts from the environment of the earlier card when there is one (RN-03)", async () => {
-    mount.mockResolvedValue({ snapshot: () => ({}), history: () => [], destroy: vi.fn() });
-    service.getEnvironment.mockResolvedValue({ formato: "do-card-anterior" });
-    const practice = { topicScenario: vi.fn() };
-    renderBuilder({ environmentBaseId: "env-anterior", practice: practice as never });
+  it("warns, while recording, when an earlier snapshot has a conflict (SPEC-021 CA-06)", async () => {
+    const win = { execute: vi.fn(async () => ({ status: 1, output: "erro" })), setSpeed: vi.fn(), history: () => [], snapshot: () => ({}), destroy: vi.fn() };
+    mount.mockResolvedValue(win);
+    const before = [{ id: "module", kind: "module" as const, label: "Módulo", setup: { summary: "", steps: [{ command: "mkdir /a" }] } }];
+    renderBuilder({ practice: { topicScenario: vi.fn().mockResolvedValue(null) } as never, before });
     fireEvent.change(screen.getByLabelText("Título principal do card"), { target: { value: "T" } });
-    fireEvent.click(screen.getByRole("button", { name: "Abrir terminal para preparar o ambiente" }));
-    await waitFor(() => expect(mount).toHaveBeenCalled());
-    expect(service.getEnvironment).toHaveBeenCalledWith("env-anterior");
-    expect(practice.topicScenario).not.toHaveBeenCalled();
-    expect(mount.mock.calls[0]![1]).toEqual({ formato: "do-card-anterior" });
+    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
+    expect(await screen.findByText(/Conflito em "Módulo": o comando "mkdir \/a" deu erro/)).toBeDefined();
   });
 
-  it("puts a server error about the environment on its section", async () => {
-    service.saveCard.mockRejectedValue(
-      new ApiProblemError({ type: "validation-error", title: "Invalid", invalidParams: [{ name: "blocks[0].environment.scenarioId", reason: "unknown environment" }] }, 400),
-    );
-    const group = groupCards([block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", environment: { scenarioId: "11111111-1111-4111-8111-111111111111", summary: "", commands: [] } })])[0]!;
-    renderBuilder({ group });
+  it("asks for a title to keep the snapshot, and puts a server error on the step", async () => {
+    renderBuilder();
+    fireEvent.click(screen.getByRole("button", { name: "+ Adicionar comando de ambiente" }));
+    fireEvent.change(input("Comando (1)"), { target: { value: "ls" } });
+    expect(screen.getByText("Dê um título ao card para guardar o ambiente.")).toBeDefined();
+    cleanup();
+
+    service.saveCard.mockRejectedValue(new ApiProblemError({ type: "validation-error", title: "Invalid", invalidParams: [{ name: "blocks[0].setup.steps[0].terminal", reason: "out of range" }] }, 400));
+    renderBuilder({ group: withSetup() });
     fireEvent.change(screen.getByLabelText("Título principal do card"), { target: { value: "Outro" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
-    expect(await screen.findByText("environment.scenarioId: unknown environment")).toBeDefined();
+    expect(await screen.findByText("setup.steps[0].terminal: out of range")).toBeDefined();
   });
 });
 
@@ -407,38 +435,33 @@ describe("CardBuilder, testing the commands (SPEC-020 CA-10)", () => {
     fireEvent.click(test);
     expect(await screen.findByText(/1 de 1 comando como esperado/)).toBeDefined();
     expect(win.execute).toHaveBeenCalledWith(expect.objectContaining({ command: "mkdir /x" }));
-    // With no environment of its own or earlier, the test starts from the topic scenario.
+    // The test starts from the topic scenario.
     expect(practice.topicScenario).toHaveBeenCalledWith("mod-1");
     expect(service.saveCard).not.toHaveBeenCalled();
-    expect(service.createEnvironment).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Fechar teste" }));
     expect(screen.queryByRole("region", { name: "Teste dos comandos" })).toBeNull();
   });
 
-  it("starts every test from a clean machine: the machine before the card, then the snapshot of the card, then the commands", async () => {
+  it("starts every test from a clean machine: the snapshots of the module and of the earlier cards, then the card's own, then the commands (SPEC-021 CA-05)", async () => {
     const win = runner();
     mount.mockResolvedValue(win);
-    service.getEnvironment.mockImplementation(async (id: string) => ({ formato: id }));
     const group = groupCards([
-      block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", environment: { scenarioId: "11111111-1111-4111-8111-111111111111", summary: "", commands: [] } }),
+      block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", setup: { steps: [{ command: "own" }] } }),
       block("c", "COMMAND", 2, { steps: [{ command: "ls", terminal: 1 }] }),
     ])[0]!;
-    renderBuilder({ group, environmentBaseId: "env-anterior" });
+    const before = [{ id: "module", kind: "module" as const, label: "Módulo", setup: { summary: "", steps: [{ command: "mod" }] } }];
+    renderBuilder({ group, before, practice: { topicScenario: vi.fn().mockResolvedValue({ formato: "do-topico" }) } as never });
 
     fireEvent.click(screen.getByRole("button", { name: "Testar comandos" }));
     await screen.findByText(/1 de 1 comando como esperado/);
-    // The machine the student has before this card...
-    expect(service.getEnvironment).toHaveBeenCalledWith("env-anterior");
-    expect(mount.mock.calls[0]![1]).toEqual({ formato: "env-anterior" });
-    // ...and the snapshot of the card on top of it.
-    expect(win.loadScenario).toHaveBeenCalledWith({ formato: "11111111-1111-4111-8111-111111111111" });
+    expect(mount.mock.calls[0]![1]).toEqual({ formato: "do-topico" });
+    expect((win.execute.mock.calls as unknown as [{ command: string }][]).map(([step]) => step.command)).toEqual(["mod", "own", "ls"]);
 
     // Each click starts over, on a new terminal.
     fireEvent.click(screen.getByRole("button", { name: "Testar comandos" }));
     await waitFor(() => expect(mount).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(win.execute).toHaveBeenCalledTimes(2));
-    expect(win.loadScenario).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(win.execute).toHaveBeenCalledTimes(6));
   });
 
   it("shows the error of a command that fails", async () => {

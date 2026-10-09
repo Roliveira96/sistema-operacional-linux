@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { TerminalPane } from "@/components/TopicStudy/TerminalPane";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import type { CardCommand } from "@/lib/cardModel";
+import { stepCount, type SetupLayer } from "@/lib/setup";
+import { isConflict, runLayers, type StepResult } from "@/lib/setupRunner";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import styles from "./CardBuilder.module.scss";
 
@@ -56,31 +58,36 @@ function verdictText(v: Verdict): string {
 interface CardTesterProps {
   /** The commands as they are on the screen, saved or not. */
   commands: CardCommand[];
-  /** The machine the test starts from: the environment before this card, or the topic scenario. */
+  /** The machine the test starts from: the topic scenario. */
   loadBase: () => Promise<unknown>;
-  /** The environment (snapshot) of the card, loaded into the clean machine before the commands. */
-  loadEnvironment?: () => Promise<unknown>;
+  /** The snapshots run before the commands, in order: the module, the earlier cards and this one (SPEC-021). */
+  layers: SetupLayer[];
   onClose: () => void;
+  /** Called when a test ran to the end: true when the snapshots and every command ended as expected. */
+  onFinish?: (passed: boolean) => void;
 }
 
 /**
- * Tests a card the way a student will get it (SPEC-020): a clean machine, then the environment of
- * the card (the snapshot), then every command in order. It shows whether each command ended as
+ * Tests a card the way a student will get it (SPEC-021): a clean machine, then the snapshots (the
+ * module, the earlier cards and this one) and then every command in order. A snapshot command that
+ * fails is a conflict and is reported with what the terminal said. It shows whether each command ended as
  * expected and, when one fails, what the terminal said. It works on a throwaway machine: nothing is saved.
  */
-export function CardTester({ commands, loadBase, loadEnvironment, onClose }: CardTesterProps) {
+export function CardTester({ commands, loadBase, layers, onClose, onFinish }: CardTesterProps) {
   const [base, setBase] = useState<{ machine: unknown } | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [terminal, setTerminal] = useState<TerminalWindow | null>(null);
   const [env, setEnv] = useState<EnvState>("pending");
+  const [conflicts, setConflicts] = useState<StepResult[]>([]);
+  const [envProgress, setEnvProgress] = useState(0);
   const [results, setResults] = useState<Result[]>(() => commands.map(() => ({ state: "pending" })));
   const [finished, setFinished] = useState(false);
   const stop = useRef(false);
   const alive = useRef(true);
-  const latest = useRef({ commands, loadEnvironment });
+  const latest = useRef({ commands, layers, onFinish });
   useEffect(() => {
-    latest.current = { commands, loadEnvironment };
+    latest.current = { commands, layers, onFinish };
   });
 
   useEffect(() => {
@@ -104,7 +111,8 @@ export function CardTester({ commands, loadBase, loadEnvironment, onClose }: Car
 
   useEffect(() => {
     if (!terminal) return;
-    const { commands: steps, loadEnvironment: prepare } = latest.current;
+    const { commands: steps, layers: toRun } = latest.current;
+    let passed = true;
     stop.current = false;
     let current = true;
     const set = (i: number, result: Result) => current && alive.current && setResults((prev) => prev.map((r, j) => (j === i ? result : r)));
@@ -115,16 +123,25 @@ export function CardTester({ commands, loadBase, loadEnvironment, onClose }: Car
     void (async () => {
       terminal.setSpeed(6);
 
-      // 1. The snapshot of the card, on top of the clean machine.
-      if (prepare) {
+      // 1. The snapshots, in order: the module, the earlier cards, this card.
+      if (toRun.length > 0) {
         if (current && alive.current) setEnv("running");
-        try {
-          await terminal.loadScenario(await prepare());
-          if (current && alive.current) setEnv("ok");
-        } catch {
-          if (current && alive.current) setEnv("failed");
+        const results = await runLayers(terminal, toRun, {
+          restoreSpeed: 6,
+          shouldStop: () => stop.current || !current,
+          onStep: () => current && alive.current && setEnvProgress((n) => n + 1),
+        });
+        const bad = results.filter(isConflict);
+        if (current && alive.current) {
+          setConflicts(bad);
+          setEnv(bad.length > 0 ? "failed" : "ok");
+        }
+        if (bad.length > 0) {
           skipFrom(0, { kind: "envFailed" });
-          if (current && alive.current) setFinished(true);
+          if (current && alive.current) {
+            setFinished(true);
+            latest.current.onFinish?.(false);
+          }
           return;
         }
       }
@@ -134,10 +151,12 @@ export function CardTester({ commands, loadBase, loadEnvironment, onClose }: Car
         const step = steps[i]!;
         if (stop.current || !current) {
           skipFrom(i, { kind: "stopped" });
-          break;
+          if (current && alive.current) setFinished(true);
+          return;
         }
         if (step.command.trim() === "") {
           set(i, { state: "done", verdict: { kind: "empty" } });
+          passed = false;
           continue;
         }
         set(i, { state: "running" });
@@ -147,9 +166,14 @@ export function CardTester({ commands, loadBase, loadEnvironment, onClose }: Car
           login: step.login && step.login.user.trim() ? { user: step.login.user.trim(), password: step.login.password } : undefined,
           answers: step.answers.filter((a) => a.trim() !== ""),
         });
-        set(i, { state: "done", verdict: judge(status, step.expectError), output });
+        const verdict = judge(status, step.expectError);
+        passed = passed && isGood(verdict);
+        set(i, { state: "done", verdict, output });
       }
-      if (current && alive.current) setFinished(true);
+      if (current && alive.current) {
+        setFinished(true);
+        latest.current.onFinish?.(passed);
+      }
     })();
     return () => {
       current = false;
@@ -160,14 +184,16 @@ export function CardTester({ commands, loadBase, loadEnvironment, onClose }: Car
     setTerminal(null);
     setFinished(false);
     setEnv("pending");
+    setConflicts([]);
+    setEnvProgress(0);
     setResults(latest.current.commands.map(() => ({ state: "pending" })));
     setAttempt((n) => n + 1);
   };
 
   const done = results.filter((r): r is Extract<Result, { state: "done" }> => r.state === "done");
   const good = done.filter((r) => isGood(r.verdict)).length;
-  const hasEnv = Boolean(loadEnvironment);
-  const envText = env === "pending" ? m.pending : env === "running" ? m.running : env === "ok" ? m.environmentOk : m.environmentFailed;
+  const hasEnv = layers.length > 0;
+  const envText = env === "pending" ? m.pending : env === "running" ? m.progress(envProgress, stepCount(layers)) : env === "ok" ? m.environmentOk : m.environmentFailed(conflicts.length);
 
   return (
     <div className={styles.tester} role="region" aria-label={m.title}>
@@ -212,6 +238,17 @@ export function CardTester({ commands, loadBase, loadEnvironment, onClose }: Car
               <li className={`${styles.result} ${env === "failed" ? styles.resultBad : env === "ok" ? styles.resultGood : ""}`} aria-label={m.environmentStep}>
                 <code>{m.environmentStep}</code>
                 <span className={styles.resultText}>{envText}</span>
+                {conflicts.map((c) => (
+                  <div key={`${c.layer.id}-${c.index}`} role="alert">
+                    <span className={styles.outputLabel}>{m.conflict(c.layer.label, c.step.command, c.layer.kind === "module")}</span>
+                    {c.output && (
+                      <>
+                        <span className={styles.outputLabel}>{m.terminalSaid}</span>
+                        <pre className={styles.output}>{c.output}</pre>
+                      </>
+                    )}
+                  </div>
+                ))}
               </li>
             )}
             {commands.map((c, i) => {

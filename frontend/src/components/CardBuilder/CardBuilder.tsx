@@ -19,12 +19,14 @@ import {
   type CardModel,
   type ElementKind,
 } from "@/lib/cardModel";
+import type { SetupLayer } from "@/lib/setup";
+import { saveTest } from "@/lib/testRecord";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import { ApiProblemError } from "@/services/httpClient";
 import { practiceService, type PracticeService } from "@/services/practiceService";
 import { CardTester } from "./CardTester";
-import { EnvironmentRecorder } from "./EnvironmentRecorder";
+import { SetupEditor } from "./SetupEditor";
 import styles from "./CardBuilder.module.scss";
 
 const m = authoringMessages.builder;
@@ -36,8 +38,8 @@ interface CardBuilderProps {
   /** A new card goes after this block; without it, at the end. */
   afterId?: string;
   service?: ContentAuthoringService;
-  /** The environment this card starts from: the one of the closest earlier card that has one (SPEC-020). */
-  environmentBaseId?: string;
+  /** The snapshots that run before this card: the module and the earlier cards (SPEC-021). */
+  before?: SetupLayer[];
   practice?: Pick<PracticeService, "topicScenario">;
   /** Called after a new card is stored, with its blocks. */
   onCreated?: (blocks: AuthoredBlock[]) => void;
@@ -63,7 +65,7 @@ function move<T>(list: T[], from: number, to: number): T[] {
 }
 
 const reasonText = (reason: string) => {
-  const known: Record<string, string> = { required: m.required, https: m.https, youtube: m.youtube, url: m.url, "needs-title": m.environment.needsTitleError };
+  const known: Record<string, string> = { required: m.required, https: m.https, youtube: m.youtube, url: m.url, "needs-title": m.setup.needsTitleError };
   return known[reason] ?? reason;
 };
 
@@ -298,7 +300,7 @@ function BoxList({ boxes, labels, errors, onChange }: { boxes: CardBox[]; labels
  * The screen to create or edit one card, in the style of the client's card generator: the form on
  * the left and the live preview on the right (SPEC-019 section 3.1).
  */
-export function CardBuilder({ moduleId, group, afterId, service = contentAuthoringService, environmentBaseId, practice = practiceService, onCreated, onCancel }: CardBuilderProps) {
+export function CardBuilder({ moduleId, group, afterId, service = contentAuthoringService, before = [], practice = practiceService, onCreated, onCancel }: CardBuilderProps) {
   const [stored, setStored] = useState<CardGroup | undefined>(group);
   const [card, setCard] = useState<CardModel>(() => parseCardOrEmpty(group));
   const [baseline, setBaseline] = useState(() => JSON.stringify(parseCardOrEmpty(group), withoutIds));
@@ -386,9 +388,9 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
     return blocks;
   }, [card]);
 
-  const loadBase = async () => (environmentBaseId ? service.getEnvironment(environmentBaseId) : practice.topicScenario(moduleId));
-  const environmentId = card.environment?.scenarioId;
-  const loadEnvironment = environmentId ? async () => service.getEnvironment(environmentId) : undefined;
+  const loadBase = async () => practice.topicScenario(moduleId);
+  // The test runs the module, the earlier cards and then this card's own snapshot, as the student will get them.
+  const testLayers: SetupLayer[] = card.setup && card.setup.steps.length > 0 ? [...before, { id: card.headerId ?? "new", kind: "card", label: card.title.trim(), setup: card.setup }] : before;
   const startTest = () => {
     setTestRun((n) => n + 1);
     window.setTimeout(() => testPanel.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }), 0);
@@ -436,16 +438,10 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             ))}
           </Section>
 
-          <Section title={m.environment.title} hint={m.environment.hint}>
-            <EnvironmentRecorder
-              moduleId={moduleId}
-              environment={card.environment}
-              hasTitle={card.title.trim() !== ""}
-              service={service}
-              loadBase={loadBase}
-              onChange={(environment) => set({ environment })}
-            />
-            <Errors id="environment" errors={errors} />
+          <Section title={m.setup.title} hint={m.setup.hint}>
+            <SetupEditor setup={card.setup} before={before} loadBase={loadBase} errors={errors} onChange={(setup) => set({ setup })} />
+            {card.setup && card.setup.steps.length > 0 && card.title.trim() === "" && <p className={styles.hint}>{m.setup.needsTitleError}</p>}
+            <Errors id="setup" errors={errors} />
           </Section>
 
           <Section
@@ -497,7 +493,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
 
       {testRun > 0 && (
         <div ref={testPanel}>
-          <CardTester key={testRun} commands={card.commands} loadBase={loadBase} loadEnvironment={loadEnvironment} onClose={() => setTestRun(0)} />
+          <CardTester key={testRun} commands={card.commands} loadBase={loadBase} layers={testLayers} onClose={() => setTestRun(0)} onFinish={(passed) => stored && saveTest(moduleId, stored.key, passed, card)} />
         </div>
       )}
 
@@ -524,7 +520,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
         <button type="button" className={styles.secondary} onClick={onCancel}>
           {m.cancel}
         </button>
-        <button type="button" className={styles.secondary} title={m.tester.openTitle} onClick={startTest} disabled={card.commands.length === 0}>
+        <button type="button" className={styles.secondary} title={m.tester.openTitle} onClick={startTest} disabled={card.commands.length === 0 && testLayers.length === 0}>
           {m.tester.open}
         </button>
         <button type="button" className={styles.primary} onClick={() => void save()} disabled={saving || (Boolean(stored) && !dirty)}>

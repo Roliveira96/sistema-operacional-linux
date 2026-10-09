@@ -148,3 +148,4 @@ Nenhuma em aberto. O Tech Lead respondeu em 09/10/2026:
 | :--- | :--- | :--- |
 | 09/10/2026 | Implementador (Claude) | Criação, a partir do pedido do Tech Lead de versionar o módulo e de ter um snapshot do módulo compartilhado com os cards, e das respostas dele às três perguntas. Aprovada na mesma data |
 | 09/10/2026 | Tech Lead | Regra acrescentada: sempre há uma versão publicada enquanto outra (o rascunho) é editada. Incluídas a RN-11 (a v1 nasce com o módulo) e o ajuste da CA-09 |
+| 09/10/2026 | Tech Lead | Pedido: na lista de conteúdo cada card com comandos informa se foi testado e passou. Implementado como selo (não testado, passou, falhou, alterado desde o teste), guardado neste navegador; levar ao servidor se a equipe toda precisar ver |

@@ -17,8 +17,8 @@ export interface PlayerControls {
    * not run because the narration was stopped first.
    */
   runStep(step: ScriptStep, silent?: boolean): Promise<void | boolean>;
-  /** Restores the topic machine at once, without animation. */
-  resetMachine(): void;
+  /** Restores the topic machine at once, without animation, and prepares it with the snapshots. */
+  resetMachine(): void | Promise<void>;
   setTerminalSpeed(speed: number): void;
   /** Called when a card starts playing, to bring it into view. */
   onCardStart?(card: number): void;
@@ -193,7 +193,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
     stopPlaying();
     const target = state.index - 1;
     state.busy = true;
-    state.controls.resetMachine();
+    await state.controls.resetMachine();
     state.controls.setTerminalSpeed(REPLAY_SPEED);
     try {
       for (let i = 0; i <= target; i++) {

@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthoredBlock, ContentAuthoringService } from "@/services/contentAuthoringService";
+import { groupCards, parseCard } from "@/lib/cardModel";
+import { saveTest } from "@/lib/testRecord";
 import { ContentTab } from "./ContentTab";
 
 const push = vi.fn();
@@ -41,7 +43,8 @@ const blocks = [
 let service: { [K in keyof ContentAuthoringService]: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
-  service = { list: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn(), createEnvironment: vi.fn(), getEnvironment: vi.fn() };
+  localStorage.clear();
+  service = { list: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn() };
   service.list.mockResolvedValue(blocks);
 });
 
@@ -66,6 +69,30 @@ describe("ContentTab", () => {
     expect(screen.getByRole("link", { name: "+ Novo card" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/new");
     expect(screen.getByRole("link", { name: "Criar card depois deste 2" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/new?after=t1");
     expect(screen.getByRole("link", { name: /Ver como o aluno/ }).getAttribute("href")).toBe("/app/modules/mod-1");
+  });
+
+  it("tells, for each card with commands, whether it was tested and passed", async () => {
+    renderTab();
+    await screen.findByText("Atualizar");
+    // "Atualizar" has commands, "Segundo" and the introduction have nothing to test.
+    expect(screen.getByText("não testado")).toBeDefined();
+    expect(screen.getAllByTitle(/Resultado do último teste/)).toHaveLength(1);
+    cleanup();
+
+    const card = parseCard(groupCards(blocks)[1]!);
+    saveTest("mod-1", "h1", true, card);
+    renderTab();
+    expect(await screen.findByText("testado: passou")).toBeDefined();
+    cleanup();
+
+    saveTest("mod-1", "h1", false, card);
+    renderTab();
+    expect(await screen.findByText("testado: falhou")).toBeDefined();
+    cleanup();
+
+    saveTest("mod-1", "h1", true, { ...card, commands: card.commands.slice(1) });
+    renderTab();
+    expect(await screen.findByText("alterado desde o teste")).toBeDefined();
   });
 
   it("shows the empty state and the error state with a retry", async () => {

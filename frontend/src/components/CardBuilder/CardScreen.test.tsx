@@ -4,7 +4,20 @@ import type { AuthoredBlock, ContentAuthoringService } from "@/services/contentA
 import { CardScreen } from "./CardScreen";
 
 // The terminal window of the prototype is exercised in src/engine; here it is replaced.
-vi.mock("@/engine/terminalWindow", () => ({ mountTerminalWindow: vi.fn(async () => ({ snapshot: () => ({}), history: () => [], destroy: vi.fn() })) }));
+const executed = vi.hoisted(() => [] as string[]);
+vi.mock("@/engine/terminalWindow", () => ({
+  mountTerminalWindow: vi.fn(async () => ({
+    snapshot: () => ({}),
+    history: () => [],
+    destroy: vi.fn(),
+    setSpeed: vi.fn(),
+    execute: vi.fn(async ({ command }: { command: string }) => {
+      executed.push(command);
+      return { status: 0, output: "" };
+    }),
+  })),
+}));
+vi.mock("@/services/practiceService", () => ({ practiceService: { topicScenario: async () => ({}) } }));
 const push = vi.fn();
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
@@ -18,6 +31,7 @@ vi.mock("next/link", () => ({
 
 afterEach(() => {
   cleanup();
+  executed.length = 0;
   vi.clearAllMocks();
 });
 
@@ -39,8 +53,8 @@ const blocks = [
 let service: { [K in keyof ContentAuthoringService]: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
-  service = { list: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn(), createEnvironment: vi.fn(), getEnvironment: vi.fn() };
-  service.list.mockResolvedValue(blocks);
+  service = { list: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn() };
+  service.content.mockResolvedValue({ blocks, setup: undefined });
 });
 
 const api = () => service as unknown as ContentAuthoringService;
@@ -70,7 +84,7 @@ describe("CardScreen", () => {
     expect(await screen.findByText("Card não encontrado. Ele pode ter sido removido.")).toBeDefined();
     cleanup();
 
-    service.list.mockRejectedValueOnce(new Error("x"));
+    service.content.mockRejectedValueOnce(new Error("x"));
     render(<CardScreen moduleId="mod-1" cardKey="h1" service={api()} />);
     expect(await screen.findByText("Card não encontrado. Ele pode ter sido removido.")).toBeDefined();
   });
@@ -89,34 +103,35 @@ describe("CardScreen", () => {
   });
 });
 
-describe("CardScreen, the environment a card starts from (SPEC-020 RN-03)", () => {
-  const env = (id: string) => ({ scenarioId: id });
-  const withEnvs = [
-    block("a", "TEXT", 1, { title: "A", html: "", environment: env("env-a") }),
+describe("CardScreen, the snapshots that run before a card (SPEC-021 RN-03)", () => {
+  const step = (command: string) => ({ steps: [{ command }] });
+  const withSetups = [
+    block("a", "TEXT", 1, { title: "A", html: "", setup: step("a1") }),
     block("b", "TEXT", 2, { title: "B", html: "" }),
-    block("c", "TEXT", 3, { title: "C", html: "", environment: env("env-c") }),
+    block("c", "TEXT", 3, { title: "C", html: "", setup: step("c1") }),
   ];
 
-  async function openTerminalOf(props: { cardKey?: string; afterId?: string }) {
-    service.list.mockResolvedValue(withEnvs);
-    service.getEnvironment = vi.fn().mockResolvedValue({ formato: "m" });
+  async function testOf(props: { cardKey?: string; afterId?: string }) {
+    service.content.mockResolvedValue({ blocks: withSetups, setup: step("m1") });
     render(<CardScreen moduleId="mod-1" service={api()} {...props} />);
-    const title = await screen.findByLabelText("Título principal do card");
-    // The environment is kept in the card header, so a new card needs its title first.
-    if (!props.cardKey) fireEvent.change(title, { target: { value: "Novo" } });
-    fireEvent.click(screen.getByRole("button", { name: "Abrir terminal para preparar o ambiente" }));
+    await screen.findByLabelText("Título principal do card");
+    fireEvent.click(screen.getByRole("button", { name: "Testar comandos" }));
+    await waitFor(() => expect(screen.getByText(/Ambiente preparado|Conflito/)).toBeDefined());
+    return [...executed];
   }
 
-  it("uses the environment of the closest earlier card when editing", async () => {
-    await openTerminalOf({ cardKey: "b" });
-    await waitFor(() => expect(service.getEnvironment).toHaveBeenCalledWith("env-a"));
+  it("runs the snapshot of the module and then those of the cards above, when editing", async () => {
+    expect(await testOf({ cardKey: "b" })).toEqual(["m1", "a1"]);
   });
 
-  it("uses the last environment of the module for a card added at the end, and the one before the place for a card added after another", async () => {
-    await openTerminalOf({});
-    await waitFor(() => expect(service.getEnvironment).toHaveBeenCalledWith("env-c"));
+  it("runs all the earlier snapshots for a card added at the end, and only the ones above for a card added in the middle", async () => {
+    expect(await testOf({})).toEqual(["m1", "a1", "c1"]);
     cleanup();
-    await openTerminalOf({ afterId: "b" });
-    await waitFor(() => expect(service.getEnvironment).toHaveBeenCalledWith("env-a"));
+    executed.length = 0;
+    expect(await testOf({ afterId: "b" })).toEqual(["m1", "a1"]);
+  });
+
+  it("puts the own snapshot of the card last", async () => {
+    expect(await testOf({ cardKey: "c" })).toEqual(["m1", "a1", "c1"]);
   });
 });

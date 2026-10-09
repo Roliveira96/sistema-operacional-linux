@@ -1,4 +1,5 @@
 import type { BlockType } from "./contentService";
+import { parseSetup, setupPayload, type Setup } from "@/lib/setup";
 import { httpClient, type HttpClient } from "./httpClient";
 
 /** A block as the authoring routes return it (SPEC-019 5.1). */
@@ -40,12 +41,14 @@ export function createContentAuthoringService(client: HttpClient = httpClient) {
 
   return {
     list: async (moduleId: string) => (await client.get<{ blocks: AuthoredBlock[] }>(moduleBlocks(moduleId))).blocks,
-    /** Records the machine an author prepared and returns its id (SPEC-020 5.1). */
-    createEnvironment: async (moduleId: string, snapshot: unknown) =>
-      (await client.post<{ scenarioId: string }>(`/teacher/modules/${encodeURIComponent(moduleId)}/environments`, { snapshot })).scenarioId,
-    /** Reads a recorded machine, to go on from where another card stopped (SPEC-020 5.2). */
-    getEnvironment: async (scenarioId: string) =>
-      (await client.get<{ snapshot: unknown }>(`/teacher/environments/${encodeURIComponent(scenarioId)}`)).snapshot,
+    /** The blocks and the snapshot of the module (SPEC-021 6). */
+    content: async (moduleId: string) => {
+      const r = await client.get<{ blocks: AuthoredBlock[]; setup?: unknown }>(moduleBlocks(moduleId));
+      return { blocks: r.blocks, setup: parseSetup(r.setup) };
+    },
+    /** Stores the snapshot of the module, shared by every card (SPEC-021 6). */
+    setModuleSetup: async (moduleId: string, setup: Setup) =>
+      parseSetup((await client.put<{ setup?: unknown }>(`/teacher/modules/${encodeURIComponent(moduleId)}/setup`, setupPayload(setup))).setup),
     saveCard: async (moduleId: string, request: SaveCardRequest) =>
       (await client.put<{ blocks: AuthoredBlock[] }>(moduleCards(moduleId), request)).blocks,
     setCardActive: async (moduleId: string, blockIds: string[], active: boolean) =>

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardCommand } from "@/lib/cardModel";
+import type { SetupLayer } from "@/lib/setup";
 import { CardTester, judge } from "./CardTester";
 import "@/test/domMatchers";
 
@@ -38,16 +39,16 @@ beforeEach(() => {
     const next = outcomes.shift() ?? { status: 0 };
     return { status: next.status, output: next.output ?? "" };
   });
-  loadScenario = vi.fn(async () => {
-    calls.push("loadScenario");
-  });
+  loadScenario = vi.fn(async () => {});
   mount.mockImplementation(async () => ({ execute, loadScenario, setSpeed: vi.fn(), snapshot: vi.fn(), history: vi.fn(() => []), destroy: vi.fn() }));
 });
 
-const setup = (commands: CardCommand[], extra: { loadBase?: () => Promise<unknown>; loadEnvironment?: () => Promise<unknown> } = {}) => {
+const layer = (kind: "module" | "card", label: string, ...commands: string[]): SetupLayer => ({ id: label, kind, label, setup: { summary: "", steps: commands.map((command) => ({ command })) } });
+
+const setup = (commands: CardCommand[], extra: { loadBase?: () => Promise<unknown>; layers?: SetupLayer[]; onFinish?: (passed: boolean) => void } = {}) => {
   const onClose = vi.fn();
   const loadBase = extra.loadBase ?? vi.fn().mockResolvedValue({ formato: "base" });
-  render(<CardTester commands={commands} loadBase={loadBase} loadEnvironment={extra.loadEnvironment} onClose={onClose} />);
+  render(<CardTester commands={commands} loadBase={loadBase} layers={extra.layers ?? []} onClose={onClose} onFinish={extra.onFinish} />);
   return { onClose, loadBase };
 };
 
@@ -104,37 +105,71 @@ describe("CardTester", () => {
     expect(within(row(3, "false")).queryByText("O terminal disse:")).toBeNull();
   });
 
-  it("starts from a clean machine, loads the snapshot of the card, and only then runs the commands", async () => {
-    const loadEnvironment = vi.fn().mockResolvedValue({ formato: "do-card" });
-    setup([cmd("ls /financeiro")], { loadEnvironment });
+  it("starts from a clean machine, runs the snapshots of the module and the cards in order, and only then the commands (SPEC-021 CA-05)", async () => {
+    setup([cmd("ls /financeiro")], { layers: [layer("module", "Módulo", "mkdir /financeiro", "useradd ana"), layer("card", "Card A", "touch /financeiro/a")] });
 
     expect(await summary()).toHaveTextContent("1 de 1 comando como esperado");
     expect(mount.mock.calls[0]![1]).toEqual({ formato: "base" });
-    expect(loadEnvironment).toHaveBeenCalledTimes(1);
-    expect(loadScenario).toHaveBeenCalledWith({ formato: "do-card" });
-    expect(calls).toEqual(["loadScenario", "execute ls /financeiro"]);
-    expect(screen.getByRole("listitem", { name: "Preparar o ambiente (snapshot)" })).toHaveTextContent("Ambiente preparado");
+    expect(calls).toEqual(["execute mkdir /financeiro", "execute useradd ana", "execute touch /financeiro/a", "execute ls /financeiro"]);
+    expect(loadScenario).not.toHaveBeenCalled();
+    expect(screen.getByRole("listitem", { name: "Preparar o ambiente (snapshots)" })).toHaveTextContent("Ambiente preparado");
   });
 
-  it("does not run the commands when the snapshot cannot be prepared, and says so", async () => {
-    setup([cmd("ls"), cmd("pwd")], { loadEnvironment: vi.fn().mockRejectedValue(new Error("x")) });
+  it("reports the snapshot command that failed as a conflict, says what the terminal said and does not run the commands (SPEC-021 CA-06)", async () => {
+    outcomes = [{ status: 0 }, { status: 1, output: "mkdir: cannot create directory '/financeiro': File exists" }];
+    setup([cmd("ls"), cmd("pwd")], { layers: [layer("module", "Módulo", "mkdir /a"), layer("card", "Card A", "mkdir /financeiro")] });
+
     expect(await screen.findByText(/nenhum comando rodou/)).toBeDefined();
-    expect(execute).not.toHaveBeenCalled();
-    expect(screen.getByRole("listitem", { name: "Preparar o ambiente (snapshot)" })).toHaveTextContent("Não foi possível preparar o ambiente");
-    expect(screen.getAllByText("Não rodou: o ambiente não foi preparado")).toHaveLength(2);
+    expect(calls).toEqual(["execute mkdir /a", "execute mkdir /financeiro"]);
+    const env = screen.getByRole("listitem", { name: "Preparar o ambiente (snapshots)" });
+    expect(env).toHaveTextContent("Conflito: 1 comando do snapshot deu erro");
+    expect(env).toHaveTextContent('Snapshot do card "Card A": o comando "mkdir /financeiro" deu erro.');
+    expect(within(env).getByText("mkdir: cannot create directory '/financeiro': File exists")).toBeDefined();
+    expect(screen.getAllByText("Não rodou: o ambiente deu conflito")).toHaveLength(2);
   });
 
-  it("has no snapshot row when the card has no environment", async () => {
+  it("names the module when its snapshot is the one that failed, and lists every conflict", async () => {
+    outcomes = [{ status: 1, output: "x" }, { status: 0 }, { status: 2, output: "y" }];
+    setup([cmd("ls")], { layers: [layer("module", "Módulo", "bad1", "good"), layer("card", "Card A", "bad2")] });
+    await screen.findByText(/nenhum comando rodou/);
+    const env = screen.getByRole("listitem", { name: "Preparar o ambiente (snapshots)" });
+    expect(env).toHaveTextContent("Conflito: 2 comandos do snapshot deram erro");
+    expect(env).toHaveTextContent('Snapshot do módulo: o comando "bad1" deu erro.');
+    expect(env).toHaveTextContent('Snapshot do card "Card A": o comando "bad2" deu erro.');
+  });
+
+  it("has no snapshot row when there is no snapshot", async () => {
     setup([cmd("ls")]);
     await summary();
-    expect(screen.queryByRole("listitem", { name: "Preparar o ambiente (snapshot)" })).toBeNull();
-    expect(loadScenario).not.toHaveBeenCalled();
+    expect(screen.queryByRole("listitem", { name: "Preparar o ambiente (snapshots)" })).toBeNull();
   });
 
   it("says the environment serves the student when everything ended as expected", async () => {
     outcomes = [{ status: 0 }, { status: 1 }];
     setup([cmd("touch /a"), cmd("cat /nao", { expectError: true })]);
     expect(await summary()).toHaveTextContent("2 de 2 comandos como esperado. Tudo como esperado. O ambiente serve ao aluno.");
+  });
+
+  it("tells whether the test passed, only when it ran to the end", async () => {
+    const onFinish = vi.fn();
+    outcomes = [{ status: 0 }, { status: 1 }];
+    setup([cmd("touch /a"), cmd("cat /nao", { expectError: true })], { onFinish });
+    await summary();
+    expect(onFinish).toHaveBeenCalledExactlyOnceWith(true);
+    cleanup();
+
+    const failed = vi.fn();
+    outcomes = [{ status: 1 }];
+    setup([cmd("cat /nao")], { onFinish: failed });
+    await summary();
+    expect(failed).toHaveBeenCalledExactlyOnceWith(false);
+    cleanup();
+
+    const conflict = vi.fn();
+    outcomes = [{ status: 1 }];
+    setup([cmd("ls")], { onFinish: conflict, layers: [layer("module", "Módulo", "bad")] });
+    await screen.findByText(/nenhum comando rodou/);
+    expect(conflict).toHaveBeenCalledExactlyOnceWith(false);
   });
 
   it("marks an empty command without running it", async () => {
@@ -158,17 +193,16 @@ describe("CardTester", () => {
     expect(screen.getAllByText("Parado antes de rodar")).toHaveLength(2);
   });
 
-  it("runs again on a fresh terminal, preparing the snapshot again, and closes", async () => {
-    const loadEnvironment = vi.fn().mockResolvedValue({ formato: "do-card" });
-    const { onClose } = setup([cmd("ls")], { loadEnvironment });
+  it("runs again on a fresh terminal, preparing the snapshots again, and closes", async () => {
+    const { onClose } = setup([cmd("ls")], { layers: [layer("module", "Módulo", "mkdir /x")] });
     await summary();
-    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledTimes(2);
 
     fireEvent.click(screen.getByRole("button", { name: "Rodar de novo" }));
-    await waitFor(() => expect(execute).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(execute).toHaveBeenCalledTimes(4));
     await summary();
     expect(mount).toHaveBeenCalledTimes(2);
-    expect(loadScenario).toHaveBeenCalledTimes(2);
+    expect(calls).toEqual(["execute mkdir /x", "execute ls", "execute mkdir /x", "execute ls"]);
 
     fireEvent.click(screen.getByRole("button", { name: "Fechar teste" }));
     expect(onClose).toHaveBeenCalled();

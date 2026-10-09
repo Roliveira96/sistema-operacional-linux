@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
-import { buildBlocks, cardCounts, checkCard, classify, elementHtml, emptyCard, environmentBefore, groupCards, looksSafe, newElement, parseCard, placeServerErrors } from "./cardModel";
+import { buildBlocks, cardCounts, checkCard, classify, elementHtml, emptyCard, groupCards, looksSafe, newElement, parseCard, placeServerErrors } from "./cardModel";
 
 const block = (id: string, type: string, position: number, payload: Record<string, unknown>): AuthoredBlock => ({
   id,
@@ -250,55 +250,53 @@ describe("raw html elements", () => {
   });
 });
 
-describe("environment and expected error (SPEC-020)", () => {
-  const withEnv = [
-    block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", environment: { scenarioId: "11111111-1111-4111-8111-111111111111", summary: "pronto", commands: ["mkdir /x", "useradd ana"] } }),
+describe("snapshot and expected error (SPEC-020, SPEC-021)", () => {
+  const withSetup = [
+    block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", setup: { summary: "pronto", steps: [{ command: "mkdir /x" }, { command: "useradd ana", terminal: 2 }] } }),
     block("c", "COMMAND", 2, { steps: [{ command: "curl http://localhost", terminal: 1, expectError: true }, { command: "ls", terminal: 1 }] }),
   ];
 
-  it("reads the environment of the header and the expected error of a command", () => {
-    const card = parseCard(groupCards(withEnv)[0]!);
-    expect(card.environment).toEqual({ scenarioId: "11111111-1111-4111-8111-111111111111", summary: "pronto", commands: ["mkdir /x", "useradd ana"] });
+  it("reads the snapshot of the header and the expected error of a command", () => {
+    const card = parseCard(groupCards(withSetup)[0]!);
+    expect(card.setup).toEqual({ summary: "pronto", steps: [{ command: "mkdir /x" }, { command: "useradd ana", terminal: 2 }] });
     expect(card.commands.map((c) => c.expectError)).toEqual([true, false]);
   });
 
+  it("turns the environment of the first version into a snapshot", () => {
+    const old = block("h", "TEXT", 1, { title: "Card", html: "", environment: { scenarioId: "x", summary: "s", commands: ["mkdir /a", "touch /a/b"] } });
+    expect(parseCard(groupCards([old])[0]!).setup).toEqual({ summary: "s", steps: [{ command: "mkdir /a" }, { command: "touch /a/b" }] });
+    const { blocks } = buildBlocks(parseCard(groupCards([old])[0]!));
+    expect(blocks[0]!.payload).not.toHaveProperty("environment");
+    expect(blocks[0]!.payload.setup).toEqual({ summary: "s", steps: [{ command: "mkdir /a" }, { command: "touch /a/b" }] });
+  });
+
   it("builds them back, writing expectError only when it is true", () => {
-    const { blocks } = buildBlocks(parseCard(groupCards(withEnv)[0]!));
-    expect(blocks[0]!.payload.environment).toEqual({ scenarioId: "11111111-1111-4111-8111-111111111111", summary: "pronto", commands: ["mkdir /x", "useradd ana"] });
+    const { blocks } = buildBlocks(parseCard(groupCards(withSetup)[0]!));
+    expect(blocks[0]!.payload.setup).toEqual({ summary: "pronto", steps: [{ command: "mkdir /x" }, { command: "useradd ana", terminal: 2 }] });
     expect(blocks[1]!.payload.steps).toEqual([
       { command: "curl http://localhost", terminal: 1, expectError: true },
       { command: "ls", terminal: 1 },
     ]);
   });
 
-  it("has no environment unless the header has one, and needs the title to keep it", () => {
-    expect(parseCard(groupCards([block("h", "TEXT", 1, { title: "Card", html: "" })])[0]!).environment).toBeUndefined();
+  it("has no snapshot unless the header has one, and needs the title and the commands to keep it", () => {
+    const plain = parseCard(groupCards([block("h", "TEXT", 1, { title: "Card", html: "" })])[0]!);
+    expect(plain.setup).toBeUndefined();
+    expect(buildBlocks(plain).blocks[0]!.payload).not.toHaveProperty("setup");
     const card = emptyCard();
-    card.environment = { scenarioId: "x", summary: "", commands: [] };
-    expect(checkCard(card, false).environment).toEqual(["needs-title"]);
+    card.setup = { summary: "", steps: [{ command: "mkdir /x" }, { command: " " }] };
+    expect(checkCard(card, false).setup).toEqual(["needs-title"]);
+    expect(checkCard(card, false)["setup-1"]).toEqual(["required"]);
     card.title = "T";
-    expect(checkCard(card, true).environment).toBeUndefined();
+    expect(checkCard(card, true).setup).toBeUndefined();
   });
 
-  it("puts the server's environment errors on the environment section", () => {
+  it("puts the server's snapshot errors on the section or on the step", () => {
     const card = emptyCard();
     card.title = "T";
-    card.environment = { scenarioId: "x", summary: "", commands: [] };
-    const { errors } = placeServerErrors(buildBlocks(card), [{ name: "blocks[0].environment.scenarioId", reason: "unknown environment" }]);
-    expect(errors.environment).toEqual(["environment.scenarioId: unknown environment"]);
-  });
-
-  it("finds the environment a card starts from", () => {
-    const groups = groupCards([
-      block("a", "TEXT", 1, { title: "A", html: "", environment: { scenarioId: "env-a" } }),
-      block("b", "TEXT", 2, { title: "B", html: "" }),
-      block("c", "TEXT", 3, { title: "C", html: "", environment: { scenarioId: "env-c" } }),
-      block("d", "TEXT", 4, { title: "D", html: "" }),
-    ]);
-    expect(environmentBefore(groups, 0)).toBeUndefined();
-    expect(environmentBefore(groups, 1)).toBe("env-a");
-    expect(environmentBefore(groups, 2)).toBe("env-a");
-    expect(environmentBefore(groups, 3)).toBe("env-c");
-    expect(environmentBefore(groups, 99)).toBe("env-c");
+    card.setup = { summary: "", steps: [{ command: "a" }] };
+    const built = buildBlocks(card);
+    expect(placeServerErrors(built, [{ name: "blocks[0].setup.steps", reason: "too many" }]).errors.setup).toEqual(["setup.steps: too many"]);
+    expect(placeServerErrors(built, [{ name: "blocks[0].setup.steps[0].command", reason: "required" }]).errors["setup-0"]).toEqual(["setup.steps[0].command: required"]);
   });
 });
