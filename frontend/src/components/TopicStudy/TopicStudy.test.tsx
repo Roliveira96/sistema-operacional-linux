@@ -396,10 +396,10 @@ describe("TopicStudy narration", () => {
     expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual([
       "O Unix",
       "texto do card",
-      "ls barra etc",
+      "L S barra E T C",
       "lista",
       WATCH,
-      "whoami",
+      "who am I",
       // The notice of the second command is not asked for again: the audio is already in the cache (CA-10).
       "Na vida real curiosidade",
     ]);
@@ -414,7 +414,7 @@ describe("TopicStudy narration", () => {
     const { speech } = await loaded();
     fireEvent.click(screen.getByRole("button", { name: /Executar no terminal 2: whoami/ }));
     await waitFor(() => expect(fake.window.run).toHaveBeenCalledTimes(1));
-    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual(["whoami", WATCH]);
+    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual(["who am I", WATCH]);
     expect(callOrder(speech.synthesize, 1)).toBeLessThan(callOrder(fake.window.run, 0));
   });
 
@@ -422,18 +422,18 @@ describe("TopicStudy narration", () => {
     const { speech } = await loaded();
     fireEvent.click(screen.getByRole("button", { name: /Executar no terminal 1: ls \/etc/ }));
     await waitFor(() => expect(fake.window.run).toHaveBeenCalled());
-    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual(["ls barra etc", "lista", WATCH]);
+    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual(["L S barra E T C", "lista", WATCH]);
   });
 
   // Covers CA-16: cutting the narration in the middle of a step keeps the command from running.
   it("does not run the command when the narration is stopped before it", async () => {
     const speech = {
-      synthesize: vi.fn((text: string) => (text === "ls barra etc" ? new Promise<SpeechResult>(() => {}) : Promise.resolve(spoken()))),
+      synthesize: vi.fn((text: string) => (text === "L S barra E T C" ? new Promise<SpeechResult>(() => {}) : Promise.resolve(spoken()))),
     };
     setup({ speech });
     await screen.findByRole("heading", { name: "História do Linux" });
     fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
-    await waitFor(() => expect(speech.synthesize).toHaveBeenCalledWith("ls barra etc"));
+    await waitFor(() => expect(speech.synthesize).toHaveBeenCalledWith("L S barra E T C"));
     fireEvent.click(await screen.findByRole("button", { name: /Parar/ }));
     await waitFor(() => expect(screen.queryByRole("button", { name: /Parar/ })).toBeNull());
     expect(fake.window.run).not.toHaveBeenCalled();

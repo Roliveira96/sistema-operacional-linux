@@ -31,7 +31,7 @@ describe("readNarration", () => {
 
   it("skips buttons, scripts and elements marked to skip", () => {
     const root = html('<div><button>Rodar</button><span data-narration-skip="">T2</span><code>whoami</code><script>var a=1</script></div>');
-    expect(readNarration(root).text).toBe("whoami");
+    expect(readNarration(root).text).toBe("who am I");
   });
 
   it("returns an empty text for an element without words", () => {
@@ -147,29 +147,83 @@ describe("wordAt", () => {
   });
 });
 
-// Covers SPEC-018 RF-12: a command is said in Portuguese, not read symbol by symbol.
+// Covers SPEC-018 RF-12 and RF-13: a command is said in Portuguese, not read symbol by symbol,
+// and the names of the commands go through the lexicon so the voice does not mangle them.
 describe("spokenCommand", () => {
   it.each([
-    ["uname -o", "uname traço o"],
-    ["ls -l /etc", "ls traço l barra etc"],
-    ["ls -la", "ls traço l a"],
-    ["rm -rf pasta", "rm traço r f pasta"],
-    ["cat /etc/os-release", "cat barra etc barra os traço release"],
-    ["echo oi > a.txt", "echo oi redireciona para a ponto txt"],
-    ["echo oi >> log.txt", "echo oi anexa em log ponto txt"],
-    ["cat a.txt | sort | head -3", "cat a ponto txt pipe sort pipe head traço 3"],
-    ["apt update && apt upgrade", "apt update e depois apt upgrade"],
-    ["cd ~ && ls ..", "cd til e depois ls ponto ponto"],
-    ["ls --help", "ls traço traço help"],
+    ["uname -o", "iú name traço o"],
+    ["ls -l /etc", "L S traço l barra E T C"],
+    ["ls -la", "L S traço l a"],
+    ["rm -rf pasta", "R M traço r f pasta"],
+    ["cat /etc/os-release", "cát barra E T C barra O S release"],
+    ["echo oi > a.txt", "écô oi redireciona para a ponto T X T"],
+    ["echo oi >> log.txt", "écô oi anexa em log ponto T X T"],
+    ["cat a.txt | sort | head -3", "cát a ponto T X T pipe sort pipe héd traço 3"],
+    ["apt update && apt upgrade", "A P T update e depois A P T upgrade"],
+    ["cd ~ && ls ..", "C D til e depois L S ponto ponto"],
+    ["ls --help", "L S traço traço help"],
     ["sleep 100 &", "sleep 100 em segundo plano"],
-    ["grep 'a b' f.txt", "grep a b f ponto txt"],
-    ["cut -d: -f1 /etc/passwd", "cut traço d dois pontos traço f1 barra etc barra passwd"],
-    ["echo $HOME", "echo cifrão HOME"],
-    ["ls *.txt", "ls asterisco ponto txt"],
+    ["grep 'a b' f.txt", "grép a b f ponto T X T"],
+    ["cut -d: -f1 /etc/passwd", "cut traço d dois pontos traço f1 barra E T C barra password"],
+    ["echo $HOME", "écô cifrão HOME"],
+    ["ls *.txt", "L S asterisco ponto T X T"],
     ["sort < in 2> err", "sort lê de in redireciona os erros para err"],
-    ["find . -name x", "find ponto traço name x"],
+    ["find . -name x", "fáind ponto traço name x"],
+    ["sudo systemctl status nginx", "sudô system C T L status engine X"],
+    ["useradd -m joao", "user add traço m joao"],
+    ["ssh ricardo@localhost", "S S H ricardo arroba localhost"],
+    ["dpkg -i pacote.deb", "D P K G traço i pacote ponto D E B"],
+    ["ls -l /dev/sda", "L S traço l barra dév barra sda"],
+    ["apt-get install tree", "A P T get install tri"],
+    ["git status", "guit status"],
     ["   ", ""],
   ])("says %j as %j", (command, said) => {
     expect(spokenCommand(command)).toBe(said);
+  });
+
+  // Permissions are read digit by digit, but other numbers are not.
+  it("reads the permission after chmod and umask digit by digit, and only there", () => {
+    expect(spokenCommand("chmod 755 script.sh")).toBe("chê mod 7 5 5 script ponto S H");
+    expect(spokenCommand("chmod -R 644 pasta")).toBe("chê mod traço R 6 4 4 pasta");
+    expect(spokenCommand("umask 022")).toBe("u mask 0 2 2");
+    expect(spokenCommand("755")).toBe("7 5 5");
+    expect(spokenCommand("sleep 100")).toBe("sleep 100");
+    expect(spokenCommand("head -3")).toBe("héd traço 3");
+  });
+
+  it("says known compound names as one name", () => {
+    expect(spokenCommand("www-data")).toBe("W W W data");
+    expect(spokenCommand("apt-cache search x")).toBe("A P T cache search x");
+  });
+});
+
+// Covers RF-13: the code in the middle of a lesson text is said as a command, and highlighted as a whole.
+describe("readNarration of inline code", () => {
+  it("says the code of a sentence as a command, not as a word", () => {
+    const root = html("<p>Use o <code>ls -l</code> em <code>/etc</code> e depois o <kbd>chmod 755</kbd>.</p>");
+    expect(readNarration(root).text).toBe("Use o L S traço l em barra E T C e depois o chê mod 7 5 5.");
+  });
+
+  it("does not change the prose around the code", () => {
+    const root = html("<p>O comando ls lista; o usuário root manda.</p>");
+    expect(readNarration(root).text).toBe("O comando ls lista; o usuário root manda.");
+  });
+
+  it("maps every spoken word of a snippet to the whole snippet on the page", () => {
+    const root = html("<p>Rode <code>rm -rf pasta</code> com cuidado.</p>");
+    const narration = readNarration(root);
+    const start = narration.text.indexOf("traço");
+    expect(narration.locate(start, start + "traço".length)?.toString()).toBe("rm -rf pasta");
+    expect(narration.locate(narration.text.indexOf("com"), narration.text.indexOf("com") + 3)?.toString()).toBe("com");
+  });
+
+  it("does not repeat a word the snippet only shows as a symbol", () => {
+    const root = html("<p>combinam com o pipe <code>|</code>, e o sistema.</p>");
+    expect(readNarration(root).text).toBe("combinam com o pipe, e o sistema.");
+  });
+
+  it("separates a snippet from the words next to it", () => {
+    const root = html("<p>veja<code>pwd</code>agora</p>");
+    expect(readNarration(root).text).toBe("veja P W D agora");
   });
 });
