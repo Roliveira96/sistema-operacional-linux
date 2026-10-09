@@ -33,6 +33,7 @@ type ModuleAccess interface {
 // ReadStore reads content for display.
 type ReadStore interface {
 	ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error)
+	ModuleSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
 	ListQuestions(ctx context.Context, moduleID uuid.UUID, usage string, includeDrafts bool) ([]domain.Question, error)
 	ListActiveTemplates(ctx context.Context) ([]TemplateSummary, error)
 	FindQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error)
@@ -133,14 +134,20 @@ func (r *Reader) module(ctx context.Context, moduleID uuid.UUID, v Viewer) (cmre
 	return details, err
 }
 
-// Blocks returns the module blocks in order.
-func (r *Reader) Blocks(ctx context.Context, moduleID uuid.UUID, v Viewer) ([]domain.ContentBlock, error) {
+// ModuleContent is what the study screen reads of a module: its blocks and the snapshot of the module.
+type ModuleContent struct {
+	Blocks []domain.ContentBlock
+	Setup  json.RawMessage
+}
+
+// Content returns the active blocks in order and the snapshot of the module (SPEC-021).
+func (r *Reader) Content(ctx context.Context, moduleID uuid.UUID, v Viewer) (ModuleContent, error) {
 	if _, err := r.module(ctx, moduleID, v); err != nil {
-		return nil, err
+		return ModuleContent{}, err
 	}
 	all, err := r.store.ListBlocks(ctx, moduleID)
 	if err != nil {
-		return nil, err
+		return ModuleContent{}, err
 	}
 	// Inactive blocks stay in the authoring list only (SPEC-019 RN-12).
 	active := make([]domain.ContentBlock, 0, len(all))
@@ -149,7 +156,17 @@ func (r *Reader) Blocks(ctx context.Context, moduleID uuid.UUID, v Viewer) ([]do
 			active = append(active, b)
 		}
 	}
-	return active, nil
+	setup, err := r.store.ModuleSetup(ctx, moduleID)
+	if err != nil {
+		return ModuleContent{}, err
+	}
+	return ModuleContent{Blocks: active, Setup: setup}, nil
+}
+
+// Blocks returns the module blocks in order.
+func (r *Reader) Blocks(ctx context.Context, moduleID uuid.UUID, v Viewer) ([]domain.ContentBlock, error) {
+	content, err := r.Content(ctx, moduleID, v)
+	return content.Blocks, err
 }
 
 // Questions returns the published questions of a module without answers
@@ -239,39 +256,15 @@ func (r *Reader) PracticeItem(ctx context.Context, questionID uuid.UUID, v Viewe
 	return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Snapshot: scenario.Snapshot, Conditions: conditions}, nil
 }
 
-// TopicScenario returns the machine the study screen starts on (SPEC-016 5.1): the environment an
-// author prepared (SPEC-020 RN-03), or the prepared machine of the module topic, or nil when the
-// module has neither and the default machine applies.
+// TopicScenario returns the prepared machine of the module topic (SPEC-016
+// 5.1), or nil when the module has none and the default machine applies. The
+// student machine is prepared on top of it by the snapshots of the module and
+// of its cards (SPEC-021).
 func (r *Reader) TopicScenario(ctx context.Context, moduleID uuid.UUID, v Viewer) (json.RawMessage, error) {
 	details, err := r.module(ctx, moduleID, v)
 	if err != nil {
 		return nil, err
 	}
-
-	// The effective environment is the one of the last active card that has one.
-	blocks, err := r.store.ListBlocks(ctx, moduleID)
-	if err != nil {
-		return nil, err
-	}
-	var last *uuid.UUID
-	for _, b := range blocks {
-		if !b.Active() || b.BlockType != domain.BlockText {
-			continue
-		}
-		if id, ok := environmentRef(b.Payload); ok {
-			last = &id
-		}
-	}
-	if last != nil {
-		sc, err := r.store.FindScenario(ctx, *last)
-		if err == nil {
-			return sc.Snapshot, nil
-		}
-		if !errors.Is(err, ErrNotFound) {
-			return nil, err
-		}
-	}
-
 	if details.Module.SourceKey == nil {
 		return nil, nil
 	}

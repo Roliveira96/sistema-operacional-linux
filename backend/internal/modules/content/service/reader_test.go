@@ -43,6 +43,7 @@ type fakeReadStore struct {
 	keyErr        error
 	askedKey      string
 	blocks        []domain.ContentBlock
+	setup         json.RawMessage
 }
 
 func (f *fakeReadStore) FindScenarioBySourceKey(_ context.Context, key string) (domain.Scenario, error) {
@@ -72,6 +73,10 @@ func (f *fakeReadStore) FindScenario(context.Context, uuid.UUID) (domain.Scenari
 		return domain.Scenario{}, ErrNotFound
 	}
 	return *f.scenario, nil
+}
+
+func (f *fakeReadStore) ModuleSetup(context.Context, uuid.UUID) (json.RawMessage, error) {
+	return f.setup, nil
 }
 
 func (f *fakeReadStore) ListBlocks(context.Context, uuid.UUID) ([]domain.ContentBlock, error) {

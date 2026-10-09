@@ -18,7 +18,7 @@ import (
 
 // Reader is the read use-case port.
 type Reader interface {
-	Blocks(ctx context.Context, moduleID uuid.UUID, v service.Viewer) ([]domain.ContentBlock, error)
+	Content(ctx context.Context, moduleID uuid.UUID, v service.Viewer) (service.ModuleContent, error)
 	Questions(ctx context.Context, moduleID uuid.UUID, usage string, v service.Viewer) ([]service.PublicQuestion, error)
 	TeacherQuestions(ctx context.Context, moduleID uuid.UUID, v service.Viewer) ([]service.TeacherQuestion, error)
 	Templates(ctx context.Context) ([]service.TemplateSummary, error)
@@ -63,16 +63,16 @@ func (h *Handler) blocks(c *gin.Context) {
 	if !ok {
 		return
 	}
-	blocks, err := h.reader.Blocks(c.Request.Context(), id, viewer(c))
+	content, err := h.reader.Content(c.Request.Context(), id, viewer(c))
 	if err != nil {
 		fail(c, err)
 		return
 	}
-	out := make([]blockResponse, len(blocks))
-	for i, b := range blocks {
+	out := make([]blockResponse, len(content.Blocks))
+	for i, b := range content.Blocks {
 		out[i] = blockResponse{ID: b.ID, Type: string(b.BlockType), Position: b.Position, Payload: b.Payload}
 	}
-	c.JSON(http.StatusOK, gin.H{"moduleId": id, "blocks": out})
+	c.JSON(http.StatusOK, gin.H{"moduleId": id, "blocks": out, "setup": setupOrNull(content.Setup)})
 }
 
 func (h *Handler) questions(c *gin.Context) {
@@ -180,4 +180,12 @@ func fail(c *gin.Context, err error) {
 	}
 	_ = c.Error(err)
 	c.Abort()
+}
+
+// setupOrNull makes a module without a snapshot show up as null, not as an empty value.
+func setupOrNull(setup json.RawMessage) json.RawMessage {
+	if len(setup) == 0 {
+		return json.RawMessage("null")
+	}
+	return setup
 }

@@ -20,8 +20,8 @@ import (
 type memStore struct {
 	owner     uuid.UUID
 	blocks    []domain.ContentBlock
+	setup     json.RawMessage
 	clock     time.Time
-	scenarios map[uuid.UUID]domain.Scenario
 }
 
 func (m *memStore) ModuleTeacher(_ context.Context, id uuid.UUID) (uuid.UUID, error) {

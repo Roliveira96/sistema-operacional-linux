@@ -32,7 +32,8 @@ type fakeAuthoring struct {
 	force    bool
 	order    []uuid.UUID
 	card     service.SaveCardInput
-	envID    uuid.UUID
+	setup    json.RawMessage
+	setupIn  json.RawMessage
 }
 
 func (f *fakeAuthoring) block() domain.ContentBlock {
@@ -68,6 +69,16 @@ func (f *fakeAuthoring) SetActive(_ context.Context, who service.Actor, _ uuid.U
 		b.InactiveAt = &now
 	}
 	return b, f.err
+}
+
+func (f *fakeAuthoring) Setup(_ context.Context, who service.Actor, _ uuid.UUID) (json.RawMessage, error) {
+	f.who = who
+	return f.setup, f.err
+}
+
+func (f *fakeAuthoring) SetSetup(_ context.Context, who service.Actor, _ uuid.UUID, raw json.RawMessage) (json.RawMessage, error) {
+	f.who, f.setupIn = who, raw
+	return raw, f.err
 }
 
 func (f *fakeAuthoring) Reorder(_ context.Context, _ service.Actor, _ uuid.UUID, ids []uuid.UUID) ([]domain.ContentBlock, error) {
@@ -221,4 +232,28 @@ func TestAuthorHandler_SetActive(t *testing.T) {
 
 	code, _ = authorCall(t, &fakeAuthoring{err: service.ErrForbidden}, teacher, 100, http.MethodPut, path, `{"active":false}`)
 	assert.Equal(t, http.StatusForbidden, code)
+}
+
+// Covers SPEC-021 6.
+func TestAuthorHandler_Setup(t *testing.T) {
+	f := &fakeAuthoring{setup: json.RawMessage(`{"steps":[{"command":"mkdir /x"}]}`)}
+	module := uuid.NewString()
+
+	// The authoring list carries the snapshot of the module.
+	code, body := authorCall(t, f, teacher, 100, http.MethodGet, "/teacher/modules/"+module+"/blocks", "")
+	assert.Equal(t, http.StatusOK, code)
+	assert.NotNil(t, body["setup"])
+
+	code, body = authorCall(t, f, teacher, 100, http.MethodPut, "/teacher/modules/"+module+"/setup", `{"summary":"s","steps":[{"command":"ls"}]}`)
+	assert.Equal(t, http.StatusOK, code)
+	assert.JSONEq(t, `{"summary":"s","steps":[{"command":"ls"}]}`, string(f.setupIn))
+	assert.NotNil(t, body["setup"])
+
+	code, _ = authorCall(t, f, teacher, 100, http.MethodPut, "/teacher/modules/"+module+"/setup", `nope`)
+	assert.Equal(t, http.StatusBadRequest, code)
+
+	for err, want := range map[error]int{service.ErrForbidden: 403, service.ErrModuleNotFound: 404, &domain.PayloadError{Fields: []domain.FieldError{{Field: "setup.steps[0].command", Reason: "required"}}}: 400} {
+		code, _ = authorCall(t, &fakeAuthoring{err: err}, teacher, 100, http.MethodPut, "/teacher/modules/"+module+"/setup", `{"steps":[]}`)
+		assert.Equal(t, want, code)
+	}
 }

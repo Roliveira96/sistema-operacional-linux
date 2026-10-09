@@ -24,11 +24,13 @@ type fakeReader struct {
 	err    error
 	viewer service.Viewer
 	usage  string
+	setup  json.RawMessage
 }
 
-func (f *fakeReader) Blocks(_ context.Context, _ uuid.UUID, v service.Viewer) ([]domain.ContentBlock, error) {
+func (f *fakeReader) Content(_ context.Context, _ uuid.UUID, v service.Viewer) (service.ModuleContent, error) {
 	f.viewer = v
-	return []domain.ContentBlock{{ID: uuid.New(), BlockType: domain.BlockTip, Position: 1, Payload: json.RawMessage(`{"html":"x"}`)}}, f.err
+	blocks := []domain.ContentBlock{{ID: uuid.New(), BlockType: domain.BlockTip, Position: 1, Payload: json.RawMessage(`{"html":"x"}`)}}
+	return service.ModuleContent{Blocks: blocks, Setup: f.setup}, f.err
 }
 
 func (f *fakeReader) Questions(_ context.Context, _ uuid.UUID, usage string, v service.Viewer) ([]service.PublicQuestion, error) {
@@ -146,4 +148,15 @@ func TestTeacherQuestionsAndTemplates(t *testing.T) {
 	assert.Len(t, body["items"], 1)
 	code, _ = call(t, &fakeReader{err: errors.New("x")}, anonymous, "/assessment-templates", false)
 	assert.Equal(t, http.StatusInternalServerError, code)
+}
+
+// Covers SPEC-021 5: the blocks of a module come with its snapshot, or null.
+func TestBlocksCarryTheModuleSetup(t *testing.T) {
+	_, body := call(t, &fakeReader{}, anonymous, "/modules/"+uuid.NewString()+"/blocks", false)
+	assert.Contains(t, body, "setup")
+	assert.Nil(t, body["setup"])
+
+	_, body = call(t, &fakeReader{setup: json.RawMessage(`{"steps":[{"command":"mkdir /x"}]}`)}, anonymous, "/modules/"+uuid.NewString()+"/blocks", false)
+	setup := body["setup"].(map[string]any)
+	assert.Len(t, setup["steps"], 1)
 }

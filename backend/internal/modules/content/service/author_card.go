@@ -91,10 +91,6 @@ func (a *Author) SaveCard(ctx context.Context, who Actor, moduleID uuid.UUID, in
 		return nil, &domain.PayloadError{Fields: problems}
 	}
 
-	if err := a.checkEnvironments(ctx, entries); err != nil {
-		return nil, err
-	}
-
 	current, err := a.store.ListBlocks(ctx, moduleID)
 	if err != nil {
 		return nil, err

@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/google/uuid"
 )
 
 // Limits of the authored fields (SPEC-019 RN-03, RN-05).
@@ -20,8 +18,9 @@ const (
 	MaxCommandSteps      = 50
 	MaxStepTexts         = 50
 	MaxCards             = 30
-	MaxEnvSummary        = 500
-	MaxEnvCommands       = 200
+	MaxSetupSummary      = 500
+	MaxSetupSteps        = 200
+	MaxSetupAnswers      = 20
 )
 
 // Widget components a block may show (SPEC-019 RN-03).
@@ -90,18 +89,25 @@ func (c *checker) html(field, value string, required bool) string {
 	return clean
 }
 
-// environmentPayload links a card to the machine its author prepared (SPEC-020).
-type environmentPayload struct {
-	ScenarioID string   `json:"scenarioId"`
-	Summary    string   `json:"summary,omitempty"`
-	Commands   []string `json:"commands,omitempty"`
+// setupStep is one command of a snapshot: the same step as a practical command (SPEC-021 3.1).
+type setupStep struct {
+	Command  string        `json:"command"`
+	Terminal *int          `json:"terminal,omitempty"`
+	Login    *loginPayload `json:"login,omitempty"`
+	Answers  []string      `json:"answers,omitempty"`
+}
+
+// setupPayload is a snapshot: a script of commands the machine of the student is prepared with.
+type setupPayload struct {
+	Summary string      `json:"summary,omitempty"`
+	Steps   []setupStep `json:"steps"`
 }
 
 type textPayload struct {
-	Title       string              `json:"title,omitempty"`
-	Command     string              `json:"command,omitempty"`
-	HTML        string              `json:"html"`
-	Environment *environmentPayload `json:"environment,omitempty"`
+	Title   string        `json:"title,omitempty"`
+	Command string        `json:"command,omitempty"`
+	HTML    string        `json:"html"`
+	Setup   *setupPayload `json:"setup,omitempty"`
 }
 
 type tipPayload struct {
@@ -125,14 +131,14 @@ type loginPayload struct {
 }
 
 type commandStep struct {
-	Command           string        `json:"command"`
-	Explanation       string        `json:"explanation,omitempty"`
-	OutputExplanation string        `json:"outputExplanation,omitempty"`
+	Command           string `json:"command"`
+	Explanation       string `json:"explanation,omitempty"`
+	OutputExplanation string `json:"outputExplanation,omitempty"`
 	// ExpectError marks a command that must fail on purpose (SPEC-020 RN-06).
 	ExpectError bool          `json:"expectError,omitempty"`
 	Terminal    *int          `json:"terminal,omitempty"`
-	Login             *loginPayload `json:"login,omitempty"`
-	Answers           []string      `json:"answers,omitempty"`
+	Login       *loginPayload `json:"login,omitempty"`
+	Answers     []string      `json:"answers,omitempty"`
 }
 
 type commandPayload struct {
@@ -157,24 +163,52 @@ type widgetPayload struct {
 	Params    map[string]any `json:"params"`
 }
 
-// environment checks the link of a card to its prepared machine. Only the card header (a text
-// with a title) may carry one.
-func (c *checker) environment(e *environmentPayload, hasTitle bool) {
-	if !hasTitle {
-		c.fail("environment", "only a card with a title can have an environment")
+// setup checks a snapshot: the commands, their terminals and logins, and the answers (SPEC-021 RN-01).
+func (c *checker) setup(prefix string, p *setupPayload) {
+	p.Summary = c.text(prefix+".summary", p.Summary, MaxSetupSummary, false)
+	if len(p.Steps) > MaxSetupSteps {
+		c.fail(prefix+".steps", fmt.Sprintf("must have at most %d steps", MaxSetupSteps))
 		return
 	}
-	if _, err := uuid.Parse(e.ScenarioID); err != nil {
-		c.fail("environment.scenarioId", "must be the id of a stored environment")
+	if p.Steps == nil {
+		p.Steps = []setupStep{}
 	}
-	e.Summary = c.text("environment.summary", e.Summary, MaxEnvSummary, false)
-	if len(e.Commands) > MaxEnvCommands {
-		c.fail("environment.commands", fmt.Sprintf("must have at most %d commands", MaxEnvCommands))
-		return
+	for i := range p.Steps {
+		st := &p.Steps[i]
+		at := func(name string) string { return fmt.Sprintf("%s.steps[%d].%s", prefix, i, name) }
+		st.Command = c.text(at("command"), st.Command, MaxCommandLength, true)
+		if st.Terminal != nil && (*st.Terminal < 1 || *st.Terminal > 3) {
+			c.fail(at("terminal"), "must be from 1 to 3")
+		}
+		if st.Login != nil {
+			st.Login.User = strings.TrimSpace(st.Login.User)
+			if st.Login.User == "" || st.Login.Password == "" {
+				c.fail(at("login"), "user and password must be given together")
+			}
+		}
+		if len(st.Answers) > MaxSetupAnswers {
+			c.fail(at("answers"), fmt.Sprintf("must have at most %d answers", MaxSetupAnswers))
+			continue
+		}
+		for j := range st.Answers {
+			st.Answers[j] = c.text(fmt.Sprintf("%s.steps[%d].answers[%d]", prefix, i, j), st.Answers[j], MaxCommandLength, false)
+		}
 	}
-	for i := range e.Commands {
-		e.Commands[i] = c.text(fmt.Sprintf("environment.commands[%d]", i), e.Commands[i], MaxCommandLength, false)
+}
+
+// NormalizeSetup checks a snapshot and returns it trimmed, ready to be stored. A *PayloadError
+// lists the invalid fields, named under "setup".
+func NormalizeSetup(raw json.RawMessage) (json.RawMessage, error) {
+	var p setupPayload
+	if err := decode(raw, &p); err != nil {
+		return nil, &PayloadError{Fields: []FieldError{{"setup", "must be an object with a list of steps"}}}
 	}
+	c := &checker{}
+	c.setup("setup", &p)
+	if len(c.errs) > 0 {
+		return nil, &PayloadError{Fields: c.errs}
+	}
+	return marshalNoEscape(p)
 }
 
 func decode(raw json.RawMessage, into any) error {
@@ -196,11 +230,15 @@ func NormalizePayload(t BlockType, raw json.RawMessage, s *HTMLSanitizer) (json.
 	if len(c.errs) > 0 {
 		return nil, &PayloadError{Fields: c.errs}
 	}
-	// The markup is stored as written, not as < escapes.
+	return marshalNoEscape(out)
+}
+
+// marshalNoEscape writes JSON with the markup as written, not as \u003c escapes.
+func marshalNoEscape(v any) (json.RawMessage, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
-	if err := enc.Encode(out); err != nil {
+	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
 	return json.RawMessage(bytes.TrimSpace(buf.Bytes())), nil
@@ -217,8 +255,12 @@ func decodeFor(t BlockType, raw json.RawMessage, c *checker, out *any) error {
 		p.Command = c.text("command", p.Command, MaxCommandLength, false)
 		// A text with a title opens a card and may carry no text of its own (SPEC-019).
 		p.HTML = c.html("html", p.HTML, p.Title == "")
-		if p.Environment != nil {
-			c.environment(p.Environment, p.Title != "")
+		if p.Setup != nil {
+			if p.Title == "" {
+				c.fail("setup", "only a card with a title can have a snapshot")
+			} else {
+				c.setup("setup", p.Setup)
+			}
 		}
 		*out = p
 	case BlockTip:

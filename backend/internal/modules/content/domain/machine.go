@@ -4,8 +4,6 @@
 package domain
 
 import (
-	"encoding/json"
-	"errors"
 	"strconv"
 	"strings"
 )
@@ -239,23 +237,4 @@ func (m *Machine) PackageState(name string) (status, version string, ok bool) {
 func (m *Machine) PackageInstalled(name string) bool {
 	status, _, ok := m.PackageState(name)
 	return ok && status == "ii"
-}
-
-// MaxSnapshotBytes is the largest machine an author can record (SPEC-020 RN-01).
-const MaxSnapshotBytes = 2 << 20
-
-// ErrInvalidSnapshot means the data is not a serialized machine of the supported format.
-var ErrInvalidSnapshot = errors.New("snapshot is not a valid serialized machine")
-
-// ValidateSnapshot checks that raw is a serialized machine of the format and version the
-// platform reads. The machine is data: nothing in it is ever executed on the server.
-func ValidateSnapshot(raw []byte) error {
-	var m Machine
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return ErrInvalidSnapshot
-	}
-	if m.Format != MachineFormat || m.Version != MachineVersion || m.Root.Type == "" {
-		return ErrInvalidSnapshot
-	}
-	return nil
 }

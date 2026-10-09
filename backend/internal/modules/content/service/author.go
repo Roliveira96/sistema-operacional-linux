@@ -35,9 +35,9 @@ type AuthorStore interface {
 	DeleteBlock(ctx context.Context, b domain.ContentBlock) error
 	// ReplaceCard applies a whole card in one transaction (SPEC-019 RN-13) and returns its blocks in order.
 	ReplaceCard(ctx context.Context, in ReplaceCardInput) ([]domain.ContentBlock, error)
-	// SaveScenario records a machine prepared by an author; FindScenario reads it back (SPEC-020).
-	SaveScenario(ctx context.Context, s *domain.Scenario) error
-	FindScenario(ctx context.Context, id uuid.UUID) (domain.Scenario, error)
+	// ModuleSetup and SaveModuleSetup read and write the snapshot of the module (SPEC-021).
+	ModuleSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
+	SaveModuleSetup(ctx context.Context, moduleID uuid.UUID, setup json.RawMessage) error
 	// SetActiveMany inactivates or reactivates blocks of a module, marking them as edited.
 	SetActiveMany(ctx context.Context, moduleID uuid.UUID, ids []uuid.UUID, active bool, now time.Time) error
 	// SetActive inactivates (active=false) or reactivates a block and marks it as edited.
