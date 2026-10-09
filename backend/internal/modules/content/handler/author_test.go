@@ -31,6 +31,7 @@ type fakeAuthoring struct {
 	expected time.Time
 	force    bool
 	order    []uuid.UUID
+	card     service.SaveCardInput
 }
 
 func (f *fakeAuthoring) block() domain.ContentBlock {

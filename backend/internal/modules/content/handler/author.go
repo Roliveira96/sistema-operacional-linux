@@ -27,6 +27,8 @@ type Authoring interface {
 	Update(ctx context.Context, who service.Actor, blockID uuid.UUID, payload json.RawMessage, expected time.Time, force bool) (domain.ContentBlock, error)
 	Delete(ctx context.Context, who service.Actor, blockID uuid.UUID) error
 	SetActive(ctx context.Context, who service.Actor, blockID uuid.UUID, active bool) (domain.ContentBlock, error)
+	SaveCard(ctx context.Context, who service.Actor, moduleID uuid.UUID, in service.SaveCardInput) ([]domain.ContentBlock, error)
+	SetActiveMany(ctx context.Context, who service.Actor, moduleID uuid.UUID, ids []uuid.UUID, active bool) ([]domain.ContentBlock, error)
 	Reorder(ctx context.Context, who service.Actor, moduleID uuid.UUID, ids []uuid.UUID) ([]domain.ContentBlock, error)
 }
 
@@ -57,6 +59,8 @@ func (h *AuthorHandler) Register(r gin.IRouter) {
 	teacher.PATCH("/blocks/:id", h.write, h.update)
 	teacher.DELETE("/blocks/:id", h.write, h.remove)
 	teacher.PUT("/blocks/:id/active", h.write, h.setActive)
+	teacher.PUT("/modules/:id/cards", h.write, h.saveCard)
+	teacher.PUT("/modules/:id/cards/active", h.write, h.setCardActive)
 }
 
 // write bounds the body and the rate of the routes that change content.
@@ -273,6 +277,9 @@ func authorFail(c *gin.Context, err error) {
 			params[i] = problem.InvalidParam{Name: f.Field, Reason: f.Reason}
 		}
 		err = problem.Validation("The block content is not valid for its type.", params...)
+	case errors.Is(err, service.ErrInvalidCard):
+		err = problem.Validation("The card does not match the blocks of the module.",
+			problem.InvalidParam{Name: "replaceIds", Reason: "must be adjacent blocks of the module, and kept blocks must keep their type"})
 	case errors.Is(err, service.ErrInvalidOrder):
 		err = problem.Validation("The order must list every block of the module exactly once.",
 			problem.InvalidParam{Name: "blockIds", Reason: "must be exactly the blocks of the module"})

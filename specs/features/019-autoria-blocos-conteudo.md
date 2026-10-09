@@ -52,21 +52,19 @@ Há ainda uma preparação pronta no banco: toda tabela de conteúdo já tem a m
 
 **Tela de edição do módulo (`/app/modules/[id]/edit`):** é organizada em três abas, **Detalhes** (dados do módulo), **Conteúdo** (os blocos) e **Exercícios** (ordem da trilha). A aba **Conteúdo** já existe em modo leitura (lista de blocos, SPEC-010); esta spec a torna editável. **Cada bloco que o estudante vê na tela de estudo aparece na aba Conteúdo**, na mesma ordem e com a mesma pré-visualização (Decisão do Tech Lead, 09/10/2026).
 
-- **Lista de blocos:** uma linha por bloco, na ordem real, com o número, a **espécie** do bloco (ver abaixo), um resumo do conteúdo, as marcas "editado" e "inativo", os botões **Subir** e **Descer** e um **menu de ações** (botão "Ações") com **Ver**, **Editar**, **Inativar** (ou **Ativar**, se já estiver inativo) e **Remover**. O menu abre e fecha pelo teclado (Enter, setas, Esc). **Ver** mostra o bloco como o estudante o vê, sem editar.
-- **Espécies de bloco (rótulos do editor):** o autor escolhe a espécie ao criar, e cada uma tem o seu formulário, no estilo do gerador de cards do protótipo do cliente (formulário à esquerda, pré-visualização ao vivo à direita):
+- **Lista de cards:** o que o estudante vê na tela de estudo é uma sequência de **cards**: um card começa em um bloco de texto com título e vai até o próximo (os blocos antes do primeiro título formam a introdução). A aba lista **um card por linha**, na ordem real, com o número, a tag (pill), o título, um resumo do que ele tem (por exemplo "3 comandos, 1 dica"), as marcas "editado" e "inativo", os botões **Subir** e **Descer** e um **menu de ações** (botão "Ações") com **Ver**, **Editar** (abre a tela do card), **Inativar** (ou **Ativar**) e **Remover**. O menu abre e fecha pelo teclado (Enter, setas, Esc). **Ver** mostra o card como o estudante o vê, sem editar. O botão **Novo card** abre a tela do card vazia; o botão `+` de cada linha cria um card logo depois daquele.
+- **Tela do card (criar e editar):** é uma tela só para isso (`/app/modules/[id]/cards/new` e `/app/modules/[id]/cards/[blockId]`), no estilo do gerador de cards do protótipo do cliente: formulário à esquerda e **pré-visualização ao vivo** à direita, com o botão **Salvar card** e o aviso de alterações não salvas. O formulário tem seções:
 
-| Espécie | Tipo gravado | Campos |
+| Seção | Campos | Gravado como |
 | :--- | :--- | :--- |
-| **HTML / Texto** | `TEXT` sem título | só o texto formatado (editor visual); continua o card em que está |
-| **Card (título e texto)** | `TEXT` com título | tag/pill (rótulo curto), título principal do card e texto formatado; abre um novo card na tela de estudo |
-| **Comandos** | `COMMAND` | lista de passos: terminal, linha de comando, descrição explicativa (antes de rodar) e descrição oculta pós-execução (mostrada depois que o aluno roda); usuário, senha e respostas ficam em "Avançado" |
-| **Dica de certificação** | `TIP` `DEFAULT` | certificação (ex.: LPIC-1 102.4) e texto formatado |
-| **Cai na prova** | `TIP` `WARNING` | certificação e texto formatado |
-| **Na vida real** | `CURIOSITY` | título e texto formatado |
-| **Passo a passo**, **Cartões**, **Componente** | `STEP_BY_STEP`, `CARDS`, `WIDGET` | como na tabela de editores abaixo |
-| **HTML avançado** | `LEGACY_HTML` | código HTML (caixa de código), só para quem precisa |
-- **"+ Adicionar bloco":** menu com os tipos; o bloco novo entra no fim, ou logo depois do bloco escolhido.
-- **Editor do bloco** (painel ao lado ou abaixo do cartão), por tipo:
+| **1. Cabeçalho** | tag/pill e título principal (o título é obrigatório) | bloco `TEXT` com `command` (pill) e `title` |
+| **2. Descrição modular** | elementos na ordem desejada, cada um com subir, descer e remover: **Texto/HTML** (editor visual, com o botão Comando), **Snippet de código**, **Tabela**, **Imagem**, **Vídeo (embed)** e **Link/Referência** | um bloco `TEXT` sem título por elemento (o primeiro texto pode ficar no próprio cabeçalho); código, tabela, imagem, vídeo e link são HTML filtrado com uma classe que permite reabri-los no editor |
+| **3. Comandos práticos** | lista de comandos: terminal, linha de comando, descrição explicativa (antes de rodar) e descrição oculta pós-execução; usuário, senha e respostas em "Avançado" | um bloco `COMMAND` com os passos |
+| **4. Blocos especiais** | **Dicas de certificação** (certificação e texto), **Na vida real** (título e texto) e **Cai na prova** (certificação e texto) | blocos `TIP` `DEFAULT`, `CURIOSITY` e `TIP` `WARNING` |
+
+  Salvar grava o card inteiro de uma vez (RN-13): os blocos que continuam mantêm a identidade e o progresso de leitura dos estudantes, os novos são criados e os que saíram são removidos. Ao salvar, o card segue a ordem das seções (descrição, comandos, dicas, na vida real, cai na prova).
+- **Outros tipos de bloco** (Passo a passo, Cartões, Componente e HTML avançado) continuam existindo no banco e na tela de estudo; a tela do card mostra os que ela não edita como **blocos preservados** (aparecem na pré-visualização e na lista, e não são alterados nem removidos ao salvar o card).
+- **Editores por tipo de bloco** (referência dos campos de cada tipo; a tela do card usa os campos da tabela acima):
 
 | Tipo | Campos do editor |
 | :--- | :--- |
@@ -102,13 +100,15 @@ Handler, service e repository no módulo `content`, reaproveitando a validação
   - `CARDS`: de 1 a 30 cartões, cada um com título e texto;
   - `WIDGET`: componente de uma lista fechada.
 - **RN-04 (HTML seguro):** todo campo de HTML passa pelo mesmo filtro da carga inicial (SPEC-011, RN-08) antes de ser gravado; o que for removido é descartado em silêncio e o resultado filtrado é devolvido ao editor.
+- **RN-04a (imagens e vídeos):** o filtro aceita `img` só com endereço `https://` e `iframe` só do YouTube (`/embed/`); qualquer outro endereço é descartado.
 - **RN-05 (limites):** cada campo de texto tem tamanho máximo (texto formatado: 50.000 caracteres; comando: 500; explicação: 1.000); acima disso a gravação é recusada.
 - **RN-06 (posição):** a posição de um bloco novo é a última, ou a seguinte à do bloco indicado, deslocando os seguintes; reordenar e remover mantêm as posições sequenciais de 1 a N, em uma única transação (as posições únicas são adiáveis, SPEC-011).
 - **RN-07 (marca de edição):** criar ou alterar um bloco grava `edited_by_teacher_at`; inserir, remover ou reordenar marca como editados **todos** os blocos carregados do módulo, porque a carga inicial recolocaria os blocos intocados em suas posições originais e colidiria com a nova ordem; a carga inicial preserva esses blocos (SPEC-011).
 - **RN-08 (conflito):** a alteração de um bloco leva o instante da última alteração que o editor conhece; se o bloco mudou desde então, a resposta é 409.
 - **RN-09 (remoção):** a remoção é definitiva e apaga em cascata o progresso de leitura dos estudantes naquele bloco (SPEC-016); não há lixeira (ver P-02).
 - **RN-11 (descrição do módulo):** a descrição do módulo, ao ser criada ou alterada (SPEC-010), passa pelo mesmo filtro de HTML das RN-04; continua obrigatória (não vazia depois de remover a marcação) e tem o limite de 20.000 caracteres. Descrições antigas em texto simples continuam válidas.
-- **RN-12 (inativar):** um bloco pode ser inativado e reativado sem perder o conteúdo. Bloco inativo **não aparece** para estudantes nem para visitantes (leitura da SPEC-012) e não conta para o progresso, mas continua na lista da autoria, marcado como inativo, com a mesma posição. Inativar e reativar marcam o bloco como editado (a carga inicial não o reativa) e não mudam o instante de alteração do conteúdo (`updated_at`), para não gerar conflito de edição.
+- **RN-13 (salvar um card):** o card é gravado em uma única operação, em uma transação. A requisição traz os blocos atuais do card (`replaceIds`, vizinhos entre si no módulo) e a lista nova: o bloco com `id` é atualizado no lugar (o `id` tem de estar entre os `replaceIds` e o tipo não muda), o sem `id` é criado, e o que está em `replaceIds` e não voltou é removido (com o progresso de leitura dele). Um card novo vai depois de `afterBlockId`, ou no fim. Os blocos seguintes são deslocados e as posições seguem de 1 a N. Um bloco cujo conteúdo não mudou não é tocado (nem o `updated_at`). O conflito (RN-08) vale para cada bloco que muda. Um `TEXT` com título pode ter o texto vazio (é o cabeçalho do card). Até 200 blocos por card.
+- **RN-12 (inativar):** um bloco pode ser inativado e reativado sem perder o conteúdo. Bloco inativo **não aparece** para estudantes nem para visitantes (leitura da SPEC-012) e não conta para o progresso, mas continua na lista da autoria, marcado como inativo, com a mesma posição. Inativar e reativar um card age sobre todos os blocos dele (5.8). Inativar e reativar marcam o bloco como editado (a carga inicial não o reativa) e não mudam o instante de alteração do conteúdo (`updated_at`), para não gerar conflito de edição.
 - **RN-10 (log):** erros são registrados uma vez, na borda, sem o conteúdo do bloco; criação, alteração, remoção e reordenação geram um registro estruturado no log do serviço (`authoring`) com ação, autor, módulo, bloco e instante. O registro em tabela de auditoria (SPEC-003) exigiria novos tipos de evento e uma migração, e fica para uma revisão (desvio da P-05, 09/10/2026).
 
 ## 4. Modelo de Dados (Data Model)
@@ -179,6 +179,23 @@ Inativa ou reativa um bloco (RN-12).
 
 Resposta 200 com o bloco (mesmos campos de 5.1). É idempotente.
 
+### 5.7. `PUT /api/v1/teacher/modules/{id}/cards`
+
+Salva um card inteiro (RN-13).
+
+| Campo do corpo | Tipo | Obrigatório | Regra |
+| :--- | :--- | :--- | :--- |
+| `replaceIds` | lista de UUID | Não | blocos atuais do card; vazio para um card novo |
+| `afterBlockId` | UUID | Não | card novo logo depois deste bloco; sem ele, no fim |
+| `force` | booleano | Não | ignora o conflito de edição (P-04) |
+| `blocks` | lista | Sim | cada item com `type`, `payload`, e, para um bloco que continua, `id` e `updatedAt`; lista vazia remove o card |
+
+Resposta 200 com `{moduleId, blocks}`: os blocos do card, na ordem, com os mesmos campos de 5.1. Erros: 400 `validation-error` (campos `blocks[i].campo` ou `replaceIds`), 403, 404, 409 `block-conflict`.
+
+### 5.8. `PUT /api/v1/teacher/modules/{id}/cards/active`
+
+Inativa ou reativa os blocos de um card (RN-12). Corpo: `blockIds` (lista, obrigatória) e `active` (booleano, obrigatório). Resposta 200 com todos os blocos do módulo (como em 5.1).
+
 ### 5.5. `PUT /api/v1/teacher/modules/{id}/blocks/order`
 
 Define a nova ordem.
@@ -243,6 +260,10 @@ Resposta 200 com a lista na nova ordem.
 - [ ] **CA-22** (ubíquo): A lista de blocos DEVE oferecer, em cada linha, o menu de ações (Ver, Editar, Inativar ou Ativar, Remover) e os botões de subir e descer, todos operáveis pelo teclado.
 - [ ] **CA-23** (evento): QUANDO o usuário escolher **Ver**, O SISTEMA DEVE mostrar o bloco como o estudante o vê, sem permitir edição.
 - [ ] **CA-24** (evento): QUANDO o usuário criar um bloco de **HTML / Texto**, O SISTEMA DEVE pedir só o texto formatado e gravá-lo como texto sem título.
+- [ ] **CA-25** (evento): QUANDO o usuário abrir a aba Conteúdo, O SISTEMA DEVE listar um card por linha, com tag, título, resumo e o menu de ações.
+- [ ] **CA-26** (evento): QUANDO o usuário criar ou editar um card na tela do card e salvar, O SISTEMA DEVE gravar o card inteiro de uma vez, mantendo a identidade e o progresso dos blocos que continuam.
+- [ ] **CA-27** (evento): QUANDO o usuário marcar um trecho como comando no texto de um card e salvar, O SISTEMA DEVE gravá-lo como código em linha (CA-19).
+- [ ] **CA-28** (evento): QUANDO o usuário mudar a descrição, os comandos ou as dicas na tela do card, O SISTEMA DEVE atualizar a pré-visualização ao vivo.
 - [ ] **CA-14** (ubíquo): A reordenação, a edição e a remoção DEVEM poder ser feitas só com o teclado, e os controles DEVEM ter nome acessível.
 
 ## 8. Plano de Testes (Test Plan)
@@ -297,3 +318,4 @@ Nenhuma em aberto. O Tech Lead aprovou em 09/10/2026 as recomendações de P-01 
 | 09/10/2026 | Implementador (Claude) | Backend implementado: validação por tipo (`domain/payload.go`), serviço, repositório e rotas da seção 5, com testes de domínio, serviço, handler e PostgreSQL real. Ajustes: RN-07 protege todos os blocos carregados do módulo a cada mudança de estrutura; RN-10 registra no log estruturado em vez de tabela de auditoria. Frontend em andamento |
 | 09/10/2026 | Implementador (Claude) | Frontend implementado: aba Conteúdo com lista, adicionar (no fim ou depois de um bloco), editar por tipo com pré-visualização, mover, remover com confirmação, conflito e aviso de alterações não salvas; `RichTextEditor` (Tiptap 3.31.4, versão fixada) com o botão Comando (`<code>`). Desvios: a barra não tem tabela (exigiria outra extensão) e os títulos vão só até o nível 3; o HTML legado só é pré-visualizado depois de salvo (filtrado pelo servidor). A descrição do módulo (CA-16 a CA-18, P-07) ainda usa texto simples e fica para a próxima entrega |
 | 09/10/2026 | Tech Lead | Ajuste de escopo após ver a aba Conteúdo, com o protótipo do gerador de cards do cliente como referência: a lista passa a ter menu de ações (Ver, Editar, Inativar, Remover) e botões de mover; os formulários seguem o estilo do protótipo, com uma espécie **HTML / Texto** só para texto formatado. Incluídos: espécies de bloco (3.1), RN-12, rota 5.4a, coluna `inactive_at` e CA-21 a CA-24. Fora desta entrega, por exigirem outras especificações: cenário/snapshot da máquina, exercício do card, imagem e vídeo |
+| 09/10/2026 | Tech Lead | Esclarecimento: o gerador de cards do protótipo é a referência do que a plataforma precisa, e criar e editar é uma **tela própria**, não um painel na lista. A lista passa a ser de **cards** (grupos de blocos como o estudante os vê). Incluídos: tela do card (3.1), RN-13, RN-04a, rotas 5.7 e 5.8 e CA-25 a CA-28. O cenário/snapshot da máquina e o exercício do card seguem fora, por dependerem das specs de prática (013/014) |

@@ -14,6 +14,7 @@ type HTMLSanitizer struct {
 
 var (
 	classTokens  = regexp.MustCompile(`^[A-Za-z0-9_\- ]+$`)
+	httpsImage   = regexp.MustCompile(`^https://`)
 	youtubeEmbed = regexp.MustCompile(`^https://(www\.)?(youtube\.com|youtube-nocookie\.com)/embed/`)
 )
 
@@ -29,6 +30,8 @@ func NewHTMLSanitizer() *HTMLSanitizer {
 	p.AllowURLSchemes("http", "https")
 	p.AllowRelativeURLs(true)
 	p.AllowAttrs("colspan", "rowspan").Matching(bluemonday.Integer).OnElements("td", "th")
+	p.AllowAttrs("src").Matching(httpsImage).OnElements("img")
+	p.AllowAttrs("alt").OnElements("img")
 	p.AllowAttrs("src").Matching(youtubeEmbed).OnElements("iframe")
 	p.AllowAttrs("allowfullscreen").OnElements("iframe")
 	return &HTMLSanitizer{policy: p}

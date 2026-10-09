@@ -33,6 +33,10 @@ type AuthorStore interface {
 	// if the block still has that updated_at, and returns ErrBlockConflict otherwise.
 	UpdateBlock(ctx context.Context, id uuid.UUID, payload json.RawMessage, expected *time.Time, now time.Time) (domain.ContentBlock, error)
 	DeleteBlock(ctx context.Context, b domain.ContentBlock) error
+	// ReplaceCard applies a whole card in one transaction (SPEC-019 RN-13) and returns its blocks in order.
+	ReplaceCard(ctx context.Context, in ReplaceCardInput) ([]domain.ContentBlock, error)
+	// SetActiveMany inactivates or reactivates blocks of a module, marking them as edited.
+	SetActiveMany(ctx context.Context, moduleID uuid.UUID, ids []uuid.UUID, active bool, now time.Time) error
 	// SetActive inactivates (active=false) or reactivates a block and marks it as edited.
 	SetActive(ctx context.Context, id uuid.UUID, active bool, now time.Time) (domain.ContentBlock, error)
 	ReorderBlocks(ctx context.Context, moduleID uuid.UUID, ids []uuid.UUID, now time.Time) error

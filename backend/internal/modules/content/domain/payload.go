@@ -181,7 +181,8 @@ func decodeFor(t BlockType, raw json.RawMessage, c *checker, out *any) error {
 		}
 		p.Title = c.text("title", p.Title, MaxTitleLength, false)
 		p.Command = c.text("command", p.Command, MaxCommandLength, false)
-		p.HTML = c.html("html", p.HTML, true)
+		// A text with a title opens a card and may carry no text of its own (SPEC-019).
+		p.HTML = c.html("html", p.HTML, p.Title == "")
 		*out = p
 	case BlockTip:
 		var p tipPayload
