@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import type { Editor } from "@tiptap/react";
+import { act, render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { ApiProblemError } from "@/services/httpClient";
 import { ModuleForm } from "./ModuleForm";
@@ -12,6 +13,16 @@ const mockClasses = [
   { id: "c-1", name: "Sistemas Operacionais 1" },
   { id: "c-2", name: "Sistemas Operacionais 2" },
 ];
+
+type Host = HTMLElement & { editor: Editor };
+
+/** Types into the visual editor of the description (SPEC-010 RN-12). */
+async function writeDescription(text: string) {
+  const host = (await screen.findByRole("textbox", { name: "Descrição e Ementa" })) as Host;
+  act(() => {
+    host.editor.chain().focus().selectAll().insertContent(text).run();
+  });
+}
 
 const fill = (label: RegExp, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const submit = (name = "Criar Módulo") => fireEvent.click(screen.getByRole("button", { name }));
@@ -34,13 +45,13 @@ describe("ModuleForm", () => {
     render(<ModuleForm onSubmit={onSubmit} />);
 
     fill(/Título do Módulo/i, "Novo Módulo de Threads");
-    fill(/Descrição e Ementa/i, "Conceitos de concorrência");
+    await writeDescription("Conceitos de concorrência");
     submit();
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({
         title: "Novo Módulo de Threads",
-        description: "Conceitos de concorrência",
+        description: "<p>Conceitos de concorrência</p>",
         slug: undefined,
         visibility: "PUBLIC",
         activationStart: undefined,
@@ -56,7 +67,7 @@ describe("ModuleForm", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: /Privado/ }));
     fill(/Título do Módulo/i, "Módulo Privado");
-    fill(/Descrição e Ementa/i, "Conteúdo restrito");
+    await writeDescription("Conteúdo restrito");
     submit();
 
     expect(await screen.findByText("Selecione ao menos uma turma para um módulo privado.")).toBeDefined();
@@ -72,7 +83,7 @@ describe("ModuleForm", () => {
     render(<ModuleForm onSubmit={onSubmit} />);
 
     fill(/Título do Módulo/i, "Datas");
-    fill(/Descrição e Ementa/i, "Descrição");
+    await writeDescription("Descrição");
     fill(/Início da Vigência/i, "2026-10-10T10:00");
     fill(/Término da Vigência/i, "2026-10-09T10:00");
 
@@ -86,7 +97,7 @@ describe("ModuleForm", () => {
     render(<ModuleForm onSubmit={onSubmit} />);
 
     fill(/Título do Módulo/i, "Só início");
-    fill(/Descrição e Ementa/i, "Descrição");
+    await writeDescription("Descrição");
     fill(/Início da Vigência/i, "2026-10-10T10:00");
     submit();
     await waitFor(() =>
@@ -115,7 +126,7 @@ describe("ModuleForm", () => {
 
     fill(/Slug/, "ab");
     expect(screen.getByText("O slug precisa ter ao menos 3 caracteres.")).toBeDefined();
-    fill(/Descrição e Ementa/i, "Descrição");
+    await writeDescription("Descrição");
     submit();
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -148,7 +159,7 @@ describe("ModuleForm", () => {
     const expected = new Date(stored.activationStart);
     expect(new Date(start.value).getTime()).toBe(expected.getTime() - expected.getSeconds() * 1000);
 
-    fill(/Descrição e Ementa/i, "Ementa nova");
+    await writeDescription("Ementa nova");
     submit("Salvar Alterações");
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
@@ -171,5 +182,43 @@ describe("ModuleForm", () => {
     fill(/Slug/, "mais-um");
     submit("Salvar Alterações");
     expect(await screen.findByText("O término não pode ser anterior ao início.")).toBeDefined();
+  });
+});
+
+describe("ModuleForm, the description (SPEC-010 RN-12, SPEC-019 CA-16 to CA-18)", () => {
+  it("opens a description stored as plain text as paragraphs, with nothing to save", async () => {
+    render(<ModuleForm isEditing initialData={{ ...stored, description: ["ls · cd — Navegar", "segunda linha"].join(String.fromCharCode(10)) }} onSubmit={vi.fn()} />);
+    const editor = (await screen.findByRole("textbox", { name: "Descrição e Ementa" })) as Host;
+    expect(editor.querySelectorAll("p")).toHaveLength(2);
+    expect(editor.textContent).toContain("ls · cd — Navegar");
+    expect((screen.getByRole("button", { name: "Salvar Alterações" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("sends the formatted description as html, with the command mark kept", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<ModuleForm onSubmit={onSubmit} />);
+    fill(/Título do Módulo/i, "M");
+    await writeDescription("<p>Use <code>ls</code> e <strong>cd</strong></p>");
+    expect(screen.getByText("11 caracteres")).toBeDefined();
+    submit();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ description: "<p>Use <code>ls</code> e <strong>cd</strong></p>" })));
+  });
+
+  it("does not accept a description with nothing visible in it", async () => {
+    const onSubmit = vi.fn();
+    render(<ModuleForm onSubmit={onSubmit} />);
+    fill(/Título do Módulo/i, "M");
+    submit();
+    expect(await screen.findByText("A descrição do módulo é obrigatória.")).toBeDefined();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("shows the limit error of the server on the description", async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new ApiProblemError({ type: "description-too-long", title: "Too long" }, 400));
+    render(<ModuleForm onSubmit={onSubmit} />);
+    fill(/Título do Módulo/i, "M");
+    await writeDescription("texto");
+    submit();
+    expect(await screen.findByText("A descrição passou do limite de 20.000 caracteres.")).toBeDefined();
   });
 });

@@ -286,6 +286,16 @@ func TestHandler_CreateModule(t *testing.T) {
 		svc.createErr = nil
 	})
 
+	t.Run("400 with its own type when the description is empty or too long (SPEC-010 RN-12)", func(t *testing.T) {
+		for err, kind := range map[error]string{service.ErrDescriptionRequired: "description-required", service.ErrDescriptionTooLong: "description-too-long"} {
+			svc.createErr = err
+			resp := doRequest(t, srv, http.MethodPost, "/api/v1/modules", map[string]any{"title": "T", "description": "<p></p>", "visibility": "PUBLIC"}, true)
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+			assert.Contains(t, problemBody(t, resp)["type"], kind)
+		}
+		svc.createErr = nil
+	})
+
 	t.Run("201 creates module successfully", func(t *testing.T) {
 		resp := doRequest(t, srv, http.MethodPost, "/api/v1/modules", map[string]any{
 			"title":       "Sistemas de Arquivos",

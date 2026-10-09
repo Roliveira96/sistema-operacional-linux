@@ -6,16 +6,20 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/htmlsafe"
 )
 
 var (
 	ErrTitleRequired       = errors.New("module title is required")
 	ErrDescriptionRequired = errors.New("module description is required")
+	// ErrDescriptionTooLong means the description is over MaxDescriptionLength (SPEC-010 RN-12).
+	ErrDescriptionTooLong = errors.New("module description is too long")
 )
 
 // ModuleRepository defines required persistence methods.
@@ -34,10 +38,14 @@ type ModuleRepository interface {
 	IsStudentEnrolledInAnyClass(ctx context.Context, studentID uuid.UUID, classIDs []uuid.UUID) (bool, error)
 }
 
+// MaxDescriptionLength is the largest description, counted in characters of the filtered html.
+const MaxDescriptionLength = 20000
+
 // Service implements the business logic for course modules.
 type Service struct {
 	repo ModuleRepository
 	now  func() time.Time
+	san  *htmlsafe.Sanitizer
 }
 
 // New creates a new course module service.
@@ -45,7 +53,21 @@ func New(repo ModuleRepository) *Service {
 	return &Service{
 		repo: repo,
 		now:  time.Now,
+		san:  htmlsafe.New(),
 	}
+}
+
+// cleanDescription filters the html of the description, and requires visible text and a size
+// within the limit (SPEC-010 RN-12). A description in plain text stays as it is.
+func (s *Service) cleanDescription(raw string) (string, error) {
+	clean := strings.TrimSpace(s.san.Sanitize(raw))
+	if htmlsafe.PlainText(clean) == "" {
+		return "", ErrDescriptionRequired
+	}
+	if utf8.RuneCountInString(clean) > MaxDescriptionLength {
+		return "", ErrDescriptionTooLong
+	}
+	return clean, nil
 }
 
 // SetNow overrides time generator for testing.
@@ -79,9 +101,9 @@ func (s *Service) CreateModule(ctx context.Context, input CreateModuleInput) (do
 	if title == "" {
 		return domain.CourseModule{}, ErrTitleRequired
 	}
-	desc := strings.TrimSpace(input.Description)
-	if desc == "" {
-		return domain.CourseModule{}, ErrDescriptionRequired
+	desc, err := s.cleanDescription(input.Description)
+	if err != nil {
+		return domain.CourseModule{}, err
 	}
 
 	if !domain.ValidateVisibility(input.Visibility) {
@@ -163,9 +185,9 @@ func (s *Service) UpdateModule(ctx context.Context, input UpdateModuleInput) (do
 	}
 
 	if input.Description != nil {
-		d := strings.TrimSpace(*input.Description)
-		if d == "" {
-			return domain.CourseModule{}, ErrDescriptionRequired
+		d, err := s.cleanDescription(*input.Description)
+		if err != nil {
+			return domain.CourseModule{}, err
 		}
 		module.Description = d
 	}

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
+import { descriptionHtml, descriptionText } from "@/lib/description";
+import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import { endsBeforeStart, isoToLocalInput, localInputToIso } from "@/lib/localDateTime";
 import { normalizeSlug, slugProblem, slugify } from "@/lib/slug";
 import { ptBR } from "@/messages/pt-BR";
@@ -59,6 +61,8 @@ function fromServer(error: unknown): { fields: FieldErrors; general: string | nu
       return { fields: { title: m.errors.title }, general: null };
     case "description-required":
       return { fields: { description: m.errors.description }, general: null };
+    case "description-too-long":
+      return { fields: { description: m.errors.descriptionTooLong }, general: null };
     default:
       return { fields: {}, general: error.message || m.errors.generic };
   }
@@ -79,7 +83,8 @@ export function ModuleForm({ initialData, availableClasses = [], onSubmit, isEdi
     () => ({
       title: initialData?.title ?? "",
       slug: initialData?.slug ?? "",
-      description: initialData?.description ?? "",
+      // A description stored as plain text opens as paragraphs in the visual editor (SPEC-010 RN-12).
+      description: descriptionHtml(initialData?.description ?? ""),
       visibility: (initialData?.visibility ?? "PUBLIC") as Visibility,
       status: (initialData?.status ?? "ACTIVE") as ModuleStatus,
       start: isoToLocalInput(initialData?.activationStart),
@@ -143,7 +148,7 @@ export function ModuleForm({ initialData, availableClasses = [], onSubmit, isEdi
 
     const local: FieldErrors = {};
     if (!title.trim()) local.title = m.errors.title;
-    if (!description.trim()) local.description = m.errors.description;
+    if (descriptionText(description) === "") local.description = m.errors.description;
     if (Object.keys(local).length > 0) {
       setServerFields(local);
       return;
@@ -268,23 +273,19 @@ export function ModuleForm({ initialData, availableClasses = [], onSubmit, isEdi
             </div>
 
             <div className={styles.fieldGroup}>
-              <label htmlFor={descId} className={styles.label}>
-                {m.descriptionLabel} *
-              </label>
-              <textarea
-                id={descId}
-                className={styles.textarea}
+              <span className={styles.label}>{m.descriptionLabel} *</span>
+              <RichTextEditor
+                label={m.descriptionLabel}
                 value={description}
-                onChange={(e) => {
-                  setDescription(e.target.value);
+                placeholder={m.descriptionPlaceholder}
+                invalid={Boolean(errors.description)}
+                describedBy={errors.description ? `${descId}-error` : undefined}
+                onChange={(html) => {
+                  setDescription(html);
                   clearServerField("description");
                 }}
-                placeholder={m.descriptionPlaceholder}
-                rows={8}
-                aria-invalid={Boolean(errors.description)}
-                aria-describedby={errors.description ? `${descId}-error` : undefined}
               />
-              <span className={styles.counter}>{m.descriptionCount(description.length)}</span>
+              <span className={styles.counter}>{m.descriptionCount(descriptionText(description).length)}</span>
               {fieldMessage("description", descId)}
             </div>
           </section>

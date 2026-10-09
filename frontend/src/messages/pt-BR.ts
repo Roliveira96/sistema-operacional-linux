@@ -384,6 +384,7 @@ export const messages = {
       errors: {
         title: "O título do módulo é obrigatório.",
         description: "A descrição do módulo é obrigatória.",
+        descriptionTooLong: "A descrição passou do limite de 20.000 caracteres.",
         privateClass: "Selecione ao menos uma turma para um módulo privado.",
         generic: "Erro ao salvar módulo.",
       },

@@ -15,7 +15,9 @@ describe("moduleVisual", () => {
 
   it("keeps descriptions without the legacy shape whole", () => {
     expect(splitDescription("Texto simples.")).toEqual({ tags: [], summary: "Texto simples." });
-    expect(splitDescription("a · b — ")).toEqual({ tags: [], summary: "a · b — " });
+    expect(splitDescription("a · b — ")).toEqual({ tags: [], summary: "a · b —" });
+    // A formatted description is split by its visible text.
+    expect(splitDescription("<p>ls · cd — <b>Navegar</b></p>")).toEqual({ tags: ["ls", "cd"], summary: "Navegar" });
   });
 
   it("formats the order label", () => {

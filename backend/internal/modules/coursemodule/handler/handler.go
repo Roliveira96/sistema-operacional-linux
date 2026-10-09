@@ -518,6 +518,8 @@ func toProblem(err error) *problem.Problem {
 		return problem.BadRequest("title-required", err.Error())
 	case errors.Is(err, service.ErrDescriptionRequired):
 		return problem.BadRequest("description-required", err.Error())
+	case errors.Is(err, service.ErrDescriptionTooLong):
+		return problem.BadRequest("description-too-long", err.Error())
 	case errors.Is(err, domain.ErrInvalidVisibility):
 		return problem.BadRequest("invalid-visibility", err.Error())
 	case errors.Is(err, domain.ErrInvalidStatus):

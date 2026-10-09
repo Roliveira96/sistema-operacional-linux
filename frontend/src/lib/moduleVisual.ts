@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { descriptionText } from "@/lib/description";
 
 // Visual metadata of modules loaded from the legacy content (SPEC-012, SPEC-015).
 
@@ -18,7 +19,9 @@ export interface ModuleDescription {
  * Splits a legacy description ("ls · cd · mkdir — Summary text") into tags and
  * summary. Descriptions without that shape are returned whole as the summary.
  */
-export function splitDescription(description: string): ModuleDescription {
+export function splitDescription(raw: string): ModuleDescription {
+  // The description is formatted text (SPEC-010 RN-12); only its visible text is split.
+  const description = descriptionText(raw);
   const separator = description.indexOf(" — ");
   if (separator < 0) return { tags: [], summary: description };
   const head = description.slice(0, separator);
