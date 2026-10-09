@@ -14,12 +14,13 @@ vi.mock("next/link", () => ({
 
 afterEach(cleanup);
 
-const block = (id: string, type: string, position: number, payload: Record<string, unknown>, edited = false): AuthoredBlock => ({
+const block = (id: string, type: string, position: number, payload: Record<string, unknown>, edited = false, active = true): AuthoredBlock => ({
   id,
   type,
   position,
   payload,
   edited,
+  active,
   updatedAt: "2026-10-09T12:00:00Z",
 });
 
@@ -29,17 +30,25 @@ const command = block("b-2", "COMMAND", 2, { steps: [{ command: "ls -la", termin
 let service: { [K in keyof ContentAuthoringService]: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
-  service = { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), reorder: vi.fn() };
+  service = { list: vi.fn(), create: vi.fn(), update: vi.fn(), setActive: vi.fn(), remove: vi.fn(), reorder: vi.fn() };
   service.list.mockResolvedValue([text, command]);
 });
 
 const renderTab = () => render(<ContentTab moduleId="mod-1" service={service as unknown as ContentAuthoringService} />);
 
+/** Opens the action menu of a row and picks an action. */
+function act_(n: number, name: string) {
+  fireEvent.click(screen.getByRole("button", { name: `Ações do bloco ${n}` }));
+  fireEvent.click(screen.getByRole("menuitem", { name }));
+}
+
 describe("ContentTab", () => {
-  it("lists every block in order with its type, summary and edited mark (CA-01, CA-20)", async () => {
+  it("lists every block in order with its kind, summary and marks (CA-01, CA-20)", async () => {
     renderTab();
     expect(await screen.findByText("Introdução")).toBeDefined();
     expect(screen.getByText("ls -la (+1)")).toBeDefined();
+    expect(screen.getAllByText("Card (título e texto)").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Comandos").length).toBeGreaterThan(0);
     expect(screen.getByText("editado")).toBeDefined();
     expect(screen.getByRole("link", { name: /Ver como o aluno/ }).getAttribute("href")).toBe("/app/modules/mod-1");
     expect(service.list).toHaveBeenCalledWith("mod-1");
@@ -57,6 +66,76 @@ describe("ContentTab", () => {
     expect(await screen.findByText("Introdução")).toBeDefined();
   });
 
+  it("offers See, Edit, Inactivate and Remove in the action menu of each row (CA-22)", async () => {
+    renderTab();
+    await screen.findByText("Introdução");
+    const menu = screen.getByRole("button", { name: "Ações do bloco 1" });
+    expect(menu.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(menu);
+    expect(menu.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getAllByRole("menuitem").map((el) => el.textContent)).toEqual(["Ver", "Editar", "Inativar", "Remover"]);
+
+    // Escape closes it and gives the focus back to the button.
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(menu);
+  });
+
+  it("moves through the menu with the arrow keys and opens it with the arrow down", async () => {
+    renderTab();
+    await screen.findByText("Introdução");
+    const menu = screen.getByRole("button", { name: "Ações do bloco 1" });
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    const items = screen.getAllByRole("menuitem");
+    expect(document.activeElement).toBe(items[0]);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items[1]);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "End" });
+    expect(document.activeElement).toBe(items[3]);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items[0]);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items[3]);
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("shows a block as the student sees it, without editing (CA-23)", async () => {
+    renderTab();
+    await screen.findByText("Introdução");
+    act_(2, "Ver");
+    const viewer = screen.getByText("Como o aluno vê").closest("div")!.parentElement as HTMLElement;
+    expect(within(viewer).getByText("pwd")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Salvar bloco" })).toBeNull();
+    fireEvent.click(within(viewer).getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByText("Como o aluno vê")).toBeNull();
+  });
+
+  it("inactivates and reactivates a block from the menu (CA-21)", async () => {
+    service.setActive.mockResolvedValueOnce({ ...text, active: false }).mockResolvedValueOnce({ ...text, active: true });
+    renderTab();
+    await screen.findByText("Introdução");
+
+    act_(1, "Inativar");
+    await waitFor(() => expect(service.setActive).toHaveBeenCalledWith("b-1", false));
+    expect(await screen.findByText("inativo")).toBeDefined();
+    expect(screen.getByText("Bloco inativado. Os estudantes não o veem mais.")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ações do bloco 1" }));
+    expect(screen.getByRole("menuitem", { name: "Ativar" })).toBeDefined();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ativar" }));
+    await waitFor(() => expect(service.setActive).toHaveBeenLastCalledWith("b-1", true));
+    await waitFor(() => expect(screen.queryByText("inativo")).toBeNull());
+  });
+
+  it("tells when the situation could not be changed", async () => {
+    service.setActive.mockRejectedValueOnce(new Error("x"));
+    renderTab();
+    await screen.findByText("Introdução");
+    act_(1, "Inativar");
+    expect(await screen.findByText("Não foi possível salvar o bloco.")).toBeDefined();
+  });
+
   it("edits a block, sends the instant it knew and shows the saved state (CA-03)", async () => {
     service.update.mockImplementation(async (_id: string, payload: Record<string, unknown>) => ({
       ...command,
@@ -66,8 +145,8 @@ describe("ContentTab", () => {
     renderTab();
     await screen.findByText("Introdução");
 
-    fireEvent.click(screen.getByRole("button", { name: "Editar 2" }));
-    fireEvent.change(screen.getByLabelText("Comando (1)"), { target: { value: "ls -lah" } });
+    act_(2, "Editar");
+    fireEvent.change(screen.getByLabelText("Linha de comando (1)"), { target: { value: "ls -lah" } });
     expect(screen.getByText("Há alterações não salvas neste bloco.")).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: "Salvar bloco" }));
@@ -87,8 +166,8 @@ describe("ContentTab", () => {
     );
     renderTab();
     await screen.findByText("Introdução");
-    fireEvent.click(screen.getByRole("button", { name: "Editar 2" }));
-    fireEvent.change(screen.getByLabelText("Comando (1)"), { target: { value: "x" } });
+    act_(2, "Editar");
+    fireEvent.change(screen.getByLabelText("Linha de comando (1)"), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar bloco" }));
     expect(await screen.findByText("Obrigatório.")).toBeDefined();
   });
@@ -98,8 +177,8 @@ describe("ContentTab", () => {
     service.update.mockResolvedValueOnce({ ...command, updatedAt: "2026-10-09T12:09:00Z" });
     renderTab();
     await screen.findByText("Introdução");
-    fireEvent.click(screen.getByRole("button", { name: "Editar 2" }));
-    fireEvent.change(screen.getByLabelText("Comando (1)"), { target: { value: "x" } });
+    act_(2, "Editar");
+    fireEvent.change(screen.getByLabelText("Linha de comando (1)"), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar bloco" }));
 
     expect(await screen.findByText("Outra pessoa alterou este bloco depois que você o abriu.")).toBeDefined();
@@ -108,25 +187,35 @@ describe("ContentTab", () => {
 
     // Reload starts the editor again from what is stored.
     service.update.mockRejectedValueOnce(new ApiProblemError({ type: "block-conflict", title: "Conflict" }, 409));
-    fireEvent.change(screen.getByLabelText("Comando (1)"), { target: { value: "y" } });
+    fireEvent.change(screen.getByLabelText("Linha de comando (1)"), { target: { value: "y" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar bloco" }));
     fireEvent.click(await screen.findByRole("button", { name: "Recarregar o bloco" }));
     await waitFor(() => expect(service.list.mock.calls.length).toBeGreaterThan(1));
   });
 
-  it("creates a block after another one (CA-02)", async () => {
-    service.create.mockResolvedValue(block("b-3", "TIP", 2, { variant: "DEFAULT", html: "<p>dica</p>" }));
+  it("creates a block of the chosen kind after another one (CA-02)", async () => {
+    service.create.mockResolvedValue(block("b-3", "CURIOSITY", 2, { title: "Na vida real", html: "<p>x</p>" }));
     renderTab();
     await screen.findByText("Introdução");
 
-    fireEvent.change(screen.getByLabelText("Tipo do novo bloco"), { target: { value: "CURIOSITY" } });
+    fireEvent.change(screen.getByLabelText("Tipo do novo bloco"), { target: { value: "REAL" } });
     fireEvent.click(screen.getByRole("button", { name: "Adicionar bloco depois deste 1" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Título" }), { target: { value: "Na vida real" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Título da caixa" }), { target: { value: "Produção" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar bloco" }));
 
-    await waitFor(() => expect(service.create).toHaveBeenCalledWith("mod-1", "CURIOSITY", expect.objectContaining({ title: "Na vida real" }), "b-1"));
+    await waitFor(() => expect(service.create).toHaveBeenCalledWith("mod-1", "CURIOSITY", expect.objectContaining({ title: "Produção" }), "b-1"));
     expect(await screen.findByText("Bloco criado")).toBeDefined();
     await waitFor(() => expect(service.list.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it("creates an HTML / Texto block as text without a title (CA-24)", async () => {
+    service.create.mockResolvedValue(block("b-4", "TEXT", 3, { html: "<p>x</p>" }));
+    renderTab();
+    await screen.findByText("Introdução");
+    fireEvent.click(screen.getByRole("button", { name: "+ Adicionar bloco" }));
+    expect(screen.queryByLabelText("Título principal do card")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Salvar bloco" }));
+    await waitFor(() => expect(service.create).toHaveBeenCalledWith("mod-1", "TEXT", { html: "" }, undefined));
   });
 
   it("moves a block up and down with the buttons (CA-05, CA-14)", async () => {
@@ -145,13 +234,13 @@ describe("ContentTab", () => {
     renderTab();
     await screen.findByText("Introdução");
 
-    fireEvent.click(screen.getByRole("button", { name: "Remover 1" }));
+    act_(1, "Remover");
     const dialog = screen.getByRole("alertdialog");
     expect(within(dialog).getByText(/progresso de leitura/)).toBeDefined();
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
     expect(service.remove).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Remover 1" }));
+    act_(1, "Remover");
     fireEvent.click(screen.getByRole("button", { name: "Sim, remover" }));
     await waitFor(() => expect(service.remove).toHaveBeenCalledWith("b-1"));
     expect(await screen.findByText("Bloco removido")).toBeDefined();
@@ -169,18 +258,18 @@ describe("ContentTab", () => {
     };
     expect(leave()).toBe(false);
 
-    fireEvent.click(screen.getByRole("button", { name: "Editar 2" }));
-    fireEvent.change(screen.getByLabelText("Comando (1)"), { target: { value: "novo" } });
+    act_(2, "Editar");
+    fireEvent.change(screen.getByLabelText("Linha de comando (1)"), { target: { value: "novo" } });
     expect(leave()).toBe(true);
   });
 
-  it("previews the block the way the student sees it (CA-11)", async () => {
+  it("previews the block the way the student sees it while editing (CA-11)", async () => {
     renderTab();
     await screen.findByText("Introdução");
-    fireEvent.click(screen.getByRole("button", { name: "Editar 2" }));
+    act_(2, "Editar");
     const preview = screen.getByRole("complementary", { name: "Como o aluno vê" });
     expect(within(preview).getByText("pwd")).toBeDefined();
-    fireEvent.change(screen.getByLabelText("Comando (2)"), { target: { value: "whoami" } });
+    fireEvent.change(screen.getByLabelText("Linha de comando (2)"), { target: { value: "whoami" } });
     expect(within(preview).getByText("whoami")).toBeDefined();
   });
 });

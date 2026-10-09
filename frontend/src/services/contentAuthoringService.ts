@@ -9,6 +9,8 @@ export interface AuthoredBlock {
   payload: Record<string, unknown>;
   /** True once someone edited it, so the initial load leaves it alone. */
   edited: boolean;
+  /** False when the block was inactivated and students no longer see it. */
+  active: boolean;
   /** The instant to send back when saving, to detect a change by someone else. */
   updatedAt: string;
 }
@@ -24,6 +26,7 @@ export function createContentAuthoringService(client: HttpClient = httpClient) {
       client.post<AuthoredBlock>(moduleBlocks(moduleId), { type, payload, ...(afterBlockId ? { afterBlockId } : {}) }),
     update: (blockId: string, payload: Record<string, unknown>, expectedUpdatedAt: string, force = false) =>
       client.patch<AuthoredBlock>(block(blockId), force ? { payload, force: true } : { payload, expectedUpdatedAt }),
+    setActive: (blockId: string, active: boolean) => client.put<AuthoredBlock>(`${block(blockId)}/active`, { active }),
     remove: (blockId: string) => client.delete<void>(block(blockId)),
     reorder: async (moduleId: string, blockIds: string[]) =>
       (await client.put<{ blocks: AuthoredBlock[] }>(`${moduleBlocks(moduleId)}/order`, { blockIds })).blocks,

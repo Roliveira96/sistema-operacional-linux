@@ -2,28 +2,58 @@ import { authoringMessages } from "@/messages/authoring.pt-BR";
 
 export type Payload = Record<string, unknown>;
 
-export const BLOCK_TYPES = ["TEXT", "COMMAND", "TIP", "CURIOSITY", "STEP_BY_STEP", "CARDS", "WIDGET", "LEGACY_HTML"] as const;
-export type AuthoredType = (typeof BLOCK_TYPES)[number];
+/**
+ * What the author picks. Several kinds are stored with the same block type: a text without a
+ * title is "HTML / Texto" and with a title is a "Card"; a tip is a tip or "Cai na prova".
+ */
+export const KINDS = ["HTML", "CARD", "COMMAND", "TIP", "EXAM", "REAL", "STEPS", "CARDS", "WIDGET", "RAW_HTML"] as const;
+export type Kind = (typeof KINDS)[number];
 
-/** What a new block starts with: enough to be edited, not yet valid to save. */
-export function emptyPayload(type: string): Payload {
+/** The kind of a stored block. */
+export function kindOf(type: string, payload: Payload): Kind {
   switch (type) {
     case "TEXT":
-      return { title: "", command: "", html: "" };
+      return typeof payload.title === "string" && payload.title.trim() ? "CARD" : "HTML";
     case "COMMAND":
-      return { steps: [emptyStep()] };
+      return "COMMAND";
     case "TIP":
-      return { variant: "DEFAULT", title: "", html: "" };
+      return payload.variant === "WARNING" ? "EXAM" : "TIP";
     case "CURIOSITY":
-      return { title: "", html: "" };
+      return "REAL";
     case "STEP_BY_STEP":
-      return { steps: [""] };
+      return "STEPS";
     case "CARDS":
-      return { cards: [{ title: "", text: "" }] };
+      return "CARDS";
     case "WIDGET":
-      return { component: "PERMISSION_CALCULATOR", params: {} };
+      return "WIDGET";
     default:
-      return { html: "" };
+      return "RAW_HTML";
+  }
+}
+
+/** The block type and the starting payload of a new block of this kind. */
+export function newBlockOf(kind: Kind): { type: string; payload: Payload } {
+  switch (kind) {
+    case "HTML":
+      return { type: "TEXT", payload: { html: "" } };
+    case "CARD":
+      return { type: "TEXT", payload: { title: "", command: "", html: "" } };
+    case "COMMAND":
+      return { type: "COMMAND", payload: { steps: [emptyStep()] } };
+    case "TIP":
+      return { type: "TIP", payload: { variant: "DEFAULT", title: "", html: "" } };
+    case "EXAM":
+      return { type: "TIP", payload: { variant: "WARNING", title: "Cai na prova", html: "" } };
+    case "REAL":
+      return { type: "CURIOSITY", payload: { title: "Na vida real", html: "" } };
+    case "STEPS":
+      return { type: "STEP_BY_STEP", payload: { steps: [""] } };
+    case "CARDS":
+      return { type: "CARDS", payload: { cards: [{ title: "", text: "" }] } };
+    case "WIDGET":
+      return { type: "WIDGET", payload: { component: "PERMISSION_CALCULATOR", params: {} } };
+    default:
+      return { type: "LEGACY_HTML", payload: { html: "" } };
   }
 }
 

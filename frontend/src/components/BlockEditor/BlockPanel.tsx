@@ -6,7 +6,7 @@ import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { ApiProblemError } from "@/services/httpClient";
 import type { AuthoredBlock, ContentAuthoringService } from "@/services/contentAuthoringService";
 import { BlockForm, type FieldErrors } from "./BlockForm";
-import { emptyPayload, type Payload } from "./blockModel";
+import { kindOf, newBlockOf, type Kind, type Payload } from "./blockModel";
 import styles from "./BlockEditor.module.scss";
 
 const m = authoringMessages.blocks;
@@ -16,8 +16,8 @@ interface BlockPanelProps {
   moduleId: string;
   /** The block being edited; a new block has none. */
   block?: AuthoredBlock;
-  /** The type and place of a block that does not exist yet. */
-  draft?: { type: string; afterId?: string };
+  /** The kind and place of a block that does not exist yet. */
+  draft?: { kind: Kind; afterId?: string };
   onSaved: (block: AuthoredBlock, created: boolean) => void;
   onCancel: () => void;
   /** Asks the list to fetch the stored block again, after a conflict. */
@@ -36,9 +36,12 @@ function toFieldErrors(error: ApiProblemError): FieldErrors {
 
 /** Editor and preview of one block, with its own save (SPEC-019 section 3.1). */
 export function BlockPanel({ service, moduleId, block, draft, onSaved, onCancel, onReload, dirtyKey, onDirtyChange }: BlockPanelProps) {
-  const type = block?.type ?? draft?.type ?? "TEXT";
-  const [payload, setPayload] = useState<Payload>(block?.payload ?? emptyPayload(type));
-  const [saved, setSaved] = useState(JSON.stringify(block?.payload ?? emptyPayload(type)));
+  // The kind is fixed when the editor opens: clearing a title must not turn a card into plain text.
+  const [kind] = useState<Kind>(() => (block ? kindOf(block.type, block.payload) : (draft?.kind ?? "HTML")));
+  const [start] = useState(() => (block ? { type: block.type, payload: block.payload } : newBlockOf(kind)));
+  const type = start.type;
+  const [payload, setPayload] = useState<Payload>(start.payload);
+  const [saved, setSaved] = useState(JSON.stringify(start.payload));
   const [updatedAt, setUpdatedAt] = useState(block?.updatedAt ?? "");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [general, setGeneral] = useState<string | null>(null);
@@ -82,7 +85,7 @@ export function BlockPanel({ service, moduleId, block, draft, onSaved, onCancel,
     <div className={styles.panel}>
       <div className={styles.editorColumn}>
         <BlockForm
-          type={type}
+          kind={kind}
           payload={payload}
           onChange={(next) => {
             setPayload(next);

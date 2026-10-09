@@ -3,7 +3,7 @@
 import { useId, type ReactNode } from "react";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
-import { emptyStep, type Payload } from "./blockModel";
+import { emptyStep, type Kind, type Payload } from "./blockModel";
 import styles from "./BlockEditor.module.scss";
 
 const m = authoringMessages.blocks;
@@ -11,12 +11,13 @@ const m = authoringMessages.blocks;
 export type FieldErrors = Record<string, string>;
 
 interface BlockFormProps {
-  type: string;
+  kind: Kind;
   payload: Payload;
   onChange: (payload: Payload) => void;
   errors: FieldErrors;
 }
 
+const NEWLINE = String.fromCharCode(10);
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
 function Field({ label, help, error, htmlFor, children }: { label: string; help?: string; error?: string; htmlFor?: string; children: ReactNode }) {
@@ -102,7 +103,7 @@ interface Step {
   answers?: string[];
 }
 
-function CommandSteps({ payload, onChange, errors }: Omit<BlockFormProps, "type">) {
+function CommandSteps({ payload, onChange, errors }: Omit<BlockFormProps, "kind">) {
   const s = m.steps;
   const steps = (Array.isArray(payload.steps) ? payload.steps : []) as Step[];
   const set = (next: Step[]) => onChange({ ...payload, steps: next });
@@ -134,19 +135,22 @@ function CommandSteps({ payload, onChange, errors }: Omit<BlockFormProps, "type"
                 ))}
               </select>
             </Field>
-            {terminal > 1 && (
-              <div className={styles.pair}>
-                <TextInput label={`${s.user} (${i + 1})`} error={at("login")} value={str(step.login?.user)} onChange={(v) => patch(i, { login: { user: v, password: step.login?.password ?? "" } })} />
-                <TextInput label={`${s.password} (${i + 1})`} value={str(step.login?.password)} onChange={(v) => patch(i, { login: { user: step.login?.user ?? "", password: v } })} />
-              </div>
-            )}
-            <TextArea
-              label={`${s.answers} (${i + 1})`}
-              rows={2}
-              error={at("answers")}
-              value={(step.answers ?? []).join("\n")}
-              onChange={(v) => patch(i, { answers: v === "" ? [] : v.split("\n") })}
-            />
+            <details className={styles.advanced}>
+              <summary>{`${s.advanced} (${i + 1})`}</summary>
+              {terminal > 1 && (
+                <div className={styles.pair}>
+                  <TextInput label={`${s.user} (${i + 1})`} error={at("login")} value={str(step.login?.user)} onChange={(v) => patch(i, { login: { user: v, password: step.login?.password ?? "" } })} />
+                  <TextInput label={`${s.password} (${i + 1})`} value={str(step.login?.password)} onChange={(v) => patch(i, { login: { user: step.login?.user ?? "", password: v } })} />
+                </div>
+              )}
+              <TextArea
+                label={`${s.answers} (${i + 1})`}
+                rows={2}
+                error={at("answers")}
+                value={(step.answers ?? []).join(NEWLINE)}
+                onChange={(v) => patch(i, { answers: v === "" ? [] : v.split(NEWLINE) })}
+              />
+            </details>
           </fieldset>
         );
       })}
@@ -157,7 +161,7 @@ function CommandSteps({ payload, onChange, errors }: Omit<BlockFormProps, "type"
   );
 }
 
-function TextSteps({ payload, onChange, errors }: Omit<BlockFormProps, "type">) {
+function TextSteps({ payload, onChange, errors }: Omit<BlockFormProps, "kind">) {
   const t = m.textSteps;
   const steps = (Array.isArray(payload.steps) ? payload.steps : []).map(str);
   const set = (next: string[]) => onChange({ ...payload, steps: next });
@@ -181,7 +185,7 @@ function TextSteps({ payload, onChange, errors }: Omit<BlockFormProps, "type">) 
   );
 }
 
-function Cards({ payload, onChange, errors }: Omit<BlockFormProps, "type">) {
+function Cards({ payload, onChange, errors }: Omit<BlockFormProps, "kind">) {
   const c = m.cards;
   const cards = (Array.isArray(payload.cards) ? payload.cards : []) as { title?: string; text?: string }[];
   const set = (next: { title?: string; text?: string }[]) => onChange({ ...payload, cards: next });
@@ -208,45 +212,50 @@ function Cards({ payload, onChange, errors }: Omit<BlockFormProps, "type">) {
   );
 }
 
-/** The editor of one block, chosen by its type (SPEC-019 section 3.1). */
-export function BlockForm({ type, payload, onChange, errors }: BlockFormProps) {
+/** The editor of one block, chosen by its kind (SPEC-019 section 3.1). */
+export function BlockForm({ kind, payload, onChange, errors }: BlockFormProps) {
   const f = m.fields;
   const set = (change: Payload) => onChange({ ...payload, ...change });
-  const title = <TextInput label={f.title} help={f.titleHelp} error={errors.title} value={str(payload.title)} onChange={(v) => set({ title: v })} />;
+  const title = (label: string, help?: string) => <TextInput label={label} help={help} error={errors.title} value={str(payload.title)} onChange={(v) => set({ title: v })} />;
   const text = <Rich label={f.text} value={str(payload.html)} error={errors.html} onChange={(v) => set({ html: v })} />;
 
-  switch (type) {
-    case "TEXT":
+  switch (kind) {
+    case "HTML":
+      return <div className={styles.form}>{text}</div>;
+    case "CARD":
       return (
         <div className={styles.form}>
-          {title}
-          <TextInput label={f.cardLabel} help={f.cardLabelHelp} error={errors.command} value={str(payload.command)} onChange={(v) => set({ command: v })} />
+          <div className={styles.pair}>
+            <TextInput label={f.cardLabel} help={f.cardLabelHelp} mono error={errors.command} value={str(payload.command)} onChange={(v) => set({ command: v })} />
+            {title(f.cardTitle)}
+          </div>
           {text}
         </div>
       );
     case "TIP":
       return (
         <div className={styles.form}>
-          <Field label={f.variant} error={errors.variant}>
-            <select className={styles.input} value={str(payload.variant) || "DEFAULT"} onChange={(e) => set({ variant: e.target.value })} aria-label={f.variant}>
-              <option value="DEFAULT">{f.variantDefault}</option>
-              <option value="WARNING">{f.variantWarning}</option>
-            </select>
-          </Field>
-          {title}
+          {title(f.certification, f.certificationHelp)}
           {text}
         </div>
       );
-    case "CURIOSITY":
+    case "EXAM":
       return (
         <div className={styles.form}>
-          {title}
+          {title(f.examTitle)}
+          {text}
+        </div>
+      );
+    case "REAL":
+      return (
+        <div className={styles.form}>
+          {title(f.realTitle)}
           {text}
         </div>
       );
     case "COMMAND":
       return <CommandSteps payload={payload} onChange={onChange} errors={errors} />;
-    case "STEP_BY_STEP":
+    case "STEPS":
       return <TextSteps payload={payload} onChange={onChange} errors={errors} />;
     case "CARDS":
       return <Cards payload={payload} onChange={onChange} errors={errors} />;

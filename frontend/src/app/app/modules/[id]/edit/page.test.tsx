@@ -15,7 +15,7 @@ vi.mock("@/services/moduleService", () => ({
 vi.mock("@/services/contentAuthoringService", () => ({
   contentAuthoringService: {
     list: vi.fn().mockResolvedValue([
-      { id: "b-1", type: "COMMAND", position: 1, edited: false, updatedAt: "2026-10-09T12:00:00Z", payload: { steps: [{ command: "ls -la" }] } },
+      { id: "b-1", type: "COMMAND", position: 1, edited: false, active: true, updatedAt: "2026-10-09T12:00:00Z", payload: { steps: [{ command: "ls -la" }] } },
     ]),
   },
 }));
@@ -84,7 +84,7 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
     // The blocks live in the "Conteúdo" tab and the exercise order in "Exercícios".
     fireEvent.click(screen.getByRole("tab", { name: "Conteúdo" }));
     expect(await screen.findByText("ls -la")).toBeDefined();
-    expect(screen.getByRole("button", { name: "Editar 1" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Ações do bloco 1" })).toBeDefined();
     fireEvent.click(screen.getByRole("tab", { name: "Detalhes" }));
 
     // Save module update: the page stays on the module and shows the confirmation
