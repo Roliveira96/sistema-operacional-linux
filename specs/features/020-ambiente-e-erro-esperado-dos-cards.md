@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-020 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 09/10/2026 |
 | **Última revisão** | 09/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -143,3 +143,4 @@ Nenhuma em aberto. O Tech Lead respondeu em 09/10/2026:
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 09/10/2026 | Implementador (Claude) | Criação, a partir do pedido do Tech Lead de gravar o snapshot pelo terminal da aplicação e marcar comandos com erro esperado, e das respostas dele às três perguntas. Aprovada na mesma data |
+| 09/10/2026 | Implementador (Claude) | Implementada. Backend: campo `environment` no cabeçalho e `expectError` no passo, gravar e ler ambientes (5.1 e 5.2) e `GET /modules/{id}/scenario` com o ambiente efetivo. Frontend: seção 5 da tela do card com o terminal da aplicação (comandos do terminal 1 listados, estado final gravado), caixa de erro esperado, marca e aviso de voz na tela de estudo. Verificado no navegador: dois comandos digitados no terminal (`mkdir /financeiro`, `useradd ana`), gravados e salvos com o card; a rota do aluno devolveu a máquina com os dois. A carga (`go run ./cmd/seed`) não mexe nos ambientes, que não têm chave de origem |

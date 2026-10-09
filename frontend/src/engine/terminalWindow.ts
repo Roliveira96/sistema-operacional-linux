@@ -30,6 +30,8 @@ export interface TerminalWindow {
   /** Loads a scenario under the open terminals, keeping their screen and history (CA-10). */
   loadScenario(snapshot: unknown): Promise<void>;
   snapshot(): unknown;
+  /** The commands typed in terminal 1 on the current session, oldest first (SPEC-020). */
+  history(): string[];
   exportJson(name: string): void;
   /** Opens the file picker and loads the chosen machine. Rejects on an invalid file. */
   importJson(): Promise<void>;
@@ -142,6 +144,11 @@ export async function mountTerminalWindow(
 
     snapshot() {
       return Serializador.paraJson(machine);
+    },
+
+    history() {
+      const first = (window3 as unknown as WindowInternals).terminais[0];
+      return [...(first?.sessao?.historico ?? [])];
     },
 
     exportJson(name) {

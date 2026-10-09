@@ -93,6 +93,8 @@ export const contentMessages = {
       examplesIntro: "🧪 Veja na prática: clique para executar no terminal",
       runStep: (terminal: number) => `Executar no terminal ${terminal}`,
       onTerminal: (terminal: number) => `Roda no terminal ${terminal}`,
+      expectError: "erro esperado",
+      expectErrorTitle: "Este comando falha de propósito, para mostrar o erro",
       empty: "Este módulo ainda não tem conteúdo publicado.",
     },
     challenges: {
@@ -144,6 +146,8 @@ export const contentMessages = {
       unavailable: "🔇 Não foi possível gerar a voz agora. O material segue em silêncio.",
       autoplay: "🔇 O navegador bloqueou o som. Clique em ▶ de novo para ouvir.",
       // Said before every command runs; one is drawn each time, never the same twice in a row (RF-14).
+      // Said before a command that must fail on purpose (SPEC-020).
+      expectError: "Atenção: este comando vai dar erro de propósito.",
       watchTerminal: [
         "Veja o comando rodando no terminal ao lado.",
         "Agora acompanhe o comando rodando no terminal ao lado.",

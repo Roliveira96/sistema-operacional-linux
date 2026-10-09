@@ -205,6 +205,7 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
     const parts: NarrationPart[] = [{ text: spokenCommand(step.command), highlight: row?.querySelector('[data-narrate="command"]') ?? undefined }];
     if (explanation) parts.push({ element: explanation });
     else if (step.explanation) parts.push({ text: step.explanation });
+    if (step.expectError) parts.push({ text: t.narration.expectError });
     const phrases = t.narration.watchTerminal;
     lastNotice.current = pickVariation(phrases.length, lastNotice.current);
     parts.push({ text: phrases[lastNotice.current]! });

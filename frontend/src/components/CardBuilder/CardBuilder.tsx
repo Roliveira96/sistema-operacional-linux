@@ -22,6 +22,8 @@ import {
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import { ApiProblemError } from "@/services/httpClient";
+import { practiceService, type PracticeService } from "@/services/practiceService";
+import { EnvironmentRecorder } from "./EnvironmentRecorder";
 import styles from "./CardBuilder.module.scss";
 
 const m = authoringMessages.builder;
@@ -33,6 +35,9 @@ interface CardBuilderProps {
   /** A new card goes after this block; without it, at the end. */
   afterId?: string;
   service?: ContentAuthoringService;
+  /** The environment this card starts from: the one of the closest earlier card that has one (SPEC-020). */
+  environmentBaseId?: string;
+  practice?: Pick<PracticeService, "topicScenario">;
   /** Called after a new card is stored, with its blocks. */
   onCreated?: (blocks: AuthoredBlock[]) => void;
   onCancel: () => void;
@@ -57,7 +62,7 @@ function move<T>(list: T[], from: number, to: number): T[] {
 }
 
 const reasonText = (reason: string) => {
-  const known: Record<string, string> = { required: m.required, https: m.https, youtube: m.youtube, url: m.url };
+  const known: Record<string, string> = { required: m.required, https: m.https, youtube: m.youtube, url: m.url, "needs-title": m.environment.needsTitleError };
   return known[reason] ?? reason;
 };
 
@@ -228,6 +233,10 @@ function CommandRow({ cmd, index, total, errors, onChange, onMove, onRemove }: {
       <Field label={label(c.output)}>
         <textarea className={styles.input} rows={2} aria-label={label(c.output)} value={cmd.outputExplanation} onChange={(e) => onChange({ outputExplanation: e.target.value })} />
       </Field>
+      <label className={styles.check}>
+        <input type="checkbox" checked={cmd.expectError} onChange={(e) => onChange({ expectError: e.target.checked })} />
+        <span>{c.expectError}</span>
+      </label>
       <details className={styles.advanced}>
         <summary>{label(c.advanced)}</summary>
         <div className={styles.pair}>
@@ -288,7 +297,7 @@ function BoxList({ boxes, labels, errors, onChange }: { boxes: CardBox[]; labels
  * The screen to create or edit one card, in the style of the client's card generator: the form on
  * the left and the live preview on the right (SPEC-019 section 3.1).
  */
-export function CardBuilder({ moduleId, group, afterId, service = contentAuthoringService, onCreated, onCancel }: CardBuilderProps) {
+export function CardBuilder({ moduleId, group, afterId, service = contentAuthoringService, environmentBaseId, practice = practiceService, onCreated, onCancel }: CardBuilderProps) {
   const [stored, setStored] = useState<CardGroup | undefined>(group);
   const [card, setCard] = useState<CardModel>(() => parseCardOrEmpty(group));
   const [baseline, setBaseline] = useState(() => JSON.stringify(parseCardOrEmpty(group), withoutIds));
@@ -420,7 +429,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             title={m.commands.title}
             hint={m.commands.hint}
             action={
-              <button type="button" className={styles.add} onClick={() => set({ commands: [...card.commands, { id: newId(), terminal: 1, command: "", explanation: "", outputExplanation: "", answers: [] }] })}>
+              <button type="button" className={styles.add} onClick={() => set({ commands: [...card.commands, { id: newId(), terminal: 1, expectError: false, command: "", explanation: "", outputExplanation: "", answers: [] }] })}>
                 {m.commands.add}
               </button>
             }
@@ -444,6 +453,18 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             <BoxList boxes={card.tips} labels={m.boxes.tips} errors={errors} onChange={(tips) => set({ tips })} />
             <BoxList boxes={card.realWorld} labels={m.boxes.real} errors={errors} onChange={(realWorld) => set({ realWorld })} />
             <BoxList boxes={card.exams} labels={m.boxes.exams} errors={errors} onChange={(exams) => set({ exams })} />
+          </Section>
+
+          <Section title={m.environment.title} hint={m.environment.hint}>
+            <EnvironmentRecorder
+              moduleId={moduleId}
+              environment={card.environment}
+              hasTitle={card.title.trim() !== ""}
+              service={service}
+              loadBase={async () => (environmentBaseId ? service.getEnvironment(environmentBaseId) : practice.topicScenario(moduleId))}
+              onChange={(environment) => set({ environment })}
+            />
+            <Errors id="environment" errors={errors} />
           </Section>
         </div>
 

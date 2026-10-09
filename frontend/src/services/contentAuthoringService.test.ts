@@ -24,6 +24,15 @@ describe("contentAuthoringService", () => {
     expect(client.put).toHaveBeenCalledWith("/teacher/modules/m/cards", request);
   });
 
+  it("records an environment and reads it back (SPEC-020)", async () => {
+    vi.mocked(client.post).mockResolvedValueOnce({ scenarioId: "s-1" });
+    expect(await service.createEnvironment("m 1", { formato: "x" })).toBe("s-1");
+    expect(client.post).toHaveBeenCalledWith("/teacher/modules/m%201/environments", { snapshot: { formato: "x" } });
+    vi.mocked(client.get).mockResolvedValueOnce({ scenarioId: "s-1", snapshot: { formato: "x" } });
+    expect(await service.getEnvironment("s-1")).toEqual({ formato: "x" });
+    expect(client.get).toHaveBeenLastCalledWith("/teacher/environments/s-1");
+  });
+
   it("inactivates the blocks of a card", async () => {
     vi.mocked(client.put).mockResolvedValueOnce({ blocks: [] });
     await service.setCardActive("m", ["a", "b"], false);

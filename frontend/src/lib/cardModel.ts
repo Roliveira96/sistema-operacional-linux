@@ -30,6 +30,8 @@ export interface CardElement {
 export interface CardCommand {
   id: string;
   terminal: number;
+  /** The command must fail on purpose (SPEC-020). */
+  expectError: boolean;
   command: string;
   explanation: string;
   outputExplanation: string;
@@ -46,7 +48,16 @@ export interface CardBox {
   html: string;
 }
 
+/** The machine the author prepared for the module from this card on (SPEC-020). */
+export interface CardEnvironment {
+  scenarioId: string;
+  summary: string;
+  /** What the author typed in the terminal, for consulting only. */
+  commands: string[];
+}
+
 export interface CardModel {
+  environment?: CardEnvironment;
   headerId?: string;
   headerUpdatedAt?: string;
   pill: string;
@@ -211,6 +222,10 @@ export function parseCard(group: CardGroup): CardModel {
     model.headerUpdatedAt = group.header.updatedAt;
     model.pill = str(group.header.payload.command);
     model.title = str(group.header.payload.title);
+    const env = group.header.payload.environment as { scenarioId?: unknown; summary?: unknown; commands?: unknown } | undefined;
+    if (env && str(env.scenarioId)) {
+      model.environment = { scenarioId: str(env.scenarioId), summary: str(env.summary), commands: Array.isArray(env.commands) ? env.commands.map(str) : [] };
+    }
     const headerHtml = str(group.header.payload.html);
     if (headerHtml.trim() !== "") model.elements.push({ id: newId(), ...classify(headerHtml) });
   }
@@ -232,6 +247,7 @@ export function parseCard(group: CardGroup): CardModel {
           model.commands.push({
             id: newId(),
             terminal: typeof s.terminal === "number" ? s.terminal : 1,
+            expectError: s.expectError === true,
             command: str(s.command),
             explanation: str(s.explanation),
             outputExplanation: str(s.outputExplanation),
@@ -280,7 +296,9 @@ export function buildBlocks(card: CardModel): BuiltCard {
     rest = card.elements.slice(1);
   }
   if (hasHeader) {
-    push({ id: card.headerId, updatedAt: card.headerUpdatedAt, type: "TEXT", payload: { title: card.title.trim(), command: card.pill.trim(), html: headerHtml } }, headerFrom);
+    const payload: Payload = { title: card.title.trim(), command: card.pill.trim(), html: headerHtml };
+    if (card.environment) payload.environment = { scenarioId: card.environment.scenarioId, summary: card.environment.summary.trim(), commands: card.environment.commands };
+    push({ id: card.headerId, updatedAt: card.headerUpdatedAt, type: "TEXT", payload }, headerFrom);
   }
 
   for (const el of rest) {
@@ -294,6 +312,7 @@ export function buildBlocks(card: CardModel): BuiltCard {
   if (card.commands.length > 0) {
     const steps = card.commands.map((c) => {
       const step: Payload = { command: c.command.trim(), terminal: c.terminal };
+      if (c.expectError) step.expectError = true;
       if (c.explanation.trim()) step.explanation = c.explanation.trim();
       if (c.outputExplanation.trim()) step.outputExplanation = c.outputExplanation.trim();
       if (c.login && c.login.user.trim()) step.login = { user: c.login.user.trim(), password: c.login.password };
@@ -326,6 +345,7 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
   const plain = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
   if (requireTitle && card.title.trim() === "") add("title", "required");
+  if (card.environment && card.title.trim() === "") add("environment", "needs-title");
   for (const el of card.elements) {
     if (el.kind === "text" && plain(el.html) === "") add(el.id, "required");
     if (el.kind === "code" && el.code.trim() === "") add(el.id, "required");
@@ -355,11 +375,20 @@ export function placeServerErrors(built: BuiltCard, params: { name: string; reas
     const step = /^steps\[(\d+)\]/.exec(field);
     let target = from[0] ?? "title";
     if (step) target = from[Number(step[1])] ?? target;
-    else if (from[0] === "header") target = field === "html" && from[1] ? from[1] : "title";
+    else if (from[0] === "header") target = field.startsWith("environment") ? "environment" : field === "html" && from[1] ? from[1] : "title";
     const shown = step ? field.slice((step[0] ?? "").length).replace(/^\./, "") : field;
     errors[target] = [...(errors[target] ?? []), `${shown}: ${p.reason}`];
   }
   return { errors, rest };
+}
+
+/** The id of the environment a card starts from: the one of the closest earlier card that has one (SPEC-020 RN-03). */
+export function environmentBefore(groups: CardGroup[], index: number): string | undefined {
+  for (let i = Math.min(index, groups.length) - 1; i >= 0; i--) {
+    const env = groups[i]?.header?.payload.environment as { scenarioId?: unknown } | undefined;
+    if (env && str(env.scenarioId)) return str(env.scenarioId);
+  }
+  return undefined;
 }
 
 /** A short summary of what a card holds, for the list. */

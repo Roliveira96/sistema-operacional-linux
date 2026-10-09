@@ -45,6 +45,11 @@ function Examples({ steps, player, intro }: { steps: ScriptStep[]; player: Topic
                   )}
                   {step.command}
                 </code>
+                {step.expectError && (
+                  <span className={styles.expectError} title={m.expectErrorTitle} {...{ [SKIP_ATTRIBUTE]: "" }}>
+                    {m.expectError}
+                  </span>
+                )}
                 {step.explanation && (
                   <span className={styles.explanation} data-narrate="explanation">
                     {step.explanation}

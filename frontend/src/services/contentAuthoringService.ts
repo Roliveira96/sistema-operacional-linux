@@ -40,6 +40,12 @@ export function createContentAuthoringService(client: HttpClient = httpClient) {
 
   return {
     list: async (moduleId: string) => (await client.get<{ blocks: AuthoredBlock[] }>(moduleBlocks(moduleId))).blocks,
+    /** Records the machine an author prepared and returns its id (SPEC-020 5.1). */
+    createEnvironment: async (moduleId: string, snapshot: unknown) =>
+      (await client.post<{ scenarioId: string }>(`/teacher/modules/${encodeURIComponent(moduleId)}/environments`, { snapshot })).scenarioId,
+    /** Reads a recorded machine, to go on from where another card stopped (SPEC-020 5.2). */
+    getEnvironment: async (scenarioId: string) =>
+      (await client.get<{ snapshot: unknown }>(`/teacher/environments/${encodeURIComponent(scenarioId)}`)).snapshot,
     saveCard: async (moduleId: string, request: SaveCardRequest) =>
       (await client.put<{ blocks: AuthoredBlock[] }>(moduleCards(moduleId), request)).blocks,
     setCardActive: async (moduleId: string, blockIds: string[], active: boolean) =>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { groupCards, type CardGroup } from "@/lib/cardModel";
+import { environmentBefore, groupCards, type CardGroup } from "@/lib/cardModel";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import { CardBuilder } from "./CardBuilder";
@@ -20,7 +20,7 @@ interface CardScreenProps {
   service?: ContentAuthoringService;
 }
 
-type State = { status: "loading" } | { status: "missing" } | { status: "ready"; group?: CardGroup };
+type State = { status: "loading" } | { status: "missing" } | { status: "ready"; group?: CardGroup; baseId?: string };
 
 /**
  * The screen of one card of a module: create (`/cards/new`) or edit (`/cards/[blockId]`). It loads
@@ -37,15 +37,20 @@ export function CardScreen({ moduleId, cardKey, afterId, service = contentAuthor
       .list(moduleId)
       .then((blocks) => {
         if (!active) return;
-        if (!cardKey) return setState({ status: "ready" });
-        const group = groupCards(blocks).find((g) => g.key === cardKey);
-        setState(group ? { status: "ready", group } : { status: "missing" });
+        const groups = groupCards(blocks);
+        if (!cardKey) {
+          // A new card goes after the card that holds `afterId`, or at the end.
+          const after = afterId ? groups.findIndex((g) => g.blocks.some((b) => b.id === afterId)) : -1;
+          return setState({ status: "ready", baseId: environmentBefore(groups, after >= 0 ? after + 1 : groups.length) });
+        }
+        const at = groups.findIndex((g) => g.key === cardKey);
+        setState(at >= 0 ? { status: "ready", group: groups[at], baseId: environmentBefore(groups, at) } : { status: "missing" });
       })
       .catch(() => active && setState({ status: "missing" }));
     return () => {
       active = false;
     };
-  }, [service, moduleId, cardKey]);
+  }, [service, moduleId, cardKey, afterId]);
 
   const title = !cardKey ? m.newTitle : state.status === "ready" && state.group && !state.group.header ? m.introTitle : m.editTitle;
 
@@ -72,6 +77,7 @@ export function CardScreen({ moduleId, cardKey, afterId, service = contentAuthor
           moduleId={moduleId}
           group={state.group}
           afterId={afterId}
+          environmentBaseId={state.baseId}
           service={service}
           onCancel={() => router.push(back)}
           onCreated={(blocks) => router.replace(`/app/modules/${moduleId}/cards/${blocks[0]!.id}`)}

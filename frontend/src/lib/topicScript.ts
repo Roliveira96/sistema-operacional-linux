@@ -9,6 +9,8 @@ export interface ScriptStep extends TerminalStep {
   index: number;
   explanation?: string;
   outputExplanation?: string;
+  /** The command fails on purpose, and the student is told so (SPEC-020). */
+  expectError?: boolean;
 }
 
 /**
@@ -53,6 +55,7 @@ interface RawStep {
   command?: unknown;
   explanation?: unknown;
   outputExplanation?: unknown;
+  expectError?: unknown;
   terminal?: unknown;
   login?: { user?: unknown; password?: unknown };
   answers?: unknown;
@@ -62,6 +65,7 @@ function toStep(raw: RawStep, index: number): ScriptStep {
   const step: ScriptStep = { index, command: text(raw.command) };
   if (typeof raw.explanation === "string" && raw.explanation) step.explanation = raw.explanation;
   if (typeof raw.outputExplanation === "string" && raw.outputExplanation) step.outputExplanation = raw.outputExplanation;
+  if (raw.expectError === true) step.expectError = true;
   if (typeof raw.terminal === "number") step.terminal = raw.terminal;
   if (raw.login && typeof raw.login.user === "string") {
     step.login = { user: raw.login.user, password: text(raw.login.password) };

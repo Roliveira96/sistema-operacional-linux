@@ -549,6 +549,26 @@ describe("TopicStudy narration", () => {
     expect(fake.window.run).toHaveBeenCalledTimes(2);
   }, 20000);
 
+  // Covers SPEC-020 CA-07: a command that must fail on purpose is marked and announced.
+  it("marks a command that must fail on purpose and warns before running it", async () => {
+    const content = {
+      blocks: vi.fn().mockResolvedValue([block(1, "TEXT", { title: "T", html: "<p>x</p>" }), block(2, "COMMAND", { steps: [{ command: "uname -o", expectError: true }, { command: "pwd" }] })]),
+      questions: vi.fn().mockResolvedValue([]),
+    };
+    const { speech } = setup({ content });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    expect(screen.getAllByText("erro esperado")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /Executar no terminal 1: uname -o/ }));
+    await waitFor(() => expect(fake.window.run).toHaveBeenCalledTimes(1));
+    expect(said(speech)).toEqual(["iú name traço o", "Atenção: este comando vai dar erro de propósito.", NOTICE]);
+
+    // A normal command gets no such warning.
+    fireEvent.click(screen.getByRole("button", { name: /Executar no terminal 1: pwd/ }));
+    await waitFor(() => expect(fake.window.run).toHaveBeenCalledTimes(2));
+    expect(said(speech).slice(3)).not.toContain("Atenção: este comando vai dar erro de propósito.");
+  });
+
   it("says the command and the notice for a step without explanation, then runs it", async () => {
     const { speech } = await loaded();
     fireEvent.click(screen.getByRole("button", { name: /Executar no terminal 2: whoami/ }));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
-import { buildBlocks, cardCounts, checkCard, classify, elementHtml, emptyCard, groupCards, looksSafe, newElement, parseCard, placeServerErrors } from "./cardModel";
+import { buildBlocks, cardCounts, checkCard, classify, elementHtml, emptyCard, environmentBefore, groupCards, looksSafe, newElement, parseCard, placeServerErrors } from "./cardModel";
 
 const block = (id: string, type: string, position: number, payload: Record<string, unknown>): AuthoredBlock => ({
   id,
@@ -102,7 +102,7 @@ describe("buildBlocks", () => {
     card.title = " Novo ";
     card.pill = "ls";
     card.elements = [{ ...newElement("text"), html: "<p>a</p>" }, { ...newElement("code"), code: "ls -la" }];
-    card.commands = [{ id: "c", terminal: 1, command: "ls", explanation: "", outputExplanation: "", answers: [] }];
+    card.commands = [{ id: "c", terminal: 1, expectError: false, command: "ls", explanation: "", outputExplanation: "", answers: [] }];
     card.realWorld = [{ id: "r", title: "Na vida real", html: "<p>x</p>" }];
 
     const { blocks, sources } = buildBlocks(card);
@@ -158,7 +158,7 @@ describe("checkCard", () => {
   it("asks for the title, the text and the command", () => {
     const card = emptyCard();
     card.elements = [newElement("text"), newElement("image"), newElement("video"), newElement("link"), { ...newElement("code"), code: " " }];
-    card.commands = [{ id: "c", terminal: 1, command: " ", explanation: "", outputExplanation: "", answers: [] }];
+    card.commands = [{ id: "c", terminal: 1, expectError: false, command: " ", explanation: "", outputExplanation: "", answers: [] }];
     card.tips = [{ id: "t", title: "", html: "<p></p>" }];
     const errors = checkCard(card, true);
     expect(Object.keys(errors)).toEqual(expect.arrayContaining(["title", "c", "t", ...card.elements.map((e) => e.id)]));
@@ -182,8 +182,8 @@ describe("placeServerErrors", () => {
     card.title = "T";
     card.elements = [{ ...newElement("text"), html: "<p>a</p>" }, { ...newElement("code"), code: "x" }];
     card.commands = [
-      { id: "c0", terminal: 1, command: "a", explanation: "", outputExplanation: "", answers: [] },
-      { id: "c1", terminal: 1, command: "b", explanation: "", outputExplanation: "", answers: [] },
+      { id: "c0", terminal: 1, expectError: false, command: "a", explanation: "", outputExplanation: "", answers: [] },
+      { id: "c1", terminal: 1, expectError: false, command: "b", explanation: "", outputExplanation: "", answers: [] },
     ];
     const built = buildBlocks(card);
     const { errors, rest } = placeServerErrors(built, [
@@ -247,5 +247,58 @@ describe("raw html elements", () => {
   it("only previews html that is safe to show", () => {
     expect(looksSafe("<p>ok <b>x</b></p>")).toBe(true);
     for (const bad of ["<script>x()</script>", '<img src=x onerror="x()">', '<a href="javascript:x()">y</a>', "<iframe src=x></iframe>"]) expect(looksSafe(bad)).toBe(false);
+  });
+});
+
+describe("environment and expected error (SPEC-020)", () => {
+  const withEnv = [
+    block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", environment: { scenarioId: "11111111-1111-4111-8111-111111111111", summary: "pronto", commands: ["mkdir /x", "useradd ana"] } }),
+    block("c", "COMMAND", 2, { steps: [{ command: "curl http://localhost", terminal: 1, expectError: true }, { command: "ls", terminal: 1 }] }),
+  ];
+
+  it("reads the environment of the header and the expected error of a command", () => {
+    const card = parseCard(groupCards(withEnv)[0]!);
+    expect(card.environment).toEqual({ scenarioId: "11111111-1111-4111-8111-111111111111", summary: "pronto", commands: ["mkdir /x", "useradd ana"] });
+    expect(card.commands.map((c) => c.expectError)).toEqual([true, false]);
+  });
+
+  it("builds them back, writing expectError only when it is true", () => {
+    const { blocks } = buildBlocks(parseCard(groupCards(withEnv)[0]!));
+    expect(blocks[0]!.payload.environment).toEqual({ scenarioId: "11111111-1111-4111-8111-111111111111", summary: "pronto", commands: ["mkdir /x", "useradd ana"] });
+    expect(blocks[1]!.payload.steps).toEqual([
+      { command: "curl http://localhost", terminal: 1, expectError: true },
+      { command: "ls", terminal: 1 },
+    ]);
+  });
+
+  it("has no environment unless the header has one, and needs the title to keep it", () => {
+    expect(parseCard(groupCards([block("h", "TEXT", 1, { title: "Card", html: "" })])[0]!).environment).toBeUndefined();
+    const card = emptyCard();
+    card.environment = { scenarioId: "x", summary: "", commands: [] };
+    expect(checkCard(card, false).environment).toEqual(["needs-title"]);
+    card.title = "T";
+    expect(checkCard(card, true).environment).toBeUndefined();
+  });
+
+  it("puts the server's environment errors on the environment section", () => {
+    const card = emptyCard();
+    card.title = "T";
+    card.environment = { scenarioId: "x", summary: "", commands: [] };
+    const { errors } = placeServerErrors(buildBlocks(card), [{ name: "blocks[0].environment.scenarioId", reason: "unknown environment" }]);
+    expect(errors.environment).toEqual(["environment.scenarioId: unknown environment"]);
+  });
+
+  it("finds the environment a card starts from", () => {
+    const groups = groupCards([
+      block("a", "TEXT", 1, { title: "A", html: "", environment: { scenarioId: "env-a" } }),
+      block("b", "TEXT", 2, { title: "B", html: "" }),
+      block("c", "TEXT", 3, { title: "C", html: "", environment: { scenarioId: "env-c" } }),
+      block("d", "TEXT", 4, { title: "D", html: "" }),
+    ]);
+    expect(environmentBefore(groups, 0)).toBeUndefined();
+    expect(environmentBefore(groups, 1)).toBe("env-a");
+    expect(environmentBefore(groups, 2)).toBe("env-a");
+    expect(environmentBefore(groups, 3)).toBe("env-c");
+    expect(environmentBefore(groups, 99)).toBe("env-c");
   });
 });

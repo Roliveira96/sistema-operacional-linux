@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthoredBlock, ContentAuthoringService } from "@/services/contentAuthoringService";
 import { CardScreen } from "./CardScreen";
 
+// The terminal window of the prototype is exercised in src/engine; here it is replaced.
+vi.mock("@/engine/terminalWindow", () => ({ mountTerminalWindow: vi.fn(async () => ({ snapshot: () => ({}), history: () => [], destroy: vi.fn() })) }));
 const push = vi.fn();
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
@@ -37,7 +39,7 @@ const blocks = [
 let service: { [K in keyof ContentAuthoringService]: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
-  service = { list: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn() };
+  service = { list: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn(), createEnvironment: vi.fn(), getEnvironment: vi.fn() };
   service.list.mockResolvedValue(blocks);
 });
 
@@ -84,5 +86,37 @@ describe("CardScreen", () => {
     fireEvent.change(screen.getByLabelText("Título principal do card"), { target: { value: "Novo" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/app/modules/mod-1/cards/n1"));
+  });
+});
+
+describe("CardScreen, the environment a card starts from (SPEC-020 RN-03)", () => {
+  const env = (id: string) => ({ scenarioId: id });
+  const withEnvs = [
+    block("a", "TEXT", 1, { title: "A", html: "", environment: env("env-a") }),
+    block("b", "TEXT", 2, { title: "B", html: "" }),
+    block("c", "TEXT", 3, { title: "C", html: "", environment: env("env-c") }),
+  ];
+
+  async function openTerminalOf(props: { cardKey?: string; afterId?: string }) {
+    service.list.mockResolvedValue(withEnvs);
+    service.getEnvironment = vi.fn().mockResolvedValue({ formato: "m" });
+    render(<CardScreen moduleId="mod-1" service={api()} {...props} />);
+    const title = await screen.findByLabelText("Título principal do card");
+    // The environment is kept in the card header, so a new card needs its title first.
+    if (!props.cardKey) fireEvent.change(title, { target: { value: "Novo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Abrir terminal para preparar o ambiente" }));
+  }
+
+  it("uses the environment of the closest earlier card when editing", async () => {
+    await openTerminalOf({ cardKey: "b" });
+    await waitFor(() => expect(service.getEnvironment).toHaveBeenCalledWith("env-a"));
+  });
+
+  it("uses the last environment of the module for a card added at the end, and the one before the place for a card added after another", async () => {
+    await openTerminalOf({});
+    await waitFor(() => expect(service.getEnvironment).toHaveBeenCalledWith("env-c"));
+    cleanup();
+    await openTerminalOf({ afterId: "b" });
+    await waitFor(() => expect(service.getEnvironment).toHaveBeenCalledWith("env-a"));
   });
 });
