@@ -12,6 +12,12 @@ vi.mock("@/services/moduleService", () => ({
   },
 }));
 
+vi.mock("@/services/contentService", () => ({
+  contentService: {
+    blocks: vi.fn().mockResolvedValue([{ id: "b-1", type: "COMMAND", position: 1, payload: { title: "Listar arquivos" } }]),
+  },
+}));
+
 vi.mock("@/services/classService", () => ({
   classService: {
     listClasses: vi.fn(),
@@ -72,6 +78,9 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
     await waitFor(() => {
       expect(screen.getByRole("heading", { level: 1, name: "Editar Módulo de Ensino" })).toBeDefined();
     });
+
+    expect(await screen.findByText("Listar arquivos")).toBeDefined();
+    expect(screen.getByText("Comando")).toBeDefined();
 
     // Save module update: the page stays on the module and shows the confirmation
     fireEvent.change(screen.getByLabelText(/Título do Módulo/i), { target: { value: "Módulo Novo" } });

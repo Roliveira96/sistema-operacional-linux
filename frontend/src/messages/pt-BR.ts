@@ -395,6 +395,23 @@ export const messages = {
       successCreate: "Módulo de ensino criado com sucesso!",
       successUpdate: "Módulo atualizado com sucesso!",
     },
+    blocks: {
+      title: "Conteúdo do módulo",
+      hint: "Os blocos que o aluno estuda, na ordem em que aparecem. A edição dos blocos chega na SPEC-019.",
+      preview: "Ver como o aluno →",
+      loading: "Carregando blocos…",
+      empty: "Este módulo ainda não tem blocos de conteúdo.",
+      types: {
+        TEXT: "Texto",
+        COMMAND: "Comando",
+        TIP: "Dica",
+        CURIOSITY: "Curiosidade",
+        STEP_BY_STEP: "Passo a passo",
+        CARDS: "Cartões",
+        WIDGET: "Widget",
+        LEGACY_HTML: "HTML legado",
+      },
+    },
     exercises: {
       title: "Trilha de Exercícios Práticos",
       subtitle: "Defina a ordem sequencial obrigatória em que o estudante deve realizar as atividades.",
