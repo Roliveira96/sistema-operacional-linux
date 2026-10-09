@@ -71,4 +71,38 @@ describe("ClassCard", () => {
 
     expect(writeTextMock).toHaveBeenCalled();
   });
+
+  it("renders draft status and inactive invite link correctly", () => {
+    const draftClass: ClassSummary = {
+      ...mockClass,
+      id: "c-2",
+      status: "DRAFT",
+      isExpiringSoon: false,
+      scheduleDescription: undefined,
+      enableInviteLink: false,
+      inviteLinkToken: undefined,
+      totalPendingRequests: 0,
+    };
+
+    render(<ClassCard classGroup={draftClass} />);
+
+    expect(screen.getByText("Rascunho")).toBeDefined();
+    expect(screen.getByText(/Link desativado/i)).toBeDefined();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("renders archived status and hides archive button", () => {
+    const archivedClass: ClassSummary = {
+      ...mockClass,
+      id: "c-3",
+      status: "ARCHIVED",
+      isExpiringSoon: false,
+    };
+
+    render(<ClassCard classGroup={archivedClass} onArchive={vi.fn()} />);
+
+    expect(screen.getByText("Arquivada")).toBeDefined();
+    expect(screen.queryByText("Arquivar")).toBeNull();
+  });
 });
+
