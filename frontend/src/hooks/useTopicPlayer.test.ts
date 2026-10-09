@@ -245,6 +245,119 @@ describe("useTopicPlayer", () => {
   });
 });
 
+// Covers SPEC-016 (highlight of the card being played): the card of the button the student pressed
+// is the active one, whatever the next command of the script is.
+describe("useTopicPlayer active card", () => {
+  const withText = buildTopicScript([
+    { id: "h0", type: "TEXT", position: 1, payload: { title: "A", command: "a", html: "" } },
+    { id: "c0", type: "COMMAND", position: 2, payload: { steps: [{ command: "one" }] } },
+    { id: "h1", type: "TEXT", position: 3, payload: { title: "B", command: "b", html: "" } },
+    { id: "t1", type: "TIP", position: 4, payload: { html: "x" } },
+    { id: "c1", type: "COMMAND", position: 5, payload: { steps: [{ command: "two" }] } },
+    { id: "h2", type: "TEXT", position: 6, payload: { title: "C", command: "c", html: "" } },
+    { id: "c2", type: "COMMAND", position: 7, payload: { steps: [{ command: "three" }] } },
+  ]);
+
+  /** A player whose narration and commands wait until the test lets them go. */
+  function controlled() {
+    const waiting: (() => void)[] = [];
+    const hold = () => new Promise<void>((resolve) => waiting.push(resolve));
+    const controls: PlayerControls = {
+      runStep: vi.fn(() => hold()),
+      resetMachine: vi.fn(),
+      setTerminalSpeed: vi.fn(),
+      narrate: vi.fn(() => hold()),
+      stopNarration: vi.fn(),
+    };
+    const hook = renderHook(() => useTopicPlayer(withText, controls, 1));
+    const release = async () => {
+      await act(async () => {
+        waiting.shift()?.();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+    };
+    return { ...hook, release };
+  }
+
+  it("highlights the card whose button was pressed, even before any of its commands ran", async () => {
+    const { result } = controlled();
+    expect(result.current.activeCard).toBeNull();
+    await act(async () => {
+      result.current.toggleCard(1);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    // The script has not run a single command, so its next command belongs to the first card.
+    expect(result.current.index).toBe(-1);
+    expect(result.current.activeCard).toBe(1);
+  });
+
+  it("follows the card through its title, its text and its command, then lets go", async () => {
+    const { result, release } = controlled();
+    await act(async () => {
+      result.current.toggleCard(1);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.activeCard).toBe(1);
+    await release(); // title
+    await release(); // text
+    await release(); // tip
+    expect(result.current.activeCard).toBe(1);
+    await release(); // the command
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.activeCard).toBeNull();
+    expect(result.current.playingCard).toBeNull();
+  });
+
+  it("moves to the next card as the whole script plays", async () => {
+    const { result, release } = controlled();
+    await act(async () => {
+      result.current.toggleAll();
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(result.current.activeCard).toBe(0);
+    await release(); // title of card 0
+    await release(); // text of card 0
+    await release(); // command of card 0
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(result.current.activeCard).toBe(1);
+    await act(async () => {
+      result.current.toggleAll();
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.activeCard).toBeNull();
+  });
+
+  it("highlights the card of a command run on its own and lets go afterwards", async () => {
+    const { result, release } = controlled();
+    await act(async () => {
+      void result.current.runOne(2);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.running).toBe(2);
+    expect(result.current.activeCard).toBe(2);
+    await release();
+    expect(result.current.activeCard).toBeNull();
+  });
+
+  it("lets go of the card when the student stops", async () => {
+    const { result } = controlled();
+    await act(async () => {
+      result.current.toggleCard(2);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.activeCard).toBe(2);
+    await act(async () => {
+      result.current.toggleCard(2);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.activeCard).toBeNull();
+  });
+});
+
 function setupWithText() {
   const withText = buildTopicScript([
     { id: "h0", type: "TEXT", position: 1, payload: { title: "A", command: "a", html: "" } },

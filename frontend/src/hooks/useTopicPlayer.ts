@@ -40,6 +40,8 @@ export interface TopicPlayer {
   playingCard: number | null;
   /** Step running right now, or null. */
   running: number | null;
+  /** Card being played right now (read, or running a command), or null when idle. */
+  activeCard: number | null;
   done: ReadonlySet<number>;
   speed: number;
   setSpeed(speed: number): void;
@@ -60,6 +62,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
   const [playing, setPlaying] = useState(false);
   const [playingCard, setPlayingCard] = useState<number | null>(null);
   const [running, setRunning] = useState<number | null>(null);
+  const [activeCard, setActiveCard] = useState<number | null>(null);
   const [done, setDone] = useState<ReadonlySet<number>>(new Set());
   const [speed, setSpeedState] = useState(initialSpeed);
 
@@ -94,6 +97,8 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
     if (state.busy || !target) return;
     state.busy = true;
     setRunning(step);
+    const own = !state.playing;
+    if (own) setActiveCard(state.script.timeline.find((item) => item.kind === "step" && item.step === step)?.card ?? null);
     try {
       if ((await state.controls.runStep(target)) === false) return;
       state.index = step;
@@ -102,6 +107,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
     } finally {
       state.busy = false;
       setRunning(null);
+      if (own) setActiveCard(null);
     }
   }, []);
 
@@ -111,6 +117,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
       const state = ref.current;
       for (let k = 0; k < items.length && state.playing; k++) {
         const item = items[k]!;
+        setActiveCard(item.card);
         if (item.kind === "step") {
           await runOne(item.step);
           if (k < items.length - 1) await sleep(gap / state.speed);
@@ -129,6 +136,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
   const stopPlaying = useCallback(() => {
     const state = ref.current;
     setPlayingBoth(false);
+    setActiveCard(null);
     state.controls.stopNarration?.();
   }, []);
 
@@ -151,6 +159,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
       setPlayingCard(null);
       await playItems(rest, GAP_ALL_MS, true);
       setPlayingBoth(false);
+      setActiveCard(null);
       state.controls.onStop?.();
     })();
   }, [playItems, stopPlaying]);
@@ -171,6 +180,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
         await playItems(card.items, GAP_CARD_MS, false);
         setPlayingBoth(false);
         setPlayingCard(null);
+        setActiveCard(null);
         state.controls.onStop?.();
       })();
     },
@@ -213,6 +223,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
     playing,
     playingCard,
     running,
+    activeCard,
     done,
     speed,
     setSpeed,

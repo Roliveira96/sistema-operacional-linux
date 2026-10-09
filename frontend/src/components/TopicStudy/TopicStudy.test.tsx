@@ -578,6 +578,23 @@ describe("TopicStudy narration", () => {
     expect(fake.window.run).not.toHaveBeenCalled();
   });
 
+  // The highlighted card is the one being played, not the next command of the script.
+  it("highlights the card that was played and not the one below it", async () => {
+    const speech = { synthesize: vi.fn().mockReturnValue(new Promise(() => {})) };
+    setup({ speech });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    const card = (index: number) => document.querySelector(`article[data-card="${index}"]`) as HTMLElement;
+    expect(card(1).className).not.toContain("active");
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
+    await waitFor(() => expect(speech.synthesize).toHaveBeenCalled());
+    expect(card(1).className).toContain("active");
+    expect(card(0).className).not.toContain("active");
+
+    fireEvent.click(await screen.findByRole("button", { name: /Parar/ }));
+    await waitFor(() => expect(card(1).className).not.toContain("active"));
+  });
+
   // Covers CA-04: stopping the card silences the voice.
   it("silences the voice when the card is stopped", async () => {
     const speech = { synthesize: vi.fn().mockReturnValue(new Promise(() => {})) };

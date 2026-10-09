@@ -4,7 +4,7 @@ import { useEffect, useRef, type ComponentType } from "react";
 import { CardsBlock, CuriosityBlock, Html, LegacyHtmlBlock, StepByStepBlock, TipBlock, UnknownBlock, WidgetBlock } from "@/components/ContentRenderer/blocks";
 import type { TopicPlayer } from "@/hooks/useTopicPlayer";
 import { SKIP_ATTRIBUTE } from "@/lib/narration";
-import { cardOfStep, INTRO_LABEL, type LessonCard, type ScriptStep, type TopicScript } from "@/lib/topicScript";
+import { INTRO_LABEL, type LessonCard, type ScriptStep, type TopicScript } from "@/lib/topicScript";
 import { contentMessages } from "@/messages/content.pt-BR";
 import styles from "./LessonPanel.module.scss";
 
@@ -119,8 +119,9 @@ export function LessonPanel({ script, player }: LessonPanelProps) {
 
   if (script.cards.length === 0) return <p className={styles.empty}>{m.empty}</p>;
 
-  const target = player.running ?? player.index + 1;
-  const activeCard = player.playing || player.running !== null ? cardOfStep(script.cards, target) : -1;
+  // The card being played, not the next command of the script: playing the second card of a
+  // fresh module must highlight the second card, not the first one.
+  const activeCard = player.activeCard ?? -1;
 
   return (
     <div ref={panel} className={styles.panel}>
