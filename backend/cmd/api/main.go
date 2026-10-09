@@ -33,6 +33,8 @@ import (
 	studenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/handler"
 	studentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/repository"
 	studentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/service"
+	ttshandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/tts/handler"
+	ttsservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/tts/service"
 	userrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/repository"
 	userservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/service"
 
@@ -43,6 +45,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/mailer"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/ratelimit"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/server"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/speech"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/storage"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/migrations"
 )
@@ -164,6 +167,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		practiceservice.New(contentReader, practicerepository.New(db)), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
 
+	ttsHandler := ttshandler.New(
+		ttsservice.New(speech.NewClient(), ttsservice.Options{Timeout: cfg.TTS.Timeout, MaxConcurrent: cfg.TTS.MaxConcurrent}),
+		auth, ratelimit.New(20, time.Minute), log)
+
 	studentRepo := studentrepository.New(db)
 	studentService := studentservice.New(studentservice.Deps{
 		Repo:    studentRepo,
@@ -188,6 +195,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		moduleHandler,
 		contentHandler,
 		practiceHandler,
+		ttsHandler,
 		studentHandler,
 	)
 	srv := server.New(cfg.HTTPAddr, engine, log)

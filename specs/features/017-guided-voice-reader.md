@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-017 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 09/10/2026 |
 | **Última revisão** | 09/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -138,11 +138,10 @@ Gera o áudio falado de um texto e as marcas de palavra. Não cria recurso persi
 
 | HTTP | `type` (slug do problema) | Quando ocorre |
 | :--- | :--- | :--- |
-| 400 | `invalid-request` | Corpo que não é JSON válido |
-| 400 | `validation-error` | `text` vazio ou maior que 2000 caracteres, ou `voice` fora da lista (com a lista de campos inválidos) |
+| 400 | `validation-error` | Corpo que não é um JSON com `text`, `text` vazio ou maior que 2000 caracteres, ou `voice` fora da lista (com a lista de campos inválidos) |
 | 401 | `not-authenticated` | Sem sessão |
 | 403 | `password-change-required` | Sessão com troca de senha pendente (comportamento do middleware existente) |
-| 429 | `too-many-requests` | Limite de taxa da RN-08 excedido (com `Retry-After`) |
+| 429 | `rate-limited` | Limite de taxa da RN-08 excedido (com `Retry-After`) |
 | 502 | `speech-provider-failed` | Provedor recusou, caiu antes do fim ou devolveu áudio vazio (RN-06) |
 | 503 | `speech-busy` | Limite de concorrência da RN-08 atingido |
 | 503 | `speech-unavailable` | Provedor inalcançável |
@@ -180,7 +179,7 @@ Gera o áudio falado de um texto e as marcas de palavra. Não cria recurso persi
 - [ ] **CA-09** (indesejado): SE a voz não pertencer à lista permitida, ENTÃO O SISTEMA DEVE responder 400 `validation-error`; QUANDO a voz estiver ausente, DEVE usar `pt-BR-FranciscaNeural` (RN-03).
 - [ ] **CA-10** (indesejado): SE não houver sessão, ENTÃO O SISTEMA DEVE responder 401 `not-authenticated` sem chamar o provedor.
 - [ ] **CA-11** (estado): ENQUANTO houver 4 sínteses em andamento, O SISTEMA DEVE responder 503 `speech-busy` a uma nova requisição, sem enfileirá-la (RN-08).
-- [ ] **CA-12** (indesejado): SE um usuário passar de 20 requisições por minuto, ENTÃO O SISTEMA DEVE responder 429 `too-many-requests` com `Retry-After` (RN-08).
+- [ ] **CA-12** (indesejado): SE um usuário passar de 20 requisições por minuto, ENTÃO O SISTEMA DEVE responder 429 `rate-limited` com `Retry-After` (RN-08).
 - [ ] **CA-13** (indesejado): SE o provedor estiver inalcançável, ENTÃO O SISTEMA DEVE responder 503 `speech-unavailable`, e a plataforma DEVE continuar atendendo as demais rotas.
 - [ ] **CA-14** (ubíquo): O SISTEMA NÃO DEVE registrar o texto da síntese em nenhum log, apenas tamanho, voz e duração (seção 3.2).
 
@@ -209,7 +208,7 @@ Gera o áudio falado de um texto e as marcas de palavra. Não cria recurso persi
    - criar `backend/internal/modules/tts/{domain,service,handler}/` com seus testes;
    - criar `backend/internal/platform/speech/` com seus testes e quadros de exemplo;
    - alterar `backend/internal/platform/config/config.go` (e o teste), `backend/cmd/api/main.go`, `backend/go.mod` e `backend/go.sum`;
-   - alterar `specs/GLOSSARY.md` (seção 3.2).
+   - alterar `specs/GLOSSARY.md` (seção 3.2) e `.env.example` (as duas variáveis novas).
    Qualquer outro arquivo exige justificativa no resumo da entrega.
 4. **Definição de pronto:** CA-01 a CA-14 verificados, testes da seção 8 passando, cobertura acima de 80% nos pacotes indicados, nenhuma violação de `ARCHITECTURE.md` (sem logger global, sem `fmt.Print`, erro registrado uma só vez, mensagens e identificadores em inglês), roteiro manual registrado e status atualizado para `Implementada`.
 
@@ -231,3 +230,4 @@ Nenhuma. P-01 a P-05 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações
 | :--- | :--- | :--- |
 | 09/10/2026 | Implementador (Claude) | Criação, a pedido do Tech Lead, a partir da proposta de serviço de leitura colada na conversa. Adaptações ao padrão do repositório: módulo `tts` em Gin com adaptador em `platform/speech` (em vez de serviço separado em `net/http`), rota em `/api/v1/speech-syntheses`, campos em camelCase com tempos em milissegundos inteiros, escape de SSML e remoção de caracteres inválidos (RN-04), voz de lista fechada, resposta completa ou erro (RN-06), limites de taxa e concorrência, sem CORS próprio (o frontend acessa pelo proxy do Next.js, como as demais rotas). Pendências P-01 a P-05 |
 | 09/10/2026 | Tech Lead | Aprovação de P-01 a P-05 nas recomendações. Status: `Aprovada` |
+| 09/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Verificação:** cobertura de 100% em `tts/domain` e `tts/handler`, 97,4% em `tts/service` e 92,6% em `platform/speech`; suíte completa do backend (`go test -race ./...`) sem falhas e `go vet` limpo. **CA → testes:** CA-01 `TestSynthesizeSuccess` (handler e service) e `TestSynthesizeFullTurn`; CA-02, CA-03 e CA-09 `TestSynthesizeValidation` (service e handler) e `TestSynthesizeLimitCountsRunes`; CA-04 e CA-05 `TestBuildSSMLEscapesAndSanitizes`; CA-06 `TestSynthesizeFullTurn`; CA-07 `TestSynthesizeFailures` e `TestSynthesizeRejectsOversizedAudio`; CA-08 `TestSynthesizeDeadline` e `TestSynthesizeProviderErrors`; CA-10 `TestSynthesizeRequiresSession`; CA-11 `TestSynthesizeConcurrencyLimit`; CA-12 `TestSynthesizeRateLimit`; CA-13 `TestSynthesizeUnreachable`; CA-14 `TestSynthesizeDoesNotLogText`. **Roteiro manual** (provedor real, internet): síntese de um texto com `</voice><voice name="x"> & a < b` pela pilha service + adaptador devolveu 41 KB de áudio MP3 e 15 marcas de palavra em ordem, e o texto hostil foi falado literalmente, sem alterar a voz. Tocar o áudio no navegador fica para a SPEC-018. **Desvios:** (1) a biblioteca `edge-tts-go` da P-01 não existe; `github.com/lib-x/edgetts` (v0.3.10) foi inspecionada e só expõe o áudio, sem `WordBoundary` nem `context` (tudo em `internal/`), então, com a autorização do Tech Lead, foi usada a Opção B: protocolo direto com `gorilla/websocket` v1.5.3 (única dependência nova), com a biblioteca só como referência do handshake (token `Sec-MS-GEC`), sem copiar código; (2) a mensagem de configuração, o formato `{"Metadata":[...]}` dos metadados e o texto da palavra com escape XML (`&amp;`, desfeito no adaptador) foram verificados contra o serviço real; (3) os `type` de erro seguem os helpers existentes do repositório: `validation-error` também para corpo inválido e `rate-limited` no lugar de `too-many-requests` (tabela 5.1 e CA-12 corrigidos); (4) `.env.example` alterado para documentar `TTS_TIMEOUT` e `TTS_MAX_CONCURRENT`; (5) o limite de 20 por minuto fica fixo no `main.go`, como nas outras rotas, e só prazo e concorrência são configuráveis. **Risco novo:** a versão do Chromium e o token do handshake são constantes do adaptador; se a Microsoft passar a recusar (403), é lá que se atualiza |
