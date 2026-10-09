@@ -23,6 +23,7 @@ import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import { ApiProblemError } from "@/services/httpClient";
 import { practiceService, type PracticeService } from "@/services/practiceService";
+import { CardTester } from "./CardTester";
 import { EnvironmentRecorder } from "./EnvironmentRecorder";
 import styles from "./CardBuilder.module.scss";
 
@@ -306,6 +307,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
   const [conflict, setConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   const dirty = JSON.stringify(card, withoutIds) !== baseline;
 
@@ -382,6 +384,8 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
     return blocks;
   }, [card]);
 
+  const loadBase = async () => (environmentBaseId ? service.getEnvironment(environmentBaseId) : practice.topicScenario(moduleId));
+  const loadTestBase = async () => (card.environment ? service.getEnvironment(card.environment.scenarioId) : loadBase());
   const patchAt = <T,>(list: T[], i: number, change: Partial<T>) => list.map((item, j) => (j === i ? { ...item, ...change } : item));
   const d = m.description;
 
@@ -429,11 +433,17 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             title={m.commands.title}
             hint={m.commands.hint}
             action={
-              <button type="button" className={styles.add} onClick={() => set({ commands: [...card.commands, { id: newId(), terminal: 1, expectError: false, command: "", explanation: "", outputExplanation: "", answers: [] }] })}>
+              <div className={styles.rowButtons}>
+                <button type="button" className={styles.add} title={m.tester.openTitle} onClick={() => setTesting(true)} disabled={card.commands.length === 0 || testing}>
+                  {m.tester.open}
+                </button>
+                <button type="button" className={styles.add} onClick={() => set({ commands: [...card.commands, { id: newId(), terminal: 1, expectError: false, command: "", explanation: "", outputExplanation: "", answers: [] }] })}>
                 {m.commands.add}
-              </button>
+                </button>
+              </div>
             }
           >
+            {testing && <CardTester commands={card.commands} loadBase={loadTestBase} onClose={() => setTesting(false)} />}
             {card.commands.length === 0 && <p className={styles.hint}>{m.commands.empty}</p>}
             {card.commands.map((cmd, i) => (
               <CommandRow
@@ -461,7 +471,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
               environment={card.environment}
               hasTitle={card.title.trim() !== ""}
               service={service}
-              loadBase={async () => (environmentBaseId ? service.getEnvironment(environmentBaseId) : practice.topicScenario(moduleId))}
+              loadBase={loadBase}
               onChange={(environment) => set({ environment })}
             />
             <Errors id="environment" errors={errors} />

@@ -54,6 +54,14 @@ Há também comandos que **devem falhar de propósito** (por exemplo, `curl` par
 
 **Erro esperado.** Cada comando da seção 3 do card ganha a caixa **"Erro esperado (este comando deve falhar de propósito)"**. Na tela de estudo o comando aparece com a marca **"erro esperado"**, e a voz avisa antes de rodá-lo ("Atenção: este comando vai dar erro de propósito.").
 
+**Testar o card.** Como o card tem muitos comandos Linux, a seção 3 ganha o botão **"Testar comandos"**, que confere se o ambiente serve ao aluno. Ele abre o terminal da aplicação na máquina que o aluno terá neste card (o ambiente gravado do próprio card, ou o do card anterior, ou o cenário do tópico), roda **todos os comandos da lista, na ordem**, cada um no terminal e com o login que pede, e mostra o resultado de cada um:
+
+- **Como esperado:** o comando terminou com sucesso, ou terminou com erro e estava marcado como **erro esperado**.
+- **Fora do esperado:** terminou com erro sem estar marcado ("deu erro, e não era esperado"), ou terminou com sucesso mas estava marcado como erro esperado ("era para dar erro e não deu").
+- **Não rodou:** o terminal não chegou a executar o comando.
+
+Ao fim, o painel resume ("5 de 6 comandos como esperado") e destaca os que falharam, para a docente corrigir o comando, o ambiente ou a marca de erro esperado. O teste usa os comandos como estão na tela, mesmo sem salvar, e **nunca grava nada**: a máquina do teste é descartada. Há botões **Parar** e **Rodar de novo** (recarrega a máquina de partida).
+
 **Tela de estudo:** nada muda no fluxo. A máquina inicial e o "Reset Máquina" já vêm do cenário do tópico (SPEC-016, 5.1); passam a vir do ambiente do módulo quando ele existe (RN-04).
 
 ### 3.2. Backend (Go, módulo `content`)
@@ -64,6 +72,7 @@ Há também comandos que **devem falhar de propósito** (por exemplo, `curl` par
 - **RN-04 (entrega ao aluno):** a rota que já devolve o cenário do tópico (`GET /api/v1/modules/{id}/scenario`, SPEC-016, 5.1) devolve o ambiente efetivo quando há um, e o cenário do tópico quando não há. As regras de visibilidade do módulo (SPEC-010) valem como hoje.
 - **RN-05 (ler para continuar a preparar):** `ADMIN` e `TEACHER` leem a máquina de um ambiente pelo `scenarioId` (para a docente continuar de onde o card anterior parou).
 - **RN-06 (erro esperado):** o passo de `COMMAND` aceita `expectError` (booleano, padrão falso), conferido e gravado como os demais campos do passo.
+- **RN-08 (teste do card, no navegador):** o terminal da aplicação informa o status de saída de cada comando que roda (0 é sucesso), e o teste compara esse status com a marca de erro esperado. O servidor não participa: nada é enviado nem gravado.
 - **RN-07 (segurança):** a máquina é dado, nunca código; o servidor só a guarda e devolve. Gravar vale o limite de 120 gravações por minuto por usuário (SPEC-019 5.6).
 
 ## 4. Modelo de Dados (Data Model)
@@ -110,6 +119,9 @@ Mesmo contrato da SPEC-016, 5.1. O `snapshot` passa a ser o ambiente efetivo (RN
 - [ ] **CA-06** (indesejado): SE um card for salvo com um `scenarioId` que não existe, ENTÃO O SISTEMA DEVE recusar o card com 400 e indicar o campo.
 - [ ] **CA-07** (evento): QUANDO a docente marcar um comando como erro esperado e salvar, O SISTEMA DEVE gravar `expectError` no passo, mostrar a marca "erro esperado" ao aluno e avisar pela voz antes de rodar o comando.
 - [ ] **CA-08** (indesejado): SE um `TEACHER` tentar gravar ou ler um ambiente de módulo que não é dele, ENTÃO O SISTEMA DEVE responder 403 (gravar); SE não houver sessão, 401.
+- [ ] **CA-10** (evento): QUANDO a docente clicar em "Testar comandos", O SISTEMA DEVE abrir o terminal na máquina que o aluno terá neste card, rodar todos os comandos na ordem e mostrar, para cada um, se terminou como esperado.
+- [ ] **CA-11** (indesejado): SE um comando terminar com erro sem estar marcado como erro esperado, ou terminar com sucesso estando marcado, ENTÃO O SISTEMA DEVE mostrá-lo como fora do esperado e dizer o motivo, e o resumo DEVE contar quantos ficaram como esperado.
+- [ ] **CA-12** (estado): ENQUANTO o teste roda, O SISTEMA DEVE permitir pará-lo, e NUNCA DEVE gravar o card, o ambiente ou o estado da máquina do teste.
 - [ ] **CA-09** (ubíquo): O terminal da tela do card DEVE funcionar só com o teclado, como o da tela de estudo.
 
 ## 8. Plano de Testes (Test Plan)
@@ -144,3 +156,4 @@ Nenhuma em aberto. O Tech Lead respondeu em 09/10/2026:
 | :--- | :--- | :--- |
 | 09/10/2026 | Implementador (Claude) | Criação, a partir do pedido do Tech Lead de gravar o snapshot pelo terminal da aplicação e marcar comandos com erro esperado, e das respostas dele às três perguntas. Aprovada na mesma data |
 | 09/10/2026 | Implementador (Claude) | Implementada. Backend: campo `environment` no cabeçalho e `expectError` no passo, gravar e ler ambientes (5.1 e 5.2) e `GET /modules/{id}/scenario` com o ambiente efetivo. Frontend: seção 5 da tela do card com o terminal da aplicação (comandos do terminal 1 listados, estado final gravado), caixa de erro esperado, marca e aviso de voz na tela de estudo. Verificado no navegador: dois comandos digitados no terminal (`mkdir /financeiro`, `useradd ana`), gravados e salvos com o card; a rota do aluno devolveu a máquina com os dois. A carga (`go run ./cmd/seed`) não mexe nos ambientes, que não têm chave de origem |
+| 09/10/2026 | Tech Lead | Pedido: um botão de teste na tela do card, que rode todos os comandos, para garantir que o ambiente serve ao aluno. Incluídos: "Testar comandos" (3.1), RN-08 e CA-10 a CA-12 |

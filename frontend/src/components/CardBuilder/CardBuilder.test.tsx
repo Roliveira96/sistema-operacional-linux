@@ -380,3 +380,46 @@ describe("CardBuilder, expected error and environment (SPEC-020)", () => {
     expect(await screen.findByText("environment.scenarioId: unknown environment")).toBeDefined();
   });
 });
+
+describe("CardBuilder, testing the commands (SPEC-020 CA-10)", () => {
+  const runner = () => ({ run: vi.fn(async () => 0), setSpeed: vi.fn(), snapshot: () => ({}), history: () => [], destroy: vi.fn() });
+
+  it("only offers the test when there are commands, and runs the ones on the screen even if not saved", async () => {
+    const win = runner();
+    mount.mockResolvedValue(win);
+    const practice = { topicScenario: vi.fn().mockResolvedValue({ formato: "do-topico" }) };
+    renderBuilder({ practice: practice as never });
+
+    const test = screen.getByRole("button", { name: "Testar comandos" }) as HTMLButtonElement;
+    expect(test.disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
+    fireEvent.change(input("Linha de comando (1)"), { target: { value: "mkdir /x" } });
+    expect(test.disabled).toBe(false);
+
+    fireEvent.click(test);
+    expect(await screen.findByText(/1 de 1 comando como esperado/)).toBeDefined();
+    expect(win.run).toHaveBeenCalledWith(expect.objectContaining({ command: "mkdir /x" }));
+    // With no environment of its own or earlier, the test starts from the topic scenario.
+    expect(practice.topicScenario).toHaveBeenCalledWith("mod-1");
+    expect(service.saveCard).not.toHaveBeenCalled();
+    expect(service.createEnvironment).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Fechar teste" }));
+    expect(screen.queryByRole("region", { name: "Teste dos comandos" })).toBeNull();
+  });
+
+  it("starts the test from the environment of the card itself, which is what the student gets", async () => {
+    mount.mockResolvedValue(runner());
+    service.getEnvironment.mockResolvedValue({ formato: "do-proprio-card" });
+    const group = groupCards([
+      block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", environment: { scenarioId: "11111111-1111-4111-8111-111111111111", summary: "", commands: [] } }),
+      block("c", "COMMAND", 2, { steps: [{ command: "ls", terminal: 1 }] }),
+    ])[0]!;
+    renderBuilder({ group, environmentBaseId: "env-anterior" });
+    fireEvent.click(screen.getByRole("button", { name: "Testar comandos" }));
+    await screen.findByText(/1 de 1 comando como esperado/);
+    expect(service.getEnvironment).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111");
+    expect(service.getEnvironment).not.toHaveBeenCalledWith("env-anterior");
+    expect(mount.mock.calls[0]![1]).toEqual({ formato: "do-proprio-card" });
+  });
+});
