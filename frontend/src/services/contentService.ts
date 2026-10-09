@@ -30,6 +30,18 @@ export interface AssessmentTemplateSummary {
   questionCount: number;
 }
 
+export interface BlockProgressResult {
+  blockId: string;
+  completed: boolean;
+  completedAt?: string;
+}
+
+export interface ModuleBlockProgressResult {
+  moduleId: string;
+  completedBlockIds: string[];
+  completedAtByBlock: Record<string, string>;
+}
+
 /** Read endpoints of SPEC-012. Answers never reach these responses. */
 export function createContentService(client: HttpClient = httpClient) {
   return {
@@ -42,6 +54,10 @@ export function createContentService(client: HttpClient = httpClient) {
         )
       ).questions,
     templates: async () => (await client.get<{ items: AssessmentTemplateSummary[] }>("/assessment-templates")).items,
+    toggleBlockProgress: async (blockId: string, completed = true) =>
+      client.post<BlockProgressResult>(`/blocks/${encodeURIComponent(blockId)}/progress`, { completed }),
+    getModuleBlockProgress: async (moduleId: string) =>
+      client.get<ModuleBlockProgressResult>(`/modules/${encodeURIComponent(moduleId)}/blocks/progress`),
   };
 }
 

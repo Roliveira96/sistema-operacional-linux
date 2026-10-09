@@ -105,10 +105,23 @@ function CardBody({ card, steps, player }: { card: LessonCard; steps: ScriptStep
 export interface LessonPanelProps {
   script: TopicScript;
   player: TopicPlayer;
+  completedBlockIds?: Set<string>;
+  completedAtByBlock?: Record<string, string>;
+  onToggleBlockProgress?: (blockId: string, completed: boolean) => void;
+}
+
+function formatDate(iso?: string): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
 }
 
 /** The "Comandos e dicas" tab: the module blocks grouped in lesson cards (SPEC-016). */
-export function LessonPanel({ script, player }: LessonPanelProps) {
+export function LessonPanel({ script, player, completedBlockIds, completedAtByBlock, onToggleBlockProgress }: LessonPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   const { running } = player;
 
@@ -133,13 +146,29 @@ export function LessonPanel({ script, player }: LessonPanelProps) {
       {script.cards.map((card) => {
         const hasSteps = card.end > card.start;
         const playing = player.playing && player.playingCard === card.index;
+        const mainBlock = card.blocks[0];
+        const blockId = mainBlock?.id ?? "";
+        const isCompleted = blockId ? completedBlockIds?.has(blockId) ?? false : false;
+        const completedAtText = blockId ? formatDate(completedAtByBlock?.[blockId]) : "";
+
         return (
-          <article key={card.index} className={`${styles.card} ${activeCard === card.index ? styles.active : ""}`} data-card={card.index}>
+          <article key={card.index} className={`${styles.card} ${activeCard === card.index ? styles.active : ""} ${isCompleted ? styles.cardCompleted : ""}`} data-card={card.index}>
             <header className={styles.header}>
               <code className={styles.tag}>{card.label}</code>
               <h2 className={styles.title} data-card-title={card.index}>
                 {card.title}
               </h2>
+              {onToggleBlockProgress && blockId && (
+                <button
+                  type="button"
+                  className={`${styles.blockCheck} ${isCompleted ? styles.blockCompleted : ""}`}
+                  onClick={() => onToggleBlockProgress(blockId, !isCompleted)}
+                  title={isCompleted ? `Concluído em ${completedAtText}` : "Marcar este bloco como lido"}
+                  aria-label={isCompleted ? `Concluído em ${completedAtText}` : "Marcar este bloco como lido"}
+                >
+                  {isCompleted ? `✓ Visto ${completedAtText ? `(${completedAtText})` : ""}` : "☐ Marcar como visto"}
+                </button>
+              )}
               {hasSteps && (
                 <button
                   type="button"

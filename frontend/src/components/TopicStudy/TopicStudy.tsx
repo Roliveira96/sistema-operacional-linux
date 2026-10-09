@@ -382,6 +382,39 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
   const subtitle = splitDescription(module.description).tags.join(" · ");
   const done = challenges.filter((c) => check.completed.has(c.id)).length;
 
+  const [completedBlockIds, setCompletedBlockIds] = useState<Set<string>>(new Set());
+  const [completedAtByBlock, setCompletedAtByBlock] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let active = true;
+    void contentService.getModuleBlockProgress(moduleId).then((res) => {
+      if (!active) return;
+      setCompletedBlockIds(new Set(res.completedBlockIds || []));
+      setCompletedAtByBlock(res.completedAtByBlock || {});
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [moduleId]);
+
+  const handleToggleBlockProgress = useCallback((blockId: string, completed: boolean) => {
+    setCompletedBlockIds((prev) => {
+      const next = new Set(prev);
+      if (completed) next.add(blockId);
+      else next.delete(blockId);
+      return next;
+    });
+    setCompletedAtByBlock((prev) => {
+      const next = { ...prev };
+      if (completed) next[blockId] = new Date().toISOString();
+      else delete next[blockId];
+      return next;
+    });
+    void contentService.toggleBlockProgress(blockId, completed).then((res) => {
+      if (res.completed && res.completedAt) {
+        setCompletedAtByBlock((prev) => ({ ...prev, [blockId]: res.completedAt! }));
+      }
+    }).catch(() => {});
+  }, []);
+
   return (
     <div className={styles.screen} style={topicAccentVars(module.color)}>
       <header className={styles.header}>
@@ -448,7 +481,13 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
               </p>
             )}
             {tab === "lesson" ? (
-              <LessonPanel script={script} player={playerWithSavedSpeed} />
+              <LessonPanel
+                script={script}
+                player={playerWithSavedSpeed}
+                completedBlockIds={completedBlockIds}
+                completedAtByBlock={completedAtByBlock}
+                onToggleBlockProgress={handleToggleBlockProgress}
+              />
             ) : (
               <ChallengePanel
                 challenges={challenges}
