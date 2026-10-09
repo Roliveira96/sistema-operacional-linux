@@ -13,6 +13,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/service"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 )
 
 type mockRepository struct {
@@ -30,6 +31,7 @@ type mockRepository struct {
 	listPublicRes   repository.ListResult
 	listStudentRes  repository.ListResult
 	reorderedCalled bool
+	slugOwners      map[string]uuid.UUID
 }
 
 func newMockRepository() *mockRepository {
@@ -38,6 +40,7 @@ func newMockRepository() *mockRepository {
 		details:        make(map[uuid.UUID]repository.ModuleDetails),
 		teacherClasses: make(map[uuid.UUID][]uuid.UUID),
 		studentClasses: make(map[uuid.UUID][]uuid.UUID),
+		slugOwners:     make(map[string]uuid.UUID),
 	}
 }
 
@@ -74,6 +77,11 @@ func (m *mockRepository) FindModuleWithDetails(ctx context.Context, id uuid.UUID
 
 func (m *mockRepository) ListTeacherModules(ctx context.Context, teacherID uuid.UUID, filter repository.ListFilter) (repository.ListResult, error) {
 	return m.listTeacherRes, nil
+}
+
+func (m *mockRepository) SlugTaken(ctx context.Context, slug string, excludeID uuid.UUID) (bool, error) {
+	owner, ok := m.slugOwners[slug]
+	return ok && owner != excludeID, nil
 }
 
 func (m *mockRepository) ListAllModules(ctx context.Context, filter repository.ListFilter) (repository.ListResult, error) {
@@ -392,8 +400,8 @@ func TestService_UpdateModule(t *testing.T) {
 		_, err := svc.UpdateModule(context.Background(), service.UpdateModuleInput{
 			ModuleID:        moduleID,
 			CallerID:        teacherID,
-			ActivationStart: &start,
-			ActivationEnd:   &end,
+			ActivationStart: service.Patch[time.Time]{Set: true, Value: &start},
+			ActivationEnd:   service.Patch[time.Time]{Set: true, Value: &end},
 		})
 		assert.Equal(t, domain.ErrInvalidDateRange, err)
 	})
@@ -739,5 +747,202 @@ func TestService_ReorderExercises(t *testing.T) {
 		svc := service.New(repo)
 		err := svc.ReorderExercises(context.Background(), moduleID, otherTeacherID, true, []uuid.UUID{ex1, ex2})
 		require.NoError(t, err)
+	})
+}
+
+// Covers SPEC-010: dates of a module can be only a start, only an end, or taken away again, and the
+// range is always checked against what is stored when only one end is sent.
+func TestService_UpdateModuleDates(t *testing.T) {
+	teacherID := uuid.New()
+	moduleID := uuid.New()
+	base := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	s0, e0 := base, base.Add(24*time.Hour)
+
+	setup := func(start, end *time.Time) (*service.Service, *mockRepository) {
+		repo := newMockRepository()
+		repo.modules[moduleID] = domain.CourseModule{
+			Model: database.Model{ID: moduleID}, TeacherID: teacherID, Title: "T", Description: "D",
+			Visibility: domain.VisibilityPublic, Status: domain.ModuleStatusActive, ActivationStart: start, ActivationEnd: end,
+		}
+		return service.New(repo), repo
+	}
+	set := func(t time.Time) service.Patch[time.Time] { return service.Patch[time.Time]{Set: true, Value: &t} }
+	clear := service.Patch[time.Time]{Set: true}
+	update := func(svc *service.Service, in service.UpdateModuleInput) (domain.CourseModule, error) {
+		in.ModuleID, in.CallerID = moduleID, teacherID
+		return svc.UpdateModule(context.Background(), in)
+	}
+
+	t.Run("keeps both dates when the patch is absent", func(t *testing.T) {
+		svc, _ := setup(&s0, &e0)
+		mod, err := update(svc, service.UpdateModuleInput{})
+		require.NoError(t, err)
+		assert.Equal(t, &s0, mod.ActivationStart)
+		assert.Equal(t, &e0, mod.ActivationEnd)
+	})
+
+	t.Run("takes the end away and keeps only the start", func(t *testing.T) {
+		svc, repo := setup(&s0, &e0)
+		mod, err := update(svc, service.UpdateModuleInput{ActivationEnd: clear})
+		require.NoError(t, err)
+		assert.Equal(t, &s0, mod.ActivationStart)
+		assert.Nil(t, mod.ActivationEnd)
+		assert.Nil(t, repo.modules[moduleID].ActivationEnd, "the cleared date is what gets stored")
+	})
+
+	t.Run("takes the start away and keeps only the end", func(t *testing.T) {
+		svc, _ := setup(&s0, &e0)
+		mod, err := update(svc, service.UpdateModuleInput{ActivationStart: clear})
+		require.NoError(t, err)
+		assert.Nil(t, mod.ActivationStart)
+		assert.Equal(t, &e0, mod.ActivationEnd)
+	})
+
+	t.Run("sets only a start, or only an end, on a module without dates", func(t *testing.T) {
+		svc, _ := setup(nil, nil)
+		mod, err := update(svc, service.UpdateModuleInput{ActivationStart: set(s0)})
+		require.NoError(t, err)
+		assert.Equal(t, &s0, mod.ActivationStart)
+		assert.Nil(t, mod.ActivationEnd)
+
+		svc, _ = setup(nil, nil)
+		mod, err = update(svc, service.UpdateModuleInput{ActivationEnd: set(e0)})
+		require.NoError(t, err)
+		assert.Nil(t, mod.ActivationStart)
+		assert.Equal(t, &e0, mod.ActivationEnd)
+	})
+
+	t.Run("rejects an end before the stored start when only the end is sent", func(t *testing.T) {
+		svc, _ := setup(&s0, nil)
+		_, err := update(svc, service.UpdateModuleInput{ActivationEnd: set(s0.Add(-time.Minute))})
+		assert.ErrorIs(t, err, domain.ErrInvalidDateRange)
+	})
+
+	t.Run("rejects a start after the stored end when only the start is sent", func(t *testing.T) {
+		svc, _ := setup(nil, &e0)
+		_, err := update(svc, service.UpdateModuleInput{ActivationStart: set(e0.Add(time.Minute))})
+		assert.ErrorIs(t, err, domain.ErrInvalidDateRange)
+	})
+
+	t.Run("rejects both dates sent inverted", func(t *testing.T) {
+		svc, _ := setup(nil, nil)
+		_, err := update(svc, service.UpdateModuleInput{ActivationStart: set(e0), ActivationEnd: set(s0)})
+		assert.ErrorIs(t, err, domain.ErrInvalidDateRange)
+	})
+
+	t.Run("accepts the same instant at both ends", func(t *testing.T) {
+		svc, _ := setup(nil, nil)
+		_, err := update(svc, service.UpdateModuleInput{ActivationStart: set(s0), ActivationEnd: set(s0)})
+		assert.NoError(t, err)
+	})
+
+	t.Run("an end before the stored start is accepted once the start is taken away in the same request", func(t *testing.T) {
+		svc, _ := setup(&e0, nil)
+		mod, err := update(svc, service.UpdateModuleInput{ActivationStart: clear, ActivationEnd: set(s0)})
+		require.NoError(t, err)
+		assert.Nil(t, mod.ActivationStart)
+		assert.Equal(t, &s0, mod.ActivationEnd)
+	})
+}
+
+// Covers SPEC-010 (slug): normalized, validated, unique, and possible to remove.
+func TestService_Slug(t *testing.T) {
+	teacherID := uuid.New()
+	moduleID := uuid.New()
+	otherID := uuid.New()
+	stored := "historia-do-linux"
+
+	setup := func() (*service.Service, *mockRepository) {
+		repo := newMockRepository()
+		repo.modules[moduleID] = domain.CourseModule{
+			Model: database.Model{ID: moduleID}, TeacherID: teacherID, Title: "T", Description: "D",
+			Visibility: domain.VisibilityPublic, Status: domain.ModuleStatusActive, Slug: &stored,
+		}
+		repo.slugOwners[stored] = moduleID
+		repo.slugOwners["pacotes"] = otherID
+		return service.New(repo), repo
+	}
+	slug := func(s string) service.Patch[string] { return service.Patch[string]{Set: true, Value: &s} }
+	update := func(svc *service.Service, p service.Patch[string]) (domain.CourseModule, error) {
+		return svc.UpdateModule(context.Background(), service.UpdateModuleInput{ModuleID: moduleID, CallerID: teacherID, Slug: p})
+	}
+
+	t.Run("keeps the slug when the patch is absent", func(t *testing.T) {
+		svc, _ := setup()
+		mod, err := update(svc, service.Patch[string]{})
+		require.NoError(t, err)
+		assert.Equal(t, &stored, mod.Slug)
+	})
+
+	t.Run("sets a normalized slug", func(t *testing.T) {
+		svc, _ := setup()
+		mod, err := update(svc, slug("  Linux-Basico "))
+		require.NoError(t, err)
+		assert.Equal(t, "linux-basico", *mod.Slug)
+	})
+
+	t.Run("accepts its own slug again", func(t *testing.T) {
+		svc, _ := setup()
+		_, err := update(svc, slug(stored))
+		assert.NoError(t, err)
+	})
+
+	t.Run("takes the slug away with null or blank", func(t *testing.T) {
+		svc, _ := setup()
+		mod, err := update(svc, service.Patch[string]{Set: true})
+		require.NoError(t, err)
+		assert.Nil(t, mod.Slug)
+
+		svc, _ = setup()
+		mod, err = update(svc, slug("   "))
+		require.NoError(t, err)
+		assert.Nil(t, mod.Slug)
+	})
+
+	t.Run("rejects a slug with the wrong shape", func(t *testing.T) {
+		for _, bad := range []string{"ab", "Meu Módulo!", "-x-", "a--b", "com_underscore"} {
+			svc, _ := setup()
+			_, err := update(svc, slug(bad))
+			assert.ErrorIs(t, err, domain.ErrInvalidSlug, bad)
+		}
+	})
+
+	t.Run("rejects a slug that another module already uses", func(t *testing.T) {
+		svc, _ := setup()
+		_, err := update(svc, slug("Pacotes"))
+		assert.ErrorIs(t, err, domain.ErrSlugTaken)
+	})
+
+	t.Run("a rejected slug does not change the module", func(t *testing.T) {
+		svc, repo := setup()
+		_, err := update(svc, slug("pacotes"))
+		require.Error(t, err)
+		assert.Equal(t, &stored, repo.modules[moduleID].Slug)
+	})
+
+	t.Run("creates a module with a slug, rejecting the invalid and the taken ones", func(t *testing.T) {
+		svc, _ := setup()
+		in := service.CreateModuleInput{TeacherID: teacherID, Title: "T", Description: "D", Visibility: domain.VisibilityPublic}
+		ok := "Novo-Modulo"
+		in.Slug = &ok
+		mod, err := svc.CreateModule(context.Background(), in)
+		require.NoError(t, err)
+		assert.Equal(t, "novo-modulo", *mod.Slug)
+
+		bad := "Nao Pode"
+		in.Slug = &bad
+		_, err = svc.CreateModule(context.Background(), in)
+		assert.ErrorIs(t, err, domain.ErrInvalidSlug)
+
+		taken := "pacotes"
+		in.Slug = &taken
+		_, err = svc.CreateModule(context.Background(), in)
+		assert.ErrorIs(t, err, domain.ErrSlugTaken)
+
+		blank := " "
+		in.Slug = &blank
+		mod, err = svc.CreateModule(context.Background(), in)
+		require.NoError(t, err)
+		assert.Nil(t, mod.Slug)
 	})
 }

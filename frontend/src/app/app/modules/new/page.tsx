@@ -1,15 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ModuleForm } from "@/components/ModuleForm/ModuleForm";
 import { ptBR } from "@/messages/pt-BR";
 import { classService } from "@/services/classService";
-import {
-  moduleService,
-  type CreateModulePayload,
-  type UpdateModulePayload,
-} from "@/services/moduleService";
+import { moduleService, type CreateModulePayload, type UpdateModulePayload } from "@/services/moduleService";
 import styles from "./page.module.scss";
 
 export default function NewModulePage() {
@@ -43,14 +40,14 @@ export default function NewModulePage() {
   return (
     <main className={styles.container}>
       <header className={styles.header}>
+        <Link href="/app/modules" className={styles.back}>
+          {m.form.back}
+        </Link>
         <h1 className={styles.title}>{m.form.newTitle}</h1>
         <p className={styles.subtitle}>{m.subtitle}</p>
       </header>
 
-      <ModuleForm
-        availableClasses={availableClasses}
-        onSubmit={handleSubmit}
-      />
+      <ModuleForm availableClasses={availableClasses} onSubmit={handleSubmit} />
     </main>
   );
 }

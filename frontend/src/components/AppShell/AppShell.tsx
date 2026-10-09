@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Button>
         </div>
       </header>
-      {children}
+      <div className={styles.content}>{children}</div>
     </div>
   );
 }

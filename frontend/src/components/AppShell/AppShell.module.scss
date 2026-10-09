@@ -43,6 +43,13 @@
   }
 }
 
+// The pages of the area fill the width up to their own maximum. Without this wrapper they
+// sat directly in the flex column, where "margin: 0 auto" makes a box as narrow as its
+// content and the page looked squeezed in the middle of the screen.
+.content {
+  width: 100%;
+}
+
 .account {
   display: flex;
   align-items: center;

@@ -183,6 +183,22 @@ func TestCourseModuleRepository(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), allFiltered.TotalCount, "filters apply to the administrative listing too")
 
+	// 6c. SlugTaken and the unique index: a slug belongs to one module that was not deleted.
+	slug := "slug-do-modulo"
+	otherModule.Slug = &slug
+	require.NoError(t, repo.UpdateModule(ctx, &otherModule, nil, otherTeacher.ID))
+	taken, err := repo.SlugTaken(ctx, slug, uuid.New())
+	require.NoError(t, err)
+	assert.True(t, taken, "another module uses it")
+	taken, err = repo.SlugTaken(ctx, slug, otherModule.ID)
+	require.NoError(t, err)
+	assert.False(t, taken, "a module does not conflict with itself")
+	taken, err = repo.SlugTaken(ctx, "livre", uuid.New())
+	require.NoError(t, err)
+	assert.False(t, taken)
+	duplicate := domain.CourseModule{TeacherID: teacher.ID, Title: "Duplicado", Description: "d", Visibility: domain.VisibilityPublic, Status: domain.ModuleStatusActive, Slug: &slug}
+	assert.Error(t, repo.CreateModule(ctx, &duplicate, nil, teacher.ID), "the database refuses a repeated slug")
+
 	// 7. ListStudentModules (student is enrolled in class, so should see the private module)
 	studentList, err := repo.ListStudentModules(ctx, student.ID, now, repository.ListFilter{Page: 1, Limit: 10})
 	require.NoError(t, err)

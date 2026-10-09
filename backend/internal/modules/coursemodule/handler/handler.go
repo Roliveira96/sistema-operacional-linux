@@ -2,10 +2,13 @@
 package handler
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -81,9 +84,31 @@ func (h *Handler) optionalAuth() gin.HandlerFunc {
 	}
 }
 
+// optional tells an absent JSON field (keep the value) from an explicit null (clear it).
+type optional[T any] struct {
+	Set   bool
+	Value *T
+}
+
+// UnmarshalJSON is only called when the field is present in the body.
+func (o *optional[T]) UnmarshalJSON(data []byte) error {
+	o.Set = true
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		o.Value = nil
+		return nil
+	}
+	var v T
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	o.Value = &v
+	return nil
+}
+
 type createModuleRequest struct {
 	Title           string      `json:"title"`
 	Description     string      `json:"description"`
+	Slug            *string     `json:"slug"`
 	Visibility      string      `json:"visibility"`
 	ActivationStart *string     `json:"activationStart"`
 	ActivationEnd   *string     `json:"activationEnd"`
@@ -91,13 +116,14 @@ type createModuleRequest struct {
 }
 
 type updateModuleRequest struct {
-	Title           *string     `json:"title"`
-	Description     *string     `json:"description"`
-	Visibility      *string     `json:"visibility"`
-	Status          *string     `json:"status"`
-	ActivationStart *string     `json:"activationStart"`
-	ActivationEnd   *string     `json:"activationEnd"`
-	ClassIDs        []uuid.UUID `json:"classIds"`
+	Title           *string          `json:"title"`
+	Description     *string          `json:"description"`
+	Slug            optional[string] `json:"slug"`
+	Visibility      *string          `json:"visibility"`
+	Status          *string          `json:"status"`
+	ActivationStart optional[string] `json:"activationStart"`
+	ActivationEnd   optional[string] `json:"activationEnd"`
+	ClassIDs        []uuid.UUID      `json:"classIds"`
 }
 
 type reorderExercisesRequest struct {
@@ -171,6 +197,7 @@ func (h *Handler) createModule(c *gin.Context) {
 		TeacherID:       principal.UserID,
 		Title:           req.Title,
 		Description:     req.Description,
+		Slug:            req.Slug,
 		Visibility:      domain.Visibility(req.Visibility),
 		ActivationStart: start,
 		ActivationEnd:   end,
@@ -212,9 +239,14 @@ func (h *Handler) updateModule(c *gin.Context) {
 		return
 	}
 
-	start, end, err := parseDateRange(req.ActivationStart, req.ActivationEnd)
+	start, err := toTimePatch(req.ActivationStart)
 	if err != nil {
-		fail(c, problem.BadRequest("invalid-date-format", err.Error()))
+		fail(c, invalidDate("activationStart", err))
+		return
+	}
+	end, err := toTimePatch(req.ActivationEnd)
+	if err != nil {
+		fail(c, invalidDate("activationEnd", err))
 		return
 	}
 
@@ -236,6 +268,7 @@ func (h *Handler) updateModule(c *gin.Context) {
 		IsAdmin:         principal.Role == authn.RoleAdmin,
 		Title:           req.Title,
 		Description:     req.Description,
+		Slug:            service.Patch[string]{Set: req.Slug.Set, Value: req.Slug.Value},
 		Visibility:      vis,
 		Status:          st,
 		ActivationStart: start,
@@ -457,6 +490,28 @@ func parseDateRange(startStr, endStr *string) (*time.Time, *time.Time, error) {
 	return start, end, nil
 }
 
+// toTimePatch turns an optional RFC 3339 field into a patch: absent keeps, null or "" clears.
+func toTimePatch(o optional[string]) (service.Patch[time.Time], error) {
+	if !o.Set {
+		return service.Patch[time.Time]{}, nil
+	}
+	if o.Value == nil || strings.TrimSpace(*o.Value) == "" {
+		return service.Patch[time.Time]{Set: true}, nil
+	}
+	t, err := time.Parse(time.RFC3339, *o.Value)
+	if err != nil {
+		return service.Patch[time.Time]{}, err
+	}
+	return service.Patch[time.Time]{Set: true, Value: &t}, nil
+}
+
+// invalidDate is the 400 for a date that is not RFC 3339, pointing at the field.
+func invalidDate(field string, err error) *problem.Problem {
+	p := problem.BadRequest("invalid-date-format", err.Error())
+	p.InvalidParams = []problem.InvalidParam{{Name: field, Reason: "invalid date"}}
+	return p
+}
+
 func toProblem(err error) *problem.Problem {
 	switch {
 	case errors.Is(err, service.ErrTitleRequired):
@@ -468,7 +523,17 @@ func toProblem(err error) *problem.Problem {
 	case errors.Is(err, domain.ErrInvalidStatus):
 		return problem.BadRequest("invalid-status", err.Error())
 	case errors.Is(err, domain.ErrInvalidDateRange):
-		return problem.BadRequest("invalid-date-range", err.Error())
+		p := problem.BadRequest("invalid-date-range", err.Error())
+		p.InvalidParams = []problem.InvalidParam{{Name: "activationEnd", Reason: "must not be before the start"}}
+		return p
+	case errors.Is(err, domain.ErrInvalidSlug):
+		p := problem.BadRequest("invalid-slug", err.Error())
+		p.InvalidParams = []problem.InvalidParam{{Name: "slug", Reason: "invalid format"}}
+		return p
+	case errors.Is(err, domain.ErrSlugTaken):
+		p := problem.Conflict("slug-taken", err.Error())
+		p.InvalidParams = []problem.InvalidParam{{Name: "slug", Reason: "already in use"}}
+		return p
 	case errors.Is(err, domain.ErrPrivateRequiresClass):
 		return problem.BadRequest("private-requires-class", err.Error())
 	case errors.Is(err, domain.ErrDuplicateExerciseOrder):

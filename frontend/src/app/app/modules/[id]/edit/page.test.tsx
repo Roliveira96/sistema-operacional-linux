@@ -36,7 +36,7 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
   });
 
   it("loads module and classes, allows updating module and reordering exercises", async () => {
-    vi.mocked(moduleService.getModuleById).mockResolvedValueOnce({
+    const stored = {
       id: "mod-1",
       teacherId: "teach-1",
       title: "Módulo Original",
@@ -54,7 +54,10 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
       materials: [],
       createdAt: "2026-10-08T00:00:00Z",
       updatedAt: "2026-10-08T00:00:00Z",
-    });
+    } as const;
+    vi.mocked(moduleService.getModuleById)
+      .mockResolvedValueOnce(stored as never)
+      .mockResolvedValueOnce({ ...stored, title: "Módulo Novo" } as never);
     vi.mocked(classService.listClasses).mockResolvedValueOnce({
       items: [],
       totalCount: 0,
@@ -70,14 +73,16 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
       expect(screen.getByRole("heading", { level: 1, name: "Editar Módulo de Ensino" })).toBeDefined();
     });
 
-    // Save module update
+    // Save module update: the page stays on the module and shows the confirmation
+    fireEvent.change(screen.getByLabelText(/Título do Módulo/i), { target: { value: "Módulo Novo" } });
     const submitBtn = screen.getByRole("button", { name: "Salvar Alterações" });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
       expect(moduleService.updateModule).toHaveBeenCalledWith("mod-1", expect.any(Object));
-      expect(mockPush).toHaveBeenCalledWith("/app/modules");
     });
+    expect(await screen.findByText("Módulo atualizado com sucesso!")).toBeDefined();
+    expect(mockPush).not.toHaveBeenCalled();
 
     // Reorder exercises
     const reorderBtn = screen.getByRole("button", { name: "Salvar Ordem" });

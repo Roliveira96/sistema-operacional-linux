@@ -8,6 +8,8 @@ export interface CourseModuleSummary {
   teacherId: string;
   title: string;
   description: string;
+  /** Friendly identifier of the module: lowercase words joined by hyphens (SPEC-010). */
+  slug?: string;
   visibility: Visibility;
   status: ModuleStatus;
   activationStart?: string;
@@ -55,19 +57,22 @@ export interface ListModulesResult {
 export interface CreateModulePayload {
   title: string;
   description: string;
+  slug?: string;
   visibility: Visibility;
   activationStart?: string;
   activationEnd?: string;
   classIds?: string[];
 }
 
+/** On an update, a field left out stays as it is and null takes the value away. */
 export interface UpdateModulePayload {
   title?: string;
   description?: string;
+  slug?: string | null;
   visibility?: Visibility;
   status?: ModuleStatus;
-  activationStart?: string;
-  activationEnd?: string;
+  activationStart?: string | null;
+  activationEnd?: string | null;
   classIds?: string[];
 }
 

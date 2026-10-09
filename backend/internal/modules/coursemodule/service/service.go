@@ -25,6 +25,7 @@ type ModuleRepository interface {
 	FindModuleWithDetails(ctx context.Context, id uuid.UUID) (repository.ModuleDetails, error)
 	ListTeacherModules(ctx context.Context, teacherID uuid.UUID, filter repository.ListFilter) (repository.ListResult, error)
 	ListAllModules(ctx context.Context, filter repository.ListFilter) (repository.ListResult, error)
+	SlugTaken(ctx context.Context, slug string, excludeID uuid.UUID) (bool, error)
 	ListPublicModules(ctx context.Context, now time.Time, filter repository.ListFilter) (repository.ListResult, error)
 	ListStudentModules(ctx context.Context, studentID uuid.UUID, now time.Time, filter repository.ListFilter) (repository.ListResult, error)
 	UpdateModule(ctx context.Context, module *domain.CourseModule, classIDs []uuid.UUID, assignedBy uuid.UUID) error
@@ -52,11 +53,20 @@ func (s *Service) SetNow(f func() time.Time) {
 	s.now = f
 }
 
+// Patch is an optional field of an update: absent keeps the stored value, an explicit
+// null clears it, and a value replaces it. A date range can then have only a start, only
+// an end, or both, and a person can take a date away again.
+type Patch[T any] struct {
+	Set   bool
+	Value *T
+}
+
 // CreateModuleInput input for creating a module.
 type CreateModuleInput struct {
 	TeacherID       uuid.UUID
 	Title           string
 	Description     string
+	Slug            *string
 	Visibility      domain.Visibility
 	ActivationStart *time.Time
 	ActivationEnd   *time.Time
@@ -82,6 +92,11 @@ func (s *Service) CreateModule(ctx context.Context, input CreateModuleInput) (do
 		return domain.CourseModule{}, err
 	}
 
+	slug, err := s.checkSlug(ctx, input.Slug, uuid.Nil)
+	if err != nil {
+		return domain.CourseModule{}, err
+	}
+
 	if input.Visibility == domain.VisibilityPrivate {
 		if len(input.ClassIDs) == 0 {
 			return domain.CourseModule{}, domain.ErrPrivateRequiresClass
@@ -99,6 +114,7 @@ func (s *Service) CreateModule(ctx context.Context, input CreateModuleInput) (do
 		TeacherID:       input.TeacherID,
 		Title:           title,
 		Description:     desc,
+		Slug:            slug,
 		Visibility:      input.Visibility,
 		Status:          domain.ModuleStatusActive,
 		ActivationStart: input.ActivationStart,
@@ -119,10 +135,11 @@ type UpdateModuleInput struct {
 	IsAdmin         bool
 	Title           *string
 	Description     *string
+	Slug            Patch[string]
 	Visibility      *domain.Visibility
 	Status          *domain.ModuleStatus
-	ActivationStart *time.Time
-	ActivationEnd   *time.Time
+	ActivationStart Patch[time.Time]
+	ActivationEnd   Patch[time.Time]
 	ClassIDs        []uuid.UUID
 }
 
@@ -170,12 +187,12 @@ func (s *Service) UpdateModule(ctx context.Context, input UpdateModuleInput) (do
 	}
 
 	start := module.ActivationStart
-	if input.ActivationStart != nil {
-		start = input.ActivationStart
+	if input.ActivationStart.Set {
+		start = input.ActivationStart.Value
 	}
 	end := module.ActivationEnd
-	if input.ActivationEnd != nil {
-		end = input.ActivationEnd
+	if input.ActivationEnd.Set {
+		end = input.ActivationEnd.Value
 	}
 
 	if err := domain.ValidateDates(start, end); err != nil {
@@ -184,6 +201,14 @@ func (s *Service) UpdateModule(ctx context.Context, input UpdateModuleInput) (do
 
 	module.ActivationStart = start
 	module.ActivationEnd = end
+
+	if input.Slug.Set {
+		slug, err := s.checkSlug(ctx, input.Slug.Value, module.ID)
+		if err != nil {
+			return domain.CourseModule{}, err
+		}
+		module.Slug = slug
+	}
 	// A teacher edit protects the module from content reloads (SPEC-011 RN-04).
 	editedAt := s.now()
 	module.EditedByTeacherAt = &editedAt
@@ -318,4 +343,27 @@ func (s *Service) ReorderExercises(ctx context.Context, moduleID, callerID uuid.
 	}
 
 	return s.repo.UpdateExerciseOrder(ctx, moduleID, exerciseIDs)
+}
+
+// checkSlug normalizes and validates a slug and makes sure no other module has it. A nil
+// or blank slug means "no slug".
+func (s *Service) checkSlug(ctx context.Context, raw *string, ownID uuid.UUID) (*string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	slug := domain.NormalizeSlug(*raw)
+	if slug == "" {
+		return nil, nil
+	}
+	if err := domain.ValidateSlug(slug); err != nil {
+		return nil, err
+	}
+	taken, err := s.repo.SlugTaken(ctx, slug, ownID)
+	if err != nil {
+		return nil, err
+	}
+	if taken {
+		return nil, domain.ErrSlugTaken
+	}
+	return &slug, nil
 }

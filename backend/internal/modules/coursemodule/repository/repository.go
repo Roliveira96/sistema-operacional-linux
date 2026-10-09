@@ -144,6 +144,15 @@ func (r *Repository) FindModuleWithDetails(ctx context.Context, id uuid.UUID) (M
 	}, nil
 }
 
+// SlugTaken reports whether another module that was not deleted already uses the slug.
+func (r *Repository) SlugTaken(ctx context.Context, slug string, excludeID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.Conn(ctx).Model(&domain.CourseModule{}).
+		Where("slug = ? AND id <> ? AND deleted_at IS NULL", slug, excludeID).
+		Count(&count).Error
+	return count > 0, err
+}
+
 // ListTeacherModules lists modules belonging to the specified teacher.
 func (r *Repository) ListTeacherModules(ctx context.Context, teacherID uuid.UUID, filter ListFilter) (ListResult, error) {
 	return r.listManaged(ctx, &teacherID, filter)

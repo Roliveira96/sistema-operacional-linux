@@ -1,8 +1,12 @@
+@use "@/styles/mixins" as mixins;
+
+// Wide page: the form uses two columns, so the container is wide too (SPEC-010).
 .container {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  max-width: 800px;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-6) var(--space-4);
 }
@@ -10,20 +14,87 @@
 .header {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
+}
+
+.back {
+  align-self: flex-start;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  @include mixins.focusable;
+}
+
+.titleRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+
+  @include mixins.from("md") {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.titleArea {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-1);
+  min-width: 0;
 }
 
 .title {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
   margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
 }
 
 .subtitle {
-  font-size: 0.95rem;
-  color: var(--color-text-secondary);
   margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.badge {
+  padding: 2px var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-body);
+
+  &[data-status="ACTIVE"] {
+    border-color: var(--color-success-line);
+    color: var(--color-success);
+  }
+
+  &[data-status="ARCHIVED"] {
+    color: var(--color-text-secondary);
+  }
+}
+
+.success {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-success-line);
+  border-radius: var(--radius-md);
+  background: var(--color-success-faint);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
 }
 
 .section {
@@ -41,8 +112,8 @@
 
 .notFound {
   padding: var(--space-4);
+  border-radius: var(--radius-sm);
   background-color: var(--color-danger-subtle);
   color: var(--color-danger);
-  border-radius: var(--radius-sm);
   text-align: center;
 }
