@@ -109,9 +109,9 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
   const [converting, setConverting] = useState(false);
   const terminal = useRef<TerminalWindow | null>(null);
   const started = useRef(0);
-  const latest = useRef({ before, loadBase });
+  const latest = useRef({ before, loadBase, steps: current });
   useEffect(() => {
-    latest.current = { before, loadBase };
+    latest.current = { before, loadBase, steps: current };
   });
 
   useEffect(() => {
@@ -151,10 +151,13 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
     terminal.current = null;
   };
 
-  // The machine is prepared with the earlier snapshots before the author types anything.
+  // The machine is prepared before the author types anything: the earlier snapshots and then the commands
+  // already on this list, so a new command goes on top of what the list builds.
   const prepare = async (win: TerminalWindow) => {
     terminal.current = win;
-    const results = await runLayers(win, latest.current.before);
+    const own = latest.current.steps;
+    const layers = own.steps.length > 0 ? [...latest.current.before, { id: "own", kind: "card" as const, label: m.ownLayer, setup: own }] : latest.current.before;
+    const results = await runLayers(win, layers);
     setConflicts(results.filter(isConflict));
     started.current = win.history().length;
     setReady(true);

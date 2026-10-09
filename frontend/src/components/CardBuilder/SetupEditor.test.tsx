@@ -104,6 +104,51 @@ describe("SetupEditor, recording in the terminal", () => {
   });
 });
 
+// The commands already on the list run in the terminal before the author types anything.
+describe("SetupEditor, the commands above the recording", () => {
+  it("runs the earlier snapshots and then the commands already on the list, and records only what is typed after them", async () => {
+    let history: string[] = [];
+    let onCommand: ((snapshot: unknown) => void) | undefined;
+    const ran: string[] = [];
+    const win = {
+      execute: vi.fn(async ({ command }: { command: string }) => {
+        ran.push(command);
+        history = [...history, command];
+        return { status: 0, output: "" };
+      }),
+      setSpeed: vi.fn(),
+      history: () => history,
+      destroy: vi.fn(),
+    };
+    mount.mockImplementation(async (_c: HTMLElement, _s: unknown, callbacks: { onCommand(s: unknown): void }) => {
+      onCommand = callbacks.onCommand;
+      return win;
+    });
+    const before: SetupLayer[] = [{ id: "module", kind: "module", label: "Módulo", setup: { summary: "", steps: [{ command: "mkdir /home/ricardo" }] } }];
+    const { onChange } = setup({ before, setup: { summary: "", steps: [{ command: "mkdir /home/ricardo/financeiro" }, { command: "touch /home/ricardo/financeiro/a.txt", terminal: 2 }] } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
+    await waitFor(() => expect(ran).toEqual(["mkdir /home/ricardo", "mkdir /home/ricardo/financeiro", "touch /home/ricardo/financeiro/a.txt"]));
+    expect(win.execute.mock.calls.at(-1)![0]).toMatchObject({ terminal: 2 });
+    await waitFor(() => expect(screen.queryByText(/Preparando a máquina com o módulo/)).toBeNull());
+    expect(screen.getByText("Nenhum comando ainda.")).toBeDefined();
+
+    history = [...history, "ls /home/ricardo/financeiro"];
+    onCommand?.({});
+    expect(await screen.findByText("ls /home/ricardo/financeiro")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes comandos" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect((onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["mkdir /home/ricardo/financeiro", "touch /home/ricardo/financeiro/a.txt", "ls /home/ricardo/financeiro"]);
+  });
+
+  it("names the command above that fails, as a conflict", async () => {
+    mount.mockResolvedValue({ execute: vi.fn(async () => ({ status: 1, output: "x" })), setSpeed: vi.fn(), history: () => [], destroy: vi.fn() });
+    setup({ setup: { summary: "", steps: [{ command: "mkdir /ja/existe" }] } });
+    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
+    expect(await screen.findByText(/Conflito em "Comandos acima, neste ambiente": o comando "mkdir \/ja\/existe" deu erro/)).toBeDefined();
+  });
+});
+
 // The text an author types inside an editor while recording is read from the file and kept as printf.
 describe("SetupEditor, files written with an editor", () => {
   async function record(typedCommands: string[], files: Record<string, { status: number; output: string }>) {

@@ -370,7 +370,7 @@ describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => 
     await waitFor(() => expect(win.execute).toHaveBeenCalledWith(expect.objectContaining({ command: "m1" })));
     expect(practice.topicScenario).toHaveBeenCalledWith("mod-1");
     expect(mount.mock.calls[0]![1]).toEqual({ formato: "do-topico" });
-    await waitFor(() => expect(screen.queryByText("Preparando a máquina com o módulo e os cards anteriores…")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Preparando a máquina com o módulo, os cards anteriores e os comandos que já estão na lista…")).toBeNull());
 
     typed = ["mkdir /financeiro"];
     act(() => onCommand?.({}));
