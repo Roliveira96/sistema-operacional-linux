@@ -192,6 +192,10 @@ func (f *fakeService) ReorderExercises(ctx context.Context, moduleID, callerID u
 	return nil
 }
 
+func (f *fakeService) ReorderModules(ctx context.Context, callerID uuid.UUID, isAdmin bool, moduleIDs []uuid.UUID) error {
+	return f.reorderErr
+}
+
 func setupServer(role string) (*httptest.Server, *fakeService, uuid.UUID) {
 	userID := uuid.New()
 	validator := &fakeValidator{
@@ -655,5 +659,29 @@ func TestHandler_UpdateModule_OptionalFields(t *testing.T) {
 		}, true)
 		assert.Equal(t, http.StatusConflict, resp.StatusCode)
 		svc.createErr = nil
+	})
+}
+
+func TestReorderModulesHandler(t *testing.T) {
+	srv, svc, _ := setupServer(authn.RoleTeacher)
+	defer srv.Close()
+
+	id1 := uuid.New()
+	id2 := uuid.New()
+
+	t.Run("reorders modules successfully", func(t *testing.T) {
+		resp := doRequest(t, srv, http.MethodPut, "/api/v1/modules/order", map[string]any{
+			"moduleIds": []string{id1.String(), id2.String()},
+		}, true)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("fails when service returns error", func(t *testing.T) {
+		svc.reorderErr = domain.ErrForbidden
+		resp := doRequest(t, srv, http.MethodPut, "/api/v1/modules/order", map[string]any{
+			"moduleIds": []string{id1.String()},
+		}, true)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		svc.reorderErr = nil
 	})
 }

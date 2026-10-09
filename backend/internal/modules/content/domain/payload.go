@@ -21,6 +21,11 @@ const (
 	MaxSetupSummary      = 500
 	MaxSetupSteps        = 200
 	MaxSetupAnswers      = 20
+	// A snapshot also carries files as data (SPEC-021 RN-12): logs, pages and the like, as large as these limits.
+	MaxSetupFiles      = 200
+	MaxSetupFileBytes  = 1 << 20
+	MaxSetupFilesBytes = 4 << 20
+	MaxSetupFilePath   = 500
 )
 
 // Widget components a block may show (SPEC-019 RN-03).
@@ -97,10 +102,21 @@ type setupStep struct {
 	Answers  []string      `json:"answers,omitempty"`
 }
 
-// setupPayload is a snapshot: a script of commands the machine of the student is prepared with.
+// setupFile is a file the machine of the student gets as it is, after the commands of the snapshot ran (SPEC-021 RN-12).
+// The content is kept exactly as written; mode, owner and group are optional.
+type setupFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+	Mode    string `json:"mode,omitempty"`
+	Owner   string `json:"owner,omitempty"`
+	Group   string `json:"group,omitempty"`
+}
+
+// setupPayload is a snapshot: a script of commands and a set of files the machine of the student is prepared with.
 type setupPayload struct {
 	Summary string      `json:"summary,omitempty"`
 	Steps   []setupStep `json:"steps"`
+	Files   []setupFile `json:"files,omitempty"`
 }
 
 type textPayload struct {
@@ -194,6 +210,66 @@ func (c *checker) setup(prefix string, p *setupPayload) {
 			st.Answers[j] = c.text(fmt.Sprintf("%s.steps[%d].answers[%d]", prefix, i, j), st.Answers[j], MaxCommandLength, false)
 		}
 	}
+	c.setupFiles(prefix, p)
+}
+
+var (
+	fileMode = regexp.MustCompile(`^[0-7]{3,4}$`)
+	accName  = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
+)
+
+// setupFiles checks the files of a snapshot: absolute paths, text without NUL, bounded sizes (SPEC-021 RN-12).
+func (c *checker) setupFiles(prefix string, p *setupPayload) {
+	if len(p.Files) > MaxSetupFiles {
+		c.fail(prefix+".files", fmt.Sprintf("must have at most %d files", MaxSetupFiles))
+		return
+	}
+	seen := map[string]bool{}
+	total := 0
+	for i := range p.Files {
+		f := &p.Files[i]
+		at := func(name string) string { return fmt.Sprintf("%s.files[%d].%s", prefix, i, name) }
+		f.Path = strings.TrimSpace(f.Path)
+		switch {
+		case !strings.HasPrefix(f.Path, "/") || f.Path == "/" || strings.HasSuffix(f.Path, "/"):
+			c.fail(at("path"), "must be the absolute path of a file")
+		case utf8.RuneCountInString(f.Path) > MaxSetupFilePath:
+			c.fail(at("path"), fmt.Sprintf("must have at most %d characters", MaxSetupFilePath))
+		case strings.ContainsRune(f.Path, 0) || hasDotDot(f.Path):
+			c.fail(at("path"), "must not contain .. or NUL")
+		case seen[f.Path]:
+			c.fail(at("path"), "must not repeat")
+		}
+		seen[f.Path] = true
+		if strings.ContainsRune(f.Content, 0) {
+			c.fail(at("content"), "must be text, without NUL")
+		}
+		if len(f.Content) > MaxSetupFileBytes {
+			c.fail(at("content"), fmt.Sprintf("must have at most %d bytes", MaxSetupFileBytes))
+		}
+		total += len(f.Content)
+		if f.Mode != "" && !fileMode.MatchString(f.Mode) {
+			c.fail(at("mode"), "must be octal, like 644")
+		}
+		if f.Owner != "" && !accName.MatchString(f.Owner) {
+			c.fail(at("owner"), "must be a user name")
+		}
+		if f.Group != "" && !accName.MatchString(f.Group) {
+			c.fail(at("group"), "must be a group name")
+		}
+	}
+	if total > MaxSetupFilesBytes {
+		c.fail(prefix+".files", fmt.Sprintf("must have at most %d bytes in total", MaxSetupFilesBytes))
+	}
+}
+
+func hasDotDot(path string) bool {
+	for _, part := range strings.Split(path, "/") {
+		if part == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 // NormalizeSetup checks a snapshot and returns it trimmed, ready to be stored. A *PayloadError

@@ -29,6 +29,7 @@ type CourseModuleService interface {
 	ListModules(ctx context.Context, userCtx service.UserAccessContext, filter repository.ListFilter) (repository.ListResult, error)
 	ListPublicModules(ctx context.Context, filter repository.ListFilter) (repository.ListResult, error)
 	ReorderExercises(ctx context.Context, moduleID, callerID uuid.UUID, isAdmin bool, exerciseIDs []uuid.UUID) error
+	ReorderModules(ctx context.Context, callerID uuid.UUID, isAdmin bool, moduleIDs []uuid.UUID) error
 }
 
 // Handler manages course module HTTP endpoints.
@@ -69,6 +70,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	teacherGroup := r.Group("/modules", authn.Required(h.auth), authn.Roles(authn.RoleTeacher, authn.RoleAdmin))
 	teacherGroup.POST("", h.createModule)
 	teacherGroup.PATCH("/:id", h.updateModule)
+	teacherGroup.PUT("/order", h.reorderModules)
 	teacherGroup.PUT("/:id/exercises/order", h.reorderExercises)
 }
 
@@ -426,6 +428,34 @@ func (h *Handler) reorderExercises(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":        "Exercises reordered successfully",
 		"reorderedCount": len(req.OrderedExerciseIDs),
+	})
+}
+
+type reorderModulesRequest struct {
+	ModuleIDs []uuid.UUID `json:"moduleIds"`
+}
+
+func (h *Handler) reorderModules(c *gin.Context) {
+	principal, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+
+	var req reorderModulesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, problem.BadRequest("malformed-request", "Invalid request body."))
+		return
+	}
+
+	if err := h.svc.ReorderModules(c.Request.Context(), principal.UserID, principal.Role == authn.RoleAdmin, req.ModuleIDs); err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "Modules reordered successfully",
+		"reorderedCount": len(req.ModuleIDs),
 	})
 }
 

@@ -34,6 +34,7 @@ type ModuleRepository interface {
 	ListStudentModules(ctx context.Context, studentID uuid.UUID, now time.Time, filter repository.ListFilter) (repository.ListResult, error)
 	UpdateModule(ctx context.Context, module *domain.CourseModule, classIDs []uuid.UUID, assignedBy uuid.UUID) error
 	UpdateExerciseOrder(ctx context.Context, moduleID uuid.UUID, orderedExerciseIDs []uuid.UUID) error
+	ReorderModules(ctx context.Context, moduleIDs []uuid.UUID) error
 	ValidateTeacherClasses(ctx context.Context, teacherID uuid.UUID, classIDs []uuid.UUID) (bool, error)
 	IsStudentEnrolledInAnyClass(ctx context.Context, studentID uuid.UUID, classIDs []uuid.UUID) (bool, error)
 }
@@ -365,6 +366,31 @@ func (s *Service) ReorderExercises(ctx context.Context, moduleID, callerID uuid.
 	}
 
 	return s.repo.UpdateExerciseOrder(ctx, moduleID, exerciseIDs)
+}
+
+// ReorderModules changes the display order of modules for a teacher or admin.
+func (s *Service) ReorderModules(ctx context.Context, callerID uuid.UUID, isAdmin bool, moduleIDs []uuid.UUID) error {
+	if len(moduleIDs) == 0 {
+		return nil
+	}
+	seen := make(map[uuid.UUID]bool, len(moduleIDs))
+	for _, id := range moduleIDs {
+		if seen[id] {
+			return errors.New("duplicate module ID in reorder list")
+		}
+		seen[id] = true
+
+		if !isAdmin {
+			mod, err := s.repo.FindModuleByID(ctx, id)
+			if err != nil {
+				return err
+			}
+			if mod.TeacherID != callerID {
+				return domain.ErrForbidden
+			}
+		}
+	}
+	return s.repo.ReorderModules(ctx, moduleIDs)
 }
 
 // checkSlug normalizes and validates a slug and makes sure no other module has it. A nil

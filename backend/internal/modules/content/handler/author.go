@@ -20,6 +20,9 @@ import (
 // maxAuthoringBody is the largest request body the authoring routes accept (SPEC-019 5.6).
 const maxAuthoringBody = 1 << 20
 
+// maxSetupBody is the largest body of the routes that carry a snapshot, whose files may be large (SPEC-021 RN-12).
+const maxSetupBody = 6 << 20
+
 // Authoring is the block authoring use-case port (SPEC-019).
 type Authoring interface {
 	List(ctx context.Context, who service.Actor, moduleID uuid.UUID) ([]domain.ContentBlock, error)
@@ -61,8 +64,8 @@ func (h *AuthorHandler) Register(r gin.IRouter) {
 	teacher.PATCH("/blocks/:id", h.write, h.update)
 	teacher.DELETE("/blocks/:id", h.write, h.remove)
 	teacher.PUT("/blocks/:id/active", h.write, h.setActive)
-	teacher.PUT("/modules/:id/setup", h.write, h.putSetup)
-	teacher.PUT("/modules/:id/cards", h.write, h.saveCard)
+	teacher.PUT("/modules/:id/setup", h.bounded(maxSetupBody), h.putSetup)
+	teacher.PUT("/modules/:id/cards", h.bounded(maxSetupBody), h.saveCard)
 	teacher.PUT("/modules/:id/cards/active", h.write, h.setCardActive)
 }
 
@@ -272,7 +275,7 @@ func bindBody(c *gin.Context, into any) bool {
 	if err := c.ShouldBindJSON(into); err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			authFail(c, problem.PayloadTooLarge("The request body must have at most 1 MB."))
+			authFail(c, problem.PayloadTooLarge("The request body is too large."))
 			return false
 		}
 		authFail(c, problem.Validation("The request body must be a valid JSON object."))

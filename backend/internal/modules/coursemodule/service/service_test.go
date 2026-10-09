@@ -118,6 +118,14 @@ func (m *mockRepository) UpdateExerciseOrder(ctx context.Context, moduleID uuid.
 	return nil
 }
 
+func (m *mockRepository) ReorderModules(ctx context.Context, moduleIDs []uuid.UUID) error {
+	if m.reorderErr != nil {
+		return m.reorderErr
+	}
+	m.reorderedCalled = true
+	return nil
+}
+
 func (m *mockRepository) ValidateTeacherClasses(ctx context.Context, teacherID uuid.UUID, classIDs []uuid.UUID) (bool, error) {
 	if m.validateErr != nil {
 		return false, m.validateErr
@@ -944,5 +952,33 @@ func TestService_Slug(t *testing.T) {
 		mod, err = svc.CreateModule(context.Background(), in)
 		require.NoError(t, err)
 		assert.Nil(t, mod.Slug)
+	})
+}
+
+func TestReorderModules(t *testing.T) {
+	repo := newMockRepository()
+	svc := service.New(repo)
+	teacherID := uuid.New()
+	otherTeacherID := uuid.New()
+	modID1 := uuid.New()
+	modID2 := uuid.New()
+
+	repo.modules[modID1] = domain.CourseModule{Model: database.Model{ID: modID1}, TeacherID: teacherID}
+	repo.modules[modID2] = domain.CourseModule{Model: database.Model{ID: modID2}, TeacherID: teacherID}
+
+	t.Run("allows owner teacher to reorder modules", func(t *testing.T) {
+		err := svc.ReorderModules(context.Background(), teacherID, false, []uuid.UUID{modID1, modID2})
+		assert.NoError(t, err)
+		assert.True(t, repo.reorderedCalled)
+	})
+
+	t.Run("prevents non-owner teacher from reordering", func(t *testing.T) {
+		err := svc.ReorderModules(context.Background(), otherTeacherID, false, []uuid.UUID{modID1, modID2})
+		assert.ErrorIs(t, err, domain.ErrForbidden)
+	})
+
+	t.Run("allows admin to reorder modules", func(t *testing.T) {
+		err := svc.ReorderModules(context.Background(), otherTeacherID, true, []uuid.UUID{modID1, modID2})
+		assert.NoError(t, err)
 	})
 }
