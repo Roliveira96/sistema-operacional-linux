@@ -18,9 +18,10 @@ import (
 
 // memStore is an in-memory AuthorStore that keeps positions sequential like the repository.
 type memStore struct {
-	owner  uuid.UUID
-	blocks []domain.ContentBlock
-	clock  time.Time
+	owner     uuid.UUID
+	blocks    []domain.ContentBlock
+	clock     time.Time
+	scenarios map[uuid.UUID]domain.Scenario
 }
 
 func (m *memStore) ModuleTeacher(_ context.Context, id uuid.UUID) (uuid.UUID, error) {

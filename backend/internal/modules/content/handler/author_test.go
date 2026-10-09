@@ -32,6 +32,7 @@ type fakeAuthoring struct {
 	force    bool
 	order    []uuid.UUID
 	card     service.SaveCardInput
+	envID    uuid.UUID
 }
 
 func (f *fakeAuthoring) block() domain.ContentBlock {

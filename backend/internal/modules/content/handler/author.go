@@ -27,6 +27,8 @@ type Authoring interface {
 	Update(ctx context.Context, who service.Actor, blockID uuid.UUID, payload json.RawMessage, expected time.Time, force bool) (domain.ContentBlock, error)
 	Delete(ctx context.Context, who service.Actor, blockID uuid.UUID) error
 	SetActive(ctx context.Context, who service.Actor, blockID uuid.UUID, active bool) (domain.ContentBlock, error)
+	CreateEnvironment(ctx context.Context, who service.Actor, moduleID uuid.UUID, snapshot json.RawMessage) (uuid.UUID, error)
+	Environment(ctx context.Context, scenarioID uuid.UUID) (json.RawMessage, error)
 	SaveCard(ctx context.Context, who service.Actor, moduleID uuid.UUID, in service.SaveCardInput) ([]domain.ContentBlock, error)
 	SetActiveMany(ctx context.Context, who service.Actor, moduleID uuid.UUID, ids []uuid.UUID, active bool) ([]domain.ContentBlock, error)
 	Reorder(ctx context.Context, who service.Actor, moduleID uuid.UUID, ids []uuid.UUID) ([]domain.ContentBlock, error)
@@ -59,12 +61,18 @@ func (h *AuthorHandler) Register(r gin.IRouter) {
 	teacher.PATCH("/blocks/:id", h.write, h.update)
 	teacher.DELETE("/blocks/:id", h.write, h.remove)
 	teacher.PUT("/blocks/:id/active", h.write, h.setActive)
+	teacher.POST("/modules/:id/environments", h.bounded(domain.MaxSnapshotBytes+(64<<10)), h.createEnvironment)
+	teacher.GET("/environments/:id", h.environment)
 	teacher.PUT("/modules/:id/cards", h.write, h.saveCard)
 	teacher.PUT("/modules/:id/cards/active", h.write, h.setCardActive)
 }
 
 // write bounds the body and the rate of the routes that change content.
-func (h *AuthorHandler) write(c *gin.Context) {
+func (h *AuthorHandler) write(c *gin.Context) { h.bounded(maxAuthoringBody)(c) }
+
+// bounded is write with another body limit (a recorded machine is larger than a block).
+func (h *AuthorHandler) bounded(limit int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
 	who, ok := actor(c)
 	if !ok {
 		authFail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
@@ -74,8 +82,9 @@ func (h *AuthorHandler) write(c *gin.Context) {
 		authFail(c, problem.TooManyRequests("Too many changes. Try again later.", int(math.Ceil(retry.Seconds()))))
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAuthoringBody)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, limit)
 	c.Next()
+	}
 }
 
 type authoredBlock struct {
@@ -277,6 +286,13 @@ func authorFail(c *gin.Context, err error) {
 			params[i] = problem.InvalidParam{Name: f.Field, Reason: f.Reason}
 		}
 		err = problem.Validation("The block content is not valid for its type.", params...)
+	case errors.Is(err, service.ErrInvalidSnapshot):
+		err = problem.Validation("The environment is not a valid serialized machine.",
+			problem.InvalidParam{Name: "snapshot", Reason: "must be a machine of the supported format"})
+	case errors.Is(err, service.ErrSnapshotTooLarge):
+		err = problem.PayloadTooLarge("The environment must have at most 2 MB.")
+	case errors.Is(err, service.ErrEnvironmentNotFound):
+		err = problem.NotFound("scenario-not-found", "The environment does not exist.")
 	case errors.Is(err, service.ErrInvalidCard):
 		err = problem.Validation("The card does not match the blocks of the module.",
 			problem.InvalidParam{Name: "replaceIds", Reason: "must be adjacent blocks of the module, and kept blocks must keep their type"})

@@ -239,13 +239,39 @@ func (r *Reader) PracticeItem(ctx context.Context, questionID uuid.UUID, v Viewe
 	return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Snapshot: scenario.Snapshot, Conditions: conditions}, nil
 }
 
-// TopicScenario returns the prepared machine of the module topic (SPEC-016
-// 5.1), or nil when the module has none and the default machine applies.
+// TopicScenario returns the machine the study screen starts on (SPEC-016 5.1): the environment an
+// author prepared (SPEC-020 RN-03), or the prepared machine of the module topic, or nil when the
+// module has neither and the default machine applies.
 func (r *Reader) TopicScenario(ctx context.Context, moduleID uuid.UUID, v Viewer) (json.RawMessage, error) {
 	details, err := r.module(ctx, moduleID, v)
 	if err != nil {
 		return nil, err
 	}
+
+	// The effective environment is the one of the last active card that has one.
+	blocks, err := r.store.ListBlocks(ctx, moduleID)
+	if err != nil {
+		return nil, err
+	}
+	var last *uuid.UUID
+	for _, b := range blocks {
+		if !b.Active() || b.BlockType != domain.BlockText {
+			continue
+		}
+		if id, ok := environmentRef(b.Payload); ok {
+			last = &id
+		}
+	}
+	if last != nil {
+		sc, err := r.store.FindScenario(ctx, *last)
+		if err == nil {
+			return sc.Snapshot, nil
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return nil, err
+		}
+	}
+
 	if details.Module.SourceKey == nil {
 		return nil, nil
 	}

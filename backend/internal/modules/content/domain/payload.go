@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
 )
 
 // Limits of the authored fields (SPEC-019 RN-03, RN-05).
@@ -18,6 +20,8 @@ const (
 	MaxCommandSteps      = 50
 	MaxStepTexts         = 50
 	MaxCards             = 30
+	MaxEnvSummary        = 500
+	MaxEnvCommands       = 200
 )
 
 // Widget components a block may show (SPEC-019 RN-03).
@@ -86,10 +90,18 @@ func (c *checker) html(field, value string, required bool) string {
 	return clean
 }
 
+// environmentPayload links a card to the machine its author prepared (SPEC-020).
+type environmentPayload struct {
+	ScenarioID string   `json:"scenarioId"`
+	Summary    string   `json:"summary,omitempty"`
+	Commands   []string `json:"commands,omitempty"`
+}
+
 type textPayload struct {
-	Title   string `json:"title,omitempty"`
-	Command string `json:"command,omitempty"`
-	HTML    string `json:"html"`
+	Title       string              `json:"title,omitempty"`
+	Command     string              `json:"command,omitempty"`
+	HTML        string              `json:"html"`
+	Environment *environmentPayload `json:"environment,omitempty"`
 }
 
 type tipPayload struct {
@@ -116,7 +128,9 @@ type commandStep struct {
 	Command           string        `json:"command"`
 	Explanation       string        `json:"explanation,omitempty"`
 	OutputExplanation string        `json:"outputExplanation,omitempty"`
-	Terminal          *int          `json:"terminal,omitempty"`
+	// ExpectError marks a command that must fail on purpose (SPEC-020 RN-06).
+	ExpectError bool          `json:"expectError,omitempty"`
+	Terminal    *int          `json:"terminal,omitempty"`
 	Login             *loginPayload `json:"login,omitempty"`
 	Answers           []string      `json:"answers,omitempty"`
 }
@@ -141,6 +155,26 @@ type cardsPayload struct {
 type widgetPayload struct {
 	Component string         `json:"component"`
 	Params    map[string]any `json:"params"`
+}
+
+// environment checks the link of a card to its prepared machine. Only the card header (a text
+// with a title) may carry one.
+func (c *checker) environment(e *environmentPayload, hasTitle bool) {
+	if !hasTitle {
+		c.fail("environment", "only a card with a title can have an environment")
+		return
+	}
+	if _, err := uuid.Parse(e.ScenarioID); err != nil {
+		c.fail("environment.scenarioId", "must be the id of a stored environment")
+	}
+	e.Summary = c.text("environment.summary", e.Summary, MaxEnvSummary, false)
+	if len(e.Commands) > MaxEnvCommands {
+		c.fail("environment.commands", fmt.Sprintf("must have at most %d commands", MaxEnvCommands))
+		return
+	}
+	for i := range e.Commands {
+		e.Commands[i] = c.text(fmt.Sprintf("environment.commands[%d]", i), e.Commands[i], MaxCommandLength, false)
+	}
 }
 
 func decode(raw json.RawMessage, into any) error {
@@ -183,6 +217,9 @@ func decodeFor(t BlockType, raw json.RawMessage, c *checker, out *any) error {
 		p.Command = c.text("command", p.Command, MaxCommandLength, false)
 		// A text with a title opens a card and may carry no text of its own (SPEC-019).
 		p.HTML = c.html("html", p.HTML, p.Title == "")
+		if p.Environment != nil {
+			c.environment(p.Environment, p.Title != "")
+		}
 		*out = p
 	case BlockTip:
 		var p tipPayload
