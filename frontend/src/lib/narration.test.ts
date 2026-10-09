@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { alignWords, MAX_CHUNK_CHARS, readNarration, spokenCommand, splitIntoChunks, wordAt } from "./narration";
+import { alignWords, MAX_CHUNK_CHARS, pickVariation, readNarration, spokenCommand, splitIntoChunks, wordAt } from "./narration";
 
 function html(markup: string): HTMLElement {
   const root = document.createElement("div");
@@ -225,5 +225,30 @@ describe("readNarration of inline code", () => {
   it("separates a snippet from the words next to it", () => {
     const root = html("<p>veja<code>pwd</code>agora</p>");
     expect(readNarration(root).text).toBe("veja P W D agora");
+  });
+});
+
+// Covers SPEC-018 CA-18: the notice is drawn among the phrases and never repeats the last one.
+describe("pickVariation", () => {
+  it("draws every phrase but the previous one, whatever the random number", () => {
+    for (const last of [-1, 0, 7, 14]) {
+      const seen = new Set<number>();
+      for (let step = 0; step <= 1000; step++) seen.add(pickVariation(15, last, () => step / 1000.0001));
+      expect(seen.has(last)).toBe(false);
+      expect([...seen].every((i) => i >= 0 && i < 15)).toBe(true);
+      expect(seen.size).toBe(last < 0 ? 15 : 14);
+    }
+  });
+
+  it("maps the random number to a phrase in order", () => {
+    expect(pickVariation(15, -1, () => 0)).toBe(0);
+    expect(pickVariation(15, -1, () => 0.999)).toBe(14);
+    expect(pickVariation(15, 14, () => 0.999)).toBe(13);
+    expect(pickVariation(15, 0, () => 0)).toBe(1);
+  });
+
+  it("copes with a single phrase", () => {
+    expect(pickVariation(1, 0)).toBe(0);
+    expect(pickVariation(0, -1)).toBe(0);
   });
 });

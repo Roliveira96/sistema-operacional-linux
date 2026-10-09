@@ -9,7 +9,7 @@ import { useTopicPlayer } from "@/hooks/useTopicPlayer";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { cheatSheetHtml } from "@/engine/terminalWindow";
 import { clearMachine, loadMachine, loadSpeed, machineKey, saveMachine, saveSpeed } from "@/lib/machineStorage";
-import { spokenCommand } from "@/lib/narration";
+import { pickVariation, spokenCommand } from "@/lib/narration";
 import { splitDescription, topicAccentVars } from "@/lib/moduleVisual";
 import { buildTopicScript, type ScriptStep, type TimelineItem, type TopicScript } from "@/lib/topicScript";
 import { contentMessages as m } from "@/messages/content.pt-BR";
@@ -161,6 +161,7 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
     onWarning: (warning: NarrationWarning) => notify(t.narration[warning]),
   });
   const { speak, stop: stopNarration, setSpeed: setVoiceSpeed } = narrator;
+  const lastNotice = useRef(-1);
 
   /** The element of the page a timeline item or a command is read from. */
   const itemTarget = useCallback((item: TimelineItem): Element | null => {
@@ -179,7 +180,9 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
     const parts: NarrationPart[] = [{ text: spokenCommand(step.command), highlight: row?.querySelector('[data-narrate="command"]') ?? undefined }];
     if (explanation) parts.push({ element: explanation });
     else if (step.explanation) parts.push({ text: step.explanation });
-    parts.push({ text: t.narration.watchTerminal });
+    const phrases = t.narration.watchTerminal;
+    lastNotice.current = pickVariation(phrases.length, lastNotice.current);
+    parts.push({ text: phrases[lastNotice.current]! });
     return parts;
   }, []);
 

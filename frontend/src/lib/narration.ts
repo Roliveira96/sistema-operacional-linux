@@ -278,3 +278,14 @@ export function spokenCommand(command: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Draws one of several phrases, never the one that was drawn last (SPEC-018, RF-14).
+ * `last` is the index of the previous draw, or -1; `random` is injectable for tests.
+ */
+export function pickVariation(count: number, last: number, random: () => number = Math.random): number {
+  if (count <= 1) return 0;
+  if (last < 0 || last >= count) return Math.floor(random() * count);
+  const index = Math.floor(random() * (count - 1));
+  return index >= last ? index + 1 : index;
+}

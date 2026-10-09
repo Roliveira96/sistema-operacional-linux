@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiProblemError } from "@/services/httpClient";
+import { contentMessages } from "@/messages/content.pt-BR";
 import type { SpeechResult } from "@/services/speechService";
 import type { ContentBlock, PublicQuestion } from "@/services/contentService";
 import { CHECK_DELAY_MS } from "@/hooks/useModuleCheck";
@@ -384,29 +385,25 @@ describe("TopicStudy narration", () => {
 
   const callOrder = (fn: { mock: { invocationCallOrder: number[] } }, index = 0) => fn.mock.invocationCallOrder[index]!;
 
-  const WATCH = "Veja o comando rodando no terminal ao lado.";
+  const NOTICES = contentMessages.topic.narration.watchTerminal;
+  const NOTICE = "<aviso>";
+  /** The texts sent to the voice, with any of the 15 notices shown as one marker. */
+  const said = (speech: { synthesize: { mock: { calls: unknown[][] } } }) => speech.synthesize.mock.calls.map(([text]) => (NOTICES.includes(text as string) ? NOTICE : (text as string)));
 
   // Covers CA-01 to CA-03 and CA-15: title and text, then each command is said, explained and announced before it runs.
   it("reads the card and says each command, what it does and the notice before running it", async () => {
     const { speech } = await loaded();
     fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
     // The player pauses between commands, so the last block comes after a real wait.
-    await waitFor(() => expect(speech.synthesize).toHaveBeenCalledTimes(7), { timeout: 5000 });
+    await waitFor(() => expect(speech.synthesize).toHaveBeenCalledTimes(8), { timeout: 5000 });
 
-    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual([
-      "O Unix",
-      "texto do card",
-      "L S barra E T C",
-      "lista",
-      WATCH,
-      "who am I",
-      // The notice of the second command is not asked for again: the audio is already in the cache (CA-10).
-      "Na vida real curiosidade",
-    ]);
+    // Two commands, two notices: the second one is a different phrase (CA-18).
+    expect(said(speech)).toEqual(["O Unix", "texto do card", "L S barra E T C", "lista", NOTICE, "who am I", NOTICE, "Na vida real curiosidade"]);
+    expect(speech.synthesize.mock.calls[4]![0]).not.toBe(speech.synthesize.mock.calls[6]![0]);
     // Each command runs only after being said: first "ls /etc" (after its notice), then "whoami".
     expect(callOrder(speech.synthesize, 4)).toBeLessThan(callOrder(fake.window.run, 0));
     expect(callOrder(fake.window.run, 0)).toBeLessThan(callOrder(speech.synthesize, 5));
-    expect(callOrder(speech.synthesize, 5)).toBeLessThan(callOrder(fake.window.run, 1));
+    expect(callOrder(speech.synthesize, 6)).toBeLessThan(callOrder(fake.window.run, 1));
     expect(fake.window.run).toHaveBeenCalledTimes(2);
   }, 20000);
 
@@ -414,7 +411,7 @@ describe("TopicStudy narration", () => {
     const { speech } = await loaded();
     fireEvent.click(screen.getByRole("button", { name: /Executar no terminal 2: whoami/ }));
     await waitFor(() => expect(fake.window.run).toHaveBeenCalledTimes(1));
-    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual(["who am I", WATCH]);
+    expect(said(speech)).toEqual(["who am I", NOTICE]);
     expect(callOrder(speech.synthesize, 1)).toBeLessThan(callOrder(fake.window.run, 0));
   });
 
@@ -422,7 +419,7 @@ describe("TopicStudy narration", () => {
     const { speech } = await loaded();
     fireEvent.click(screen.getByRole("button", { name: /Executar no terminal 1: ls \/etc/ }));
     await waitFor(() => expect(fake.window.run).toHaveBeenCalled());
-    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual(["L S barra E T C", "lista", WATCH]);
+    expect(said(speech)).toEqual(["L S barra E T C", "lista", NOTICE]);
   });
 
   // Covers CA-16: cutting the narration in the middle of a step keeps the command from running.
