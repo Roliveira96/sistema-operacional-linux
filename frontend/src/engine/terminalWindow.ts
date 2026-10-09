@@ -14,6 +14,14 @@ export interface TerminalStep {
   answers?: string[];
 }
 
+/** What happened when a command ran (SPEC-020 RN-08). */
+export interface CommandResult {
+  /** Exit status (0 is success), or null when the command did not run. */
+  status: number | null;
+  /** What the command printed, without the prompt and the command line. */
+  output: string;
+}
+
 export interface TerminalWindowCallbacks {
   /** Called after every command with the serialized machine. */
   onCommand(snapshot: unknown): void;
@@ -25,6 +33,8 @@ export interface TerminalWindow {
    * status of the command (0 is success), or null when it did not run (SPEC-020 RN-08).
    */
   run(step: TerminalStep): Promise<number | null>;
+  /** Like run, and also gives what the command printed, to show the error of a command that failed. */
+  execute(step: TerminalStep): Promise<CommandResult>;
   setSpeed(speed: number): void;
   /** Replaces the machine at once and reopens the root terminal. */
   reset(snapshot: unknown): void;
@@ -48,6 +58,15 @@ export async function cheatSheetHtml(): Promise<string> {
     import("@legacy-engine/conteudo/CatalogoDeTopicos"),
   ]);
   return ColaDeComandos.html(new CatalogoDeTopicos().listar());
+}
+
+/** The printed text of a command without the prompt line that echoes it and the next prompt. */
+export function cleanOutput(printed: string, command: string): string {
+  const lines = printed.split("\n");
+  if (lines[0]?.includes(command)) lines.shift();
+  const prompt = /^\S+@\S+:\S*[#$]\s*$/;
+  while (lines.length > 0 && (lines[lines.length - 1]!.trim() === "" || prompt.test(lines[lines.length - 1]!))) lines.pop();
+  return lines.join("\n");
 }
 
 const PREPARING_MESSAGE = "Preparando máquina…\n";
@@ -91,17 +110,38 @@ export async function mountTerminalWindow(
     terminais: Array<TerminalInternals | null>;
   }
 
-  return {
-    async run(step) {
+  const execute = async (step: TerminalStep): Promise<CommandResult> => {
       const login = step.login ? { usuario: step.login.user, senha: step.login.password } : undefined;
-      const terminal = (await window3.obter(step.terminal ?? 1, login)) as unknown as TerminalInternals & { executarAutomatico(command: string, answers?: string[]): Promise<void> };
+      const terminal = (await window3.obter(step.terminal ?? 1, login)) as unknown as TerminalInternals & {
+        executarAutomatico(command: string, answers?: string[]): Promise<void>;
+        escrever(text: string, className?: string): void;
+      };
       const before = terminal.sessao?.historico.length ?? 0;
-      await terminal.executarAutomatico(step.command, step.answers ?? []);
+
+      // Everything the command prints goes through escrever, so it is collected there while it runs.
+      const original = terminal.escrever;
+      let printed = "";
+      terminal.escrever = function (this: unknown, text: string, className?: string) {
+        printed += text;
+        original.call(terminal, text, className);
+      };
+      try {
+        await terminal.executarAutomatico(step.command, step.answers ?? []);
+      } finally {
+        terminal.escrever = original;
+      }
+
       // The legacy terminal keeps the status of the last command in the scope of the session. When the
       // history did not grow the command never ran (the terminal was busy), so there is no status.
       const session = terminal.sessao;
-      if (!session || session.historico.length <= before) return null;
-      return session.atual().escopo.ultimoStatus;
+      const ran = Boolean(session) && session!.historico.length > before;
+      return { status: ran ? session!.atual().escopo.ultimoStatus : null, output: cleanOutput(printed, step.command) };
+    };
+
+  return {
+    execute,
+    async run(step) {
+      return (await execute(step)).status;
     },
 
     setSpeed(speed) {

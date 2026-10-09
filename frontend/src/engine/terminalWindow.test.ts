@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cheatSheetHtml, mountTerminalWindow, type TerminalWindow } from "./terminalWindow";
+import { cheatSheetHtml, cleanOutput, mountTerminalWindow, type TerminalWindow } from "./terminalWindow";
 
 let mounted: TerminalWindow | null = null;
 
@@ -44,6 +44,21 @@ describe("mountTerminalWindow", () => {
     expect(await win.run({ command: "ls /nao-existe" })).not.toBe(0);
     expect(await win.run({ command: "true" })).toBe(0);
     expect(win.history().slice(-3)).toEqual(["echo ok", "ls /nao-existe", "true"]);
+  });
+
+  it("also gives what the command printed, so the error of a failure can be shown", async () => {
+    const { win } = await mount();
+    const ok = await win.execute({ command: "echo ola-mundo" });
+    expect(ok).toEqual({ status: 0, output: "ola-mundo" });
+    const bad = await win.execute({ command: "ls /nao-existe" });
+    expect(bad.status).not.toBe(0);
+    expect(bad.output).toContain("/nao-existe");
+    expect(bad.output).not.toContain("ls /nao-existe\n");
+  });
+
+  it("cleans the printed text of a command", async () => {
+    expect(cleanOutput("root@servidor:~# ls /x\nls: nope\nroot@servidor:~# ", "ls /x")).toBe("ls: nope");
+    expect(cleanOutput("", "ls")).toBe("");
   });
 
   // Covers CA-03: a step with terminal 2 and a login opens that tab as that user.
