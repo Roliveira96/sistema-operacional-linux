@@ -33,6 +33,8 @@ type AuthorStore interface {
 	// if the block still has that updated_at, and returns ErrBlockConflict otherwise.
 	UpdateBlock(ctx context.Context, id uuid.UUID, payload json.RawMessage, expected *time.Time, now time.Time) (domain.ContentBlock, error)
 	DeleteBlock(ctx context.Context, b domain.ContentBlock) error
+	// SetActive inactivates (active=false) or reactivates a block and marks it as edited.
+	SetActive(ctx context.Context, id uuid.UUID, active bool, now time.Time) (domain.ContentBlock, error)
 	ReorderBlocks(ctx context.Context, moduleID uuid.UUID, ids []uuid.UUID, now time.Time) error
 }
 
@@ -148,6 +150,24 @@ func (a *Author) Update(ctx context.Context, who Actor, blockID uuid.UUID, paylo
 		return domain.ContentBlock{}, err
 	}
 	a.audit("update", who, b.ModuleID, &blockID)
+	return updated, nil
+}
+
+// SetActive inactivates or reactivates a block (RN-12). Idempotent.
+func (a *Author) SetActive(ctx context.Context, who Actor, blockID uuid.UUID, active bool) (domain.ContentBlock, error) {
+	b, err := a.find(ctx, who, blockID)
+	if err != nil {
+		return domain.ContentBlock{}, err
+	}
+	updated, err := a.store.SetActive(ctx, blockID, active, a.now())
+	if err != nil {
+		return domain.ContentBlock{}, err
+	}
+	action := "inactivate"
+	if active {
+		action = "activate"
+	}
+	a.audit(action, who, b.ModuleID, &blockID)
 	return updated, nil
 }
 

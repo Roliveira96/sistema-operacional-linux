@@ -82,6 +82,21 @@ func (m *memStore) UpdateBlock(_ context.Context, id uuid.UUID, payload json.Raw
 	return domain.ContentBlock{}, ErrNotFound
 }
 
+func (m *memStore) SetActive(_ context.Context, id uuid.UUID, active bool, now time.Time) (domain.ContentBlock, error) {
+	for i := range m.blocks {
+		if m.blocks[i].ID != id {
+			continue
+		}
+		m.blocks[i].InactiveAt = nil
+		if !active {
+			m.blocks[i].InactiveAt = &now
+		}
+		m.blocks[i].EditedByTeacherAt = &now
+		return m.blocks[i], nil
+	}
+	return domain.ContentBlock{}, ErrNotFound
+}
+
 func (m *memStore) DeleteBlock(_ context.Context, b domain.ContentBlock) error {
 	kept := m.blocks[:0]
 	for _, x := range m.blocks {
@@ -238,4 +253,33 @@ func TestAuthor_DeleteAndReorder(t *testing.T) {
 		_, err = f.a.Reorder(ctx, f.teach, f.module, bad)
 		assert.ErrorIs(t, err, ErrInvalidOrder)
 	}
+}
+
+// Covers SPEC-019 CA-21 (RN-12).
+func TestAuthor_SetActive(t *testing.T) {
+	f := newAuthorFixture()
+	ctx := context.Background()
+	b := f.add(t, "x")
+	other := Actor{UserID: uuid.New(), Role: "TEACHER"}
+
+	off, err := f.a.SetActive(ctx, f.teach, b.ID, false)
+	require.NoError(t, err)
+	assert.False(t, off.Active())
+	assert.Equal(t, b.UpdatedAt, off.UpdatedAt, "the content did not change, so no edit conflict")
+
+	again, err := f.a.SetActive(ctx, f.teach, b.ID, false)
+	require.NoError(t, err)
+	assert.False(t, again.Active(), "idempotent")
+
+	on, err := f.a.SetActive(ctx, f.admin, b.ID, true)
+	require.NoError(t, err)
+	assert.True(t, on.Active())
+
+	_, err = f.a.SetActive(ctx, other, b.ID, false)
+	assert.ErrorIs(t, err, ErrForbidden)
+	_, err = f.a.SetActive(ctx, f.teach, uuid.New(), false)
+	assert.ErrorIs(t, err, ErrBlockNotFound)
+
+	list, _ := f.a.List(ctx, f.teach, f.module)
+	assert.Len(t, list, 1, "the authoring list keeps inactive blocks")
 }

@@ -58,10 +58,15 @@ type ContentBlock struct {
 	BlockType         BlockType
 	Position          int
 	Payload           json.RawMessage `gorm:"type:jsonb"`
+	// InactiveAt is when the block was inactivated; nil means it is active (SPEC-019 RN-12).
+	InactiveAt        *time.Time
 	EditedByTeacherAt *time.Time
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
+
+// Active reports whether students can see the block.
+func (b ContentBlock) Active() bool { return b.InactiveAt == nil }
 
 // TableName pins the table name.
 func (ContentBlock) TableName() string { return "content_blocks" }

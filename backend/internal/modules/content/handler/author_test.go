@@ -58,6 +58,16 @@ func (f *fakeAuthoring) Delete(_ context.Context, who service.Actor, _ uuid.UUID
 	return f.err
 }
 
+func (f *fakeAuthoring) SetActive(_ context.Context, who service.Actor, _ uuid.UUID, active bool) (domain.ContentBlock, error) {
+	f.who = who
+	b := f.block()
+	if !active {
+		now := time.Now()
+		b.InactiveAt = &now
+	}
+	return b, f.err
+}
+
 func (f *fakeAuthoring) Reorder(_ context.Context, _ service.Actor, _ uuid.UUID, ids []uuid.UUID) ([]domain.ContentBlock, error) {
 	f.order = ids
 	return []domain.ContentBlock{f.block()}, f.err
@@ -189,4 +199,24 @@ func TestAuthorHandler_AccessAndLimits(t *testing.T) {
 	}
 	assert.Equal(t, http.StatusNoContent, do())
 	assert.Equal(t, http.StatusTooManyRequests, do())
+}
+
+// Covers SPEC-019 5.4a.
+func TestAuthorHandler_SetActive(t *testing.T) {
+	f := &fakeAuthoring{}
+	path := "/teacher/blocks/" + uuid.NewString() + "/active"
+
+	code, body := authorCall(t, f, teacher, 100, http.MethodPut, path, `{"active":false}`)
+	assert.Equal(t, http.StatusOK, code)
+	assert.Equal(t, false, body["active"])
+
+	code, body = authorCall(t, f, teacher, 100, http.MethodPut, path, `{"active":true}`)
+	assert.Equal(t, http.StatusOK, code)
+	assert.Equal(t, true, body["active"])
+
+	code, _ = authorCall(t, f, teacher, 100, http.MethodPut, path, `{}`)
+	assert.Equal(t, http.StatusBadRequest, code, "the situation is required")
+
+	code, _ = authorCall(t, &fakeAuthoring{err: service.ErrForbidden}, teacher, 100, http.MethodPut, path, `{"active":false}`)
+	assert.Equal(t, http.StatusForbidden, code)
 }

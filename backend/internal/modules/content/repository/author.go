@@ -96,6 +96,24 @@ func (r *Repository) UpdateBlock(ctx context.Context, id uuid.UUID, payload json
 	return r.FindBlock(ctx, id)
 }
 
+// SetActive inactivates or reactivates the block. updated_at stays as it is (the content did
+// not change), and the block is marked as edited so the initial load leaves it alone.
+func (r *Repository) SetActive(ctx context.Context, id uuid.UUID, active bool, now time.Time) (domain.ContentBlock, error) {
+	var inactiveAt any
+	if !active {
+		inactiveAt = now
+	}
+	res := r.db.Conn(ctx).Model(&domain.ContentBlock{}).Where("id = ?", id).
+		UpdateColumns(map[string]any{"inactive_at": inactiveAt, "edited_by_teacher_at": now})
+	if res.Error != nil {
+		return domain.ContentBlock{}, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return domain.ContentBlock{}, service.ErrNotFound
+	}
+	return r.FindBlock(ctx, id)
+}
+
 // DeleteBlock removes the block and renumbers the next ones. Reading progress
 // goes with it (ON DELETE CASCADE).
 func (r *Repository) DeleteBlock(ctx context.Context, b domain.ContentBlock) error {

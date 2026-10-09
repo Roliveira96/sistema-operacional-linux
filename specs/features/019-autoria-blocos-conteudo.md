@@ -52,7 +52,19 @@ Há ainda uma preparação pronta no banco: toda tabela de conteúdo já tem a m
 
 **Tela de edição do módulo (`/app/modules/[id]/edit`):** é organizada em três abas, **Detalhes** (dados do módulo), **Conteúdo** (os blocos) e **Exercícios** (ordem da trilha). A aba **Conteúdo** já existe em modo leitura (lista de blocos, SPEC-010); esta spec a torna editável. **Cada bloco que o estudante vê na tela de estudo aparece na aba Conteúdo**, na mesma ordem e com a mesma pré-visualização (Decisão do Tech Lead, 09/10/2026).
 
-- **Lista de blocos:** um cartão por bloco, na ordem real, com a etiqueta do tipo (Texto, Comando, Dica, Curiosidade, Passo a passo, Cartões, Componente, HTML), um resumo do conteúdo, a marca "editado" quando houver, e os botões **Editar**, **Subir**, **Descer** e **Remover**. A reordenação funciona também pelo teclado.
+- **Lista de blocos:** uma linha por bloco, na ordem real, com o número, a **espécie** do bloco (ver abaixo), um resumo do conteúdo, as marcas "editado" e "inativo", os botões **Subir** e **Descer** e um **menu de ações** (botão "Ações") com **Ver**, **Editar**, **Inativar** (ou **Ativar**, se já estiver inativo) e **Remover**. O menu abre e fecha pelo teclado (Enter, setas, Esc). **Ver** mostra o bloco como o estudante o vê, sem editar.
+- **Espécies de bloco (rótulos do editor):** o autor escolhe a espécie ao criar, e cada uma tem o seu formulário, no estilo do gerador de cards do protótipo do cliente (formulário à esquerda, pré-visualização ao vivo à direita):
+
+| Espécie | Tipo gravado | Campos |
+| :--- | :--- | :--- |
+| **HTML / Texto** | `TEXT` sem título | só o texto formatado (editor visual); continua o card em que está |
+| **Card (título e texto)** | `TEXT` com título | tag/pill (rótulo curto), título principal do card e texto formatado; abre um novo card na tela de estudo |
+| **Comandos** | `COMMAND` | lista de passos: terminal, linha de comando, descrição explicativa (antes de rodar) e descrição oculta pós-execução (mostrada depois que o aluno roda); usuário, senha e respostas ficam em "Avançado" |
+| **Dica de certificação** | `TIP` `DEFAULT` | certificação (ex.: LPIC-1 102.4) e texto formatado |
+| **Cai na prova** | `TIP` `WARNING` | certificação e texto formatado |
+| **Na vida real** | `CURIOSITY` | título e texto formatado |
+| **Passo a passo**, **Cartões**, **Componente** | `STEP_BY_STEP`, `CARDS`, `WIDGET` | como na tabela de editores abaixo |
+| **HTML avançado** | `LEGACY_HTML` | código HTML (caixa de código), só para quem precisa |
 - **"+ Adicionar bloco":** menu com os tipos; o bloco novo entra no fim, ou logo depois do bloco escolhido.
 - **Editor do bloco** (painel ao lado ou abaixo do cartão), por tipo:
 
@@ -96,11 +108,12 @@ Handler, service e repository no módulo `content`, reaproveitando a validação
 - **RN-08 (conflito):** a alteração de um bloco leva o instante da última alteração que o editor conhece; se o bloco mudou desde então, a resposta é 409.
 - **RN-09 (remoção):** a remoção é definitiva e apaga em cascata o progresso de leitura dos estudantes naquele bloco (SPEC-016); não há lixeira (ver P-02).
 - **RN-11 (descrição do módulo):** a descrição do módulo, ao ser criada ou alterada (SPEC-010), passa pelo mesmo filtro de HTML das RN-04; continua obrigatória (não vazia depois de remover a marcação) e tem o limite de 20.000 caracteres. Descrições antigas em texto simples continuam válidas.
+- **RN-12 (inativar):** um bloco pode ser inativado e reativado sem perder o conteúdo. Bloco inativo **não aparece** para estudantes nem para visitantes (leitura da SPEC-012) e não conta para o progresso, mas continua na lista da autoria, marcado como inativo, com a mesma posição. Inativar e reativar marcam o bloco como editado (a carga inicial não o reativa) e não mudam o instante de alteração do conteúdo (`updated_at`), para não gerar conflito de edição.
 - **RN-10 (log):** erros são registrados uma vez, na borda, sem o conteúdo do bloco; criação, alteração, remoção e reordenação geram um registro estruturado no log do serviço (`authoring`) com ação, autor, módulo, bloco e instante. O registro em tabela de auditoria (SPEC-003) exigiria novos tipos de evento e uma migração, e fica para uma revisão (desvio da P-05, 09/10/2026).
 
 ## 4. Modelo de Dados (Data Model)
 
-Nenhuma tabela nova. A tabela `content_blocks` (SPEC-011) já tem tudo o que a autoria usa:
+Nenhuma tabela nova. A tabela `content_blocks` (SPEC-011) já tem quase tudo o que a autoria usa; a única mudança é a coluna `inactive_at` (migração 00011), que guarda o instante em que o bloco foi inativado (nula = ativo):
 
 | Campo | Uso nesta spec |
 | :--- | :--- |
@@ -109,10 +122,11 @@ Nenhuma tabela nova. A tabela `content_blocks` (SPEC-011) já tem tudo o que a a
 | `block_type` | um dos oito tipos; não muda depois de criado |
 | `position` | de 1 a N, única por módulo, adiável |
 | `payload` | conteúdo do bloco, validado por tipo (RN-03) |
-| `edited_by_teacher_at` | gravado em toda criação e alteração (RN-07) |
+| `inactive_at` | nula para bloco ativo; preenchida ao inativar (RN-12) |
+| `edited_by_teacher_at` | gravado em toda criação, alteração e mudança de situação (RN-07, RN-12) |
 | `updated_at` | base da checagem de conflito (RN-08) |
 
-O progresso de leitura (`block_progress`) já apaga em cascata quando o bloco é removido. O registro de auditoria usa o mecanismo existente (a confirmar na P-05). Sem mudança de schema, sem migração.
+O progresso de leitura (`block_progress`) já apaga em cascata quando o bloco é removido. O registro de auditoria é o log estruturado (RN-10).
 
 ## 5. Contrato de API (API Contract)
 
@@ -125,7 +139,7 @@ Blocos completos do módulo, em ordem.
 | Campo da resposta | Tipo | Sempre presente | Descrição |
 | :--- | :--- | :--- | :--- |
 | `moduleId` | UUID | Sim | |
-| `blocks` | lista | Sim | cada item com `id`, `type`, `position`, `payload`, `edited` (booleano) e `updatedAt` |
+| `blocks` | lista | Sim | cada item com `id`, `type`, `position`, `payload`, `edited` (booleano), `active` (booleano) e `updatedAt`; inclui os blocos inativos |
 
 ### 5.2. `POST /api/v1/teacher/modules/{id}/blocks`
 
@@ -154,6 +168,16 @@ Resposta 200 com o bloco alterado e o HTML já filtrado.
 ### 5.4. `DELETE /api/v1/teacher/blocks/{blockId}`
 
 Remove o bloco e renumera os seguintes. Resposta 204.
+
+### 5.4a. `PUT /api/v1/teacher/blocks/{blockId}/active`
+
+Inativa ou reativa um bloco (RN-12).
+
+| Campo do corpo | Tipo | Obrigatório | Regra |
+| :--- | :--- | :--- | :--- |
+| `active` | booleano | Sim | `false` inativa, `true` reativa |
+
+Resposta 200 com o bloco (mesmos campos de 5.1). É idempotente.
 
 ### 5.5. `PUT /api/v1/teacher/modules/{id}/blocks/order`
 
@@ -215,6 +239,10 @@ Resposta 200 com a lista na nova ordem.
 - [ ] **CA-18** (indesejado): SE a descrição de um módulo ficar vazia depois de remover a marcação, ENTÃO O SISTEMA DEVE recusar a gravação com 400.
 - [ ] **CA-19** (evento): QUANDO o autor marcar um trecho como comando e salvar, O SISTEMA DEVE gravá-lo como código em linha, mostrá-lo com o estilo de comando na tela de estudo e o leitor por voz DEVE falá-lo como comando.
 - [ ] **CA-20** (ubíquo): TODO bloco mostrado na tela de estudo DEVE aparecer na aba Conteúdo da edição do módulo, na mesma ordem.
+- [ ] **CA-21** (evento): QUANDO o usuário inativar um bloco pelo menu de ações, O SISTEMA DEVE deixá-lo de fora da tela de estudo, mantê-lo na lista da autoria marcado como inativo e permitir reativá-lo.
+- [ ] **CA-22** (ubíquo): A lista de blocos DEVE oferecer, em cada linha, o menu de ações (Ver, Editar, Inativar ou Ativar, Remover) e os botões de subir e descer, todos operáveis pelo teclado.
+- [ ] **CA-23** (evento): QUANDO o usuário escolher **Ver**, O SISTEMA DEVE mostrar o bloco como o estudante o vê, sem permitir edição.
+- [ ] **CA-24** (evento): QUANDO o usuário criar um bloco de **HTML / Texto**, O SISTEMA DEVE pedir só o texto formatado e gravá-lo como texto sem título.
 - [ ] **CA-14** (ubíquo): A reordenação, a edição e a remoção DEVEM poder ser feitas só com o teclado, e os controles DEVEM ter nome acessível.
 
 ## 8. Plano de Testes (Test Plan)
@@ -268,3 +296,4 @@ Nenhuma em aberto. O Tech Lead aprovou em 09/10/2026 as recomendações de P-01 
 | 09/10/2026 | Tech Lead | Aprovação das recomendações P-01 a P-08 ("claro, pode fazer aprovado"). Status passa a Aprovada e a implementação começa pelo backend |
 | 09/10/2026 | Implementador (Claude) | Backend implementado: validação por tipo (`domain/payload.go`), serviço, repositório e rotas da seção 5, com testes de domínio, serviço, handler e PostgreSQL real. Ajustes: RN-07 protege todos os blocos carregados do módulo a cada mudança de estrutura; RN-10 registra no log estruturado em vez de tabela de auditoria. Frontend em andamento |
 | 09/10/2026 | Implementador (Claude) | Frontend implementado: aba Conteúdo com lista, adicionar (no fim ou depois de um bloco), editar por tipo com pré-visualização, mover, remover com confirmação, conflito e aviso de alterações não salvas; `RichTextEditor` (Tiptap 3.31.4, versão fixada) com o botão Comando (`<code>`). Desvios: a barra não tem tabela (exigiria outra extensão) e os títulos vão só até o nível 3; o HTML legado só é pré-visualizado depois de salvo (filtrado pelo servidor). A descrição do módulo (CA-16 a CA-18, P-07) ainda usa texto simples e fica para a próxima entrega |
+| 09/10/2026 | Tech Lead | Ajuste de escopo após ver a aba Conteúdo, com o protótipo do gerador de cards do cliente como referência: a lista passa a ter menu de ações (Ver, Editar, Inativar, Remover) e botões de mover; os formulários seguem o estilo do protótipo, com uma espécie **HTML / Texto** só para texto formatado. Incluídos: espécies de bloco (3.1), RN-12, rota 5.4a, coluna `inactive_at` e CA-21 a CA-24. Fora desta entrega, por exigirem outras especificações: cenário/snapshot da máquina, exercício do card, imagem e vídeo |

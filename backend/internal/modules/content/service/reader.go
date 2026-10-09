@@ -138,7 +138,18 @@ func (r *Reader) Blocks(ctx context.Context, moduleID uuid.UUID, v Viewer) ([]do
 	if _, err := r.module(ctx, moduleID, v); err != nil {
 		return nil, err
 	}
-	return r.store.ListBlocks(ctx, moduleID)
+	all, err := r.store.ListBlocks(ctx, moduleID)
+	if err != nil {
+		return nil, err
+	}
+	// Inactive blocks stay in the authoring list only (SPEC-019 RN-12).
+	active := make([]domain.ContentBlock, 0, len(all))
+	for _, b := range all {
+		if b.Active() {
+			active = append(active, b)
+		}
+	}
+	return active, nil
 }
 
 // Questions returns the published questions of a module without answers

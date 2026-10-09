@@ -26,6 +26,7 @@ type Authoring interface {
 	Create(ctx context.Context, who service.Actor, moduleID uuid.UUID, t domain.BlockType, payload json.RawMessage, afterID *uuid.UUID) (domain.ContentBlock, error)
 	Update(ctx context.Context, who service.Actor, blockID uuid.UUID, payload json.RawMessage, expected time.Time, force bool) (domain.ContentBlock, error)
 	Delete(ctx context.Context, who service.Actor, blockID uuid.UUID) error
+	SetActive(ctx context.Context, who service.Actor, blockID uuid.UUID, active bool) (domain.ContentBlock, error)
 	Reorder(ctx context.Context, who service.Actor, moduleID uuid.UUID, ids []uuid.UUID) ([]domain.ContentBlock, error)
 }
 
@@ -55,6 +56,7 @@ func (h *AuthorHandler) Register(r gin.IRouter) {
 	teacher.PUT("/modules/:id/blocks/order", h.write, h.reorder)
 	teacher.PATCH("/blocks/:id", h.write, h.update)
 	teacher.DELETE("/blocks/:id", h.write, h.remove)
+	teacher.PUT("/blocks/:id/active", h.write, h.setActive)
 }
 
 // write bounds the body and the rate of the routes that change content.
@@ -78,11 +80,12 @@ type authoredBlock struct {
 	Position  int             `json:"position"`
 	Payload   json.RawMessage `json:"payload"`
 	Edited    bool            `json:"edited"`
+	Active    bool            `json:"active"`
 	UpdatedAt time.Time       `json:"updatedAt"`
 }
 
 func toAuthored(b domain.ContentBlock) authoredBlock {
-	return authoredBlock{ID: b.ID, Type: string(b.BlockType), Position: b.Position, Payload: b.Payload, Edited: b.EditedByTeacherAt != nil, UpdatedAt: b.UpdatedAt}
+	return authoredBlock{ID: b.ID, Type: string(b.BlockType), Position: b.Position, Payload: b.Payload, Edited: b.EditedByTeacherAt != nil, Active: b.Active(), UpdatedAt: b.UpdatedAt}
 }
 
 func toAuthoredList(blocks []domain.ContentBlock) []authoredBlock {
@@ -188,6 +191,32 @@ func (h *AuthorHandler) remove(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+type activeRequest struct {
+	Active *bool `json:"active"`
+}
+
+func (h *AuthorHandler) setActive(c *gin.Context) {
+	blockID, ok := blockID(c)
+	who, authed := actor(c)
+	if !ok || !authed {
+		return
+	}
+	var req activeRequest
+	if !bindBody(c, &req) {
+		return
+	}
+	if req.Active == nil {
+		authFail(c, problem.Validation("The new situation is required.", problem.InvalidParam{Name: "active", Reason: "required"}))
+		return
+	}
+	b, err := h.author.SetActive(c.Request.Context(), who, blockID, *req.Active)
+	if err != nil {
+		authorFail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, toAuthored(b))
 }
 
 type reorderBlocksRequest struct {

@@ -99,6 +99,20 @@ func TestAuthoringRepository(t *testing.T) {
 	require.NoError(t, repo.ReorderBlocks(ctx, module.ID, []uuid.UUID{a.ID, loaded.ID, b.ID}, later))
 	assert.Equal(t, []uuid.UUID{a.ID, loaded.ID, b.ID}, positions(t, repo, module.ID))
 
+	// CA-21: inactivating keeps the block and its place, and marks it as edited.
+	before, err := repo.FindBlock(ctx, b.ID)
+	require.NoError(t, err)
+	off, err := repo.SetActive(ctx, b.ID, false, later)
+	require.NoError(t, err)
+	assert.NotNil(t, off.InactiveAt)
+	assert.Equal(t, 3, off.Position)
+	assert.True(t, off.UpdatedAt.Equal(before.UpdatedAt), "content time is untouched")
+	on, err := repo.SetActive(ctx, b.ID, true, later)
+	require.NoError(t, err)
+	assert.Nil(t, on.InactiveAt)
+	_, err = repo.SetActive(ctx, uuid.New(), false, later)
+	assert.ErrorIs(t, err, service.ErrNotFound)
+
 	// CA-04: removing a block drops the reading progress and closes the gap.
 	_, err = repo.SaveBlockProgress(ctx, student.ID, loaded.ID, true)
 	require.NoError(t, err)

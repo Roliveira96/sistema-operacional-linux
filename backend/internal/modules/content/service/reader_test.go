@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -41,6 +42,7 @@ type fakeReadStore struct {
 	keys          map[string]domain.Scenario
 	keyErr        error
 	askedKey      string
+	blocks        []domain.ContentBlock
 }
 
 func (f *fakeReadStore) FindScenarioBySourceKey(_ context.Context, key string) (domain.Scenario, error) {
@@ -73,6 +75,9 @@ func (f *fakeReadStore) FindScenario(context.Context, uuid.UUID) (domain.Scenari
 }
 
 func (f *fakeReadStore) ListBlocks(context.Context, uuid.UUID) ([]domain.ContentBlock, error) {
+	if f.blocks != nil {
+		return f.blocks, nil
+	}
 	return []domain.ContentBlock{{Position: 1, BlockType: domain.BlockText}}, nil
 }
 
@@ -291,4 +296,19 @@ func TestModulePracticeItems(t *testing.T) {
 
 	_, err = NewReader(&fakeAccess{err: cmdomain.ErrModuleNotFound}, store).ModulePracticeItems(ctx, uuid.New(), Viewer{})
 	assert.ErrorIs(t, err, ErrModuleNotFound)
+}
+
+// Covers SPEC-019 RN-12: students never get inactive blocks.
+func TestReader_BlocksSkipsInactive(t *testing.T) {
+	now := time.Now()
+	store := &fakeReadStore{blocks: []domain.ContentBlock{
+		{ID: uuid.New(), Position: 1},
+		{ID: uuid.New(), Position: 2, InactiveAt: &now},
+		{ID: uuid.New(), Position: 3},
+	}}
+	r := NewReader(&fakeAccess{}, store)
+	got, err := r.Blocks(context.Background(), uuid.New(), Viewer{})
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, []int{1, 3}, []int{got[0].Position, got[1].Position})
 }
