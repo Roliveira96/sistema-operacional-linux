@@ -147,6 +147,9 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
           <button type="button" className={styles.secondary} title={m.testAll.moduleOpenTitle} onClick={() => setTestingModule((n) => n + 1)}>
             {m.testAll.moduleOpen}
           </button>
+          <Link href={`/app/modules/${moduleId}?draft=1`} className={styles.link}>
+            {m.previewDraft}
+          </Link>
           <Link href={`/app/modules/${moduleId}`} className={styles.link}>
             {m.preview}
           </Link>

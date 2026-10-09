@@ -44,7 +44,7 @@ let service: { [K in keyof ContentAuthoringService]: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
   localStorage.clear();
-  service = { list: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn() };
+  service = { list: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn(), versions: vi.fn(), publish: vi.fn(), restore: vi.fn() };
   service.list.mockResolvedValue(blocks);
 });
 

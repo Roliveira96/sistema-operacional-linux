@@ -25,6 +25,20 @@ interface Whole {
   sections: Record<number, string>;
   layers: SetupLayer[];
   fingerprint: string;
+  /** The cards that have commands, in order, with how many each has. */
+  cards: { key: string; title: string; count: number }[];
+  /** The same commands with the cards in the opposite order, to find the activities that depend on others. */
+  reversed: { commands: CardModel["commands"]; sections: Record<number, string> };
+}
+
+/** Whether each card ended as expected, from the verdict of each of its commands. */
+function perCard(cards: Whole["cards"], good: boolean[]): boolean[] {
+  let from = 0;
+  return cards.map(({ count }) => {
+    const ok = good.slice(from, from + count).every(Boolean);
+    from += count;
+    return ok;
+  });
 }
 
 interface TestAllProps {
@@ -49,6 +63,8 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
   const [at, setAt] = useState(0);
   const [results, setResults] = useState<boolean[]>([]);
   const [sequence, setSequence] = useState<boolean | null>(null);
+  const [forward, setForward] = useState<boolean[] | null>(null);
+  const [backward, setBackward] = useState<boolean[] | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -59,6 +75,13 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
         const groups = groupCards(blocks.filter((b) => b.active));
         const list: Item[] = [];
         const cards = groups.map(parseCard);
+        const withCommands = cards.map((card, i) => ({ card, key: groups[i]!.key, title: card.title.trim() || m.intro })).filter((c) => c.card.commands.length > 0);
+        const reversedSections: Record<number, string> = {};
+        const reversedCommands: CardModel["commands"] = [];
+        [...withCommands].reverse().forEach((c) => {
+          reversedSections[reversedCommands.length] = c.title;
+          reversedCommands.push(...c.card.commands);
+        });
         const commands: CardModel["commands"] = [];
         const sections: Record<number, string> = {};
         groups.forEach((group, i) => {
@@ -71,7 +94,10 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
           const before = allLayers(setup, groups.slice(0, i).flatMap((g) => g.blocks));
           list.push({ group, card, title, layers: own ? [...before, { id: group.key, kind: "card", label: title, setup: card.setup! }] : before });
         });
-        setWhole({ commands, sections, layers: allLayers(setup, groups.flatMap((g) => g.blocks)), fingerprint: moduleFingerprint(activeCards(blocks), setup) });
+        setWhole({ commands, sections, layers: allLayers(setup, groups.flatMap((g) => g.blocks)), fingerprint: moduleFingerprint(activeCards(blocks), setup),
+          cards: withCommands.map((c) => ({ key: c.key, title: c.title, count: c.card.commands.length })),
+          reversed: { commands: reversedCommands, sections: reversedSections },
+        });
         setItems(list);
       })
       .catch(() => active && setFailedToLoad(true));
@@ -93,6 +119,20 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
   const unitsDone = at >= items.length;
   const current = items[at];
   const passed = results.filter(Boolean).length;
+  const unitsOk = unitsDone && results.every(Boolean);
+  // The activities that pass in their order and fail when the order is reversed need what an earlier one did.
+  const forwardCards = forward ? perCard(whole.cards, forward) : [];
+  const backwardCards = backward ? perCard([...whole.cards].reverse(), backward).reverse() : [];
+  // A card that works in the sequence but not alone also needs what the others did.
+  const unitOf = (key: string) => results[items.findIndex((item) => item.group.key === key)];
+  const dependents: { title: string; reason: string }[] = [];
+  if (backward) {
+    whole.cards.forEach((card, i) => {
+      if (!forwardCards[i]) return;
+      if (unitOf(card.key) === false) dependents.push({ title: card.title, reason: m.dependsAlone });
+      else if (!backwardCards[i]) dependents.push({ title: card.title, reason: m.dependsOnEarlier });
+    });
+  }
   const nothing = items.length === 0 && whole.commands.length === 0 && whole.layers.length === 0;
 
   return (
@@ -105,6 +145,22 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
       </div>
       <p className={cardStyles.hint}>{m.moduleHelp}</p>
       {nothing && <p className={cardStyles.hint}>{m.nothing}</p>}
+      {!nothing && (
+        <ul className={cardStyles.results} aria-label={m.scoreboard}>
+          <li className={`${cardStyles.result} ${!unitsDone ? "" : unitsOk ? cardStyles.resultGood : cardStyles.resultBad}`}>
+            <code>{m.unitsName}</code>
+            <span className={cardStyles.resultText}>{!unitsDone ? m.pending : unitsOk ? m.ok : m.failed}</span>
+          </li>
+          <li className={`${cardStyles.result} ${sequence === null ? "" : sequence ? cardStyles.resultGood : cardStyles.resultBad}`}>
+            <code>{m.sequenceName}</code>
+            <span className={cardStyles.resultText}>{sequence === null ? m.pending : sequence ? m.ok : m.failed}</span>
+          </li>
+          <li className={`${cardStyles.result} ${!backward ? "" : dependents.length === 0 ? cardStyles.resultGood : cardStyles.resultBad}`}>
+            <code>{m.inverseName}</code>
+            <span className={cardStyles.resultText}>{!backward ? m.pending : dependents.length === 0 ? m.noDependencies : m.dependencies(dependents.length)}</span>
+          </li>
+        </ul>
+      )}
 
       {items.length > 0 && (
         <>
@@ -149,6 +205,7 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
             layers={whole.layers}
             sections={whole.sections}
             onClose={onClose}
+            onVerdicts={setForward}
             onFinish={(ok) => {
               setSequence(ok);
               saveModuleTest(moduleId, ok && results.every(Boolean), whole.fingerprint);
@@ -156,9 +213,30 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
             }}
           />
           {sequence !== null && (
-            <p className={sequence && results.every(Boolean) ? cardStyles.saved : cardStyles.error} role="status">
-              {sequence && results.every(Boolean) ? m.moduleOk : m.moduleBad}
-            </p>
+            <>
+              <h4 className={cardStyles.groupTitle}>{m.inverseTitle}</h4>
+              <p className={cardStyles.hint}>{m.inverseHelp}</p>
+              {whole.cards.length < 2 ? (
+                <p className={cardStyles.hint}>{m.inverseNeedsTwo}</p>
+              ) : (
+                <CardTester commands={whole.reversed.commands} loadBase={loadBase} layers={whole.layers} sections={whole.reversed.sections} onClose={onClose} onVerdicts={setBackward} />
+              )}
+              {backward && dependents.length > 0 && (
+                <ul className={cardStyles.results} aria-label={m.dependentsTitle}>
+                  {dependents.map(({ title, reason }) => (
+                    <li key={title} className={`${cardStyles.result} ${cardStyles.resultBad}`}>
+                      <code>{title}</code>
+                      <span className={cardStyles.resultText}>{reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(backward || whole.cards.length < 2) && (
+                <p className={sequence && unitsOk ? cardStyles.saved : cardStyles.error} role="status">
+                  {sequence && unitsOk ? m.moduleOk : m.moduleBad}
+                </p>
+              )}
+            </>
           )}
         </>
       )}

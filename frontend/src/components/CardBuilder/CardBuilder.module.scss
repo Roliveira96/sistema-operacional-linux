@@ -375,11 +375,18 @@ textarea.input {
 }
 
 .terminalBox {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   height: clamp(32rem, 75vh, 52rem);
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+}
+
+.terminalBox > * {
+  flex: 1;
+  min-height: 0;
 }
 
 .recorderSide {
@@ -428,6 +435,10 @@ textarea.input {
   margin: 0;
   padding: 0;
   list-style: none;
+
+  // As tall as the terminal beside it: a long list scrolls inside, following the command that runs.
+  max-height: clamp(24rem, 60vh, 44rem);
+  overflow-y: auto;
 }
 
 .result {

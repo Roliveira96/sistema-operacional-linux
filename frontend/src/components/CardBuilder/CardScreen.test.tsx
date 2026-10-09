@@ -53,7 +53,7 @@ const blocks = [
 let service: { [K in keyof ContentAuthoringService]: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
-  service = { list: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn() };
+  service = { list: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn(), versions: vi.fn(), publish: vi.fn(), restore: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn() };
   service.content.mockResolvedValue({ blocks, setup: undefined });
 });
 

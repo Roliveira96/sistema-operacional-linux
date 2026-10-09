@@ -65,6 +65,8 @@ interface CardTesterProps {
   onClose: () => void;
   /** Called when a test ran to the end: true when the snapshots and every command ended as expected. */
   onFinish?: (passed: boolean) => void;
+  /** Called just before `onFinish`: whether each command ended as expected, by command index. */
+  onVerdicts?: (good: boolean[]) => void;
   /** The title of the card each command starts, by command index, for a test of several cards in sequence. */
   sections?: Record<number, string>;
 }
@@ -75,7 +77,7 @@ interface CardTesterProps {
  * fails is a conflict and is reported with what the terminal said. It shows whether each command ended as
  * expected and, when one fails, what the terminal said. It works on a throwaway machine: nothing is saved.
  */
-export function CardTester({ commands, loadBase, layers, onClose, onFinish, sections }: CardTesterProps) {
+export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVerdicts, sections }: CardTesterProps) {
   const [base, setBase] = useState<{ machine: unknown } | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -86,10 +88,11 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, sect
   const [results, setResults] = useState<Result[]>(() => commands.map(() => ({ state: "pending" })));
   const [finished, setFinished] = useState(false);
   const stop = useRef(false);
+  const list = useRef<HTMLOListElement>(null);
   const alive = useRef(true);
-  const latest = useRef({ commands, layers, onFinish });
+  const latest = useRef({ commands, layers, onFinish, onVerdicts });
   useEffect(() => {
-    latest.current = { commands, layers, onFinish };
+    latest.current = { commands, layers, onFinish, onVerdicts };
   });
 
   useEffect(() => {
@@ -115,6 +118,7 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, sect
     if (!terminal) return;
     const { commands: steps, layers: toRun } = latest.current;
     let passed = true;
+    const good = steps.map(() => false);
     stop.current = false;
     let current = true;
     const set = (i: number, result: Result) => current && alive.current && setResults((prev) => prev.map((r, j) => (j === i ? result : r)));
@@ -142,6 +146,7 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, sect
           skipFrom(0, { kind: "envFailed" });
           if (current && alive.current) {
             setFinished(true);
+            latest.current.onVerdicts?.(good);
             latest.current.onFinish?.(false);
           }
           return;
@@ -170,10 +175,12 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, sect
         });
         const verdict = judge(status, step.expectError);
         passed = passed && isGood(verdict);
+        good[i] = isGood(verdict);
         set(i, { state: "done", verdict, output });
       }
       if (current && alive.current) {
         setFinished(true);
+        latest.current.onVerdicts?.(good);
         latest.current.onFinish?.(passed);
       }
     })();
@@ -181,6 +188,15 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, sect
       current = false;
     };
   }, [terminal, attempt]);
+
+  // The list follows the command that is running, like the terminal follows its last line.
+  useEffect(() => {
+    const rows = list.current?.querySelectorAll<HTMLElement>("[data-state]");
+    if (!rows) return;
+    const running = [...rows].find((row) => row.dataset.state === "running");
+    const lastDone = [...rows].reverse().find((row) => row.dataset.state === "done");
+    (running ?? lastDone)?.scrollIntoView?.({ block: "nearest" });
+  }, [results, env]);
 
   const again = () => {
     setTerminal(null);
@@ -235,7 +251,7 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, sect
         </div>
 
         <div className={styles.recorderSide}>
-          <ol className={styles.results}>
+          <ol className={styles.results} ref={list}>
             {hasEnv && (
               <li className={`${styles.result} ${env === "failed" ? styles.resultBad : env === "ok" ? styles.resultGood : ""}`} aria-label={m.environmentStep}>
                 <code>{m.environmentStep}</code>
@@ -257,7 +273,7 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, sect
               const r = results[i] ?? { state: "pending" as const };
               const bad = r.state === "done" && !isGood(r.verdict);
               return (
-                <li key={c.id} data-section={sections?.[i]} className={`${styles.result} ${bad ? styles.resultBad : ""} ${r.state === "done" && !bad ? styles.resultGood : ""}`} aria-label={m.item(i + 1, c.command)}>
+                <li key={c.id} data-state={r.state} data-section={sections?.[i]} className={`${styles.result} ${bad ? styles.resultBad : ""} ${r.state === "done" && !bad ? styles.resultGood : ""}`} aria-label={m.item(i + 1, c.command)}>
                   {sections?.[i] && <span className={styles.outputLabel}>{m.section(sections[i])}</span>}
                   <code>{c.command || "—"}</code>
                   <span className={styles.resultText}>{r.state === "pending" ? m.pending : r.state === "running" ? m.running : verdictText(r.verdict)}</span>

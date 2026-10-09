@@ -34,9 +34,21 @@ export interface SaveCardRequest {
   blocks: CardBlockInput[];
 }
 
+/** One published version of a module (SPEC-021). */
+export interface ModuleVersion {
+  number: number;
+  note: string;
+  createdAt: string;
+  createdBy: string;
+  blockCount: number;
+  /** The one students read. */
+  current: boolean;
+}
+
 /** Authoring endpoints of SPEC-019, for ADMIN and the TEACHER who owns the module. */
 export function createContentAuthoringService(client: HttpClient = httpClient) {
   const moduleBlocks = (id: string) => `/teacher/modules/${encodeURIComponent(id)}/blocks`;
+  const moduleVersions = (id: string) => `/teacher/modules/${encodeURIComponent(id)}/versions`;
   const moduleCards = (id: string) => `/teacher/modules/${encodeURIComponent(id)}/cards`;
 
   return {
@@ -49,6 +61,15 @@ export function createContentAuthoringService(client: HttpClient = httpClient) {
     /** Stores the snapshot of the module, shared by every card (SPEC-021 6). */
     setModuleSetup: async (moduleId: string, setup: Setup) =>
       parseSetup((await client.put<{ setup?: unknown }>(`/teacher/modules/${encodeURIComponent(moduleId)}/setup`, setupPayload(setup))).setup),
+    /** The versions, the newest first, and whether the draft differs from the latest (SPEC-021). */
+    versions: async (moduleId: string) => {
+      const r = await client.get<{ versions: ModuleVersion[]; hasUnpublishedChanges: boolean }>(`${moduleVersions(moduleId)}`);
+      return { versions: r.versions, hasUnpublishedChanges: r.hasUnpublishedChanges };
+    },
+    /** Publishes the draft as the next version; rejects with `no-changes` when it is the same as the latest. */
+    publish: async (moduleId: string, note: string) => client.post<{ number: number }>(moduleVersions(moduleId), note.trim() ? { note: note.trim() } : {}),
+    /** Copies a version into the draft; it does not publish. */
+    restore: async (moduleId: string, number: number) => client.post<{ blocks: AuthoredBlock[] }>(`${moduleVersions(moduleId)}/${number}/restore`, {}),
     saveCard: async (moduleId: string, request: SaveCardRequest) =>
       (await client.put<{ blocks: AuthoredBlock[] }>(moduleCards(moduleId), request)).blocks,
     setCardActive: async (moduleId: string, blockIds: string[], active: boolean) =>

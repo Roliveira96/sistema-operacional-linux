@@ -401,6 +401,7 @@ export const messages = {
       details: "Detalhes",
       content: "Conteúdo",
       setup: "Ambiente",
+      versions: "Versões",
       exercises: "Exercícios",
     },
     blocks: {

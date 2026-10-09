@@ -37,7 +37,7 @@ const onCancel = vi.fn();
 const onCreated = vi.fn();
 
 beforeEach(() => {
-  service = { list: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn() };
+  service = { list: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn(), versions: vi.fn(), publish: vi.fn(), restore: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn() };
 });
 
 const renderBuilder = (props: Partial<React.ComponentProps<typeof CardBuilder>> = {}) =>

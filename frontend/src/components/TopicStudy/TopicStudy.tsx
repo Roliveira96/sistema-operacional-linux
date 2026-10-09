@@ -49,6 +49,8 @@ export interface TopicStudyProps {
   moduleId: string;
   backHref: string;
   content?: Pick<ContentService, "content" | "questions">;
+  /** Shows the version being edited instead of the published one, for the authors (SPEC-021). */
+  draft?: boolean;
   modules?: Pick<typeof moduleService, "getModuleById">;
   practice?: Pick<PracticeService, "scenario" | "topicScenario" | "checkModule" | "progress">;
   /** Voice of the karaoke reader (SPEC-018). */
@@ -89,6 +91,7 @@ export function TopicStudy({
   moduleId,
   backHref,
   content = contentService,
+  draft = false,
   modules = moduleService,
   practice = practiceService,
   speech = speechService,
@@ -102,7 +105,7 @@ export function TopicStudy({
     (async () => {
       try {
         // The blocks endpoint applies the visibility rules and gives the clearest error.
-        const { blocks, setup }: { blocks: ContentBlock[]; setup?: Setup } = await content.content(moduleId);
+        const { blocks, setup }: { blocks: ContentBlock[]; setup?: Setup } = await content.content(moduleId, draft);
         const [module, questions, scenario] = await Promise.all([
           modules.getModuleById(moduleId),
           content.questions(moduleId, "EXERCISE"),
@@ -134,7 +137,7 @@ export function TopicStudy({
     return () => {
       active = false;
     };
-  }, [moduleId, content, modules, practice]);
+  }, [moduleId, content, modules, practice, draft]);
 
   if (state.kind === "loading") {
     return (

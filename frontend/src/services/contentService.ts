@@ -46,9 +46,9 @@ export interface ModuleBlockProgressResult {
 /** Read endpoints of SPEC-012. Answers never reach these responses. */
 export function createContentService(client: HttpClient = httpClient) {
   return {
-    /** The blocks of the module and its snapshot, the commands that prepare the machine (SPEC-021). */
-    content: async (moduleId: string) => {
-      const r = await client.get<{ blocks: ContentBlock[]; setup?: unknown }>(`/modules/${encodeURIComponent(moduleId)}/blocks`);
+    /** The blocks of the module and its snapshot, as the published version has them; `draft` asks for the version being edited (authors only). */
+    content: async (moduleId: string, draft = false) => {
+      const r = await client.get<{ blocks: ContentBlock[]; setup?: unknown }>(`/modules/${encodeURIComponent(moduleId)}/blocks${draft ? "?draft=true" : ""}`);
       return { blocks: r.blocks, setup: parseSetup(r.setup) };
     },
     questions: async (moduleId: string, usage?: "EXERCISE" | "ASSESSMENT") =>
