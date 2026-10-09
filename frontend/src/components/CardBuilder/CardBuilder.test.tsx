@@ -272,3 +272,25 @@ describe("CardBuilder, the introduction", () => {
     expect(request.blocks.map((b) => b.type)).toEqual(["LEGACY_HTML", "COMMAND"]);
   });
 });
+
+describe("CardBuilder, raw html", () => {
+  it("writes raw html in its own element and does not preview what is unsafe", async () => {
+    service.saveCard.mockResolvedValue([]);
+    renderBuilder();
+    fireEvent.change(screen.getByLabelText("Título principal do card"), { target: { value: "T" } });
+    fireEvent.click(screen.getByRole("button", { name: "HTML avançado" }));
+    const preview = screen.getByRole("complementary", { name: "Preview ao vivo do card" });
+
+    fireEvent.change(screen.getByLabelText("Código HTML 1"), { target: { value: '<div class="caixa"><p>Olá caixa</p></div>' } });
+    expect(within(preview).getByText("Olá caixa")).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText("Código HTML 1"), { target: { value: '<p>perigo</p><img src="x" onerror="x()">' } });
+    expect(within(preview).queryByText("perigo")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Código HTML 1"), { target: { value: '<div class="caixa"><p>Olá caixa</p></div>' } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
+    await waitFor(() => expect(service.saveCard).toHaveBeenCalled());
+    const request = service.saveCard.mock.calls[0]![1] as { blocks: { payload: { html?: string } }[] };
+    expect(request.blocks[1]!.payload.html).toBe('<div class="caixa"><p>Olá caixa</p></div>');
+  });
+});

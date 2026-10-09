@@ -7,9 +7,9 @@ import type { AuthoredBlock } from "@/services/contentAuthoringService";
 
 type Payload = Record<string, unknown>;
 
-export type ElementKind = "text" | "code" | "table" | "image" | "video" | "link" | "block";
+export type ElementKind = "text" | "html" | "code" | "table" | "image" | "video" | "link" | "block";
 
-/** One piece of the "descrição modular": the text, a snippet, a table, a picture, a video or a link. */
+/** One piece of the "descrição modular": the text, raw html, a snippet, a table, a picture, a video or a link. */
 export interface CardElement {
   id: string;
   kind: ElementKind;
@@ -109,15 +109,13 @@ export function elementHtml(el: CardElement): string {
     }
     case "table": {
       const cells = (line: string) => line.split("|").map((c) => c.trim());
-      const head = cells(el.headers)
-        .map((c) => `<th>${escapeHtml(c)}</th>`)
-        .join("");
+      const head = el.headers.trim() === "" ? "" : `<thead><tr>${cells(el.headers).map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>`;
       const body = el.rows
         .split(String.fromCharCode(10))
         .filter((line) => line.trim() !== "")
         .map((line) => `<tr>${cells(line).map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`)
         .join("");
-      return `<table class="md-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      return `<table class="md-table">${head}<tbody>${body}</tbody></table>`;
     }
     case "image": {
       const caption = el.caption.trim();
@@ -140,37 +138,61 @@ export function newElement(kind: Exclude<ElementKind, "block">): CardElement {
   return base;
 }
 
-/** Reads stored html back into the element it was made from; anything else is a text. */
+// What the visual editor can hold. Anything else (a div, a class, a span, a table with markup in
+// its cells) would be lost on opening it there, so it is kept as raw html instead.
+const TEXT_TAGS = new Set(["P", "B", "STRONG", "I", "EM", "S", "CODE", "PRE", "UL", "OL", "LI", "H3", "H4", "BLOCKQUOTE", "A", "BR", "HR"]);
+
+function representable(root: Element): boolean {
+  for (const el of root.querySelectorAll("*")) {
+    if (!TEXT_TAGS.has(el.tagName)) return false;
+    for (const attr of el.getAttributeNames()) {
+      const codeInPre = el.tagName === "CODE" && el.parentElement?.tagName === "PRE" && attr === "class" && /^language-[\w-]+$/.test(el.getAttribute("class") ?? "");
+      if (!codeInPre && !(el.tagName === "A" && attr === "href")) return false;
+    }
+  }
+  return true;
+}
+
+/** Html that is safe to show in the preview before the server has filtered it. */
+export function looksSafe(html: string): boolean {
+  return !/<\s*(script|iframe|object|embed)|\son\w+\s*=|javascript:/i.test(html);
+}
+
+/** Reads stored html back into the element it was made from; anything else is a text or raw html. */
 export function classify(html: string): Omit<CardElement, "id" | "blockId" | "updatedAt"> {
   const text = { kind: "text" as const, ...blank(), html };
   if (typeof DOMParser === "undefined") return text;
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
-  const nodes = [...doc.body.childNodes].filter((n) => !(n.nodeType === 3 && (n.textContent ?? "").trim() === ""));
-  if (nodes.length !== 1 || nodes[0]!.nodeType !== 1) return text;
-  const el = nodes[0] as Element;
+  const body = doc.body;
+  const raw = { ...text, kind: "html" as const };
+  const nodes = [...body.childNodes].filter((n) => !(n.nodeType === 3 && (n.textContent ?? "").trim() === ""));
+  const only = nodes.length === 1 && nodes[0]!.nodeType === 1 ? (nodes[0] as Element) : undefined;
 
-  if (el.tagName === "PRE" && el.children.length === 1 && el.firstElementChild?.tagName === "CODE") {
-    const lang = /language-([A-Za-z0-9_-]+)/.exec(el.firstElementChild.className)?.[1] ?? "bash";
-    return { ...text, kind: "code", html: "", lang, code: el.textContent ?? "" };
+  if (only) {
+    const el = only;
+    if (el.tagName === "PRE" && el.children.length === 1 && el.firstElementChild?.tagName === "CODE" && el.firstElementChild.children.length === 0) {
+      const lang = /language-([A-Za-z0-9_-]+)/.exec(el.firstElementChild.className)?.[1] ?? "bash";
+      return { ...text, kind: "code", html: "", lang, code: el.textContent ?? "" };
+    }
+    if (el.tagName === "TABLE" && [...el.querySelectorAll("td,th")].every((c) => c.children.length === 0)) {
+      const row = (tr: Element) => [...tr.children].map((c) => (c.textContent ?? "").trim()).join(" | ");
+      const head = el.querySelector("thead tr");
+      const body = [...el.querySelectorAll("tbody tr, :scope > tr")].map(row);
+      return { ...text, kind: "table", html: "", headers: head ? row(head) : "", rows: body.join(String.fromCharCode(10)) };
+    }
+    if (el.tagName === "FIGURE" && el.classList.contains("md-image")) {
+      const img = el.querySelector("img");
+      return { ...text, kind: "image", html: "", url: img?.getAttribute("src") ?? "", caption: el.querySelector("figcaption")?.textContent ?? img?.getAttribute("alt") ?? "" };
+    }
+    if (el.classList.contains("md-video")) {
+      return { ...text, kind: "video", html: "", url: el.querySelector("iframe")?.getAttribute("src") ?? "" };
+    }
+    if (el.tagName === "P" && el.classList.contains("md-link") && el.querySelector("a")) {
+      const a = el.querySelector("a");
+      return { ...text, kind: "link", html: "", url: a?.getAttribute("href") ?? "", caption: a?.textContent ?? "" };
+    }
   }
-  if (el.tagName === "TABLE") {
-    const row = (tr: Element) => [...tr.children].map((c) => (c.textContent ?? "").trim()).join(" | ");
-    const head = el.querySelector("thead tr");
-    const body = [...el.querySelectorAll("tbody tr")].map(row);
-    return { ...text, kind: "table", html: "", headers: head ? row(head) : "", rows: body.join(String.fromCharCode(10)) };
-  }
-  if (el.tagName === "FIGURE" && el.classList.contains("md-image")) {
-    const img = el.querySelector("img");
-    return { ...text, kind: "image", html: "", url: img?.getAttribute("src") ?? "", caption: el.querySelector("figcaption")?.textContent ?? img?.getAttribute("alt") ?? "" };
-  }
-  if (el.classList.contains("md-video")) {
-    return { ...text, kind: "video", html: "", url: el.querySelector("iframe")?.getAttribute("src") ?? "" };
-  }
-  if (el.tagName === "P" && el.classList.contains("md-link")) {
-    const a = el.querySelector("a");
-    return { ...text, kind: "link", html: "", url: a?.getAttribute("href") ?? "", caption: a?.textContent ?? "" };
-  }
-  return text;
+  return representable(body) ? text : raw;
 }
 
 // ---- model <-> blocks
@@ -307,7 +329,8 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
   for (const el of card.elements) {
     if (el.kind === "text" && plain(el.html) === "") add(el.id, "required");
     if (el.kind === "code" && el.code.trim() === "") add(el.id, "required");
-    if (el.kind === "table" && el.headers.trim() === "") add(el.id, "required");
+    if (el.kind === "table" && el.rows.trim() === "" && el.headers.trim() === "") add(el.id, "required");
+    if (el.kind === "html" && el.html.trim() === "") add(el.id, "required");
     if (el.kind === "image" && !httpsUrl.test(el.url.trim())) add(el.id, "https");
     if (el.kind === "video" && !youtubeEmbed.test(el.url.trim())) add(el.id, "youtube");
     if (el.kind === "link" && !httpUrl.test(el.url.trim())) add(el.id, "url");

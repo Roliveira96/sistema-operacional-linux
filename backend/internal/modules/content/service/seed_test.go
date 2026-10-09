@@ -101,6 +101,14 @@ func (f *fakeStore) SaveBlock(_ context.Context, b *domain.ContentBlock) error {
 	f.blocks[*b.SourceKey] = *b
 	return f.failSave
 }
+func (f *fakeStore) HasEditedBlocks(_ context.Context, moduleID uuid.UUID) (bool, error) {
+	for _, b := range f.blocks {
+		if b.ModuleID == moduleID && b.EditedByTeacherAt != nil {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 func (f *fakeStore) FindScenarioBySourceKey(_ context.Context, k string) (domain.Scenario, error) {
 	return find(f.scenarios, k)
 }
@@ -248,7 +256,8 @@ func TestSeedIsIdempotentAndPreservesTeacherEdits(t *testing.T) {
 	r, err := h.seeder.Run(context.Background(), testManifest(), "a")
 	require.NoError(t, err)
 	assert.Equal(t, Counts{Updated: 1, Preserved: 1}, r.Modules)
-	assert.Equal(t, Counts{Updated: 1, Preserved: 1}, r.Blocks)
+	// One edited block freezes the module: neither it nor its siblings are touched (RN-04a).
+	assert.Equal(t, Counts{Preserved: 2}, r.Blocks)
 	assert.Equal(t, Counts{Updated: 2}, r.Scenarios)
 	assert.Equal(t, Counts{Updated: 1, Preserved: 1}, r.Questions)
 	assert.Equal(t, Counts{Preserved: 1}, r.Templates)

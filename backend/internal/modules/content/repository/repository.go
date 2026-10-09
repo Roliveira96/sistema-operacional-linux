@@ -43,6 +43,13 @@ func (r *Repository) SaveBlock(ctx context.Context, b *domain.ContentBlock) erro
 	return r.db.Conn(ctx).Save(b).Error
 }
 
+// HasEditedBlocks reports whether any block of the module was marked as edited by the authoring.
+func (r *Repository) HasEditedBlocks(ctx context.Context, moduleID uuid.UUID) (bool, error) {
+	var found bool
+	err := r.db.Conn(ctx).Raw("SELECT EXISTS (SELECT 1 FROM content_blocks WHERE module_id = ? AND edited_by_teacher_at IS NOT NULL)", moduleID).Scan(&found).Error
+	return found, err
+}
+
 // FindScenarioBySourceKey returns the scenario with the given source key.
 func (r *Repository) FindScenarioBySourceKey(ctx context.Context, key string) (domain.Scenario, error) {
 	var s domain.Scenario

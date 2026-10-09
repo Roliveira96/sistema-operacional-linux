@@ -107,6 +107,7 @@ export const authoringMessages = {
       empty: "Nenhum elemento ainda. Use os botões acima para adicionar.",
       kinds: {
         text: "Texto / HTML",
+        html: "HTML avançado",
         code: "Snippet de código",
         table: "Tabela",
         image: "Imagem",
@@ -118,6 +119,8 @@ export const authoringMessages = {
       up: "Subir elemento",
       down: "Descer elemento",
       remove: "Remover elemento",
+      htmlCode: "Código HTML",
+      htmlHelp: "Para o que o editor visual não alcança (tabelas com formatação, caixas). O servidor remove scripts e atributos perigosos; a pré-visualização só aparece depois de salvar quando o código tem partes que não são seguras.",
       codeLang: "Linguagem",
       code: "Código",
       tableHeaders: "Cabeçalhos (separados por |)",

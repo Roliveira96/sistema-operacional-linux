@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
-import { buildBlocks, cardCounts, checkCard, classify, elementHtml, emptyCard, groupCards, newElement, parseCard, placeServerErrors } from "./cardModel";
+import { buildBlocks, cardCounts, checkCard, classify, elementHtml, emptyCard, groupCards, looksSafe, newElement, parseCard, placeServerErrors } from "./cardModel";
 
 const block = (id: string, type: string, position: number, payload: Record<string, unknown>): AuthoredBlock => ({
   id,
@@ -205,5 +205,47 @@ describe("placeServerErrors", () => {
 describe("cardCounts", () => {
   it("counts what a card holds", () => {
     expect(cardCounts(groupCards(stored)[1]!)).toEqual({ texts: 1, commands: 2, tips: 1, real: 1, exams: 1, others: 1 });
+  });
+});
+
+describe("raw html elements", () => {
+  it("keeps as html what the visual editor could not hold", () => {
+    expect(classify("<p>simples <b>negrito</b></p>").kind).toBe("text");
+    expect(classify("<ul><li>um</li></ul><p>dois <a href=\"https://x.com\">link</a></p>").kind).toBe("text");
+    // A table with markup in its cells, a colored line, a div and a class are not text.
+    expect(classify('<table class="md-table"><tbody><tr><td><code>/</code></td><td>raiz</td></tr></tbody></table>')).toMatchObject({ kind: "html" });
+    expect(classify('<pre class="anatomia-linha"><span class="an-dono">maria</span>:x</pre>').kind).toBe("html");
+    expect(classify("<div><p>caixa</p></div>").kind).toBe("html");
+    expect(classify('<p class="x">classe</p>').kind).toBe("html");
+    // A plain table is still a table, with or without a header.
+    expect(classify('<table class="md-table"><tbody><tr><td>a</td><td>b</td></tr></tbody></table>')).toMatchObject({ kind: "table", headers: "", rows: "a | b" });
+  });
+
+  it("writes a table without header and without an empty one", () => {
+    const table = { ...newElement("table"), headers: "", rows: "a | b" };
+    expect(elementHtml(table)).toBe('<table class="md-table"><tbody><tr><td>a</td><td>b</td></tr></tbody></table>');
+  });
+
+  it("stores raw html as it is, in a block of its own that does not merge into the header", () => {
+    const card = emptyCard();
+    card.title = "T";
+    card.elements = [{ ...newElement("html"), html: '<div class="x"><p>a</p></div>' }, { ...newElement("text"), html: "<p>b</p>" }];
+    const { blocks } = buildBlocks(card);
+    expect(blocks.map((b) => b.payload)).toEqual([{ title: "T", command: "", html: "" }, { html: '<div class="x"><p>a</p></div>' }, { html: "<p>b</p>" }]);
+    expect(checkCard({ ...card, elements: [{ ...newElement("html"), html: " " }] }, true)).toMatchObject({});
+    expect(Object.values(checkCard({ ...card, elements: [{ ...newElement("html"), html: " " }] }, true)).flat()).toContain("required");
+  });
+
+  it("reads a stored card with an html block back as an html element", () => {
+    const group = groupCards([
+      block("h", "TEXT", 1, { title: "Card", html: "<p>texto</p>" }),
+      block("r", "TEXT", 2, { html: '<pre class="anatomia-linha"><span class="an-dono">m</span></pre>' }),
+    ])[0]!;
+    expect(parseCard(group).elements.map((e) => e.kind)).toEqual(["text", "html"]);
+  });
+
+  it("only previews html that is safe to show", () => {
+    expect(looksSafe("<p>ok <b>x</b></p>")).toBe(true);
+    for (const bad of ["<script>x()</script>", '<img src=x onerror="x()">', '<a href="javascript:x()">y</a>', "<iframe src=x></iframe>"]) expect(looksSafe(bad)).toBe(false);
   });
 });

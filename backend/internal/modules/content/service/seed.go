@@ -38,6 +38,8 @@ type Users interface {
 type Store interface {
 	FindBlockBySourceKey(ctx context.Context, key string) (domain.ContentBlock, error)
 	SaveBlock(ctx context.Context, b *domain.ContentBlock) error
+	// HasEditedBlocks reports whether the authoring touched any block of the module.
+	HasEditedBlocks(ctx context.Context, moduleID uuid.UUID) (bool, error)
 	FindScenarioBySourceKey(ctx context.Context, key string) (domain.Scenario, error)
 	SaveScenario(ctx context.Context, s *domain.Scenario) error
 	FindQuestionBySourceKey(ctx context.Context, key string) (domain.Question, error)
@@ -112,7 +114,17 @@ func (s *Seeder) Run(ctx context.Context, m Manifest, adminEmail string) (Report
 			}
 			moduleIDs[mod.SourceKey] = id
 			report.Modules.add(outcome)
+			// A module whose blocks were edited belongs to its authors now: loading new blocks or moving
+			// the old ones would collide with the order they made (SPEC-011 RN-04a).
+			frozen, err := s.store.HasEditedBlocks(ctx, id)
+			if err != nil {
+				return err
+			}
 			for i, b := range mod.Blocks {
+				if frozen {
+					report.Blocks.add(cmservice.SeedPreserved)
+					continue
+				}
 				outcome, err := s.upsertBlock(ctx, id, i+1, b)
 				if err != nil {
 					return err

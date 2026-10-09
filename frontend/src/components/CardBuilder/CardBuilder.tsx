@@ -6,6 +6,7 @@ import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import {
   buildBlocks,
   checkCard,
+  looksSafe,
   newElement,
   newId,
   parseCard,
@@ -37,7 +38,7 @@ interface CardBuilderProps {
   onCancel: () => void;
 }
 
-const INSERTABLE: Exclude<ElementKind, "block">[] = ["text", "code", "table", "image", "video", "link"];
+const INSERTABLE: Exclude<ElementKind, "block">[] = ["text", "html", "code", "table", "image", "video", "link"];
 const NEWLINE = String.fromCharCode(10);
 
 /** Splits the blocks the server returns back into a card (its first block may be the header). */
@@ -132,6 +133,14 @@ function ElementRow({ el, index, total, errors, onChange, onMove, onRemove }: { 
           <span className={styles.label}>{label(d.text)}</span>
           <RichTextEditor label={label(d.text)} value={el.html} onChange={(html) => onChange({ html })} invalid={Boolean(errors[el.id])} />
         </div>
+      );
+      break;
+    case "html":
+      body = (
+        <Field label={label(d.htmlCode)}>
+          <textarea className={`${styles.input} ${styles.mono}`} rows={6} aria-label={label(d.htmlCode)} value={el.html} onChange={(e) => onChange({ html: e.target.value })} aria-invalid={Boolean(errors[el.id])} />
+          <p className={styles.hint}>{d.htmlHelp}</p>
+        </Field>
       );
       break;
     case "code":
@@ -357,7 +366,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
 
   const preview = useMemo(() => {
     const bad = checkCard(card, false);
-    const shown: CardModel = { ...card, elements: card.elements.filter((e) => !(["image", "video", "link"].includes(e.kind) && bad[e.id])) };
+    const shown: CardModel = { ...card, elements: card.elements.filter((e) => !(["image", "video", "link"].includes(e.kind) && bad[e.id]) && !(e.kind === "html" && !looksSafe(e.html))) };
     const blocks = buildBlocks(shown).blocks.map((b, i) => ({ id: `preview-${i}`, type: b.type, position: i + 1, payload: b.payload }));
     // The title and the tag are shown in the card header, not inside the first block.
     if (card.title.trim() && blocks[0]) blocks[0] = { ...blocks[0], payload: { ...blocks[0].payload, title: "" } };
