@@ -460,3 +460,25 @@ textarea.input {
 .resultText {
   color: var(--color-text-secondary);
 }
+
+.outputLabel {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.output {
+  margin: 0;
+  padding: var(--space-2);
+  max-height: 10rem;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

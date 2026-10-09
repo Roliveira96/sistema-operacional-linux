@@ -382,15 +382,23 @@ describe("CardBuilder, expected error and environment (SPEC-020)", () => {
 });
 
 describe("CardBuilder, testing the commands (SPEC-020 CA-10)", () => {
-  const runner = () => ({ run: vi.fn(async () => 0), setSpeed: vi.fn(), snapshot: () => ({}), history: () => [], destroy: vi.fn() });
+  const runner = () => ({
+    execute: vi.fn(async () => ({ status: 0, output: "" })),
+    loadScenario: vi.fn(async () => {}),
+    setSpeed: vi.fn(),
+    snapshot: () => ({}),
+    history: () => [],
+    destroy: vi.fn(),
+  });
 
-  it("only offers the test when there are commands, and runs the ones on the screen even if not saved", async () => {
+  it("puts the test button next to Save, only offers it when there are commands, and tests what is on the screen even if not saved", async () => {
     const win = runner();
     mount.mockResolvedValue(win);
     const practice = { topicScenario: vi.fn().mockResolvedValue({ formato: "do-topico" }) };
     renderBuilder({ practice: practice as never });
 
-    const test = screen.getByRole("button", { name: "Testar comandos" }) as HTMLButtonElement;
+    const bar = screen.getByRole("button", { name: "Salvar card" }).parentElement as HTMLElement;
+    const test = within(bar).getByRole("button", { name: "Testar comandos" }) as HTMLButtonElement;
     expect(test.disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
     fireEvent.change(input("Linha de comando (1)"), { target: { value: "mkdir /x" } });
@@ -398,7 +406,7 @@ describe("CardBuilder, testing the commands (SPEC-020 CA-10)", () => {
 
     fireEvent.click(test);
     expect(await screen.findByText(/1 de 1 comando como esperado/)).toBeDefined();
-    expect(win.run).toHaveBeenCalledWith(expect.objectContaining({ command: "mkdir /x" }));
+    expect(win.execute).toHaveBeenCalledWith(expect.objectContaining({ command: "mkdir /x" }));
     // With no environment of its own or earlier, the test starts from the topic scenario.
     expect(practice.topicScenario).toHaveBeenCalledWith("mod-1");
     expect(service.saveCard).not.toHaveBeenCalled();
@@ -408,18 +416,40 @@ describe("CardBuilder, testing the commands (SPEC-020 CA-10)", () => {
     expect(screen.queryByRole("region", { name: "Teste dos comandos" })).toBeNull();
   });
 
-  it("starts the test from the environment of the card itself, which is what the student gets", async () => {
-    mount.mockResolvedValue(runner());
-    service.getEnvironment.mockResolvedValue({ formato: "do-proprio-card" });
+  it("starts every test from a clean machine: the machine before the card, then the snapshot of the card, then the commands", async () => {
+    const win = runner();
+    mount.mockResolvedValue(win);
+    service.getEnvironment.mockImplementation(async (id: string) => ({ formato: id }));
     const group = groupCards([
       block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>", environment: { scenarioId: "11111111-1111-4111-8111-111111111111", summary: "", commands: [] } }),
       block("c", "COMMAND", 2, { steps: [{ command: "ls", terminal: 1 }] }),
     ])[0]!;
     renderBuilder({ group, environmentBaseId: "env-anterior" });
+
     fireEvent.click(screen.getByRole("button", { name: "Testar comandos" }));
     await screen.findByText(/1 de 1 comando como esperado/);
-    expect(service.getEnvironment).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111");
-    expect(service.getEnvironment).not.toHaveBeenCalledWith("env-anterior");
-    expect(mount.mock.calls[0]![1]).toEqual({ formato: "do-proprio-card" });
+    // The machine the student has before this card...
+    expect(service.getEnvironment).toHaveBeenCalledWith("env-anterior");
+    expect(mount.mock.calls[0]![1]).toEqual({ formato: "env-anterior" });
+    // ...and the snapshot of the card on top of it.
+    expect(win.loadScenario).toHaveBeenCalledWith({ formato: "11111111-1111-4111-8111-111111111111" });
+
+    // Each click starts over, on a new terminal.
+    fireEvent.click(screen.getByRole("button", { name: "Testar comandos" }));
+    await waitFor(() => expect(mount).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(win.execute).toHaveBeenCalledTimes(2));
+    expect(win.loadScenario).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the error of a command that fails", async () => {
+    const win = runner();
+    win.execute.mockResolvedValue({ status: 1, output: "cat: /nao-existe: No such file or directory" } as never);
+    mount.mockResolvedValue(win);
+    renderBuilder({ practice: { topicScenario: vi.fn().mockResolvedValue(null) } as never });
+    fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
+    fireEvent.change(input("Linha de comando (1)"), { target: { value: "cat /nao-existe" } });
+    fireEvent.click(screen.getByRole("button", { name: "Testar comandos" }));
+    expect(await screen.findByText("cat: /nao-existe: No such file or directory")).toBeDefined();
+    expect(screen.getByText("Deu erro (código 1) e não era esperado")).toBeDefined();
   });
 });

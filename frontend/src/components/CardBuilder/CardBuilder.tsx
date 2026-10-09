@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ContentRenderer } from "@/components/ContentRenderer/ContentRenderer";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import {
@@ -307,7 +307,9 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
   const [conflict, setConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
-  const [testing, setTesting] = useState(false);
+  // Each click on "Testar comandos" starts a new test (a new key), on a machine made from zero.
+  const [testRun, setTestRun] = useState(0);
+  const testPanel = useRef<HTMLDivElement>(null);
 
   const dirty = JSON.stringify(card, withoutIds) !== baseline;
 
@@ -385,7 +387,12 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
   }, [card]);
 
   const loadBase = async () => (environmentBaseId ? service.getEnvironment(environmentBaseId) : practice.topicScenario(moduleId));
-  const loadTestBase = async () => (card.environment ? service.getEnvironment(card.environment.scenarioId) : loadBase());
+  const environmentId = card.environment?.scenarioId;
+  const loadEnvironment = environmentId ? async () => service.getEnvironment(environmentId) : undefined;
+  const startTest = () => {
+    setTestRun((n) => n + 1);
+    window.setTimeout(() => testPanel.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }), 0);
+  };
   const patchAt = <T,>(list: T[], i: number, change: Partial<T>) => list.map((item, j) => (j === i ? { ...item, ...change } : item));
   const d = m.description;
 
@@ -446,16 +453,12 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             hint={m.commands.hint}
             action={
               <div className={styles.rowButtons}>
-                <button type="button" className={styles.add} title={m.tester.openTitle} onClick={() => setTesting(true)} disabled={card.commands.length === 0 || testing}>
-                  {m.tester.open}
-                </button>
                 <button type="button" className={styles.add} onClick={() => set({ commands: [...card.commands, { id: newId(), terminal: 1, expectError: false, command: "", explanation: "", outputExplanation: "", answers: [] }] })}>
                 {m.commands.add}
                 </button>
               </div>
             }
           >
-            {testing && <CardTester commands={card.commands} loadBase={loadTestBase} onClose={() => setTesting(false)} />}
             {card.commands.length === 0 && <p className={styles.hint}>{m.commands.empty}</p>}
             {card.commands.map((cmd, i) => (
               <CommandRow
@@ -492,6 +495,12 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
         </aside>
       </div>
 
+      {testRun > 0 && (
+        <div ref={testPanel}>
+          <CardTester key={testRun} commands={card.commands} loadBase={loadBase} loadEnvironment={loadEnvironment} onClose={() => setTestRun(0)} />
+        </div>
+      )}
+
       <div className={styles.actions}>
         {general && (
           <p className={styles.error} role="alert">
@@ -514,6 +523,9 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
         )}
         <button type="button" className={styles.secondary} onClick={onCancel}>
           {m.cancel}
+        </button>
+        <button type="button" className={styles.secondary} title={m.tester.openTitle} onClick={startTest} disabled={card.commands.length === 0}>
+          {m.tester.open}
         </button>
         <button type="button" className={styles.primary} onClick={() => void save()} disabled={saving || (Boolean(stored) && !dirty)}>
           {saving ? m.saving : m.save}

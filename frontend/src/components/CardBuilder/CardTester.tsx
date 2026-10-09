@@ -16,10 +16,12 @@ export type Verdict =
   | { kind: "unexpectedError"; code: number }
   | { kind: "expectedErrorMissing" }
   | { kind: "notRun" }
+  | { kind: "envFailed" }
   | { kind: "stopped" }
   | { kind: "empty" };
 
-type Result = { state: "pending" } | { state: "running" } | { state: "done"; verdict: Verdict };
+type Result = { state: "pending" } | { state: "running" } | { state: "done"; verdict: Verdict; output?: string };
+type EnvState = "pending" | "running" | "ok" | "failed";
 
 const isGood = (v: Verdict) => v.kind === "ok" || v.kind === "okError";
 
@@ -42,6 +44,8 @@ function verdictText(v: Verdict): string {
       return m.expectedErrorMissing;
     case "notRun":
       return m.notRun;
+    case "envFailed":
+      return m.envFailedSkipped;
     case "stopped":
       return m.stopped;
     default:
@@ -52,27 +56,31 @@ function verdictText(v: Verdict): string {
 interface CardTesterProps {
   /** The commands as they are on the screen, saved or not. */
   commands: CardCommand[];
-  /** The machine the test starts from: the one the student will have at this card. */
+  /** The machine the test starts from: the environment before this card, or the topic scenario. */
   loadBase: () => Promise<unknown>;
+  /** The environment (snapshot) of the card, loaded into the clean machine before the commands. */
+  loadEnvironment?: () => Promise<unknown>;
   onClose: () => void;
 }
 
 /**
- * Runs every command of the card in the terminal of the application, in order, and shows whether
- * each ended as expected (SPEC-020). It works on a throwaway machine: nothing is saved.
+ * Tests a card the way a student will get it (SPEC-020): a clean machine, then the environment of
+ * the card (the snapshot), then every command in order. It shows whether each command ended as
+ * expected and, when one fails, what the terminal said. It works on a throwaway machine: nothing is saved.
  */
-export function CardTester({ commands, loadBase, onClose }: CardTesterProps) {
+export function CardTester({ commands, loadBase, loadEnvironment, onClose }: CardTesterProps) {
   const [base, setBase] = useState<{ machine: unknown } | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [terminal, setTerminal] = useState<TerminalWindow | null>(null);
+  const [env, setEnv] = useState<EnvState>("pending");
   const [results, setResults] = useState<Result[]>(() => commands.map(() => ({ state: "pending" })));
   const [finished, setFinished] = useState(false);
   const stop = useRef(false);
   const alive = useRef(true);
-  const latest = useRef(commands);
+  const latest = useRef({ commands, loadEnvironment });
   useEffect(() => {
-    latest.current = commands;
+    latest.current = { commands, loadEnvironment };
   });
 
   useEffect(() => {
@@ -96,17 +104,36 @@ export function CardTester({ commands, loadBase, onClose }: CardTesterProps) {
 
   useEffect(() => {
     if (!terminal) return;
-    const steps = latest.current;
+    const { commands: steps, loadEnvironment: prepare } = latest.current;
     stop.current = false;
     let current = true;
     const set = (i: number, result: Result) => current && alive.current && setResults((prev) => prev.map((r, j) => (j === i ? result : r)));
+    const skipFrom = (from: number, verdict: Verdict) => {
+      for (let j = from; j < steps.length; j++) set(j, { state: "done", verdict });
+    };
 
     void (async () => {
       terminal.setSpeed(6);
+
+      // 1. The snapshot of the card, on top of the clean machine.
+      if (prepare) {
+        if (current && alive.current) setEnv("running");
+        try {
+          await terminal.loadScenario(await prepare());
+          if (current && alive.current) setEnv("ok");
+        } catch {
+          if (current && alive.current) setEnv("failed");
+          skipFrom(0, { kind: "envFailed" });
+          if (current && alive.current) setFinished(true);
+          return;
+        }
+      }
+
+      // 2. The commands, in order.
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i]!;
         if (stop.current || !current) {
-          for (let j = i; j < steps.length; j++) set(j, { state: "done", verdict: { kind: "stopped" } });
+          skipFrom(i, { kind: "stopped" });
           break;
         }
         if (step.command.trim() === "") {
@@ -114,13 +141,13 @@ export function CardTester({ commands, loadBase, onClose }: CardTesterProps) {
           continue;
         }
         set(i, { state: "running" });
-        const status = await terminal.run({
+        const { status, output } = await terminal.execute({
           command: step.command.trim(),
           terminal: step.terminal,
           login: step.login && step.login.user.trim() ? { user: step.login.user.trim(), password: step.login.password } : undefined,
           answers: step.answers.filter((a) => a.trim() !== ""),
         });
-        set(i, { state: "done", verdict: judge(status, step.expectError) });
+        set(i, { state: "done", verdict: judge(status, step.expectError), output });
       }
       if (current && alive.current) setFinished(true);
     })();
@@ -132,12 +159,15 @@ export function CardTester({ commands, loadBase, onClose }: CardTesterProps) {
   const again = () => {
     setTerminal(null);
     setFinished(false);
-    setResults(latest.current.map(() => ({ state: "pending" })));
+    setEnv("pending");
+    setResults(latest.current.commands.map(() => ({ state: "pending" })));
     setAttempt((n) => n + 1);
   };
 
-  const done = results.filter((r): r is { state: "done"; verdict: Verdict } => r.state === "done");
+  const done = results.filter((r): r is Extract<Result, { state: "done" }> => r.state === "done");
   const good = done.filter((r) => isGood(r.verdict)).length;
+  const hasEnv = Boolean(loadEnvironment);
+  const envText = env === "pending" ? m.pending : env === "running" ? m.running : env === "ok" ? m.environmentOk : m.environmentFailed;
 
   return (
     <div className={styles.tester} role="region" aria-label={m.title}>
@@ -178,6 +208,12 @@ export function CardTester({ commands, loadBase, onClose }: CardTesterProps) {
 
         <div className={styles.recorderSide}>
           <ol className={styles.results}>
+            {hasEnv && (
+              <li className={`${styles.result} ${env === "failed" ? styles.resultBad : env === "ok" ? styles.resultGood : ""}`} aria-label={m.environmentStep}>
+                <code>{m.environmentStep}</code>
+                <span className={styles.resultText}>{envText}</span>
+              </li>
+            )}
             {commands.map((c, i) => {
               const r = results[i] ?? { state: "pending" as const };
               const bad = r.state === "done" && !isGood(r.verdict);
@@ -185,13 +221,19 @@ export function CardTester({ commands, loadBase, onClose }: CardTesterProps) {
                 <li key={c.id} className={`${styles.result} ${bad ? styles.resultBad : ""} ${r.state === "done" && !bad ? styles.resultGood : ""}`} aria-label={m.item(i + 1, c.command)}>
                   <code>{c.command || "—"}</code>
                   <span className={styles.resultText}>{r.state === "pending" ? m.pending : r.state === "running" ? m.running : verdictText(r.verdict)}</span>
+                  {bad && r.output && (
+                    <>
+                      <span className={styles.outputLabel}>{m.terminalSaid}</span>
+                      <pre className={styles.output}>{r.output}</pre>
+                    </>
+                  )}
                 </li>
               );
             })}
           </ol>
           {finished && (
-            <p className={done.length > 0 && good === commands.length ? styles.saved : styles.error} role="status">
-              {m.summary(good, commands.length)}. {good === commands.length ? m.allGood : m.someBad}
+            <p className={env !== "failed" && done.length > 0 && good === commands.length ? styles.saved : styles.error} role="status">
+              {env === "failed" ? m.envFailedSummary : `${m.summary(good, commands.length)}. ${good === commands.length ? m.allGood : m.someBad}`}
             </p>
           )}
         </div>
