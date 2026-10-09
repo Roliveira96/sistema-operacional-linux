@@ -36,7 +36,7 @@ import { ChallengePanel } from "./ChallengePanel";
 import { CheatSheetModal } from "./CheatSheetModal";
 import { LessonPanel } from "./LessonPanel";
 import { PlayerBar } from "./PlayerBar";
-import { UserBadge } from "./UserBadge";
+import { UserBadge } from "@/components/UserBadge/UserBadge";
 import { TerminalPane } from "./TerminalPane";
 import styles from "./TopicStudy.module.scss";
 
@@ -211,6 +211,14 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
     return parts;
   }, []);
 
+  const stepOutputParts = useCallback((step: ScriptStep): NarrationPart[] => {
+    const row = study.current?.querySelector(`[data-step="${step.index}"]`);
+    const outputExplanation = row?.querySelector('[data-narrate="outputExplanation"]');
+    if (outputExplanation) return [{ element: outputExplanation }];
+    if (step.outputExplanation) return [{ text: step.outputExplanation }];
+    return [];
+  }, []);
+
   const check = useModuleCheck(practice, moduleId, () => notify(t.challenges.completedToast));
   const { seed } = check;
   useEffect(() => seed(initialCompleted), [seed, initialCompleted]);
@@ -222,6 +230,10 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
         // The voice goes first; the command runs only after it (CA-02), and not at all if it was cut (CA-16).
         if (!silent && !(await speak(stepParts(step)))) return false;
         await win.current?.run(step);
+        const outputParts = stepOutputParts(step);
+        if (!silent && outputParts.length > 0) {
+          if (!(await speak(outputParts))) return false;
+        }
         return true;
       },
       narrate: async (item) => {

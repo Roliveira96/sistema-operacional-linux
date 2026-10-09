@@ -50,6 +50,11 @@ function Examples({ steps, player, intro }: { steps: ScriptStep[]; player: Topic
                     {step.explanation}
                   </span>
                 )}
+                {step.outputExplanation && (
+                  <span className={styles.outputExplanation} data-narrate="outputExplanation">
+                    {step.outputExplanation}
+                  </span>
+                )}
               </div>
             </li>
           );

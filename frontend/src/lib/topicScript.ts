@@ -8,6 +8,7 @@ export interface ScriptStep extends TerminalStep {
   /** Position in the whole script, across cards. */
   index: number;
   explanation?: string;
+  outputExplanation?: string;
 }
 
 /**
@@ -51,6 +52,7 @@ const text = (value: unknown): string => (typeof value === "string" ? value : ""
 interface RawStep {
   command?: unknown;
   explanation?: unknown;
+  outputExplanation?: unknown;
   terminal?: unknown;
   login?: { user?: unknown; password?: unknown };
   answers?: unknown;
@@ -59,6 +61,7 @@ interface RawStep {
 function toStep(raw: RawStep, index: number): ScriptStep {
   const step: ScriptStep = { index, command: text(raw.command) };
   if (typeof raw.explanation === "string" && raw.explanation) step.explanation = raw.explanation;
+  if (typeof raw.outputExplanation === "string" && raw.outputExplanation) step.outputExplanation = raw.outputExplanation;
   if (typeof raw.terminal === "number") step.terminal = raw.terminal;
   if (raw.login && typeof raw.login.user === "string") {
     step.login = { user: raw.login.user, password: text(raw.login.password) };

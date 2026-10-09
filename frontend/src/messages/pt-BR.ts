@@ -151,6 +151,9 @@ export const messages = {
       simulations: "Simulados",
       login: "Entrar",
       register: "Cadastrar",
+      myArea: "Minha área",
+      logout: "Sair",
+      logoAlt: "UTFPR",
       ariaLabel: "Navegação principal",
     },
     hero: {

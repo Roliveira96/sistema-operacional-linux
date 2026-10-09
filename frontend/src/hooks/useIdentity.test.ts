@@ -45,7 +45,16 @@ describe("useIdentity", () => {
   it("returns nobody for a visitor, without raising", async () => {
     const visitor = sources({ me: vi.fn().mockRejectedValue(new Error("401")) });
     const { result } = renderHook(() => useIdentity(visitor));
-    await waitFor(() => expect(visitor.me).toHaveBeenCalled());
-    expect(result.current).toBeNull();
+    await waitFor(() => expect(result.current).toBeNull());
+  });
+
+  // Covers SPEC-007 (navbar): undefined means "still reading", so no one sees a flash of the sign-in buttons.
+  it("says it is still reading the session until it knows who is there", async () => {
+    let answer: (user: { name: string; email: string; role: "TEACHER" }) => void = () => {};
+    const slow = sources({ me: vi.fn().mockReturnValue(new Promise((resolve) => (answer = resolve))) });
+    const { result } = renderHook(() => useIdentity(slow));
+    expect(result.current).toBeUndefined();
+    answer({ name: "Profa. Sediane", email: "s@utfpr.edu.br", role: "TEACHER" });
+    await waitFor(() => expect(result.current).toEqual({ name: "Profa. Sediane" }));
   });
 });

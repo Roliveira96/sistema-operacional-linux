@@ -55,6 +55,7 @@ type CourseModule struct {
 	// Content seed metadata (SPEC-011). SourceKey identifies modules loaded
 	// from the legacy content; EditedByTeacherAt protects them from reloads.
 	SourceKey         *string
+	Slug              *string
 	Icon              *string
 	Color             *string
 	DisplayOrder      *int

@@ -20,11 +20,12 @@ export interface IdentitySources {
 const defaults: IdentitySources = { me: () => authService.me(), studentProfile: () => getStudentProfile() };
 
 /**
- * Reads the session of the page, which is public: a visitor gets null and no error.
- * Students also load their profile for the academic ID and the photo.
+ * Reads the session of the page, which is public: a visitor gets null and no error, and
+ * undefined means the session is still being read. Students also load their profile for
+ * the academic ID and the photo.
  */
-export function useIdentity(sources: IdentitySources = defaults): Identity | null {
-  const [identity, setIdentity] = useState<Identity | null>(null);
+export function useIdentity(sources: IdentitySources = defaults): Identity | null | undefined {
+  const [identity, setIdentity] = useState<Identity | null | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -40,6 +41,7 @@ export function useIdentity(sources: IdentitySources = defaults): Identity | nul
         }
       } catch {
         // No session: the page is public, so there is simply nobody to show.
+        if (active) setIdentity(null);
       }
     })();
     return () => {

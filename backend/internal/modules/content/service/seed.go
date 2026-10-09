@@ -99,8 +99,12 @@ func (s *Seeder) Run(ctx context.Context, m Manifest, adminEmail string) (Report
 
 		moduleIDs := map[string]uuid.UUID{}
 		for _, mod := range m.Modules {
+			slug := mod.Slug
+			if slug == "" {
+				slug = mod.SourceKey
+			}
 			id, outcome, err := s.modules.UpsertModule(ctx, cmservice.SeedModuleInput{
-				SourceKey: mod.SourceKey, OwnerID: admin.ID, Title: mod.Title, Description: mod.Description,
+				SourceKey: mod.SourceKey, Slug: slug, OwnerID: admin.ID, Title: mod.Title, Description: mod.Description,
 				Icon: mod.Icon, Color: mod.Color, DisplayOrder: mod.DisplayOrder, Visibility: cmdomain.Visibility(mod.Visibility),
 			})
 			if err != nil {

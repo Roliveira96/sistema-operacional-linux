@@ -193,6 +193,16 @@
   color: var(--color-text-secondary);
 }
 
+.outputExplanation {
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--accent-faint);
+  font-size: 13px;
+  color: var(--color-text-body);
+}
+
 .terminalTag {
   display: inline-block;
   margin-right: 8px;

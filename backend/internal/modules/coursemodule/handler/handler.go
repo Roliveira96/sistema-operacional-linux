@@ -116,10 +116,11 @@ type moduleSummaryResponse struct {
 	TotalExercises  int64      `json:"totalExercises"`
 	TotalMaterials  int64      `json:"totalMaterials"`
 	IsActiveNow     bool       `json:"isActiveNow"`
-	// Visual metadata of modules loaded from the legacy content (SPEC-011).
 	Icon         *string   `json:"icon,omitempty"`
 	Color        *string   `json:"color,omitempty"`
 	DisplayOrder *int      `json:"displayOrder,omitempty"`
+	SourceKey    *string   `json:"sourceKey,omitempty"`
+	Slug         *string   `json:"slug,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
@@ -411,6 +412,8 @@ func (h *Handler) toSummaryResponse(m domain.CourseModule, exercises, materials 
 		Icon:            m.Icon,
 		Color:           m.Color,
 		DisplayOrder:    m.DisplayOrder,
+		SourceKey:       m.SourceKey,
+		Slug:            m.Slug,
 		CreatedAt:       m.CreatedAt,
 		UpdatedAt:       m.UpdatedAt,
 	}
