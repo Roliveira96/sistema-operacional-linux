@@ -3,7 +3,7 @@
 
 import { groupCards, parseCard, type CardModel } from "./cardModel";
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
-import { setupPayload, type Setup } from "./setup";
+import { hasSetup, setupPayload, type Setup } from "./setup";
 
 export interface TestRecord {
   passed: boolean;
@@ -44,7 +44,7 @@ export function readTest(moduleId: string, cardKey: string): TestRecord | undefi
 
 /** "none" when the card has nothing to test (no commands and no snapshot). */
 export function testStatus(moduleId: string, cardKey: string, card: Pick<CardModel, "commands" | "setup">): TestStatus {
-  if (card.commands.length === 0 && !(card.setup && card.setup.steps.length > 0)) return "none";
+  if (card.commands.length === 0 && !hasSetup(card.setup)) return "none";
   const record = readTest(moduleId, cardKey);
   if (!record) return "untested";
   if (record.fingerprint !== fingerprint(card)) return "stale";

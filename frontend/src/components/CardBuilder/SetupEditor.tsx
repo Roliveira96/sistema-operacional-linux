@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { TerminalPane } from "@/components/TopicStudy/TerminalPane";
 import type { TerminalWindow } from "@/engine/terminalWindow";
-import { emptySetup, type Setup, type SetupLayer, type SetupStep } from "@/lib/setup";
-import { isPlainText, nextCwd, printfSteps, resolvePath, shellQuote, writtenFile } from "@/lib/setupContent";
+import { bytesOf, emptySetup, type Setup, type SetupFile, type SetupLayer, type SetupStep } from "@/lib/setup";
+import { writtenFile } from "@/lib/setupContent";
 import { reconcile, type MachineTree } from "@/lib/machineDiff";
 import { replayMachine } from "@/lib/machineReplay";
 import { isConflict, runLayers, type StepResult } from "@/lib/setupRunner";
@@ -116,8 +116,6 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
   const started = useRef(0);
   /** The machine the author started from, to build the same one again when checking the result. */
   const baseMachine = useRef<unknown>(null);
-  /** The folder the terminal is in when the author starts typing. */
-  const startCwd = useRef<string | undefined>(undefined);
   const latest = useRef({ before, loadBase, steps: current });
   useEffect(() => {
     latest.current = { before, loadBase, steps: current };
@@ -172,66 +170,48 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
     const layers = own.steps.length > 0 ? [...latest.current.before, { id: "own", kind: "card" as const, label: m.ownLayer, setup: own }] : latest.current.before;
     const results = await runLayers(win, layers);
     setConflicts(results.filter(isConflict));
-    // A relative path typed in an editor is resolved from here, following the cd the author types.
-    const where = await win.execute({ command: "pwd" });
-    startCwd.current = where.status === 0 && where.output.trim().startsWith("/") ? where.output.trim() : undefined;
     started.current = win.history().length;
     setReady(true);
   };
 
-  // What was typed inside an editor is not a command: the text is read back from the file and kept as printf.
+  const setFiles = (files: SetupFile[]) => onChange({ ...current, files });
+
+  // The snapshot has to leave the student's machine exactly as the author left this one. What was typed inside an editor is
+  // not a command, so those sessions are left out of the list; both machines are compared, and what the commands do not
+  // reproduce (the text of a file, a permission, an owner) is added: files as data, the rest as commands.
   const adoptTyped = async () => {
     const win = terminal.current;
     setConverting(true);
     const notes: string[] = [];
-    const steps: SetupStep[] = [];
-    let cwd = startCwd.current;
-    for (const command of typed) {
-      const file = writtenFile(command);
-      const before = cwd;
-      cwd = nextCwd(cwd, command);
-      if (!file || !win) {
-        steps.push({ command });
-        continue;
-      }
-      // A relative path is resolved from the folder the terminal was in when the command was typed.
-      const path = file.startsWith("/") ? file : before ? resolvePath(before, file) : undefined;
-      if (!path) {
-        steps.push({ command });
-        notes.push(m.relativePath(command));
-        continue;
-      }
-      const { status, output } = await win.execute({ command: `cat ${shellQuote(path)}` });
-      if (status !== 0 || !isPlainText(output)) {
-        steps.push({ command });
-        notes.push(m.notConverted(command));
-        continue;
-      }
-      steps.push(...printfSteps(path, output));
-      notes.push(m.converted(command, path));
-    }
-    const list = [...current.steps, ...steps];
-    // The snapshot has to leave the student's machine exactly as the author left this one: what the commands do not
-    // reproduce (an editor session on another path, a permission, an owner) is found by comparing both machines.
+    const kept = typed.filter((command) => writtenFile(command) === undefined);
+    const editors = typed.length - kept.length;
+    const list: SetupStep[] = [...current.steps, ...kept.map((command) => ({ command }))];
+    const files: SetupFile[] = [...(current.files ?? [])];
     const recorded = typeof win?.snapshot === "function" ? win.snapshot() : undefined;
     close();
+    if (editors > 0) notes.push(m.editorsLeftOut(editors));
     if (recorded !== undefined) {
       setChecking(true);
       try {
-        const own = { id: "own", kind: "card" as const, label: m.ownLayer, setup: { summary: current.summary, steps: list } };
+        const own = { id: "own", kind: "card" as const, label: m.ownLayer, setup: { summary: current.summary, steps: list, files } };
         const replayed = await replayMachine(baseMachine.current, [...latest.current.before, own]);
         const result = reconcile(recorded as MachineTree, replayed as MachineTree);
-        if (result.steps.length > 0) {
-          list.push(...result.steps);
-          notes.push(m.reconciled(result.steps.length));
+        list.push(...result.steps);
+        for (const file of result.files) {
+          const at = files.findIndex((f) => f.path === file.path);
+          if (at >= 0) files[at] = file;
+          else files.push(file);
         }
+        if (result.steps.length + result.files.length > 0) notes.push(m.reconciled(result.steps.length, result.files.length));
         for (const text of result.inexact) notes.push(m.inexact(text));
       } catch {
         notes.push(m.notChecked);
       }
       setChecking(false);
+    } else if (editors > 0) {
+      notes.push(m.notChecked);
     }
-    const adopted = { ...current, steps: list };
+    const adopted: Setup = { ...current, steps: list, ...(files.length > 0 ? { files } : {}) };
     onChange(adopted);
     setNotice(notes);
     setConverting(false);
@@ -274,6 +254,27 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
           ))}
         </div>
       ))}
+
+      {(current.files?.length ?? 0) > 0 && (
+        <div className={styles.item}>
+          <div className={styles.itemHead}>
+            <span className={styles.itemTitle}>{m.filesTitle(current.files!.length)}</span>
+          </div>
+          <p className={styles.hint}>{m.filesHelp}</p>
+          <ul className={styles.commandList} aria-label={m.filesTitle(current.files!.length)}>
+            {current.files!.map((file) => (
+              <li key={file.path}>
+                <code>{file.path}</code> · {m.fileSize(bytesOf(file.content))}
+                {file.mode ? ` · ${file.mode}` : ""}
+                {file.owner ? ` · ${file.owner}:${file.group ?? ""}` : ""}{" "}
+                <button type="button" className={styles.small} onClick={() => setFiles(current.files!.filter((f) => f.path !== file.path))} aria-label={m.removeFile(file.path)}>
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {!open && (
         <div className={styles.rowButtons}>

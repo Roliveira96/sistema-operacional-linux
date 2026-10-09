@@ -19,7 +19,7 @@ import {
   type CardModel,
   type ElementKind,
 } from "@/lib/cardModel";
-import type { SetupLayer } from "@/lib/setup";
+import { hasSetup, type SetupLayer } from "@/lib/setup";
 import { saveTest } from "@/lib/testRecord";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringService } from "@/services/contentAuthoringService";
@@ -390,7 +390,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
 
   const loadBase = async () => practice.topicScenario(moduleId);
   // The test runs the module, the earlier cards and then this card's own snapshot, as the student will get them.
-  const testLayers: SetupLayer[] = card.setup && card.setup.steps.length > 0 ? [...before, { id: card.headerId ?? "new", kind: "card", label: card.title.trim(), setup: card.setup }] : before;
+  const testLayers: SetupLayer[] = hasSetup(card.setup) ? [...before, { id: card.headerId ?? "new", kind: "card", label: card.title.trim(), setup: card.setup }] : before;
   const startTest = () => {
     setTestRun((n) => n + 1);
     window.setTimeout(() => testPanel.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }), 0);
@@ -440,7 +440,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
 
           <Section title={m.setup.title} hint={m.setup.hint}>
             <SetupEditor setup={card.setup} before={before} loadBase={loadBase} errors={errors} onChange={(setup) => set({ setup })} />
-            {card.setup && card.setup.steps.length > 0 && card.title.trim() === "" && <p className={styles.hint}>{m.setup.needsTitleError}</p>}
+            {hasSetup(card.setup) && card.title.trim() === "" && <p className={styles.hint}>{m.setup.needsTitleError}</p>}
             <Errors id="setup" errors={errors} />
           </Section>
 

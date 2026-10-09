@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CardTester } from "@/components/CardBuilder/CardTester";
 import { groupCards, parseCard, type CardGroup, type CardModel } from "@/lib/cardModel";
-import { allLayers, type SetupLayer } from "@/lib/setup";
+import { allLayers, hasSetup, type SetupLayer } from "@/lib/setup";
 import { activeCards, moduleFingerprint, saveModuleTest, saveTest } from "@/lib/testRecord";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import type { ContentAuthoringService } from "@/services/contentAuthoringService";
@@ -111,7 +111,7 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
           const title = card.title.trim() || m.intro;
           if (card.commands.length > 0) sections[commands.length] = title;
           commands.push(...card.commands);
-          const own = card.setup && card.setup.steps.length > 0;
+          const own = hasSetup(card.setup);
           if (card.commands.length === 0 && !own) return;
           const before = allLayers(setup, groups.slice(0, i).flatMap((g) => g.blocks));
           list.push({ group, card, title, layers: own ? [...before, { id: group.key, kind: "card", label: title, setup: card.setup! }] : before });

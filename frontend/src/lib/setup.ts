@@ -11,10 +11,32 @@ export interface SetupStep {
   answers?: string[];
 }
 
+/** A file the machine gets as it is, after the commands of the snapshot ran: logs, pages, anything of text (RN-12). */
+export interface SetupFile {
+  /** Absolute path. */
+  path: string;
+  /** The text, exactly as it is: nothing is trimmed or escaped. */
+  content: string;
+  /** Octal, like "644". */
+  mode?: string;
+  owner?: string;
+  group?: string;
+}
+
+/** The limits of the server (SPEC-021 RN-12), checked here to tell the author before sending. */
+export const MAX_FILE_BYTES = 1 << 20;
+export const MAX_FILES_BYTES = 4 << 20;
+export const MAX_FILES = 200;
+export const bytesOf = (text: string) => new TextEncoder().encode(text).length;
+
 export interface Setup {
   summary: string;
   steps: SetupStep[];
+  files?: SetupFile[];
 }
+
+/** Whether a snapshot does anything: it has commands or files. */
+export const hasSetup = (setup: Setup | undefined): setup is Setup => Boolean(setup && (setup.steps.length > 0 || (setup.files?.length ?? 0) > 0));
 
 /** One snapshot in the order the machine is prepared with. */
 export interface SetupLayer {
@@ -43,12 +65,25 @@ function parseStep(raw: unknown): SetupStep | undefined {
   return step;
 }
 
+function parseFile(raw: unknown): SetupFile | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const r = raw as Record<string, unknown>;
+  const path = str(r.path);
+  if (path === "") return undefined;
+  const file: SetupFile = { path, content: str(r.content) };
+  if (str(r.mode)) file.mode = str(r.mode);
+  if (str(r.owner)) file.owner = str(r.owner);
+  if (str(r.group)) file.group = str(r.group);
+  return file;
+}
+
 /** The snapshot stored in a payload, or undefined when there is none. */
 export function parseSetup(raw: unknown): Setup | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
-  const r = raw as { summary?: unknown; steps?: unknown };
+  const r = raw as { summary?: unknown; steps?: unknown; files?: unknown };
   const steps = Array.isArray(r.steps) ? r.steps.map(parseStep).filter((s): s is SetupStep => s !== undefined) : [];
-  return { summary: str(r.summary), steps };
+  const files = Array.isArray(r.files) ? r.files.map(parseFile).filter((f): f is SetupFile => f !== undefined) : [];
+  return files.length > 0 ? { summary: str(r.summary), steps, files } : { summary: str(r.summary), steps };
 }
 
 /**
@@ -63,7 +98,7 @@ export function legacySetup(raw: unknown): Setup | undefined {
 }
 
 /** What is sent to the server: trimmed, without the empty parts. */
-export function setupPayload(setup: Setup): { summary?: string; steps: SetupStep[] } {
+export function setupPayload(setup: Setup): { summary?: string; steps: SetupStep[]; files?: SetupFile[] } {
   const steps = setup.steps.map((s) => {
     const step: SetupStep = { command: s.command.trim() };
     if (s.terminal && s.terminal !== 1) step.terminal = s.terminal;
@@ -73,7 +108,10 @@ export function setupPayload(setup: Setup): { summary?: string; steps: SetupStep
     return step;
   });
   const summary = setup.summary.trim();
-  return summary ? { summary, steps } : { steps };
+  const out: { summary?: string; steps: SetupStep[]; files?: SetupFile[] } = summary ? { summary, steps } : { steps };
+  // The text of a file is sent as it is.
+  if (setup.files && setup.files.length > 0) out.files = setup.files.map((f) => ({ path: f.path.trim(), content: f.content, ...(f.mode ? { mode: f.mode } : {}), ...(f.owner ? { owner: f.owner } : {}), ...(f.group ? { group: f.group } : {}) }));
+  return out;
 }
 
 /** A block, as the authoring list and the study screen give it. */
@@ -91,15 +129,16 @@ export function cardLayers(blocks: LayerBlock[]): SetupLayer[] {
     const title = str(block.payload.title).trim();
     if (block.type !== "TEXT" || title === "" || block.active === false) continue;
     const setup = parseSetup(block.payload.setup);
-    if (setup && setup.steps.length > 0) layers.push({ id: block.id, kind: "card", label: title, setup });
+    if (hasSetup(setup)) layers.push({ id: block.id, kind: "card", label: title, setup });
   }
   return layers;
 }
 
 /** All the layers in the order the machine is prepared: the module, then the cards. */
 export function allLayers(moduleSetup: Setup | undefined, blocks: LayerBlock[]): SetupLayer[] {
-  const layers = moduleSetup && moduleSetup.steps.length > 0 ? [{ id: "module", kind: "module" as const, label: "Módulo", setup: moduleSetup }] : [];
+  const layers = hasSetup(moduleSetup) ? [{ id: "module", kind: "module" as const, label: "Módulo", setup: moduleSetup }] : [];
   return [...layers, ...cardLayers(blocks)];
 }
 
-export const stepCount = (layers: SetupLayer[]) => layers.reduce((n, l) => n + l.setup.steps.length, 0);
+/** How many things a run does: each command, and the files of a snapshot as one. */
+export const stepCount = (layers: SetupLayer[]) => layers.reduce((n, l) => n + l.setup.steps.length + ((l.setup.files?.length ?? 0) > 0 ? 1 : 0), 0);

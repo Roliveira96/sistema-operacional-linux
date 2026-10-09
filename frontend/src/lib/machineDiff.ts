@@ -1,9 +1,9 @@
 // The snapshot of a module has to leave the student's machine exactly as the teacher left theirs. The commands the
 // teacher typed are replayed on a fresh machine, and what still differs from the teacher's machine (a file with
-// the text typed in an editor, a permission, an owner) is turned into the commands that make them equal (SPEC-021).
+// the text typed in an editor, a permission, an owner) is made equal: the files as data, the rest as commands (SPEC-021).
 
-import { printfSteps, shellQuote } from "./setupContent";
-import type { SetupStep } from "./setup";
+import { bytesOf, MAX_FILE_BYTES, MAX_FILES, MAX_FILES_BYTES, type SetupFile, type SetupStep } from "./setup";
+import { shellQuote } from "./setupContent";
 
 /** A node of the file tree of a machine, as the engine serializes it. */
 export interface TreeNode {
@@ -25,9 +25,11 @@ export interface MachineTree {
 }
 
 export interface Reconciliation {
-  /** The commands that make the replayed machine equal to the recorded one. */
+  /** The commands that make the replayed machine equal to the recorded one (folders, links, removals, permissions). */
   steps: SetupStep[];
-  /** What could not be made equal by a command, so the author knows it will differ. */
+  /** The files whose text the replay lacks or has different, with their mode and owner. */
+  files: SetupFile[];
+  /** What could not be made equal, so the author knows it will differ. */
   inexact: string[];
 }
 
@@ -57,15 +59,20 @@ const tree = (machine: MachineTree) => {
 
 const depth = (path: string) => path.split("/").length;
 
-/** What `recorded` has that `replayed` lacks or has different, as commands, and what no command can fix. */
+/**
+ * What `recorded` has that `replayed` lacks or has different. Files go as data (any size up to the limits of the server);
+ * folders, links, removals, permissions and owners go as commands; what neither can reproduce is told.
+ */
 export function reconcile(recorded: MachineTree, replayed: MachineTree): Reconciliation {
   const want = tree(recorded);
   const have = tree(replayed);
   const users = new Map(recorded.contas.usuarios.map((u) => [u.uid, u.nome]));
   const groups = new Map(recorded.contas.grupos.map((g) => [g.gid, g.nome]));
   const steps: SetupStep[] = [];
+  const files: SetupFile[] = [];
   const inexact: string[] = [];
   const removed: string[] = [];
+  let bytes = 0;
 
   // What the replay made and the teacher did not have: take it away (the top-most path only).
   for (const path of [...have.keys()].sort()) {
@@ -85,16 +92,26 @@ export function reconcile(recorded: MachineTree, replayed: MachineTree): Reconci
     const fresh = created(path);
     const mine = fresh ? undefined : have.get(path);
     const quoted = shellQuote(path);
+    const user = users.get(node.dono);
+    const group = groups.get(node.grupo);
 
-    if (node.tipo === "diretorio") {
-      if (fresh) steps.push({ command: `mkdir -p ${quoted}` });
-    } else if (node.tipo === "arquivo") {
+    if (node.tipo === "arquivo") {
       const text = node.conteudo ?? "";
+      const size = bytesOf(text);
       if (fresh || mine?.conteudo !== text) {
-        if (text !== "" && !text.endsWith(String.fromCharCode(10))) inexact.push(`${path}: o arquivo não termina com quebra de linha, que o ambiente acrescentaria.`);
-        else if (text.includes("\\")) inexact.push(`${path}: o arquivo tem barra invertida (\\) no texto, que o ambiente não consegue reproduzir por comando.`);
-        else steps.push(...printfSteps(path, text.endsWith("\n") ? text.slice(0, -1) : text));
+        if (size > MAX_FILE_BYTES) inexact.push(`${path}: o arquivo tem ${(size / 1048576).toFixed(1)} MB e o limite é de ${MAX_FILE_BYTES / 1048576} MB por arquivo.`);
+        else if (bytes + size > MAX_FILES_BYTES) inexact.push(`${path}: passaria do limite de ${MAX_FILES_BYTES / 1048576} MB de arquivos no ambiente.`);
+        else if (files.length >= MAX_FILES) inexact.push(`${path}: passaria do limite de ${MAX_FILES} arquivos no ambiente.`);
+        else if (!user || !group) inexact.push(`${path}: o dono (${node.dono}:${node.grupo}) não tem nome na máquina.`);
+        else {
+          bytes += size;
+          // The file carries its own mode and owner, since it goes in after the commands.
+          files.push({ path, content: text, mode: node.permissoes, owner: user, group });
+        }
+        continue;
       }
+    } else if (node.tipo === "diretorio") {
+      if (fresh) steps.push({ command: `mkdir -p ${quoted}` });
     } else if (node.tipo === "link") {
       if (fresh || mine?.alvo !== node.alvo) {
         if (!fresh) steps.push({ command: `rm -f ${quoted}` });
@@ -105,13 +122,10 @@ export function reconcile(recorded: MachineTree, replayed: MachineTree): Reconci
       continue;
     }
 
-    const defaultMode = DEFAULT_MODE[node.tipo];
-    const mode = fresh ? defaultMode : mine!.permissoes;
+    const mode = fresh ? DEFAULT_MODE[node.tipo] : mine!.permissoes;
     if (node.tipo !== "link" && node.permissoes !== mode) steps.push({ command: `chmod ${node.permissoes} ${quoted}` });
     const owner = fresh ? { dono: 0, grupo: 0 } : { dono: mine!.dono, grupo: mine!.grupo };
     if (node.dono !== owner.dono || node.grupo !== owner.grupo) {
-      const user = users.get(node.dono);
-      const group = groups.get(node.grupo);
       if (user && group) steps.push({ command: `chown ${user}:${group} ${quoted}` });
       else inexact.push(`${path}: o dono (${node.dono}:${node.grupo}) não tem nome na máquina.`);
     }
@@ -119,5 +133,5 @@ export function reconcile(recorded: MachineTree, replayed: MachineTree): Reconci
 
   const rebuilt = new Set(replayed.contas.usuarios.map((u) => u.nome));
   for (const user of recorded.contas.usuarios) if (!rebuilt.has(user.nome)) inexact.push(`Usuário ${user.nome}: existe no terminal e não é criado pelos comandos.`);
-  return { steps, inexact };
+  return { steps, files, inexact };
 }

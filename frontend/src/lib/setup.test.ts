@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { allLayers, cardLayers, legacySetup, parseSetup, setupPayload, stepCount } from "./setup";
+import { allLayers, cardLayers, hasSetup, legacySetup, parseSetup, setupPayload, stepCount } from "./setup";
 import { isConflict, runLayers } from "./setupRunner";
 
 const header = (id: string, title: string, setup?: unknown, active = true) => ({ id, type: "TEXT", active, payload: { title, html: "", setup } });
@@ -50,5 +50,65 @@ describe("runLayers", () => {
     let stop = false;
     const results = await runLayers({ execute, setSpeed: vi.fn() } as never, layers, { onStep: () => (stop = true), shouldStop: () => stop });
     expect(results).toHaveLength(1);
+  });
+});
+
+// Covers SPEC-021 RN-12: the files of a snapshot, kept as data.
+describe("setup files", () => {
+  const NL = String.fromCharCode(10);
+  const log = "2026-10-09 ERROR  falha" + NL + NL + "  com espaços no fim  " + NL;
+
+  it("reads and sends the files with their text untouched", () => {
+    const got = parseSetup({ summary: "s", steps: [], files: [{ path: "/var/log/app.log", content: log, mode: "640", owner: "ana", group: "adm" }, { path: "", content: "sem caminho" }, { path: "/b" }] });
+    expect(got?.files).toEqual([{ path: "/var/log/app.log", content: log, mode: "640", owner: "ana", group: "adm" }, { path: "/b", content: "" }]);
+    const sent = setupPayload({ summary: " ", steps: [], files: [{ path: " /var/log/app.log ", content: log, mode: "640" }] });
+    expect(sent).toEqual({ steps: [], files: [{ path: "/var/log/app.log", content: log, mode: "640" }] });
+    expect(setupPayload({ summary: "", steps: [{ command: "ls" }], files: [] })).toEqual({ steps: [{ command: "ls" }] });
+  });
+
+  it("counts a snapshot that has only files as one that does something", () => {
+    expect(hasSetup(undefined)).toBe(false);
+    expect(hasSetup({ summary: "", steps: [] })).toBe(false);
+    expect(hasSetup({ summary: "", steps: [], files: [{ path: "/a", content: "" }] })).toBe(true);
+    const only = { summary: "", steps: [], files: [{ path: "/a", content: "x" }] };
+    const layers = allLayers(only, [header("a", "A", only)]);
+    expect(layers.map((l) => l.id)).toEqual(["module", "a"]);
+    expect(stepCount(layers)).toBe(2);
+  });
+});
+
+describe("runLayers, the files of a snapshot", () => {
+  const machine = { raiz: { nome: "", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [] }, contas: { usuarios: [{ nome: "root", uid: 0 }], grupos: [{ nome: "root", gid: 0 }] } };
+  const layer = (files: { path: string; content: string; owner?: string }[], steps = [{ command: "mkdir -p /var/log" }]) => allLayers({ summary: "", steps, files }, []);
+
+  it("puts the files in after the commands of the layer, and loads the machine with them", async () => {
+    const calls: string[] = [];
+    const win = {
+      execute: vi.fn(async ({ command }: { command: string }) => (calls.push(command), { status: 0, output: "" })),
+      setSpeed: vi.fn(),
+      snapshot: vi.fn(() => machine),
+      loadScenario: vi.fn(async (next: unknown) => void calls.push(`load ${JSON.stringify(next).includes("conteudo")}`)),
+    };
+    const seen: string[] = [];
+    const results = await runLayers(win as never, layer([{ path: "/var/log/a.log", content: "x" }]), { onStep: (r) => seen.push(r.step.command) });
+    expect(calls).toEqual(["mkdir -p /var/log", "load true"]);
+    expect(seen).toEqual(["mkdir -p /var/log", "(1 arquivo do ambiente)"]);
+    expect(results.every((r) => !isConflict(r))).toBe(true);
+  });
+
+  it("reports a file that cannot go in as a conflict, with the reason", async () => {
+    const win = { execute: vi.fn(async () => ({ status: 0, output: "" })), setSpeed: vi.fn(), snapshot: () => machine, loadScenario: vi.fn() };
+    const results = await runLayers(win as never, layer([{ path: "/a.log", content: "x", owner: "ninguem" }], []));
+    expect(results.filter(isConflict).map((r) => r.output)).toEqual(["o usuário ninguem não existe na máquina"]);
+    expect(win.loadScenario).not.toHaveBeenCalled();
+
+    const noLoad = await runLayers({ execute: vi.fn(), setSpeed: vi.fn() } as never, layer([{ path: "/a.log", content: "x" }], []));
+    expect(noLoad.filter(isConflict)).toHaveLength(1);
+  });
+
+  it("does not load the files when the run was stopped", async () => {
+    const win = { execute: vi.fn(async () => ({ status: 0, output: "" })), setSpeed: vi.fn(), snapshot: () => machine, loadScenario: vi.fn() };
+    await runLayers(win as never, layer([{ path: "/a.log", content: "x" }]), { shouldStop: () => true });
+    expect(win.loadScenario).not.toHaveBeenCalled();
   });
 });

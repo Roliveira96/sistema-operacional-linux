@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@/test/domMatchers";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Setup, SetupLayer } from "@/lib/setup";
 import { SetupEditor } from "./SetupEditor";
@@ -128,9 +129,8 @@ describe("SetupEditor, the commands above the recording", () => {
     const { onChange } = setup({ before, setup: { summary: "", steps: [{ command: "mkdir /home/ricardo/financeiro" }, { command: "touch /home/ricardo/financeiro/a.txt", terminal: 2 }] } });
 
     fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
-    // The last one asks where the terminal is, to resolve the relative paths typed in an editor.
-    await waitFor(() => expect(ran).toEqual(["mkdir /home/ricardo", "mkdir /home/ricardo/financeiro", "touch /home/ricardo/financeiro/a.txt", "pwd"]));
-    expect(win.execute.mock.calls.at(-2)![0]).toMatchObject({ terminal: 2 });
+    await waitFor(() => expect(ran).toEqual(["mkdir /home/ricardo", "mkdir /home/ricardo/financeiro", "touch /home/ricardo/financeiro/a.txt"]));
+    expect(win.execute.mock.calls.at(-1)![0]).toMatchObject({ terminal: 2 });
     await waitFor(() => expect(screen.queryByText(/Preparando a máquina com o módulo/)).toBeNull());
     expect(screen.getByText("Nenhum comando ainda.")).toBeDefined();
 
@@ -150,83 +150,23 @@ describe("SetupEditor, the commands above the recording", () => {
   });
 });
 
-// The text an author types inside an editor while recording is read from the file and kept as printf.
-describe("SetupEditor, files written with an editor", () => {
-  async function record(typedCommands: string[], files: Record<string, { status: number; output: string }>) {
-    let onCommand: ((snapshot: unknown) => void) | undefined;
-    const execute = vi.fn(async ({ command }: { command: string }) => files[command] ?? (command === "pwd" ? { status: 0, output: "/root" } : { status: 0, output: "" }));
-    let history: string[] = [];
-    const win = { execute, setSpeed: vi.fn(), history: () => history, destroy: vi.fn() };
-    mount.mockImplementation(async (_c: HTMLElement, _s: unknown, callbacks: { onCommand(s: unknown): void }) => {
-      onCommand = callbacks.onCommand;
-      return win;
-    });
-    const view = setup();
-    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
-    await waitFor(() => expect(mount).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByText("Nenhum comando ainda.")).toBeDefined());
-    history = typedCommands;
-    onCommand?.({});
-    await waitFor(() => expect((screen.getByRole("button", { name: "Usar estes comandos" }) as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(screen.getByRole("button", { name: "Usar estes comandos" }));
-    await waitFor(() => expect(view.onChange).toHaveBeenCalled());
-    return { ...view, execute };
-  }
-
-  it("turns a nano session into the printf that writes what was typed, and says so", async () => {
-    const { onChange, execute } = await record(["mkdir -p /home/ricardo/utfpr/teste", "nano /home/ricardo/utfpr/teste/ricardo.txt"], {
-      "cat '/home/ricardo/utfpr/teste/ricardo.txt'": { status: 0, output: "maçã" + String.fromCharCode(10) + "banana" },
-    });
-    const steps = (onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command);
-    expect(steps).toEqual(["mkdir -p /home/ricardo/utfpr/teste", "printf '%s" + String.fromCharCode(92) + "n' 'maçã' 'banana' > '/home/ricardo/utfpr/teste/ricardo.txt'"]);
-    expect(execute).toHaveBeenCalledWith({ command: "cat '/home/ricardo/utfpr/teste/ricardo.txt'" });
-    expect(screen.getByRole("status", { name: "O que foi feito com os editores" })).toHaveTextContent("virou printf: grava em /home/ricardo/utfpr/teste/ricardo.txt o texto que você digitou");
-  });
-
-  it("resolves a relative path from the folder the author went to with cd, as in the professor's case", async () => {
-    const { onChange } = await record(["mkdir /home/ricardo/financeiro", "cd /home/ricardo/financeiro/", "vim teste.txt"], {
-      "cat '/home/ricardo/financeiro/teste.txt'": { status: 0, output: "123123" },
-    });
-    expect((onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual([
-      "mkdir /home/ricardo/financeiro",
-      "cd /home/ricardo/financeiro/",
-      "printf '%s" + String.fromCharCode(92) + "n' '123123' > '/home/ricardo/financeiro/teste.txt'",
-    ]);
-  });
-
-  it("starts from the folder the terminal is in when there is no cd", async () => {
-    const { onChange } = await record(["vim notas.txt"], { pwd: { status: 0, output: "/srv/app" }, "cat '/srv/app/notas.txt'": { status: 0, output: "oi" } });
-    expect((onChange.mock.calls.at(-1)![0] as Setup).steps[0]!.command).toContain("> '/srv/app/notas.txt'");
-  });
-
-  it("keeps the command and warns when the folder cannot be known or the file cannot be read", async () => {
-    const { onChange } = await record(["cd $HOME", "vim notas.txt", "nano /nao/existe.txt"], { "cat '/nao/existe.txt'": { status: 1, output: "No such file" } });
-    expect((onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["cd $HOME", "vim notas.txt", "nano /nao/existe.txt"]);
-    const notes = screen.getByRole("status", { name: "O que foi feito com os editores" });
-    expect(notes).toHaveTextContent('"vim notas.txt" usa um caminho relativo');
-    expect(notes).toHaveTextContent('Não foi possível ler o arquivo de "nano /nao/existe.txt"');
-  });
-
-  it("writes an empty file with touch", async () => {
-    const { onChange } = await record(["nano /srv/vazio.txt"], { "cat '/srv/vazio.txt'": { status: 0, output: "" } });
-    expect((onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["touch '/srv/vazio.txt'"]);
-  });
-});
-
-// The snapshot must leave the student's machine as the author left theirs: both machines are compared.
-const treeOf = (...files: { nome: string; conteudo: string }[]) => ({
-  raiz: { nome: "", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [{ nome: "srv", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: files.map((f) => ({ ...f, tipo: "arquivo", dono: 0, grupo: 0, permissoes: "644" })) }] },
+// The snapshot must leave the student's machine as the author left theirs: both machines are compared, and what the commands
+// do not reproduce goes in as a file with its text exactly as it is, or as a command (SPEC-021 RN-12).
+const treeOf = (...files: { nome: string; conteudo: string; dono?: number }[]) => ({
+  raiz: { nome: "", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [{ nome: "srv", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: files.map((f) => ({ nome: f.nome, conteudo: f.conteudo, tipo: "arquivo", dono: f.dono ?? 0, grupo: 0, permissoes: "644" })) }] },
   contas: { usuarios: [{ nome: "root", uid: 0 }], grupos: [{ nome: "root", gid: 0 }] },
 });
+const NL = String.fromCharCode(10);
 
 describe("SetupEditor, the snapshot is exactly the terminal", () => {
+  /** Records `typedCommands` in a terminal whose machine is `recordedTree`; the machine built again from the list is `replayedTree`. */
   async function adopt(typedCommands: string[], recordedTree: unknown, replayedTree: unknown) {
     let history: string[] = [];
     let onCommand: ((snapshot: unknown) => void) | undefined;
     // The first snapshot is the author's machine, when the commands are adopted; the next one is the replay.
     const snapshots = [recordedTree, replayedTree];
     const win = {
-      execute: vi.fn(async ({ command }: { command: string }) => (command === "pwd" ? { status: 0, output: "/srv" } : { status: 0, output: "" })),
+      execute: vi.fn(async () => ({ status: 0, output: "" })),
       setSpeed: vi.fn(),
       history: () => history,
       snapshot: vi.fn(() => snapshots.shift()),
@@ -236,7 +176,25 @@ describe("SetupEditor, the snapshot is exactly the terminal", () => {
       onCommand = callbacks.onCommand;
       return win;
     });
-    const view = setup();
+    const onAdopted = vi.fn();
+    const onChange = vi.fn();
+    // The editor shows what it is given, as the screens that hold it do.
+    function Harness() {
+      const [value, setValue] = useState<Setup | undefined>();
+      return (
+        <SetupEditor
+          setup={value}
+          before={[]}
+          loadBase={vi.fn().mockResolvedValue(null)}
+          onChange={(next) => {
+            setValue(next);
+            onChange(next);
+          }}
+          onAdopted={onAdopted}
+        />
+      );
+    }
+    render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
     await waitFor(() => expect(mount).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByText("Nenhum comando ainda.")).toBeDefined());
@@ -244,64 +202,62 @@ describe("SetupEditor, the snapshot is exactly the terminal", () => {
     onCommand?.({});
     await waitFor(() => expect((screen.getByRole("button", { name: "Usar estes comandos" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Usar estes comandos" }));
-    await waitFor(() => expect(view.onChange).toHaveBeenCalled(), { timeout: 5000 });
-    return view;
-  }
-
-  it("adds the commands the typed ones do not reproduce, and says so", async () => {
-    const onAdopted = vi.fn();
-    const recorded = treeOf({ nome: "app.ini", conteudo: "porta=8080" + String.fromCharCode(10) });
-    const replayed = treeOf();
-    let history: string[] = [];
-    let onCommand: ((snapshot: unknown) => void) | undefined;
-    const snapshots = [recorded, replayed];
-    const win = {
-      execute: vi.fn(async ({ command }: { command: string }) => (command === "pwd" ? { status: 0, output: "/srv" } : { status: 0, output: "" })),
-      setSpeed: vi.fn(),
-      history: () => history,
-      snapshot: vi.fn(() => snapshots.shift()),
-      destroy: vi.fn(),
-    };
-    mount.mockImplementation(async (_c: HTMLElement, _s: unknown, callbacks: { onCommand(s: unknown): void }) => {
-      onCommand = callbacks.onCommand;
-      return win;
-    });
-    const onChange = vi.fn();
-    render(<SetupEditor before={[]} loadBase={vi.fn().mockResolvedValue(null)} onChange={onChange} onAdopted={onAdopted} />);
-    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
-    await waitFor(() => expect(mount).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByText("Nenhum comando ainda.")).toBeDefined());
-    history = ["mkdir -p /srv"];
-    onCommand?.({});
-    fireEvent.click(await screen.findByRole("button", { name: "Usar estes comandos" }));
     await waitFor(() => expect(onAdopted).toHaveBeenCalled(), { timeout: 5000 });
+    return { onChange, onAdopted, win, adopted: onAdopted.mock.calls.at(-1)![0] as Setup };
+  }
+  const notes = () => screen.getByRole("status", { name: "O que foi feito com os editores" });
 
-    const steps = (onAdopted.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command);
-    expect(steps).toEqual(["mkdir -p /srv", "printf '%s" + String.fromCharCode(92) + "n' 'porta=8080' > '/srv/app.ini'"]);
-    expect(screen.getByRole("status", { name: "O que foi feito com os editores" })).toHaveTextContent("Para ficar exatamente como no terminal, foram acrescentados 1 comando ao fim da lista");
-    // The replay machine was built from the commands, in a window of its own that is destroyed.
+  it("adds a file the typed commands do not reproduce, with its text as it is, and says so", async () => {
+    const text = "porta=8080" + NL + "caminho=C:" + String.fromCharCode(92) + "dados" + NL;
+    const { adopted, win } = await adopt(["mkdir -p /srv"], treeOf({ nome: "app.ini", conteudo: text }), treeOf());
+    expect(adopted.steps.map((s) => s.command)).toEqual(["mkdir -p /srv"]);
+    expect(adopted.files).toEqual([{ path: "/srv/app.ini", content: text, mode: "644", owner: "root", group: "root" }]);
+    expect(notes()).toHaveTextContent("Para ficar exatamente como no terminal, foram acrescentados 1 arquivo com o texto como está.");
+    // The window the replay was built in is destroyed.
     expect(win.destroy).toHaveBeenCalled();
+    // The files are listed, with their size, and can be removed.
+    expect(screen.getByRole("list", { name: "Arquivos do ambiente (1)" })).toHaveTextContent("/srv/app.ini");
+  });
+
+  it("leaves the editor sessions out of the list: their text comes in as the file", async () => {
+    const recorded = treeOf({ nome: "teste.txt", conteudo: "123123" + NL });
+    const { adopted } = await adopt(["mkdir -p /srv", "vim /srv/teste.txt", "nano notas.txt", "tee /srv/t.txt"], recorded, treeOf());
+    expect(adopted.steps.map((s) => s.command)).toEqual(["mkdir -p /srv"]);
+    expect(adopted.files?.map((f) => [f.path, f.content])).toEqual([["/srv/teste.txt", "123123" + NL]]);
+    expect(notes()).toHaveTextContent("3 sessões de editor (nano, vim, tee…) não viram comando: o texto que você escreveu entra como arquivo");
   });
 
   it("adds nothing when the replay is already the same machine", async () => {
-    const tree = treeOf({ nome: "a.txt", conteudo: "x" + String.fromCharCode(10) });
-    const view = await adopt(["touch /srv/a.txt"], tree, tree);
-    await waitFor(() => expect(view.onChange).toHaveBeenCalled());
-    expect((view.onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["touch /srv/a.txt"]);
+    const tree = treeOf({ nome: "a.txt", conteudo: "x" + NL });
+    const { adopted } = await adopt(["touch /srv/a.txt"], tree, tree);
+    expect(adopted.steps.map((s) => s.command)).toEqual(["touch /srv/a.txt"]);
+    expect(adopted.files).toBeUndefined();
     expect(screen.queryByText(/Para ficar exatamente/)).toBeNull();
   });
 
-  it("says what cannot be reproduced by a command", async () => {
-    const recorded = treeOf({ nome: "b.txt", conteudo: "sem quebra" });
-    const view = await adopt(["touch /srv/b.txt"], recorded, treeOf());
-    await waitFor(() => expect(view.onChange).toHaveBeenCalled());
-    expect(await screen.findByText(/Não dá para reproduzir por comando: \/srv\/b.txt: o arquivo não termina com quebra de linha/)).toBeDefined();
+  it("adds the commands for folders, permissions and owners, apart from the files", async () => {
+    const recorded = treeOf();
+    (recorded.raiz.filhos[0] as { filhos: unknown[] }).filhos.push({ nome: "dados", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "700", filhos: [] });
+    const { adopted } = await adopt(["touch /srv/x"], recorded, treeOf());
+    expect(adopted.steps.map((s) => s.command)).toEqual(["touch /srv/x", "mkdir -p '/srv/dados'", "chmod 700 '/srv/dados'"]);
+    expect(notes()).toHaveTextContent("foram acrescentados 2 comandos (pastas, permissões, donos ou links)");
+  });
+
+  it("says what cannot be reproduced", async () => {
+    const { adopted } = await adopt(["touch /srv/b.txt"], treeOf({ nome: "b.txt", conteudo: "x" + NL, dono: 4242 }), treeOf());
+    expect(adopted.files).toBeUndefined();
+    expect(notes()).toHaveTextContent("Não dá para reproduzir por comando: /srv/b.txt: o dono (4242:0) não tem nome na máquina.");
+  });
+
+  it("removes a file from the snapshot", async () => {
+    const { onChange } = await adopt(["mkdir -p /srv"], treeOf({ nome: "a.txt", conteudo: "x" + NL }), treeOf());
+    fireEvent.click(screen.getByRole("button", { name: "Remover o arquivo /srv/a.txt" }));
+    expect(onChange.mock.calls.at(-1)![0]).toMatchObject({ files: [] });
   });
 
   it("warns, and still keeps the commands, when the replay cannot be checked", async () => {
-    const view = await adopt(["touch /srv/c.txt"], treeOf(), "not a machine");
-    await waitFor(() => expect(view.onChange).toHaveBeenCalled());
-    expect((view.onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["touch /srv/c.txt"]);
-    expect(await screen.findByText(/Não foi possível conferir se o ambiente reproduz exatamente o terminal/)).toBeDefined();
+    const { adopted } = await adopt(["touch /srv/c.txt"], treeOf(), "not a machine");
+    expect(adopted.steps.map((s) => s.command)).toEqual(["touch /srv/c.txt"]);
+    expect(notes()).toHaveTextContent("Não foi possível conferir se o ambiente reproduz exatamente o terminal");
   });
 });

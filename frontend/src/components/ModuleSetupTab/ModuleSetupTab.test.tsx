@@ -50,7 +50,7 @@ describe("ModuleSetupTab", () => {
     let onCommand: ((snapshot: unknown) => void) | undefined;
     const tree = { raiz: { nome: "", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [] }, contas: { usuarios: [], grupos: [] } };
     const win = {
-      execute: vi.fn(async ({ command }: { command: string }) => (command === "pwd" ? { status: 0, output: "/root" } : { status: 0, output: "" })),
+      execute: vi.fn(async () => ({ status: 0, output: "" })),
       setSpeed: vi.fn(),
       history: () => history,
       snapshot: vi.fn(() => tree),
@@ -65,7 +65,7 @@ describe("ModuleSetupTab", () => {
     render(<ModuleSetupTab moduleId="m1" service={service as never} practice={practice} />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Gravar no terminal" }));
-    await waitFor(() => expect(win.execute).toHaveBeenCalledWith({ command: "pwd" }));
+    await waitFor(() => expect(mount).toHaveBeenCalled());
     history = ["mkdir -p /home/ricardo/financeiro"];
     onCommand?.({});
     await waitFor(() => expect((screen.getByRole("button", { name: "Usar estes comandos" }) as HTMLButtonElement).disabled).toBe(false));

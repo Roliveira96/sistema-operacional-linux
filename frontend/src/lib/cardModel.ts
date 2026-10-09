@@ -4,7 +4,7 @@
 // that stays so the reading progress of the students is not lost.
 
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
-import { legacySetup, parseSetup, setupPayload, type Setup } from "./setup";
+import { hasSetup, legacySetup, parseSetup, setupPayload, type Setup } from "./setup";
 
 type Payload = Record<string, unknown>;
 
@@ -288,7 +288,7 @@ export function buildBlocks(card: CardModel): BuiltCard {
   }
   if (hasHeader) {
     const payload: Payload = { title: card.title.trim(), command: card.pill.trim(), html: headerHtml };
-    if (card.setup && card.setup.steps.length > 0) payload.setup = setupPayload(card.setup);
+    if (hasSetup(card.setup)) payload.setup = setupPayload(card.setup);
     push({ id: card.headerId, updatedAt: card.headerUpdatedAt, type: "TEXT", payload }, headerFrom);
   }
 
@@ -336,7 +336,7 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
   const plain = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
   if (requireTitle && card.title.trim() === "") add("title", "required");
-  if (card.setup && card.setup.steps.length > 0 && card.title.trim() === "") add("setup", "needs-title");
+  if (hasSetup(card.setup) && card.title.trim() === "") add("setup", "needs-title");
   card.setup?.steps.forEach((s, i) => s.command.trim() === "" && add(`setup-${i}`, "required"));
   for (const el of card.elements) {
     if (el.kind === "text" && plain(el.html) === "") add(el.id, "required");
