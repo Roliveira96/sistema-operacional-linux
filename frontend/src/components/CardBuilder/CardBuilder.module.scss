@@ -507,3 +507,13 @@ textarea.input {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+// The files of a snapshot, each one a collapsible box to edit it.
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

@@ -261,3 +261,69 @@ describe("SetupEditor, the snapshot is exactly the terminal", () => {
     expect(notes()).toHaveTextContent("Não foi possível conferir se o ambiente reproduz exatamente o terminal");
   });
 });
+
+// The professor can change the files of the snapshot whenever they want: edit, add, load from the computer, remove.
+describe("SetupEditor, the files of the snapshot are editable", () => {
+  function renderEditor(initial?: Setup) {
+    const onChange = vi.fn();
+    function Harness() {
+      const [value, setValue] = useState<Setup | undefined>(initial);
+      return (
+        <SetupEditor
+          setup={value}
+          before={[]}
+          loadBase={vi.fn().mockResolvedValue(null)}
+          onChange={(next) => {
+            setValue(next);
+            onChange(next);
+          }}
+        />
+      );
+    }
+    render(<Harness />);
+    return onChange;
+  }
+  const last = (onChange: ReturnType<typeof vi.fn>) => onChange.mock.calls.at(-1)![0] as Setup;
+  const NEWLINE = String.fromCharCode(10);
+
+  it("edits the path, the mode, the owner and the text of a file", () => {
+    const script = "#!/bin/bash" + NEWLINE + "echo oi" + NEWLINE;
+    const onChange = renderEditor({ summary: "", steps: [], files: [{ path: "/home/ricardo/financeiro/teste.sh", content: script, mode: "755", owner: "root", group: "root" }] });
+    expect(screen.getByRole("list", { name: "Arquivos do ambiente (1)" })).toHaveTextContent("/home/ricardo/financeiro/teste.sh");
+
+    fireEvent.change(screen.getByLabelText("Conteúdo do arquivo (1)"), { target: { value: script + "echo tchau" + NEWLINE } });
+    expect(last(onChange).files![0]!.content).toBe(script + "echo tchau" + NEWLINE);
+    fireEvent.change(screen.getByLabelText("Caminho do arquivo (1)"), { target: { value: "/srv/novo.sh" } });
+    fireEvent.change(screen.getByLabelText("Permissão (octal) (1)"), { target: { value: "700" } });
+    fireEvent.change(screen.getByLabelText("Dono (1)"), { target: { value: "ricardo" } });
+    fireEvent.change(screen.getByLabelText("Grupo (1)"), { target: { value: "ricardo" } });
+    expect(last(onChange).files).toEqual([{ path: "/srv/novo.sh", content: script + "echo tchau" + NEWLINE, mode: "700", owner: "ricardo", group: "ricardo" }]);
+  });
+
+  it("adds a file, warns about a path that is not absolute, and removes a file", () => {
+    const onChange = renderEditor({ summary: "", steps: [], files: [{ path: "/a.txt", content: "a" }] });
+    fireEvent.click(screen.getByRole("button", { name: "+ Adicionar arquivo" }));
+    expect(last(onChange).files).toHaveLength(2);
+    fireEvent.change(screen.getByLabelText("Caminho do arquivo (2)"), { target: { value: "relativo.txt" } });
+    expect(screen.getByText(/O caminho precisa começar por \//)).toBeDefined();
+    fireEvent.click(screen.getAllByRole("button", { name: /Remover/ })[0]!);
+    expect(last(onChange).files).toEqual([{ path: "relativo.txt", content: "" }]);
+  });
+
+  it("loads a text file of the computer as a file of the snapshot, replacing the one with the same path", async () => {
+    const onChange = renderEditor({ summary: "", steps: [], files: [{ path: "/teste.sh", content: "velho" }] });
+    const input = screen.getByLabelText("Carregar arquivo do computador") as HTMLInputElement;
+    const text = "#!/bin/bash" + NEWLINE + 'echo "olá"' + NEWLINE;
+    fireEvent.change(input, { target: { files: [new File([text], "teste.sh", { type: "text/x-shellscript" })] } });
+    await waitFor(() => expect(last(onChange).files).toEqual([{ path: "/teste.sh", content: text }]));
+  });
+
+  it("refuses a file that is too large or not text", async () => {
+    renderEditor({ summary: "", steps: [], files: [] });
+    const input = screen.getByLabelText("Carregar arquivo do computador") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["a".repeat(1048577)], "enorme.log")] } });
+    expect(await screen.findByText('"enorme.log" passa de 1 MB, o limite por arquivo.')).toBeDefined();
+    fireEvent.change(input, { target: { files: [new File(["a" + String.fromCharCode(0) + "b"], "binario.bin")] } });
+    expect(await screen.findByText('"binario.bin" não é um arquivo de texto.')).toBeDefined();
+  });
+});

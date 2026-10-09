@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { TerminalPane } from "@/components/TopicStudy/TerminalPane";
 import type { TerminalWindow } from "@/engine/terminalWindow";
-import { bytesOf, emptySetup, type Setup, type SetupFile, type SetupLayer, type SetupStep } from "@/lib/setup";
+import { bytesOf, emptySetup, MAX_FILE_BYTES, type Setup, type SetupFile, type SetupLayer, type SetupStep } from "@/lib/setup";
 import { writtenFile } from "@/lib/setupContent";
 import { reconcile, type MachineTree } from "@/lib/machineDiff";
 import { replayMachine } from "@/lib/machineReplay";
@@ -175,6 +175,31 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
   };
 
   const setFiles = (files: SetupFile[]) => onChange({ ...current, files });
+  const patchFile = (index: number, change: Partial<SetupFile>) => setFiles((current.files ?? []).map((f, i) => (i === index ? { ...f, ...change } : f)));
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // A file of the author's computer, as text: a script, a log, a page.
+  const uploadFile = async (input: HTMLInputElement) => {
+    const chosen = input.files?.[0];
+    input.value = "";
+    setUploadError(null);
+    if (!chosen) return;
+    try {
+      const content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(chosen);
+      });
+      if (content.includes(String.fromCharCode(0))) return setUploadError(m.uploadBinary(chosen.name));
+      if (bytesOf(content) > MAX_FILE_BYTES) return setUploadError(m.uploadTooBig(chosen.name));
+      const path = `/${chosen.name}`;
+      const others = (current.files ?? []).filter((f) => f.path !== path);
+      setFiles([...others, { path, content }]);
+    } catch {
+      setUploadError(m.uploadFailed(chosen.name));
+    }
+  };
 
   // The snapshot has to leave the student's machine exactly as the author left this one. What was typed inside an editor is
   // not a command, so those sessions are left out of the list; both machines are compared, and what the commands do not
@@ -255,26 +280,80 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
         </div>
       ))}
 
-      {(current.files?.length ?? 0) > 0 && (
-        <div className={styles.item}>
-          <div className={styles.itemHead}>
-            <span className={styles.itemTitle}>{m.filesTitle(current.files!.length)}</span>
+      <div className={styles.item}>
+        <div className={styles.itemHead}>
+          <span className={styles.itemTitle}>{m.filesTitle(current.files?.length ?? 0)}</span>
+          <div className={styles.rowButtons}>
+            <button type="button" className={styles.add} onClick={() => setFiles([...(current.files ?? []), { path: "", content: "" }])}>
+              {m.addFile}
+            </button>
+            <label className={styles.add}>
+              {m.uploadFile}
+              <input type="file" hidden aria-label={m.uploadFile} onChange={(e) => void uploadFile(e.target)} />
+            </label>
           </div>
-          <p className={styles.hint}>{m.filesHelp}</p>
-          <ul className={styles.commandList} aria-label={m.filesTitle(current.files!.length)}>
-            {current.files!.map((file) => (
-              <li key={file.path}>
-                <code>{file.path}</code> · {m.fileSize(bytesOf(file.content))}
-                {file.mode ? ` · ${file.mode}` : ""}
-                {file.owner ? ` · ${file.owner}:${file.group ?? ""}` : ""}{" "}
-                <button type="button" className={styles.small} onClick={() => setFiles(current.files!.filter((f) => f.path !== file.path))} aria-label={m.removeFile(file.path)}>
-                  ✕
-                </button>
+        </div>
+        <p className={styles.hint}>{m.filesHelp}</p>
+        {uploadError && (
+          <p className={styles.error} role="alert">
+            {uploadError}
+          </p>
+        )}
+        {(current.files?.length ?? 0) > 0 && (
+          <ul className={styles.fileList} aria-label={m.filesTitle(current.files!.length)}>
+            {current.files!.map((file, i) => (
+              <li key={i}>
+                <details className={styles.advanced}>
+                  <summary>
+                    <code>{file.path || m.noPath}</code> · {m.fileSize(bytesOf(file.content))}
+                    {file.mode ? ` · ${file.mode}` : ""}
+                    {file.owner ? ` · ${file.owner}:${file.group ?? ""}` : ""}
+                  </summary>
+                  <div className={styles.pair}>
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor={`setup-file-path-${i}`}>
+                        {m.filePath} ({i + 1})
+                      </label>
+                      <input id={`setup-file-path-${i}`} className={`${styles.input} ${styles.mono}`} value={file.path} placeholder="/home/ricardo/financeiro/teste.sh" onChange={(e) => patchFile(i, { path: e.target.value })} aria-invalid={file.path !== "" && !file.path.startsWith("/")} />
+                      {file.path !== "" && !file.path.startsWith("/") && <p className={styles.error}>{m.pathInvalid}</p>}
+                    </div>
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor={`setup-file-mode-${i}`}>
+                        {m.fileMode} ({i + 1})
+                      </label>
+                      <input id={`setup-file-mode-${i}`} className={`${styles.input} ${styles.mono}`} value={file.mode ?? ""} placeholder="644" onChange={(e) => patchFile(i, { mode: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className={styles.pair}>
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor={`setup-file-owner-${i}`}>
+                        {m.fileOwner} ({i + 1})
+                      </label>
+                      <input id={`setup-file-owner-${i}`} className={styles.input} value={file.owner ?? ""} placeholder="root" onChange={(e) => patchFile(i, { owner: e.target.value })} />
+                    </div>
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor={`setup-file-group-${i}`}>
+                        {m.fileGroup} ({i + 1})
+                      </label>
+                      <input id={`setup-file-group-${i}`} className={styles.input} value={file.group ?? ""} placeholder="root" onChange={(e) => patchFile(i, { group: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.label} htmlFor={`setup-file-content-${i}`}>
+                      {m.fileContent} ({i + 1})
+                    </label>
+                    <textarea id={`setup-file-content-${i}`} className={`${styles.input} ${styles.mono}`} rows={14} spellCheck={false} value={file.content} onChange={(e) => patchFile(i, { content: e.target.value })} />
+                    {bytesOf(file.content) > MAX_FILE_BYTES && <p className={styles.error}>{m.fileTooBig}</p>}
+                  </div>
+                  <button type="button" className={styles.danger} onClick={() => setFiles(current.files!.filter((_, j) => j !== i))} aria-label={m.removeFile(file.path)}>
+                    {m.removeFileShort}
+                  </button>
+                </details>
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+      </div>
 
       {!open && (
         <div className={styles.rowButtons}>
