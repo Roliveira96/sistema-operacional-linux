@@ -22,6 +22,8 @@ type Reader interface {
 	Questions(ctx context.Context, moduleID uuid.UUID, usage string, v service.Viewer) ([]service.PublicQuestion, error)
 	TeacherQuestions(ctx context.Context, moduleID uuid.UUID, v service.Viewer) ([]service.TeacherQuestion, error)
 	Templates(ctx context.Context) ([]service.TemplateSummary, error)
+	ToggleBlockProgress(ctx context.Context, blockID uuid.UUID, completed bool, v service.Viewer) (service.BlockProgressResult, error)
+	ModuleBlockProgress(ctx context.Context, moduleID uuid.UUID, v service.Viewer) (service.ModuleBlockProgressResult, error)
 }
 
 // Handler serves the content routes.
@@ -39,7 +41,9 @@ func New(reader Reader, auth authn.Validator) *Handler {
 func (h *Handler) Register(r gin.IRouter) {
 	public := r.Group("", authn.Optional(h.auth))
 	public.GET("/modules/:id/blocks", h.blocks)
+	public.GET("/modules/:id/blocks/progress", h.moduleBlockProgress)
 	public.GET("/modules/:id/questions", h.questions)
+	public.POST("/blocks/:id/progress", h.toggleBlockProgress)
 	r.GET("/assessment-templates", h.templates)
 
 	teacher := r.Group("/teacher", authn.Required(h.auth), authn.PasswordChanged(),
@@ -109,6 +113,42 @@ func (h *Handler) templates(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": ts})
+}
+
+type toggleBlockProgressRequest struct {
+	Completed *bool `json:"completed"`
+}
+
+func (h *Handler) toggleBlockProgress(c *gin.Context) {
+	blockID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		fail(c, problem.NotFound("block-not-found", "Invalid block ID format."))
+		return
+	}
+	completed := true
+	var req toggleBlockProgressRequest
+	if err := c.ShouldBindJSON(&req); err == nil && req.Completed != nil {
+		completed = *req.Completed
+	}
+	res, err := h.reader.ToggleBlockProgress(c.Request.Context(), blockID, completed, viewer(c))
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) moduleBlockProgress(c *gin.Context) {
+	id, ok := moduleID(c)
+	if !ok {
+		return
+	}
+	res, err := h.reader.ModuleBlockProgress(c.Request.Context(), id, viewer(c))
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, res)
 }
 
 func viewer(c *gin.Context) service.Viewer {

@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -137,3 +138,45 @@ func (r *Repository) FindScenario(ctx context.Context, id uuid.UUID) (domain.Sce
 	err := r.db.Conn(ctx).Where("id = ?", id).First(&s).Error
 	return s, notFound(err)
 }
+
+// SaveBlockProgress marks or unmarks a content block as read for a user.
+func (r *Repository) SaveBlockProgress(ctx context.Context, userID, blockID uuid.UUID, completed bool) (domain.BlockProgress, error) {
+	conn := r.db.Conn(ctx)
+	if !completed {
+		err := conn.Where("user_id = ? AND block_id = ?", userID, blockID).Delete(&domain.BlockProgress{}).Error
+		return domain.BlockProgress{}, err
+	}
+	now := time.Now()
+	var p domain.BlockProgress
+	err := conn.Where("user_id = ? AND block_id = ?", userID, blockID).First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		id, err := uuid.NewV7()
+		if err != nil {
+			return domain.BlockProgress{}, err
+		}
+		p = domain.BlockProgress{
+			ID: id, UserID: userID, BlockID: blockID, CompletedAt: now, CreatedAt: now, UpdatedAt: now,
+		}
+		err = conn.Create(&p).Error
+		return p, err
+	}
+	if err != nil {
+		return domain.BlockProgress{}, err
+	}
+	p.CompletedAt = now
+	p.UpdatedAt = now
+	err = conn.Save(&p).Error
+	return p, err
+}
+
+// ListModuleBlockProgress returns all completed block progress records for a user in a module.
+func (r *Repository) ListModuleBlockProgress(ctx context.Context, userID, moduleID uuid.UUID) ([]domain.BlockProgress, error) {
+	var list []domain.BlockProgress
+	err := r.db.Conn(ctx).Table("block_progress AS bp").
+		Select("bp.*").
+		Joins("JOIN content_blocks AS cb ON cb.id = bp.block_id").
+		Where("bp.user_id = ? AND cb.module_id = ?", userID, moduleID).
+		Find(&list).Error
+	return list, err
+}
+

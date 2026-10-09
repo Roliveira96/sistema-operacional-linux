@@ -137,3 +137,17 @@ type TemplateQuestion struct {
 
 // TableName pins the table name.
 func (TemplateQuestion) TableName() string { return "assessment_template_questions" }
+
+// BlockProgress tracks when a student completes reading a content block.
+type BlockProgress struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserID      uuid.UUID `gorm:"type:uuid;not null;index"`
+	BlockID     uuid.UUID `gorm:"type:uuid;not null;index"`
+	CompletedAt time.Time `gorm:"not null"`
+	CreatedAt   time.Time `gorm:"not null"`
+	UpdatedAt   time.Time `gorm:"not null"`
+}
+
+// TableName pins the table name.
+func (BlockProgress) TableName() string { return "block_progress" }
+

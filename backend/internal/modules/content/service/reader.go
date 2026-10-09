@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -37,6 +38,8 @@ type ReadStore interface {
 	FindQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error)
 	FindScenario(ctx context.Context, id uuid.UUID) (domain.Scenario, error)
 	FindScenarioBySourceKey(ctx context.Context, key string) (domain.Scenario, error)
+	SaveBlockProgress(ctx context.Context, userID, blockID uuid.UUID, completed bool) (domain.BlockProgress, error)
+	ListModuleBlockProgress(ctx context.Context, userID, moduleID uuid.UUID) ([]domain.BlockProgress, error)
 }
 
 // TopicScenarioPrefix prefixes the module source key in the key of the topic
@@ -269,3 +272,55 @@ func (r *Reader) ModulePracticeItems(ctx context.Context, moduleID uuid.UUID, v 
 	}
 	return items, nil
 }
+
+// BlockProgressResult describes a single block progress update.
+type BlockProgressResult struct {
+	BlockID     uuid.UUID  `json:"blockId"`
+	Completed   bool       `json:"completed"`
+	CompletedAt *time.Time `json:"completedAt,omitempty"`
+}
+
+// ModuleBlockProgressResult describes student reading progress for a module.
+type ModuleBlockProgressResult struct {
+	ModuleID           uuid.UUID            `json:"moduleId"`
+	CompletedBlockIDs  []uuid.UUID          `json:"completedBlockIds"`
+	CompletedAtByBlock map[string]time.Time `json:"completedAtByBlock"`
+}
+
+// ToggleBlockProgress marks or unmarks a block as read by the authenticated viewer.
+func (r *Reader) ToggleBlockProgress(ctx context.Context, blockID uuid.UUID, completed bool, v Viewer) (BlockProgressResult, error) {
+	if v.UserID == nil {
+		return BlockProgressResult{}, ErrAuthRequired
+	}
+	p, err := r.store.SaveBlockProgress(ctx, *v.UserID, blockID, completed)
+	if err != nil {
+		return BlockProgressResult{}, err
+	}
+	res := BlockProgressResult{BlockID: blockID, Completed: completed}
+	if completed {
+		res.CompletedAt = &p.CompletedAt
+	}
+	return res, nil
+}
+
+// ModuleBlockProgress retrieves all completed block progress records for a module.
+func (r *Reader) ModuleBlockProgress(ctx context.Context, moduleID uuid.UUID, v Viewer) (ModuleBlockProgressResult, error) {
+	if v.UserID == nil {
+		return ModuleBlockProgressResult{ModuleID: moduleID, CompletedBlockIDs: []uuid.UUID{}, CompletedAtByBlock: map[string]time.Time{}}, nil
+	}
+	if _, err := r.module(ctx, moduleID, v); err != nil {
+		return ModuleBlockProgressResult{}, err
+	}
+	list, err := r.store.ListModuleBlockProgress(ctx, *v.UserID, moduleID)
+	if err != nil {
+		return ModuleBlockProgressResult{}, err
+	}
+	ids := make([]uuid.UUID, len(list))
+	byBlock := make(map[string]time.Time, len(list))
+	for i, bp := range list {
+		ids[i] = bp.BlockID
+		byBlock[bp.BlockID.String()] = bp.CompletedAt
+	}
+	return ModuleBlockProgressResult{ModuleID: moduleID, CompletedBlockIDs: ids, CompletedAtByBlock: byBlock}, nil
+}
+

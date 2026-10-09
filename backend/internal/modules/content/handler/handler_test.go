@@ -45,6 +45,14 @@ func (f *fakeReader) Templates(context.Context) ([]service.TemplateSummary, erro
 	return []service.TemplateSummary{{Title: "Quiz"}}, f.err
 }
 
+func (f *fakeReader) ToggleBlockProgress(_ context.Context, blockID uuid.UUID, completed bool, _ service.Viewer) (service.BlockProgressResult, error) {
+	return service.BlockProgressResult{BlockID: blockID, Completed: completed}, f.err
+}
+
+func (f *fakeReader) ModuleBlockProgress(_ context.Context, moduleID uuid.UUID, _ service.Viewer) (service.ModuleBlockProgressResult, error) {
+	return service.ModuleBlockProgressResult{ModuleID: moduleID, CompletedBlockIDs: []uuid.UUID{}}, f.err
+}
+
 type validator struct {
 	p   authn.Principal
 	err error

@@ -85,6 +85,14 @@ func (f *fakeReadStore) ListActiveTemplates(context.Context) ([]TemplateSummary,
 	return []TemplateSummary{{Title: "Quiz", QuestionCount: 30}}, nil
 }
 
+func (f *fakeReadStore) SaveBlockProgress(_ context.Context, userID, blockID uuid.UUID, completed bool) (domain.BlockProgress, error) {
+	return domain.BlockProgress{UserID: userID, BlockID: blockID}, nil
+}
+
+func (f *fakeReadStore) ListModuleBlockProgress(_ context.Context, _, _ uuid.UUID) ([]domain.BlockProgress, error) {
+	return nil, nil
+}
+
 func secretQuestions() []domain.Question {
 	return []domain.Question{
 		{Kind: domain.KindPractical, Title: "P", Statement: "s", Status: domain.StatusPublished,
