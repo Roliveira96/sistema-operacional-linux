@@ -17,6 +17,35 @@ body {
   min-height: 100vh;
   background: var(--color-bg);
   color: var(--color-text-primary);
+  font-size: 0.9375rem;
+}
+
+code,
+kbd {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+  font-variant-ligatures: none;
+}
+
+code {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-code-bg);
+}
+
+kbd {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--color-surface-raised);
+  font-size: 0.85em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 a {

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button/Button";
-import { ThemeToggle } from "@/components/ThemeToggle/ThemeToggle";
 import { messages } from "@/messages/pt-BR";
 import styles from "./NavbarPublic.module.scss";
 
@@ -37,7 +36,6 @@ export function NavbarPublic() {
         </nav>
 
         <div className={styles.actions}>
-          <ThemeToggle />
           <Button
             variant="secondary"
             className={styles.loginBtn}

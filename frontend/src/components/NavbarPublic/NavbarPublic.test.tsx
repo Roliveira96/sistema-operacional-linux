@@ -48,10 +48,10 @@ describe("NavbarPublic", () => {
     expect(mockPush).toHaveBeenCalledWith("/register");
   });
 
-  it.each(["light", "dark"])("renders consistently under %s theme", (theme) => {
-    document.documentElement.dataset.theme = theme;
+  it("renders the header and navigation without a theme toggle (SPEC-015 CA-08)", () => {
     const { container } = render(<NavbarPublic />);
     expect(container.querySelector("header")).toBeTruthy();
     expect(container.querySelector("nav")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /tema/i })).toBeNull();
   });
 });

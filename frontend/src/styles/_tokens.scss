@@ -1,147 +1,138 @@
-// Semantic design tokens (SPEC-004). This is the only stylesheet allowed to
-// contain color literals. Every token has a light and a dark value; the dark
-// theme only redefines values under [data-theme="dark"].
+// Semantic design tokens. This is the only stylesheet allowed to contain
+// color literals. SPEC-015: a single dark theme reproducing the "Linux na
+// Prática" prototype (legacy/src/estilos/base.css), defined only in :root.
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
+
+  // Prototype palette (aubergine surfaces, Ubuntu orange).
+  --color-ubuntu-orange: #e95420;
+  --color-aubergine: #77216f;
 
   // Surfaces
-  --color-bg: #f6f7f9;
-  --color-surface: #fff;
-  --color-surface-raised: #fff;
-  --color-surface-sunken: #eef0f3;
-  --color-overlay: rgb(0 0 0 / 50%);
+  --color-bg: #0e0b10;
+  --color-surface: #17131b;
+  --color-surface-raised: #201a25;
+  --color-surface-sunken: #0a080c;
+  --color-overlay: rgb(8 5 10 / 75%);
+  --color-backdrop: rgb(8 5 10 / 75%);
+  --color-code-bg: rgb(255 255 255 / 8%);
+
+  // Background glows of the hero areas.
+  --glow-orange: rgb(233 84 32 / 16%);
+  --glow-aubergine: rgb(119 33 111 / 28%);
+  --glow-blue: rgb(74 168 255 / 8%);
 
   // Text
-  --color-text-primary: #1b1f24;
-  --color-text-secondary: #57606a;
-  --color-text-inverse: #fff;
+  --color-text-primary: #ece8ef;
+  --color-text-body: #c9c1ce;
+  --color-text-secondary: #9c93a3;
+  --color-text-inverse: #140a0e;
 
   // Borders
-  --color-border: #d8dde3;
-  --color-border-strong: #b6bec8;
+  --color-border: #342a3a;
+  --color-border-strong: #4a3d52;
 
-  // Brand and interaction (UTFPR gold accent)
-  --color-accent: #8a6a00;
-  --color-accent-hover: #6f5500;
-  --color-accent-contrast: #fff;
-  --color-accent-subtle: #fbf3d5;
-  --color-focus-ring: #1f6feb;
+  // Interaction accent (SPEC-015, P-02): Ubuntu orange with dark text.
+  --color-accent: #e95420;
+  --color-accent-hover: #ff6a33;
+  --color-accent-contrast: #140a0e;
+  --color-accent-subtle: #2e1710;
+  --color-focus-ring: #ff8a5c;
 
-  // Institutional UTFPR identity (SPEC-007)
+  // Institutional UTFPR identity: gold only on institutional elements.
   --color-brand-gold: #f6c212;
-  --color-brand-gold-hover: #e0ad06;
+  --color-brand-gold-hover: #ffd54a;
   --color-brand-gold-contrast: #231f20;
   --color-brand-graphite: #231f20;
-  --color-brand-graphite-dark: #171b21;
-  --color-brand-badge-bg: #fbf3d5;
-  --color-brand-badge-text: #6f5500;
-  --color-terminal-bg: #1e232b;
-  --color-terminal-header: #171b21;
-  --color-terminal-text: #e6e9ed;
+  --color-brand-graphite-dark: #0a080c;
+  --color-brand-badge-bg: #2e2709;
+  --color-brand-badge-text: #f6c212;
+  --color-brand-seal-bg: #fff;
+  --color-brand-seal-text: #0f172a;
+  --color-brand-seal-campus: #b45309;
+  --color-brand-seal-divider: #cbd5e1;
+
+  // GNOME Terminal window (Yaru) and the Tango palette of Ubuntu.
+  --color-terminal-bg: #300a24;
+  --color-terminal-text: #eeeeec;
+  --color-terminal-header: #2b2b2b;
+  --color-terminal-frame: #0c0c0c;
+  --color-terminal-tab: #444;
+  --color-terminal-tab-text: #fff;
+  --color-terminal-control: #4a4a4a;
+  --color-terminal-prompt-user: #8ae234;
+  --color-terminal-prompt-path: #729fcf;
+  --color-terminal-directory: #729fcf;
+  --color-terminal-executable: #8ae234;
+  --color-terminal-link: #34e2e2;
+  --color-terminal-error: #ff8f8f;
+  --color-terminal-info: #fce94f;
+  --color-terminal-warning: #ff7f50;
+  --color-terminal-match: #ef2929;
+  --color-terminal-welcome: #fce94f;
+  --shadow-terminal: 0 18px 50px rgb(0 0 0 / 45%);
 
   // Feedback
-  --color-success: #1a7f37;
-  --color-success-subtle: #e6f4ea;
-  --color-warning: #9a6700;
-  --color-warning-subtle: #fff4d6;
-  --color-danger: #c62828;
-  --color-danger-subtle: #fdecea;
-  --color-info: #0969da;
-  --color-info-subtle: #e7f1fd;
+  --color-success: #3ddc97;
+  --color-success-subtle: #10261c;
+  --color-warning: #ffb020;
+  --color-warning-subtle: #2b2210;
+  --color-danger: #ff6b6b;
+  --color-danger-subtle: #2d1517;
+  --color-info: #4aa8ff;
+  --color-info-subtle: #10213a;
 
   // Elevation
-  --shadow-sm: 0 1px 2px rgb(27 31 36 / 8%);
-  --shadow-md: 0 4px 12px rgb(27 31 36 / 10%);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-md: 0 20px 50px -22px rgb(0 0 0 / 70%);
 
   // Spacing scale
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
   --space-12: 3rem;
 
   // Radius
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
   --radius-pill: 999px;
+  --radius-full: 999px;
 
-  // Typography
-  --font-sans: system-ui, -apple-system, "Segoe UI", roboto, "Helvetica Neue", arial, sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", menlo, consolas, monospace;
+  // Typography (fonts loaded by next/font in app/layout.tsx).
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-ubuntu-mono), "JetBrains Mono", ui-monospace, monospace;
+  --font-terminal: var(--font-ubuntu-mono), ui-monospace, monospace;
+  --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
   --font-size-md: 1rem;
-  --font-size-lg: 1.25rem;
+  --font-size-lg: 1.3rem;
   --font-size-xl: 1.75rem;
+  --font-size-display: clamp(2.25rem, 5.5vw, 3.6rem);
   --font-weight-regular: 400;
   --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-black: 800;
   --line-height-body: 1.5;
+  --line-height-base: 1.5;
 
   // Motion
   --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --transition-fast: 120ms ease;
   --easing-standard: cubic-bezier(0.2, 0, 0, 1);
 
   // Layout
   --content-max-width: 72rem;
 
-  // Modal backdrop (SPEC-014).
-  --color-backdrop: rgb(27 31 36 / 45%);
-
-  // Module accents (SPEC-012), named after the legacy topic colors.
-  --color-module-hist: #8a6400;
-  --color-module-est: #0f766e;
-  --color-module-dir: #1d63b8;
-  --color-module-arq: #137a4f;
-  --color-module-rm: #b42318;
-  --color-module-perm: #9a5b00;
-  --color-module-usr: #7a3fc4;
-  --color-module-pac: #4b55c9;
-  --color-module-sim: #c2410c;
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --color-bg: #0f1216;
-  --color-surface: #171b21;
-  --color-surface-raised: #1e232b;
-  --color-surface-sunken: #0b0d10;
-  --color-overlay: rgb(0 0 0 / 70%);
-  --color-text-primary: #e6e9ed;
-  --color-text-secondary: #9aa4af;
-  --color-text-inverse: #0f1216;
-  --color-border: #2c333c;
-  --color-border-strong: #444d58;
-  --color-accent: #f6c212;
-  --color-accent-hover: #ffd54a;
-  --color-accent-contrast: #231f20;
-  --color-accent-subtle: #2e2709;
-  --color-focus-ring: #58a6ff;
-
-  // Institutional UTFPR identity (SPEC-007)
-  --color-brand-gold: #f6c212;
-  --color-brand-gold-hover: #ffd54a;
-  --color-brand-gold-contrast: #231f20;
-  --color-brand-graphite: #231f20;
-  --color-brand-graphite-dark: #0b0d10;
-  --color-brand-badge-bg: #2e2709;
-  --color-brand-badge-text: #f6c212;
-  --color-terminal-bg: #0b0d10;
-  --color-terminal-header: #171b21;
-  --color-terminal-text: #e6e9ed;
-  --color-success: #3fb950;
-  --color-success-subtle: #12261a;
-  --color-warning: #d29922;
-  --color-warning-subtle: #2b2210;
-  --color-danger: #f85149;
-  --color-danger-subtle: #2d1517;
-  --color-info: #58a6ff;
-  --color-info-subtle: #10213a;
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
-  --shadow-md: 0 4px 12px rgb(0 0 0 / 50%);
+  // Module accents (SPEC-012), the legacy topic colors.
   --color-module-hist: #f4c95d;
   --color-module-est: #5fd3c6;
   --color-module-dir: #4aa8ff;
@@ -151,5 +142,4 @@
   --color-module-usr: #c38bff;
   --color-module-pac: #8f9bff;
   --color-module-sim: #e95420;
-  --color-backdrop: rgb(0 0 0 / 60%);
 }
