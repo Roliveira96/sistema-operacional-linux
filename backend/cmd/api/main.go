@@ -166,6 +166,8 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	contentRepo := contentrepository.New(db)
 	contentAuthorHandler := contenthandler.NewAuthor(
 		contentservice.NewAuthor(contentRepo, log), auth, ratelimit.New(120, time.Minute))
+	contentVersionHandler := contenthandler.NewVersions(
+		contentservice.NewVersions(contentRepo, log), auth, ratelimit.New(120, time.Minute))
 	practiceHandler := practicehandler.New(
 		practiceservice.New(contentReader, practicerepository.New(db)), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
@@ -198,6 +200,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		moduleHandler,
 		contentHandler,
 		contentAuthorHandler,
+		contentVersionHandler,
 		practiceHandler,
 		ttsHandler,
 		studentHandler,

@@ -34,6 +34,8 @@ type ModuleAccess interface {
 type ReadStore interface {
 	ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error)
 	ModuleSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
+	// LatestVersion is the published version students read (SPEC-021); ErrNotFound when there is none.
+	LatestVersion(ctx context.Context, moduleID uuid.UUID) (domain.ModuleVersion, error)
 	ListQuestions(ctx context.Context, moduleID uuid.UUID, usage string, includeDrafts bool) ([]domain.Question, error)
 	ListActiveTemplates(ctx context.Context) ([]TemplateSummary, error)
 	FindQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error)
@@ -140,16 +142,45 @@ type ModuleContent struct {
 	Setup  json.RawMessage
 }
 
-// Content returns the active blocks in order and the snapshot of the module (SPEC-021).
+// Content returns the active blocks in order and the snapshot of the module, as the latest published
+// version has them (SPEC-021 RN-06). Edits in progress in the draft are not shown.
 func (r *Reader) Content(ctx context.Context, moduleID uuid.UUID, v Viewer) (ModuleContent, error) {
 	if _, err := r.module(ctx, moduleID, v); err != nil {
 		return ModuleContent{}, err
 	}
+	version, err := r.store.LatestVersion(ctx, moduleID)
+	if errors.Is(err, ErrNotFound) {
+		// Every module has a version since its creation; this only guards a module that lost it.
+		return r.draft(ctx, moduleID)
+	}
+	if err != nil {
+		return ModuleContent{}, err
+	}
+	var content domain.VersionContent
+	if err := json.Unmarshal(version.Content, &content); err != nil {
+		return ModuleContent{}, fmt.Errorf("version %d of module %s: %w", version.Number, moduleID, err)
+	}
+	// Inactive blocks stay in the authoring list only (SPEC-019 RN-12).
+	return ModuleContent{Blocks: content.ContentBlocks(moduleID, true), Setup: content.SetupOrNil()}, nil
+}
+
+// Draft returns the content being edited, for ADMIN and the owner of the module (SPEC-021 RN-06).
+func (r *Reader) Draft(ctx context.Context, moduleID uuid.UUID, v Viewer) (ModuleContent, error) {
+	details, err := r.module(ctx, moduleID, v)
+	if err != nil {
+		return ModuleContent{}, err
+	}
+	if v.Role != "ADMIN" && (v.UserID == nil || details.Module.TeacherID != *v.UserID) {
+		return ModuleContent{}, ErrForbidden
+	}
+	return r.draft(ctx, moduleID)
+}
+
+func (r *Reader) draft(ctx context.Context, moduleID uuid.UUID) (ModuleContent, error) {
 	all, err := r.store.ListBlocks(ctx, moduleID)
 	if err != nil {
 		return ModuleContent{}, err
 	}
-	// Inactive blocks stay in the authoring list only (SPEC-019 RN-12).
 	active := make([]domain.ContentBlock, 0, len(all))
 	for _, b := range all {
 		if b.Active() {

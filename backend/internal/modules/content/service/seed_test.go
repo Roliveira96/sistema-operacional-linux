@@ -75,6 +75,8 @@ type fakeStore struct {
 	templates map[string]domain.AssessmentTemplate
 	items     map[uuid.UUID][]domain.TemplateQuestion
 	failSave  error
+	published []uuid.UUID
+	noChanges bool
 }
 
 func newFakeStore() *fakeStore {
@@ -108,6 +110,13 @@ func (f *fakeStore) HasEditedBlocks(_ context.Context, moduleID uuid.UUID) (bool
 		}
 	}
 	return false, nil
+}
+func (f *fakeStore) PublishVersion(_ context.Context, moduleID, _ uuid.UUID, _ string) (domain.ModuleVersion, error) {
+	if f.noChanges {
+		return domain.ModuleVersion{}, ErrNoChanges
+	}
+	f.published = append(f.published, moduleID)
+	return domain.ModuleVersion{}, nil
 }
 func (f *fakeStore) FindScenarioBySourceKey(_ context.Context, k string) (domain.Scenario, error) {
 	return find(f.scenarios, k)

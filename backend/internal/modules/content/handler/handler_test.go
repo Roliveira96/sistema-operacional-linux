@@ -25,12 +25,18 @@ type fakeReader struct {
 	viewer service.Viewer
 	usage  string
 	setup  json.RawMessage
+	draft  bool
 }
 
 func (f *fakeReader) Content(_ context.Context, _ uuid.UUID, v service.Viewer) (service.ModuleContent, error) {
 	f.viewer = v
 	blocks := []domain.ContentBlock{{ID: uuid.New(), BlockType: domain.BlockTip, Position: 1, Payload: json.RawMessage(`{"html":"x"}`)}}
 	return service.ModuleContent{Blocks: blocks, Setup: f.setup}, f.err
+}
+
+func (f *fakeReader) Draft(_ context.Context, _ uuid.UUID, v service.Viewer) (service.ModuleContent, error) {
+	f.viewer, f.draft = v, true
+	return service.ModuleContent{Blocks: []domain.ContentBlock{{ID: uuid.New(), BlockType: domain.BlockTip, Position: 1, Payload: json.RawMessage(`{"html":"rascunho"}`)}}}, f.err
 }
 
 func (f *fakeReader) Questions(_ context.Context, _ uuid.UUID, usage string, v service.Viewer) ([]service.PublicQuestion, error) {

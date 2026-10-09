@@ -40,6 +40,8 @@ type Store interface {
 	SaveBlock(ctx context.Context, b *domain.ContentBlock) error
 	// HasEditedBlocks reports whether the authoring touched any block of the module.
 	HasEditedBlocks(ctx context.Context, moduleID uuid.UUID) (bool, error)
+	// PublishVersion stores the draft as a new version, or returns ErrNoChanges (SPEC-021 RN-08).
+	PublishVersion(ctx context.Context, moduleID, by uuid.UUID, note string) (domain.ModuleVersion, error)
 	FindScenarioBySourceKey(ctx context.Context, key string) (domain.Scenario, error)
 	SaveScenario(ctx context.Context, s *domain.Scenario) error
 	FindQuestionBySourceKey(ctx context.Context, key string) (domain.Question, error)
@@ -130,6 +132,12 @@ func (s *Seeder) Run(ctx context.Context, m Manifest, adminEmail string) (Report
 					return err
 				}
 				report.Blocks.add(outcome)
+			}
+			// What the load changed reaches the students as a new version; a frozen module is left as it is.
+			if !frozen {
+				if _, err := s.store.PublishVersion(ctx, id, admin.ID, "Carga inicial"); err != nil && !errors.Is(err, ErrNoChanges) {
+					return err
+				}
 			}
 		}
 

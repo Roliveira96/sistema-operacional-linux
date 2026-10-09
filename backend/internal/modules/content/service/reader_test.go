@@ -44,6 +44,7 @@ type fakeReadStore struct {
 	askedKey      string
 	blocks        []domain.ContentBlock
 	setup         json.RawMessage
+	version       *domain.ModuleVersion
 }
 
 func (f *fakeReadStore) FindScenarioBySourceKey(_ context.Context, key string) (domain.Scenario, error) {
@@ -73,6 +74,13 @@ func (f *fakeReadStore) FindScenario(context.Context, uuid.UUID) (domain.Scenari
 		return domain.Scenario{}, ErrNotFound
 	}
 	return *f.scenario, nil
+}
+
+func (f *fakeReadStore) LatestVersion(context.Context, uuid.UUID) (domain.ModuleVersion, error) {
+	if f.version == nil {
+		return domain.ModuleVersion{}, ErrNotFound
+	}
+	return *f.version, nil
 }
 
 func (f *fakeReadStore) ModuleSetup(context.Context, uuid.UUID) (json.RawMessage, error) {

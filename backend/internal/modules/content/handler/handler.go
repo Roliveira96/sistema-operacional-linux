@@ -19,6 +19,7 @@ import (
 // Reader is the read use-case port.
 type Reader interface {
 	Content(ctx context.Context, moduleID uuid.UUID, v service.Viewer) (service.ModuleContent, error)
+	Draft(ctx context.Context, moduleID uuid.UUID, v service.Viewer) (service.ModuleContent, error)
 	Questions(ctx context.Context, moduleID uuid.UUID, usage string, v service.Viewer) ([]service.PublicQuestion, error)
 	TeacherQuestions(ctx context.Context, moduleID uuid.UUID, v service.Viewer) ([]service.TeacherQuestion, error)
 	Templates(ctx context.Context) ([]service.TemplateSummary, error)
@@ -63,7 +64,11 @@ func (h *Handler) blocks(c *gin.Context) {
 	if !ok {
 		return
 	}
-	content, err := h.reader.Content(c.Request.Context(), id, viewer(c))
+	read := h.reader.Content
+	if c.Query("draft") == "true" {
+		read = h.reader.Draft
+	}
+	content, err := read(c.Request.Context(), id, viewer(c))
 	if err != nil {
 		fail(c, err)
 		return
