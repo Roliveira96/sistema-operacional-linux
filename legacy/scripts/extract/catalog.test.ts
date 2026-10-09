@@ -75,3 +75,37 @@ describe('condition catalog', () => {
     expect(contentOf(sample, '/home')).toBeNull();
   });
 });
+
+// Covers SPEC-013 CA-01 and CA-03 on the TypeScript side.
+describe('SPEC-013 condition types', () => {
+  it('evaluates the new types with legacy semantics', () => {
+    const notes = '/home/ana/notas.txt';
+    expect(evaluateCondition(sample, { type: 'CONTENT_NOT_CONTAINS', path: notes, value: 'windows' })).toBe(true);
+    expect(evaluateCondition(sample, { type: 'CONTENT_NOT_CONTAINS', path: notes, value: 'LINUX' })).toBe(false);
+    expect(evaluateCondition(sample, { type: 'CONTENT_NOT_CONTAINS', path: notes, value: 'LINUX', caseSensitive: true })).toBe(true);
+    expect(evaluateCondition(sample, { type: 'CONTENT_NOT_CONTAINS', path: '/missing', value: 'x' })).toBe(true);
+
+    expect(evaluateCondition(sample, { type: 'CONTENT_LINE_COUNT', path: notes, comparison: 'EQUAL', count: 1 })).toBe(true);
+    expect(evaluateCondition(sample, { type: 'CONTENT_LINE_COUNT', path: notes, comparison: 'AT_LEAST', count: 2 })).toBe(false);
+    expect(evaluateCondition(sample, { type: 'CONTENT_LINE_COUNT', path: '/missing', comparison: 'AT_LEAST', count: 0 })).toBe(false);
+
+    const yes: Condition = { type: 'USER_EXISTS', user: 'ana' };
+    const no: Condition = { type: 'USER_EXISTS', user: 'bob' };
+    expect(evaluateCondition(sample, { type: 'ANY_OF', conditions: [no, yes] })).toBe(true);
+    expect(evaluateCondition(sample, { type: 'ANY_OF', conditions: [no, no] })).toBe(false);
+
+    // htop is installed without a Version field (""), vim is only configured, nano is absent.
+    expect(evaluateCondition(sample, { type: 'PACKAGES_AT_VERSIONS', packages: [{ package: 'htop', version: '' }, { package: 'vim', version: '9' }, { package: 'nano', version: '1' }] })).toBe(true);
+    expect(evaluateCondition(sample, { type: 'PACKAGES_AT_VERSIONS', packages: [{ package: 'htop', version: '3.0' }] })).toBe(false);
+  });
+
+  it('rejects malformed new conditions', () => {
+    const yes: Condition = { type: 'USER_EXISTS', user: 'ana' };
+    expect(validateConditions([{ type: 'ANY_OF', conditions: [] }])).toBe(false);
+    expect(validateConditions([{ type: 'ANY_OF', conditions: [{ type: 'ANY_OF', conditions: [yes] }] }])).toBe(false);
+    expect(validateConditions([{ type: 'CONTENT_LINE_COUNT', path: '/a', comparison: 'MORE', count: 1 }])).toBe(false);
+    expect(validateConditions([{ type: 'CONTENT_LINE_COUNT', path: '/a', comparison: 'EQUAL', count: -1 }])).toBe(false);
+    expect(validateConditions([{ type: 'PACKAGES_AT_VERSIONS', packages: [] }])).toBe(false);
+    expect(validateConditions([{ type: 'ANY_OF', conditions: [yes] }])).toBe(true);
+  });
+});

@@ -4,6 +4,7 @@
 // legacy/src/conteudo/Verificar.ts (or of the package and service helpers).
 // Anything else makes the translation fail, and the question falls back to a
 // suggestion and DRAFT status. The equivalence proof checks every result.
+import { CATALOGO } from '../../src/linux/Pacotes';
 import type { Condition } from './catalog';
 
 export interface Translation {
@@ -83,6 +84,17 @@ const RULES: Rule[] = [
   [rx(String.raw`\(${call('conteudo', STR)}\s*\?\?\s*(?:""|'')\)\.length\s*>\s*0`), (g) => ({ type: 'CONTENT_NOT_EMPTY', path: str(g[1]!) })],
   [rx(String.raw`\(${call('conteudo', STR)}\s*\?\?\s*(?:""|'')\)\.includes\(${STR}\)`), (g) => ({ type: 'CONTENT_CONTAINS', path: str(g[1]!), value: str(g[2]!) })],
   [rx(String.raw`new\s+${P}GerenciadorDePacotes\(${M}\)\.listasAtualizadas\(\)`), () => ({ type: 'APT_LISTS_UPDATED' })],
+  // SPEC-013 idioms.
+  [rx('!' + call('contem', `${STR},\\s*${STR}`)), (g) => ({ type: 'CONTENT_NOT_CONTAINS', path: str(g[1]!), value: str(g[2]!) })],
+  [rx(String.raw`!\(${call('conteudo', STR)}\s*\?\?\s*(?:""|'')\)\.includes\(${STR}\)`),
+    (g) => ({ type: 'CONTENT_NOT_CONTAINS', path: str(g[1]!), value: str(g[2]!), caseSensitive: true })],
+  [rx(String.raw`\(?${call('conteudo', STR)}(?:\s*\?\?\s*(?:""|''))?\)?\.trim\(\)\.split\((?:"\\n"|'\\n')\)\)?\.length\s*(===|>=)\s*${NUM}`),
+    (g) => ({ type: 'CONTENT_LINE_COUNT', path: str(g[1]!), comparison: g[2] === '===' ? 'EQUAL' : 'AT_LEAST', count: parseInt(g[3]!, 10) })],
+  [rx(String.raw`new\s+${P}GerenciadorDePacotes\(${M}\)\.atualizaveis\(\)\.length\s*===\s*0`), () => ({
+    type: 'PACKAGES_AT_VERSIONS',
+    // The candidate version of the legacy catalog: the new version when there is one.
+    packages: CATALOGO.map((p) => ({ package: p.nome, version: p.versaoNova ?? p.versao })),
+  })],
   [rx(String.raw`new\s+${P}GerenciadorDePacotes\(${M}\)\.estado\(\)\.get\(${STR}\)\s*===\s*undefined`), (g) => ({ type: 'PACKAGE_INSTALLED', package: str(g[1]!), installed: false })],
   [rx(String.raw`new\s+${P}Servicos\(${M}\)\.ativo\(${STR}\)`), (g) => ({ type: 'SERVICE_STATE', service: str(g[1]!), active: true })],
   [rx(String.raw`!new\s+${P}Servicos\(${M}\)\.ativo\(${STR}\)`), (g) => ({ type: 'SERVICE_STATE', service: str(g[1]!), active: false })],
@@ -147,6 +159,10 @@ function expandEvery(term: string): string[] | null {
 
 /** Splits an expression on top-level "&&", respecting brackets and strings. */
 export function splitConjunction(expr: string): string[] {
+  return splitTopLevel(expr, '&');
+}
+
+function splitTopLevel(expr: string, op: '&' | '|'): string[] {
   const parts: string[] = [];
   let depth = 0;
   let quote: string | null = null;
@@ -161,7 +177,7 @@ export function splitConjunction(expr: string): string[] {
     if (ch === '"' || ch === "'" || ch === '`') quote = ch;
     else if (ch === '(' || ch === '[' || ch === '{') depth += 1;
     else if (ch === ')' || ch === ']' || ch === '}') depth -= 1;
-    else if (depth === 0 && ch === '&' && expr[i + 1] === '&') {
+    else if (depth === 0 && ch === op && expr[i + 1] === op) {
       parts.push(expr.slice(start, i).trim());
       start = i + 2;
       i += 1;
@@ -187,8 +203,25 @@ function balanced(s: string): boolean {
   return depth === 0;
 }
 
-/** Translates one term; null when no idiom matches. */
+/** Splits an expression on top-level "||", respecting brackets and strings. */
+export function splitDisjunction(expr: string): string[] {
+  return splitTopLevel(expr, '|');
+}
+
+/** Translates one term; null when no idiom matches. A top-level "||" of
+ * translatable terms becomes ANY_OF (one level, SPEC-013). */
 export function translateTerm(term: string): Condition | null {
+  const normalized = normalize(term);
+  const alternatives = splitDisjunction(normalized);
+  if (alternatives.length > 1) {
+    const inner = alternatives.map((a) => translateSingle(a));
+    if (inner.some((c) => c === null || c.type === 'ANY_OF')) return null;
+    return { type: 'ANY_OF', conditions: inner as Condition[] };
+  }
+  return translateSingle(normalized);
+}
+
+function translateSingle(term: string): Condition | null {
   const normalized = normalize(term);
   for (const [pattern, build] of RULES) {
     const m = pattern.exec(normalized);

@@ -10,6 +10,7 @@ import {
   lookup,
   modeOf,
   packageStates,
+  packageVersions,
   userByName,
   userNameOf,
 } from './snapshot';
@@ -39,13 +40,19 @@ export type Condition =
   | { type: 'USER_IN_GROUP'; user: string; group: string }
   | { type: 'PACKAGE_INSTALLED'; package: string; installed: boolean }
   | { type: 'SERVICE_STATE'; service: string; active?: boolean; enabled?: boolean }
-  | { type: 'APT_LISTS_UPDATED' };
+  | { type: 'APT_LISTS_UPDATED' }
+  // SPEC-013 additions.
+  | { type: 'CONTENT_NOT_CONTAINS'; path: string; value: string; caseSensitive?: boolean }
+  | { type: 'CONTENT_LINE_COUNT'; path: string; comparison: 'EQUAL' | 'AT_LEAST'; count: number }
+  | { type: 'ANY_OF'; conditions: Condition[] }
+  | { type: 'PACKAGES_AT_VERSIONS'; packages: Array<{ package: string; version: string }> };
 
 export const CONDITION_TYPES = [
   'FILE_EXISTS', 'DIRECTORY_EXISTS', 'NODE_EXISTS', 'SYMLINK', 'PATH_ABSENT', 'CONTENT_EQUALS',
   'CONTENT_CONTAINS', 'CONTENT_NOT_EMPTY', 'DIRECTORY_EMPTY', 'PERMISSION_MODE', 'OWNER', 'GROUP_OWNER',
   'USER_EXISTS', 'USER_ABSENT', 'USER_ATTRIBUTE', 'USER_PASSWORD_SET', 'USER_LOCKED', 'GROUP_EXISTS',
   'GROUP_ABSENT', 'USER_IN_GROUP', 'PACKAGE_INSTALLED', 'SERVICE_STATE', 'APT_LISTS_UPDATED',
+  'CONTENT_NOT_CONTAINS', 'CONTENT_LINE_COUNT', 'ANY_OF', 'PACKAGES_AT_VERSIONS',
 ] as const;
 
 const APT_LISTS = '/var/lib/apt/lists/br.archive.ubuntu.com_ubuntu_dists_noble-updates_InRelease';
@@ -148,19 +155,48 @@ export function evaluateCondition(s: MaquinaJson, c: Condition): boolean {
     }
     case 'APT_LISTS_UPDATED':
       return lookup(s, APT_LISTS) !== null;
+    case 'CONTENT_NOT_CONTAINS': {
+      // A missing file reads as empty, like !Verificar.contem.
+      const text = contentOf(s, c.path) ?? '';
+      return c.caseSensitive ? !text.includes(c.value) : !text.toLowerCase().includes(c.value.toLowerCase());
+    }
+    case 'CONTENT_LINE_COUNT': {
+      const text = contentOf(s, c.path);
+      if (text === null) return false;
+      const lines = text.trim().split('\n').length;
+      return c.comparison === 'EQUAL' ? lines === c.count : lines >= c.count;
+    }
+    case 'ANY_OF':
+      return c.conditions.some((inner) => evaluateCondition(s, inner));
+    case 'PACKAGES_AT_VERSIONS':
+      return c.packages.every((p) => {
+        const state = packageVersions(s).get(p.package);
+        return state === undefined || state.status !== 'ii' || state.version === p.version;
+      });
   }
+}
+
+function validCondition(c: unknown, nested: boolean): boolean {
+  if (typeof c !== 'object' || c === null) return false;
+  const cond = c as Record<string, unknown>;
+  if (!CONDITION_TYPES.includes(cond.type as (typeof CONDITION_TYPES)[number])) return false;
+  if ('mode' in cond && !/^[0-7]{3,4}$/.test(String(cond.mode))) return false;
+  switch (cond.type) {
+    case 'ANY_OF':
+      return !nested && Array.isArray(cond.conditions) && cond.conditions.length > 0 &&
+        cond.conditions.every((inner) => validCondition(inner, true));
+    case 'CONTENT_LINE_COUNT':
+      return (cond.comparison === 'EQUAL' || cond.comparison === 'AT_LEAST') &&
+        Number.isInteger(cond.count) && (cond.count as number) >= 0;
+    case 'PACKAGES_AT_VERSIONS':
+      return Array.isArray(cond.packages) && cond.packages.length > 0;
+  }
+  return true;
 }
 
 /** Validates the shape of a condition list; an invalid list never passes. */
 export function validateConditions(list: unknown): list is Condition[] {
-  if (!Array.isArray(list) || list.length === 0) return false;
-  return list.every((c) => {
-    if (typeof c !== 'object' || c === null) return false;
-    const cond = c as Record<string, unknown>;
-    if (!CONDITION_TYPES.includes(cond.type as (typeof CONDITION_TYPES)[number])) return false;
-    if ('mode' in cond && !/^[0-7]{3,4}$/.test(String(cond.mode))) return false;
-    return true;
-  });
+  return Array.isArray(list) && list.length > 0 && list.every((c) => validCondition(c, false));
 }
 
 /** A list passes when it is valid and every condition holds. */

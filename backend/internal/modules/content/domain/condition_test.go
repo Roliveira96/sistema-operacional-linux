@@ -178,3 +178,52 @@ func TestGraderMatchesExtractorFixtures(t *testing.T) {
 	}
 	t.Logf("graded %d states of %d questions", checked, len(fx.Questions))
 }
+
+func intp(i int) *int { return &i }
+
+// Covers SPEC-013 CA-01 on the Go side.
+func TestSpec013ConditionTypes(t *testing.T) {
+	m := sample()
+	notes := "/home/ana/notas.txt"
+	yes := Condition{Type: CondUserExists, User: "ana"}
+	no := Condition{Type: CondUserExists, User: "bob"}
+	cases := []struct {
+		c    Condition
+		want bool
+	}{
+		{Condition{Type: CondContentNotContains, Path: notes, Value: "windows"}, true},
+		{Condition{Type: CondContentNotContains, Path: notes, Value: "LINUX"}, false},
+		{Condition{Type: CondContentNotContains, Path: notes, Value: "LINUX", CaseSensitive: true}, true},
+		{Condition{Type: CondContentNotContains, Path: "/missing", Value: "x"}, true},
+		{Condition{Type: CondContentLineCount, Path: notes, Comparison: CompareEqual, Count: intp(1)}, true},
+		{Condition{Type: CondContentLineCount, Path: notes, Comparison: CompareAtLeast, Count: intp(2)}, false},
+		{Condition{Type: CondContentLineCount, Path: "/missing", Comparison: CompareAtLeast, Count: intp(0)}, false},
+		{Condition{Type: CondAnyOf, Conditions: []Condition{no, yes}}, true},
+		{Condition{Type: CondAnyOf, Conditions: []Condition{no, no}}, false},
+		{Condition{Type: CondPackagesAtVersions, Packages: []PackageVersion{{"htop", ""}, {"vim", "9"}, {"nano", "1"}}}, true},
+		{Condition{Type: CondPackagesAtVersions, Packages: []PackageVersion{{"htop", "3.0"}}}, false},
+	}
+	for _, tc := range cases {
+		require.NoError(t, tc.c.Validate(), tc.c.Type)
+		assert.Equal(t, tc.want, tc.c.Holds(m), "%s %+v", tc.c.Type, tc.c)
+	}
+}
+
+// Covers SPEC-013 CA-03.
+func TestSpec013InvalidConditions(t *testing.T) {
+	yes := Condition{Type: CondUserExists, User: "ana"}
+	for _, c := range []Condition{
+		{Type: CondAnyOf},
+		{Type: CondAnyOf, Conditions: []Condition{{Type: CondAnyOf, Conditions: []Condition{yes}}}},
+		{Type: CondAnyOf, Conditions: []Condition{{Type: "NOPE"}}},
+		{Type: CondContentLineCount, Path: "/a", Comparison: "MORE", Count: intp(1)},
+		{Type: CondContentLineCount, Path: "/a", Comparison: CompareEqual, Count: intp(-1)},
+		{Type: CondContentLineCount, Path: "/a", Comparison: CompareEqual},
+		{Type: CondContentNotContains},
+		{Type: CondPackagesAtVersions},
+	} {
+		assert.ErrorIs(t, c.Validate(), ErrInvalidConditions, "%+v", c)
+	}
+	installed, version, ok := sample().PackageState("vim")
+	assert.Equal(t, []any{"rc", "", true}, []any{installed, version, ok})
+}

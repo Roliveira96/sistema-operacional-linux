@@ -32,8 +32,8 @@ describe('translateVerifier', () => {
   });
 
   it('reports untranslatable terms instead of guessing', () => {
-    const r = translateVerifier(`(m) => !${V}.contem(m, "/a", "x") && ${V}.arquivo(m, "/a")`);
-    expect(r.untranslated).toEqual([`!${V}.contem(m, "/a", "x")`]);
+    const r = translateVerifier(`(m) => m.usuariosNasConexoes().includes("lucas") && ${V}.arquivo(m, "/a")`);
+    expect(r.untranslated).toEqual(['m.usuariosNasConexoes().includes("lucas")']);
     expect(translateVerifier('(m) => { if (x) return 1; }').untranslated).toHaveLength(1);
     expect(expressionBody('no arrow')).toBeNull();
   });
@@ -61,5 +61,31 @@ describe('translateVerifier', () => {
 
   it('splits only top-level conjunctions', () => {
     expect(splitConjunction('a(b && c) && "x && y" && (d)')).toEqual(['a(b && c)', '"x && y"', 'd']);
+  });
+});
+
+// Covers SPEC-013 RN-02.
+describe('SPEC-013 idioms', () => {
+  it('translates negations, line counts, disjunctions and upgradable packages', () => {
+    expect(translateTerm(`!${V}.contem(m, "/a", "/bin/bash")`)).toEqual({ type: 'CONTENT_NOT_CONTAINS', path: '/a', value: '/bin/bash' });
+    expect(translateTerm(`!(${V}.conteudo(m, "/a") ?? "").includes("Accepted")`)).toMatchObject({ type: 'CONTENT_NOT_CONTAINS', caseSensitive: true });
+    expect(translateTerm(`(${V}.conteudo(m, "/a")).trim().split("\\n").length === 5`)).toEqual({ type: 'CONTENT_LINE_COUNT', path: '/a', comparison: 'EQUAL', count: 5 });
+    expect(translateTerm(`${V}.contem(m, "/a", "root") || ${V}.contem(m, "/a", "ricardo")`)).toEqual({
+      type: 'ANY_OF',
+      conditions: [
+        { type: 'CONTENT_CONTAINS', path: '/a', value: 'root' },
+        { type: 'CONTENT_CONTAINS', path: '/a', value: 'ricardo' },
+      ],
+    });
+    expect(translateTerm(`${V}.contem(m, "/a", "root") || somethingElse()`)).toBeNull();
+    const pkgs = translateTerm('(new __vite_ssr_import_1__.GerenciadorDePacotes(m)).atualizaveis().length === 0');
+    expect(pkgs?.type).toBe('PACKAGES_AT_VERSIONS');
+    expect(pkgs && 'packages' in pkgs && pkgs.packages.length).toBeGreaterThan(5);
+  });
+
+  it('translates the block-bodied line count verifier', () => {
+    const r = translateVerifier(`(m) => { const c = ${V}.conteudo(m, "/home/ricardo/primeiras_contas.txt"); return c !== null && c.trim().split("\\n").length === 5; }`);
+    expect(r.untranslated).toEqual([]);
+    expect(r.conditions.map((c) => c.type)).toEqual(['FILE_EXISTS', 'CONTENT_LINE_COUNT']);
   });
 });

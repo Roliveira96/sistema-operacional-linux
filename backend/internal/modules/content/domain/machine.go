@@ -210,12 +210,11 @@ func (m *Machine) GroupName(gid int) string {
 	return ""
 }
 
-// PackageInstalled reports whether /var/lib/dpkg/status lists the package as
-// installed ("ii"). Like the legacy package manager, which fills a map, the
-// last block of a package wins.
-func (m *Machine) PackageInstalled(name string) bool {
+// PackageState returns the dpkg status ("ii" or "rc") and version of a
+// package from /var/lib/dpkg/status. Like the legacy package manager, which
+// fills a map, the last block of a package wins.
+func (m *Machine) PackageState(name string) (status, version string, ok bool) {
 	text, _ := m.Content("/var/lib/dpkg/status")
-	installed := false
 	for _, block := range strings.Split(text, "\n\n") {
 		fields := map[string]string{}
 		for _, line := range strings.Split(block, "\n") {
@@ -223,9 +222,19 @@ func (m *Machine) PackageInstalled(name string) bool {
 				fields[line[:i]] = line[i+2:]
 			}
 		}
-		if pkg, ok := fields["Package"]; ok && pkg == name {
-			installed = !strings.Contains(fields["Status"], "config-files")
+		if pkg, found := fields["Package"]; found && pkg == name {
+			status = "ii"
+			if strings.Contains(fields["Status"], "config-files") {
+				status = "rc"
+			}
+			version, ok = fields["Version"], true
 		}
 	}
-	return installed
+	return status, version, ok
+}
+
+// PackageInstalled reports whether the package is installed ("ii").
+func (m *Machine) PackageInstalled(name string) bool {
+	status, _, ok := m.PackageState(name)
+	return ok && status == "ii"
 }

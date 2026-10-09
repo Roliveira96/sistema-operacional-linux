@@ -71,9 +71,9 @@ export function groupNameOf(snapshot: MaquinaJson, gid: number): string | undefi
   return snapshot.contas.grupos.find((g) => g.gid === gid)?.nome;
 }
 
-/** Package states from /var/lib/dpkg/status, as the legacy package manager parses them. */
-export function packageStates(snapshot: MaquinaJson): Map<string, 'ii' | 'rc'> {
-  const states = new Map<string, 'ii' | 'rc'>();
+/** Package states and versions from /var/lib/dpkg/status, as the legacy package manager parses them. */
+export function packageVersions(snapshot: MaquinaJson): Map<string, { status: 'ii' | 'rc'; version: string }> {
+  const states = new Map<string, { status: 'ii' | 'rc'; version: string }>();
   const text = contentOf(snapshot, '/var/lib/dpkg/status') ?? '';
   for (const block of text.split('\n\n')) {
     const fields = new Map<string, string>();
@@ -82,7 +82,17 @@ export function packageStates(snapshot: MaquinaJson): Map<string, 'ii' | 'rc'> {
       if (i > 0) fields.set(line.substring(0, i), line.substring(i + 2));
     }
     const name = fields.get('Package');
-    if (name !== undefined) states.set(name, (fields.get('Status') ?? '').includes('config-files') ? 'rc' : 'ii');
+    if (name !== undefined) {
+      states.set(name, {
+        status: (fields.get('Status') ?? '').includes('config-files') ? 'rc' : 'ii',
+        version: fields.get('Version') ?? '',
+      });
+    }
   }
   return states;
+}
+
+/** Package states from /var/lib/dpkg/status. */
+export function packageStates(snapshot: MaquinaJson): Map<string, 'ii' | 'rc'> {
+  return new Map([...packageVersions(snapshot)].map(([name, v]) => [name, v.status]));
 }

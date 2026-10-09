@@ -37,7 +37,25 @@ const (
 	CondPackageInstalled ConditionType = "PACKAGE_INSTALLED"
 	CondServiceState     ConditionType = "SERVICE_STATE"
 	CondAptListsUpdated  ConditionType = "APT_LISTS_UPDATED"
+
+	// SPEC-013 additions.
+	CondContentNotContains ConditionType = "CONTENT_NOT_CONTAINS"
+	CondContentLineCount   ConditionType = "CONTENT_LINE_COUNT"
+	CondAnyOf              ConditionType = "ANY_OF"
+	CondPackagesAtVersions ConditionType = "PACKAGES_AT_VERSIONS"
 )
+
+// Comparisons of CONTENT_LINE_COUNT.
+const (
+	CompareEqual   = "EQUAL"
+	CompareAtLeast = "AT_LEAST"
+)
+
+// PackageVersion is an expected version for PACKAGES_AT_VERSIONS.
+type PackageVersion struct {
+	Package string `json:"package"`
+	Version string `json:"version"`
+}
 
 // User attribute fields of USER_ATTRIBUTE.
 const (
@@ -58,22 +76,27 @@ const (
 // Condition is one declarative validation rule. Only the parameters of its
 // type are used; optional ones are pointers.
 type Condition struct {
-	Type               ConditionType `json:"type"`
-	Path               string        `json:"path,omitempty"`
-	Target             *string       `json:"target,omitempty"`
-	Value              string        `json:"value,omitempty"`
-	TrimWhitespace     bool          `json:"trimWhitespace,omitempty"`
-	Mode               string        `json:"mode,omitempty"`
-	IncludeSpecialBits bool          `json:"includeSpecialBits,omitempty"`
-	User               string        `json:"user,omitempty"`
-	Group              *string       `json:"group,omitempty"`
-	Field              string        `json:"field,omitempty"`
-	Locked             *bool         `json:"locked,omitempty"`
-	Package            string        `json:"package,omitempty"`
-	Installed          *bool         `json:"installed,omitempty"`
-	Service            string        `json:"service,omitempty"`
-	Active             *bool         `json:"active,omitempty"`
-	Enabled            *bool         `json:"enabled,omitempty"`
+	Type               ConditionType    `json:"type"`
+	Path               string           `json:"path,omitempty"`
+	Target             *string          `json:"target,omitempty"`
+	Value              string           `json:"value,omitempty"`
+	TrimWhitespace     bool             `json:"trimWhitespace,omitempty"`
+	Mode               string           `json:"mode,omitempty"`
+	IncludeSpecialBits bool             `json:"includeSpecialBits,omitempty"`
+	User               string           `json:"user,omitempty"`
+	Group              *string          `json:"group,omitempty"`
+	Field              string           `json:"field,omitempty"`
+	Locked             *bool            `json:"locked,omitempty"`
+	Package            string           `json:"package,omitempty"`
+	Installed          *bool            `json:"installed,omitempty"`
+	Service            string           `json:"service,omitempty"`
+	Active             *bool            `json:"active,omitempty"`
+	Enabled            *bool            `json:"enabled,omitempty"`
+	CaseSensitive      bool             `json:"caseSensitive,omitempty"`
+	Comparison         string           `json:"comparison,omitempty"`
+	Count              *int             `json:"count,omitempty"`
+	Conditions         []Condition      `json:"conditions,omitempty"`
+	Packages           []PackageVersion `json:"packages,omitempty"`
 }
 
 // ErrInvalidConditions is returned for lists that cannot be evaluated.
@@ -86,6 +109,10 @@ var userFields = []string{FieldHome, FieldShell, FieldComment, FieldUID, FieldPr
 // Validate checks that the condition has the parameters its type requires
 // (SPEC-011 RN-03).
 func (c Condition) Validate() error {
+	return c.validate(false)
+}
+
+func (c Condition) validate(nested bool) error {
 	missing := func(name string) error {
 		return fmt.Errorf("%w: %s requires %s", ErrInvalidConditions, c.Type, name)
 	}
@@ -143,6 +170,27 @@ func (c Condition) Validate() error {
 			return missing("service")
 		}
 	case CondAptListsUpdated:
+	case CondContentNotContains:
+		if c.Path == "" {
+			return missing("path")
+		}
+	case CondContentLineCount:
+		if c.Path == "" || c.Count == nil || *c.Count < 0 || (c.Comparison != CompareEqual && c.Comparison != CompareAtLeast) {
+			return missing("path, a valid comparison and a non-negative count")
+		}
+	case CondAnyOf:
+		if nested || len(c.Conditions) == 0 {
+			return fmt.Errorf("%w: ANY_OF must be non-empty and cannot be nested", ErrInvalidConditions)
+		}
+		for _, inner := range c.Conditions {
+			if err := inner.validate(true); err != nil {
+				return err
+			}
+		}
+	case CondPackagesAtVersions:
+		if len(c.Packages) == 0 {
+			return missing("packages")
+		}
 	default:
 		return fmt.Errorf("%w: unknown type %q", ErrInvalidConditions, c.Type)
 	}
@@ -273,6 +321,38 @@ func (c Condition) Holds(m *Machine) bool {
 		return c.Active != nil || c.Enabled != nil
 	case CondAptListsUpdated:
 		return m.Lookup(aptListsPath, true) != nil
+	case CondContentNotContains:
+		// A missing file reads as empty, like !Verificar.contem.
+		text, _ := m.Content(c.Path)
+		if c.CaseSensitive {
+			return !strings.Contains(text, c.Value)
+		}
+		return !strings.Contains(strings.ToLower(text), strings.ToLower(c.Value))
+	case CondContentLineCount:
+		text, ok := m.Content(c.Path)
+		if !ok {
+			return false
+		}
+		lines := len(strings.Split(trimJS(text), "\n"))
+		if c.Comparison == CompareEqual {
+			return lines == *c.Count
+		}
+		return lines >= *c.Count
+	case CondAnyOf:
+		for _, inner := range c.Conditions {
+			if inner.Holds(m) {
+				return true
+			}
+		}
+		return false
+	case CondPackagesAtVersions:
+		for _, p := range c.Packages {
+			status, version, ok := m.PackageState(p.Package)
+			if ok && status == "ii" && version != p.Version {
+				return false
+			}
+		}
+		return true
 	}
 	return false
 }

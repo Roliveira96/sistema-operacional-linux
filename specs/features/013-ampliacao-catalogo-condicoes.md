@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-013 |
-| **Status** | Rascunho |
+| **Status** | Implementada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -16,7 +16,6 @@
 | **Substitui** | Nenhuma (revisa o catálogo da SPEC-011) |
 | **Fontes canônicas** | Relatório de conversão `backend/internal/modules/content/seed/data/content_report.md`; histórico da SPEC-005 |
 
-> O corpo desta spec já reflete as recomendações da seção 10, marcadas com (P-xx).
 
 ---
 
@@ -35,9 +34,9 @@ A SPEC-011 determina que um tipo novo só entra por revisão do catálogo. Esta 
 
 ### 2.1. Fora de escopo (Non-Goals)
 
-- As 13 questões cujo cenário já nasce resolvido (dependiam da adaptação de alvo do legado, que não foi migrada): continuam em rascunho para revisão da docente (P-04).
+- As 13 questões cujo cenário já nasce resolvido (dependiam da adaptação de alvo do legado, que não foi migrada): continuam em rascunho para revisão da docente.
 - A questão `usr-5`, que depende de sessões abertas (estado que não existe na máquina serializada).
-- Composição arbitrária de condições (negação genérica, aninhamento): só o "ou" de um nível (P-02).
+- Composição arbitrária de condições (negação genérica, aninhamento): só o "ou" de um nível.
 
 ## 3. Proposta de Solução (Proposed Solution)
 
@@ -57,7 +56,7 @@ Tipos novos:
 | `PACKAGES_AT_VERSIONS` | `packages` (lista de `package` e `version`) | Todo pacote listado que estiver instalado tem exatamente a versão indicada (pacote não instalado não reprova) |
 
 - **RN-01 (avaliadores):** os dois avaliadores implementam os quatro tipos com a mesma semântica; a paridade continua garantida pelas fixtures de equivalência (SPEC-011, RN-02).
-- **RN-02 (tradução):** o tradutor reconhece `!Verificar.contem(...)`, `!(conteúdo ?? "").includes(...)`, contagens de linhas com `===` e `>=`, expressões com `||` cujos termos sejam todos traduzíveis, e `atualizaveis().length === 0`. Para esta última, o extrator grava em `PACKAGES_AT_VERSIONS` a versão candidata de cada pacote do catálogo do legado (a versão nova quando existir), sem precisar do catálogo no backend (P-03).
+- **RN-02 (tradução):** o tradutor reconhece `!Verificar.contem(...)`, `!(conteúdo ?? "").includes(...)`, contagens de linhas com `===` e `>=`, expressões com `||` cujos termos sejam todos traduzíveis, e `atualizaveis().length === 0`. Para esta última, o extrator grava em `PACKAGES_AT_VERSIONS` a versão candidata de cada pacote do catálogo do legado (a versão nova quando existir), sem precisar do catálogo no backend.
 - **RN-03 (validação):** `ANY_OF` vazio ou aninhado, `comparison` desconhecida, `count` negativo e `packages` vazio invalidam a lista.
 - **RN-04 (recarga):** depois da regeneração, a carga da SPEC-011 atualiza as questões recuperadas, sem tocar nas editadas pela docente.
 
@@ -80,12 +79,12 @@ Não se aplica nesta spec. Os endpoints de docente da SPEC-012 passam a devolver
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01**: Cada tipo novo DEVE ter teste positivo e negativo nos dois avaliadores.
-- [ ] **CA-02**: QUANDO o motor em Go avaliar as fixtures regeneradas, O SISTEMA DEVE produzir exatamente o veredito esperado em todos os estados.
-- [ ] **CA-03**: SE uma lista tiver `ANY_OF` vazio ou aninhado, `comparison` desconhecida, `count` negativo ou `packages` vazio, ENTÃO O SISTEMA DEVE recusá-la.
-- [ ] **CA-04**: QUANDO o extrator rodar de novo, o relatório DEVE mostrar quantas questões foram recuperadas, e nenhuma questão publicada pode divergir da correção original.
-- [ ] **CA-05**: QUANDO a carga rodar no banco de desenvolvimento, as questões recuperadas DEVEM passar a `PUBLISHED`, e as editadas pela docente NÃO DEVEM mudar.
-- [ ] **CA-06**: Os artefatos regenerados DEVEM continuar idênticos byte a byte entre duas execuções.
+- [x] **CA-01**: Cada tipo novo DEVE ter teste positivo e negativo nos dois avaliadores.
+- [x] **CA-02**: QUANDO o motor em Go avaliar as fixtures regeneradas, O SISTEMA DEVE produzir exatamente o veredito esperado em todos os estados.
+- [x] **CA-03**: SE uma lista tiver `ANY_OF` vazio ou aninhado, `comparison` desconhecida, `count` negativo ou `packages` vazio, ENTÃO O SISTEMA DEVE recusá-la.
+- [x] **CA-04**: QUANDO o extrator rodar de novo, o relatório DEVE mostrar quantas questões foram recuperadas, e nenhuma questão publicada pode divergir da correção original.
+- [x] **CA-05**: QUANDO a carga rodar no banco de desenvolvimento, as questões recuperadas DEVEM passar a `PUBLISHED`, e as editadas pela docente NÃO DEVEM mudar.
+- [x] **CA-06**: Os artefatos regenerados DEVEM continuar idênticos byte a byte entre duas execuções.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -102,12 +101,7 @@ Não se aplica nesta spec. Os endpoints de docente da SPEC-012 passam a devolver
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação (já refletida no corpo) |
-| :--- | :--- | :--- |
-| P-01 | Quatro tipos novos no catálogo fechado. | Aprovar `CONTENT_NOT_CONTAINS`, `CONTENT_LINE_COUNT`, `ANY_OF` e `PACKAGES_AT_VERSIONS`. |
-| P-02 | Até onde vai a composição de condições. | Só `ANY_OF` de um nível; nada de negação genérica nem aninhamento. |
-| P-03 | "Nenhum pacote atualizável" depende do catálogo de versões do legado, que não está na máquina serializada. | O extrator grava as versões esperadas na própria condição. |
-| P-04 | As 13 questões que já nascem resolvidas. | Continuam em rascunho para revisão da docente; não há como reconstruir a adaptação de alvo sem código. |
+Nenhuma. P-01 a P-04 aprovadas pelo Tech Lead em 08/10/2026 (ver histórico).
 
 ---
 
@@ -116,3 +110,5 @@ Não se aplica nesta spec. Os endpoints de docente da SPEC-012 passam a devolver
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 08/10/2026 | Implementador (Claude) | Criação a partir do relatório de conversão da SPEC-005. Pendências P-01 a P-04 |
+| 08/10/2026 | Tech Lead | Aprovação integral de P-01 a P-04. Status: `Aprovada` |
+| 08/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Resultado:** 14 questões recuperadas, de 190 para **204 publicadas** e de 32 para **18 em rascunho**; 219 das 222 correções traduzidas automaticamente; nenhuma questão publicada diverge da correção original. **Verificação:** 46 testes do extrator; testes de domínio em Go dos quatro tipos e das regras de validação (cobertura de 87,7%); paridade do motor em Go em todos os 627 estados das 222 questões; integração e recarga no banco de desenvolvimento (234 questões publicadas no total, incluindo as 30 do quiz; nenhuma edição de docente existia para preservar); artefatos idênticos byte a byte em duas execuções com mais de um minuto de intervalo. **Rascunhos restantes:** os 13 cenários que já nascem resolvidos; `arq-2` e `arq-3`, que precisariam de condições sobre o texto de linhas específicas (primeira linha, todas as linhas contendo um trecho), além da contagem; `arq-6` (solução de referência falhando) e `usr-5` (sessões abertas). **Correção de reprodutibilidade (SPEC-005):** a saída do `ps aux` gravada por `av-med-7` trazia a hora real de início dos processos, porque o legado a calcula ao carregar o módulo; o extrator agora importa o legado só depois de congelar o relógio. A verificação anterior tinha passado porque as duas execuções caíram no mesmo minuto. |

@@ -91,6 +91,15 @@ Módulo `backend/internal/modules/content/` (`domain`, `service`, `repository`) 
 
 Um tipo novo só entra por revisão desta spec, antes de ser usado.
 
+**Revisão de 08/10/2026 (SPEC-013):** o catálogo ganhou quatro tipos.
+
+| Tipo | Parâmetros | Semântica |
+| :--- | :--- | :--- |
+| `CONTENT_NOT_CONTAINS` | `path`, `value`, `caseSensitive` | O conteúdo não contém o trecho; arquivo inexistente conta como vazio |
+| `CONTENT_LINE_COUNT` | `path`, `comparison` (`EQUAL` ou `AT_LEAST`), `count` | O arquivo existe e tem a quantidade de linhas indicada |
+| `ANY_OF` | `conditions` | Pelo menos uma condição interna é atendida; um nível só |
+| `PACKAGES_AT_VERSIONS` | `packages` (`package` e `version`) | Todo pacote listado que estiver instalado tem a versão indicada |
+
 Regras de negócio:
 
 - **RN-01 (motor de correção):** função pura do domínio que recebe o estado serializado da máquina (formato `exame-so/maquina`, versão 1, do `Serializador` do legado) e a lista de condições, e devolve o veredito geral e o resultado de cada condição. Não acessa banco, rede nem relógio.
@@ -249,3 +258,4 @@ Nenhuma. P-01 a P-08 aprovadas pelo Tech Lead em 08/10/2026 (ver histórico).
 | 08/10/2026 | Implementador (Claude) | Criação a partir da divisão aprovada da SPEC-005 original (banco, motor de correção e carga), alinhada à SPEC-010 e ao insumo de conversão. Pendências P-01 a P-08 |
 | 08/10/2026 | Tech Lead | Aprovação integral das recomendações P-01 a P-08. Status: `Aprovada` |
 | 08/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Verificação:** o motor em Go reproduziu o veredito do avaliador TypeScript em todos os 625 estados das 221 questões das fixtures (CA-02); 23 tipos com teste positivo e negativo (CA-03); listas inválidas recusadas (CA-04); teste de integração com PostgreSQL real e o manifesto verdadeiro cobrindo CA-01 e CA-05 a CA-11; cobertura de 85,7% (`content/domain`), 91,6% (`content/service`) e 93,6% (`coursemodule/service`); suíte completa do backend passando. Carga real no banco de desenvolvimento: 9 módulos, 394 blocos, 236 cenários, 252 questões (220 publicadas), 7 modelos e 42 exercícios ligados. **Desvios:** (1) `tags` gravado como `jsonb`, e não como lista de texto do PostgreSQL, para não depender de `lib/pq`, que não está autorizado; (2) questão prática em `DRAFT` sem condições é gravada com lista vazia, que o motor nunca aprova, porque o extrator não consegue sugerir condições para todos os rascunhos (ex.: `av-med-10`); as publicadas continuam obrigadas a ter lista válida; (3) o comando `seed` aplica as migrações pendentes antes de carregar e embute o manifesto no binário (`-manifest` permite outro arquivo); (4) a carga passa pelo novo `Seeder` do módulo `coursemodule` (inserir, atualizar ou preservar módulos e ligar exercícios), e a edição de módulo pelo PATCH da SPEC-010 passa a marcar `edited_by_teacher_at`; módulo excluído pela docente conta como editado e não é recriado; (5) cenários da carga são atualizados quando o manifesto muda, porque ainda não há autoria de cenários; a imutabilidade da seção 4.3 vale para cenários criados pela futura autoria; (6) as unicidades de posição de blocos e de questões de modelo são adiáveis (`DEFERRABLE`), para reordenações dentro de uma transação; (7) o teste de repositório da SPEC-010 inseria itens de exercício com IDs aleatórios e passou a criar questões reais, por causa da chave estrangeira desta spec (RN-10); (8) recarga conta itens não editados como "atualizados", sem categoria separada para "sem mudança". |
+| 08/10/2026 | Implementador (Claude) | Catálogo revisado pela SPEC-013: tipos `CONTENT_NOT_CONTAINS`, `CONTENT_LINE_COUNT`, `ANY_OF` e `PACKAGES_AT_VERSIONS` |
