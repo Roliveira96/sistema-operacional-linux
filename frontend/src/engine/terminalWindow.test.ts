@@ -37,6 +37,15 @@ describe("mountTerminalWindow", () => {
     expect(onCommand.mock.calls.at(-1)?.[0]).toMatchObject({ formato: "exame-so/maquina" });
   });
 
+  // Covers SPEC-020 RN-08: the exit status of the command is what the test of a card reads.
+  it("resolves with the exit status of the command", async () => {
+    const { win } = await mount();
+    expect(await win.run({ command: "echo ok" })).toBe(0);
+    expect(await win.run({ command: "ls /nao-existe" })).not.toBe(0);
+    expect(await win.run({ command: "true" })).toBe(0);
+    expect(win.history().slice(-3)).toEqual(["echo ok", "ls /nao-existe", "true"]);
+  });
+
   // Covers CA-03: a step with terminal 2 and a login opens that tab as that user.
   it("opens the tab and logs in when a step asks for terminal 2", async () => {
     const { container, win } = await mount();

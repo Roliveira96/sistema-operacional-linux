@@ -20,8 +20,11 @@ export interface TerminalWindowCallbacks {
 }
 
 export interface TerminalWindow {
-  /** Types and runs a step in the tab it asks for, at the current speed. */
-  run(step: TerminalStep): Promise<void>;
+  /**
+   * Types and runs a step in the tab it asks for, at the current speed. Resolves with the exit
+   * status of the command (0 is success), or null when it did not run (SPEC-020 RN-08).
+   */
+  run(step: TerminalStep): Promise<number | null>;
   setSpeed(speed: number): void;
   /** Replaces the machine at once and reopens the root terminal. */
   reset(snapshot: unknown): void;
@@ -79,7 +82,7 @@ export async function mountTerminalWindow(
   interface TerminalInternals {
     numero: number;
     maquina: typeof machine;
-    sessao: { atual(): { usuario: { nome: string } }; historico: string[] } | null;
+    sessao: { atual(): { usuario: { nome: string }; escopo: { ultimoStatus: number } }; historico: string[] } | null;
     usuarioAtual(): string | null;
     renderizarEntrada(): void;
   }
@@ -91,8 +94,14 @@ export async function mountTerminalWindow(
   return {
     async run(step) {
       const login = step.login ? { usuario: step.login.user, senha: step.login.password } : undefined;
-      const terminal = await window3.obter(step.terminal ?? 1, login);
+      const terminal = (await window3.obter(step.terminal ?? 1, login)) as unknown as TerminalInternals & { executarAutomatico(command: string, answers?: string[]): Promise<void> };
+      const before = terminal.sessao?.historico.length ?? 0;
       await terminal.executarAutomatico(step.command, step.answers ?? []);
+      // The legacy terminal keeps the status of the last command in the scope of the session. When the
+      // history did not grow the command never ran (the terminal was busy), so there is no status.
+      const session = terminal.sessao;
+      if (!session || session.historico.length <= before) return null;
+      return session.atual().escopo.ultimoStatus;
     },
 
     setSpeed(speed) {
