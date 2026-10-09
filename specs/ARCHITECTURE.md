@@ -135,8 +135,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 - **NÃO DEVE** haver cor com valor fixo em nenhuma folha de estilo de componente. Cores, espaçamentos, raios, sombras e tipografia vêm de **design tokens semânticos**.
 - Tokens centralizados em `frontend/src/styles/_tokens.scss`, exclusivamente como CSS Custom Properties.
 - Mixins e funções compartilhadas em `frontend/src/styles/_mixins.scss`.
-- **Paridade de temas obrigatória:** todo token tem valor para o tema claro e para o escuro. O tema escuro se aplica exclusivamente por redefinição dos valores dos tokens sob o seletor de tema escuro no elemento raiz. Componentes nunca testam o tema.
-- Toda tela é verificada nos dois temas antes de ser considerada pronta.
+- **Tema único escuro (SPEC-015):** a interface tem só o tema escuro da identidade visual do protótipo "Linux na Prática". Os tokens são definidos uma vez, em `:root`; não há alternador de tema nem seletor `data-theme`. Componentes nunca usam cor fora dos tokens.
 
 ### 4.3. Acesso a rede
 
@@ -147,7 +146,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 ### 4.4. Textos e acessibilidade
 
 - Texto de interface em português, centralizado em arquivos de mensagens.
-- Contraste mínimo WCAG AA nos dois temas e navegação completa por teclado nas telas de prova.
+- Contraste mínimo WCAG AA e navegação completa por teclado nas telas de prova.
 
 ## 5. Testes
 
@@ -158,7 +157,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
   - Handlers: testes contra o roteador Gin real com `httptest`, conferindo validação, status HTTP e envelope RFC 7807.
   - Repositories: integração com PostgreSQL real via `testcontainers-go`.
   - Condições de corrida: `go test -race` sempre que houver cgo; obrigatório na futura CI.
-- **Frontend:** Vitest e Testing Library, com cobertura pelo provedor `v8`. Testes ao lado da implementação para todo serviço, hook e componente; rede simulada injetando um `fetch` falso; componentes renderizados com `data-theme` claro e escuro, verificando estrutura e classes equivalentes (sem comparar cores).
+- **Frontend:** Vitest e Testing Library, com cobertura pelo provedor `v8`. Testes ao lado da implementação para todo serviço, hook e componente; rede simulada injetando um `fetch` falso.
 - **Cobertura mínima: mais de 80%** das instruções (backend) e de linhas e ramos (frontend). Vale para `domain`, `service` e `handler` de cada módulo em `backend/internal/modules/` e para serviços, hooks e componentes do frontend. Os pacotes de `backend/internal/platform/` ficam fora do limite e são cobertos por integração e roteiro manual.
 - **Qualidade:** cada critério de aceite é mapeado a pelo menos um teste nomeado; asserções verificam saídas, estados e erros, não contagem de chamadas internas.
 - Verificação estática obrigatória no frontend: ESLint e Stylelint. O Stylelint proíbe cores literais em qualquer arquivo de estilo, exceto `_tokens.scss`.
