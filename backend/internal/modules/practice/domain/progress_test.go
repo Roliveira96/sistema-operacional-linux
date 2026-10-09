@@ -23,3 +23,14 @@ func TestRecordKeepsFirstApproval(t *testing.T) {
 	assert.Equal(t, t0.Add(time.Minute), *p.CompletedAt, "the first approval date is kept")
 	assert.Equal(t, "exercise_progress", Progress{}.TableName())
 }
+
+// Covers SPEC-016 RN-01 (domain rule).
+func TestCompleteNeverCountsAttempts(t *testing.T) {
+	p := Progress{Attempts: 2}
+	t0 := time.Date(2026, 10, 9, 10, 0, 0, 0, time.UTC)
+	p.Complete(t0)
+	p.Complete(t0.Add(time.Hour))
+	assert.Equal(t, 2, p.Attempts)
+	assert.True(t, p.LastPassed)
+	assert.Equal(t, t0, *p.CompletedAt)
+}

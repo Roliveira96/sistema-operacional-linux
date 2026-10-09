@@ -17,9 +17,10 @@ import (
 )
 
 type fakeAccess struct {
-	owner uuid.UUID
-	err   error
-	seen  cmservice.UserAccessContext
+	owner     uuid.UUID
+	sourceKey *string
+	err       error
+	seen      cmservice.UserAccessContext
 }
 
 func (f *fakeAccess) GetModuleByID(_ context.Context, _ uuid.UUID, u cmservice.UserAccessContext) (cmrepository.ModuleDetails, error) {
@@ -27,7 +28,7 @@ func (f *fakeAccess) GetModuleByID(_ context.Context, _ uuid.UUID, u cmservice.U
 	if f.err != nil {
 		return cmrepository.ModuleDetails{}, f.err
 	}
-	return cmrepository.ModuleDetails{Module: cmdomain.CourseModule{TeacherID: f.owner}}, nil
+	return cmrepository.ModuleDetails{Module: cmdomain.CourseModule{TeacherID: f.owner, SourceKey: f.sourceKey}}, nil
 }
 
 type fakeReadStore struct {
@@ -37,6 +38,21 @@ type fakeReadStore struct {
 	question      *domain.Question
 	scenario      *domain.Scenario
 	findErr       error
+	keys          map[string]domain.Scenario
+	keyErr        error
+	askedKey      string
+}
+
+func (f *fakeReadStore) FindScenarioBySourceKey(_ context.Context, key string) (domain.Scenario, error) {
+	f.askedKey = key
+	if f.keyErr != nil {
+		return domain.Scenario{}, f.keyErr
+	}
+	s, ok := f.keys[key]
+	if !ok {
+		return domain.Scenario{}, ErrNotFound
+	}
+	return s, nil
 }
 
 func (f *fakeReadStore) FindQuestion(context.Context, uuid.UUID) (domain.Question, error) {
@@ -199,4 +215,72 @@ func TestPracticeItem(t *testing.T) {
 	broken.ValidationConditions = json.RawMessage(`{`)
 	_, err = NewReader(&fakeAccess{}, &fakeReadStore{question: &broken, scenario: &domain.Scenario{}}).PracticeItem(context.Background(), broken.ID, Viewer{})
 	assert.Error(t, err)
+}
+
+// Covers SPEC-016 P-02: training exercises carry their solution; assessments never.
+func TestPracticalExercisesExposeTheirSolution(t *testing.T) {
+	solution := json.RawMessage(`[{"command":"mkdir /a"}]`)
+	store := &fakeReadStore{questions: []domain.Question{
+		{Kind: domain.KindPractical, Usage: domain.UsageExercise, Status: domain.StatusPublished, ReferenceSolution: solution},
+		{Kind: domain.KindPractical, Usage: domain.UsageAssessment, Status: domain.StatusPublished, ReferenceSolution: solution},
+	}}
+	qs, err := NewReader(&fakeAccess{}, store).Questions(context.Background(), uuid.New(), "", Viewer{})
+	require.NoError(t, err)
+	assert.JSONEq(t, string(solution), string(qs[0].Solution))
+	assert.Nil(t, qs[1].Solution)
+}
+
+// Covers SPEC-016 5.1 and CA-02 (service side).
+func TestTopicScenario(t *testing.T) {
+	ctx := context.Background()
+	key := "diretorios"
+	machine := json.RawMessage(`{"formato":"exame-so/maquina"}`)
+	store := &fakeReadStore{keys: map[string]domain.Scenario{"scenario/topic/diretorios": {Snapshot: machine}}}
+
+	got, err := NewReader(&fakeAccess{sourceKey: &key}, store).TopicScenario(ctx, uuid.New(), Viewer{})
+	require.NoError(t, err)
+	assert.JSONEq(t, string(machine), string(got))
+	assert.Equal(t, "scenario/topic/diretorios", store.askedKey)
+
+	other := "sem-cenario"
+	got, err = NewReader(&fakeAccess{sourceKey: &other}, store).TopicScenario(ctx, uuid.New(), Viewer{})
+	require.NoError(t, err)
+	assert.Nil(t, got, "a module without a topic machine uses the default one")
+
+	got, err = NewReader(&fakeAccess{}, store).TopicScenario(ctx, uuid.New(), Viewer{})
+	require.NoError(t, err)
+	assert.Nil(t, got, "modules created by the teacher have no source key")
+
+	boom := errors.New("db down")
+	_, err = NewReader(&fakeAccess{sourceKey: &key}, &fakeReadStore{keyErr: boom}).TopicScenario(ctx, uuid.New(), Viewer{})
+	assert.ErrorIs(t, err, boom)
+
+	_, err = NewReader(&fakeAccess{err: cmdomain.ErrForbidden}, store).TopicScenario(ctx, uuid.New(), Viewer{})
+	assert.ErrorIs(t, err, ErrAuthRequired)
+}
+
+// Covers SPEC-016 5.2 (service side): only published practical exercises are graded.
+func TestModulePracticeItems(t *testing.T) {
+	ctx := context.Background()
+	practical := domain.Question{ID: uuid.New(), Kind: domain.KindPractical, Usage: domain.UsageExercise, Status: domain.StatusPublished,
+		ValidationConditions: json.RawMessage(`[{"type":"FILE_EXISTS","path":"/a"}]`)}
+	store := &fakeReadStore{questions: []domain.Question{
+		practical,
+		{Kind: domain.KindTheoreticalSingle, Usage: domain.UsageExercise, Status: domain.StatusPublished},
+		{Kind: domain.KindPractical, Usage: domain.UsageExercise, Status: domain.StatusDraft},
+	}}
+	items, err := NewReader(&fakeAccess{}, store).ModulePracticeItems(ctx, uuid.New(), Viewer{})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, practical.ID, items[0].QuestionID)
+	assert.Len(t, items[0].Conditions, 1)
+	assert.Equal(t, domain.UsageExercise, store.usage)
+	assert.False(t, store.includeDrafts)
+
+	broken := &fakeReadStore{questions: []domain.Question{{Kind: domain.KindPractical, Status: domain.StatusPublished, ValidationConditions: json.RawMessage(`{`)}}}
+	_, err = NewReader(&fakeAccess{}, broken).ModulePracticeItems(ctx, uuid.New(), Viewer{})
+	assert.Error(t, err)
+
+	_, err = NewReader(&fakeAccess{err: cmdomain.ErrModuleNotFound}, store).ModulePracticeItems(ctx, uuid.New(), Viewer{})
+	assert.ErrorIs(t, err, ErrModuleNotFound)
 }

@@ -32,3 +32,13 @@ func (p *Progress) Record(passed bool, at time.Time) {
 		p.CompletedAt = &completed
 	}
 }
+
+// Complete records an approval seen by the automatic batch check (SPEC-016
+// RN-01): it never counts an attempt, and the first approval is kept.
+func (p *Progress) Complete(at time.Time) {
+	p.LastPassed = true
+	if p.CompletedAt == nil {
+		completed := at
+		p.CompletedAt = &completed
+	}
+}

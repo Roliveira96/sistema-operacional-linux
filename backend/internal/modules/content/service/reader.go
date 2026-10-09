@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -35,7 +36,12 @@ type ReadStore interface {
 	ListActiveTemplates(ctx context.Context) ([]TemplateSummary, error)
 	FindQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error)
 	FindScenario(ctx context.Context, id uuid.UUID) (domain.Scenario, error)
+	FindScenarioBySourceKey(ctx context.Context, key string) (domain.Scenario, error)
 }
+
+// TopicScenarioPrefix prefixes the module source key in the key of the topic
+// machine extracted from the prototype (SPEC-016).
+const TopicScenarioPrefix = "scenario/topic/"
 
 // PracticeItem is what the practice module needs from an exercise: the
 // starting state for the browser and the conditions for the server.
@@ -56,7 +62,8 @@ type TemplateSummary struct {
 }
 
 // PublicQuestion is the view for visitors and students: no answer key,
-// conditions, reference solution or explanation (RN-02).
+// conditions or explanation (RN-02). Practical training exercises carry their
+// reference solution, shown on demand as in the prototype (SPEC-016 P-02).
 type PublicQuestion struct {
 	ID         uuid.UUID       `json:"id"`
 	Kind       string          `json:"kind"`
@@ -66,6 +73,7 @@ type PublicQuestion struct {
 	Statement  string          `json:"statement"`
 	Hint       *string         `json:"hint,omitempty"`
 	Choices    json.RawMessage `json:"choices,omitempty"`
+	Solution   json.RawMessage `json:"solution,omitempty"`
 }
 
 // TeacherQuestion is the full view for the module owner and admins.
@@ -181,6 +189,9 @@ func publicView(q domain.Question) PublicQuestion {
 	p := PublicQuestion{
 		ID: q.ID, Kind: q.Kind, Usage: q.Usage, Difficulty: q.Difficulty, Title: q.Title, Statement: q.Statement, Hint: q.Hint,
 	}
+	if q.Kind == domain.KindPractical && q.Usage == domain.UsageExercise {
+		p.Solution = q.ReferenceSolution
+	}
 	if q.Kind != domain.KindPractical && q.Kind != domain.KindDiscursive {
 		p.Choices = q.Choices
 	}
@@ -212,4 +223,49 @@ func (r *Reader) PracticeItem(ctx context.Context, questionID uuid.UUID, v Viewe
 		return PracticeItem{}, err
 	}
 	return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Snapshot: scenario.Snapshot, Conditions: conditions}, nil
+}
+
+// TopicScenario returns the prepared machine of the module topic (SPEC-016
+// 5.1), or nil when the module has none and the default machine applies.
+func (r *Reader) TopicScenario(ctx context.Context, moduleID uuid.UUID, v Viewer) (json.RawMessage, error) {
+	details, err := r.module(ctx, moduleID, v)
+	if err != nil {
+		return nil, err
+	}
+	if details.Module.SourceKey == nil {
+		return nil, nil
+	}
+	scenario, err := r.store.FindScenarioBySourceKey(ctx, TopicScenarioPrefix+*details.Module.SourceKey)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return scenario.Snapshot, nil
+}
+
+// ModulePracticeItems returns the published practical exercises of a module
+// the viewer can access, with their conditions, for the batch check of
+// SPEC-016 5.2. Snapshots are not loaded: the student's machine is graded.
+func (r *Reader) ModulePracticeItems(ctx context.Context, moduleID uuid.UUID, v Viewer) ([]PracticeItem, error) {
+	if _, err := r.module(ctx, moduleID, v); err != nil {
+		return nil, err
+	}
+	qs, err := r.store.ListQuestions(ctx, moduleID, domain.UsageExercise, false)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]PracticeItem, 0, len(qs))
+	for _, q := range qs {
+		if q.Kind != domain.KindPractical || q.Status != domain.StatusPublished {
+			continue
+		}
+		var conditions []domain.Condition
+		if err := json.Unmarshal(q.ValidationConditions, &conditions); err != nil {
+			return nil, fmt.Errorf("conditions of question %s: %w", q.ID, err)
+		}
+		items = append(items, PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Conditions: conditions})
+	}
+	return items, nil
 }

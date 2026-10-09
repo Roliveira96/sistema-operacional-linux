@@ -25,6 +25,8 @@ var ErrNotFound = errors.New("progress not found")
 // Content is the part of the content module this service uses.
 type Content interface {
 	PracticeItem(ctx context.Context, questionID uuid.UUID, v contentservice.Viewer) (contentservice.PracticeItem, error)
+	TopicScenario(ctx context.Context, moduleID uuid.UUID, v contentservice.Viewer) (json.RawMessage, error)
+	ModulePracticeItems(ctx context.Context, moduleID uuid.UUID, v contentservice.Viewer) ([]contentservice.PracticeItem, error)
 }
 
 // Store persists progress.
@@ -71,24 +73,17 @@ func (s *Service) Check(ctx context.Context, questionID uuid.UUID, v contentserv
 	if err != nil {
 		return CheckResult{}, err
 	}
-	var machine contentdomain.Machine
-	if err := json.Unmarshal(snapshot, &machine); err != nil ||
-		machine.Format != contentdomain.MachineFormat || machine.Version != contentdomain.MachineVersion {
-		return CheckResult{}, ErrInvalidSnapshot
+	machine, err := parseMachine(snapshot)
+	if err != nil {
+		return CheckResult{}, err
 	}
-	verdict, err := contentdomain.Grade(&machine, item.Conditions)
+	verdict, err := contentdomain.Grade(machine, item.Conditions)
 	if err != nil {
 		return CheckResult{}, fmt.Errorf("grade question %s: %w", questionID, err)
 	}
 
-	progress, err := s.store.FindProgress(ctx, *v.UserID, questionID)
-	if errors.Is(err, ErrNotFound) {
-		id, idErr := uuid.NewV7()
-		if idErr != nil {
-			return CheckResult{}, idErr
-		}
-		progress = domain.Progress{ID: id, UserID: *v.UserID, QuestionID: questionID}
-	} else if err != nil {
+	progress, err := s.progressOf(ctx, *v.UserID, questionID)
+	if err != nil {
 		return CheckResult{}, err
 	}
 	progress.Record(verdict.Passed, s.now().UTC())
@@ -101,4 +96,83 @@ func (s *Service) Check(ctx context.Context, questionID uuid.UUID, v contentserv
 // ModuleProgress lists the student's progress in a module.
 func (s *Service) ModuleProgress(ctx context.Context, userID, moduleID uuid.UUID) ([]domain.Progress, error) {
 	return s.store.ListModuleProgress(ctx, userID, moduleID)
+}
+
+func parseMachine(snapshot json.RawMessage) (*contentdomain.Machine, error) {
+	var machine contentdomain.Machine
+	if err := json.Unmarshal(snapshot, &machine); err != nil ||
+		machine.Format != contentdomain.MachineFormat || machine.Version != contentdomain.MachineVersion {
+		return nil, ErrInvalidSnapshot
+	}
+	return &machine, nil
+}
+
+// progressOf loads the student's progress on a question, or starts a new one.
+func (s *Service) progressOf(ctx context.Context, userID, questionID uuid.UUID) (domain.Progress, error) {
+	progress, err := s.store.FindProgress(ctx, userID, questionID)
+	if errors.Is(err, ErrNotFound) {
+		id, idErr := uuid.NewV7()
+		if idErr != nil {
+			return domain.Progress{}, idErr
+		}
+		return domain.Progress{ID: id, UserID: userID, QuestionID: questionID}, nil
+	}
+	return progress, err
+}
+
+// TopicScenario returns the prepared machine of the module topic, or nil for
+// the default machine (SPEC-016 5.1).
+func (s *Service) TopicScenario(ctx context.Context, moduleID uuid.UUID, v contentservice.Viewer) (json.RawMessage, error) {
+	return s.content.TopicScenario(ctx, moduleID, v)
+}
+
+// ModuleCheckResult lists the exercises the submitted machine satisfies and
+// the student's completions in the module.
+type ModuleCheckResult struct {
+	Passed   []uuid.UUID
+	Progress []domain.Progress
+}
+
+// CheckModule grades every practical exercise of the module against the
+// student's machine and records the approvals (SPEC-016 5.2, RN-01): failures
+// are not recorded, so the automatic check never counts attempts.
+func (s *Service) CheckModule(ctx context.Context, moduleID uuid.UUID, v contentservice.Viewer, snapshot json.RawMessage) (ModuleCheckResult, error) {
+	if v.UserID == nil {
+		return ModuleCheckResult{}, contentservice.ErrAuthRequired
+	}
+	items, err := s.content.ModulePracticeItems(ctx, moduleID, v)
+	if err != nil {
+		return ModuleCheckResult{}, err
+	}
+	machine, err := parseMachine(snapshot)
+	if err != nil {
+		return ModuleCheckResult{}, err
+	}
+	passed := []uuid.UUID{}
+	for _, item := range items {
+		verdict, err := contentdomain.Grade(machine, item.Conditions)
+		if err != nil {
+			return ModuleCheckResult{}, fmt.Errorf("grade question %s: %w", item.QuestionID, err)
+		}
+		if !verdict.Passed {
+			continue
+		}
+		passed = append(passed, item.QuestionID)
+		progress, err := s.progressOf(ctx, *v.UserID, item.QuestionID)
+		if err != nil {
+			return ModuleCheckResult{}, err
+		}
+		if progress.CompletedAt != nil {
+			continue
+		}
+		progress.Complete(s.now().UTC())
+		if err := s.store.SaveProgress(ctx, &progress); err != nil {
+			return ModuleCheckResult{}, fmt.Errorf("save progress: %w", err)
+		}
+	}
+	all, err := s.store.ListModuleProgress(ctx, *v.UserID, moduleID)
+	if err != nil {
+		return ModuleCheckResult{}, err
+	}
+	return ModuleCheckResult{Passed: passed, Progress: all}, nil
 }

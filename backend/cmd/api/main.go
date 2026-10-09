@@ -161,7 +161,8 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	contentReader := contentservice.NewReader(moduleService, contentrepository.New(db))
 	contentHandler := contenthandler.New(contentReader, auth)
 	practiceHandler := practicehandler.New(
-		practiceservice.New(contentReader, practicerepository.New(db)), auth, ratelimit.New(30, time.Minute))
+		practiceservice.New(contentReader, practicerepository.New(db)), auth,
+		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
 
 	studentRepo := studentrepository.New(db)
 	studentService := studentservice.New(studentservice.Deps{

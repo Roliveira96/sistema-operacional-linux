@@ -24,7 +24,18 @@ const solvedMachine = `{"formato":"exame-so/maquina","versao":1,"hostname":"h","
 	`{"nome":"a","tipo":"diretorio","dono":0,"grupo":0,"permissoes":"755","filhos":[]}]}}`
 
 type fakeContent struct {
-	err error
+	err      error
+	topic    json.RawMessage
+	items    []contentservice.PracticeItem
+	itemsErr error
+}
+
+func (f fakeContent) TopicScenario(context.Context, uuid.UUID, contentservice.Viewer) (json.RawMessage, error) {
+	return f.topic, f.err
+}
+
+func (f fakeContent) ModulePracticeItems(context.Context, uuid.UUID, contentservice.Viewer) ([]contentservice.PracticeItem, error) {
+	return f.items, f.itemsErr
 }
 
 func (f fakeContent) PracticeItem(_ context.Context, id uuid.UUID, _ contentservice.Viewer) (contentservice.PracticeItem, error) {
@@ -41,6 +52,8 @@ type fakeStore struct {
 	rows    map[[2]uuid.UUID]domain.Progress
 	findErr error
 	saveErr error
+	listErr error
+	saves   int
 }
 
 func (f *fakeStore) FindProgress(_ context.Context, user, question uuid.UUID) (domain.Progress, error) {
@@ -58,11 +71,15 @@ func (f *fakeStore) SaveProgress(_ context.Context, p *domain.Progress) error {
 	if f.saveErr != nil {
 		return f.saveErr
 	}
+	f.saves++
 	f.rows[[2]uuid.UUID{p.UserID, p.QuestionID}] = *p
 	return nil
 }
 
 func (f *fakeStore) ListModuleProgress(_ context.Context, user, _ uuid.UUID) ([]domain.Progress, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
 	var out []domain.Progress
 	for k, v := range f.rows {
 		if k[0] == user {
@@ -148,7 +165,7 @@ func TestCheckRejectsInvalidInput(t *testing.T) {
 	assert.ErrorContains(t, err, "disk full")
 }
 
-type invalidContent struct{}
+type invalidContent struct{ fakeContent }
 
 func (invalidContent) PracticeItem(_ context.Context, id uuid.UUID, _ contentservice.Viewer) (contentservice.PracticeItem, error) {
 	return contentservice.PracticeItem{QuestionID: id}, nil
@@ -158,4 +175,81 @@ func TestCheckWithoutConditionsIsAnError(t *testing.T) {
 	svc, _ := newService(invalidContent{})
 	_, err := svc.Check(context.Background(), uuid.New(), student(), json.RawMessage(solvedMachine))
 	assert.ErrorIs(t, err, contentdomain.ErrInvalidConditions)
+}
+
+// Covers SPEC-016 5.1 (service side).
+func TestTopicScenarioIsPassedThrough(t *testing.T) {
+	svc, _ := newService(fakeContent{topic: json.RawMessage(emptyMachine)})
+	got, err := svc.TopicScenario(context.Background(), uuid.New(), contentservice.Viewer{})
+	require.NoError(t, err)
+	assert.JSONEq(t, emptyMachine, string(got))
+}
+
+func moduleItems() (uuid.UUID, uuid.UUID, fakeContent) {
+	solvable, unsolved := uuid.New(), uuid.New()
+	return solvable, unsolved, fakeContent{items: []contentservice.PracticeItem{
+		{QuestionID: solvable, Conditions: []contentdomain.Condition{{Type: contentdomain.CondDirectoryExists, Path: "/a"}}},
+		{QuestionID: unsolved, Conditions: []contentdomain.Condition{{Type: contentdomain.CondDirectoryExists, Path: "/b"}}},
+	}}
+}
+
+// Covers SPEC-016 CA-04 and RN-01 (service side).
+func TestCheckModuleRecordsApprovalsWithoutAttempts(t *testing.T) {
+	ctx := context.Background()
+	solvable, unsolved, content := moduleItems()
+	svc, store := newService(content)
+	v := student()
+
+	result, err := svc.CheckModule(ctx, uuid.New(), v, json.RawMessage(solvedMachine))
+	require.NoError(t, err)
+	assert.Equal(t, []uuid.UUID{solvable}, result.Passed)
+	require.Len(t, result.Progress, 1)
+	saved := store.rows[[2]uuid.UUID{*v.UserID, solvable}]
+	assert.Equal(t, 0, saved.Attempts, "the automatic check never counts attempts")
+	require.NotNil(t, saved.CompletedAt)
+	_, recorded := store.rows[[2]uuid.UUID{*v.UserID, unsolved}]
+	assert.False(t, recorded, "failures are not recorded")
+
+	// A later check keeps the first approval and writes nothing.
+	svc.now = func() time.Time { return time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC) }
+	_, err = svc.CheckModule(ctx, uuid.New(), v, json.RawMessage(solvedMachine))
+	require.NoError(t, err)
+	assert.Equal(t, 1, store.saves)
+	assert.Equal(t, saved.CompletedAt, store.rows[[2]uuid.UUID{*v.UserID, solvable}].CompletedAt)
+
+	result, err = svc.CheckModule(ctx, uuid.New(), v, json.RawMessage(emptyMachine))
+	require.NoError(t, err)
+	assert.Empty(t, result.Passed)
+}
+
+func TestCheckModuleRejectsInvalidInput(t *testing.T) {
+	ctx := context.Background()
+	_, _, content := moduleItems()
+	boom := errors.New("boom")
+
+	svc, _ := newService(content)
+	_, err := svc.CheckModule(ctx, uuid.New(), contentservice.Viewer{}, json.RawMessage(solvedMachine))
+	assert.ErrorIs(t, err, contentservice.ErrAuthRequired)
+
+	_, err = svc.CheckModule(ctx, uuid.New(), student(), json.RawMessage(`{"formato":"x"}`))
+	assert.ErrorIs(t, err, ErrInvalidSnapshot)
+
+	svc, _ = newService(fakeContent{itemsErr: contentservice.ErrForbidden})
+	_, err = svc.CheckModule(ctx, uuid.New(), student(), json.RawMessage(solvedMachine))
+	assert.ErrorIs(t, err, contentservice.ErrForbidden)
+
+	svc, _ = newService(fakeContent{items: []contentservice.PracticeItem{{QuestionID: uuid.New()}}})
+	_, err = svc.CheckModule(ctx, uuid.New(), student(), json.RawMessage(solvedMachine))
+	assert.ErrorIs(t, err, contentdomain.ErrInvalidConditions)
+
+	for _, broken := range []func(*fakeStore){
+		func(s *fakeStore) { s.findErr = boom },
+		func(s *fakeStore) { s.saveErr = boom },
+		func(s *fakeStore) { s.listErr = boom },
+	} {
+		svc, store := newService(content)
+		broken(store)
+		_, err = svc.CheckModule(ctx, uuid.New(), student(), json.RawMessage(solvedMachine))
+		assert.ErrorIs(t, err, boom)
+	}
 }
