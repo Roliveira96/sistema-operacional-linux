@@ -400,7 +400,6 @@ export const messages = {
       label: "Seções do módulo",
       details: "Detalhes",
       content: "Conteúdo",
-      setup: "Ambiente",
       versions: "Versões",
       exercises: "Exercícios",
     },

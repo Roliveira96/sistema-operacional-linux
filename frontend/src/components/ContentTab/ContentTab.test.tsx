@@ -108,6 +108,19 @@ describe("ContentTab", () => {
     expect(screen.queryByRole("region", { name: "Teste do módulo" })).toBeNull();
   });
 
+  it("builds the environment of the module inside the content tab, where the tests are", async () => {
+    service.content.mockResolvedValue({ blocks: [], setup: { summary: "", steps: [{ command: "mkdir /x" }] } });
+    service.setModuleSetup.mockResolvedValue({ summary: "", steps: [{ command: "mkdir /y" }] });
+    renderTab();
+    expect(await screen.findByText(/Ambiente do módulo \(snapshot\)/)).toBeDefined();
+    const input = (await screen.findByLabelText("Comando (1)")) as HTMLInputElement;
+    expect(input.value).toBe("mkdir /x");
+    fireEvent.change(input, { target: { value: "mkdir /y" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar ambiente" }));
+    expect(await screen.findByText("Ambiente do módulo salvo.")).toBeDefined();
+    expect(service.setModuleSetup).toHaveBeenCalledWith("mod-1", { summary: "", steps: [{ command: "mkdir /y" }] });
+  });
+
   it("shows the empty state and the error state with a retry", async () => {
     service.list.mockResolvedValueOnce([]);
     renderTab();

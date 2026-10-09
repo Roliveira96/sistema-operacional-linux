@@ -11,6 +11,7 @@ import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import { practiceService, type PracticeService } from "@/services/practiceService";
 import { ActionMenu } from "./ActionMenu";
+import { ModuleSetupTab } from "@/components/ModuleSetupTab/ModuleSetupTab";
 import { TestAll } from "./TestAll";
 import styles from "./ContentTab.module.scss";
 
@@ -155,6 +156,11 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
           </Link>
         </div>
       </div>
+
+      <details className={styles.environment}>
+        <summary className={styles.environmentSummary}>{m.environment.title}</summary>
+        <ModuleSetupTab moduleId={moduleId} service={service} practice={practice} onSaved={setModuleSetup} />
+      </details>
 
       {testingModule > 0 && <TestAll key={testingModule} moduleId={moduleId} service={service} practice={practice} onResult={() => setMarks((n) => n + 1)} onClose={() => setTestingModule(0)} />}
 

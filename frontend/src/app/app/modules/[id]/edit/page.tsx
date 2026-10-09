@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ContentTab } from "@/components/ContentTab/ContentTab";
 import { VersionsTab } from "@/components/VersionsTab/VersionsTab";
-import { ModuleSetupTab } from "@/components/ModuleSetupTab/ModuleSetupTab";
 import { ExerciseOrderList } from "@/components/ExerciseOrderList/ExerciseOrderList";
 import { ModuleForm } from "@/components/ModuleForm/ModuleForm";
 import { ptBR } from "@/messages/pt-BR";
@@ -12,8 +11,8 @@ import { classService } from "@/services/classService";
 import { moduleService, type CourseModuleDetails, type UpdateModulePayload } from "@/services/moduleService";
 import styles from "./page.module.scss";
 
-type Tab = "details" | "content" | "setup" | "versions" | "exercises";
-const TABS: Tab[] = ["details", "content", "setup", "versions", "exercises"];
+type Tab = "details" | "content" | "versions" | "exercises";
+const TABS: Tab[] = ["details", "content", "versions", "exercises"];
 
 export default function EditModulePage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const m = ptBR.modules;
@@ -146,10 +145,6 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
 
       <section className={styles.section} role="tabpanel" id="panel-content" aria-labelledby="tab-content" hidden={tab !== "content"}>
         {id && <ContentTab moduleId={id} />}
-      </section>
-
-      <section className={styles.section} role="tabpanel" id="panel-setup" aria-labelledby="tab-setup" hidden={tab !== "setup"}>
-        {id && tab === "setup" && <ModuleSetupTab moduleId={id} />}
       </section>
 
       <section className={styles.section} role="tabpanel" id="panel-versions" aria-labelledby="tab-versions" hidden={tab !== "versions"}>

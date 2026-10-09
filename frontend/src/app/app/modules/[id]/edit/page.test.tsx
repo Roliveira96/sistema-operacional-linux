@@ -17,6 +17,7 @@ vi.mock("@/services/contentAuthoringService", () => ({
     list: vi.fn().mockResolvedValue([
       { id: "b-1", type: "COMMAND", position: 1, edited: false, active: true, updatedAt: "2026-10-09T12:00:00Z", payload: { steps: [{ command: "ls -la" }] } },
     ]),
+    content: vi.fn().mockResolvedValue({ blocks: [], setup: undefined }),
   },
 }));
 

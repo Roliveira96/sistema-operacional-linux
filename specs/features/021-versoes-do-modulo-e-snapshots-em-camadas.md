@@ -10,7 +10,7 @@
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
 | **Módulo** | `content` e `coursemodule` (backend); tela de edição do módulo, tela do card e `TopicStudy` (frontend) |
-| **Contexto de tela** | `/app/modules/[id]/edit` (abas Ambiente e Versões), `/app/modules/[id]/cards/[blockId]`, `/materials/[id]` e `/app/modules/[id]` |
+| **Contexto de tela** | `/app/modules/[id]/edit` (abas Conteúdo e Versões), `/app/modules/[id]/cards/[blockId]`, `/materials/[id]` e `/app/modules/[id]` |
 | **Prioridade** | Alta |
 | **Depende de** | SPEC-010, SPEC-011, SPEC-016, SPEC-019, SPEC-020 |
 | **Substitui** | Em parte a SPEC-020: o snapshot deixa de ser a imagem da máquina e passa a ser um **script de comandos** (seção 3.1). Todo o resto da SPEC-020 (erro esperado, teste do card, ordem das seções) continua |
@@ -55,13 +55,25 @@
 
 **Conflito.** No **teste**, um passo de snapshot que termina com erro é um **conflito**: o painel mostra de qual camada ele é (módulo ou o título do card), o comando e o que o terminal disse (por exemplo, `mkdir /financeiro` do card quando o do módulo já criou a pasta). O teste continua e lista todos os conflitos, além do resultado dos comandos do card.
 
+### 3.3. Testes do módulo (pedido do Tech Lead, 09/10/2026)
+
+O ambiente do módulo (o snapshot) é montado na **aba Conteúdo**, num bloco recolhível acima da lista de cards, junto de onde os testes rodam. Não há aba Ambiente.
+
+O botão **"Testar o módulo"** da aba Conteúdo roda, nesta ordem, e mostra o resultado de cada um num quadro:
+
+1. **Teste unitário:** cada atividade (card com comandos ou snapshot) sozinha, numa máquina nova, com o snapshot do módulo e dos cards acima dela. Cada card ganha o selo "testado: passou" ou "falhou".
+2. **Teste funcional sequencial:** uma máquina nova, o ambiente inteiro (módulo e todos os cards) e, em seguida, os exercícios do primeiro ao último **sem zerar a máquina**.
+3. **Teste inverso (dependências):** a mesma máquina e o mesmo ambiente, com os exercícios do último ao primeiro. Uma atividade que **passa na ordem normal e falha na inversa**, ou que **passa na sequência e falha sozinha**, depende do que outra atividade fez e é listada como tal. Dependência é um aviso: não reprova o módulo.
+
+O módulo **passa** quando o teste unitário e o sequencial passam. O resultado fica guardado no navegador de quem testou, junto com o que foi testado, e a lista mostra "módulo alterado desde o teste" quando algo muda. Os resultados do teste do módulo, do teste de cada card e a lista de testes rolam dentro da própria área, seguindo o comando em execução.
+
 ### 3.2. Versões
 
 - O que o módulo tem hoje (cards, blocos e o snapshot do módulo) é o **rascunho**. A docente o edita como sempre; o estudante **não vê** a mudança.
 - **Publicar** cria a próxima **versão** (v1, v2...) com uma cópia do rascunho, uma nota opcional, o autor e a data. O estudante sempre lê a **versão mais recente**.
 - **Sempre há uma versão publicada** enquanto a docente edita o rascunho (decisão do Tech Lead, 09/10/2026): um módulo novo já nasce com a **v1** publicada (vazia), as versões nunca são apagadas e restaurar nunca deixa o módulo sem publicada. O estudante nunca fica sem conteúdo por causa de uma edição em andamento.
 - O módulo mostra se há **alterações não publicadas** (o rascunho é diferente da última versão).
-- **Versões** (aba na edição do módulo): lista com número, data, autor, nota e quantidade de cards; a atual aparece marcada. **Restaurar** copia o conteúdo de uma versão para o rascunho (não publica); depois a docente revisa e publica se quiser.
+- **Versões** (aba na edição do módulo; o rascunho aparece em "Ver rascunho" e a versão publicada em "Ver como o aluno"): lista com número, data, autor, nota e quantidade de cards; a atual aparece marcada. **Restaurar** copia o conteúdo de uma versão para o rascunho (não publica); depois a docente revisa e publica se quiser.
 - Quem edita vê o rascunho; o link **"Ver como o aluno"** mostra a versão publicada, e **"Ver rascunho"** mostra o rascunho.
 - Os módulos que já existem recebem uma **versão 1** com o conteúdo de hoje, e a carga inicial (seed) publica uma nova versão quando muda o conteúdo de um módulo que a autoria não tocou (RN-08).
 
@@ -149,3 +161,4 @@ Nenhuma em aberto. O Tech Lead respondeu em 09/10/2026:
 | 09/10/2026 | Implementador (Claude) | Criação, a partir do pedido do Tech Lead de versionar o módulo e de ter um snapshot do módulo compartilhado com os cards, e das respostas dele às três perguntas. Aprovada na mesma data |
 | 09/10/2026 | Tech Lead | Regra acrescentada: sempre há uma versão publicada enquanto outra (o rascunho) é editada. Incluídas a RN-11 (a v1 nasce com o módulo) e o ajuste da CA-09 |
 | 09/10/2026 | Tech Lead | Pedido: na lista de conteúdo cada card com comandos informa se foi testado e passou. Implementado como selo (não testado, passou, falhou, alterado desde o teste), guardado neste navegador; levar ao servidor se a equipe toda precisar ver |
+| 09/10/2026 | Tech Lead | Pedidos: o teste do módulo roda antes o teste de cada atividade e remove o botão "Testar todas as atividades"; mostra o teste unitário, o funcional sequencial e o inverso (dependências entre atividades); a aba Ambiente sai e o ambiente do módulo passa a ser montado na aba Conteúdo. Implementados (seção 3.3). O versionamento (migração 00013, publicar, restaurar, leitura da versão publicada) está implementado |
