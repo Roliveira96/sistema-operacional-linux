@@ -68,7 +68,26 @@ describe("buildTopicScript", () => {
   });
 
   it("returns no cards for an empty module and ignores COMMAND blocks without steps", () => {
-    expect(buildTopicScript([])).toEqual({ cards: [], steps: [] });
+    expect(buildTopicScript([])).toEqual({ cards: [], steps: [], timeline: [] });
     expect(buildTopicScript([block(1, "COMMAND", {})]).steps).toEqual([]);
+  });
+
+  // Covers SPEC-018: the timeline is what the player reads and runs, in page order.
+  it("builds the timeline of each card: title, narrated blocks and commands in order", () => {
+    const { cards, timeline } = buildTopicScript([
+      block(1, "LEGACY_HTML", { html: "<p>intro</p>" }),
+      block(2, "WIDGET", { component: "LS_ANATOMY" }),
+      command(3, "uname -o"),
+      block(4, "TEXT", { title: "O Unix", command: "Unix", html: "<p>u</p>" }),
+      command(5, "ls /etc", "whoami"),
+      block(6, "TIP", { html: "t" }),
+      block(7, "CURIOSITY", { html: "c" }),
+    ]);
+    expect(cards.map((c) => c.items.map((i) => (i.kind === "step" ? `step:${i.step}` : i.kind === "block" ? `block:${i.blockId}` : "title")))).toEqual([
+      ["title", "block:b1", "step:0"],
+      ["title", "block:b4", "step:1", "step:2", "block:b6", "block:b7"],
+    ]);
+    expect(timeline).toEqual(cards.flatMap((c) => c.items));
+    expect(timeline.filter((i) => i.kind === "step")).toHaveLength(3);
   });
 });

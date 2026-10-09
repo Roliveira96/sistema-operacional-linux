@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-018 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 09/10/2026 |
 | **Última revisão** | 09/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -27,7 +27,7 @@ O Tech Lead quer que o material seja **lido em voz alta, com a palavra falada de
 ## 2. Objetivos (Goals)
 
 - Narrar, com voz, o texto dos cards na ordem em que aparecem, destacando a palavra que está sendo falada.
-- Em cada comando, falar durante a execução no terminal, sem que a fala e a digitação se atropelem nem se percam.
+- Em cada comando, falar o comando e o que ele faz, avisar para olhar o terminal e só então executá-lo, sem que a fala e a digitação se atropelem.
 - Integrar a narração aos controles que já existem (▶ Rodar este card, ▶ de um comando, play do cabeçalho, velocidade), sem criar um segundo player.
 - Deixar o estudante ligar e desligar o som, e lembrar a escolha.
 - Não travar o material: se a voz falhar, o card continua em silêncio e avisa.
@@ -51,13 +51,13 @@ O Tech Lead quer que o material seja **lido em voz alta, com a palavra falada de
 | :--- | :--- | :--- |
 | Título do card | Lido primeiro | O título |
 | `TEXT`, `LEGACY_HTML`, `TIP`, `CURIOSITY`, `STEP_BY_STEP`, `CARDS` | Narrado, com destaque palavra a palavra | O texto do bloco, sem marcação |
-| `COMMAND` (cada passo) | O comando é digitado e executado no terminal **enquanto** a voz fala | Sempre, nesta ordem: o aviso "Veja no terminal ao lado o comando sendo executado", o **comando por extenso** (com destaque no comando inteiro) e a **explicação** do passo, palavra a palavra, quando houver (ver P-03, revisada) |
+| `COMMAND` (cada passo) | Primeiro a voz fala; **depois** o comando é digitado e executado no terminal | Sempre, nesta ordem: o **comando por extenso** (com destaque no comando inteiro), a **explicação** do passo, palavra a palavra, quando houver, e o aviso "Veja o comando rodando no terminal ao lado" (ver P-03, revisada) |
 | `WIDGET` | Ignorado | Nada |
 
 **Regras do karaokê:**
 - **RF-01 (palavra destacada):** a palavra falada no momento recebe o destaque da identidade visual; as já faladas ficam em tom suave e as próximas, normais.
 - **RF-02 (um trecho por vez):** o texto longo é dividido em trechos de até 2000 caracteres, em fim de frase (limite da SPEC-017). O trecho seguinte é pedido enquanto o atual toca, para não haver pausa.
-- **RF-03 (comando e fala juntos):** em um passo de comando, a digitação no terminal e a fala começam juntas. O próximo item só começa quando **os dois** terminam.
+- **RF-03 (primeiro fala, depois roda):** em um passo de comando, a voz diz o comando, a explicação e o aviso; só quando termina o comando é digitado e executado no terminal. O próximo item só começa quando o comando termina. Se o estudante parar a narração no meio, o comando não é executado.
 - **RF-04 (sempre fala):** passos de comando falam sempre que o som estiver ligado.
 - **RF-12 (comando por extenso):** o comando é dito em português falado: símbolos viram palavras (`-` "traço", `/` "barra", `|` "pipe", `>` "redireciona para", `.` "ponto", `~` "til", `&&` "e depois" e assim por diante), e opções curtas juntas são soletradas (`-la` vira "traço l a"). O destaque do comando cobre o comando inteiro, não cada palavra.
 - **RF-05 (parar):** parar o card, pausar o play ou clicar em outro card interrompe a voz na hora e cancela os pedidos pendentes.
@@ -99,7 +99,7 @@ Usa a rota 5.1 da SPEC-017 sem mudar o contrato (`POST /api/v1/speech-syntheses`
 - **Limite de requisições estourado por um card longo.** Um card pode gerar mais de 20 trechos por minuto.
   *Mitigação:* cache de áudio (RF-10), pedido do trecho seguinte só com o atual tocando e revisão do limite (P-02).
 - **Atraso na primeira palavra.** A síntese leva em torno de 1 a 2 segundos.
-  *Mitigação:* o primeiro trecho de um card é pedido ao clicar; o terminal só começa a digitar quando o áudio do passo está pronto, ou após 3 segundos de espera, o que vier primeiro, avisando que a voz está atrasada.
+  *Mitigação:* o primeiro trecho de um card é pedido ao clicar; o trecho seguinte é pedido enquanto o atual toca. Como o comando só roda depois da fala, o atraso é uma pausa curta, sem perda de sincronia.
 - **Destaque desalinhado do texto.** O texto exibido pode diferir do texto falado (espaços, entidades HTML, tabelas).
   *Mitigação:* a função de extração monta o texto falado e o mapa de posições a partir do mesmo percurso do DOM; teste com blocos reais dos 8 módulos.
 - **Dependência do endpoint não oficial** (riscos da SPEC-017).
@@ -109,21 +109,22 @@ Usa a rota 5.1 da SPEC-017 sem mudar o contrato (`POST /api/v1/speech-syntheses`
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO o estudante, logado e com o som ligado, clicar em "Rodar este card", O SISTEMA DEVE falar o título e o texto do card, em ordem, destacando a palavra falada.
-- [ ] **CA-02** (evento): QUANDO a narração chegar a um passo de comando, O SISTEMA DEVE digitar e executar o comando no terminal enquanto fala, e SÓ DEVE passar ao próximo item quando a fala e o comando tiverem terminado.
-- [ ] **CA-03** (ubíquo): ENQUANTO o som estiver ligado, O SISTEMA DEVE falar todo passo de comando, o executado pelo ▶ do comando, pelo card ou pelo play do cabeçalho.
-- [ ] **CA-15** (ubíquo): Em todo passo de comando falado, O SISTEMA DEVE dizer, nesta ordem, o aviso "Veja no terminal ao lado o comando sendo executado", o comando por extenso (RF-12) e a explicação do passo, quando houver.
-- [ ] **CA-04** (evento): QUANDO o estudante parar o card, pausar o play ou clicar em outro card, O SISTEMA DEVE interromper a voz e cancelar os pedidos pendentes na hora.
-- [ ] **CA-05** (indesejado): SE a voz de um trecho falhar, ENTÃO O SISTEMA DEVE seguir em silêncio nesse item, avisar uma vez por card e NÃO DEVE travar a execução dos comandos.
-- [ ] **CA-06** (indesejado): SE não houver sessão, ENTÃO O SISTEMA DEVE manter o material em silêncio e mostrar o convite para entrar (P-01).
-- [ ] **CA-07** (estado): ENQUANTO o som estiver desligado, O SISTEMA DEVE funcionar exatamente como na SPEC-016, sem pedir áudio.
-- [ ] **CA-08** (evento): QUANDO o estudante alternar 🔊/🔇, O SISTEMA DEVE guardar a escolha e aplicá-la na próxima visita.
-- [ ] **CA-09** (ubíquo): O SISTEMA DEVE dividir textos acima de 2000 caracteres em trechos terminados em fim de frase e NUNCA enviar mais que o limite.
-- [ ] **CA-10** (ubíquo): O SISTEMA DEVE reaproveitar o áudio de um trecho já pedido na mesma visita, sem novo pedido.
-- [ ] **CA-11** (ubíquo): A narração NÃO DEVE ler marcação HTML nem o conteúdo de `WIDGET`.
-- [ ] **CA-12** (evento): QUANDO o navegador recusar tocar o áudio, ENTÃO O SISTEMA DEVE avisar o estudante para clicar de novo e seguir em silêncio até lá.
-- [ ] **CA-13** (ubíquo): A velocidade de reprodução da voz DEVE acompanhar o seletor do player até o limite da P-05, e a digitação DEVE seguir o seletor inteiro.
-- [ ] **CA-14** (ubíquo): O botão de som DEVE ter nome acessível e estado, e o destaque DEVE ter sublinhado além da cor.
+- [x] **CA-01** (evento): QUANDO o estudante, logado e com o som ligado, clicar em "Rodar este card", O SISTEMA DEVE falar o título e o texto do card, em ordem, destacando a palavra falada.
+- [x] **CA-02** (evento): QUANDO a narração chegar a um passo de comando, O SISTEMA DEVE falar o comando, a explicação e o aviso, e SÓ ENTÃO digitar e executar o comando no terminal; SÓ DEVE passar ao próximo item quando o comando tiver terminado.
+- [x] **CA-03** (ubíquo): ENQUANTO o som estiver ligado, O SISTEMA DEVE falar todo passo de comando, o executado pelo ▶ do comando, pelo card ou pelo play do cabeçalho.
+- [x] **CA-15** (ubíquo): Em todo passo de comando falado, O SISTEMA DEVE dizer, nesta ordem, o comando por extenso (RF-12), a explicação do passo, quando houver, e o aviso "Veja o comando rodando no terminal ao lado", antes de executá-lo.
+- [x] **CA-16** (evento): QUANDO o estudante parar a narração durante um passo de comando, ENTÃO O SISTEMA NÃO DEVE executar esse comando nem marcá-lo como feito.
+- [x] **CA-04** (evento): QUANDO o estudante parar o card, pausar o play ou clicar em outro card, O SISTEMA DEVE interromper a voz e cancelar os pedidos pendentes na hora.
+- [x] **CA-05** (indesejado): SE a voz de um trecho falhar, ENTÃO O SISTEMA DEVE seguir em silêncio nesse item, avisar uma vez por card e NÃO DEVE travar a execução dos comandos.
+- [x] **CA-06** (indesejado): SE não houver sessão, ENTÃO O SISTEMA DEVE manter o material em silêncio e mostrar o convite para entrar (P-01).
+- [x] **CA-07** (estado): ENQUANTO o som estiver desligado, O SISTEMA DEVE funcionar exatamente como na SPEC-016, sem pedir áudio.
+- [x] **CA-08** (evento): QUANDO o estudante alternar 🔊/🔇, O SISTEMA DEVE guardar a escolha e aplicá-la na próxima visita.
+- [x] **CA-09** (ubíquo): O SISTEMA DEVE dividir textos acima de 2000 caracteres em trechos terminados em fim de frase e NUNCA enviar mais que o limite.
+- [x] **CA-10** (ubíquo): O SISTEMA DEVE reaproveitar o áudio de um trecho já pedido na mesma visita, sem novo pedido.
+- [x] **CA-11** (ubíquo): A narração NÃO DEVE ler marcação HTML nem o conteúdo de `WIDGET`.
+- [x] **CA-12** (evento): QUANDO o navegador recusar tocar o áudio, ENTÃO O SISTEMA DEVE avisar o estudante para clicar de novo e seguir em silêncio até lá.
+- [x] **CA-13** (ubíquo): A velocidade de reprodução da voz DEVE acompanhar o seletor do player até o limite da P-05, e a digitação DEVE seguir o seletor inteiro.
+- [x] **CA-14** (ubíquo): O botão de som DEVE ter nome acessível e estado, e o destaque DEVE ter sublinhado além da cor.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -160,7 +161,7 @@ Nenhuma. P-01 a P-06 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações
 
 - **P-01:** narração só para usuários logados; visitantes veem o convite para entrar.
 - **P-02:** limite de taxa da rota de voz passa de 20 para 60 por minuto, configurável por `TTS_RATE_PER_MINUTE` (revisa a RN-08 e a CA-12 da SPEC-017).
-- **P-03:** nos comandos, fala a explicação do passo; sem explicação, fala o comando. **Revisada pelo Tech Lead em 09/10/2026** (RF-12 e CA-15): em todo comando a voz diz o aviso "veja no terminal ao lado o comando sendo executado", o comando por extenso e o que ele faz.
+- **P-03:** nos comandos, fala a explicação do passo; sem explicação, fala o comando. **Revisada pelo Tech Lead em 09/10/2026, duas vezes** (RF-03, RF-12, CA-15 e CA-16): em todo comando a voz diz o comando por extenso, explica o que ele faz e avisa "veja o comando rodando no terminal ao lado"; só então o comando roda.
 - **P-04:** destaque pela API de realce do navegador, com degradação para navegadores sem ela.
 - **P-05:** velocidade da voz limitada a 2×.
 - **P-06:** som ligado por padrão para usuários logados, com a escolha guardada em `localStorage`.
@@ -174,3 +175,5 @@ Nenhuma. P-01 a P-06 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações
 | 09/10/2026 | Implementador (Claude) | Criação a pedido do Tech Lead ("leitor estilo karaokê"; narrar o material ao dar play e falar os comandos enquanto rodam no terminal). Pendências P-01 a P-06 |
 | 09/10/2026 | Tech Lead | Aprovação integral de P-01 a P-06 nas recomendações. Status: `Aprovada` |
 | 09/10/2026 | Tech Lead | Revisão da P-03, pedida durante a implementação ("nessa parte devemos sempre falar: veja ao terminal ao lado o comando sendo executado; devemos falar o comando e o que ele faz na narração"): aviso, comando por extenso e explicação em todo passo. Incluídos RF-12 e CA-15; tabela da seção 3.1 atualizada |
+| 09/10/2026 | Tech Lead | Segunda revisão da P-03, pedida durante a implementação ("fale o comando primeiro e explique ele, e depois ele rode no terminal; antes de rodar, sempre fale: veja o comando rodando no terminal ao lado"): a voz fala o comando, a explicação e o aviso, e só então o comando roda (sequencial, não mais ao mesmo tempo). Atualizados objetivos, tabela da seção 3.1, RF-03, CA-02 e CA-15; incluída a CA-16 |
+| 09/10/2026 | Implementador (Claude) | Implementação concluída; status `Implementada`. **Verificação:** frontend com 380 testes passando (72 arquivos), cobertura de 95,9% das linhas e 88,7% dos ramos (`useNarrator` 100% e 95%, `narration.ts` 97% e 100%); ESLint, Stylelint, `tsc` e `next build` limpos; backend com `go vet` e testes de `config`, `tts` e `speech` passando. **CA → testes:** CA-01 e CA-02 `TopicStudy.test.tsx` ("reads the card and says each command…") e `useTopicPlayer.test.ts` ("narrates the title and the text blocks…"); CA-03 "says the command and the notice for a step without explanation…"; CA-04 "silences the voice when the card is stopped", `useNarrator.test.ts` ("stops the voice and the highlight on stop") e `useTopicPlayer.test.ts` ("silences the voice when the student stops…"); CA-05 "warns once when the voice fails…" e `useNarrator.test.ts` ("warns only once…"); CA-06 "invites a visitor to sign in…" e `useNarrator.test.ts` ("learns that there is no session…"); CA-07 e CA-08 "turns the sound off and keeps the choice…" e `machineStorage.test.ts`; CA-09 `narration.test.ts` (`splitIntoChunks`) e `useNarrator.test.ts` ("asks for the next chunk…"); CA-10 o mesmo teste do reaproveitamento e a nota do aviso repetido; CA-11 `narration.test.ts` (`readNarration`); CA-12 "tells the student when the browser blocks the sound" e `useNarrator.test.ts`; CA-13 `useNarrator.test.ts` ("follows the speed up to the limit of the voice"); CA-14 o botão de som com `aria-pressed` e o sublinhado do destaque (`globals.scss`); CA-15 `narration.test.ts` (`spokenCommand`) e "speaks a list of parts in order…"; CA-16 "does not run the command when the narration is stopped before it" e `useTopicPlayer.test.ts` ("does not mark a step as done when it was not run"). **Roteiro manual** (serviço de voz real, usuário estudante de teste, Edge sem cabeça com o card "Unix" do módulo História): 11 pedidos de síntese com resposta 200; 94 palavras destacadas em ordem, incluindo `AT&T`; em cada comando a voz falou o comando, a explicação e o aviso antes de o terminal crescer (terminal aos 48,6 s, depois das falas de 35,7 s a 40,9 s), e o terminal só andou depois da fala; sem erros de página. Não foi possível ouvir o áudio nesse ambiente: a escuta fica por conta do Tech Lead. **Desvios:** (1) a P-03 foi revisada duas vezes pelo Tech Lead durante a implementação (aviso, comando por extenso, explicação e só então o comando roda; RF-03, RF-12, CA-02, CA-15 e CA-16); (2) a narração dos blocos usa o texto da tela (tabelas lidas linha a linha, emoji e botões ignorados) e a caixa "Na vida real" inclui o título; (3) o aviso "Veja o comando rodando no terminal ao lado" vem do cache a partir do segundo comando, então não gera novo pedido (CA-10); (4) o limite de taxa da rota passou a 60 por minuto, configurável por `TTS_RATE_PER_MINUTE`, e a SPEC-017 foi atualizada (RN-08 e CA-12); (5) `.env.example` ganhou `TTS_RATE_PER_MINUTE`; (6) o ▶ de um comando também narra, e o replay do botão ⏮ (voltar) é silencioso; (7) o destaque usa as duas camadas da API do navegador (`narration-current` e `narration-spoken`), sem inserir elementos no HTML do conteúdo. **Risco conhecido:** em navegadores sem a API de realce a narração toca sem destaque (P-04).

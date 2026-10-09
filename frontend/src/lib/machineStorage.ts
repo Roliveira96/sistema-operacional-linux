@@ -4,6 +4,7 @@
 
 const MACHINE_PREFIX = "exame-so:maquina:v3:";
 const SPEED_KEY = "exame-so:velocidade";
+const NARRATION_KEY = "exame-so:narracao";
 export const SPEEDS = [0.5, 1, 2, 4] as const;
 
 /** Short, stable hash of a scenario, so a changed scenario drops stale saves. */
@@ -55,6 +56,23 @@ export function loadSpeed(): number {
 export function saveSpeed(speed: number): void {
   try {
     localStorage.setItem(SPEED_KEY, String(speed));
+  } catch {
+    // no storage
+  }
+}
+
+/** Narration is on unless the student turned it off (SPEC-018, P-06). */
+export function loadNarration(): boolean {
+  try {
+    return localStorage.getItem(NARRATION_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function saveNarration(enabled: boolean): void {
+  try {
+    localStorage.setItem(NARRATION_KEY, enabled ? "on" : "off");
   } catch {
     // no storage
   }

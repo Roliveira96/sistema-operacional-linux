@@ -4,17 +4,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useModuleCheck } from "@/hooks/useModuleCheck";
+import { useNarrator, type NarrationPart, type NarrationWarning } from "@/hooks/useNarrator";
 import { useTopicPlayer } from "@/hooks/useTopicPlayer";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { cheatSheetHtml } from "@/engine/terminalWindow";
 import { clearMachine, loadMachine, loadSpeed, machineKey, saveMachine, saveSpeed } from "@/lib/machineStorage";
+import { spokenCommand } from "@/lib/narration";
 import { splitDescription, topicAccentVars } from "@/lib/moduleVisual";
-import { buildTopicScript, type TopicScript } from "@/lib/topicScript";
+import { buildTopicScript, type ScriptStep, type TimelineItem, type TopicScript } from "@/lib/topicScript";
 import { contentMessages as m } from "@/messages/content.pt-BR";
 import { contentService, type ContentBlock, type ContentService, type PublicQuestion } from "@/services/contentService";
 import { ApiProblemError } from "@/services/httpClient";
 import { moduleService, type CourseModuleDetails } from "@/services/moduleService";
 import { practiceService, type PracticeService } from "@/services/practiceService";
+import { speechService, type SpeechService } from "@/services/speechService";
 import { ChallengePanel } from "./ChallengePanel";
 import { CheatSheetModal } from "./CheatSheetModal";
 import { LessonPanel } from "./LessonPanel";
@@ -31,6 +34,8 @@ export interface TopicStudyProps {
   content?: Pick<ContentService, "blocks" | "questions">;
   modules?: Pick<typeof moduleService, "getModuleById">;
   practice?: Pick<PracticeService, "scenario" | "topicScenario" | "checkModule" | "progress">;
+  /** Voice of the karaoke reader (SPEC-018). */
+  speech?: Pick<SpeechService, "synthesize">;
   /** Asks the student to confirm a destructive action (the prototype uses window.confirm). */
   confirm?: (message: string) => boolean;
 }
@@ -63,6 +68,7 @@ export function TopicStudy({
   content = contentService,
   modules = moduleService,
   practice = practiceService,
+  speech = speechService,
   confirm = (message) => window.confirm(message),
 }: TopicStudyProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -121,17 +127,18 @@ export function TopicStudy({
     );
   }
 
-  return <TopicScreen {...state} moduleId={moduleId} backHref={backHref} practice={practice} confirm={confirm} />;
+  return <TopicScreen {...state} moduleId={moduleId} backHref={backHref} practice={practice} speech={speech} confirm={confirm} />;
 }
 
 type ScreenProps = Loaded & {
   moduleId: string;
   backHref: string;
   practice: NonNullable<TopicStudyProps["practice"]>;
+  speech: NonNullable<TopicStudyProps["speech"]>;
   confirm: (message: string) => boolean;
 };
 
-function TopicScreen({ module, script, challenges, scenario, storageKey, initialSnapshot, initialCompleted, moduleId, backHref, practice, confirm }: ScreenProps) {
+function TopicScreen({ module, script, challenges, scenario, storageKey, initialSnapshot, initialCompleted, moduleId, backHref, practice, speech, confirm }: ScreenProps) {
   const win = useRef<TerminalWindow | null>(null);
   const study = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<"lesson" | "challenges">(script.cards.length > 0 ? "lesson" : "challenges");
@@ -148,6 +155,34 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
   }, []);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
+  const narrator = useNarrator({
+    service: speech,
+    initialSpeed: loadSpeed(),
+    onWarning: (warning: NarrationWarning) => notify(t.narration[warning]),
+  });
+  const { speak, stop: stopNarration, setSpeed: setVoiceSpeed } = narrator;
+
+  /** The element of the page a timeline item or a command is read from. */
+  const itemTarget = useCallback((item: TimelineItem): Element | null => {
+    const panel = study.current;
+    if (!panel || item.kind === "step") return null;
+    return panel.querySelector(item.kind === "title" ? `[data-card-title="${item.card}"]` : `[data-block="${item.blockId}"]`);
+  }, []);
+
+  /**
+   * What is said before a command runs (SPEC-018, P-03): the command in spoken
+   * Portuguese, what it does, and the notice to watch the terminal.
+   */
+  const stepParts = useCallback((step: ScriptStep): NarrationPart[] => {
+    const row = study.current?.querySelector(`[data-step="${step.index}"]`);
+    const explanation = row?.querySelector('[data-narrate="explanation"]');
+    const parts: NarrationPart[] = [{ text: spokenCommand(step.command), highlight: row?.querySelector('[data-narrate="command"]') ?? undefined }];
+    if (explanation) parts.push({ element: explanation });
+    else if (step.explanation) parts.push({ text: step.explanation });
+    parts.push({ text: t.narration.watchTerminal });
+    return parts;
+  }, []);
+
   const check = useModuleCheck(practice, moduleId, () => notify(t.challenges.completedToast));
   const { seed } = check;
   useEffect(() => seed(initialCompleted), [seed, initialCompleted]);
@@ -155,14 +190,26 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
   const player = useTopicPlayer(
     script,
     {
-      runStep: async (step) => {
+      runStep: async (step, silent) => {
+        // The voice goes first; the command runs only after it (CA-02), and not at all if it was cut (CA-16).
+        if (!silent && !(await speak(stepParts(step)))) return false;
         await win.current?.run(step);
+        return true;
       },
+      narrate: async (item) => {
+        const target = itemTarget(item);
+        if (target) await speak(target);
+      },
+      stopNarration,
+      onStop: stopNarration,
       resetMachine: () => {
         clearMachine(storageKey);
         win.current?.reset(scenario);
       },
-      setTerminalSpeed: (speed) => win.current?.setSpeed(speed),
+      setTerminalSpeed: (speed) => {
+        win.current?.setSpeed(speed);
+        setVoiceSpeed(speed);
+      },
       onCardStart: (card) => {
         setTab("lesson");
         window.setTimeout(() => study.current?.querySelector(`[data-card="${card}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" }), 0);
@@ -290,6 +337,9 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
           <button type="button" className={styles.action} onClick={() => void openCheatSheet()}>
             {t.actions.cheatSheet}
           </button>
+          <button type="button" className={styles.action} onClick={() => narrator.setEnabled(!narrator.enabled)} aria-pressed={narrator.enabled} title={t.narration.title}>
+            {narrator.enabled ? t.narration.on : t.narration.off}
+          </button>
           <button type="button" className={`${styles.action} ${styles.reset}`} onClick={() => void resetMachine()} title={t.actions.resetTitle}>
             {t.actions.reset}
           </button>
@@ -316,6 +366,11 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
             </button>
           </nav>
           <div ref={study} className={styles.panel} role="tabpanel">
+            {narrator.needsLogin && (
+              <p className={styles.invite} role="status">
+                {t.narration.invite} <Link href="/login">{t.narration.login}</Link>
+              </p>
+            )}
             {tab === "lesson" ? (
               <LessonPanel script={script} player={playerWithSavedSpeed} />
             ) : (

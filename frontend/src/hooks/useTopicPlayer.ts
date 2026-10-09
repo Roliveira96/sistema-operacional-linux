@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cardOfStep, type ScriptStep, type TopicScript } from "@/lib/topicScript";
+import type { ScriptStep, TimelineItem, TopicScript } from "@/lib/topicScript";
 
 /** Pause between the steps of "play all" and of "play card", at speed 1 (as in the prototype). */
 const GAP_ALL_MS = 900;
@@ -11,8 +11,12 @@ const CARD_SCROLL_MS = 350;
 const REPLAY_SPEED = 30;
 
 export interface PlayerControls {
-  /** Types and runs one step in the terminal. */
-  runStep(step: ScriptStep): Promise<void>;
+  /**
+   * Types and runs one step in the terminal. With `silent` the step is not narrated
+   * (used to replay the script when going back). Resolves to false when the step was
+   * not run because the narration was stopped first.
+   */
+  runStep(step: ScriptStep, silent?: boolean): Promise<void | boolean>;
   /** Restores the topic machine at once, without animation. */
   resetMachine(): void;
   setTerminalSpeed(speed: number): void;
@@ -20,6 +24,12 @@ export interface PlayerControls {
   onCardStart?(card: number): void;
   /** Called after going back, to tell the student what happened. */
   onBack?(target: number): void;
+  /** Reads a title or text block aloud; resolves when it was spoken or skipped (SPEC-018). */
+  narrate?(item: TimelineItem): Promise<void>;
+  /** Silences the voice at once. */
+  stopNarration?(): void;
+  /** Called when the player stops, by itself or by the student. */
+  onStop?(): void;
 }
 
 export interface TopicPlayer {
@@ -85,7 +95,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
     state.busy = true;
     setRunning(step);
     try {
-      await state.controls.runStep(target);
+      if ((await state.controls.runStep(target)) === false) return;
       state.index = step;
       setIndex(step);
       setDone((prev) => new Set(prev).add(step));
@@ -95,10 +105,37 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
     }
   }, []);
 
+  /** Plays timeline items in order until the end or until the student stops. */
+  const playItems = useCallback(
+    async (items: TimelineItem[], gap: number, scrollToCards: boolean) => {
+      const state = ref.current;
+      for (let k = 0; k < items.length && state.playing; k++) {
+        const item = items[k]!;
+        if (item.kind === "step") {
+          await runOne(item.step);
+          if (k < items.length - 1) await sleep(gap / state.speed);
+          continue;
+        }
+        if (item.kind === "title" && scrollToCards) {
+          state.controls.onCardStart?.(item.card);
+          await sleep(CARD_SCROLL_MS);
+        }
+        await state.controls.narrate?.(item);
+      }
+    },
+    [runOne],
+  );
+
+  const stopPlaying = useCallback(() => {
+    const state = ref.current;
+    setPlayingBoth(false);
+    state.controls.stopNarration?.();
+  }, []);
+
   const toggleAll = useCallback(() => {
     const state = ref.current;
     if (state.playing) {
-      setPlayingBoth(false);
+      stopPlaying();
       return;
     }
     void (async () => {
@@ -107,27 +144,22 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
         setIndex(-1);
         setDone(new Set());
       }
+      // Continue right after the last step that ran (text blocks that follow it included).
+      const last = state.script.timeline.findIndex((item) => item.kind === "step" && item.step === state.index);
+      const rest = state.script.timeline.slice(last + 1);
       setPlayingBoth(true);
       setPlayingCard(null);
-      while (state.playing && state.index + 1 < state.script.steps.length) {
-        const nextStep = state.index + 1;
-        const card = state.script.cards[cardOfStep(state.script.cards, nextStep)];
-        if (card && card.start === nextStep) {
-          state.controls.onCardStart?.(card.index);
-          await sleep(CARD_SCROLL_MS);
-        }
-        await runOne(nextStep);
-        await sleep(GAP_ALL_MS / state.speed);
-      }
+      await playItems(rest, GAP_ALL_MS, true);
       setPlayingBoth(false);
+      state.controls.onStop?.();
     })();
-  }, [runOne]);
+  }, [playItems, stopPlaying]);
 
   const toggleCard = useCallback(
     (cardIndex: number) => {
       const state = ref.current;
       if (state.playing) {
-        setPlayingBoth(false);
+        stopPlaying();
         return;
       }
       const card = state.script.cards[cardIndex];
@@ -136,21 +168,19 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
         setPlayingBoth(true);
         setPlayingCard(cardIndex);
         state.controls.onCardStart?.(cardIndex);
-        for (let i = card.start; i < card.end && state.playing; i++) {
-          await runOne(i);
-          if (i < card.end - 1) await sleep(GAP_CARD_MS / state.speed);
-        }
+        await playItems(card.items, GAP_CARD_MS, false);
         setPlayingBoth(false);
         setPlayingCard(null);
+        state.controls.onStop?.();
       })();
     },
-    [runOne],
+    [playItems, stopPlaying],
   );
 
   const back = useCallback(async () => {
     const state = ref.current;
     if (state.busy || state.index < 0) return;
-    setPlayingBoth(false);
+    stopPlaying();
     const target = state.index - 1;
     state.busy = true;
     state.controls.resetMachine();
@@ -158,7 +188,7 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
     try {
       for (let i = 0; i <= target; i++) {
         const step = state.script.steps[i];
-        if (step) await state.controls.runStep(step);
+        if (step) await state.controls.runStep(step, true);
       }
     } finally {
       state.controls.setTerminalSpeed(state.speed);
@@ -168,15 +198,15 @@ export function useTopicPlayer(script: TopicScript, controls: PlayerControls, in
       setDone(new Set(Array.from({ length: target + 1 }, (_, i) => i)));
       state.controls.onBack?.(target);
     }
-  }, []);
+  }, [stopPlaying]);
 
   const rewind = useCallback(() => {
     ref.current.index = -1;
-    setPlayingBoth(false);
+    stopPlaying();
     setPlayingCard(null);
     setIndex(-1);
     setDone(new Set());
-  }, []);
+  }, [stopPlaying]);
 
   return {
     index,

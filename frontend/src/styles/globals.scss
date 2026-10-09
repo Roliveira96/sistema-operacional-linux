@@ -60,3 +60,16 @@ a {
     animation-duration: 0ms !important;
   }
 }
+
+// Karaoke reader (SPEC-018): the word being said and the text already said. The
+// browser highlight API only accepts a few properties, and the underline keeps
+// the current word visible without relying on color alone.
+::highlight(narration-current) {
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  text-decoration: underline;
+}
+
+::highlight(narration-spoken) {
+  color: var(--color-text-secondary);
+}

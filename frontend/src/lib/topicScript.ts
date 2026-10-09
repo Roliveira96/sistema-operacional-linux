@@ -10,6 +10,15 @@ export interface ScriptStep extends TerminalStep {
   explanation?: string;
 }
 
+/**
+ * One thing the player does, in page order (SPEC-018): read the title of a card,
+ * read a text block, or run a command (which is also spoken).
+ */
+export type TimelineItem =
+  | { kind: "title"; card: number }
+  | { kind: "block"; card: number; blockId: string }
+  | { kind: "step"; card: number; step: number };
+
 export interface LessonCard {
   index: number;
   /** Short label shown in the player and on the card (the command or concept). */
@@ -19,12 +28,19 @@ export interface LessonCard {
   /** Range of the script steps of this card: [start, end). */
   start: number;
   end: number;
+  /** What the player does in this card, in order. */
+  items: TimelineItem[];
 }
 
 export interface TopicScript {
   cards: LessonCard[];
   steps: ScriptStep[];
+  /** The items of every card, in order. */
+  timeline: TimelineItem[];
 }
+
+/** Block types the voice reads; COMMAND is handled step by step and WIDGET is never read. */
+const NARRATED_BLOCKS = new Set(["TEXT", "LEGACY_HTML", "TIP", "CURIOSITY", "STEP_BY_STEP", "CARDS"]);
 
 /** Label of the introductory card (blocks before the first titled TEXT block). */
 export const INTRO_LABEL = "conceitos";
@@ -61,7 +77,15 @@ export function buildTopicScript(blocks: ContentBlock[]): TopicScript {
   const steps: ScriptStep[] = [];
 
   const open = (label: string, title: string): LessonCard => {
-    const card: LessonCard = { index: cards.length, label, title, blocks: [], start: steps.length, end: steps.length };
+    const card: LessonCard = {
+      index: cards.length,
+      label,
+      title,
+      blocks: [],
+      start: steps.length,
+      end: steps.length,
+      items: [{ kind: "title", card: cards.length }],
+    };
     cards.push(card);
     return card;
   };
@@ -76,11 +100,16 @@ export function buildTopicScript(blocks: ContentBlock[]): TopicScript {
     }
     current.blocks.push(block);
     if (block.type === "COMMAND" && Array.isArray(block.payload.steps)) {
-      for (const raw of block.payload.steps as RawStep[]) steps.push(toStep(raw, steps.length));
+      for (const raw of block.payload.steps as RawStep[]) {
+        current.items.push({ kind: "step", card: current.index, step: steps.length });
+        steps.push(toStep(raw, steps.length));
+      }
       current.end = steps.length;
+    } else if (NARRATED_BLOCKS.has(block.type)) {
+      current.items.push({ kind: "block", card: current.index, blockId: block.id });
     }
   }
-  return { cards, steps };
+  return { cards, steps, timeline: cards.flatMap((card) => card.items) };
 }
 
 /** Index of the card that owns a script step, or -1. */

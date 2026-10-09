@@ -133,6 +133,16 @@ export const contentMessages = {
         ["Ctrl+L", "limpa"],
       ] as const,
     },
+    narration: {
+      on: "🔊 Som",
+      off: "🔇 Mudo",
+      title: "Liga ou desliga a leitura do material em voz alta",
+      invite: "Entre na plataforma para ouvir o material em voz alta.",
+      login: "Entrar",
+      unavailable: "🔇 Não foi possível gerar a voz agora. O material segue em silêncio.",
+      autoplay: "🔇 O navegador bloqueou o som. Clique em ▶ de novo para ouvir.",
+      watchTerminal: "Veja o comando rodando no terminal ao lado.",
+    },
     shortcutsHint: "Atalhos: ← volta um passo, → avança um passo, espaço toca ou pausa o roteiro",
   },
   simulations: {

@@ -169,4 +169,105 @@ describe("useTopicPlayer", () => {
     expect(result.current.index).toBe(-1);
     expect(result.current.done.size).toBe(0);
   });
+
+  // Covers SPEC-018 CA-01 to CA-03: the card is read and its commands run, in the order of the page.
+  it("narrates the title and the text blocks around the commands of a card", async () => {
+    const { result, ran, controls } = setupWithText();
+    await act(async () => {
+      result.current.toggleCard(0);
+      await vi.runAllTimersAsync();
+    });
+    expect(ran).toEqual(["title0", "block:h0", "block:t0", "one", "two", "block:t1"]);
+    expect(controls.onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("plays the whole script narrating, scrolling to each card and continuing after the last step run", async () => {
+    const { result, ran, controls } = setupWithText();
+    await act(async () => {
+      await result.current.next();
+    });
+    ran.length = 0;
+    await act(async () => {
+      result.current.toggleAll();
+      await vi.runAllTimersAsync();
+    });
+    expect(ran).toEqual(["two", "block:t1", "title1", "block:h1", "three"]);
+    expect(controls.onCardStart).toHaveBeenCalledWith(1);
+    expect(controls.onStop).toHaveBeenCalled();
+  });
+
+  // Covers SPEC-018 CA-16: a step whose narration was cut is not run and not marked as done.
+  it("does not mark a step as done when it was not run", async () => {
+    const { result, controls } = setupWithText();
+    vi.mocked(controls.runStep).mockResolvedValueOnce(false);
+    await act(async () => {
+      await result.current.next();
+    });
+    expect(result.current.index).toBe(-1);
+    expect(result.current.done.size).toBe(0);
+  });
+
+  it("replays the script without narration when going back", async () => {
+    const { result, controls } = setupWithText();
+    await act(async () => {
+      await result.current.next();
+      await result.current.next();
+    });
+    await act(async () => {
+      await result.current.back();
+    });
+    expect(vi.mocked(controls.runStep).mock.calls.at(-1)?.[1]).toBe(true);
+    expect(vi.mocked(controls.runStep).mock.calls[0]?.[1]).toBeUndefined();
+  });
+
+  // Covers CA-04: stopping, going back or rewinding silences the voice.
+  it("silences the voice when the student stops, goes back or rewinds", async () => {
+    const { result, controls } = setupWithText();
+    await act(async () => {
+      result.current.toggleCard(0);
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    await act(async () => {
+      result.current.toggleCard(0);
+      await vi.runAllTimersAsync();
+    });
+    expect(controls.stopNarration).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.next();
+    });
+    await act(async () => {
+      await result.current.back();
+    });
+    expect(controls.stopNarration).toHaveBeenCalledTimes(2);
+    act(() => result.current.rewind());
+    expect(controls.stopNarration).toHaveBeenCalledTimes(3);
+  });
 });
+
+function setupWithText() {
+  const withText = buildTopicScript([
+    { id: "h0", type: "TEXT", position: 1, payload: { title: "A", command: "a", html: "" } },
+    { id: "t0", type: "TIP", position: 2, payload: { html: "x" } },
+    { id: "c0", type: "COMMAND", position: 3, payload: { steps: [{ command: "one" }, { command: "two" }] } },
+    { id: "t1", type: "CURIOSITY", position: 4, payload: { html: "y" } },
+    { id: "h1", type: "TEXT", position: 5, payload: { title: "B", command: "b", html: "" } },
+    { id: "c1", type: "COMMAND", position: 6, payload: { steps: [{ command: "three" }] } },
+  ]);
+  const ran: string[] = [];
+  const controls: PlayerControls = {
+    runStep: vi.fn(async (step) => {
+      ran.push(step.command);
+    }),
+    resetMachine: vi.fn(),
+    setTerminalSpeed: vi.fn(),
+    onCardStart: vi.fn(),
+    onStop: vi.fn(),
+    stopNarration: vi.fn(),
+    narrate: vi.fn(async (item) => {
+      ran.push(item.kind === "title" ? `title${item.card}` : item.kind === "block" ? `block:${item.blockId}` : "step");
+    }),
+  };
+  const hook = renderHook(() => useTopicPlayer(withText, controls, 1));
+  return { ...hook, ran, controls };
+}

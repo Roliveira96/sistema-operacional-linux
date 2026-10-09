@@ -169,7 +169,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 
 	ttsHandler := ttshandler.New(
 		ttsservice.New(speech.NewClient(), ttsservice.Options{Timeout: cfg.TTS.Timeout, MaxConcurrent: cfg.TTS.MaxConcurrent}),
-		auth, ratelimit.New(20, time.Minute), log)
+		auth, ratelimit.New(cfg.TTS.RatePerMinute, time.Minute), log)
 
 	studentRepo := studentrepository.New(db)
 	studentService := studentservice.New(studentservice.Deps{

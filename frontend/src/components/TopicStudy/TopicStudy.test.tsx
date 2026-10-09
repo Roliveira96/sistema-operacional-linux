@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiProblemError } from "@/services/httpClient";
+import type { SpeechResult } from "@/services/speechService";
 import type { ContentBlock, PublicQuestion } from "@/services/contentService";
 import { CHECK_DELAY_MS } from "@/hooks/useModuleCheck";
 import "@/test/domMatchers";
@@ -74,6 +75,12 @@ function defaultPractice() {
   };
 }
 
+const spoken = (words: SpeechResult["words"] = []): SpeechResult => ({ audioBase64: "QUJD", mimeType: "audio/mpeg", voice: "pt-BR-FranciscaNeural", words });
+
+function defaultSpeech() {
+  return { synthesize: vi.fn().mockResolvedValue(spoken()) };
+}
+
 function setup(overrides: Partial<TopicStudyProps> = {}) {
   const content = {
     blocks: vi.fn().mockResolvedValue(blocks),
@@ -82,8 +89,9 @@ function setup(overrides: Partial<TopicStudyProps> = {}) {
   const modules = { getModuleById: vi.fn().mockResolvedValue(moduleDetails) };
   const practice = defaultPractice();
   const confirm = vi.fn().mockReturnValue(true);
-  const utils = render(<TopicStudy moduleId="m1" backHref="/materials" content={content} modules={modules} practice={practice} confirm={confirm} {...overrides} />);
-  return { ...utils, content, modules, practice, confirm };
+  const speech = defaultSpeech();
+  const utils = render(<TopicStudy moduleId="m1" backHref="/materials" content={content} modules={modules} practice={practice} speech={speech} confirm={confirm} {...overrides} />);
+  return { ...utils, content, modules, practice, confirm, speech };
 }
 
 async function loaded() {
@@ -97,6 +105,8 @@ beforeEach(() => {
   // jsdom does not implement scrolling.
   Element.prototype.scrollIntoView = vi.fn();
   localStorage.clear();
+  // The screen tests of SPEC-016 run without the voice; the narration tests turn it on.
+  localStorage.setItem("exame-so:narracao", "off");
   Object.values(fake.window).forEach((fn) => (fn as ReturnType<typeof vi.fn>).mockClear?.());
 });
 afterEach(() => {
@@ -350,3 +360,139 @@ describe("TopicStudy challenges", () => {
   });
 });
 
+// A voice that finishes by itself, as soon as it starts.
+class AutoAudio {
+  src = "";
+  playbackRate = 1;
+  currentTime = 0;
+  onended: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  play = vi.fn(() => {
+    window.setTimeout(() => this.onended?.(), 0);
+    return Promise.resolve();
+  });
+  pause = vi.fn();
+}
+
+// Covers SPEC-018: the card is read aloud and each command is spoken while it runs.
+describe("TopicStudy narration", () => {
+  beforeEach(() => {
+    localStorage.setItem("exame-so:narracao", "on");
+    vi.stubGlobal("Audio", AutoAudio);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const callOrder = (fn: { mock: { invocationCallOrder: number[] } }, index = 0) => fn.mock.invocationCallOrder[index]!;
+
+  const WATCH = "Veja o comando rodando no terminal ao lado.";
+
+  // Covers CA-01 to CA-03 and CA-15: title and text, then each command is said, explained and announced before it runs.
+  it("reads the card and says each command, what it does and the notice before running it", async () => {
+    const { speech } = await loaded();
+    fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
+    // The player pauses between commands, so the last block comes after a real wait.
+    await waitFor(() => expect(speech.synthesize).toHaveBeenCalledTimes(7), { timeout: 5000 });
+
+    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual([
+      "O Unix",
+      "texto do card",
+      "ls barra etc",
+      "lista",
+      WATCH,
+      "whoami",
+      // The notice of the second command is not asked for again: the audio is already in the cache (CA-10).
+      "Na vida real curiosidade",
+    ]);
+    // Each command runs only after being said: first "ls /etc" (after its notice), then "whoami".
+    expect(callOrder(speech.synthesize, 4)).toBeLessThan(callOrder(fake.window.run, 0));
+    expect(callOrder(fake.window.run, 0)).toBeLessThan(callOrder(speech.synthesize, 5));
+    expect(callOrder(speech.synthesize, 5)).toBeLessThan(callOrder(fake.window.run, 1));
+    expect(fake.window.run).toHaveBeenCalledTimes(2);
+  }, 20000);
+
+  it("says the command and the notice for a step without explanation, then runs it", async () => {
+    const { speech } = await loaded();
+    fireEvent.click(screen.getByRole("button", { name: /Executar no terminal 2: whoami/ }));
+    await waitFor(() => expect(fake.window.run).toHaveBeenCalledTimes(1));
+    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual(["whoami", WATCH]);
+    expect(callOrder(speech.synthesize, 1)).toBeLessThan(callOrder(fake.window.run, 0));
+  });
+
+  it("explains a step with the words of the page, highlighted one by one", async () => {
+    const { speech } = await loaded();
+    fireEvent.click(screen.getByRole("button", { name: /Executar no terminal 1: ls \/etc/ }));
+    await waitFor(() => expect(fake.window.run).toHaveBeenCalled());
+    expect(speech.synthesize.mock.calls.map(([text]) => text)).toEqual(["ls barra etc", "lista", WATCH]);
+  });
+
+  // Covers CA-16: cutting the narration in the middle of a step keeps the command from running.
+  it("does not run the command when the narration is stopped before it", async () => {
+    const speech = {
+      synthesize: vi.fn((text: string) => (text === "ls barra etc" ? new Promise<SpeechResult>(() => {}) : Promise.resolve(spoken()))),
+    };
+    setup({ speech });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
+    await waitFor(() => expect(speech.synthesize).toHaveBeenCalledWith("ls barra etc"));
+    fireEvent.click(await screen.findByRole("button", { name: /Parar/ }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Parar/ })).toBeNull());
+    expect(fake.window.run).not.toHaveBeenCalled();
+  });
+
+  // Covers CA-04: stopping the card silences the voice.
+  it("silences the voice when the card is stopped", async () => {
+    const speech = { synthesize: vi.fn().mockReturnValue(new Promise(() => {})) };
+    setup({ speech });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
+    await waitFor(() => expect(speech.synthesize).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: /Parar/ }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Parar/ })).toBeNull());
+  });
+
+  // Covers CA-07 and CA-08: the sound button and its memory.
+  it("turns the sound off and keeps the choice, and the card plays without asking for voice", async () => {
+    const { speech } = await loaded();
+    const toggle = screen.getByRole("button", { name: /Som/ });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: /Mudo/ })).toHaveAttribute("aria-pressed", "false");
+    expect(localStorage.getItem("exame-so:narracao")).toBe("off");
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
+    await waitFor(() => expect(fake.window.run).toHaveBeenCalledTimes(2));
+    expect(speech.synthesize).not.toHaveBeenCalled();
+  });
+
+  // Covers CA-06 (P-01): a visitor gets the invitation and the commands still run.
+  it("invites a visitor to sign in and keeps running the commands in silence", async () => {
+    const speech = { synthesize: vi.fn().mockRejectedValue(new ApiProblemError({ type: "not-authenticated", title: "x", status: 401 }, 401)) };
+    setup({ speech });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
+    expect(await screen.findByText(/Entre na plataforma para ouvir o material/)).toBeTruthy();
+    await waitFor(() => expect(fake.window.run).toHaveBeenCalledTimes(2));
+    expect(speech.synthesize).toHaveBeenCalledTimes(1);
+  });
+
+  // Covers CA-05: a failing voice warns once and the script goes on.
+  it("warns once when the voice fails and still runs every command", async () => {
+    const speech = { synthesize: vi.fn().mockRejectedValue(new ApiProblemError({ type: "speech-unavailable", title: "x", status: 503 }, 503)) };
+    setup({ speech });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
+    expect(await screen.findByText(/Não foi possível gerar a voz agora/)).toBeTruthy();
+    await waitFor(() => expect(fake.window.run).toHaveBeenCalledTimes(2));
+    expect(screen.getAllByText(/Não foi possível gerar a voz agora/)).toHaveLength(1);
+  });
+
+  it("tells the student when the browser blocks the sound", async () => {
+    class BlockedAudio extends AutoAudio {
+      play = vi.fn(() => Promise.reject(new DOMException("blocked", "NotAllowedError")));
+    }
+    vi.stubGlobal("Audio", BlockedAudio);
+    await loaded();
+    fireEvent.click(screen.getAllByRole("button", { name: /Rodar este card/ })[1]!);
+    expect(await screen.findByText(/navegador bloqueou o som/)).toBeTruthy();
+  });
+});

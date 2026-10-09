@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ComponentType } from "react";
 import { CardsBlock, CuriosityBlock, Html, LegacyHtmlBlock, StepByStepBlock, TipBlock, UnknownBlock, WidgetBlock } from "@/components/ContentRenderer/blocks";
 import type { TopicPlayer } from "@/hooks/useTopicPlayer";
+import { SKIP_ATTRIBUTE } from "@/lib/narration";
 import { cardOfStep, INTRO_LABEL, type LessonCard, type ScriptStep, type TopicScript } from "@/lib/topicScript";
 import { contentMessages } from "@/messages/content.pt-BR";
 import styles from "./LessonPanel.module.scss";
@@ -36,15 +37,19 @@ function Examples({ steps, player, intro }: { steps: ScriptStep[]; player: Topic
                 ▶
               </button>
               <div className={styles.exampleBody}>
-                <code className={styles.command}>
+                <code className={styles.command} data-narrate="command">
                   {terminal > 1 && (
-                    <span className={styles.terminalTag} title={m.onTerminal(terminal)}>
+                    <span className={styles.terminalTag} title={m.onTerminal(terminal)} {...{ [SKIP_ATTRIBUTE]: "" }}>
                       T{terminal}
                     </span>
                   )}
                   {step.command}
                 </code>
-                {step.explanation && <span className={styles.explanation}>{step.explanation}</span>}
+                {step.explanation && (
+                  <span className={styles.explanation} data-narrate="explanation">
+                    {step.explanation}
+                  </span>
+                )}
               </div>
             </li>
           );
@@ -68,7 +73,13 @@ function CardBody({ card, steps, player }: { card: LessonCard; steps: ScriptStep
     <>
       {card.blocks.map((block, i) => {
         const payload = block.payload ?? {};
-        if (block.type === "TEXT") return <Html key={block.id} html={typeof payload.html === "string" ? payload.html : ""} className={styles.text} />;
+        if (block.type === "TEXT") {
+          return (
+            <div key={block.id} data-block={block.id}>
+              <Html html={typeof payload.html === "string" ? payload.html : ""} className={styles.text} />
+            </div>
+          );
+        }
         if (block.type === "COMMAND") {
           const from = starts[i] ?? card.start;
           const count = Array.isArray(payload.steps) ? payload.steps.length : 0;
@@ -76,7 +87,11 @@ function CardBody({ card, steps, player }: { card: LessonCard; steps: ScriptStep
           return own.length ? <Examples key={block.id} steps={own} player={player} intro={card.index === 0 && card.label === INTRO_LABEL} /> : null;
         }
         const Component = PLAIN[block.type];
-        return Component ? <Component key={block.id} payload={payload} /> : <UnknownBlock key={block.id} />;
+        return (
+          <div key={block.id} data-block={block.id}>
+            {Component ? <Component payload={payload} /> : <UnknownBlock />}
+          </div>
+        );
       })}
     </>
   );
@@ -116,7 +131,9 @@ export function LessonPanel({ script, player }: LessonPanelProps) {
           <article key={card.index} className={`${styles.card} ${activeCard === card.index ? styles.active : ""}`} data-card={card.index}>
             <header className={styles.header}>
               <code className={styles.tag}>{card.label}</code>
-              <h2 className={styles.title}>{card.title}</h2>
+              <h2 className={styles.title} data-card-title={card.index}>
+                {card.title}
+              </h2>
               {hasSteps && (
                 <button
                   type="button"

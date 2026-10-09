@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearMachine, loadMachine, loadSpeed, machineKey, saveMachine, saveSpeed, scenarioHash } from "./machineStorage";
+import { clearMachine, loadMachine, loadNarration, loadSpeed, machineKey, saveMachine, saveNarration, saveSpeed, scenarioHash } from "./machineStorage";
 
 afterEach(() => {
   localStorage.clear();
@@ -38,6 +38,15 @@ describe("machineStorage", () => {
     expect(loadSpeed()).toBe(1);
   });
 
+  // Covers SPEC-018 CA-08: sound is on by default and the choice is remembered.
+  it("remembers the narration choice and defaults to on", () => {
+    expect(loadNarration()).toBe(true);
+    saveNarration(false);
+    expect(loadNarration()).toBe(false);
+    saveNarration(true);
+    expect(loadNarration()).toBe(true);
+  });
+
   it("survives a browser without storage", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
@@ -50,8 +59,10 @@ describe("machineStorage", () => {
     });
     expect(loadMachine("k")).toBeNull();
     expect(loadSpeed()).toBe(1);
+    expect(loadNarration()).toBe(true);
     expect(() => {
       saveMachine("k", {});
+      saveNarration(false);
       saveSpeed(2);
       clearMachine("k");
     }).not.toThrow();
