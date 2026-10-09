@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-016 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 09/10/2026 |
 | **Última revisão** | 09/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -224,14 +224,12 @@ Se a P-02 for aprovada, a lista de questões de uso `EXERCISE` (SPEC-012) passa 
 
 ## 10. Pendências para aprovação
 
-- **P-01 (cards de lição):** os blocos do banco não guardam a estrutura de lição do protótipo (comando, sintaxe, opções).
-  *Recomendação:* agrupar os blocos em cards pela regra da seção 3.1. É visualmente próximo e não mexe no banco. Uma reextração com a estrutura de lição fica para outra spec, se a diferença incomodar.
-- **P-02 (👀 Solução nos desafios):** o protótipo mostrava a solução, mas a SPEC-014 (CA-02) proibiu expô-la.
-  *Recomendação:* mostrar a solução só para questões de uso `EXERCISE`, que são treino, como no protótipo; questões de avaliação nunca.
-- **P-03 (máquina salva no navegador):** o protótipo salvava a máquina a cada comando.
-  *Recomendação:* manter, por módulo e por usuário, no navegador. Não é estado oficial: o progresso oficial é o do servidor.
-- **P-04 (Cola):** a cola do protótipo é uma tabela fixa, escrita no código do legado, e não vem do banco.
-  *Recomendação:* reaproveitar como está, pelo adaptador. Gerá-la a partir do banco fica para depois.
+Nenhuma. P-01 a P-04 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações:
+
+- **P-01:** blocos agrupados em cards de lição.
+- **P-02:** "👀 Solução" só nos desafios de uso `EXERCISE`.
+- **P-03:** máquina salva no navegador a cada comando.
+- **P-04:** Cola do protótipo reaproveitada como está.
 
 ---
 
@@ -241,3 +239,4 @@ Se a P-02 for aprovada, a lista de questões de uso `EXERCISE` (SPEC-012) passa 
 | :--- | :--- | :--- |
 | 09/10/2026 | Implementador (Claude) | Criação, a pedido do Tech Lead ("use o que tem no protótipo como base"; "temos que usar o que foi feito"), depois de comparar o frontend novo com o protótipo rodando. Decisões já tomadas pelo Tech Lead: rota da máquina do tópico, conferência automática após cada comando, Cola, salvar e abrir e até 3 terminais. Pendências P-01 a P-04 |
 | 09/10/2026 | Implementador (Claude) | Ajustes pedidos pelo Tech Lead ao ver a tela: largura total, sem abas por exercício (máquina única), "Iniciar" exercício com "Preparando máquina…" mantendo o histórico (CA-10), e Reset Máquina, player e velocidade visíveis |
+| 09/10/2026 | Tech Lead | Aprovação de P-01 a P-04 nas recomendações. Status: `Aprovada` |
