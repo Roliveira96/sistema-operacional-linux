@@ -6,6 +6,7 @@ const MACHINE_PREFIX = "exame-so:maquina:v3:";
 const SPEED_KEY = "exame-so:velocidade";
 const NARRATION_KEY = "exame-so:narracao";
 const VOICE_SPEED_KEY = "exame-so:velocidade-voz";
+const SPLIT_KEY = "exame-so:divisao";
 /** Ranges of the two speed controls of the player (SPEC-018, RF-07). */
 export const TYPING_SPEED = { min: 0.5, max: 4, step: 0.25 } as const;
 export const VOICE_SPEED = { min: 0.5, max: 2, step: 0.25 } as const;
@@ -95,6 +96,31 @@ export function loadVoiceSpeed(): number {
 export function saveVoiceSpeed(speed: number): void {
   try {
     localStorage.setItem(VOICE_SPEED_KEY, String(speed));
+  } catch {
+    // no storage
+  }
+}
+
+/** Share of the width given to the study column, in percent (SPEC-016, CA-12). */
+export const SPLIT = { min: 25, max: 75, initial: 44, step: 2 } as const;
+
+export function clampSplit(percent: number): number {
+  if (!Number.isFinite(percent)) return SPLIT.initial;
+  return Math.min(SPLIT.max, Math.max(SPLIT.min, percent));
+}
+
+export function loadSplit(): number {
+  try {
+    const raw = localStorage.getItem(SPLIT_KEY);
+    return raw === null ? SPLIT.initial : clampSplit(Number(raw));
+  } catch {
+    return SPLIT.initial;
+  }
+}
+
+export function saveSplit(percent: number): void {
+  try {
+    localStorage.setItem(SPLIT_KEY, String(percent));
   } catch {
     // no storage
   }

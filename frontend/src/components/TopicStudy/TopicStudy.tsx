@@ -2,14 +2,27 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useModuleCheck } from "@/hooks/useModuleCheck";
 import { useIdentity, type IdentitySources } from "@/hooks/useIdentity";
 import { useNarrator, type NarrationPart, type NarrationWarning } from "@/hooks/useNarrator";
 import { useTopicPlayer } from "@/hooks/useTopicPlayer";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { cheatSheetHtml } from "@/engine/terminalWindow";
-import { clearMachine, loadMachine, loadSpeed, loadVoiceSpeed, machineKey, saveMachine, saveSpeed, saveVoiceSpeed } from "@/lib/machineStorage";
+import {
+  clampSplit,
+  clearMachine,
+  loadMachine,
+  loadSpeed,
+  loadSplit,
+  loadVoiceSpeed,
+  machineKey,
+  saveMachine,
+  saveSpeed,
+  saveSplit,
+  saveVoiceSpeed,
+  SPLIT,
+} from "@/lib/machineStorage";
 import { pickVariation, spokenCommand } from "@/lib/narration";
 import { splitDescription, topicAccentVars } from "@/lib/moduleVisual";
 import { buildTopicScript, type ScriptStep, type TimelineItem, type TopicScript } from "@/lib/topicScript";
@@ -162,6 +175,10 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   const [voiceSpeed, setVoiceSpeedState] = useState(loadVoiceSpeed);
+  const split = useRef<HTMLElement>(null);
+  const [studyPercent, setStudyPercent] = useState(loadSplit);
+  const [dragging, setDragging] = useState(false);
+  const percentRef = useRef(studyPercent);
   const identity = useIdentity(identitySources);
   const narrator = useNarrator({
     service: speech,
@@ -300,6 +317,32 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
     }
   };
 
+  /** Moves the divider to a share of the width and keeps it for the next visit. */
+  const moveDivider = useCallback((percent: number, save: boolean) => {
+    const value = clampSplit(percent);
+    percentRef.current = value;
+    setStudyPercent(value);
+    if (save) saveSplit(value);
+  }, []);
+
+  const dragTo = (clientX: number) => {
+    const box = split.current?.getBoundingClientRect();
+    if (box && box.width > 0) moveDivider(((clientX - box.left) / box.width) * 100, false);
+  };
+
+  const dividerKeys = (event: React.KeyboardEvent) => {
+    const step = event.shiftKey ? SPLIT.step * 3 : SPLIT.step;
+    const target: Record<string, number> = {
+      ArrowLeft: studyPercent - step,
+      ArrowRight: studyPercent + step,
+      Home: SPLIT.min,
+      End: SPLIT.max,
+    };
+    if (!(event.key in target)) return;
+    event.preventDefault();
+    moveDivider(target[event.key]!, true);
+  };
+
   const openCheatSheet = async () => setCheatSheet(await cheatSheetHtml());
 
   const startChallenge = async (challenge: PublicQuestion) => {
@@ -369,7 +412,11 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
         {identity && <UserBadge identity={identity} />}
       </header>
 
-      <main className={styles.split}>
+      <main
+        ref={split}
+        className={`${styles.split} ${dragging ? styles.dragging : ""}`}
+        style={{ "--split-columns": `minmax(0, ${studyPercent}fr) 10px minmax(0, ${100 - studyPercent}fr)` } as CSSProperties}
+      >
         <section className={styles.study}>
           <nav className={styles.tabs} role="tablist" aria-label={t.tabs.label}>
             <button type="button" role="tab" aria-selected={tab === "lesson"} className={`${styles.tab} ${tab === "lesson" ? styles.active : ""}`} onClick={() => setTab("lesson")}>
@@ -403,6 +450,29 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
             )}
           </div>
         </section>
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t.divider.label}
+          aria-valuemin={SPLIT.min}
+          aria-valuemax={SPLIT.max}
+          aria-valuenow={Math.round(studyPercent)}
+          aria-valuetext={t.divider.value(Math.round(studyPercent))}
+          tabIndex={0}
+          className={styles.divider}
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            setDragging(true);
+          }}
+          onPointerMove={(event) => dragging && dragTo(event.clientX)}
+          onPointerUp={() => {
+            setDragging(false);
+            saveSplit(percentRef.current);
+          }}
+          onPointerCancel={() => setDragging(false)}
+          onClick={(event) => event.detail >= 2 && moveDivider(SPLIT.initial, true)}
+          onKeyDown={dividerKeys}
+        />
         <TerminalPane snapshot={initialSnapshot} onReady={onReady} onCommand={onCommand} />
       </main>
 

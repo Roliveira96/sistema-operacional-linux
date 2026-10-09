@@ -150,15 +150,45 @@
 .split {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
+  grid-template-columns: var(--split-columns, minmax(0, 44fr) 10px minmax(0, 56fr));
   min-height: 0;
+
+  // While the divider is dragged, text must not get selected under the pointer.
+  &.dragging {
+    cursor: col-resize;
+    user-select: none;
+  }
+}
+
+// Draggable divider between the material and the terminal (SPEC-016, CA-12).
+.divider {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+
+  &::before {
+    position: absolute;
+    inset: 0 4px;
+    background: var(--color-border);
+    content: "";
+    transition: background var(--transition-fast);
+  }
+
+  &:hover::before,
+  &:focus-visible::before,
+  .dragging > &::before {
+    background: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
 }
 
 .study {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid var(--color-border);
 }
 
 .tabs {
@@ -249,6 +279,10 @@
 
   .split {
     grid-template-columns: 1fr;
+  }
+
+  .divider {
+    display: none;
   }
 
   .study {

@@ -6,6 +6,12 @@
   box-sizing: border-box;
 }
 
+// The hidden attribute must win over any display set by a component stylesheet. Without
+// it the terminal's closed editor (display: flex) kept half of the window (SPEC-016).
+[hidden] {
+  display: none !important;
+}
+
 html {
   font-family: var(--font-sans);
   line-height: var(--line-height-body);

@@ -261,6 +261,91 @@ describe("TopicStudy screen", () => {
   });
 });
 
+// Covers SPEC-016 CA-12: the student drags the divider to give the material or the terminal more room.
+describe("TopicStudy divider", () => {
+  const divider = () => screen.getByRole("separator");
+  const columns = () => (divider().parentElement as HTMLElement).getAttribute("style") ?? "";
+
+  it("starts at the default share and shows it to assistive technology", async () => {
+    await loaded();
+    expect(divider()).toHaveAttribute("aria-valuenow", "44");
+    expect(divider()).toHaveAttribute("aria-valuemin", "25");
+    expect(divider()).toHaveAttribute("aria-valuemax", "75");
+    expect(divider()).toHaveAttribute("aria-valuetext", "Material com 44% da largura");
+    expect(columns()).toContain("minmax(0, 44fr) 10px minmax(0, 56fr)");
+  });
+
+  it("starts from the share saved in the browser, kept within the limits", async () => {
+    localStorage.setItem("exame-so:divisao", "60");
+    await loaded();
+    expect(divider()).toHaveAttribute("aria-valuenow", "60");
+    cleanup();
+    localStorage.setItem("exame-so:divisao", "3");
+    await loaded();
+    expect(divider()).toHaveAttribute("aria-valuenow", "25");
+  });
+
+  it("moves with the arrow keys, faster with Shift, to the limits with Home and End, and remembers it", async () => {
+    await loaded();
+    fireEvent.keyDown(divider(), { key: "ArrowRight" });
+    expect(divider()).toHaveAttribute("aria-valuenow", "46");
+    expect(localStorage.getItem("exame-so:divisao")).toBe("46");
+    fireEvent.keyDown(divider(), { key: "ArrowLeft", shiftKey: true });
+    expect(divider()).toHaveAttribute("aria-valuenow", "40");
+    fireEvent.keyDown(divider(), { key: "End" });
+    expect(divider()).toHaveAttribute("aria-valuenow", "75");
+    fireEvent.keyDown(divider(), { key: "ArrowRight" });
+    expect(divider()).toHaveAttribute("aria-valuenow", "75");
+    fireEvent.keyDown(divider(), { key: "Home" });
+    expect(divider()).toHaveAttribute("aria-valuenow", "25");
+    expect(columns()).toContain("minmax(0, 25fr) 10px minmax(0, 75fr)");
+    fireEvent.keyDown(divider(), { key: "Tab" });
+    expect(divider()).toHaveAttribute("aria-valuenow", "25");
+  });
+
+  it("follows the pointer while dragging, stays within the limits and saves when released", async () => {
+    await loaded();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 0, width: 1000, top: 0, right: 1000, bottom: 800, height: 800, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.pointerMove(divider(), { clientX: 700 });
+    expect(divider()).toHaveAttribute("aria-valuenow", "44");
+
+    fireEvent.pointerDown(divider(), { pointerId: 1 });
+    fireEvent.pointerMove(divider(), { clientX: 620 });
+    expect(divider()).toHaveAttribute("aria-valuenow", "62");
+    expect(localStorage.getItem("exame-so:divisao")).toBeNull();
+    fireEvent.pointerMove(divider(), { clientX: 990 });
+    expect(divider()).toHaveAttribute("aria-valuenow", "75");
+    fireEvent.pointerMove(divider(), { clientX: 10 });
+    expect(divider()).toHaveAttribute("aria-valuenow", "25");
+    fireEvent.pointerUp(divider());
+    expect(localStorage.getItem("exame-so:divisao")).toBe("25");
+
+    fireEvent.pointerMove(divider(), { clientX: 500 });
+    expect(divider()).toHaveAttribute("aria-valuenow", "25");
+    vi.restoreAllMocks();
+  });
+
+  it("stops dragging when the pointer is cancelled", async () => {
+    await loaded();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 0, width: 1000, top: 0, right: 1000, bottom: 800, height: 800, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.pointerDown(divider(), { pointerId: 1 });
+    fireEvent.pointerCancel(divider());
+    fireEvent.pointerMove(divider(), { clientX: 800 });
+    expect(divider()).toHaveAttribute("aria-valuenow", "44");
+    vi.restoreAllMocks();
+  });
+
+  it("goes back to the default share on a double click, and a single click changes nothing", async () => {
+    localStorage.setItem("exame-so:divisao", "70");
+    await loaded();
+    fireEvent.click(divider(), { detail: 1 });
+    expect(divider()).toHaveAttribute("aria-valuenow", "70");
+    fireEvent.click(divider(), { detail: 2 });
+    expect(divider()).toHaveAttribute("aria-valuenow", "44");
+    expect(localStorage.getItem("exame-so:divisao")).toBe("44");
+  });
+});
+
 // Covers SPEC-016 CA-11: the signed-in user at the left of the header.
 describe("TopicStudy user", () => {
   const student = {

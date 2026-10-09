@@ -162,6 +162,10 @@ export const contentMessages = {
         "Vamos executar: olhe o terminal ao lado.",
       ] as readonly string[],
     },
+    divider: {
+      label: "Largura do material e do terminal. Arraste, ou use as setas, para ajustar; clique duas vezes para voltar ao padrão.",
+      value: (percent: number) => `Material com ${percent}% da largura`,
+    },
     shortcutsHint: "Atalhos: ← volta um passo, → avança um passo, espaço toca ou pausa o roteiro",
   },
   simulations: {

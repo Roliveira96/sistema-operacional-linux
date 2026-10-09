@@ -1,5 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearMachine, loadMachine, loadNarration, loadSpeed, loadVoiceSpeed, machineKey, saveMachine, saveNarration, saveSpeed, saveVoiceSpeed, scenarioHash } from "./machineStorage";
+import {
+  clampSplit,
+  clearMachine,
+  loadMachine,
+  loadNarration,
+  loadSpeed,
+  loadSplit,
+  loadVoiceSpeed,
+  machineKey,
+  saveMachine,
+  saveNarration,
+  saveSpeed,
+  saveSplit,
+  saveVoiceSpeed,
+  scenarioHash,
+} from "./machineStorage";
 
 afterEach(() => {
   localStorage.clear();
@@ -62,6 +77,20 @@ describe("machineStorage", () => {
     expect(loadNarration()).toBe(true);
   });
 
+  // Covers SPEC-016 CA-12: the share of the width of the study column.
+  it("keeps the divider share within 25% and 75% and remembers it", () => {
+    expect(loadSplit()).toBe(44);
+    saveSplit(60);
+    expect(loadSplit()).toBe(60);
+    expect(clampSplit(5)).toBe(25);
+    expect(clampSplit(99)).toBe(75);
+    expect(clampSplit(Number.NaN)).toBe(44);
+    localStorage.setItem("exame-so:divisao", "abc");
+    expect(loadSplit()).toBe(44);
+    localStorage.setItem("exame-so:divisao", "200");
+    expect(loadSplit()).toBe(75);
+  });
+
   it("survives a browser without storage", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
@@ -76,9 +105,11 @@ describe("machineStorage", () => {
     expect(loadSpeed()).toBe(1);
     expect(loadNarration()).toBe(true);
     expect(loadVoiceSpeed()).toBe(1);
+    expect(loadSplit()).toBe(44);
     expect(() => {
       saveMachine("k", {});
       saveVoiceSpeed(2);
+      saveSplit(50);
       saveNarration(false);
       saveSpeed(2);
       clearMachine("k");
