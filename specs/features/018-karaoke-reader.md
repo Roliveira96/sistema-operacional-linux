@@ -64,7 +64,7 @@ O Tech Lead quer que o material seja **lido em voz alta, com a palavra falada de
 - **RF-12 (comando por extenso):** o comando é dito em português falado: símbolos viram palavras (`-` "traço", `/` "barra", `|` "pipe", `>` "redireciona para", `.` "ponto", `~` "til", `&&` "e depois" e assim por diante), e opções curtas juntas são soletradas (`-la` vira "traço l a"). O destaque do comando cobre o comando inteiro, não cada palavra.
 - **RF-05 (parar):** parar o card, pausar o play ou clicar em outro card interrompe a voz na hora e cancela os pedidos pendentes.
 - **RF-06 (falha da voz):** se um trecho não puder ser gerado (limite, serviço fora, sem sessão), o item segue em silêncio, o texto é mostrado sem destaque e um aviso aparece uma vez por card.
-- **RF-07 (velocidade):** a velocidade do player vale para a digitação; para a voz, a velocidade de reprodução acompanha o seletor até o limite de 2× (ver P-05).
+- **RF-07 (velocidade):** dois controles deslizantes no player, um para a **velocidade da leitura** da voz (de 0,5× a 2×, o limite da P-05) e outro para a **velocidade da digitação** dos comandos no terminal (de 0,5× a 4×). Cada um guarda o seu valor no navegador. Eles substituem o seletor único de velocidade da SPEC-016.
 - **RF-08 (som):** um botão 🔊/🔇 no cabeçalho liga e desliga a narração; a escolha fica salva no navegador. Com o som desligado, o player funciona como hoje (SPEC-016).
 - **RF-09 (clique do estudante):** o navegador só deixa tocar áudio depois de um clique; a narração começa sempre de um clique do estudante (play, card ou comando). Se o navegador recusar, um aviso pede o clique.
 - **RF-10 (cache):** o áudio de um mesmo trecho é reaproveitado enquanto a página estiver aberta, sem novo pedido ao servidor.
@@ -127,7 +127,7 @@ Usa a rota 5.1 da SPEC-017 sem mudar o contrato (`POST /api/v1/speech-syntheses`
 - [x] **CA-10** (ubíquo): O SISTEMA DEVE reaproveitar o áudio de um trecho já pedido na mesma visita, sem novo pedido.
 - [x] **CA-11** (ubíquo): A narração NÃO DEVE ler marcação HTML nem o conteúdo de `WIDGET`.
 - [x] **CA-12** (evento): QUANDO o navegador recusar tocar o áudio, ENTÃO O SISTEMA DEVE avisar o estudante para clicar de novo e seguir em silêncio até lá.
-- [x] **CA-13** (ubíquo): A velocidade de reprodução da voz DEVE acompanhar o seletor do player até o limite da P-05, e a digitação DEVE seguir o seletor inteiro.
+- [x] **CA-13** (ubíquo): A velocidade de reprodução da voz DEVE seguir o controle de leitura (de 0,5× a 2×, limite da P-05), e a digitação DEVE seguir o controle de digitação (de 0,5× a 4×), cada um independente do outro e lembrado na próxima visita.
 - [x] **CA-14** (ubíquo): O botão de som DEVE ter nome acessível e estado, e o destaque DEVE ter sublinhado além da cor.
 
 ## 8. Plano de Testes (Test Plan)
@@ -184,3 +184,4 @@ Nenhuma. P-01 a P-06 aprovadas pelo Tech Lead em 09/10/2026, nas recomendações
 | 09/10/2026 | Tech Lead | Terceira revisão, pedida depois de ouvir a narração ("os comandos linux alguns deles é falado de forma estranha, o narrador não sabe que é comando; veja a solução"): léxico de comandos (RF-13 e CA-17). Escolhida a substituição léxica no frontend, sem mexer no SSML da rota de voz (SPEC-017, RN-04) |
 | 09/10/2026 | Implementador (Claude) | Léxico implementado em `frontend/src/lib/commandLexicon.ts` (tabela) e `narration.ts` (`spokenCommand` e leitura do código dentro dos textos). **Verificação:** 394 testes do frontend passando (cobertura de 95% das linhas), ESLint e `tsc` limpos; casos de `spokenCommand` com 26 comandos reais do conteúdo, permissões, nomes compostos e código no meio do texto (inclusive o destaque do trecho inteiro e a repetição "pipe pipe"). **Desvio:** a grafia de cada nome no léxico foi escolhida sem poder ouvir o resultado nesse ambiente; o Tech Lead ajusta a tabela (`commandLexicon.ts`) conforme o que soar estranho. |
 | 09/10/2026 | Tech Lead | Quarta revisão ("quero 15 variações da frase 'veja o comando rodando no terminal ao lado', sorteadas, para não ficar repetitivo"): RF-14 e CA-18. As 15 frases ficam em `messages/content.pt-BR.ts` e o sorteio, que evita repetir a frase anterior, em `lib/narration.ts` (`pickVariation`) |
+| 09/10/2026 | Tech Lead | Quinta revisão ("incluir um slider para ajustar a velocidade de leitura do conteúdo e outro para a velocidade da escrita dos comandos"): RF-07 e CA-13 reescritos; os dois controles substituem o seletor único. O mesmo pedido incluiu o usuário logado no cabeçalho, registrado na SPEC-016 |
