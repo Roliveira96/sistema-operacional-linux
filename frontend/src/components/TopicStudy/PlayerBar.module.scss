@@ -48,7 +48,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  width: 320px;
+  width: 190px;
   min-width: 0;
 }
 
@@ -110,12 +110,12 @@
 }
 
 .sliderLabel {
-  width: 68px;
+  width: 62px;
   white-space: nowrap;
 }
 
 .range {
-  width: 92px;
+  width: 72px;
   accent-color: var(--accent);
   cursor: pointer;
 
@@ -132,9 +132,9 @@
   color: var(--accent);
 }
 
-@media (width <= 1400px) {
+@media (width >= 1900px) {
   .info {
-    width: 240px;
+    width: 320px;
   }
 }
 

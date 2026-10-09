@@ -268,12 +268,12 @@ describe("TopicStudy user", () => {
     studentProfile: vi.fn().mockResolvedValue({ name: "Ana Souza", academicId: "2345678", avatarUrl: "http://files/ana.png" }),
   };
 
-  it("shows the photo, the name and the academic ID of the student before everything else in the header", async () => {
+  it("shows the photo, the name and the academic ID of the student at the right end of the header", async () => {
     setup({ identity: student });
     expect(await screen.findByText("RA 2345678")).toBeTruthy();
     expect(screen.getByRole("img", { name: "Foto de Ana Souza" })).toBeTruthy();
     const header = screen.getByRole("heading", { name: "História do Linux" }).closest("header")!;
-    expect(header.firstElementChild?.textContent).toContain("Ana Souza");
+    expect(header.lastElementChild?.textContent).toContain("Ana Souza");
   });
 
   it("shows nobody for a visitor", async () => {

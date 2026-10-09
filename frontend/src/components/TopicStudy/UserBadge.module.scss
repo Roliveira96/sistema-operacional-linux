@@ -1,6 +1,7 @@
 // Signed-in user at the left of the topic header (SPEC-016, CA-11).
 .badge {
   display: flex;
+  margin-left: auto;
   flex-shrink: 0;
   align-items: center;
   gap: 10px;

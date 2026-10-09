@@ -330,7 +330,6 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
   return (
     <div className={styles.screen} style={topicAccentVars(module.color)}>
       <header className={styles.header}>
-        {identity && <UserBadge identity={identity} />}
         <Link href={backHref} className={styles.back}>
           {t.back}
         </Link>
@@ -367,6 +366,7 @@ function TopicScreen({ module, script, challenges, scenario, storageKey, initial
             {t.actions.import}
           </button>
         </nav>
+        {identity && <UserBadge identity={identity} />}
       </header>
 
       <main className={styles.split}>
