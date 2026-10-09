@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPlainText, printfSteps, shellQuote, writtenFile } from "./setupContent";
+import { isPlainText, nextCwd, printfSteps, resolvePath, shellQuote, writtenFile } from "./setupContent";
 
 // Covers the files an author writes with an editor while recording a snapshot (SPEC-021).
 describe("setupContent", () => {
@@ -33,5 +33,26 @@ describe("setupContent", () => {
   it("only converts a text a backslash would not change", () => {
     expect(isPlainText("a b $HOME")).toBe(true);
     expect(isPlainText("a"+String.fromCharCode(92)+"nb")).toBe(false);
+  });
+
+  it("resolves a relative path from a folder, with . and ..", () => {
+    expect(resolvePath("/home/ricardo/financeiro", "teste.txt")).toBe("/home/ricardo/financeiro/teste.txt");
+    expect(resolvePath("/home/ricardo", "./a/../b/c.txt")).toBe("/home/ricardo/b/c.txt");
+    expect(resolvePath("/home/ricardo", "../x")).toBe("/home/x");
+    expect(resolvePath("/", "a")).toBe("/a");
+    expect(resolvePath("/qualquer", "/abs/ok.txt")).toBe("/abs/ok.txt");
+  });
+
+  it("follows the cd the author types, and gives up when the folder cannot be known", () => {
+    expect(nextCwd("/root", "ls")).toBe("/root");
+    expect(nextCwd("/root", "cd /home/ricardo/financeiro/")).toBe("/home/ricardo/financeiro");
+    expect(nextCwd("/home/ricardo", "cd financeiro")).toBe("/home/ricardo/financeiro");
+    expect(nextCwd("/home/ricardo/financeiro", "cd ..")).toBe("/home/ricardo");
+    expect(nextCwd("/home/ricardo", "cd")).toBe("/root");
+    expect(nextCwd("/home/ricardo", "cd ~")).toBe("/root");
+    for (const hard of ["cd -", "cd $HOME", "cd ~ana", 'cd "a b"']) expect(nextCwd("/home/ricardo", hard)).toBeUndefined();
+    expect(nextCwd(undefined, "cd financeiro")).toBeUndefined();
+    expect(nextCwd(undefined, "cd /srv")).toBe("/srv");
+    expect(nextCwd(undefined, "ls")).toBeUndefined();
   });
 });

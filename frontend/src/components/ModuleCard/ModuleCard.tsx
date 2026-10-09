@@ -13,6 +13,12 @@ interface ModuleCardProps {
   href?: string;
   canManage?: boolean;
   onToggleStatus?: (module: CourseModuleSummary) => void;
+  isReordering?: boolean;
+  dragIndex?: number;
+  onDragStart?: (e: React.DragEvent<HTMLElement>) => void;
+  onDragOver?: (e: React.DragEvent<HTMLElement>) => void;
+  onDrop?: (e: React.DragEvent<HTMLElement>) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLElement>) => void;
 }
 
 const visibilityClassMap: Record<string, string | undefined> = {
@@ -28,14 +34,39 @@ const statusClassMap: Record<string, string | undefined> = {
 };
 
 /** Module card in the layout of the prototype menu (SPEC-015). */
-export function ModuleCard({ module, href, canManage, onToggleStatus }: ModuleCardProps) {
+export function ModuleCard({
+  module,
+  href,
+  canManage,
+  onToggleStatus,
+  isReordering,
+  dragIndex,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: ModuleCardProps) {
   const m = ptBR.modules;
   const { tags, summary } = splitDescription(module.description);
-  const order = orderLabel(module.displayOrder);
+  const order = orderLabel(module.displayOrder ?? (typeof dragIndex === "number" ? dragIndex + 1 : undefined));
   const isExpired = module.status === "ACTIVE" && !module.isActiveNow;
 
   return (
-    <article className={styles.card} style={moduleAccent(module.color)} data-testid={`module-card-${module.id}`}>
+    <article
+      className={`${styles.card} ${isReordering ? styles.reordering : ""}`}
+      style={moduleAccent(module.color)}
+      data-testid={`module-card-${module.id}`}
+      draggable={isReordering}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+    >
+      {isReordering && (
+        <span className={styles.dragHandle} aria-hidden="true" title="Arrastar para reordenar">
+          ⋮⋮
+        </span>
+      )}
       {order && (
         <span className={styles.order} aria-hidden="true">
           {order}
@@ -65,7 +96,7 @@ export function ModuleCard({ module, href, canManage, onToggleStatus }: ModuleCa
       )}
 
       <h3 className={styles.title}>
-        {href ? (
+        {href && !isReordering ? (
           <Link href={href} className={styles.titleLink}>
             {module.title}
           </Link>
@@ -98,7 +129,7 @@ export function ModuleCard({ module, href, canManage, onToggleStatus }: ModuleCa
         <span>{m.card.exercisesCount(module.totalExercises)}</span>
       </div>
 
-      {(href || canManage) && (
+      {(href || canManage) && !isReordering && (
         <footer className={styles.footer}>
           {href && (
             // The title link covers the whole card; this is only the visual cue.

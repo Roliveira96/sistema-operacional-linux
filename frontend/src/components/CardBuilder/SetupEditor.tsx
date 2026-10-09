@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { TerminalPane } from "@/components/TopicStudy/TerminalPane";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { emptySetup, type Setup, type SetupLayer, type SetupStep } from "@/lib/setup";
-import { isPlainText, printfSteps, shellQuote, writtenFile } from "@/lib/setupContent";
+import { isPlainText, nextCwd, printfSteps, resolvePath, shellQuote, writtenFile } from "@/lib/setupContent";
+import { reconcile, type MachineTree } from "@/lib/machineDiff";
+import { replayMachine } from "@/lib/machineReplay";
 import { isConflict, runLayers, type StepResult } from "@/lib/setupRunner";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import styles from "./CardBuilder.module.scss";
@@ -17,6 +19,8 @@ interface SetupEditorProps {
   /** Messages of the place it is used (the card or the module); the default is the card's. */
   help?: string;
   onChange: (setup: Setup | undefined) => void;
+  /** Called with the snapshot after the commands typed in the terminal were adopted and checked against the terminal. */
+  onAdopted?: (setup: Setup) => void;
   /** The machine the author starts from: the topic scenario (null for the default one). */
   loadBase: () => Promise<unknown>;
   /** The snapshots that run before this one: the module and the earlier cards. */
@@ -96,7 +100,7 @@ function StepRow({ step, index, total, onChange, onMove, onRemove }: { step: Set
  * student. They are typed in the list or recorded in the terminal of the application, which first
  * replays the snapshots that come before, so the author sees the machine the student will have.
  */
-export function SetupEditor({ setup, help, onChange, loadBase, before, errors = {} }: SetupEditorProps) {
+export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before, errors = {} }: SetupEditorProps) {
   const current = setup ?? emptySetup();
   const [open, setOpen] = useState(false);
   const [base, setBase] = useState<{ machine: unknown } | null>(null);
@@ -107,8 +111,13 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
   const [conflicts, setConflicts] = useState<StepResult[]>([]);
   const [notice, setNotice] = useState<string[]>([]);
   const [converting, setConverting] = useState(false);
+  const [checking, setChecking] = useState(false);
   const terminal = useRef<TerminalWindow | null>(null);
   const started = useRef(0);
+  /** The machine the author started from, to build the same one again when checking the result. */
+  const baseMachine = useRef<unknown>(null);
+  /** The folder the terminal is in when the author starts typing. */
+  const startCwd = useRef<string | undefined>(undefined);
   const latest = useRef({ before, loadBase, steps: current });
   useEffect(() => {
     latest.current = { before, loadBase, steps: current };
@@ -119,7 +128,11 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
     let active = true;
     latest
       .current.loadBase()
-      .then((machine) => active && setBase({ machine }))
+      .then((machine) => {
+        if (!active) return;
+        baseMachine.current = machine;
+        setBase({ machine });
+      })
       .catch(() => active && setFailed(true));
     return () => {
       active = false;
@@ -159,6 +172,9 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
     const layers = own.steps.length > 0 ? [...latest.current.before, { id: "own", kind: "card" as const, label: m.ownLayer, setup: own }] : latest.current.before;
     const results = await runLayers(win, layers);
     setConflicts(results.filter(isConflict));
+    // A relative path typed in an editor is resolved from here, following the cd the author types.
+    const where = await win.execute({ command: "pwd" });
+    startCwd.current = where.status === 0 && where.output.trim().startsWith("/") ? where.output.trim() : undefined;
     started.current = win.history().length;
     setReady(true);
   };
@@ -169,13 +185,18 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
     setConverting(true);
     const notes: string[] = [];
     const steps: SetupStep[] = [];
+    let cwd = startCwd.current;
     for (const command of typed) {
-      const path = writtenFile(command);
-      if (!path || !win) {
+      const file = writtenFile(command);
+      const before = cwd;
+      cwd = nextCwd(cwd, command);
+      if (!file || !win) {
         steps.push({ command });
         continue;
       }
-      if (!path.startsWith("/")) {
+      // A relative path is resolved from the folder the terminal was in when the command was typed.
+      const path = file.startsWith("/") ? file : before ? resolvePath(before, file) : undefined;
+      if (!path) {
         steps.push({ command });
         notes.push(m.relativePath(command));
         continue;
@@ -189,10 +210,32 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
       steps.push(...printfSteps(path, output));
       notes.push(m.converted(command, path));
     }
-    patch([...current.steps, ...steps]);
+    const list = [...current.steps, ...steps];
+    // The snapshot has to leave the student's machine exactly as the author left this one: what the commands do not
+    // reproduce (an editor session on another path, a permission, an owner) is found by comparing both machines.
+    const recorded = typeof win?.snapshot === "function" ? win.snapshot() : undefined;
+    close();
+    if (recorded !== undefined) {
+      setChecking(true);
+      try {
+        const own = { id: "own", kind: "card" as const, label: m.ownLayer, setup: { summary: current.summary, steps: list } };
+        const replayed = await replayMachine(baseMachine.current, [...latest.current.before, own]);
+        const result = reconcile(recorded as MachineTree, replayed as MachineTree);
+        if (result.steps.length > 0) {
+          list.push(...result.steps);
+          notes.push(m.reconciled(result.steps.length));
+        }
+        for (const text of result.inexact) notes.push(m.inexact(text));
+      } catch {
+        notes.push(m.notChecked);
+      }
+      setChecking(false);
+    }
+    const adopted = { ...current, steps: list };
+    onChange(adopted);
     setNotice(notes);
     setConverting(false);
-    close();
+    onAdopted?.(adopted);
   };
 
   return (
@@ -207,6 +250,11 @@ export function SetupEditor({ setup, help, onChange, loadBase, before, errors = 
         <input id="setup-summary" className={styles.input} value={current.summary} placeholder={m.summaryPlaceholder} onChange={(e) => onChange({ ...current, summary: e.target.value })} />
       </div>
 
+      {checking && (
+        <p className={styles.hint} role="status">
+          {m.checking}
+        </p>
+      )}
       {notice.length > 0 && (
         <ul className={styles.commandList} role="status" aria-label={m.noticeLabel}>
           {notice.map((text) => (

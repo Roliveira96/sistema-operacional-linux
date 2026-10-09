@@ -43,15 +43,15 @@ export function ModuleSetupTab({ moduleId, service = contentAuthoringService, pr
 
   const dirty = JSON.stringify(setup ? setupPayload(setup) : null) !== saved;
 
-  const save = async () => {
+  const save = async (next?: Setup) => {
     setSaving(true);
     setMessage(null);
     try {
-      const stored = await service.setModuleSetup(moduleId, setup ?? { summary: "", steps: [] });
+      const stored = await service.setModuleSetup(moduleId, next ?? setup ?? { summary: "", steps: [] });
       setSetup(stored);
       setSaved(JSON.stringify(stored ? setupPayload(stored) : null));
       onSaved?.(stored);
-      setMessage({ kind: "ok", text: m.saved });
+      setMessage({ kind: "ok", text: next ? m.autosaved : m.saved });
     } catch {
       setMessage({ kind: "error", text: m.failed });
     } finally {
@@ -69,7 +69,7 @@ export function ModuleSetupTab({ moduleId, service = contentAuthoringService, pr
 
   return (
     <div className={styles.environment}>
-      <SetupEditor setup={setup} help={m.help} before={[]} loadBase={() => practice.topicScenario(moduleId)} onChange={setSetup} />
+      <SetupEditor setup={setup} help={m.help} before={[]} loadBase={() => practice.topicScenario(moduleId)} onChange={setSetup} onAdopted={(adopted) => void save(adopted)} />
       <div className={styles.rowButtons}>
         {message && (
           <p className={message.kind === "ok" ? styles.saved : styles.error} role={message.kind === "ok" ? "status" : "alert"}>

@@ -128,6 +128,12 @@ export class ModuleService {
       orderedExerciseIds,
     });
   }
+
+  async reorderModules(moduleIds: string[]): Promise<{ message: string; reorderedCount: number }> {
+    return this.client.put<{ message: string; reorderedCount: number }>("/modules/order", {
+      moduleIds,
+    });
+  }
 }
 
 export const moduleService = new ModuleService();

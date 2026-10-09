@@ -377,7 +377,7 @@ describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => 
     expect(await screen.findByText("mkdir /financeiro")).toBeDefined();
     expect(screen.queryByText("m1")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Usar estes comandos" }));
-    expect(input("Comando (1)").value).toBe("mkdir /financeiro");
+    expect(((await screen.findByLabelText("Comando (1)")) as HTMLInputElement).value).toBe("mkdir /financeiro");
 
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
     await waitFor(() => expect(service.saveCard).toHaveBeenCalled());

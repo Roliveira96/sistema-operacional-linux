@@ -55,6 +55,8 @@
 
 **Conflito.** No **teste**, um passo de snapshot que termina com erro é um **conflito**: o painel mostra de qual camada ele é (módulo ou o título do card), o comando e o que o terminal disse (por exemplo, `mkdir /financeiro` do card quando o do módulo já criou a pasta). O teste continua e lista todos os conflitos, além do resultado dos comandos do card.
 
+**Exatidão (pedido do Tech Lead, 09/10/2026).** O snapshot tem de deixar a máquina do aluno **exatamente** como a docente deixou a dela. Ao adotar os comandos gravados no terminal, o sistema lê o texto digitado em `nano`, `vim`, `vi` e `tee` e o grava como `printf`; depois monta uma segunda máquina só com os comandos da lista e a compara com a do terminal (arquivos e pastas, texto, permissões, donos e links). O que faltar é acrescentado ao fim da lista como comandos (`mkdir -p`, `printf`, `chmod`, `chown`, `ln -s`, `rm -rf`) e a docente é avisada; o que nenhum comando reproduz (texto com barra invertida, arquivo sem quebra de linha final, binários, usuário que os comandos não criam) é listado como aviso. O ambiente do módulo é **salvo no servidor na hora** em que os comandos são adotados.
+
 ### 3.3. Testes do módulo (pedido do Tech Lead, 09/10/2026)
 
 O ambiente do módulo (o snapshot) é montado na **aba Conteúdo**, num bloco recolhível acima da lista de cards, junto de onde os testes rodam. Não há aba Ambiente.
@@ -162,3 +164,4 @@ Nenhuma em aberto. O Tech Lead respondeu em 09/10/2026:
 | 09/10/2026 | Tech Lead | Regra acrescentada: sempre há uma versão publicada enquanto outra (o rascunho) é editada. Incluídas a RN-11 (a v1 nasce com o módulo) e o ajuste da CA-09 |
 | 09/10/2026 | Tech Lead | Pedido: na lista de conteúdo cada card com comandos informa se foi testado e passou. Implementado como selo (não testado, passou, falhou, alterado desde o teste), guardado neste navegador; levar ao servidor se a equipe toda precisar ver |
 | 09/10/2026 | Tech Lead | Pedidos: o teste do módulo roda antes o teste de cada atividade e remove o botão "Testar todas as atividades"; mostra o teste unitário, o funcional sequencial e o inverso (dependências entre atividades); a aba Ambiente sai e o ambiente do módulo passa a ser montado na aba Conteúdo. Implementados (seção 3.3). O versionamento (migração 00013, publicar, restaurar, leitura da versão publicada) está implementado |
+| 09/10/2026 | Tech Lead | Pedido: o snapshot do módulo deve ser exato e persistido; o texto de arquivos gravado pelo terminal não podia ficar de fora. Implementado como descrito em 3.3 (exatidão): conversão de editores em `printf`, comparação da máquina do terminal com a da repetição e salvamento imediato |

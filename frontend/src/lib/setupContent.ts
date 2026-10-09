@@ -44,3 +44,28 @@ export function printfSteps(path: string, text: string): SetupStep[] {
 
 /** A text the `printf` above reproduces exactly: the engine reads a backslash in an argument as an escape. */
 export const isPlainText = (text: string) => !text.includes("\\");
+
+/** An absolute path from a folder and a path, resolving `.` and `..`. */
+export function resolvePath(cwd: string, path: string): string {
+  const parts: string[] = [];
+  for (const part of (path.startsWith("/") ? path : `${cwd}/${path}`).split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part === "..") parts.pop();
+    else parts.push(part);
+  }
+  return `/${parts.join("/")}`;
+}
+
+/**
+ * The folder the terminal is in after a command. Only a `cd` changes it; undefined when it cannot be known
+ * (`cd -`, a variable, a quoted path), so a relative path after that is not guessed.
+ */
+export function nextCwd(cwd: string | undefined, command: string, home = "/root"): string | undefined {
+  const match = /^\s*cd(?:\s+(\S+))?\s*$/.exec(command);
+  if (!match) return /^\s*cd\b/.test(command) ? undefined : cwd;
+  const target = match[1];
+  if (target === undefined || target === "~") return home;
+  if (/[$`"'*?{}-]/.test(target.replace(/\.\.|[A-Za-z0-9_.\-/]+/g, "")) || target === "-" || target.startsWith("~")) return undefined;
+  if (!target.startsWith("/") && cwd === undefined) return undefined;
+  return resolvePath(cwd ?? "/", target);
+}

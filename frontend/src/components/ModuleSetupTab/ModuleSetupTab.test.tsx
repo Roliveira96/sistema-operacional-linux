@@ -43,4 +43,35 @@ describe("ModuleSetupTab", () => {
     render(<ModuleSetupTab moduleId="m1" service={broken as never} practice={practice} />);
     expect(await screen.findByText("Não foi possível carregar o ambiente do módulo.")).toBeDefined();
   });
+
+  it("saves on the server at once what the author records in the terminal, so the students get it", async () => {
+    const mount = (await import("@/engine/terminalWindow")).mountTerminalWindow as unknown as ReturnType<typeof vi.fn>;
+    let history: string[] = [];
+    let onCommand: ((snapshot: unknown) => void) | undefined;
+    const tree = { raiz: { nome: "", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [] }, contas: { usuarios: [], grupos: [] } };
+    const win = {
+      execute: vi.fn(async ({ command }: { command: string }) => (command === "pwd" ? { status: 0, output: "/root" } : { status: 0, output: "" })),
+      setSpeed: vi.fn(),
+      history: () => history,
+      snapshot: vi.fn(() => tree),
+      destroy: vi.fn(),
+    };
+    mount.mockImplementation(async (_c: HTMLElement, _s: unknown, callbacks: { onCommand(s: unknown): void }) => {
+      onCommand = callbacks.onCommand;
+      return win;
+    });
+    const service = make({ blocks: [], setup: undefined });
+    service.setModuleSetup.mockImplementation(async (_id: string, setup: unknown) => setup);
+    render(<ModuleSetupTab moduleId="m1" service={service as never} practice={practice} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Gravar no terminal" }));
+    await waitFor(() => expect(win.execute).toHaveBeenCalledWith({ command: "pwd" }));
+    history = ["mkdir -p /home/ricardo/financeiro"];
+    onCommand?.({});
+    await waitFor(() => expect((screen.getByRole("button", { name: "Usar estes comandos" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes comandos" }));
+
+    await waitFor(() => expect(service.setModuleSetup).toHaveBeenCalledWith("m1", { summary: "", steps: [{ command: "mkdir -p /home/ricardo/financeiro" }] }), { timeout: 5000 });
+    expect(await screen.findByText(/salvo no servidor/)).toBeDefined();
+  });
 });
