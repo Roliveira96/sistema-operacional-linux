@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-014 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 08/10/2026 |
 | **Última revisão** | 08/10/2026 |
 | **Autor** | Aruna Architect |
@@ -16,7 +16,6 @@
 | **Substitui** | Nenhuma |
 | **Fontes canônicas** | `docs/arquitetura/transicao-backend.md`, seção 2.1 (execução local e correção no servidor); `specs/ARCHITECTURE.md`, seção 6 (decisão em aberto sobre o motor do legado) |
 
-> O corpo desta spec já reflete as recomendações da seção 10, marcadas com (P-xx).
 
 ---
 
@@ -36,21 +35,21 @@ O documento canônico define o modelo: a digitação e a execução dos comandos
 
 ### 2.1. Fora de escopo (Non-Goals)
 
-- Provas: janela de aplicação, código de sala, cronômetro, anti-fraude e notas (spec futura). Na prática, o estado enviado pelo navegador é aceito como está (P-04).
+- Provas: janela de aplicação, código de sala, cronômetro, anti-fraude e notas (spec futura). Na prática, o estado enviado pelo navegador é aceito como está.
 - Questões teóricas e simulados: esta spec trata só das questões práticas de uso `EXERCISE`.
-- Editores `vim` e terminais múltiplos simultâneos na mesma tela (P-03).
+- Editores `vim` e terminais múltiplos simultâneos na mesma tela.
 - Qualquer alteração em `legacy/`.
 
 ## 3. Proposta de Solução (Proposed Solution)
 
 ### 3.1. Frontend (Next.js & SCSS Modules)
 
-- **Motor (P-01):** o frontend importa, somente leitura, os pacotes `legacy/src/linux` e `legacy/src/shell` por um alias de caminho único (`@legacy-engine/*`), configurado no TypeScript, no bundler do Next.js e no Vitest. Só um adaptador em `frontend/src/engine/` conversa com o motor; componentes nunca importam o legado diretamente. O código do legado continua com identificadores em português; o adaptador, como todo código novo, é em inglês.
-- **Terminal (P-02):** componente React próprio, sem biblioteca nova: linha de comando com prompt `usuario@host:caminho$`, histórico com setas, cores ANSI básicas, `clear`, respostas a perguntas interativas (senhas e confirmações) e foco acessível por teclado.
-- **Editor `nano` (P-03):** quando o comando pede edição, abre um editor simples em diálogo (área de texto com salvar e cancelar); `vim` responde com uma mensagem orientando o uso do `nano`.
+- **Motor:** o frontend importa, somente leitura, os pacotes `legacy/src/linux` e `legacy/src/shell` por um alias de caminho único (`@legacy-engine/*`), configurado no TypeScript, no bundler do Next.js e no Vitest. Só um adaptador em `frontend/src/engine/` conversa com o motor; componentes nunca importam o legado diretamente. O código do legado continua com identificadores em português; o adaptador, como todo código novo, é em inglês.
+- **Terminal:** componente React próprio, sem biblioteca nova: linha de comando com prompt `usuario@host:caminho$`, histórico com setas, cores ANSI básicas, `clear`, respostas a perguntas interativas (senhas e confirmações) e foco acessível por teclado.
+- **Editor `nano`:** quando o comando pede edição, abre um editor simples em diálogo (área de texto com salvar e cancelar); `vim` responde com uma mensagem orientando o uso do `nano`.
 - **Exercício:** cada exercício da página do módulo ganha o botão "Praticar", que abre o terminal com o cenário da questão. Os botões "Conferir" e "Recomeçar" ficam ao lado do terminal. O resultado mostra aprovado ou "ainda não", sem revelar as condições.
 - **Progresso:** exercícios concluídos aparecem marcados na lista do módulo.
-- **Visitantes (P-06):** podem abrir o terminal e praticar; "Conferir" pede login.
+- **Visitantes:** podem abrir o terminal e praticar; "Conferir" pede login.
 
 ### 3.2. Backend (Go — Camada de Módulo/Service)
 
@@ -76,7 +75,7 @@ Módulo novo `backend/internal/modules/practice/` (`domain`, `service`, `reposit
 | `completed_at` | timestamp | Não | | Primeira aprovação |
 | `created_at`, `updated_at` | timestamp | Sim | | |
 
-Unicidade (`user_id`, `question_id`). Os estados enviados não são guardados nesta spec (P-04).
+Unicidade (`user_id`, `question_id`). Os estados enviados não são guardados nesta spec.
 
 ## 5. Contrato de API (API Contract)
 
@@ -167,14 +166,7 @@ Progresso do estudante nos exercícios de um módulo. **Acesso:** autenticado.
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação (já refletida no corpo) |
-| :--- | :--- | :--- |
-| P-01 | Como o frontend reaproveita o motor do legado: importar do `legacy/` por alias; copiar o código para o frontend (exigiria traduzir 10.800 linhas para inglês); ou extrair um pacote compartilhado (exigiria alterar o legado congelado). | Importar `legacy/src/linux` e `legacy/src/shell`, somente leitura, por um alias e um único adaptador. Registrar a decisão no `ARCHITECTURE.md`, seção 6, como exceção à regra de não importar o legado. |
-| P-02 | Biblioteca de terminal (xterm.js) ou componente próprio. | Componente próprio, sem dependência nova; o motor já devolve texto com cores ANSI. |
-| P-03 | Editores do legado (`nano` e `vim`) dependem do DOM antigo. | `nano` por diálogo simples; `vim` fora de escopo, com mensagem orientando o `nano`. |
-| P-04 | Na prática, o estado vem do navegador e pode ser forjado. | Aceitar nesta fase, porque a prática não vale nota; não guardar os estados enviados; anti-fraude na spec de provas. |
-| P-05 | Tamanho máximo do estado enviado. | 2 MB (um estado típico tem cerca de 50 KB). |
-| P-06 | Visitantes podem praticar? | Podem abrir o terminal; conferir exige login, para limitar a taxa e registrar o progresso. |
+Nenhuma. P-01 a P-06 aprovadas pelo Tech Lead em 09/10/2026 (ver histórico).
 
 ---
 
@@ -183,3 +175,4 @@ Progresso do estudante nos exercícios de um módulo. **Acesso:** autenticado.
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 08/10/2026 | Implementador (Claude) | Criação, a pedido do Tech Lead, como próxima etapa depois da SPEC-013. Pendências P-01 a P-06 |
+| 09/10/2026 | Tech Lead | Aprovação integral de P-01 a P-06. Status: `Aprovada` |
