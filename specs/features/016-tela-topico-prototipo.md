@@ -53,7 +53,8 @@ O Tech Lead decidiu que o que foi feito e aprovado no protótipo deve ser reapro
 ### 3.1. Frontend (Next.js & SCSS Modules)
 
 **Layout:**
-- **Tela de aplicação em largura total:** sem a navegação pública e o rodapé do site, como no protótipo.
+- **Tela de aplicação em largura total:** sem a navegação pública e o rodapé do site, como no protótipo; o contêiner da página não tem `max-width`.
+- **Uma máquina só:** não há abas por exercício ("Livre", "1", "2"); a janela de terminais é a mesma para o conteúdo e para os desafios.
 - **Cabeçalho:**
   - "← Materiais" e o ícone, o título e as etiquetas do módulo;
   - o selo UTFPR Campus Guarapuava;
@@ -62,7 +63,7 @@ O Tech Lead decidiu que o que foi feito e aprovado no protótipo deve ser reapro
 - **Coluna da esquerda, com rolagem própria e duas abas:**
   - **📘 Comandos e dicas:** os blocos do módulo agrupados em cards de lição. Um bloco `TEXT` com título abre um card novo, e os blocos seguintes sem título entram nele. Cada card que tem comandos mostra "▶ Rodar este card", e cada comando tem o seu ▶.
   - **🎯 Desafios n/m:**
-    - os exercícios práticos do módulo com o círculo de status (✓ quando atendido) e "💡 Dica";
+    - os exercícios práticos do módulo com o círculo de status (✓ quando atendido), "💡 Dica" e o botão "Iniciar";
     - "👀 Solução", conforme a P-02;
     - o texto explicativo do protótipo sobre a conferência automática.
 - **Coluna da direita:** a janela de terminais do protótipo e o rodapé com as senhas e os atalhos.
@@ -85,6 +86,11 @@ O Tech Lead decidiu que o que foi feito e aprovado no protótipo deve ser reapro
 - **💾 e 📂:** baixam e carregam a máquina em JSON, no formato `exame-so/maquina`.
 
 **Desafios:**
+- **Iniciar um exercício:**
+  - o terminal mostra "Preparando máquina…", com a animação do reset do protótipo;
+  - carrega o cenário daquele exercício (rota 5.1 da SPEC-014) na mesma janela;
+  - mantém o histórico de comandos (↑) de cada terminal e o que já está na tela.
+- Sem iniciar nenhum exercício, a máquina é a do tópico, e os desafios podem ser feitos em sequência, como no protótipo.
 - Depois de cada comando, o frontend envia o estado à rota 5.2, com a espera descrita na RN-03.
 - Marca como atendidos os desafios devolvidos.
 - Para visitantes, mostra o convite para entrar, porque a conferência exige sessão.
@@ -182,6 +188,7 @@ Se a P-02 for aprovada, a lista de questões de uso `EXERCISE` (SPEC-012) passa 
 
 - [ ] **CA-01**: QUANDO o estudante abrir um módulo, O SISTEMA DEVE mostrar o cabeçalho com o player e a velocidade, as abas "Comandos e dicas" e "Desafios" à esquerda e a janela de terminais do protótipo à direita, aberta e pronta.
 - [ ] **CA-02**: A máquina DEVE começar no cenário do tópico; QUANDO o estudante clicar em Reset Máquina, O SISTEMA DEVE voltar a ele.
+- [ ] **CA-10**: QUANDO o estudante iniciar um exercício, O SISTEMA DEVE mostrar "Preparando máquina…" no terminal, carregar o cenário do exercício na mesma janela e manter o histórico de comandos de cada terminal.
 - [ ] **CA-03**: QUANDO o estudante clicar em ▶ de um comando, em "Rodar este card" ou no player, O SISTEMA DEVE digitar e executar os comandos na velocidade escolhida, no terminal e com o usuário indicados no passo.
 - [ ] **CA-04**: QUANDO um comando terminar e o estudante tiver sessão, O SISTEMA DEVE conferir os desafios no servidor e marcar os atendidos, registrando a primeira aprovação.
 - [ ] **CA-05**: SE o visitante não tiver sessão, ENTÃO a aba de desafios DEVE convidar a entrar, e a rota 5.2 DEVE responder 401.
@@ -213,7 +220,7 @@ Se a P-02 for aprovada, a lista de questões de uso `EXERCISE` (SPEC-012) passa 
    5. persistência, Cola, 💾 e 📂;
    6. remoção da interface antiga;
    7. `ARCHITECTURE.md`.
-3. **Definição de pronto:** CA-01 a CA-09 verificados e comparação manual com o protótipo registrada no histórico.
+3. **Definição de pronto:** CA-01 a CA-10 verificados e comparação manual com o protótipo registrada no histórico.
 
 ## 10. Pendências para aprovação
 
@@ -233,3 +240,4 @@ Se a P-02 for aprovada, a lista de questões de uso `EXERCISE` (SPEC-012) passa 
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 09/10/2026 | Implementador (Claude) | Criação, a pedido do Tech Lead ("use o que tem no protótipo como base"; "temos que usar o que foi feito"), depois de comparar o frontend novo com o protótipo rodando. Decisões já tomadas pelo Tech Lead: rota da máquina do tópico, conferência automática após cada comando, Cola, salvar e abrir e até 3 terminais. Pendências P-01 a P-04 |
+| 09/10/2026 | Implementador (Claude) | Ajustes pedidos pelo Tech Lead ao ver a tela: largura total, sem abas por exercício (máquina única), "Iniciar" exercício com "Preparando máquina…" mantendo o histórico (CA-10), e Reset Máquina, player e velocidade visíveis |
