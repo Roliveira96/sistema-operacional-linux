@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import styles from "./BlockEditor.module.scss";
+import styles from "./ContentTab.module.scss";
 
 export interface MenuAction {
   key: string;

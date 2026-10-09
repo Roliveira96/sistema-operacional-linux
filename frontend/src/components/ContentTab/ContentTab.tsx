@@ -1,0 +1,213 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ContentRenderer } from "@/components/ContentRenderer/ContentRenderer";
+import { cardCounts, groupCards, type CardGroup } from "@/lib/cardModel";
+import { authoringMessages } from "@/messages/authoring.pt-BR";
+import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringService } from "@/services/contentAuthoringService";
+import { ActionMenu } from "./ActionMenu";
+import styles from "./ContentTab.module.scss";
+
+const m = authoringMessages.cards;
+
+interface ContentTabProps {
+  moduleId: string;
+  service?: ContentAuthoringService;
+}
+
+/** "3 comandos · 1 dica", or "sem conteúdo". */
+function summaryOf(group: CardGroup): string {
+  const c = cardCounts(group);
+  const parts = [
+    c.texts > 0 && m.summary.texts(c.texts),
+    c.commands > 0 && m.summary.commands(c.commands),
+    c.tips > 0 && m.summary.tips(c.tips),
+    c.real > 0 && m.summary.real(c.real),
+    c.exams > 0 && m.summary.exams(c.exams),
+    c.others > 0 && m.summary.others(c.others),
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : m.summary.none;
+}
+
+const lastBlockId = (group: CardGroup) => group.blocks[group.blocks.length - 1]!.id;
+const editHref = (moduleId: string, group: CardGroup) => `/app/modules/${moduleId}/cards/${group.key}`;
+
+/**
+ * The "Conteúdo" tab of the module edit page: one card per row, as the student sees them, with
+ * an action menu (see, edit, inactivate, remove) and buttons to move it (SPEC-019).
+ */
+export function ContentTab({ moduleId, service = contentAuthoringService }: ContentTabProps) {
+  const router = useRouter();
+  const [blocks, setBlocks] = useState<AuthoredBlock[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [viewing, setViewing] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    service
+      .list(moduleId)
+      .then((list) => {
+        if (!active) return;
+        setBlocks(list);
+        setFailed(false);
+      })
+      .catch(() => active && setFailed(true));
+    return () => {
+      active = false;
+    };
+  }, [service, moduleId, attempt]);
+
+  const reload = () => setAttempt((n) => n + 1);
+
+  if (failed && !blocks) {
+    return (
+      <div className={styles.notice} role="alert">
+        <p>{m.loadError}</p>
+        <button type="button" className={styles.secondary} onClick={reload}>
+          {m.retry}
+        </button>
+      </div>
+    );
+  }
+  if (!blocks) return <p className={styles.hint}>{m.loading}</p>;
+
+  const groups = groupCards(blocks);
+  const ids = (group: CardGroup) => group.blocks.map((b) => b.id);
+
+  const run = async (action: () => Promise<void>) => {
+    try {
+      await action();
+    } catch {
+      setNote(m.genericError);
+    }
+  };
+
+  const move = (index: number, to: number) =>
+    run(async () => {
+      const order = [...groups];
+      [order[index], order[to]] = [order[to] as CardGroup, order[index] as CardGroup];
+      setBlocks(await service.reorder(moduleId, order.flatMap(ids)));
+      setNote(null);
+    });
+
+  const toggleActive = (group: CardGroup, active: boolean) =>
+    run(async () => {
+      setBlocks(await service.setCardActive(moduleId, ids(group), active));
+      setNote(active ? m.activated : m.inactivated);
+    });
+
+  const remove = (group: CardGroup) =>
+    run(async () => {
+      await service.saveCard(moduleId, { replaceIds: ids(group), blocks: [] });
+      setRemoving(null);
+      setViewing(null);
+      setNote(m.removed);
+      reload();
+    });
+
+  return (
+    <div className={styles.tab}>
+      <div className={styles.toolbar}>
+        <div>
+          <h2 className={styles.title}>{m.title}</h2>
+          <p className={styles.hint}>{m.hint}</p>
+        </div>
+        <div className={styles.add}>
+          <Link href={`/app/modules/${moduleId}/cards/new`} className={`${styles.primary}`}>
+            {m.add}
+          </Link>
+          <Link href={`/app/modules/${moduleId}`} className={styles.link}>
+            {m.preview}
+          </Link>
+        </div>
+      </div>
+
+      {note && (
+        <p className={styles.flash} role="status">
+          {note}
+        </p>
+      )}
+
+      {groups.length === 0 ? (
+        <p className={styles.hint}>{m.empty}</p>
+      ) : (
+        <ol className={styles.blocks}>
+          {groups.map((group, index) => {
+            const inactive = group.blocks.every((b) => !b.active);
+            const edited = group.blocks.some((b) => b.edited);
+            const title = group.header ? String(group.header.payload.title ?? "") : m.intro;
+            const pill = group.header ? String(group.header.payload.command ?? "") : "";
+            return (
+              <li key={group.key} className={`${styles.block} ${inactive ? styles.inactiveBlock : ""}`}>
+                <div className={styles.row}>
+                  <span className={styles.number} aria-label={m.position(index + 1, groups.length)}>
+                    {index + 1}
+                  </span>
+                  {pill && <code className={styles.pill}>{pill}</code>}
+                  <div className={styles.summary}>
+                    <span className={styles.cardTitle}>{title || m.untitled}</span>
+                    <span className={styles.counts}>{summaryOf(group)}</span>
+                  </div>
+                  {edited && <span className={styles.badge}>{m.edited}</span>}
+                  {inactive && <span className={`${styles.badge} ${styles.badgeOff}`}>{m.inactive}</span>}
+                  <div className={styles.rowActions}>
+                    <button type="button" className={styles.smallButton} onClick={() => void move(index, index - 1)} disabled={index === 0} aria-label={`${m.moveUp} ${index + 1}`}>
+                      ↑
+                    </button>
+                    <button type="button" className={styles.smallButton} onClick={() => void move(index, index + 1)} disabled={index === groups.length - 1} aria-label={`${m.moveDown} ${index + 1}`}>
+                      ↓
+                    </button>
+                    <Link href={`/app/modules/${moduleId}/cards/new?after=${lastBlockId(group)}`} className={styles.smallButton} aria-label={`${m.addAfter} ${index + 1}`}>
+                      +
+                    </Link>
+                    <ActionMenu
+                      label={m.actionsOf(index + 1)}
+                      text={m.actions}
+                      actions={[
+                        { key: "view", label: m.view, onSelect: () => setViewing(group.key) },
+                        { key: "edit", label: m.edit, onSelect: () => router.push(editHref(moduleId, group)) },
+                        { key: "active", label: inactive ? m.activate : m.inactivate, onSelect: () => void toggleActive(group, inactive) },
+                        { key: "remove", label: m.remove, danger: true, onSelect: () => setRemoving(group.key) },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {removing === group.key && (
+                  <div className={styles.confirm} role="alertdialog" aria-label={m.remove}>
+                    <p>{m.removeConfirm}</p>
+                    <div className={styles.actions}>
+                      <button type="button" className={styles.secondary} onClick={() => setRemoving(null)}>
+                        {m.cancel}
+                      </button>
+                      <button type="button" className={styles.danger} onClick={() => void remove(group)}>
+                        {m.removeYes}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {viewing === group.key && (
+                  <div className={styles.viewer}>
+                    <div className={styles.viewerHead}>
+                      <h3 className={styles.viewerTitle}>{m.viewTitle}</h3>
+                      <button type="button" className={styles.secondary} onClick={() => setViewing(null)}>
+                        {m.close}
+                      </button>
+                    </div>
+                    <ContentRenderer blocks={group.blocks} />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}

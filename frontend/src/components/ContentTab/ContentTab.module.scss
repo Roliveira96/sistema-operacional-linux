@@ -31,7 +31,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .link {
@@ -67,8 +67,7 @@
   color: var(--color-danger);
 }
 
-.blocks,
-.draftList {
+.blocks {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -87,11 +86,9 @@
   background: var(--color-surface-raised);
 }
 
-.draft {
-  padding: var(--space-3);
-  border: 1px dashed var(--color-accent);
-  border-radius: var(--radius-md);
-  list-style: none;
+.inactiveBlock {
+  opacity: 0.7;
+  border-style: dashed;
 }
 
 .row {
@@ -109,20 +106,35 @@
   color: var(--color-text-secondary);
 }
 
-.type {
+.pill {
   flex: none;
-  min-width: 7rem;
+  padding: 2px var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  color: var(--color-text-secondary);
+  color: var(--color-accent);
 }
 
 .summary {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
-  color: var(--color-text-body);
+}
+
+.cardTitle {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
+}
+
+.counts {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 .badge {
@@ -133,6 +145,11 @@
   color: var(--color-text-secondary);
 }
 
+.badgeOff {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
 .rowActions {
   display: flex;
   gap: var(--space-1);
@@ -141,8 +158,7 @@
 .smallButton,
 .secondary,
 .primary,
-.danger,
-.addButton {
+.danger {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -150,6 +166,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-body);
+  text-decoration: none;
   cursor: pointer;
 
   &:hover:not(:disabled) {
@@ -166,6 +183,7 @@
 }
 
 .primary {
+  padding: var(--space-2) var(--space-4);
   border-color: var(--color-accent);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
@@ -179,173 +197,6 @@
 .danger {
   border-color: var(--color-danger);
   color: var(--color-danger);
-}
-
-.addButton {
-  align-self: flex-start;
-}
-
-.select,
-.input,
-.textarea {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-sunken);
-  color: var(--color-text-primary);
-
-  &[aria-invalid="true"] {
-    border-color: var(--color-danger);
-  }
-
-  @include mixins.focusable;
-}
-
-.textarea {
-  resize: vertical;
-}
-
-.mono {
-  font-family: var(--font-mono);
-}
-
-.panel {
-  display: grid;
-  gap: var(--space-4);
-
-  @include mixins.from("lg") {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  }
-}
-
-.editorColumn {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-.previewColumn {
-  min-width: 0;
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.previewTitle {
-  margin: 0 0 var(--space-3);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.form,
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: 0;
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.legend {
-  padding: 0 var(--space-2);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
-}
-
-.pair {
-  display: grid;
-  gap: var(--space-3);
-
-  @include mixins.from("md") {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.rowTools {
-  display: flex;
-  gap: var(--space-1);
-  justify-content: flex-end;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.help {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
-.error {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-danger);
-}
-
-.conflict {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--color-danger-line);
-  border-radius: var(--radius-md);
-  background: var(--color-danger-subtle);
-  color: var(--color-text-primary);
-
-  p {
-    margin: 0;
-  }
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-
-.unsaved {
-  margin-right: auto;
-  font-size: var(--font-size-sm);
-  color: var(--color-warning);
-}
-
-.savedNote {
-  margin-right: auto;
-  font-size: var(--font-size-sm);
-  color: var(--color-success);
-}
-
-.inactiveBlock {
-  opacity: 0.7;
-  border-style: dashed;
-}
-
-.badgeOff {
-  border-color: var(--color-warning);
-  color: var(--color-warning);
 }
 
 .menu {
@@ -390,6 +241,29 @@
   color: var(--color-danger);
 }
 
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-subtle);
+  color: var(--color-text-primary);
+
+  p {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .viewer {
   padding: var(--space-3);
   border: 1px solid var(--color-border);
@@ -405,18 +279,10 @@
   margin-bottom: var(--space-3);
 }
 
-.advanced {
-  padding: var(--space-2) var(--space-3);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-sm);
-
-  summary {
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-
-  > * + * {
-    margin-top: var(--space-3);
-  }
+.viewerTitle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
 }

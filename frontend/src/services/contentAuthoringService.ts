@@ -15,19 +15,35 @@ export interface AuthoredBlock {
   updatedAt: string;
 }
 
+/** One block of a card, as saved (SPEC-019 5.7). A block with an id is updated in place. */
+export interface CardBlockInput {
+  id?: string;
+  updatedAt?: string;
+  type: string;
+  payload: Record<string, unknown>;
+}
+
+export interface SaveCardRequest {
+  /** The current blocks of the card; empty for a new one. */
+  replaceIds: string[];
+  /** A new card goes after this block; without it, at the end. */
+  afterBlockId?: string;
+  force?: boolean;
+  /** An empty list removes the card. */
+  blocks: CardBlockInput[];
+}
+
 /** Authoring endpoints of SPEC-019, for ADMIN and the TEACHER who owns the module. */
 export function createContentAuthoringService(client: HttpClient = httpClient) {
   const moduleBlocks = (id: string) => `/teacher/modules/${encodeURIComponent(id)}/blocks`;
-  const block = (id: string) => `/teacher/blocks/${encodeURIComponent(id)}`;
+  const moduleCards = (id: string) => `/teacher/modules/${encodeURIComponent(id)}/cards`;
 
   return {
     list: async (moduleId: string) => (await client.get<{ blocks: AuthoredBlock[] }>(moduleBlocks(moduleId))).blocks,
-    create: (moduleId: string, type: string, payload: Record<string, unknown>, afterBlockId?: string) =>
-      client.post<AuthoredBlock>(moduleBlocks(moduleId), { type, payload, ...(afterBlockId ? { afterBlockId } : {}) }),
-    update: (blockId: string, payload: Record<string, unknown>, expectedUpdatedAt: string, force = false) =>
-      client.patch<AuthoredBlock>(block(blockId), force ? { payload, force: true } : { payload, expectedUpdatedAt }),
-    setActive: (blockId: string, active: boolean) => client.put<AuthoredBlock>(`${block(blockId)}/active`, { active }),
-    remove: (blockId: string) => client.delete<void>(block(blockId)),
+    saveCard: async (moduleId: string, request: SaveCardRequest) =>
+      (await client.put<{ blocks: AuthoredBlock[] }>(moduleCards(moduleId), request)).blocks,
+    setCardActive: async (moduleId: string, blockIds: string[], active: boolean) =>
+      (await client.put<{ blocks: AuthoredBlock[] }>(`${moduleCards(moduleId)}/active`, { blockIds, active })).blocks,
     reorder: async (moduleId: string, blockIds: string[]) =>
       (await client.put<{ blocks: AuthoredBlock[] }>(`${moduleBlocks(moduleId)}/order`, { blockIds })).blocks,
   };

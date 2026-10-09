@@ -55,6 +55,24 @@
     border: 0;
     border-radius: var(--radius-md);
   }
+
+  // Pictures made in the card screen (SPEC-019): never wider than the card.
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+  }
+
+  figure {
+    margin: 0;
+  }
+
+  figcaption {
+    margin-top: var(--space-1);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    text-align: center;
+  }
 }
 
 .text {

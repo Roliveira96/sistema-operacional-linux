@@ -17,23 +17,20 @@ describe("contentAuthoringService", () => {
     expect(client.get).toHaveBeenCalledWith("/teacher/modules/m%201/blocks");
   });
 
-  it("creates at the end, or after a block", async () => {
-    await service.create("m", "TIP", { html: "x" });
-    expect(client.post).toHaveBeenCalledWith("/teacher/modules/m/blocks", { type: "TIP", payload: { html: "x" } });
-    await service.create("m", "TIP", { html: "x" }, "b-1");
-    expect(client.post).toHaveBeenLastCalledWith("/teacher/modules/m/blocks", { type: "TIP", payload: { html: "x" }, afterBlockId: "b-1" });
+  it("saves a whole card and returns its blocks", async () => {
+    vi.mocked(client.put).mockResolvedValueOnce({ blocks: [{ id: "b1" }] });
+    const request = { replaceIds: ["b1"], blocks: [{ id: "b1", updatedAt: "2026-10-09T12:00:00Z", type: "TEXT", payload: { html: "x" } }] };
+    expect(await service.saveCard("m", request)).toEqual([{ id: "b1" }]);
+    expect(client.put).toHaveBeenCalledWith("/teacher/modules/m/cards", request);
   });
 
-  it("updates with the instant it knew, or forces", async () => {
-    await service.update("b", { html: "x" }, "2026-10-09T12:00:00Z");
-    expect(client.patch).toHaveBeenCalledWith("/teacher/blocks/b", { payload: { html: "x" }, expectedUpdatedAt: "2026-10-09T12:00:00Z" });
-    await service.update("b", { html: "x" }, "2026-10-09T12:00:00Z", true);
-    expect(client.patch).toHaveBeenLastCalledWith("/teacher/blocks/b", { payload: { html: "x" }, force: true });
+  it("inactivates the blocks of a card", async () => {
+    vi.mocked(client.put).mockResolvedValueOnce({ blocks: [] });
+    await service.setCardActive("m", ["a", "b"], false);
+    expect(client.put).toHaveBeenCalledWith("/teacher/modules/m/cards/active", { blockIds: ["a", "b"], active: false });
   });
 
-  it("removes and reorders", async () => {
-    await service.remove("b");
-    expect(client.delete).toHaveBeenCalledWith("/teacher/blocks/b");
+  it("reorders the blocks", async () => {
     vi.mocked(client.put).mockResolvedValueOnce({ blocks: [] });
     await service.reorder("m", ["b2", "b1"]);
     expect(client.put).toHaveBeenCalledWith("/teacher/modules/m/blocks/order", { blockIds: ["b2", "b1"] });

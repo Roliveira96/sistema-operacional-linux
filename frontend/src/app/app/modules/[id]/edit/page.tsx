@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ContentTab } from "@/components/BlockEditor/ContentTab";
+import { ContentTab } from "@/components/ContentTab/ContentTab";
 import { ExerciseOrderList } from "@/components/ExerciseOrderList/ExerciseOrderList";
 import { ModuleForm } from "@/components/ModuleForm/ModuleForm";
 import { ptBR } from "@/messages/pt-BR";
@@ -21,7 +21,10 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
   const [availableClasses, setAvailableClasses] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
-  const [tab, setTab] = useState<Tab>("details");
+  // "Voltar" from a card comes back with ?tab=content, to the list the author left.
+  const [tab, setTab] = useState<Tab>(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "content" ? "content" : "details",
+  );
   /** Changes every time the module is saved, so the form starts again from what is stored. */
   const [formVersion, setFormVersion] = useState(0);
 

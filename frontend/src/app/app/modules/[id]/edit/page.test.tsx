@@ -32,6 +32,13 @@ vi.mock("next/navigation", () => ({
     push: mockPush,
   }),
 }));
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 
 afterEach(() => {
   cleanup();
@@ -83,8 +90,9 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
 
     // The blocks live in the "Conteúdo" tab and the exercise order in "Exercícios".
     fireEvent.click(screen.getByRole("tab", { name: "Conteúdo" }));
-    expect(await screen.findByText("ls -la")).toBeDefined();
-    expect(screen.getByRole("button", { name: "Ações do bloco 1" })).toBeDefined();
+    expect(await screen.findByText("Introdução")).toBeDefined();
+    expect(screen.getByRole("link", { name: "+ Novo card" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Ações do card 1" })).toBeDefined();
     fireEvent.click(screen.getByRole("tab", { name: "Detalhes" }));
 
     // Save module update: the page stays on the module and shows the confirmation
