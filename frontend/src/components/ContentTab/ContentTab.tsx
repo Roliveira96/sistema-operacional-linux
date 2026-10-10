@@ -326,36 +326,14 @@ export function ContentTab({
                   </span>
                   {pill && <code className={styles.pill}>{pill}</code>}
                   <div className={styles.summary}>
-                    <div className={styles.headline}>
-                      <button
-                        type="button"
-                        className={styles.cardTitle}
-                        disabled={sorting}
-                        onClick={() => setViewing(group.key)}
-                      >
-                        {title || m.untitled}
-                      </button>
-                      <div className={styles.badgeBar}>
-                        {status !== "none" && (
-                          <span
-                            className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`}
-                            title={m.test.title}
-                          >
-                            {m.test[status]}
-                          </span>
-                        )}
-                        {edited && (
-                          <span className={styles.badge}>{m.edited}</span>
-                        )}
-                        {inactive && (
-                          <span
-                            className={`${styles.badge} ${styles.badgeOff}`}
-                          >
-                            {m.inactive}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      className={styles.cardTitle}
+                      disabled={sorting}
+                      onClick={() => setViewing(group.key)}
+                    >
+                      {title || m.untitled}
+                    </button>
                     <span className={styles.counts}>
                       {summaryOf(group).length === 0
                         ? m.summary.none
@@ -366,6 +344,22 @@ export function ContentTab({
                             </span>
                           ))}
                     </span>
+                  </div>
+                  <div className={styles.badgeBar}>
+                    {status !== "none" && (
+                      <span
+                        className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`}
+                        title={m.test.title}
+                      >
+                        {m.test[status]}
+                      </span>
+                    )}
+                    {edited && <span className={styles.badge}>{m.edited}</span>}
+                    {inactive && (
+                      <span className={`${styles.badge} ${styles.badgeOff}`}>
+                        {m.inactive}
+                      </span>
+                    )}
                   </div>
                   <div className={styles.rowActions}>
                     {sorting ? (
@@ -391,13 +385,6 @@ export function ContentTab({
                       </>
                     ) : (
                       <>
-                        <Link
-                          href={`/app/modules/${moduleId}/cards/new?after=${lastBlockId(group)}`}
-                          className={styles.smallButton}
-                          aria-label={`${m.addAfter} ${index + 1}`}
-                        >
-                          +
-                        </Link>
                         <ActionMenu
                           label={m.actionsOf(index + 1)}
                           text="⋮"
@@ -412,6 +399,14 @@ export function ContentTab({
                               label: m.edit,
                               onSelect: () =>
                                 router.push(editHref(moduleId, group)),
+                            },
+                            {
+                              key: "after",
+                              label: m.addAfter,
+                              onSelect: () =>
+                                router.push(
+                                  `/app/modules/${moduleId}/cards/new?after=${lastBlockId(group)}`,
+                                ),
                             },
                             {
                               key: "active",

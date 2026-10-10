@@ -36,12 +36,17 @@
   gap: var(--space-1) var(--space-3);
 }
 
+// The marks sit in a column on the right, beside the menu.
 .badgeBar {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-left: auto;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+
+  &:empty {
+    display: none;
+  }
 }
 
 // A card whose test passed has a green edge, so the list can be scanned at a glance.
@@ -209,11 +214,12 @@
   border-style: dashed;
 }
 
+// One line per card: position, tag, what it is, its marks and its menu. On a narrow screen the summary takes a line of its own.
 .row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3) var(--space-4);
 }
 
 // The position in the list: quiet, so the tile and the title lead.
@@ -250,7 +256,7 @@
 
 .summary {
   display: flex;
-  flex: 1;
+  flex: 1 1 14rem;
   flex-direction: column;
   min-width: 0;
 }
