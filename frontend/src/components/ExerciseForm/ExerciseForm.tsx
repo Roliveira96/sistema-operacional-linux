@@ -147,15 +147,6 @@ function HintsEditor({
     <div className={styles.group}>
       <div className={styles.groupHead}>
         <h4 className={styles.groupTitle}>{m.hintsTitle}</h4>
-        <button
-          type="button"
-          className={styles.add}
-          onClick={() =>
-            onChange([...hints, { id: newId(), text: "", command: "" }])
-          }
-        >
-          {m.addHint}
-        </button>
       </div>
       <p className={styles.hint}>{m.hintsHelp}</p>
       {hints.map((hint, i) => (
@@ -193,6 +184,15 @@ function HintsEditor({
           </Field>
         </div>
       ))}
+      <button
+        type="button"
+        className={styles.add}
+        onClick={() =>
+          onChange([...hints, { id: newId(), text: "", command: "" }])
+        }
+      >
+        {m.addHint}
+      </button>
     </div>
   );
 }

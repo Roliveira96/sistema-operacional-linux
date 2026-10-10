@@ -208,9 +208,6 @@ function BoxList({ boxes, labels, errors, onChange }: { boxes: CardBox[]; labels
     <div className={styles.group}>
       <div className={styles.groupHead}>
         <h3 className={styles.groupTitle}>{labels.title}</h3>
-        <button type="button" className={styles.add} onClick={() => onChange([...boxes, { id: newId(), title: "", html: "" }])}>
-          {labels.add}
-        </button>
       </div>
       {boxes.length === 0 && <p className={styles.hint}>{labels.empty}</p>}
       {boxes.map((box, i) => {
@@ -233,6 +230,9 @@ function BoxList({ boxes, labels, errors, onChange }: { boxes: CardBox[]; labels
           </div>
         );
       })}
+      <button type="button" className={styles.add} onClick={() => onChange([...boxes, { id: newId(), title: "", html: "" }])}>
+        {labels.add}
+      </button>
     </div>
   );
 }
@@ -400,14 +400,6 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
 
           <div role="tabpanel" id="card-panel-description" aria-labelledby="card-tab-description" hidden={tab !== "description"} className={styles.tabPanel}>
           <Section title={d.title} hint={d.hint}>
-            <div className={styles.insert}>
-              <span className={styles.hint}>{d.insert}</span>
-              {INSERTABLE.map((kind) => (
-                <button key={kind} type="button" className={styles.add} onClick={() => set({ elements: [...card.elements, newElement(kind)] })}>
-                  {d.kinds[kind]}
-                </button>
-              ))}
-            </div>
             {card.elements.length === 0 && <p className={styles.hint}>{d.empty}</p>}
             {card.elements.map((el, i) => (
               <ElementRow
@@ -421,6 +413,14 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
                 onRemove={() => set({ elements: card.elements.filter((_, j) => j !== i) })}
               />
             ))}
+            <div className={styles.insert}>
+              <span className={styles.hint}>{d.insert}</span>
+              {INSERTABLE.map((kind) => (
+                <button key={kind} type="button" className={styles.add} onClick={() => set({ elements: [...card.elements, newElement(kind)] })}>
+                  {d.kinds[kind]}
+                </button>
+              ))}
+            </div>
           </Section>
 
           </div>

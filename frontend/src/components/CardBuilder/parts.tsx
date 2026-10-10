@@ -40,9 +40,9 @@ export function Section({ title, hint, action, children }: { title: string; hint
           <h2 className={styles.sectionTitle}>{title}</h2>
           <p className={styles.hint}>{hint}</p>
         </div>
-        {action}
       </header>
       {children}
+      {action && <div className={styles.sectionFoot}>{action}</div>}
     </section>
   );
 }

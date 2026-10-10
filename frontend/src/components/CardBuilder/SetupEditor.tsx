@@ -293,15 +293,6 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
       <div className={styles.item}>
         <div className={styles.itemHead}>
           <span className={styles.itemTitle}>{m.filesTitle(current.files?.length ?? 0)}</span>
-          <div className={styles.rowButtons}>
-            <button type="button" className={styles.add} onClick={() => setFiles([...(current.files ?? []), { path: "", content: "" }])}>
-              {m.addFile}
-            </button>
-            <label className={styles.add}>
-              {m.uploadFile}
-              <input type="file" hidden aria-label={m.uploadFile} onChange={(e) => void uploadFile(e.target)} />
-            </label>
-          </div>
         </div>
         <p className={styles.hint}>{m.filesHelp}</p>
         {uploadError && (
@@ -374,6 +365,15 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
             ))}
           </ul>
         )}
+        <div className={styles.rowButtons}>
+          <button type="button" className={styles.add} onClick={() => setFiles([...(current.files ?? []), { path: "", content: "" }])}>
+            {m.addFile}
+          </button>
+          <label className={styles.add}>
+            {m.uploadFile}
+            <input type="file" hidden aria-label={m.uploadFile} onChange={(e) => void uploadFile(e.target)} />
+          </label>
+        </div>
       </div>
 
       {!open && (
