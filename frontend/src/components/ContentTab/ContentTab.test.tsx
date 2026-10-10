@@ -62,7 +62,8 @@ describe("ContentTab", () => {
     expect(await screen.findByText("Atualizar")).toBeDefined();
     expect(screen.getByText("Introdução")).toBeDefined();
     expect(screen.getByText("apt update")).toBeDefined();
-    expect(screen.getByText("2 comandos · 1 dica")).toBeDefined();
+    expect(screen.getByText("2 comandos")).toBeDefined();
+    expect(screen.getByText("1 dica")).toBeDefined();
     expect(screen.getByText("sem conteúdo")).toBeDefined();
     expect(screen.getByText("editado")).toBeDefined();
     expect(screen.getAllByRole("listitem")).toHaveLength(3);

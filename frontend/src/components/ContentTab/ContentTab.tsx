@@ -24,19 +24,19 @@ interface ContentTabProps {
   practice?: Pick<PracticeService, "topicScenario">;
 }
 
-/** "3 comandos · 1 dica", or "sem conteúdo". */
-function summaryOf(group: CardGroup): string {
+/** What the card has, one chip each: "3 comandos", "1 dica"… (the list is empty for a card with no content). */
+function summaryOf(group: CardGroup): { icon: string; text: string }[] {
   const c = cardCounts(group);
   const parts = [
-    c.texts > 0 && m.summary.texts(c.texts),
-    c.commands > 0 && m.summary.commands(c.commands),
-    c.tips > 0 && m.summary.tips(c.tips),
-    c.real > 0 && m.summary.real(c.real),
-    c.exams > 0 && m.summary.exams(c.exams),
-    c.exercises > 0 && m.summary.exercises(c.exercises),
-    c.others > 0 && m.summary.others(c.others),
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(" · ") : m.summary.none;
+    c.texts > 0 && { icon: "📝", text: m.summary.texts(c.texts) },
+    c.commands > 0 && { icon: "💻", text: m.summary.commands(c.commands) },
+    c.tips > 0 && { icon: "💡", text: m.summary.tips(c.tips) },
+    c.real > 0 && { icon: "🌎", text: m.summary.real(c.real) },
+    c.exams > 0 && { icon: "🎓", text: m.summary.exams(c.exams) },
+    c.exercises > 0 && { icon: "🎯", text: m.summary.exercises(c.exercises) },
+    c.others > 0 && { icon: "📦", text: m.summary.others(c.others) },
+  ];
+  return parts.filter((p): p is { icon: string; text: string } => Boolean(p));
 }
 
 const lastBlockId = (group: CardGroup) => group.blocks[group.blocks.length - 1]!.id;
@@ -130,10 +130,13 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
     <div className={styles.tab}>
       <div className={styles.toolbar}>
         <div>
-          <h2 className={styles.title}>
-            {m.title}
-          </h2>
-          <InfoTip topic={m.title}>{authoringMessages.info.contentTab}</InfoTip>
+          <div className={styles.titleRow}>
+            <span className={styles.titleIcon} aria-hidden="true">
+              📚
+            </span>
+            <h2 className={styles.title}>{m.title}</h2>
+            <InfoTip topic={m.title}>{authoringMessages.info.contentTab}</InfoTip>
+          </div>
           <p className={styles.hint}>{m.hint}</p>
           {(() => {
             const cards = activeCards(blocks);
@@ -163,7 +166,9 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
       </div>
 
       <details className={styles.environment}>
-        <summary className={styles.environmentSummary}>{m.environment.title}</summary>
+        <summary className={styles.environmentSummary}>
+          <span aria-hidden="true">🧪</span> {m.environment.title}
+        </summary>
         <p className={styles.hint}>
           <InfoTip topic="Ambiente do módulo">{authoringMessages.info.moduleEnvironment}</InfoTip> Para que serve este ambiente?
         </p>
@@ -196,7 +201,15 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
                   {pill && <code className={styles.pill}>{pill}</code>}
                   <div className={styles.summary}>
                     <span className={styles.cardTitle}>{title || m.untitled}</span>
-                    <span className={styles.counts}>{summaryOf(group)}</span>
+                    <span className={styles.counts}>
+                      {summaryOf(group).length === 0
+                        ? m.summary.none
+                        : summaryOf(group).map((part) => (
+                            <span key={part.text} className={styles.chip}>
+                              <span aria-hidden="true">{part.icon}</span> {part.text}
+                            </span>
+                          ))}
+                    </span>
                   </div>
                   {(() => {
                     const status = testStatus(moduleId, group.key, parseCard(group));
