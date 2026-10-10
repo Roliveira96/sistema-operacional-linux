@@ -45,3 +45,29 @@
 .window {
   height: 100%;
 }
+
+.tools {
+  display: flex;
+  justify-content: flex-end;
+  margin: 8px 0 0;
+}
+
+.toggle {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  font-size: 12.5px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-body);
+  cursor: pointer;
+
+  &[aria-pressed="true"] {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-accent-contrast);
+  }
+}

@@ -136,6 +136,18 @@ export const contentMessages = {
       needsLogin: "Entre na plataforma para o servidor conferir seus desafios e registrar seu progresso.",
       login: "Entrar",
     },
+    processes: {
+      title: "Processos",
+      toggle: "Painel de processos",
+      toggleTitle: "Mostra os processos da máquina ao vivo: o estado de cada um e o sinal que encerrou os que acabaram de terminar",
+      caption: "Processos em execução na máquina, em árvore",
+      count: (n: number) => (n === 1 ? "1 programa" : `${n} programas`),
+      empty: "Nenhum programa do usuário rodando. Inicie um, como sleep 300 &, e veja o que acontece aqui quando você o parar ou encerrar de outro terminal.",
+      columns: { pid: "PID", ppid: "PPID", user: "Usuário", state: "Estado", nice: "NI", command: "Comando" },
+      states: { S: "Dormindo (S)", T: "Parado (T)" },
+      ended: (signal: string) => `Encerrado pelo sinal ${signal}`,
+      legend: "S: dormindo, esperando; T: parado (Ctrl+Z ou kill -STOP, volta com fg ou kill -CONT). NI é a prioridade: de -20 (mais) a 19 (menos). O PPID é o pai do programa.",
+    },
     terminal: {
       loading: "Preparando o terminal…",
       failed: "Não foi possível abrir o terminal.",

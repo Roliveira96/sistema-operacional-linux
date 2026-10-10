@@ -7,7 +7,12 @@ import type { EngineProcess } from "./types";
 /** A command of the user running on the machine. */
 export interface ProcessEntry {
   pid: number;
+  /** The parent: the command or the shell that started it. */
+  ppid: number;
   uid: number;
+  /** The name of the user, for the panel. */
+  usuario: string;
+  tty: string;
   comando: string;
   /** The letter of ps: S sleeping or T stopped (the engine has no other). */
   estado: string;
@@ -65,7 +70,16 @@ export function processSnapshot(machine: unknown): ProcessSnapshot {
       .listar()
       .filter((process) => !process.encerrado)
       .slice(0, MAX_ENTRIES)
-      .map((process) => ({ pid: process.pid, uid: process.uid, comando: process.comando, estado: process.estaPausado() ? "T" : "S", nice: niceOf(process) })),
+      .map((process) => ({
+        pid: process.pid,
+        ppid: process.pai?.pid ?? process.sessao?.atual().pid ?? 1,
+        uid: process.uid,
+        usuario: (machine as { contas?: { nomeDoUsuario(uid: number): string } }).contas?.nomeDoUsuario(process.uid) ?? String(process.uid),
+        tty: process.tty,
+        comando: process.comando,
+        estado: process.estaPausado() ? "T" : "S",
+        nice: niceOf(process),
+      })),
     encerrados: [...(ended.get(table) ?? [])],
   };
 }

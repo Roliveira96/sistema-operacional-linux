@@ -15,7 +15,7 @@ function table(initial: EngineProcess[] = []) {
     },
   };
 }
-const machineOf = (t: ReturnType<typeof table>) => ({ processos: t });
+const machineOf = (t: ReturnType<typeof table>) => ({ processos: t, contas: { nomeDoUsuario: (uid: number) => (uid === 0 ? "root" : "ana") } });
 
 // Covers SPEC-029 CA-09, CA-11: the processes that go along in the snapshot of the machine, only to be checked.
 describe("process snapshot", () => {
@@ -30,8 +30,8 @@ describe("process snapshot", () => {
     dead.receber(9);
     expect(processSnapshot(machineOf(table([sleeper, stopped, dead])))).toEqual({
       processos: [
-        { pid: 2451, uid: 1000, comando: "sleep 300", estado: "S", nice: 10 },
-        { pid: 2460, uid: 1000, comando: "ping localhost", estado: "T", nice: 0 },
+        { pid: 2451, ppid: 1, uid: 1000, usuario: "ana", tty: "pts/0", comando: "sleep 300", estado: "S", nice: 10 },
+        { pid: 2460, ppid: 1, uid: 1000, usuario: "ana", tty: "pts/0", comando: "ping localhost", estado: "T", nice: 0 },
       ],
       encerrados: [],
     });

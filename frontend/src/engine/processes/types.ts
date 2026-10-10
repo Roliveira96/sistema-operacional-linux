@@ -13,6 +13,8 @@ export interface EngineProcess {
   comando: string;
   tty: string;
   pai: EngineProcess | null;
+  /** The session that started it; its shell is the parent of a command with no other. */
+  sessao?: { atual(): { pid: number } } | null;
   /** The signal that ended it, or null while it is alive. */
   sinal: number | null;
   pausado: boolean;
