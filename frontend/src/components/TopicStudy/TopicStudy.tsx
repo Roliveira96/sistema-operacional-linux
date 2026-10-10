@@ -23,7 +23,6 @@ import {
   type ExerciseChecker,
 } from "@/components/ContentRenderer/exerciseContext";
 import { checkConditions } from "@/lib/exerciseConditions";
-import { chainLayers } from "@/lib/exerciseChain";
 import {
   allLayers,
   hasSetup,
@@ -155,8 +154,8 @@ export function TopicStudy({
         const {
           blocks,
           setup,
-          exercisesSetup,
-        }: { blocks: ContentBlock[]; setup?: Setup; exercisesSetup?: Setup } =
+          bankSetup,
+        }: { blocks: ContentBlock[]; setup?: Setup; bankSetup?: Setup } =
           await content.content(moduleId, draft);
         const [module, questions, scenario] = await Promise.all([
           modules.getModuleById(moduleId),
@@ -182,16 +181,16 @@ export function TopicStudy({
           challenges: questions.filter((q) => q.kind === "PRACTICAL"),
           scenario,
           layers,
-          // The machine of an exercise of the module: the snapshot of the module, then the one of the available exercises (SPEC-023 RN-07).
+          // The machine of an exercise of the module: the snapshot of the module, then the one of the bank (SPEC-023 11.2).
           exerciseLayers: [
             ...layers.filter((l) => l.kind === "module"),
-            ...(hasSetup(exercisesSetup)
+            ...(hasSetup(bankSetup)
               ? [
                   {
-                    id: "exercises",
+                    id: "bank",
                     kind: "card" as const,
-                    label: "Exercícios do módulo",
-                    setup: exercisesSetup,
+                    label: "Banco de exercícios",
+                    setup: bankSetup,
                   },
                 ]
               : []),
@@ -531,17 +530,11 @@ function TopicScreen({
       if (challenge.layered) {
         // An exercise made in the editor starts from the topic machine, with the layers of the module and of the exercises on it.
         await win.current.loadScenario(scenario);
-        // An exercise that continues from the previous one also gets the recipe of the chain (RN-11).
-        const chain = chainLayers(
-          challenges.map((c) => ({
-            id: c.id,
-            title: c.title,
-            continues: c.continues === true,
-            solution: parseSetup(c.solutionSetup),
-          })),
-          challenges.findIndex((c) => c.id === challenge.id),
-          (title) => `Solução do exercício ${title}`,
-        );
+        // An exercise that depends on others also gets the recipe of their solutions, the oldest first (SPEC-023 12.3).
+        const chain: SetupLayer[] = (challenge.chainSetups ?? []).flatMap((raw, i) => {
+          const setup = parseSetup(raw);
+          return hasSetup(setup) ? [{ id: `chain-${i}`, kind: "card" as const, label: `Solução do exercício anterior ${i + 1}`, setup }] : [];
+        });
         await runLayers(win.current, [...exerciseLayers, ...chain], {
           restoreSpeed: typingSpeed.current,
         });

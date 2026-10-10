@@ -1,34 +1,49 @@
 import { describe, expect, it } from "vitest";
-import { chainLayers, type ChainLink } from "./exerciseChain";
+import { ancestors, chainLayers, dependsOnAnother, withChains, type ChainLink } from "./exerciseChain";
 
 const sol = (command: string) => ({ summary: "", steps: [{ command }] });
-const link = (id: string, continues: boolean, command?: string): ChainLink => ({ id, title: id.toUpperCase(), continues, solution: command ? sol(command) : undefined });
+const link = (id: string, dependsOn: string | null, command?: string): ChainLink => ({ id, title: id.toUpperCase(), dependsOn, solution: command ? sol(command) : undefined });
 
-// Covers SPEC-023 RN-11, CA-11: the machine of an exercise that continues is built from the recipe of the chain before it.
-describe("chainLayers", () => {
-  const trail = [link("a", false, "mkdir /lab"), link("b", true, "touch /lab/x.sh"), link("c", true, "chmod +x /lab/x.sh"), link("d", false, "mkdir /outro"), link("e", true, "ls")];
-  const commands = (index: number) => chainLayers(trail, index, (t) => `Solução de ${t}`).map((l) => l.setup.steps[0]!.command);
+// Covers SPEC-023 D-16, CA-11: the machine of an exercise that depends on others is built from the recipe of the chain before it.
+describe("exercise chain", () => {
+  const links = [link("a", null, "mkdir /lab"), link("b", "a", "touch /lab/x.sh"), link("c", "b", "chmod +x /lab/x.sh"), link("d", null, "mkdir /outro"), link("e", "d", "ls")];
+  const commands = (id: string) => chainLayers(links, id, (t) => `Solução de ${t}`).map((l) => l.setup.steps[0]!.command);
 
-  it("is empty for an exercise that does not continue, and for the first one", () => {
-    expect(commands(0)).toEqual([]);
-    expect(commands(3)).toEqual([]);
+  it("is empty for an exercise that depends on nothing", () => {
+    expect(commands("a")).toEqual([]);
+    expect(commands("d")).toEqual([]);
+    expect(dependsOnAnother(links, "a")).toBe(false);
   });
 
-  it("brings the previous solution, and the ones before it while they continue, from the first of the chain, in order", () => {
-    expect(commands(1)).toEqual(["mkdir /lab"]);
-    expect(commands(2)).toEqual(["mkdir /lab", "touch /lab/x.sh"]);
+  it("brings the solution of the exercise it depends on, and of the ones that one depends on, the oldest first", () => {
+    expect(commands("b")).toEqual(["mkdir /lab"]);
+    expect(commands("c")).toEqual(["mkdir /lab", "touch /lab/x.sh"]);
+    expect(commands("e")).toEqual(["mkdir /outro"]);
+    expect(ancestors(links, "c").map((l) => l.id)).toEqual(["a", "b"]);
+    expect(dependsOnAnother(links, "c")).toBe(true);
   });
 
-  it("starts the chain again after an exercise that does not continue", () => {
-    expect(commands(4)).toEqual(["mkdir /outro"]);
+  it("does not need the exercises to be in order, and cuts a cycle and a missing link", () => {
+    const shuffled = [link("c", "b", "3"), link("a", null, "1"), link("b", "a", "2")];
+    expect(chainLayers(shuffled, "c", (t) => t).map((l) => l.setup.steps[0]!.command)).toEqual(["1", "2"]);
+    const cyclic = [link("a", "b", "1"), link("b", "a", "2")];
+    expect(ancestors(cyclic, "a").map((l) => l.id)).toEqual(["b"]);
+    expect(ancestors([link("x", "gone")], "x")).toEqual([]);
+    expect(ancestors([], "x")).toEqual([]);
   });
 
   it("skips a link with no recorded solution, and names the layers", () => {
-    const t = [link("a", false), link("b", true, "touch /x")];
-    const layers = chainLayers(t, 1, (title) => `Solução de ${title}`);
-    expect(layers).toEqual([]);
-    const t2 = [link("a", false, "mkdir /x"), link("b", true)];
-    expect(chainLayers(t2, 1, (title) => `Solução de ${title}`)).toEqual([{ id: "chain-a", kind: "card", label: "Solução de A", setup: sol("mkdir /x") }]);
-    expect(chainLayers([], 3, (x) => x)).toEqual([]);
+    const t = [link("a", null), link("b", "a", "touch /x")];
+    expect(chainLayers(t, "b", (title) => title)).toEqual([]);
+    const t2 = [link("a", null, "mkdir /x"), link("b", "a")];
+    expect(chainLayers(t2, "b", (title) => `Solução de ${title}`)).toEqual([{ id: "chain-a", kind: "card", label: "Solução de A", setup: sol("mkdir /x") }]);
+  });
+
+  // Covers SPEC-023 D-18: the draw never takes an exercise without the ones it depends on.
+  it("pulls the exercises a drawn one depends on, before it and once, and says which were pulled", () => {
+    expect(withChains(["c"], links)).toEqual({ order: ["a", "b", "c"], pulled: [{ id: "a", by: "c" }, { id: "b", by: "c" }] });
+    expect(withChains(["c", "e", "a"], links)).toEqual({ order: ["a", "b", "c", "d", "e"], pulled: [{ id: "b", by: "c" }, { id: "d", by: "e" }] });
+    expect(withChains(["d", "a"], links)).toEqual({ order: ["d", "a"], pulled: [] });
+    expect(withChains([], links)).toEqual({ order: [], pulled: [] });
   });
 });

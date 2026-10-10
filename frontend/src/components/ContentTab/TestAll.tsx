@@ -238,31 +238,13 @@ export function TestAll({
         // ones also go at the end of the module in sequence, as the student gets them.
         const toTest = bankToTest(bankData);
         const moduleLayers = allLayers(setup, []);
-        const setLayer = (
-          key: string,
-          label: string,
-          snapshot: ExerciseBank["exercisesSetup"],
-        ): SetupLayer[] =>
-          hasSetup(snapshot)
-            ? [{ id: key, kind: "card", label, setup: snapshot }]
-            : [];
-        const exercisesLayer = setLayer(
-          "bank-available",
-          m.bankAvailable,
-          bankData.exercisesSetup,
-        );
+        // The single snapshot of the bank goes under both sets (SPEC-023 11.2).
+        const bankLayer: SetupLayer[] = hasSetup(bankData.bankSetup)
+          ? [{ id: "bank", kind: "card", label: m.bankSnapshot, setup: bankData.bankSetup }]
+          : [];
         for (const [key, title, exercises, layer] of [
-          ["bank-available", m.bankAvailable, toTest.available, exercisesLayer],
-          [
-            "bank-assessment",
-            m.bankAssessment,
-            toTest.assessment,
-            setLayer(
-              "bank-assessment",
-              m.bankAssessment,
-              bankData.assessmentSetup,
-            ),
-          ],
+          ["bank-available", m.bankAvailable, toTest.practice, bankLayer],
+          ["bank-assessment", m.bankAssessment, toTest.assessment, bankLayer],
         ] as const) {
           const ran = exerciseTestItems({ items: exercises });
           if (ran.items.length === 0) continue;
@@ -296,7 +278,7 @@ export function TestAll({
               setup,
               groups.flatMap((g) => g.blocks),
             ),
-            ...exercisesLayer,
+            ...bankLayer,
           ],
           fingerprint: moduleFingerprint(
             activeCards(blocks),

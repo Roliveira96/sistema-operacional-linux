@@ -10,17 +10,17 @@ describe("contentService", () => {
   it("calls the read endpoints and unwraps the lists", async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValueOnce(json({ blocks: [{ id: "b" }], setup: { steps: [{ command: "mkdir /x" }] }, exercisesSetup: { steps: [{ command: "mkdir /treino" }] } }))
+      .mockResolvedValueOnce(json({ blocks: [{ id: "b" }], setup: { steps: [{ command: "mkdir /x" }] }, bankSetup: { steps: [{ command: "mkdir /treino" }] } }))
       .mockResolvedValueOnce(json({ questions: [{ id: "q" }] }))
       .mockResolvedValueOnce(json({ questions: [] }))
       .mockResolvedValueOnce(json({ items: [{ id: "t" }] }));
     const svc = createContentService(createHttpClient(fetcher));
 
-    // The snapshot of the exercises available in the practice comes with the content (SPEC-023).
+    // The single snapshot of the bank comes with the content (SPEC-023 11.2).
     expect(await svc.content("m 1")).toEqual({
       blocks: [{ id: "b" }],
       setup: { summary: "", steps: [{ command: "mkdir /x" }] },
-      exercisesSetup: { summary: "", steps: [{ command: "mkdir /treino" }] },
+      bankSetup: { summary: "", steps: [{ command: "mkdir /treino" }] },
     });
     expect(await svc.questions("m1", "EXERCISE")).toEqual([{ id: "q" }]);
     expect(await svc.questions("m1")).toEqual([]);

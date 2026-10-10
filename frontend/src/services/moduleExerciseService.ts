@@ -5,20 +5,26 @@ import {
   type Exercise,
   type ExerciseHint,
 } from "@/lib/exercises";
+import { withChains } from "@/lib/exerciseChain";
 import { newId } from "@/lib/newId";
 import { hasSetup, parseSetup, setupPayload, type Setup } from "@/lib/setup";
 import { httpClient, type HttpClient } from "./httpClient";
 
-/** `EXERCISE`: available in the practice of the module; `ASSESSMENT`: reserved for assessments (SPEC-023). */
-export type ExerciseUsage = "EXERCISE" | "ASSESSMENT";
 export type ExerciseStatus = "DRAFT" | "PUBLISHED";
 
-/** An exercise of the bank of a module, as the teacher sees it: the editable exercise and where it stands (SPEC-023 5). */
-export interface ModuleExercise {
+/** Where an exercise of the bank is linked (SPEC-023 rev. 2): the practice of the module, the assessment, or both; none is "not linked". */
+export interface ExerciseLinks {
+  practice: boolean;
+  assessment: boolean;
+  /** Only in the assessment: it never shows in the practice. */
+  exclusive: boolean;
+}
+
+/** An exercise of the bank of a module, as the teacher sees it: the editable exercise and where it stands (SPEC-023 5, 11). */
+export interface ModuleExercise extends ExerciseLinks {
   exercise: Exercise;
-  usage: ExerciseUsage;
   status: ExerciseStatus;
-  /** Its place in the trail, 0 when it is reserved. */
+  /** Its place in the practice trail, 0 when it is not in the practice. */
   position: number;
   mandatory: boolean;
   /** The instant to send back when saving, to detect a change by someone else. */
@@ -26,16 +32,16 @@ export interface ModuleExercise {
   createdAt: string;
   createdBy: string;
   updatedBy: string;
-  /** Starts from where the previous exercise of the trail ended (RN-11). */
-  continuesPrevious: boolean;
+  /** The exercise whose solution is built before this one (SPEC-023 12.3), or null. */
+  dependsOn: string | null;
   /** Came from the initial load: it has no solution recorded nor conditions in the form of the editor. */
   legacy: boolean;
 }
 
 export interface ExerciseBank {
   items: ModuleExercise[];
-  exercisesSetup?: Setup;
-  assessmentSetup?: Setup;
+  /** The single snapshot of the bank (SPEC-023 11.2). */
+  bankSetup?: Setup;
 }
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -65,7 +71,9 @@ export function parseModuleExercise(
         .map(parseCondition)
         .filter((c): c is ExerciseCondition => c !== undefined),
     },
-    usage: raw.usage === "EXERCISE" ? "EXERCISE" : "ASSESSMENT",
+    practice: raw.practice === true,
+    assessment: raw.assessment === true,
+    exclusive: raw.exclusive === true,
     status: raw.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT",
     position: typeof raw.position === "number" ? raw.position : 0,
     mandatory: raw.mandatory === true,
@@ -73,7 +81,7 @@ export function parseModuleExercise(
     createdAt: str(raw.createdAt),
     createdBy: str(raw.createdBy),
     updatedBy: str(raw.updatedBy),
-    continuesPrevious: raw.continuesPrevious === true,
+    dependsOn: str(raw.dependsOn) || null,
     legacy: raw.legacy === true,
   };
 }
@@ -81,7 +89,7 @@ export function parseModuleExercise(
 /** What is sent to create or save an exercise. */
 export function exerciseBody(
   exercise: Exercise,
-  continuesPrevious = false,
+  dependsOn: string | null = null,
 ): Record<string, unknown> {
   return {
     title: exercise.title.trim(),
@@ -96,55 +104,51 @@ export function exerciseBody(
       ? { solution: setupPayload(exercise.solution) }
       : {}),
     conditions: exercise.conditions,
-    ...(continuesPrevious ? { continuesPrevious: true } : {}),
+    dependsOn,
   };
 }
 
-/**
- * What the test of the module runs from the bank: the published exercises of each set (a draft is still being written, so it
- * is counted but not run), and the snapshot of each set (SPEC-023 RN-10).
- */
+/** The exercises that run in a test, by the sets they are linked to; a draft is still being written, so it is counted but not run. */
 export function bankToTest(bank: ExerciseBank): {
-  available: Exercise[];
+  practice: Exercise[];
   assessment: Exercise[];
   drafts: number;
 } {
-  const published = (usage: ExerciseUsage) =>
-    bank.items
-      .filter((it) => it.usage === usage && it.status === "PUBLISHED")
-      .sort((a, b) => a.position - b.position)
+  const links = bank.items.map((it) => ({ id: it.exercise.id, title: it.exercise.title, dependsOn: it.dependsOn }));
+  const byId = new Map(bank.items.map((it) => [it.exercise.id, it]));
+  // Each exercise comes after the ones it depends on, so the machine of the test already has what they left (SPEC-023 12.3).
+  const published = (set: "practice" | "assessment") =>
+    withChains(
+      bank.items
+        .filter((it) => it[set] && it.status === "PUBLISHED")
+        .sort((a, b) => a.position - b.position)
+        .map((it) => it.exercise.id),
+      links,
+    )
+      .order.map((id) => byId.get(id)!)
+      .filter((it) => it.status === "PUBLISHED")
       .map((it) => it.exercise);
   return {
-    available: published("EXERCISE"),
-    assessment: published("ASSESSMENT"),
+    practice: published("practice"),
+    assessment: published("assessment"),
     drafts: bank.items.filter((it) => it.status === "DRAFT").length,
   };
 }
 
 /** What the result of the test of the module depends on in the bank, so a change makes the result stale; empty when the bank is. */
 export function bankTestKey(bank: ExerciseBank): string {
-  const { available, assessment } = bankToTest(bank);
-  if (
-    available.length === 0 &&
-    assessment.length === 0 &&
-    !hasSetup(bank.exercisesSetup) &&
-    !hasSetup(bank.assessmentSetup)
-  )
-    return "";
+  const { practice, assessment } = bankToTest(bank);
+  if (practice.length === 0 && assessment.length === 0 && !hasSetup(bank.bankSetup)) return "";
   const ex = (e: Exercise) => [
     e.id,
     hasSetup(e.solution) ? setupPayload(e.solution) : null,
     e.conditions,
+    bank.items.find((it) => it.exercise.id === e.id)?.dependsOn ?? null,
   ];
   return JSON.stringify({
-    a: available.map(ex),
-    s: assessment.map(ex),
-    as: hasSetup(bank.exercisesSetup)
-      ? setupPayload(bank.exercisesSetup)
-      : null,
-    ss: hasSetup(bank.assessmentSetup)
-      ? setupPayload(bank.assessmentSetup)
-      : null,
+    p: practice.map(ex),
+    a: assessment.map(ex),
+    s: hasSetup(bank.bankSetup) ? setupPayload(bank.bankSetup) : null,
   });
 }
 
@@ -156,97 +160,46 @@ export function createModuleExerciseService(client: HttpClient = httpClient) {
     `${base(moduleId)}/exercises/${encodeURIComponent(id)}`;
 
   return {
-    /** The bank of the module: its exercises in the two sets, and the snapshot of each set. */
+    /** The bank of the module: every exercise with where it is linked, and the snapshot. */
     bank: async (moduleId: string): Promise<ExerciseBank> => {
-      const r = await client.get<{
-        items: Record<string, unknown>[];
-        exercisesSetup?: unknown;
-        assessmentSetup?: unknown;
-      }>(`${base(moduleId)}/exercises`);
-      const exercisesSetup = parseSetup(r.exercisesSetup);
-      const assessmentSetup = parseSetup(r.assessmentSetup);
-      return {
-        items: r.items.map(parseModuleExercise),
-        exercisesSetup: hasSetup(exercisesSetup) ? exercisesSetup : undefined,
-        assessmentSetup: hasSetup(assessmentSetup)
-          ? assessmentSetup
-          : undefined,
-      };
+      const r = await client.get<{ items: Record<string, unknown>[]; bankSetup?: unknown }>(`${base(moduleId)}/exercises`);
+      const bankSetup = parseSetup(r.bankSetup);
+      return { items: r.items.map(parseModuleExercise), bankSetup: hasSetup(bankSetup) ? bankSetup : undefined };
     },
-    get: async (moduleId: string, id: string) =>
+    get: async (moduleId: string, id: string) => parseModuleExercise(await client.get<Record<string, unknown>>(one(moduleId, id))),
+    /** Creates it in the bank, already linked to `links` when it was created from a block. */
+    create: async (moduleId: string, exercise: Exercise, dependsOn: string | null = null, links?: Partial<ExerciseLinks>) =>
       parseModuleExercise(
-        await client.get<Record<string, unknown>>(one(moduleId, id)),
-      ),
-    create: async (
-      moduleId: string,
-      exercise: Exercise,
-      continuesPrevious = false,
-    ) =>
-      parseModuleExercise(
-        await client.post<Record<string, unknown>>(
-          `${base(moduleId)}/exercises`,
-          exerciseBody(exercise, continuesPrevious),
-        ),
+        await client.post<Record<string, unknown>>(`${base(moduleId)}/exercises`, {
+          ...exerciseBody(exercise, dependsOn),
+          ...(links ? { links } : {}),
+        }),
       ),
     /** Saves it; `force` writes over what someone else changed in the meantime. */
-    update: async (
-      moduleId: string,
-      id: string,
-      exercise: Exercise,
-      updatedAt: string,
-      force = false,
-      continuesPrevious = false,
-    ) =>
+    update: async (moduleId: string, id: string, exercise: Exercise, updatedAt: string, force = false, dependsOn: string | null = null) =>
       parseModuleExercise(
         await client.put<Record<string, unknown>>(one(moduleId, id), {
-          ...exerciseBody(exercise, continuesPrevious),
+          ...exerciseBody(exercise, dependsOn),
           ...(force ? { force: true } : { updatedAt }),
         }),
       ),
-    /** Makes it available or reserves it, and publishes it or takes it back to draft. */
-    availability: async (
-      moduleId: string,
-      id: string,
-      usage: ExerciseUsage,
-      status: ExerciseStatus,
-    ) =>
-      parseModuleExercise(
-        await client.put<Record<string, unknown>>(
-          `${one(moduleId, id)}/availability`,
-          { usage, status },
-        ),
-      ),
+    /** Links it to the practice and/or the assessment (or takes it off), and publishes it or takes it back to draft. */
+    links: async (moduleId: string, id: string, links: ExerciseLinks, status: ExerciseStatus) =>
+      parseModuleExercise(await client.put<Record<string, unknown>>(`${one(moduleId, id)}/links`, { ...links, status })),
     remove: async (moduleId: string, id: string) => {
       await client.delete<void>(one(moduleId, id));
     },
-    /** The order of the trail and which exercises are mandatory; the list is exactly the available ones. */
-    order: async (
-      moduleId: string,
-      items: { exerciseId: string; mandatory: boolean }[],
-    ) => {
+    /** The order of the practice trail and which exercises are mandatory; the list is exactly the ones in the practice. */
+    order: async (moduleId: string, items: { exerciseId: string; mandatory: boolean }[]) => {
       await client.put<void>(`${base(moduleId)}/exercises/order`, { items });
     },
-    /** The snapshots of the two sets; a missing one is removed. */
-    setups: async (
-      moduleId: string,
-      setups: { exercisesSetup?: Setup; assessmentSetup?: Setup },
-    ) => {
-      await client.put<unknown>(`${base(moduleId)}/exercise-setups`, {
-        exercisesSetup:
-          setups.exercisesSetup && hasSetup(setups.exercisesSetup)
-            ? setupPayload(setups.exercisesSetup)
-            : null,
-        assessmentSetup:
-          setups.assessmentSetup && hasSetup(setups.assessmentSetup)
-            ? setupPayload(setups.assessmentSetup)
-            : null,
-      });
+    /** The single snapshot of the bank; a missing one is removed. */
+    setup: async (moduleId: string, bankSetup?: Setup) => {
+      await client.put<unknown>(`${base(moduleId)}/exercise-setup`, { bankSetup: bankSetup && hasSetup(bankSetup) ? setupPayload(bankSetup) : null });
     },
   };
 }
 
-export type ModuleExerciseService = ReturnType<
-  typeof createModuleExerciseService
->;
+export type ModuleExerciseService = ReturnType<typeof createModuleExerciseService>;
 
 export const moduleExerciseService = createModuleExerciseService();

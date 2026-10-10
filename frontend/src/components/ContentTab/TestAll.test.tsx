@@ -524,9 +524,13 @@ describe("TestAll, the exercises", () => {
       usage: "EXERCISE" | "ASSESSMENT",
       status: "DRAFT" | "PUBLISHED",
       position = 0,
+      dependsOn: string | null = null,
     ) => ({
       exercise: e,
-      usage,
+      practice: usage === "EXERCISE",
+      assessment: usage === "ASSESSMENT",
+      exclusive: false,
+      dependsOn,
       status,
       position,
       mandatory: true,
@@ -541,13 +545,9 @@ describe("TestAll, the exercises", () => {
         .fn()
         .mockResolvedValue({
           items,
-          exercisesSetup: {
+          bankSetup: {
             summary: "",
             steps: [{ command: "mkdir /treino" }],
-          },
-          assessmentSetup: {
-            summary: "",
-            steps: [{ command: "mkdir /gabarito" }],
           },
         }),
     });
@@ -566,7 +566,7 @@ describe("TestAll, the exercises", () => {
         />,
       );
 
-    it("tests each set on the machine of the module and of its own snapshot, and the available ones at the end of the module in sequence (CA-07)", async () => {
+    it("tests each set on the machine of the module and of the snapshot of the bank, and the available ones at the end of the module in sequence (CA-07)", async () => {
       run.machine = machineWith("x");
       renderWith(
         withBank([
@@ -594,7 +594,7 @@ describe("TestAll, the exercises", () => {
         "mkdir /treino",
         "mkdir /disp",
         "m1",
-        "mkdir /gabarito",
+        "mkdir /treino",
         "mkdir /prova",
         // The module in sequence: the snapshots, the commands of the card, then the available exercises.
         "m1",
@@ -606,6 +606,21 @@ describe("TestAll, the exercises", () => {
         screen.getByText("Exercícios disponíveis do módulo"),
       ).toBeDefined();
       expect(screen.getByText("Banco de avaliação do módulo")).toBeDefined();
+    }, 60000);
+
+    // Covers SPEC-023 12.3: an exercise runs after the one it depends on, even when the trail has it first.
+    it("runs an exercise after the one it depends on, even when that one is only in the assessment", async () => {
+      run.machine = machineWith("x");
+      renderWith(
+        withBank([
+          entry(exercise("d", "Depende", "mkdir /dep"), "EXERCISE", "PUBLISHED", 1, "p"),
+          entry(exercise("p", "Base", "mkdir /base"), "ASSESSMENT", "PUBLISHED"),
+        ]),
+      );
+      expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo aprovado");
+      const first = run.calls.indexOf("mkdir /base");
+      expect(first).toBeGreaterThan(-1);
+      expect(run.calls.indexOf("mkdir /dep", first)).toBeGreaterThan(first);
     }, 60000);
 
     it("counts the drafts of the bank without running them", async () => {

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import modal from "@/components/ContentTab/CardModal.module.scss";
 import { SetupEditor } from "@/components/CardBuilder/SetupEditor";
 import {
   ActionMenu,
@@ -25,7 +27,7 @@ import { ApiProblemError } from "@/services/httpClient";
 import {
   moduleExerciseService,
   type ExerciseBank,
-  type ExerciseUsage,
+  type ExerciseLinks,
   type ModuleExercise,
   type ModuleExerciseService,
 } from "@/services/moduleExerciseService";
@@ -54,9 +56,68 @@ const same = (a?: Setup, b?: Setup) =>
   JSON.stringify(a && hasSetup(a) ? setupPayload(a) : null) ===
   JSON.stringify(b && hasSetup(b) ? setupPayload(b) : null);
 
+type Block = "practice" | "assessment";
+type Filter = "all" | "practice" | "assessment" | "exclusive" | "unlinked";
+const FILTERS: Filter[] = ["all", "practice", "assessment", "exclusive", "unlinked"];
+
+const linksOf = (it: ModuleExercise): ExerciseLinks => ({ practice: it.practice, assessment: it.assessment, exclusive: it.exclusive });
+const inFilter = (it: ModuleExercise, f: Filter) =>
+  f === "all" || (f === "unlinked" ? !it.practice && !it.assessment : f === "exclusive" ? it.exclusive : it[f]);
+const tagsOf = (it: ModuleExercise) => {
+  const tags: ("practice" | "assessment" | "exclusive" | "unlinked")[] = [];
+  if (it.practice) tags.push("practice");
+  if (it.assessment) tags.push("assessment");
+  if (it.exclusive) tags.push("exclusive");
+  return tags.length === 0 ? (["unlinked"] as const) : tags;
+};
+
+/** The window that lists the exercises of the bank not yet in the block, to link them to it (SPEC-023 11.1). */
+function BankPicker({ block, items, onAdd, onClose }: { block: Block; items: ModuleExercise[]; onAdd: (it: ModuleExercise) => void; onClose: () => void }) {
+  const titleId = useId();
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const shown = items.filter((it) => it.exercise.title.toLowerCase().includes(query.trim().toLowerCase()));
+  return createPortal(
+    <div className={modal.overlay} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className={modal.dialog} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <div className={modal.head}>
+          <h3 id={titleId} className={modal.kicker}>
+            {m.pickerTitle(m[block === "practice" ? "available" : "assessment"].title)}
+          </h3>
+          <button type="button" className={modal.close} onClick={onClose}>
+            {m.pickerClose}
+          </button>
+        </div>
+        <div className={modal.body}>
+          <input type="search" className={styles.search} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={m.pickerFilter} aria-label={m.pickerFilter} />
+          {shown.length === 0 ? (
+            <p className={styles.empty}>{m.pickerEmpty}</p>
+          ) : (
+            <ul className={styles.pick}>
+              {shown.map((it) => (
+                <li key={it.exercise.id}>
+                  <span>{it.exercise.title.trim() || m.untitled}</span>
+                  <button type="button" className={styles.secondary} onClick={() => onAdd(it)} aria-label={`${m.pickerAdd} ${it.exercise.title.trim() || m.untitled}`}>
+                    {m.pickerAdd}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /**
- * The tab Exercícios of the edition of the module (SPEC-023): the bank of exercises in two sets, the ones available in the
- * practice of the module (the trail) and the ones reserved for assessment, each with the snapshot that prepares its machine.
+ * The tab Exercícios of the edition of the module (SPEC-023 rev. 2): the central bank, where exercises are created, and two
+ * blocks of links to it: the exercises available in the practice (the trail) and the ones reserved for assessment, over a single snapshot.
  */
 export function ModuleExercisesTab({
   moduleId,
@@ -68,8 +129,9 @@ export function ModuleExercisesTab({
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [bank, setBank] = useState<ExerciseBank>({ items: [] });
   const [moduleSetup, setModuleSetup] = useState<Setup | undefined>();
-  const [exercisesSetup, setExercisesSetup] = useState<Setup | undefined>();
-  const [assessmentSetup, setAssessmentSetup] = useState<Setup | undefined>();
+  const [bankSetup, setBankSetup] = useState<Setup | undefined>();
+  const [filter, setFilter] = useState<Filter>("all");
+  const [picking, setPicking] = useState<Block | null>(null);
   const [message, setMessage] = useState<{
     kind: "ok" | "error";
     text: string;
@@ -86,8 +148,7 @@ export function ModuleExercisesTab({
       .then(([loaded, c]) => {
         if (!active) return;
         setBank(loaded);
-        setExercisesSetup(loaded.exercisesSetup);
-        setAssessmentSetup(loaded.assessmentSetup);
+        setBankSetup(loaded.bankSetup);
         setModuleSetup(c?.setup);
         setState("ready");
       })
@@ -112,12 +173,8 @@ export function ModuleExercisesTab({
   const before: SetupLayer[] = hasSetup(moduleSetup)
     ? [{ id: "module", kind: "module", label: "Módulo", setup: moduleSetup }]
     : [];
-  const dirty =
-    !same(exercisesSetup, bank.exercisesSetup) ||
-    !same(assessmentSetup, bank.assessmentSetup);
-  const invalid =
-    invalidFiles(exercisesSetup).length > 0 ||
-    invalidFiles(assessmentSetup).length > 0;
+  const dirty = !same(bankSetup, bank.bankSetup);
+  const invalid = invalidFiles(bankSetup).length > 0;
 
   const run = async (action: () => Promise<void>, ok: string) => {
     setMessage(null);
@@ -136,10 +193,12 @@ export function ModuleExercisesTab({
     }
   };
 
-  const available = bank.items
-    .filter((it) => it.usage === "EXERCISE")
-    .sort((a, b) => a.position - b.position);
-  const reserved = bank.items.filter((it) => it.usage === "ASSESSMENT");
+  const available = bank.items.filter((it) => it.practice).sort((a, b) => a.position - b.position);
+  const reserved = bank.items.filter((it) => it.assessment);
+
+  /** Links (or unlinks) an exercise; the bank keeps it either way. */
+  const relink = (it: ModuleExercise, change: Partial<ExerciseLinks>, status = it.status) =>
+    run(() => service.links(moduleId, it.exercise.id, { ...linksOf(it), ...change }, status).then(() => undefined), m.changed);
 
   const sendOrder = (list: ModuleExercise[]) =>
     run(
@@ -168,66 +227,34 @@ export function ModuleExercisesTab({
   const saveSetups = async () => {
     setSaving(true);
     await run(
-      () => service.setups(moduleId, { exercisesSetup, assessmentSetup }),
+      () => service.setup(moduleId, bankSetup),
       m.setup.saved,
     );
     setSaving(false);
   };
 
-  const actionsOf = (it: ModuleExercise): MenuAction[] => {
-    const to =
-      (usage: ExerciseUsage, status = it.status) =>
-      () =>
-        void run(
-          () =>
-            service
-              .availability(moduleId, it.exercise.id, usage, status)
-              .then(() => undefined),
-          m.changed,
-        );
-    return [
-      {
-        key: "open",
-        icon: "✏️",
-        label: m.open,
-        onSelect: () =>
-          router.push(`/app/modules/${moduleId}/exercises/${it.exercise.id}`),
-      },
-      it.usage === "EXERCISE"
-        ? {
-            key: "reserve",
-            icon: "🔒",
-            label: m.reserve,
-            onSelect: to("ASSESSMENT"),
-          }
-        : {
-            key: "available",
-            icon: "🎯",
-            label: m.makeAvailable,
-            onSelect: to("EXERCISE"),
+  const actionsOf = (it: ModuleExercise, from: Block | "bank"): MenuAction[] => [
+    {
+      key: "open",
+      icon: "✏️",
+      label: m.open,
+      onSelect: () => router.push(`/app/modules/${moduleId}/exercises/${it.exercise.id}`),
+    },
+    ...(from === "bank"
+      ? []
+      : [
+          {
+            key: "unlink",
+            icon: "↩️",
+            label: m.removeFromBlock,
+            onSelect: () => void relink(it, from === "practice" ? { practice: false } : { assessment: false, exclusive: false }),
           },
-      it.status === "PUBLISHED"
-        ? {
-            key: "unpublish",
-            icon: "📝",
-            label: m.unpublish,
-            onSelect: to(it.usage, "DRAFT"),
-          }
-        : {
-            key: "publish",
-            icon: "🚀",
-            label: m.publish,
-            onSelect: to(it.usage, "PUBLISHED"),
-          },
-      {
-        key: "remove",
-        icon: "🗑️",
-        label: m.remove,
-        danger: true,
-        onSelect: () => setRemoving(it.exercise.id),
-      },
-    ];
-  };
+        ]),
+    it.status === "PUBLISHED"
+      ? { key: "unpublish", icon: "📝", label: m.unpublish, onSelect: () => void relink(it, {}, "DRAFT") }
+      : { key: "publish", icon: "🚀", label: m.publish, onSelect: () => void relink(it, {}, "PUBLISHED") },
+    ...(from === "bank" ? [{ key: "remove", icon: "🗑️", label: m.remove, danger: true, onSelect: () => setRemoving(it.exercise.id) }] : []),
+  ];
 
   if (state === "loading") return <p className={styles.note}>{m.loading}</p>;
   if (state === "error")
@@ -247,13 +274,14 @@ export function ModuleExercisesTab({
       </div>
     );
 
-  const row = (it: ModuleExercise, index: number, trail: boolean) => {
+  const row = (it: ModuleExercise, index: number, from: Block | "bank") => {
+    const trail = from === "practice";
     const ex = it.exercise;
     const title = ex.title.trim() || m.untitled;
     return (
       <li key={ex.id} className={styles.row}>
         <span className={styles.number} aria-hidden="true">
-          {trail ? index + 1 : "🔒"}
+          {trail ? index + 1 : from === "assessment" ? "🔒" : "📦"}
         </span>
         <div className={styles.body}>
           <Link
@@ -319,10 +347,28 @@ export function ModuleExercisesTab({
           >
             {m.status[it.status]}
           </span>
-          {trail && it.continuesPrevious && index > 0 && (
+          {it.dependsOn && (
             <span className={styles.chain}>
-              <span aria-hidden="true">↪</span> {m.continuesChip}
+              <span aria-hidden="true">↪</span>{" "}
+              {m.dependsOnChip(bank.items.find((o) => o.exercise.id === it.dependsOn)?.exercise.title.trim() || m.untitled)}
             </span>
+          )}
+          {from === "bank" &&
+            tagsOf(it).map((t) => (
+              <span key={t} className={styles.tag}>
+                {m.bank.tags[t]}
+              </span>
+            ))}
+          {from === "assessment" && (
+            <label className={styles.mandatory}>
+              <input
+                type="checkbox"
+                checked={it.exclusive}
+                onChange={() => void relink(it, it.exclusive ? { exclusive: false } : { exclusive: true, practice: false })}
+                aria-label={m.exclusiveLabel(title)}
+              />{" "}
+              {m.exclusive}
+            </label>
           )}
           {trail && (
             <label className={styles.mandatory}>
@@ -362,68 +408,49 @@ export function ModuleExercisesTab({
           <ActionMenu
             label={m.actionsOf(title)}
             text="⋮"
-            actions={actionsOf(it)}
+            actions={actionsOf(it, from)}
           />
         </div>
       </li>
     );
   };
 
-  const set = (kind: "available" | "assessment") => {
-    const list = kind === "available" ? available : reserved;
-    const text = m[kind];
-    const setup = kind === "available" ? exercisesSetup : assessmentSetup;
-    const change =
-      kind === "available" ? setExercisesSetup : setAssessmentSetup;
+  const block = (kind: Block) => {
+    const list = kind === "practice" ? available : reserved;
+    const text = m[kind === "practice" ? "available" : "assessment"];
     return (
       <section className={styles.set} aria-label={text.title}>
         <header className={styles.setHead}>
           <span className={styles.icon} aria-hidden="true">
-            {kind === "available" ? "🎯" : "🔒"}
+            {kind === "practice" ? "🎯" : "🔒"}
           </span>
           <div>
             <div className={styles.titleRow}>
               <h3 className={styles.setTitle}>{text.title}</h3>
-              <InfoTip topic={text.title}>
-                {
-                  authoringMessages.info[
-                    kind === "available" ? "availableSet" : "assessmentSet"
-                  ]
-                }
-              </InfoTip>
+              <InfoTip topic={text.title}>{authoringMessages.info[kind === "practice" ? "availableSet" : "assessmentSet"]}</InfoTip>
             </div>
             <p className={styles.hint}>{text.hint}</p>
+          </div>
+          <div className={styles.setActions}>
+            <button type="button" className={styles.secondary} onClick={() => setPicking(kind)}>
+              {m.addFromBank}
+            </button>
+            <Link href={`/app/modules/${moduleId}/exercises/new?link=${kind}`} className={styles.primary}>
+              {m.createNew}
+            </Link>
           </div>
         </header>
         {list.length === 0 ? (
           <p className={styles.empty}>{text.empty}</p>
         ) : (
-          <ol className={styles.list}>
-            {list.map((it, i) => row(it, i, kind === "available"))}
-          </ol>
+          <ol className={styles.list}>{list.map((it, i) => row(it, i, kind))}</ol>
         )}
-        <details className={styles.setup}>
-          <summary>
-            <span aria-hidden="true">🧪</span> {m.setup[kind]}
-          </summary>
-          <p className={styles.hint}>
-            <InfoTip topic={m.setup[kind]}>
-              {authoringMessages.info.exerciseSetup}
-            </InfoTip>{" "}
-            {m.setup.help}
-          </p>
-          <SetupEditor
-            setup={setup}
-            before={before}
-            loadBase={loadBase}
-            help={m.setup.help}
-            recordLabel={m.setup.record}
-            onChange={change}
-          />
-        </details>
       </section>
     );
   };
+
+  const bankItems = bank.items.filter((it) => inFilter(it, filter));
+  const pickable = bank.items.filter((it) => (picking === "practice" ? !it.practice && !it.exclusive : !it.assessment));
 
   return (
     <div className={styles.tab}>
@@ -457,20 +484,62 @@ export function ModuleExercisesTab({
         </p>
       )}
 
-      {set("available")}
-      {set("assessment")}
+      <section className={styles.set} aria-label={m.bank.title}>
+        <header className={styles.setHead}>
+          <span className={styles.icon} aria-hidden="true">
+            📦
+          </span>
+          <div>
+            <h3 className={styles.setTitle}>{m.bank.title}</h3>
+            <p className={styles.hint}>{m.bank.hint}</p>
+          </div>
+        </header>
+        <div className={styles.filters} role="group" aria-label={m.bank.filterLabel}>
+          {FILTERS.map((f) => (
+            <button key={f} type="button" className={`${styles.chip} ${filter === f ? styles.chipOn : ""}`} aria-pressed={filter === f} onClick={() => setFilter(f)}>
+              {m.bank.filters[f]}
+            </button>
+          ))}
+        </div>
+        {bankItems.length === 0 ? (
+          <p className={styles.empty}>{m.bank.empty}</p>
+        ) : (
+          <ol className={styles.list}>{bankItems.map((it, i) => row(it, i, "bank"))}</ol>
+        )}
+      </section>
+
+      {block("practice")}
+      {block("assessment")}
+
+      <details className={styles.setup}>
+        <summary>
+          <span aria-hidden="true">🧪</span> {m.setup.title}
+        </summary>
+        <p className={styles.hint}>
+          <InfoTip topic={m.setup.title}>{authoringMessages.info.exerciseSetup}</InfoTip> {m.setup.help}
+        </p>
+        <SetupEditor setup={bankSetup} before={before} loadBase={loadBase} help={m.setup.help} recordLabel={m.setup.record} onChange={setBankSetup} />
+      </details>
 
       <div className={styles.foot}>
         {dirty && <span className={styles.unsaved}>{m.setup.unsaved}</span>}
-        <button
-          type="button"
-          className={styles.primary}
-          onClick={() => void saveSetups()}
-          disabled={saving || !dirty || invalid}
-        >
+        <button type="button" className={styles.primary} onClick={() => void saveSetups()} disabled={saving || !dirty || invalid}>
           {saving ? m.setup.saving : m.setup.save}
         </button>
       </div>
+
+      {picking && (
+        <BankPicker
+          block={picking}
+          items={pickable}
+          onClose={() => setPicking(null)}
+          onAdd={(it) => {
+            const target = picking;
+            setPicking(null);
+            void relink(it, target === "practice" ? { practice: true } : { assessment: true });
+          }}
+        />
+      )}
     </div>
   );
 }

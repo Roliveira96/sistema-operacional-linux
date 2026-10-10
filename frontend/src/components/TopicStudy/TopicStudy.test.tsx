@@ -737,8 +737,8 @@ describe("TopicStudy challenges", () => {
   });
 
   // Covers SPEC-023 CA-06: an exercise of the module has no scenario; it starts from the topic machine with the snapshot of the
-  // module and the one of the available exercises on it, and not with the snapshots of the cards.
-  it("starts an exercise made in the editor from the layers of the module and of the available exercises", async () => {
+  // module and the single one of the bank on it, and not with the snapshots of the cards.
+  it("starts an exercise made in the editor from the layers of the module and of the bank", async () => {
     const withCardSnapshot = [
       block(1, "TEXT", {
         title: "Card",
@@ -751,7 +751,7 @@ describe("TopicStudy challenges", () => {
         content: vi.fn().mockResolvedValue({
           blocks: withCardSnapshot,
           setup: { summary: "", steps: [{ command: "mkdir /modulo" }] },
-          exercisesSetup: {
+          bankSetup: {
             summary: "",
             steps: [{ command: "mkdir /treino" }],
           },
@@ -782,64 +782,35 @@ describe("TopicStudy challenges", () => {
     expect(practice.scenario).not.toHaveBeenCalled();
   });
 
-  // Covers SPEC-023 RN-11, CA-11: an exercise that continues from the previous one gets the recipe of the chain after the layers.
-  it("starts an exercise that continues from the previous one with the solutions of the chain on the machine", async () => {
-    const first = challenge("q1", {
-      layered: true,
-      solutionSetup: { steps: [{ command: "mkdir /lab" }] },
-    });
-    const second = challenge("q2", {
-      layered: true,
-      continues: true,
-      solutionSetup: { steps: [{ command: "touch /lab/ola.sh" }] },
-    });
+  // Covers SPEC-023 12.3, CA-13: an exercise that depends on others gets the recipe of their solutions after the layers, the oldest first.
+  it("starts an exercise that depends on others with the solutions of the chain on the machine", async () => {
+    const first = challenge("q1", { layered: true });
+    const second = challenge("q2", { layered: true, chainSetups: [{ steps: [{ command: "mkdir /lab" }] }] });
     const third = challenge("q3", {
       layered: true,
-      continues: true,
-      solutionSetup: { steps: [{ command: "chmod +x /lab/ola.sh" }] },
+      chainSetups: [{ steps: [{ command: "mkdir /lab" }] }, { steps: [{ command: "touch /lab/ola.sh" }] }, { steps: [] }],
     });
     setup({
       content: {
-        content: vi
-          .fn()
-          .mockResolvedValue({
-            blocks,
-            setup: { summary: "", steps: [{ command: "mkdir /modulo" }] },
-            exercisesSetup: {
-              summary: "",
-              steps: [{ command: "mkdir /treino" }],
-            },
-          }),
+        content: vi.fn().mockResolvedValue({
+          blocks,
+          setup: { summary: "", steps: [{ command: "mkdir /modulo" }] },
+          bankSetup: { summary: "", steps: [{ command: "mkdir /treino" }] },
+        }),
         questions: vi.fn().mockResolvedValue([first, second, third]),
       },
     });
     await screen.findByRole("heading", { name: "História do Linux" });
     await waitFor(() => expect(fake.window.setSpeed).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    const ran = () => fake.window.execute.mock.calls.map((c) => (c as unknown as [{ command: string }])[0].command);
     fake.window.execute.mockClear();
     fireEvent.click(screen.getAllByRole("button", { name: "▶ Iniciar" })[2]!);
-    await waitFor(() =>
-      expect(
-        fake.window.execute.mock.calls.map(
-          (c) => (c as unknown as [{ command: string }])[0].command,
-        ),
-      ).toEqual([
-        "mkdir /modulo",
-        "mkdir /treino",
-        "mkdir /lab",
-        "touch /lab/ola.sh",
-      ]),
-    );
-    // The first of the chain starts with the layers only.
+    await waitFor(() => expect(ran()).toEqual(["mkdir /modulo", "mkdir /treino", "mkdir /lab", "touch /lab/ola.sh"]));
+    // One that depends on nothing starts with the layers only.
     fake.window.execute.mockClear();
     fireEvent.click(screen.getAllByRole("button", { name: "▶ Iniciar" })[0]!);
-    await waitFor(() =>
-      expect(
-        fake.window.execute.mock.calls.map(
-          (c) => (c as unknown as [{ command: string }])[0].command,
-        ),
-      ).toEqual(["mkdir /modulo", "mkdir /treino"]),
-    );
+    await waitFor(() => expect(ran()).toEqual(["mkdir /modulo", "mkdir /treino"]));
   });
 
   it("warns when the scenario cannot be loaded", async () => {

@@ -15,7 +15,7 @@ import {
   exerciseTestItems,
   type Exercise,
 } from "@/lib/exercises";
-import { chainLayers } from "@/lib/exerciseChain";
+import { ancestors, chainLayers, type ChainLink } from "@/lib/exerciseChain";
 import { hasSetup, type Setup, type SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import {
@@ -50,9 +50,9 @@ type State =
   | {
       status: "ready";
       stored?: ModuleExercise;
-      /** The available exercises in the order of the trail, to build the chain an exercise continues from. */
-      trail: ModuleExercise[];
-      layers: Record<"EXERCISE" | "ASSESSMENT", SetupLayer[]>;
+      /** Every exercise of the bank, to choose the one this depends on and to build the chain before it. */
+      all: ModuleExercise[];
+      layers: SetupLayer[];
     };
 
 /** The ids are made on the fly, so they are left out when comparing an exercise with what was stored. */
@@ -76,8 +76,8 @@ export function ModuleExerciseScreen({
   const [state, setState] = useState<State>({ status: "loading" });
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [baseline, setBaseline] = useState("");
-  /** The exercise starts from where the previous one of the trail ended (RN-11). */
-  const [continues, setContinues] = useState(false);
+  /** The exercise whose solution is built before this one (SPEC-023 12.3). */
+  const [dependsOn, setDependsOn] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState("");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [message, setMessage] = useState<{
@@ -111,36 +111,21 @@ export function ModuleExerciseScreen({
               },
             ]
           : [];
-        const set = (setup: Setup | undefined, label: string): SetupLayer[] =>
-          hasSetup(setup)
-            ? [{ id: label, kind: "card", label: m.setLayer(label), setup }]
-            : [];
         setState({
           status: "ready",
           stored,
-          trail: bank.items
-            .filter((it) => it.usage === "EXERCISE")
-            .sort((a, b) => a.position - b.position),
-          layers: {
-            EXERCISE: [
-              ...moduleLayer,
-              ...set(bank.exercisesSetup, m.setAvailable),
-            ],
-            ASSESSMENT: [
-              ...moduleLayer,
-              ...set(bank.assessmentSetup, m.setAssessment),
-            ],
-          },
+          all: bank.items,
+          layers: [
+            ...moduleLayer,
+            ...(hasSetup(bank.bankSetup)
+              ? [{ id: "bank", kind: "card" as const, label: m.bankLayer, setup: bank.bankSetup }]
+              : []),
+          ],
         });
         const first = stored?.exercise ?? emptyExercise();
         setExercise(first);
-        setContinues(stored?.continuesPrevious ?? false);
-        setBaseline(
-          JSON.stringify(
-            [first, stored?.continuesPrevious ?? false],
-            withoutIds,
-          ),
-        );
+        setDependsOn(stored?.dependsOn ?? null);
+        setBaseline(JSON.stringify([first, stored?.dependsOn ?? null], withoutIds));
         setUpdatedAt(stored?.updatedAt ?? "");
       })
       .catch(() => active && setState({ status: "missing" }));
@@ -155,7 +140,7 @@ export function ModuleExerciseScreen({
   );
   const dirty =
     exercise !== null &&
-    JSON.stringify([exercise, continues], withoutIds) !== baseline;
+    JSON.stringify([exercise, dependsOn], withoutIds) !== baseline;
 
   // Leaving the page with an unsaved exercise loses the work.
   useEffect(() => {
@@ -185,41 +170,39 @@ export function ModuleExerciseScreen({
     );
   }
 
-  const usage = state.stored?.usage ?? "ASSESSMENT";
-  // An exercise that continues starts from the recipe of the chain before it (RN-11): the solutions recorded, in the order of the trail.
-  const position = state.trail.findIndex((it) => it.exercise.id === exerciseId);
-  const canContinue = usage === "EXERCISE" && position > 0;
-  const chain = chainLayers(
-    state.trail.map((it, i) => ({
-      id: it.exercise.id,
-      title: it.exercise.title.trim() || m.untitled,
-      continues:
-        i === position ? continues && canContinue : it.continuesPrevious,
-      solution: it.exercise.solution,
-    })),
-    position,
-    m.chainLayer,
+  // An exercise that depends on others starts from the recipe of the chain before it: the solutions recorded, the oldest first.
+  const links: ChainLink[] = state.all.map((it) => ({
+    id: it.exercise.id,
+    title: it.exercise.title.trim() || m.untitled,
+    dependsOn: it.exercise.id === exerciseId ? dependsOn : it.dependsOn,
+    solution: it.exercise.solution,
+  }));
+  const before = [...state.layers, ...chainLayers(links, exerciseId, m.chainLayer)];
+  // The ones that already depend on this one cannot be chosen: it would close a cycle.
+  const choices = state.all.filter(
+    (it) =>
+      it.exercise.id !== exerciseId &&
+      !ancestors(links, it.exercise.id).some((a) => a.id === exerciseId),
   );
-  const before = [...state.layers[usage], ...chain];
 
   const save = async (force = false) => {
     setMessage(null);
     setConflict(false);
     setSaving(true);
     try {
+      // Created from a block of the tab (?link=practice|assessment), it is already linked to it.
+      const from = new URLSearchParams(window.location.search).get("link");
       const saved = isNew
-        ? await service.create(moduleId, exercise, continues)
-        : await service.update(
+        ? await service.create(
             moduleId,
-            exerciseId,
             exercise,
-            updatedAt,
-            force,
-            continues,
-          );
+            dependsOn,
+            from === "practice" || from === "assessment" ? { [from]: true } : undefined,
+          )
+        : await service.update(moduleId, exerciseId, exercise, updatedAt, force, dependsOn);
       setErrors({});
       setUpdatedAt(saved.updatedAt);
-      setBaseline(JSON.stringify([exercise, continues], withoutIds));
+      setBaseline(JSON.stringify([exercise, dependsOn], withoutIds));
       setMessage({ kind: "ok", text: m.saved });
       if (isNew)
         router.replace(
@@ -273,9 +256,7 @@ export function ModuleExerciseScreen({
           {m.back}
         </Link>
         <h1 className={styles.title}>{isNew ? m.newTitle : m.editTitle}</h1>
-        <p className={styles.subtitle}>
-          {m.subtitle(usage === "EXERCISE" ? m.setAvailable : m.setAssessment)}
-        </p>
+        <p className={styles.subtitle}>{m.subtitle}</p>
       </header>
 
       {state.stored?.legacy && (
@@ -284,21 +265,19 @@ export function ModuleExerciseScreen({
         </p>
       )}
 
-      <label className={cardStyles.check}>
-        <input
-          type="checkbox"
-          checked={continues && canContinue}
-          disabled={!canContinue}
-          onChange={(e) => setContinues(e.target.checked)}
-        />
-        <span>{m.continues}</span>
-        <InfoTip topic={m.continues}>
-          {authoringMessages.info.exerciseChain}
-        </InfoTip>
-      </label>
-      <p className={cardStyles.hint}>
-        {canContinue ? m.continuesHelp : m.continuesOnlyAvailable}
-      </p>
+      <div className={cardStyles.check}>
+        <label htmlFor="depends-on">{m.dependsOn}</label>
+        <select id="depends-on" value={dependsOn ?? ""} onChange={(e) => setDependsOn(e.target.value || null)}>
+          <option value="">{m.dependsOnNone}</option>
+          {choices.map((it) => (
+            <option key={it.exercise.id} value={it.exercise.id}>
+              {it.exercise.title.trim() || m.untitled}
+            </option>
+          ))}
+        </select>
+        <InfoTip topic={m.dependsOn}>{authoringMessages.info.exerciseChain}</InfoTip>
+      </div>
+      <p className={cardStyles.hint}>{m.dependsOnHelp}</p>
 
       <div className={cardStyles.columns}>
         <ExerciseForm

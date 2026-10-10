@@ -51,7 +51,9 @@ const stored = (extra: Partial<ModuleExercise> = {}): ModuleExercise => ({
     solution: { summary: "", steps: [{ command: "mkdir /a" }] },
     conditions: [{ kind: "DIR_EXISTS", path: "/a" }],
   },
-  usage: "EXERCISE",
+  practice: true,
+  assessment: false,
+  exclusive: false,
   status: "DRAFT",
   position: 1,
   mandatory: true,
@@ -59,7 +61,7 @@ const stored = (extra: Partial<ModuleExercise> = {}): ModuleExercise => ({
   createdAt: "2026-10-10T11:00:00Z",
   createdBy: "Ana",
   updatedBy: "Ana",
-  continuesPrevious: false,
+  dependsOn: null,
   legacy: false,
   ...extra,
 });
@@ -76,22 +78,22 @@ beforeEach(() => {
     get: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
-    availability: vi.fn(),
+    links: vi.fn(),
     remove: vi.fn(),
     order: vi.fn(),
-    setups: vi.fn(),
+    setup: vi.fn(),
   };
   service.bank.mockResolvedValue({
     items: [
       stored(),
       stored({
         exercise: { ...stored().exercise, id: "r", title: "Da prova" },
-        usage: "ASSESSMENT",
+        practice: false,
+        assessment: true,
         legacy: true,
       }),
     ],
-    exercisesSetup: { summary: "", steps: [{ command: "mkdir /treino" }] },
-    assessmentSetup: { summary: "", steps: [{ command: "mkdir /prova" }] },
+    bankSetup: { summary: "", steps: [{ command: "mkdir /treino" }] },
   });
   vi.mocked(content.content).mockResolvedValue({
     blocks: [],
@@ -112,7 +114,7 @@ const renderScreen = (exerciseId: string) =>
 
 // Covers SPEC-023: the page of one exercise of the module.
 describe("ModuleExerciseScreen", () => {
-  it("opens an existing exercise with the set it belongs to and a way back to the bank (CA-02)", async () => {
+  it("opens an existing exercise with a way back to the bank (CA-02)", async () => {
     renderScreen("q1");
     expect(
       await screen.findByRole("heading", {
@@ -124,7 +126,7 @@ describe("ModuleExerciseScreen", () => {
       (screen.getByLabelText("Título do exercício (1)") as HTMLInputElement)
         .value,
     ).toBe("Criar a pasta");
-    expect(screen.getByText(/Conjunto: disponível no módulo/)).toBeDefined();
+    expect(screen.getByText(/O exercício mora no banco/)).toBeDefined();
     expect(
       screen
         .getByRole("link", { name: "← Exercícios do módulo" })
@@ -135,17 +137,15 @@ describe("ModuleExerciseScreen", () => {
     ).toHaveTextContent("Criar a pasta");
   });
 
-  it("says the exercise is reserved for assessment, and warns about what came from the initial load", async () => {
+  it("warns about what came from the initial load", async () => {
     renderScreen("r");
-    expect(
-      await screen.findByText(/Conjunto: reservado para avaliação/),
-    ).toBeDefined();
+    await screen.findByLabelText("Título do exercício (1)");
     expect(screen.getByRole("status")).toHaveTextContent(
       "veio da carga inicial e não tem a solução gravada",
     );
   });
 
-  it("creates a new exercise, reserved for assessment, and goes to its page", async () => {
+  it("creates a new exercise in the bank, linked to the block it came from, and goes to its page (CA-17)", async () => {
     service.create.mockResolvedValue(
       stored({ exercise: { ...stored().exercise, id: "novo" } }),
     );
@@ -156,9 +156,7 @@ describe("ModuleExerciseScreen", () => {
         name: "Novo exercício do módulo",
       }),
     ).toBeDefined();
-    expect(
-      screen.getByText(/Conjunto: reservado para avaliação/),
-    ).toBeDefined();
+    window.history.pushState({}, "", "/app/modules/mod-1/exercises/new?link=assessment");
     fireEvent.change(screen.getByLabelText("Título do exercício (1)"), {
       target: { value: "Terceiro" },
     });
@@ -167,6 +165,8 @@ describe("ModuleExerciseScreen", () => {
     expect(service.create.mock.calls[0]![1]).toMatchObject({
       title: "Terceiro",
     });
+    expect(service.create.mock.calls[0]!.slice(2)).toEqual([null, { assessment: true }]);
+    window.history.pushState({}, "", "/");
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith("/app/modules/mod-1/exercises/novo"),
     );
@@ -290,9 +290,9 @@ describe("ModuleExerciseScreen", () => {
     expect(ran).toEqual(["mkdir /modulo", "mkdir /treino", "mkdir /a"]);
   }, 20000);
 
-  // Covers SPEC-023 RN-11, CA-11: an exercise can continue from the previous one of the trail.
-  describe("an exercise that continues from the previous one", () => {
-    const second = () =>
+  // Covers SPEC-023 12.3, CA-13: an exercise can depend on another one of the bank.
+  describe("an exercise that depends on another", () => {
+    const second = (extra: Partial<ModuleExercise> = {}) =>
       stored({
         exercise: {
           ...stored().exercise,
@@ -301,37 +301,38 @@ describe("ModuleExerciseScreen", () => {
           solution: { summary: "", steps: [{ command: "touch /a/x.sh" }] },
         },
         position: 2,
+        ...extra,
       });
+    const third = () =>
+      stored({
+        exercise: { ...stored().exercise, id: "q3", title: "Terceiro" },
+        position: 3,
+        dependsOn: "q2",
+      });
+    const option = (select: HTMLElement) => Array.from((select as HTMLSelectElement).options).map((o) => o.textContent);
 
     beforeEach(() => {
       service.bank.mockResolvedValue({
-        items: [stored(), second()],
-        exercisesSetup: { summary: "", steps: [{ command: "mkdir /treino" }] },
+        items: [stored(), second(), third()],
+        bankSetup: { summary: "", steps: [{ command: "mkdir /treino" }] },
       });
     });
 
-    it("cannot be chosen for the first exercise of the trail, nor for one reserved for assessment", async () => {
+    it("offers the others of the bank, but not itself nor the ones that depend on it (they would close a cycle)", async () => {
+      service.bank.mockResolvedValue({ items: [stored(), second({ dependsOn: "q1" }), third()] });
+      renderScreen("q2");
+      const select = await screen.findByLabelText("Depende do exercício");
+      expect(option(select)).toEqual(["Nenhum (parte do ambiente do banco)", "Criar a pasta"]);
+      cleanup();
+      // q2 depends on q1 and q3 on q2: neither can be chosen by q1.
       renderScreen("q1");
-      const box = (await screen.findByRole("checkbox", {
-        name: /Continua de onde o exercício anterior terminou/,
-      })) as HTMLInputElement;
-      expect(box.disabled).toBe(true);
-      expect(
-        screen.getByText(
-          /Só um exercício disponível no módulo, e que não seja o primeiro da trilha/,
-        ),
-      ).toBeDefined();
+      expect(option(await screen.findByLabelText("Depende do exercício"))).toEqual(["Nenhum (parte do ambiente do banco)"]);
     });
 
-    it("is saved as continuing, and makes the page build the machine from the recipe of the one before it", async () => {
+    it("is saved with the dependency, and the test builds the machine from the recipe of the one it depends on", async () => {
       const ran: string[] = [];
       mount.mockResolvedValue({
-        execute: vi.fn(
-          async ({ command }: { command: string }) => (
-            ran.push(command),
-            { status: 0, output: "" }
-          ),
-        ),
+        execute: vi.fn(async ({ command }: { command: string }) => (ran.push(command), { status: 0, output: "" })),
         loadScenario: vi.fn(async () => {}),
         setSpeed: vi.fn(),
         snapshot: vi.fn(() => ({
@@ -341,57 +342,36 @@ describe("ModuleExerciseScreen", () => {
             dono: 0,
             grupo: 0,
             permissoes: "755",
-            filhos: [
-              {
-                nome: "a",
-                tipo: "diretorio",
-                dono: 0,
-                grupo: 0,
-                permissoes: "755",
-                filhos: [],
-              },
-            ],
+            filhos: [{ nome: "a", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [] }],
           },
-          contas: {
-            usuarios: [{ nome: "root", uid: 0 }],
-            grupos: [{ nome: "root", gid: 0 }],
-          },
+          contas: { usuarios: [{ nome: "root", uid: 0 }], grupos: [{ nome: "root", gid: 0 }] },
         })),
         history: () => [],
         destroy: vi.fn(),
       });
-      service.update.mockResolvedValue({
-        ...second(),
-        continuesPrevious: true,
-      });
+      service.update.mockResolvedValue(second({ dependsOn: "q1" }));
       renderScreen("q2");
-      const box = (await screen.findByRole("checkbox", {
-        name: /Continua de onde o exercício anterior terminou/,
-      })) as HTMLInputElement;
-      expect(box.disabled).toBe(false);
-      expect(box.checked).toBe(false);
-      fireEvent.click(box);
+      const select = (await screen.findByLabelText("Depende do exercício")) as HTMLSelectElement;
+      expect(select.value).toBe("");
+      fireEvent.change(select, { target: { value: "q1" } });
       expect(screen.getByText("Há alterações não salvas.")).toBeDefined();
 
       fireEvent.click(screen.getByRole("button", { name: "Testar exercício" }));
-      await waitFor(
-        () =>
-          expect(ran).toEqual([
-            "mkdir /modulo",
-            "mkdir /treino",
-            "mkdir /a",
-            "touch /a/x.sh",
-          ]),
-        { timeout: 8000 },
-      );
+      await waitFor(() => expect(ran).toEqual(["mkdir /modulo", "mkdir /treino", "mkdir /a", "touch /a/x.sh"]), { timeout: 8000 });
 
       fireEvent.click(screen.getByRole("button", { name: "Salvar exercício" }));
       await waitFor(() => expect(service.update).toHaveBeenCalled());
-      expect(service.update.mock.calls[0]![5]).toBe(true);
-      await waitFor(() =>
-        expect(screen.queryByText("Há alterações não salvas.")).toBeNull(),
-      );
+      expect(service.update.mock.calls[0]![5]).toBe("q1");
+      await waitFor(() => expect(screen.queryByText("Há alterações não salvas.")).toBeNull());
+      // Back to none.
+      fireEvent.change(select, { target: { value: "" } });
+      expect((select as HTMLSelectElement).value).toBe("");
     }, 20000);
+
+    it("opens with the dependency it already has", async () => {
+      renderScreen("q3");
+      expect(((await screen.findByLabelText("Depende do exercício")) as HTMLSelectElement).value).toBe("q2");
+    });
   });
 
   it("says when the exercise does not exist", async () => {

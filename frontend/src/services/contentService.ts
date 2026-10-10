@@ -32,9 +32,8 @@ export interface PublicQuestion {
   solution?: { command: string; terminal?: number }[];
   /** An exercise of the module made in the editor (SPEC-023): it has no machine of its own, it starts from the layers. */
   layered?: boolean;
-  /** Starts from where the previous exercise ended; `solutionSetup` is the recipe the screen replays to build that machine (SPEC-023 RN-11). */
-  continues?: boolean;
-  solutionSetup?: unknown;
+  /** The solutions of the exercises this one depends on, the oldest first: the recipe the screen replays to build its machine (SPEC-023 12.3). */
+  chainSetups?: unknown[];
 }
 
 export interface AssessmentTemplateSummary {
@@ -65,15 +64,15 @@ export function createContentService(client: HttpClient = httpClient) {
       const r = await client.get<{
         blocks: ContentBlock[];
         setup?: unknown;
-        exercisesSetup?: unknown;
+        bankSetup?: unknown;
       }>(
         `/modules/${encodeURIComponent(moduleId)}/blocks${draft ? "?draft=true" : ""}`,
       );
-      // The snapshot of the exercises available in the practice of the module comes with it (SPEC-023 RN-07).
+      // The single snapshot of the bank of exercises of the module comes with it (SPEC-023 11.2).
       return {
         blocks: r.blocks,
         setup: parseSetup(r.setup),
-        exercisesSetup: parseSetup(r.exercisesSetup),
+        bankSetup: parseSetup(r.bankSetup),
       };
     },
     questions: async (moduleId: string, usage?: "EXERCISE" | "ASSESSMENT") =>
