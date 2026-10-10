@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-025 |
-| **Status** | Implementada |
+| **Status** | Rascunho (revisão 2: galeria e envio como único caminho; revisão 1 implementada) |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -143,6 +143,64 @@ Nenhuma em aberto: P-01, P-02, P-05 e P-06 viraram as decisões D-03 a D-06.
 
 ---
 
+## 11. Revisão 2: galeria de imagens e envio como único caminho
+
+Pedido do Tech Lead de 10/10/2026, sobre a revisão 1 implementada. **O código só muda depois da aprovação.**
+
+### 11.1. O que muda
+
+- **Sem campo de endereço.** O elemento Imagem deixa de ter o campo "Endereço da imagem": a imagem entra **só por envio de arquivo**. Isso **substitui** a decisão D-06 (endereço externo como segunda opção) e a regra do CA-08 para a edição; a docente não digita mais URL.
+- **Galeria.** O elemento passa a guardar **uma ou mais imagens**, cada uma com a sua legenda, e se mostra ao estudante como galeria. O elemento passa a se chamar **"Imagens"** (a docente insere um elemento e envia quantas imagens quiser, até o limite).
+
+### 11.2. Regras de negócio
+
+| ID | Regra |
+| :--- | :--- |
+| RN-09 | Um elemento Imagens tem de 1 a 12 imagens (P-07). Cada imagem tem a sua legenda e a sua prévia |
+| RN-10 | A docente envia vários arquivos de uma vez (seleção múltipla) ou um por vez; cada arquivo segue as regras de 1 a 8 (conversão, 1220 px, GIF intacto, limite de 10 MB por arquivo). Os envios de um mesmo gesto correm um de cada vez, e cada imagem mostra o seu estado (enviando, pronta, com erro) |
+| RN-11 | A docente reordena (↑ ↓), remove e troca cada imagem, e edita a legenda. Remover tira a imagem do card, não do bucket (RN-08) |
+| RN-12 | Uma imagem sem arquivo enviado (ainda enviando ou com erro) não deixa salvar o card, com a mensagem do motivo. Um elemento sem nenhuma imagem também não |
+| RN-13 | Com **1 imagem** o estudante vê uma figura simples, como hoje. Com **2 ou mais**, vê uma grade que se ajusta à largura da tela, com a legenda sob cada imagem (P-08) |
+| RN-14 | **Compatibilidade:** o card que já tem uma imagem (`<figure class="md-image">`) abre como um elemento Imagens com 1 imagem e continua igual para o estudante. Uma imagem que veio de um endereço externo continua sendo mostrada e pode ser trocada por um envio, mas não se cadastra mais endereço novo |
+| RN-15 | A legenda de cada imagem é também o texto alternativo dela (acessibilidade) |
+
+### 11.3. Como fica guardado
+
+Continua sendo HTML do bloco, sem mudança de API nem de migração. Uma imagem é a figura de hoje; uma galeria é um contêiner com várias figuras:
+
+```html
+<div class="md-gallery">
+  <figure class="md-image"><img src="…/conteudo/<hash>.avif" alt="Legenda"><figcaption>Legenda</figcaption></figure>
+  <figure class="md-image">…</figure>
+</div>
+```
+
+O sanitizador já aceita `div`, `figure`, `figcaption` e `img` com o endereço do sistema; só a classe `md-gallery` entra na lista de classes (as classes já são livres por padrão de nome).
+
+### 11.4. Critérios de aceite da revisão 2
+
+- [ ] **CA-12** (ubíquo): O elemento Imagens NÃO DEVE ter campo para digitar o endereço da imagem; a imagem só entra por envio de arquivo.
+- [ ] **CA-13** (evento): QUANDO a docente escolhe vários arquivos, O SISTEMA DEVE enviar e converter um de cada vez e mostrar o estado de cada imagem, sem perder as que deram certo se uma falhar.
+- [ ] **CA-14** (evento): QUANDO a docente reordena, remove, troca uma imagem ou edita uma legenda, O SISTEMA DEVE refletir na prévia na hora e guardar na ordem mostrada.
+- [ ] **CA-15** (indesejado): SE o elemento não tem imagem, ou alguma imagem ainda não foi enviada, ENTÃO O SISTEMA DEVE impedir o salvamento do card e dizer o motivo.
+- [ ] **CA-16** (estado): ENQUANTO o elemento tem 1 imagem, O SISTEMA DEVE mostrá-la como figura simples ao estudante, e com 2 ou mais, como galeria.
+- [ ] **CA-17** (indesejado): SE o elemento já tem 12 imagens, ENTÃO O SISTEMA DEVE recusar novas e dizer o limite.
+- [ ] **CA-18** (estado): ENQUANTO um card tem a imagem única da revisão 1 (de envio ou de endereço externo), O SISTEMA DEVE abri-la como Imagens com 1 imagem e mostrá-la ao estudante como antes.
+
+### 11.5. Plano de testes da revisão 2
+
+Modelo do card (ler e escrever uma e várias imagens, a imagem antiga, o limite, a legenda como alt, a validação de 1 a 12 e de imagem pendente), o elemento no editor (vários envios em ordem, falha de uma sem perder as outras, reordenar, remover, trocar, legenda, sem campo de endereço, limite), a exibição ao estudante (figura simples e grade) e o sanitizador com a classe `md-gallery`.
+
+### 11.6. Pendências da revisão 2 (com recomendação)
+
+| ID | Pergunta | Recomendação |
+| :--- | :--- | :--- |
+| P-07 | Quantas imagens no máximo por elemento? | 12: cabe folgado no limite de 50.000 caracteres do bloco e evita uma página pesada |
+| P-08 | Como o estudante vê a galeria? | Grade que se ajusta à tela (1 coluna no celular, 2 a 3 no computador), com a legenda sob cada imagem e **clique para ampliar** numa janela, com setas para passar de uma à outra e Esc para fechar |
+| P-09 | A galeria precisa de legenda geral do conjunto? | Não: cada imagem tem a sua legenda; uma legenda geral pode ser um elemento de texto antes ou depois |
+
+---
+
 ## Histórico de revisões
 
 | Data | Autor | Alteração |
@@ -151,3 +209,4 @@ Nenhuma em aberto: P-01, P-02, P-05 e P-06 viraram as decisões D-03 a D-06.
 | 10/10/2026 | Tech Lead | GIF mantém o formato original (D-01); as imagens ficam sempre no bucket, porque o sistema faz exclusão lógica (D-02) |
 | 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01, P-02, P-05 e P-06 (viram D-03 a D-06) |
 | 10/10/2026 | Implementador (Claude) | Implementada: domínio da imagem (AVIF, 1220 px, GIF intacto), rota de envio, armazenamento com nome por conteúdo e leitura pública do prefixo, elemento Imagem com envio e prévia. Ajustes A-01 a A-06 |
+| 10/10/2026 | Tech Lead | Pedido de revisão 2: tirar o campo de endereço da imagem (substitui D-06) e permitir várias imagens por elemento, estilo galeria. Pendências P-07 a P-09 |
