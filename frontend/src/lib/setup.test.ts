@@ -44,6 +44,16 @@ describe("runLayers", () => {
     expect(setSpeed).toHaveBeenLastCalledWith(7);
   });
 
+  // A step the author is still writing has no command yet: it is not run and it is not a conflict.
+  it("does not run a step with no command, nor call it a conflict", async () => {
+    const layers = allLayers({ summary: "", steps: [{ command: "" }, { command: "a" }, { command: "   " }] }, []);
+    const execute = vi.fn(async () => ({ status: 0, output: "" }));
+    const results = await runLayers({ execute, setSpeed: vi.fn() } as never, layers);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(results.map((r) => r.step.command)).toEqual(["a"]);
+    expect(results.filter(isConflict)).toEqual([]);
+  });
+
   it("stops when asked to", async () => {
     const layers = allLayers({ summary: "", steps: [{ command: "a" }, { command: "b" }] }, []);
     const execute = vi.fn(async () => ({ status: 0, output: "" }));

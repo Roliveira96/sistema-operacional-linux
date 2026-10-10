@@ -178,6 +178,18 @@ describe("SetupEditor, the commands above the recording", () => {
     expect((onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["ls"]);
   });
 
+  // A new exercise starts with an empty step on its list: running it is not a conflict.
+  it("does not report a conflict for an empty step on the list", async () => {
+    const win = { execute: vi.fn(async () => ({ status: 1, output: "" })), setSpeed: vi.fn(), history: () => [], destroy: vi.fn() };
+    mount.mockResolvedValue(win);
+    setup({ setup: { summary: "", steps: [{ command: "" }] } });
+    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
+    await waitFor(() => expect(screen.getByText("Nenhum comando ainda.")).toBeDefined());
+    await waitFor(() => expect(screen.queryByText(/Preparando a máquina/)).toBeNull());
+    expect(win.execute).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("names the command above that fails, as a conflict", async () => {
     mount.mockResolvedValue({ execute: vi.fn(async () => ({ status: 1, output: "x" })), setSpeed: vi.fn(), history: () => [], destroy: vi.fn() });
     setup({ setup: { summary: "", steps: [{ command: "mkdir /ja/existe" }] } });

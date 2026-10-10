@@ -51,6 +51,8 @@ export async function runLayers(win: Pick<TerminalWindow, "execute" | "setSpeed"
       for (let index = 0; index < layer.setup.steps.length; index++) {
         if (options.shouldStop?.()) return results;
         const step = layer.setup.steps[index]!;
+        // A step still being written (no command yet) is not a command to run, and is not a conflict.
+        if (step.command.trim() === "") continue;
         const { status, output } = await win.execute({ command: step.command, terminal: step.terminal, login: step.login, answers: step.answers });
         const result: StepResult = { layer, index, step, status, output };
         results.push(result);
