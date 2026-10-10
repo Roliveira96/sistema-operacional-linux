@@ -70,7 +70,7 @@ export function ModuleSetupTab({ moduleId, service = contentAuthoringService, pr
   return (
     <div className={styles.environment}>
       <SetupEditor setup={setup} help={m.help} before={[]} loadBase={() => practice.topicScenario(moduleId)} onChange={setSetup} onAdopted={(adopted) => void save(adopted)} />
-      <div className={styles.rowButtons}>
+      <div className={`${styles.rowButtons} ${styles.footBar}`}>
         {message && (
           <p className={message.kind === "ok" ? styles.saved : styles.error} role={message.kind === "ok" ? "status" : "alert"}>
             {message.text}

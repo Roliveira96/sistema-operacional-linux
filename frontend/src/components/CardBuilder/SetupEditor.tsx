@@ -44,7 +44,9 @@ function StepRow({ step, index, total, onChange, onMove, onRemove }: { step: Set
   return (
     <div className={styles.item}>
       <div className={styles.itemHead}>
-        <span className={styles.itemTitle}>{m.item(n)}</span>
+        <span className={styles.itemTitle}>
+          <span aria-hidden="true">💻</span> {m.item(n)}
+        </span>
         <div className={styles.tools}>
           <button type="button" className={styles.small} onClick={() => onMove(index - 1)} disabled={index === 0} aria-label={label(m.up)}>
             ↑
@@ -256,8 +258,15 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
 
   return (
     <div className={styles.environment}>
-      <p className={styles.hint}>{help ?? m.help}</p>
-      <p className={styles.hint}>{m.fileTips}</p>
+      <p className={styles.callout}>
+        <span aria-hidden="true">🧭</span> {help ?? m.help}
+      </p>
+      <details className={styles.tipsBox}>
+        <summary>
+          <span aria-hidden="true">💡</span> {m.fileTipsTitle}
+        </summary>
+        <p className={styles.hint}>{m.fileTips}</p>
+      </details>
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor="setup-summary">
@@ -293,7 +302,9 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
 
       <div className={styles.item}>
         <div className={styles.itemHead}>
-          <span className={styles.itemTitle}>{m.filesTitle(current.files?.length ?? 0)}</span>
+          <span className={styles.itemTitle}>
+            <span aria-hidden="true">📁</span> {m.filesTitle(current.files?.length ?? 0)}
+          </span>
           <InfoTip topic={m.filesTitle(current.files?.length ?? 0)}>{authoringMessages.info.files}</InfoTip>
         </div>
         <p className={styles.hint}>{m.filesHelp}</p>
@@ -308,7 +319,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
               <li key={i}>
                 <details className={styles.advanced}>
                   <summary>
-                    <code>{file.path || m.noPath}</code> · {m.fileSize(bytesOf(file.content))}
+                    <span aria-hidden="true">📄</span> <code>{file.path || m.noPath}</code> · {m.fileSize(bytesOf(file.content))}
                     {file.mode ? ` · ${file.mode}` : ""}
                     {file.owner ? ` · ${file.owner}:${file.group ?? ""}` : ""}
                   </summary>

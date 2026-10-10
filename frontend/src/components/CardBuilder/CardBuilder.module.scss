@@ -263,11 +263,60 @@ textarea.input {
     cursor: pointer;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+    transition: color var(--duration-fast) ease;
+
+    &:hover {
+      color: var(--color-text-primary);
+    }
+  }
+
+  &[open] {
+    border-style: solid;
+    border-color: var(--color-border-strong);
   }
 
   > :not(summary) {
     margin-top: var(--space-3);
   }
+}
+
+// The explanation at the top of the environment, and the tips that open on demand.
+.callout {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-info);
+  border-radius: var(--radius-sm);
+  background: var(--color-info-faint);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-body);
+}
+
+.tipsBox {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+
+  summary {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    cursor: pointer;
+  }
+
+  p {
+    margin: 0;
+    padding: 0 var(--space-4) var(--space-3);
+  }
+}
+
+// The bar with Save, at the bottom of a form, apart from the fields.
+.footBar {
+  justify-content: flex-end;
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
 }
 
 .small,
