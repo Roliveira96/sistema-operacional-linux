@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-022 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Implementador (Claude), a partir da especificação do Tech Lead |
@@ -109,17 +109,17 @@ Sem endpoint novo. O bloco `EXERCISES` viaja nas rotas de blocos e de card da SP
 
 ## 8. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente salvar um card com exercícios, O SISTEMA DEVE guardá-los no bloco `EXERCISES` do card, na ordem, com título, dificuldade, descrição e dicas.
-- [ ] **CA-02** (indesejado): SE um exercício não tiver título, ou tiver dificuldade inválida, ou um grupo não tiver exercício nem snapshot, ENTÃO O SISTEMA DEVE recusar com 400 e apontar o campo.
-- [ ] **CA-03** (evento): QUANDO a docente abrir a aba Exercícios, O SISTEMA DEVE listar os exercícios do card e permitir adicionar, editar, subir, descer e remover exercícios e dicas.
-- [ ] **CA-04** (opcional): A docente PODE cadastrar exercícios sem gravar snapshot do grupo.
-- [ ] **CA-05** (evento): QUANDO a docente gravar o snapshot do grupo, O SISTEMA DEVE montar a máquina com o snapshot do módulo e o do conteúdo, liberar o terminal e, ao confirmar, guardar o estado final como snapshot do grupo.
-- [ ] **CA-06** (evento): QUANDO o estudante abrir o card, O SISTEMA DEVE mostrar os exercícios em ordem e SOMENTE revelar uma dica quando ele pedir, uma de cada vez.
-- [ ] **CA-07** (ubíquo): A máquina do estudante e a do teste DEVEM ser preparadas na ordem: módulo, e para cada card o snapshot do card e o do seu grupo de exercícios.
-- [ ] **CA-11** (evento): QUANDO a docente gravar a solução, O SISTEMA DEVE propor as condições de finalização a partir do que mudou na máquina; QUANDO o estudante clicar em "Verificar meu exercício", O SISTEMA DEVE dizer quais condições ainda faltam e, se todas valerem, marcar o exercício como concluído, qualquer que seja a forma como foi feito.
-- [ ] **CA-10** (evento): QUANDO a docente gravar a solução de um exercício, O SISTEMA DEVE montar a máquina, liberar o terminal e guardar o que ela fez como a solução daquele exercício; o estudante PODE ver essa solução sob demanda.
-- [ ] **CA-09** (evento): QUANDO a docente clicar em "Testar comandos", O SISTEMA DEVE montar a máquina com o snapshot do grupo e rodar os comandos do card e a solução gravada de cada exercício, apontando o exercício de cada resultado e o conflito do snapshot do grupo, se houver.
-- [ ] **CA-08** (evento): QUANDO a docente publicar o módulo, a versão DEVE incluir os exercícios e os snapshots dos grupos.
+- [x] **CA-01** (evento): QUANDO a docente salvar um card com exercícios, O SISTEMA DEVE guardá-los no bloco `EXERCISES` do card, na ordem, com título, dificuldade, descrição e dicas.
+- [x] **CA-02** (indesejado): SE um exercício não tiver título, ou tiver dificuldade inválida, ou um grupo não tiver exercício nem snapshot, ENTÃO O SISTEMA DEVE recusar com 400 e apontar o campo.
+- [x] **CA-03** (evento): QUANDO a docente abrir a aba Exercícios, O SISTEMA DEVE listar os exercícios do card e permitir adicionar, editar, subir, descer e remover exercícios e dicas.
+- [x] **CA-04** (opcional): A docente PODE cadastrar exercícios sem gravar snapshot do grupo.
+- [x] **CA-05** (evento): QUANDO a docente gravar o snapshot do grupo, O SISTEMA DEVE montar a máquina com o snapshot do módulo e o do conteúdo, liberar o terminal e, ao confirmar, guardar o estado final como snapshot do grupo.
+- [x] **CA-06** (evento): QUANDO o estudante abrir o card, O SISTEMA DEVE mostrar os exercícios em ordem e SOMENTE revelar uma dica quando ele pedir, uma de cada vez.
+- [x] **CA-07** (ubíquo): A máquina do estudante e a do teste DEVEM ser preparadas na ordem: módulo, e para cada card o snapshot do card e o do seu grupo de exercícios.
+- [x] **CA-11** (evento): QUANDO a docente gravar a solução, O SISTEMA DEVE propor as condições de finalização a partir do que mudou na máquina; QUANDO o estudante clicar em "Verificar meu exercício", O SISTEMA DEVE dizer quais condições ainda faltam e, se todas valerem, marcar o exercício como concluído, qualquer que seja a forma como foi feito.
+- [x] **CA-10** (evento): QUANDO a docente gravar a solução de um exercício, O SISTEMA DEVE montar a máquina, liberar o terminal e guardar o que ela fez como a solução daquele exercício; o estudante PODE ver essa solução sob demanda.
+- [x] **CA-09** (evento): QUANDO a docente clicar em "Testar comandos", O SISTEMA DEVE montar a máquina com o snapshot do grupo e rodar os comandos do card e a solução gravada de cada exercício, apontando o exercício de cada resultado e o conflito do snapshot do grupo, se houver.
+- [x] **CA-08** (evento): QUANDO a docente publicar o módulo, a versão DEVE incluir os exercícios e os snapshots dos grupos.
 
 ## 9. Plano de Testes (Test Plan)
 
@@ -151,3 +151,4 @@ Nenhuma em aberto. As decisões de modelagem abaixo foram tomadas pelo Implement
 | 10/10/2026 | Implementador (Claude) | Criação a partir da especificação enviada pelo Tech Lead e aprovada por ele na mesma data para implementação |
 | 10/10/2026 | Tech Lead | Pedido: o "Testar comandos" deve testar o snapshot do grupo e os exercícios. Incluídos RN-09, CA-09 e a decisão D-05; o comando de referência da dica deixa de ser fora de escopo no teste |
 | 10/10/2026 | Tech Lead | Pedido: um exercício pode ser feito de várias formas e o que importa é a finalização. Incluídos as condições de finalização (RN-11, RN-12), a decisão D-07, o CA-11 e o botão "Verificar meu exercício"; a solução gravada passa a ser uma das formas de chegar lá |
+| 10/10/2026 | Implementador (Claude) | Implementada: migração 00014, bloco `EXERCISES` validado no servidor, aba Exercícios, gravação da solução e do snapshot do grupo no terminal, condições de finalização deduzidas da máquina e conferidas na tela do estudante, teste do card e do módulo com os exercícios. Verificada no navegador. Corrigido junto: a pasta atual do terminal se perdia ao carregar os arquivos de um snapshot |

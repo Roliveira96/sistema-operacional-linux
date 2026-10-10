@@ -1,7 +1,7 @@
 import { parseSetup } from "@/lib/setup";
 import { httpClient, type HttpClient } from "./httpClient";
 
-export type BlockType = "TEXT" | "COMMAND" | "TIP" | "CURIOSITY" | "STEP_BY_STEP" | "CARDS" | "WIDGET" | "LEGACY_HTML";
+export type BlockType = "TEXT" | "COMMAND" | "TIP" | "CURIOSITY" | "STEP_BY_STEP" | "CARDS" | "WIDGET" | "LEGACY_HTML" | "EXERCISES";
 
 export interface ContentBlock {
   id: string;

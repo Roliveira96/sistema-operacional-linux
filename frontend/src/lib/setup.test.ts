@@ -112,3 +112,30 @@ describe("runLayers, the files of a snapshot", () => {
     expect(win.loadScenario).not.toHaveBeenCalled();
   });
 });
+
+// Covers SPEC-022 RN-06: the snapshot of the group of exercises comes after the one of its card.
+describe("layers of the exercises", () => {
+  const exercises = (id: string, setup?: unknown, active = true) => ({ id, type: "EXERCISES", active, payload: { items: [], setup } });
+  const only = { steps: [{ command: "g" }] };
+
+  it("puts the base of the group of exercises right after the snapshot of its card, card by card", () => {
+    const blocks = [
+      header("a", "A", { steps: [{ command: "a" }] }),
+      exercises("ea", only),
+      header("b", "B", { steps: [{ command: "b" }] }),
+      exercises("eb", only),
+    ];
+    expect(allLayers({ summary: "", steps: [{ command: "m" }] }, blocks).map((l) => [l.id, l.label])).toEqual([
+      ["module", "Módulo"],
+      ["a", "A"],
+      ["ea", "A (exercícios)"],
+      ["b", "B"],
+      ["eb", "B (exercícios)"],
+    ]);
+  });
+
+  it("leaves out an inactive group and a group with no snapshot, and names the introduction", () => {
+    const blocks = [exercises("e0", only), header("a", "A"), exercises("ea", undefined), header("b", "B"), exercises("eb", only, false)];
+    expect(cardLayers(blocks).map((l) => [l.id, l.label])).toEqual([["e0", "Introdução (exercícios)"]]);
+  });
+});

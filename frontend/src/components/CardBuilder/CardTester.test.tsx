@@ -214,3 +214,47 @@ describe("CardTester", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 });
+
+// Covers SPEC-022 RN-09: the test runs the solutions of the exercises and checks how each one ends.
+describe("CardTester, the exercises", () => {
+  const machine = (...folders: string[]) => ({
+    raiz: { nome: "", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: folders.map((nome) => ({ nome, tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [] })) },
+    contas: { usuarios: [{ nome: "root", uid: 0 }], grupos: [{ nome: "root", gid: 0 }] },
+  });
+  const item = (extra: object) => ({ id: JSON.stringify(extra), terminal: 1, command: "", expectError: false, answers: [], ...extra });
+
+  function render2(items: object[], snapshot: unknown, sections: Record<number, string> = {}) {
+    mount.mockImplementation(async () => ({ execute, loadScenario, setSpeed: vi.fn(), snapshot: vi.fn(() => snapshot), history: vi.fn(() => []), destroy: vi.fn() }));
+    return render(<CardTester commands={items as never} loadBase={vi.fn().mockResolvedValue(null)} layers={[]} sections={sections} onClose={vi.fn()} />);
+  }
+
+  it("runs the solution, then says the exercise ended as expected when every condition holds", async () => {
+    render2([item({ command: "mkdir /srv/x" }), item({ command: "(conferir)", check: [{ kind: "DIR_EXISTS", path: "/srv" }] })], machine("srv"), { 0: "Exercício: Criar a pasta" });
+    expect(await summary()).toHaveTextContent("2 de 2 comandos como esperado");
+    expect(calls).toEqual(["execute mkdir /srv/x"]);
+    expect(screen.getByText("Exercício: Criar a pasta")).toBeDefined();
+    expect(screen.getByText("O exercício terminou como esperado")).toBeDefined();
+  });
+
+  it("says what was missing when the exercise does not end as expected", async () => {
+    render2([item({ command: "(conferir)", check: [{ kind: "DIR_EXISTS", path: "/srv" }, { kind: "USER_EXISTS", name: "ana" }, { kind: "DIR_EXISTS", path: "/outra" }] })], machine("srv"));
+    expect(await summary()).toHaveTextContent("0 de 1 comando como esperado");
+    expect(screen.getByText("O exercício não terminou como esperado")).toBeDefined();
+    expect(screen.getByText("Faltou:")).toBeDefined();
+    expect(screen.getByText(/O usuário ana existe/)).toBeDefined();
+    expect(screen.getByText(/A pasta \/outra existe/)).toBeDefined();
+    expect(screen.queryByText(/A pasta \/srv existe/)).toBeNull();
+  });
+
+  it("puts in the files a solution wrote, and reports it when they cannot go in", async () => {
+    render2([item({ command: "(1 arquivo da solução)", files: [{ path: "/srv/a.txt", content: "oi" }] })], machine("srv"));
+    expect(await summary()).toHaveTextContent("1 de 1 comando como esperado");
+    expect(loadScenario).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(loadScenario.mock.calls[0]![0])).toContain("a.txt");
+    cleanup();
+
+    render2([item({ command: "(1 arquivo da solução)", files: [{ path: "/srv/a.txt", content: "oi", owner: "ninguem" }] })], machine("srv"));
+    expect(await summary()).toHaveTextContent("0 de 1 comando como esperado");
+    expect(screen.getByText("o usuário ninguem não existe na máquina")).toBeDefined();
+  });
+});

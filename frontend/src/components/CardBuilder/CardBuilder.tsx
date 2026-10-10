@@ -19,6 +19,7 @@ import {
   type CardModel,
   type ElementKind,
 } from "@/lib/cardModel";
+import { cardTestItems } from "@/lib/exercises";
 import { hasSetup, type SetupLayer } from "@/lib/setup";
 import { saveTest } from "@/lib/testRecord";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
@@ -26,6 +27,8 @@ import { contentAuthoringService, type AuthoredBlock, type ContentAuthoringServi
 import { ApiProblemError } from "@/services/httpClient";
 import { practiceService, type PracticeService } from "@/services/practiceService";
 import { CardTester } from "./CardTester";
+import { ExercisesTab } from "./ExercisesTab";
+import { Errors, Field, move, Section, Tools } from "./parts";
 import { SetupEditor } from "./SetupEditor";
 import styles from "./CardBuilder.module.scss";
 
@@ -57,73 +60,6 @@ function toGroup(blocks: AuthoredBlock[]): CardGroup {
   const first = blocks[0] as AuthoredBlock;
   const titled = first.type === "TEXT" && typeof first.payload.title === "string" && first.payload.title.trim() !== "";
   return { key: first.id, header: titled ? first : undefined, blocks };
-}
-
-function move<T>(list: T[], from: number, to: number): T[] {
-  if (to < 0 || to >= list.length) return list;
-  const next = [...list];
-  const [item] = next.splice(from, 1);
-  next.splice(to, 0, item as T);
-  return next;
-}
-
-const reasonText = (reason: string) => {
-  const known: Record<string, string> = { required: m.required, https: m.https, youtube: m.youtube, url: m.url, "needs-title": m.setup.needsTitleError };
-  return known[reason] ?? reason;
-};
-
-function Errors({ id, errors }: { id: string; errors: CardErrors }) {
-  const list = errors[id];
-  if (!list) return null;
-  return (
-    <div className={styles.error} role="alert">
-      {list.map((reason) => (
-        <p key={reason}>{reasonText(reason)}</p>
-      ))}
-    </div>
-  );
-}
-
-function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
-  return (
-    <div className={styles.field}>
-      <label className={styles.label} htmlFor={htmlFor}>
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-function Section({ title, hint, action, children }: { title: string; hint: string; action?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className={styles.section}>
-      <header className={styles.sectionHead}>
-        <div>
-          <h2 className={styles.sectionTitle}>{title}</h2>
-          <p className={styles.hint}>{hint}</p>
-        </div>
-        {action}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-function Tools({ index, total, labels, onMove, onRemove }: { index: number; total: number; labels: { up: string; down: string; remove: string }; onMove: (to: number) => void; onRemove: () => void }) {
-  return (
-    <div className={styles.tools}>
-      <button type="button" className={styles.small} onClick={() => onMove(index - 1)} disabled={index === 0} aria-label={`${labels.up} ${index + 1}`}>
-        ↑
-      </button>
-      <button type="button" className={styles.small} onClick={() => onMove(index + 1)} disabled={index === total - 1} aria-label={`${labels.down} ${index + 1}`}>
-        ↓
-      </button>
-      <button type="button" className={styles.small} onClick={onRemove} aria-label={`${labels.remove} ${index + 1}`}>
-        ✕
-      </button>
-    </div>
-  );
 }
 
 function ElementRow({ el, index, total, errors, onChange, onMove, onRemove }: { el: CardElement; index: number; total: number; errors: CardErrors; onChange: (patch: Partial<CardElement>) => void; onMove: (to: number) => void; onRemove: () => void }) {
@@ -394,7 +330,13 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
 
   const loadBase = async () => practice.topicScenario(moduleId);
   // The test runs the module, the earlier cards and then this card's own snapshot, as the student will get them.
-  const testLayers: SetupLayer[] = hasSetup(card.setup) ? [...before, { id: card.headerId ?? "new", kind: "card", label: card.title.trim(), setup: card.setup }] : before;
+  // The snapshots in the order the machine is prepared: the module, the cards above, this card, and then the base of its exercises.
+  const cardBefore: SetupLayer[] = hasSetup(card.setup) ? [...before, { id: card.headerId ?? "new", kind: "card", label: card.title.trim(), setup: card.setup }] : before;
+  const testLayers: SetupLayer[] = hasSetup(card.exercises?.setup) ? [...cardBefore, { id: card.exercises?.blockId ?? "exercises", kind: "card", label: m.exercises.groupLayer, setup: card.exercises.setup }] : cardBefore;
+  // What the test runs after the layers: the commands of the card, then the solution of each exercise and how it ends.
+  const { items: testCommands, exerciseSections } = cardTestItems(card);
+  const testSections: Record<number, string> = { ...exerciseSections };
+  if (card.commands.length > 0) testSections[0] = m.tester.commandsOfTheCard;
   const startTest = () => {
     setTestRun((n) => n + 1);
     window.setTimeout(() => testPanel.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }), 0);
@@ -407,7 +349,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
     description: card.elements.map((e) => e.id),
     commands: [...card.commands.map((c) => c.id), "setup", ...Object.keys(errors).filter((k) => k.startsWith("setup-"))],
     tips: [...card.tips, ...card.realWorld, ...card.exams].map((b) => b.id),
-    exercises: [],
+    exercises: [...(card.exercises?.items ?? []).map((ex) => ex.id), "exercises-setup"],
   };
   const tabHasError = (name: CardTab) => idsOf[name].some((id) => errors[id]);
 
@@ -511,11 +453,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
           </div>
 
           <div role="tabpanel" id="card-panel-exercises" aria-labelledby="card-tab-exercises" hidden={tab !== "exercises"} className={styles.tabPanel}>
-            <Section title={m.exercises.title} hint={m.exercises.hint}>
-              <p className={styles.soon} role="status">
-                {m.exercises.soon}
-              </p>
-            </Section>
+            <ExercisesTab group={card.exercises} onChange={(exercises) => set({ exercises })} before={cardBefore} loadBase={loadBase} errors={errors} />
           </div>
         </div>
 
@@ -535,7 +473,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
 
       {testRun > 0 && (
         <div ref={testPanel}>
-          <CardTester key={testRun} commands={card.commands} loadBase={loadBase} layers={testLayers} onClose={() => setTestRun(0)} onFinish={(passed) => stored && saveTest(moduleId, stored.key, passed, card)} />
+          <CardTester key={testRun} commands={testCommands} sections={testSections} loadBase={loadBase} layers={testLayers} onClose={() => setTestRun(0)} onFinish={(passed) => stored && saveTest(moduleId, stored.key, passed, card)} />
         </div>
       )}
 
@@ -562,7 +500,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
         <button type="button" className={styles.secondary} onClick={onCancel}>
           {m.cancel}
         </button>
-        <button type="button" className={styles.secondary} title={m.tester.openTitle} onClick={startTest} disabled={card.commands.length === 0 && testLayers.length === 0}>
+        <button type="button" className={styles.secondary} title={m.tester.openTitle} onClick={startTest} disabled={testCommands.length === 0 && testLayers.length === 0}>
           {m.tester.open}
         </button>
         <button type="button" className={styles.primary} onClick={() => void save()} disabled={saving || (Boolean(stored) && !dirty)}>

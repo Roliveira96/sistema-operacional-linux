@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { SetupEditor } from "@/components/CardBuilder/SetupEditor";
 import styles from "@/components/CardBuilder/CardBuilder.module.scss";
-import { setupPayload, type Setup } from "@/lib/setup";
+import { invalidFiles, setupPayload, type Setup } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import { practiceService, type PracticeService } from "@/services/practiceService";
@@ -76,7 +76,12 @@ export function ModuleSetupTab({ moduleId, service = contentAuthoringService, pr
             {message.text}
           </p>
         )}
-        <button type="button" className={styles.primary} onClick={() => void save()} disabled={saving || !dirty}>
+        {invalidFiles(setup).length > 0 && (
+          <p className={styles.error} role="alert">
+            {authoringMessages.builder.setup.filesInvalid}
+          </p>
+        )}
+        <button type="button" className={styles.primary} onClick={() => void save()} disabled={saving || !dirty || invalidFiles(setup).length > 0}>
           {saving ? m.saving : m.save}
         </button>
       </div>

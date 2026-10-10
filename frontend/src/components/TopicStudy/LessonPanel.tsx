@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ComponentType } from "react";
 import { CardsBlock, CuriosityBlock, Html, LegacyHtmlBlock, StepByStepBlock, TipBlock, UnknownBlock, WidgetBlock } from "@/components/ContentRenderer/blocks";
+import { ExercisesBlock } from "@/components/ContentRenderer/ExercisesBlock";
 import type { TopicPlayer } from "@/hooks/useTopicPlayer";
 import { SKIP_ATTRIBUTE } from "@/lib/narration";
 import { INTRO_LABEL, type LessonCard, type ScriptStep, type TopicScript } from "@/lib/topicScript";
@@ -20,6 +21,7 @@ const PLAIN: Record<string, ComponentType<{ payload: Payload }>> = {
   CARDS: CardsBlock,
   WIDGET: WidgetBlock,
   LEGACY_HTML: LegacyHtmlBlock,
+  EXERCISES: ExercisesBlock,
 };
 
 function Examples({ steps, player, intro }: { steps: ScriptStep[]; player: TopicPlayer; intro: boolean }) {

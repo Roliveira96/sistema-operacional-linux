@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { TerminalPane } from "@/components/TopicStudy/TerminalPane";
 import type { TerminalWindow } from "@/engine/terminalWindow";
+import { accountName, isCompleteMode, octalMode } from "@/lib/inputs";
 import { bytesOf, emptySetup, MAX_FILE_BYTES, type Setup, type SetupFile, type SetupLayer, type SetupStep } from "@/lib/setup";
 import { writtenFile } from "@/lib/setupContent";
 import { reconcile, type MachineTree } from "@/lib/machineDiff";
@@ -19,8 +20,15 @@ interface SetupEditorProps {
   /** Messages of the place it is used (the card or the module); the default is the card's. */
   help?: string;
   onChange: (setup: Setup | undefined) => void;
-  /** Called with the snapshot after the commands typed in the terminal were adopted and checked against the terminal. */
-  onAdopted?: (setup: Setup) => void;
+  /**
+   * Called with the snapshot after the commands typed in the terminal were adopted and checked against the terminal; when
+   * `deriveFrom` is set it also gets the machine before what was recorded (the layers that come before) and the one after.
+   */
+  onAdopted?: (setup: Setup, machines?: { before: MachineTree; after: MachineTree }) => void;
+  /** Asks for the machines before and after, to work out what changed (it builds one more machine). */
+  deriveFrom?: boolean;
+  /** The text of the button that opens the terminal. */
+  recordLabel?: string;
   /** The machine the author starts from: the topic scenario (null for the default one). */
   loadBase: () => Promise<unknown>;
   /** The snapshots that run before this one: the module and the earlier cards. */
@@ -100,7 +108,7 @@ function StepRow({ step, index, total, onChange, onMove, onRemove }: { step: Set
  * student. They are typed in the list or recorded in the terminal of the application, which first
  * replays the snapshots that come before, so the author sees the machine the student will have.
  */
-export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before, errors = {} }: SetupEditorProps) {
+export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, recordLabel, loadBase, before, errors = {} }: SetupEditorProps) {
   const current = setup ?? emptySetup();
   const [open, setOpen] = useState(false);
   const [base, setBase] = useState<{ machine: unknown } | null>(null);
@@ -212,6 +220,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
     const editors = typed.length - kept.length;
     const list: SetupStep[] = [...current.steps, ...kept.map((command) => ({ command }))];
     const files: SetupFile[] = [...(current.files ?? [])];
+    let machines: { before: MachineTree; after: MachineTree } | undefined;
     const recorded = typeof win?.snapshot === "function" ? win.snapshot() : undefined;
     close();
     if (editors > 0) notes.push(m.editorsLeftOut(editors));
@@ -229,6 +238,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
         }
         if (result.steps.length + result.files.length > 0) notes.push(m.reconciled(result.steps.length, result.files.length));
         for (const text of result.inexact) notes.push(m.inexact(text));
+        if (deriveFrom) machines = { before: (await replayMachine(baseMachine.current, latest.current.before)) as MachineTree, after: recorded as MachineTree };
       } catch {
         notes.push(m.notChecked);
       }
@@ -240,7 +250,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
     onChange(adopted);
     setNotice(notes);
     setConverting(false);
-    onAdopted?.(adopted);
+    onAdopted?.(adopted, machines);
   };
 
   return (
@@ -321,7 +331,18 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
                       <label className={styles.label} htmlFor={`setup-file-mode-${i}`}>
                         {m.fileMode} ({i + 1})
                       </label>
-                      <input id={`setup-file-mode-${i}`} className={`${styles.input} ${styles.mono}`} value={file.mode ?? ""} placeholder="644" onChange={(e) => patchFile(i, { mode: e.target.value })} />
+                      <input
+                        id={`setup-file-mode-${i}`}
+                        className={`${styles.input} ${styles.mono}`}
+                        value={file.mode ?? ""}
+                        placeholder="644"
+                        inputMode="numeric"
+                        maxLength={4}
+                        autoComplete="off"
+                        aria-invalid={!isCompleteMode(file.mode ?? "")}
+                        onChange={(e) => patchFile(i, { mode: octalMode(e.target.value) })}
+                      />
+                      {!isCompleteMode(file.mode ?? "") && <p className={styles.error}>{m.modeInvalid}</p>}
                     </div>
                   </div>
                   <div className={styles.pair}>
@@ -329,13 +350,13 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
                       <label className={styles.label} htmlFor={`setup-file-owner-${i}`}>
                         {m.fileOwner} ({i + 1})
                       </label>
-                      <input id={`setup-file-owner-${i}`} className={styles.input} value={file.owner ?? ""} placeholder="root" onChange={(e) => patchFile(i, { owner: e.target.value })} />
+                      <input id={`setup-file-owner-${i}`} className={styles.input} value={file.owner ?? ""} placeholder="root" maxLength={32} autoComplete="off" onChange={(e) => patchFile(i, { owner: accountName(e.target.value) })} />
                     </div>
                     <div className={styles.field}>
                       <label className={styles.label} htmlFor={`setup-file-group-${i}`}>
                         {m.fileGroup} ({i + 1})
                       </label>
-                      <input id={`setup-file-group-${i}`} className={styles.input} value={file.group ?? ""} placeholder="root" onChange={(e) => patchFile(i, { group: e.target.value })} />
+                      <input id={`setup-file-group-${i}`} className={styles.input} value={file.group ?? ""} placeholder="root" maxLength={32} autoComplete="off" onChange={(e) => patchFile(i, { group: accountName(e.target.value) })} />
                     </div>
                   </div>
                   <div className={styles.field}>
@@ -361,7 +382,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, loadBase, before
             {m.add}
           </button>
           <button type="button" className={styles.add} onClick={start}>
-            {m.record}
+            {recordLabel ?? m.record}
           </button>
           {setup && (
             <button type="button" className={styles.danger} onClick={() => onChange(undefined)}>

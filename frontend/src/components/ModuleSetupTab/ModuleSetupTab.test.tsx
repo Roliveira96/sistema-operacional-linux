@@ -74,4 +74,18 @@ describe("ModuleSetupTab", () => {
     await waitFor(() => expect(service.setModuleSetup).toHaveBeenCalledWith("m1", { summary: "", steps: [{ command: "mkdir -p /home/ricardo/financeiro" }] }), { timeout: 5000 });
     expect(await screen.findByText(/salvo no servidor/)).toBeDefined();
   });
+
+  it("does not save while a file has a permission or a path the server would refuse", async () => {
+    const service = make({ blocks: [], setup: { summary: "", steps: [], files: [{ path: "/a.sh", content: "x", mode: "755" }] } });
+    service.setModuleSetup.mockImplementation(async (_id: string, setup: unknown) => setup);
+    render(<ModuleSetupTab moduleId="m1" service={service as never} practice={practice} />);
+    const save = (await screen.findByRole("button", { name: "Salvar ambiente" })) as HTMLButtonElement;
+    fireEvent.change(screen.getByLabelText("Permissão (octal) (1)"), { target: { value: "75" } });
+    expect(save.disabled).toBe(true);
+    expect(screen.getByRole("alert", { name: "" })).toBeDefined();
+    fireEvent.change(screen.getByLabelText("Permissão (octal) (1)"), { target: { value: "750" } });
+    expect(save.disabled).toBe(false);
+    fireEvent.change(screen.getByLabelText("Caminho do arquivo (1)"), { target: { value: "relativo.sh" } });
+    expect(save.disabled).toBe(true);
+  });
 });

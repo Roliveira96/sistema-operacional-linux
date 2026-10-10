@@ -1,6 +1,20 @@
 // Interface text of the content screens (SPEC-012), kept apart from the main
 // messages file. Portuguese, per ARCHITECTURE.md section 4.4.
 export const contentMessages = {
+  exercises: {
+    title: "Exercícios",
+    difficulty: { EASY: "Fácil", MEDIUM: "Médio", HARD: "Difícil" },
+    hints: "Dicas",
+    showHint: (n: number, total: number) => `Mostrar dica (${n} de ${total})`,
+    showSolution: "Ver como o professor fez",
+    hideSolution: "Esconder como o professor fez",
+    solutionNote: "Esta é uma das formas de fazer. O que vale é como o exercício termina.",
+    fileWritten: (path: string) => `Escreve o arquivo ${path}`,
+    verify: "Verificar meu exercício",
+    done: "✓ Exercício concluído",
+    missing: "Ainda falta:",
+    noTerminal: "O terminal ainda está carregando. Tente de novo em instantes.",
+  },
   loading: "Carregando o conteúdo…",
   notFound: "Este módulo não existe ou não está disponível.",
   needsLogin: "Entre na plataforma para ver este módulo.",

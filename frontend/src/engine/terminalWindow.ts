@@ -101,7 +101,16 @@ export async function mountTerminalWindow(
   interface TerminalInternals {
     numero: number;
     maquina: typeof machine;
-    sessao: { atual(): { usuario: { nome: string }; escopo: { ultimoStatus: number } }; historico: string[] } | null;
+    sessao: {
+      atual(): {
+        usuario: { nome: string };
+        escopo: { ultimoStatus: number; variaveis: Map<string, string>; exportadas: Set<string>; aliases: Map<string, string> };
+        cwd: string;
+        anterior: string;
+        umask: number;
+      };
+      historico: string[];
+    } | null;
     usuarioAtual(): string | null;
     renderizarEntrada(): void;
   }
@@ -180,6 +189,18 @@ export async function mountTerminalWindow(
           if (user) {
             const session = next.abrirSessao(user);
             session.historico.push(...previous.historico);
+            // The terminal stays where it was: the folder, the variables and the umask survive the new machine.
+            const was = previous.atual();
+            const now = session.atual() as unknown as ReturnType<typeof previous.atual>;
+            if (next.fs.obter(was.cwd)?.ehDiretorio()) {
+              now.cwd = was.cwd;
+              now.anterior = next.fs.obter(was.anterior)?.ehDiretorio() ? was.anterior : was.cwd;
+            }
+            now.umask = was.umask;
+            for (const [name, value] of was.escopo.variaveis) now.escopo.variaveis.set(name, value);
+            for (const name of was.escopo.exportadas) now.escopo.exportadas.add(name);
+            for (const [name, value] of was.escopo.aliases) now.escopo.aliases.set(name, value);
+            now.escopo.ultimoStatus = was.escopo.ultimoStatus;
             terminal.sessao = session as unknown as typeof previous;
           }
         }

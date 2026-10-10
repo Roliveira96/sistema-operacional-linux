@@ -32,6 +32,7 @@ function summaryOf(group: CardGroup): string {
     c.tips > 0 && m.summary.tips(c.tips),
     c.real > 0 && m.summary.real(c.real),
     c.exams > 0 && m.summary.exams(c.exams),
+    c.exercises > 0 && m.summary.exercises(c.exercises),
     c.others > 0 && m.summary.others(c.others),
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(" · ") : m.summary.none;

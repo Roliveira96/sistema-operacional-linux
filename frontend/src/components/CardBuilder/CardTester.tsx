@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { TerminalPane } from "@/components/TopicStudy/TerminalPane";
 import type { TerminalWindow } from "@/engine/terminalWindow";
-import type { CardCommand } from "@/lib/cardModel";
+import { checkConditions, describeCondition } from "@/lib/exerciseConditions";
+import type { TestItem } from "@/lib/exercises";
 import { stepCount, type SetupLayer } from "@/lib/setup";
-import { isConflict, runLayers, type StepResult } from "@/lib/setupRunner";
+import { applyFiles, isConflict, runLayers, type StepResult } from "@/lib/setupRunner";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import styles from "./CardBuilder.module.scss";
 
@@ -15,6 +16,8 @@ const m = authoringMessages.builder.tester;
 export type Verdict =
   | { kind: "ok" }
   | { kind: "okError" }
+  | { kind: "finished" }
+  | { kind: "notFinished" }
   | { kind: "unexpectedError"; code: number }
   | { kind: "expectedErrorMissing" }
   | { kind: "notRun" }
@@ -25,7 +28,7 @@ export type Verdict =
 type Result = { state: "pending" } | { state: "running" } | { state: "done"; verdict: Verdict; output?: string };
 type EnvState = "pending" | "running" | "ok" | "failed";
 
-const isGood = (v: Verdict) => v.kind === "ok" || v.kind === "okError";
+const isGood = (v: Verdict) => v.kind === "ok" || v.kind === "okError" || v.kind === "finished";
 
 /** Compares the exit status of a command with what the author expects of it. */
 export function judge(status: number | null, expectError: boolean): Verdict {
@@ -40,6 +43,10 @@ function verdictText(v: Verdict): string {
       return m.ok;
     case "okError":
       return m.okError;
+    case "finished":
+      return m.finished;
+    case "notFinished":
+      return m.notFinished;
     case "unexpectedError":
       return m.unexpectedError(v.code);
     case "expectedErrorMissing":
@@ -57,7 +64,7 @@ function verdictText(v: Verdict): string {
 
 interface CardTesterProps {
   /** The commands as they are on the screen, saved or not. */
-  commands: CardCommand[];
+  commands: TestItem[];
   /** The machine the test starts from: the topic scenario. */
   loadBase: () => Promise<unknown>;
   /** The snapshots run before the commands, in order: the module, the earlier cards and this one (SPEC-021). */
@@ -67,7 +74,7 @@ interface CardTesterProps {
   onFinish?: (passed: boolean) => void;
   /** Called just before `onFinish`: whether each command ended as expected, by command index. */
   onVerdicts?: (good: boolean[]) => void;
-  /** The title of the card each command starts, by command index, for a test of several cards in sequence. */
+  /** The label of what each command starts (a card, an exercise), by command index, for a test of several parts in sequence. */
   sections?: Record<number, string>;
   /** Inside the panel of the test of the module: no title, help or buttons, and a smaller terminal. */
   compact?: boolean;
@@ -169,13 +176,25 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
           continue;
         }
         set(i, { state: "running" });
-        const { status, output } = await terminal.execute({
-          command: step.command.trim(),
-          terminal: step.terminal,
-          login: step.login && step.login.user.trim() ? { user: step.login.user.trim(), password: step.login.password } : undefined,
-          answers: step.answers.filter((a) => a.trim() !== ""),
-        });
-        const verdict = judge(status, step.expectError);
+        let status: number | null;
+        let output: string;
+        if (step.files) {
+          // The files a solution wrote, which no command typed.
+          ({ status, output } = await applyFiles(terminal, step.files));
+        } else if (step.check) {
+          // How the exercise ended is what matters: the conditions of finalization on this machine.
+          const result = checkConditions(step.check, terminal.snapshot());
+          status = result.done ? 0 : 1;
+          output = result.missing.map((c) => `- ${describeCondition(c)}`).join("\n");
+        } else {
+          ({ status, output } = await terminal.execute({
+            command: step.command.trim(),
+            terminal: step.terminal,
+            login: step.login && step.login.user.trim() ? { user: step.login.user.trim(), password: step.login.password } : undefined,
+            answers: step.answers.filter((a) => a.trim() !== ""),
+          }));
+        }
+        const verdict: Verdict = step.check ? (status === 0 ? { kind: "finished" } : { kind: "notFinished" }) : judge(status, step.expectError);
         passed = passed && isGood(verdict);
         good[i] = isGood(verdict);
         set(i, { state: "done", verdict, output });
@@ -280,12 +299,12 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
               const bad = r.state === "done" && !isGood(r.verdict);
               return (
                 <li key={c.id} data-state={r.state} data-section={sections?.[i]} className={`${styles.result} ${bad ? styles.resultBad : ""} ${r.state === "done" && !bad ? styles.resultGood : ""}`} aria-label={m.item(i + 1, c.command)}>
-                  {sections?.[i] && <span className={styles.outputLabel}>{m.section(sections[i])}</span>}
+                  {sections?.[i] && <span className={styles.outputLabel}>{sections[i]}</span>}
                   <code>{c.command || "—"}</code>
                   <span className={styles.resultText}>{r.state === "pending" ? m.pending : r.state === "running" ? m.running : verdictText(r.verdict)}</span>
                   {bad && r.output && (
                     <>
-                      <span className={styles.outputLabel}>{m.terminalSaid}</span>
+                      <span className={styles.outputLabel}>{c.check ? m.missing : m.terminalSaid}</span>
                       <pre className={styles.output}>{r.output}</pre>
                     </>
                   )}

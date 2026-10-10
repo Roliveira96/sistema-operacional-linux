@@ -7,6 +7,8 @@ import { useModuleCheck } from "@/hooks/useModuleCheck";
 import { useIdentity, type IdentitySources } from "@/hooks/useIdentity";
 import { useNarrator, type NarrationPart, type NarrationWarning } from "@/hooks/useNarrator";
 import { useTopicPlayer } from "@/hooks/useTopicPlayer";
+import { ExerciseCheckContext, type ExerciseChecker } from "@/components/ContentRenderer/exerciseContext";
+import { checkConditions } from "@/lib/exerciseConditions";
 import { allLayers, type Setup, type SetupLayer } from "@/lib/setup";
 import { runLayers } from "@/lib/setupRunner";
 import type { TerminalWindow } from "@/engine/terminalWindow";
@@ -447,7 +449,13 @@ function TopicScreen({ module, script, challenges, scenario, layers, needsSetup,
     }).catch(() => {});
   }, []);
 
+  // The exercises of the cards check how they ended on the machine of this screen.
+  const exerciseChecker: ExerciseChecker = {
+    check: (conditions) => (win.current ? checkConditions(conditions, win.current.snapshot()) : null),
+  };
+
   return (
+    <ExerciseCheckContext.Provider value={exerciseChecker}>
     <div className={styles.screen} style={topicAccentVars(module.color)}>
       <header className={styles.header}>
         <Link href={backHref} className={styles.back}>
@@ -566,5 +574,6 @@ function TopicScreen({ module, script, challenges, scenario, layers, needsSetup,
       )}
       {cheatSheet !== null && <CheatSheetModal html={cheatSheet} onClose={() => setCheatSheet(null)} />}
     </div>
+    </ExerciseCheckContext.Provider>
   );
 }

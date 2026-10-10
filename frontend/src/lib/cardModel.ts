@@ -4,7 +4,9 @@
 // that stays so the reading progress of the students is not lost.
 
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
-import { hasSetup, legacySetup, parseSetup, setupPayload, type Setup } from "./setup";
+import { exercisesPayload, hasExercises, parseExercises, type ExerciseGroup } from "./exercises";
+import { newId } from "./newId";
+import { hasSetup, invalidFiles, legacySetup, parseSetup, setupPayload, type Setup } from "./setup";
 
 type Payload = Record<string, unknown>;
 
@@ -63,6 +65,8 @@ export interface CardModel {
   tips: CardBox[];
   realWorld: CardBox[];
   exams: CardBox[];
+  /** The group of exercises of the card, stored in its own block (SPEC-022). */
+  exercises?: ExerciseGroup;
 }
 
 /** The stored blocks of one card. */
@@ -84,8 +88,7 @@ export interface CardBlockInput {
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
-let counter = 0;
-export const newId = () => `n${Date.now().toString(36)}${(counter++).toString(36)}`;
+export { newId };
 
 // ---- grouping
 
@@ -254,6 +257,9 @@ export function parseCard(group: CardGroup): CardModel {
       case "CURIOSITY":
         model.realWorld.push(box(block));
         break;
+      case "EXERCISES":
+        model.exercises ??= parseExercises(block.payload, block.id, block.updatedAt);
+        break;
       default:
         model.elements.push({ id: newId(), kind: "block", blockId: block.id, updatedAt: block.updatedAt, ...blank(), block });
     }
@@ -317,6 +323,9 @@ export function buildBlocks(card: CardModel): BuiltCard {
   for (const t of card.tips) push({ id: t.blockId, updatedAt: t.updatedAt, type: "TIP", payload: { variant: "DEFAULT", title: t.title.trim(), html: t.html } }, [t.id]);
   for (const r of card.realWorld) push({ id: r.blockId, updatedAt: r.updatedAt, type: "CURIOSITY", payload: { title: r.title.trim(), html: r.html } }, [r.id]);
   for (const e of card.exams) push({ id: e.blockId, updatedAt: e.updatedAt, type: "TIP", payload: { variant: "WARNING", title: e.title.trim(), html: e.html } }, [e.id]);
+  if (hasExercises(card.exercises)) {
+    push({ id: card.exercises.blockId, updatedAt: card.exercises.updatedAt, type: "EXERCISES", payload: exercisesPayload(card.exercises) }, ["exercises", ...card.exercises.items.map((ex) => ex.id)]);
+  }
 
   return { blocks, sources };
 }
@@ -338,6 +347,9 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
   if (requireTitle && card.title.trim() === "") add("title", "required");
   if (hasSetup(card.setup) && card.title.trim() === "") add("setup", "needs-title");
   card.setup?.steps.forEach((s, i) => s.command.trim() === "" && add(`setup-${i}`, "required"));
+  if (invalidFiles(card.setup).length > 0) add("setup", "files-invalid");
+  if (invalidFiles(card.exercises?.setup).length > 0) add("exercises-setup", "files-invalid");
+  for (const ex of card.exercises?.items ?? []) if (invalidFiles(ex.solution).length > 0) add(ex.id, "files-invalid");
   for (const el of card.elements) {
     if (el.kind === "text" && plain(el.html) === "") add(el.id, "required");
     if (el.kind === "code" && el.code.trim() === "") add(el.id, "required");
@@ -348,6 +360,10 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
     if (el.kind === "link" && !httpUrl.test(el.url.trim())) add(el.id, "url");
   }
   for (const c of card.commands) if (c.command.trim() === "") add(c.id, "required");
+  for (const ex of card.exercises?.items ?? []) {
+    if (ex.title.trim() === "") add(ex.id, "required");
+    if (ex.hints.some((h) => h.text.trim() === "")) add(ex.id, "hint-required");
+  }
   for (const group of [card.tips, card.realWorld, card.exams]) for (const b of group) if (plain(b.html) === "") add(b.id, "required");
   return errors;
 }
@@ -364,6 +380,12 @@ export function placeServerErrors(built: BuiltCard, params: { name: string; reas
       continue;
     }
     const field = m[2] ?? "";
+    if (from[0] === "exercises") {
+      const item = /^items\[(\d+)\]/.exec(field);
+      const target = item ? (from[1 + Number(item[1])] ?? "exercises") : "exercises";
+      errors[target] = [...(errors[target] ?? []), `${field}: ${p.reason}`];
+      continue;
+    }
     const step = /^steps\[(\d+)\]/.exec(field);
     let target = from[0] ?? "title";
     if (step) target = from[Number(step[1])] ?? target;
@@ -375,8 +397,8 @@ export function placeServerErrors(built: BuiltCard, params: { name: string; reas
 }
 
 /** A short summary of what a card holds, for the list. */
-export function cardCounts(group: CardGroup): { texts: number; commands: number; tips: number; real: number; exams: number; others: number } {
-  const c = { texts: 0, commands: 0, tips: 0, real: 0, exams: 0, others: 0 };
+export function cardCounts(group: CardGroup): { texts: number; commands: number; tips: number; real: number; exams: number; exercises: number; others: number } {
+  const c = { texts: 0, commands: 0, tips: 0, real: 0, exams: 0, exercises: 0, others: 0 };
   for (const b of group.blocks) {
     if (b === group.header) continue;
     if (b.type === "TEXT") c.texts++;
@@ -384,6 +406,7 @@ export function cardCounts(group: CardGroup): { texts: number; commands: number;
     else if (b.type === "TIP" && b.payload.variant === "WARNING") c.exams++;
     else if (b.type === "TIP") c.tips++;
     else if (b.type === "CURIOSITY") c.real++;
+    else if (b.type === "EXERCISES") c.exercises += Array.isArray(b.payload.items) ? b.payload.items.length : 0;
     else c.others++;
   }
   return c;

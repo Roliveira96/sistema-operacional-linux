@@ -5,13 +5,14 @@ import { activeCards, moduleFingerprint, moduleTestStatus, readTest } from "@/li
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
 import { TestAll } from "./TestAll";
 
-const run = vi.hoisted(() => ({ calls: [] as string[], failing: new Set<string>(), needs: {} as Record<string, string> }));
+const run = vi.hoisted(() => ({ calls: [] as string[], failing: new Set<string>(), needs: {} as Record<string, string>, machine: {} as unknown }));
 vi.mock("@/engine/terminalWindow", () => ({
   mountTerminalWindow: vi.fn(async () => {
     // What this machine has run so far: a command that needs another one fails until that one ran.
     const ran = new Set<string>();
     return {
-      snapshot: () => ({}),
+      snapshot: () => run.machine,
+      loadScenario: vi.fn(async () => {}),
       history: () => [],
       destroy: vi.fn(),
       setSpeed: vi.fn(),
@@ -30,6 +31,7 @@ beforeEach(() => {
   run.calls.length = 0;
   run.failing.clear();
   run.needs = {};
+  run.machine = {};
 });
 afterEach(cleanup);
 
@@ -150,4 +152,48 @@ describe("TestAll, the activities that depend on others", () => {
     expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toBeDefined();
     expect(steps()).toHaveTextContent("São necessárias ao menos duas atividades com comandos.");
   }, 40000);
+});
+
+// Covers SPEC-022 RN-09: the test of the module also runs the exercises and the snapshot of their group.
+describe("TestAll, the exercises", () => {
+  const machineWith = (...folders: string[]) => ({
+    raiz: { nome: "", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: folders.map((nome) => ({ nome, tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [] })) },
+    contas: { usuarios: [{ nome: "root", uid: 0 }], grupos: [{ nome: "root", gid: 0 }] },
+  });
+  const withExercises = [
+    block("a", "TEXT", 1, { title: "A", html: "" }),
+    block("a2", "COMMAND", 2, { steps: [{ command: "a-cmd" }] }),
+    block("a3", "EXERCISES", 3, { items: [{ title: "Criar a pasta", difficulty: "EASY", solution: { steps: [{ command: "mkdir /srv" }] }, conditions: [{ kind: "DIR_EXISTS", path: "/srv" }] }], setup: { steps: [{ command: "base" }] } }),
+  ];
+  const content = { blocks: withExercises, setup: undefined };
+
+  it("runs the base of the group, then the commands of the card, then the solution, and checks how it ended", async () => {
+    run.machine = machineWith("srv");
+    render(<TestAll moduleId="mod-1" service={service(content)} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo aprovado");
+    // Unit: base, a-cmd, the solution. Sequence: the same. One card only, so no inverse run.
+    expect(run.calls).toEqual(["base", "a-cmd", "mkdir /srv", "base", "a-cmd", "mkdir /srv"]);
+    expect(totals()).toHaveTextContent("Testes feitos: 4 · passaram: 4 · falharam: 0");
+    expect(readTest("mod-1", "a")?.passed).toBe(true);
+  }, 40000);
+
+  it("fails the card, and says which exercise, when the exercise does not end as expected", async () => {
+    run.machine = machineWith();
+    render(<TestAll moduleId="mod-1" service={service(content)} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo reprovado");
+    expect(readTest("mod-1", "a")?.passed).toBe(false);
+    expect(screen.getByRole("alert", { name: "O que precisa de atenção" })).toHaveTextContent("A");
+  }, 40000);
+
+  it("marks the card as stale when only an exercise changes", async () => {
+    const { testStatus } = await import("@/lib/testRecord");
+    const { parseCard, groupCards } = await import("@/lib/cardModel");
+    const card = parseCard(groupCards(withExercises)[0]!);
+    expect(testStatus("mod-1", "a", card)).toBe("untested");
+    const { saveTest } = await import("@/lib/testRecord");
+    saveTest("mod-1", "a", true, card);
+    expect(testStatus("mod-1", "a", card)).toBe("passed");
+    card.exercises!.items[0]!.conditions = [];
+    expect(testStatus("mod-1", "a", card)).toBe("stale");
+  });
 });

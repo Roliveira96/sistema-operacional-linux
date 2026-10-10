@@ -21,7 +21,7 @@ export interface TreeNode {
 /** The parts of a serialized machine this file reads. */
 export interface MachineTree {
   raiz: TreeNode;
-  contas: { usuarios: { nome: string; uid: number }[]; grupos: { nome: string; gid: number }[] };
+  contas: { usuarios: { nome: string; uid: number; gid?: number }[]; grupos: { nome: string; gid: number; membros?: string[] }[] };
 }
 
 export interface Reconciliation {
@@ -51,7 +51,8 @@ function flatten(node: TreeNode, path: string, out: Map<string, TreeNode>) {
   }
 }
 
-const tree = (machine: MachineTree) => {
+/** Every node of the machine by absolute path, without the places a machine changes by itself. */
+export const flattenTree = (machine: MachineTree) => {
   const out = new Map<string, TreeNode>();
   flatten(machine.raiz, "/", out);
   return out;
@@ -64,8 +65,8 @@ const depth = (path: string) => path.split("/").length;
  * folders, links, removals, permissions and owners go as commands; what neither can reproduce is told.
  */
 export function reconcile(recorded: MachineTree, replayed: MachineTree): Reconciliation {
-  const want = tree(recorded);
-  const have = tree(replayed);
+  const want = flattenTree(recorded);
+  const have = flattenTree(replayed);
   const users = new Map(recorded.contas.usuarios.map((u) => [u.uid, u.nome]));
   const groups = new Map(recorded.contas.grupos.map((g) => [g.gid, g.nome]));
   const steps: SetupStep[] = [];

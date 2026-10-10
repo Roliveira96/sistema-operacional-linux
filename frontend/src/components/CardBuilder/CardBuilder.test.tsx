@@ -528,13 +528,6 @@ describe("CardBuilder, the sections in tabs", () => {
     for (const name of ["+ Adicionar dica", "+ Adicionar caso real", "+ Adicionar alerta"]) expect(screen.getByRole("button", { name })).toBeDefined();
   });
 
-  it("has an Exercícios tab that says it is coming", () => {
-    renderBuilder();
-    openTab("Exercícios");
-    expect(screen.getByRole("heading", { name: "Exercícios do card" })).toBeDefined();
-    expect(screen.getByRole("status")).toHaveTextContent("Em breve");
-  });
-
   it("does not lose what was written when the author changes tab", () => {
     renderBuilder();
     openTab("Comandos");

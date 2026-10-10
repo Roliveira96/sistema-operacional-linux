@@ -720,3 +720,42 @@ describe("TopicStudy narration", () => {
     expect(await screen.findByText(/navegador bloqueou o som/)).toBeTruthy();
   });
 });
+
+// Covers SPEC-022 CA-06 and CA-11: the exercises of a card in the study screen check the machine of the student.
+describe("TopicStudy exercises", () => {
+  const exercises = block(4, "EXERCISES", {
+    items: [
+      {
+        title: "Criar a pasta financeiro",
+        difficulty: "EASY",
+        description: "<p>Crie a pasta.</p>",
+        hints: [{ text: "Use o mkdir", command: "mkdir /srv/financeiro" }],
+        conditions: [{ kind: "DIR_EXISTS", path: "/srv/financeiro" }],
+      },
+    ],
+  });
+  const withExercises = [block(1, "TEXT", { title: "Pastas", html: "<p>texto</p>" }), block(2, "COMMAND", { steps: [{ command: "ls" }] }), exercises];
+  const machine = (...folders: string[]) => ({
+    raiz: { nome: "", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [{ nome: "srv", tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: folders.map((nome) => ({ nome, tipo: "diretorio", dono: 0, grupo: 0, permissoes: "755", filhos: [] })) }] },
+    contas: { usuarios: [{ nome: "root", uid: 0 }], grupos: [{ nome: "root", gid: 0 }] },
+  });
+
+  it("shows the exercise with its tip on demand and checks how it ended on the machine of the screen", async () => {
+    setup({ content: { content: vi.fn().mockResolvedValue({ blocks: withExercises, setup: undefined }), questions: vi.fn().mockResolvedValue([]) } });
+    await screen.findByRole("heading", { name: "Criar a pasta financeiro" });
+    expect(screen.queryByText("Use o mkdir")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar dica (1 de 1)" }));
+    expect(screen.getByText("Use o mkdir")).toBeInTheDocument();
+
+    // The student has not made the folder yet.
+    fake.window.snapshot.mockReturnValue(machine() as never);
+    fireEvent.click(screen.getByRole("button", { name: "Verificar meu exercício" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("A pasta /srv/financeiro existe");
+
+    // Now the machine has it, however it got there.
+    fake.window.snapshot.mockReturnValue(machine("financeiro") as never);
+    fireEvent.click(screen.getByRole("button", { name: "Verificar meu exercício" }));
+    expect(screen.getByText("✓ Exercício concluído")).toBeInTheDocument();
+    fake.window.snapshot.mockReturnValue({ formato: "exame-so/maquina" } as never);
+  });
+});

@@ -326,4 +326,23 @@ describe("SetupEditor, the files of the snapshot are editable", () => {
     fireEvent.change(input, { target: { files: [new File(["a" + String.fromCharCode(0) + "b"], "binario.bin")] } });
     expect(await screen.findByText('"binario.bin" não é um arquivo de texto.')).toBeDefined();
   });
+
+  it("does not let the permission, the owner and the group take anything outside what is expected", () => {
+    const onChange = renderEditor({ summary: "", steps: [], files: [{ path: "/a.sh", content: "x" }] });
+    const mode = screen.getByLabelText("Permissão (octal) (1)") as HTMLInputElement;
+    expect(mode.maxLength).toBe(4);
+    for (const [typed, kept] of [["888", ""], ["8888", ""], ["abc123", "123"], ["64a4", "644"], ["75555", "7555"]] as const) {
+      fireEvent.change(mode, { target: { value: typed } });
+      expect(last(onChange).files![0]!.mode, typed).toBe(kept);
+    }
+    // An incomplete permission is told, a complete one is not.
+    fireEvent.change(mode, { target: { value: "64" } });
+    expect(screen.getByText(/A permissão tem 3 ou 4 números, cada um de 0 a 7/)).toBeDefined();
+    fireEvent.change(mode, { target: { value: "644" } });
+    expect(screen.queryByText(/A permissão tem 3 ou 4 números/)).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Dono (1)"), { target: { value: "Ana Maria!" } });
+    fireEvent.change(screen.getByLabelText("Grupo (1)"), { target: { value: "1../adm" } });
+    expect(last(onChange).files![0]).toMatchObject({ owner: "anamaria", group: "adm" });
+  });
 });

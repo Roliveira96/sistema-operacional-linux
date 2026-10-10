@@ -204,7 +204,7 @@ describe("placeServerErrors", () => {
 
 describe("cardCounts", () => {
   it("counts what a card holds", () => {
-    expect(cardCounts(groupCards(stored)[1]!)).toEqual({ texts: 1, commands: 2, tips: 1, real: 1, exams: 1, others: 1 });
+    expect(cardCounts(groupCards(stored)[1]!)).toEqual({ texts: 1, commands: 2, tips: 1, real: 1, exams: 1, exercises: 0, others: 1 });
   });
 });
 
@@ -298,5 +298,58 @@ describe("snapshot and expected error (SPEC-020, SPEC-021)", () => {
     const built = buildBlocks(card);
     expect(placeServerErrors(built, [{ name: "blocks[0].setup.steps", reason: "too many" }]).errors.setup).toEqual(["setup.steps: too many"]);
     expect(placeServerErrors(built, [{ name: "blocks[0].setup.steps[0].command", reason: "required" }]).errors["setup-0"]).toEqual(["setup.steps[0].command: required"]);
+  });
+});
+
+// Covers SPEC-022: the group of exercises is a block of the card.
+describe("exercises of a card", () => {
+  const exercisesBlock = block("e1", "EXERCISES", 4, {
+    items: [{ title: "Criar a pasta", difficulty: "EASY", hints: [{ text: "mkdir" }], solution: { steps: [{ command: "mkdir /x" }] }, conditions: [{ kind: "DIR_EXISTS", path: "/x" }] }],
+    setup: { steps: [{ command: "mkdir /srv" }] },
+  });
+  const stored = [block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>" }), block("c", "COMMAND", 2, { steps: [{ command: "ls" }] }), exercisesBlock];
+
+  it("reads the exercises, keeping the identity of the block", () => {
+    const card = parseCard(groupCards(stored)[0]!);
+    expect(card.exercises?.blockId).toBe("e1");
+    expect(card.exercises?.items[0]).toMatchObject({ title: "Criar a pasta", difficulty: "EASY" });
+    expect(card.exercises?.setup?.steps).toEqual([{ command: "mkdir /srv" }]);
+    expect(card.commands).toHaveLength(1);
+  });
+
+  it("builds the block back at the end of the card, in the same place, and writes none when there is nothing", () => {
+    const built = buildBlocks(parseCard(groupCards(stored)[0]!));
+    expect(built.blocks.map((b) => b.type)).toEqual(["TEXT", "COMMAND", "EXERCISES"]);
+    expect(built.blocks[2]).toMatchObject({ id: "e1", updatedAt: exercisesBlock.updatedAt });
+    expect(built.sources[2]![0]).toBe("exercises");
+
+    const card = parseCard(groupCards(stored)[0]!);
+    card.exercises = { blockId: "e1", updatedAt: exercisesBlock.updatedAt, items: [] };
+    expect(buildBlocks(card).blocks.map((b) => b.type)).toEqual(["TEXT", "COMMAND"]);
+  });
+
+  it("asks for the title of each exercise and for the text of each tip, and refuses a file the server would refuse", () => {
+    const card = parseCard(groupCards(stored)[0]!);
+    const ex = card.exercises!.items[0]!;
+    ex.title = " ";
+    ex.hints = [{ id: "h1", text: "", command: "" }];
+    ex.solution = { summary: "", steps: [], files: [{ path: "relativo", content: "x" }] };
+    card.exercises!.setup = { summary: "", steps: [], files: [{ path: "/a", content: "x", mode: "64" }] };
+    const errors = checkCard(card, true);
+    expect([...errors[ex.id]!].sort()).toEqual(["files-invalid", "hint-required", "required"]);
+    expect(errors["exercises-setup"]).toEqual(["files-invalid"]);
+  });
+
+  it("puts the server's errors on the exercise behind them", () => {
+    const card = parseCard(groupCards(stored)[0]!);
+    const built = buildBlocks(card);
+    const exerciseId = card.exercises!.items[0]!.id;
+    const placed = placeServerErrors(built, [{ name: "blocks[2].items[0].hints[0].text", reason: "required" }, { name: "blocks[2].setup.steps[0].command", reason: "required" }]);
+    expect(placed.errors[exerciseId]).toEqual(["items[0].hints[0].text: required"]);
+    expect(placed.errors.exercises).toEqual(["setup.steps[0].command: required"]);
+  });
+
+  it("counts the exercises of a card for the list", () => {
+    expect(cardCounts(groupCards(stored)[0]!)).toMatchObject({ commands: 1, exercises: 1 });
   });
 });

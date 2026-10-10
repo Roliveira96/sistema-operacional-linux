@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CardTester } from "@/components/CardBuilder/CardTester";
 import { groupCards, parseCard, type CardGroup, type CardModel } from "@/lib/cardModel";
+import { cardTestItems, type TestItem } from "@/lib/exercises";
 import { allLayers, hasSetup, type SetupLayer } from "@/lib/setup";
 import { activeCards, moduleFingerprint, saveModuleTest, saveTest } from "@/lib/testRecord";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
@@ -11,24 +12,31 @@ import type { PracticeService } from "@/services/practiceService";
 import styles from "./TestAll.module.scss";
 
 const m = authoringMessages.cards.testAll;
+const tester = authoringMessages.builder.tester;
 
 interface Item {
   group: CardGroup;
   card: CardModel;
   title: string;
   layers: SetupLayer[];
+  /** What the unit test of the card runs after its snapshots: its commands, then the solutions of its exercises. */
+  items: TestItem[];
+  sections: Record<number, string>;
 }
 
 /** The whole module on one machine: every snapshot, then the commands of every card in order. */
 interface Whole {
-  commands: CardModel["commands"];
+  commands: TestItem[];
+  /** The label of what starts at each command: a card or an exercise. */
   sections: Record<number, string>;
+  /** The title of the card that starts at each command, to say which card a problem is in. */
+  owners: Record<number, string>;
   layers: SetupLayer[];
   fingerprint: string;
   /** The cards that have commands, in order, with how many each has. */
   cards: { key: string; title: string; count: number }[];
   /** The same commands with the cards in the opposite order, to find the activities that depend on others. */
-  reversed: { commands: CardModel["commands"]; sections: Record<number, string> };
+  reversed: { commands: TestItem[]; sections: Record<number, string> };
 }
 
 type Phase = "units" | "sequence" | "inverse";
@@ -95,33 +103,52 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
       .then(({ blocks, setup }) => {
         if (!active) return;
         const groups = groupCards(blocks.filter((b) => b.active));
-        const list: Item[] = [];
         const cards = groups.map(parseCard);
-        const withCommands = cards.map((card, i) => ({ card, key: groups[i]!.key, title: card.title.trim() || m.intro })).filter((c) => c.card.commands.length > 0);
-        const reversedSections: Record<number, string> = {};
-        const reversedCommands: CardModel["commands"] = [];
-        [...withCommands].reverse().forEach((c) => {
-          reversedSections[reversedCommands.length] = c.title;
-          reversedCommands.push(...c.card.commands);
-        });
-        const commands: CardModel["commands"] = [];
-        const sections: Record<number, string> = {};
-        groups.forEach((group, i) => {
-          const card = cards[i]!;
+        const run = cards.map((card, i) => {
+          const tested = cardTestItems(card);
           const title = card.title.trim() || m.intro;
-          if (card.commands.length > 0) sections[commands.length] = title;
-          commands.push(...card.commands);
-          const own = hasSetup(card.setup);
-          if (card.commands.length === 0 && !own) return;
+          // The labels of the test: the card, then each of its exercises.
+          const sections: Record<number, string> = { ...tested.exerciseSections };
+          if (card.commands.length > 0) sections[0] = tester.section(title);
+          return { card, key: groups[i]!.key, title, items: tested.items, sections };
+        });
+        const withCommands = run.filter((c) => c.items.length > 0);
+        const reversedSections: Record<number, string> = {};
+        const reversedCommands: TestItem[] = [];
+        [...withCommands].reverse().forEach((c) => {
+          const start = reversedCommands.length;
+          reversedCommands.push(...c.items);
+          for (const [at, label] of Object.entries(c.sections)) reversedSections[start + Number(at)] = label;
+          if (!(0 in c.sections)) reversedSections[start] = tester.section(c.title);
+        });
+        const commands: TestItem[] = [];
+        const sections: Record<number, string> = {};
+        const owners: Record<number, string> = {};
+        const list: Item[] = [];
+        groups.forEach((group, i) => {
+          const { card, title, items, sections: own } = run[i]!;
+          if (items.length > 0) {
+            owners[commands.length] = title;
+            for (const [at, label] of Object.entries(own)) sections[commands.length + Number(at)] = label;
+            if (!(0 in own)) sections[commands.length] = tester.section(title);
+            commands.push(...items);
+          }
+          const hasOwn = hasSetup(card.setup);
+          const hasGroup = hasSetup(card.exercises?.setup);
+          if (items.length === 0 && !hasOwn && !hasGroup) return;
           const before = allLayers(setup, groups.slice(0, i).flatMap((g) => g.blocks));
-          list.push({ group, card, title, layers: own ? [...before, { id: group.key, kind: "card", label: title, setup: card.setup! }] : before });
+          const mine: SetupLayer[] = [];
+          if (hasOwn) mine.push({ id: group.key, kind: "card", label: title, setup: card.setup! });
+          if (hasGroup) mine.push({ id: `${group.key}-exercises`, kind: "card", label: `${title} (exercícios)`, setup: card.exercises!.setup! });
+          list.push({ group, card, title, layers: [...before, ...mine], items, sections: own });
         });
         setWhole({
           commands,
           sections,
+          owners,
           layers: allLayers(setup, groups.flatMap((g) => g.blocks)),
           fingerprint: moduleFingerprint(activeCards(blocks), setup),
-          cards: withCommands.map((c) => ({ key: c.key, title: c.title, count: c.card.commands.length })),
+          cards: withCommands.map((c) => ({ key: c.key, title: c.title, count: c.items.length })),
           reversed: { commands: reversedCommands, sections: reversedSections },
         });
         setItems(list);
@@ -169,7 +196,7 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
   });
   if (forward) {
     const first = forward.findIndex((ok) => !ok);
-    if (first >= 0) problems.push({ title: ownerOf(whole.sections, first), text: m.sequenceProblem(whole.commands[first]?.command ?? "") });
+    if (first >= 0) problems.push({ title: ownerOf(whole.owners, first), text: m.sequenceProblem(whole.commands[first]?.command ?? "") });
   }
   dependents.forEach((d) => problems.push({ title: d.title, text: d.reason }));
 
@@ -278,13 +305,14 @@ export function TestAll({ moduleId, service, practice, onResult, onClose }: Test
               <CardTester
                 key={current.group.key}
                 compact
-                commands={current.card.commands}
+                commands={current.items}
+                sections={current.sections}
                 loadBase={loadBase}
                 layers={current.layers}
                 onClose={onClose}
                 onVerdicts={(good) => {
                   const bad = good.findIndex((ok) => !ok);
-                  if (bad >= 0) setUnitFailures((prev) => ({ ...prev, [current.group.key]: current.card.commands[bad]?.command ?? "" }));
+                  if (bad >= 0) setUnitFailures((prev) => ({ ...prev, [current.group.key]: current.items[bad]?.command ?? "" }));
                 }}
                 onFinish={(ok) => {
                   saveTest(moduleId, current.group.key, ok, current.card);

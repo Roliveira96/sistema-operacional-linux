@@ -3,6 +3,7 @@
 
 import { groupCards, parseCard, type CardModel } from "./cardModel";
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
+import { hasExercises } from "./exercises";
 import { hasSetup, setupPayload, type Setup } from "./setup";
 
 export interface TestRecord {
@@ -17,14 +18,16 @@ export type TestStatus = "none" | "untested" | "passed" | "failed" | "stale";
 const key = (moduleId: string, cardKey: string) => `card-test:${moduleId}:${cardKey}`;
 
 /** The parts of a card a test depends on: its commands and its own snapshot. */
-export function fingerprint(card: Pick<CardModel, "commands" | "setup">): string {
+export function fingerprint(card: Pick<CardModel, "commands" | "setup"> & { exercises?: CardModel["exercises"] }): string {
   return JSON.stringify({
     commands: card.commands.map((c) => [c.terminal, c.command.trim(), c.expectError, c.login ?? null, c.answers]),
     setup: card.setup ? setupPayload(card.setup) : null,
+    // The exercises are tested too: their solution, how they end and the base state of the group.
+    exercises: card.exercises ? { setup: card.exercises.setup ? setupPayload(card.exercises.setup) : null, items: card.exercises.items.map((ex) => [ex.solution ? setupPayload(ex.solution) : null, ex.conditions]) } : null,
   });
 }
 
-export function saveTest(moduleId: string, cardKey: string, passed: boolean, card: Pick<CardModel, "commands" | "setup">) {
+export function saveTest(moduleId: string, cardKey: string, passed: boolean, card: Pick<CardModel, "commands" | "setup" | "exercises">) {
   try {
     const record: TestRecord = { passed, at: new Date().toISOString(), fingerprint: fingerprint(card) };
     localStorage.setItem(key(moduleId, cardKey), JSON.stringify(record));
@@ -43,8 +46,8 @@ export function readTest(moduleId: string, cardKey: string): TestRecord | undefi
 }
 
 /** "none" when the card has nothing to test (no commands and no snapshot). */
-export function testStatus(moduleId: string, cardKey: string, card: Pick<CardModel, "commands" | "setup">): TestStatus {
-  if (card.commands.length === 0 && !hasSetup(card.setup)) return "none";
+export function testStatus(moduleId: string, cardKey: string, card: Pick<CardModel, "commands" | "setup" | "exercises">): TestStatus {
+  if (card.commands.length === 0 && !hasSetup(card.setup) && !hasExercises(card.exercises)) return "none";
   const record = readTest(moduleId, cardKey);
   if (!record) return "untested";
   if (record.fingerprint !== fingerprint(card)) return "stale";
@@ -56,7 +59,7 @@ export function testStatus(moduleId: string, cardKey: string, card: Pick<CardMod
 const moduleKey = (moduleId: string) => `module-test:${moduleId}`;
 
 /** What the module test depends on: the snapshot of the module and the commands and snapshot of each card. */
-export function moduleFingerprint(cards: Pick<CardModel, "commands" | "setup">[], setup?: Setup): string {
+export function moduleFingerprint(cards: Pick<CardModel, "commands" | "setup" | "exercises">[], setup?: Setup): string {
   return JSON.stringify({ setup: setup ? setupPayload(setup) : null, cards: cards.map(fingerprint) });
 }
 

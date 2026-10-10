@@ -4,7 +4,7 @@
 
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { overlayFiles, type MachineJson } from "./machineFiles";
-import type { SetupLayer, SetupStep } from "./setup";
+import type { SetupFile, SetupLayer, SetupStep } from "./setup";
 
 /** Typing speed of a setup run: fast enough to be a wait, not a show. */
 export const SETUP_SPEED = 60;
@@ -31,6 +31,17 @@ interface RunOptions {
   restoreSpeed?: number;
 }
 
+/** Puts files into the machine of a terminal as they are, and says how it went (status 0 is success). */
+export async function applyFiles(win: Partial<Pick<TerminalWindow, "snapshot" | "loadScenario">>, files: SetupFile[]): Promise<{ status: number; output: string }> {
+  try {
+    if (!win.snapshot || !win.loadScenario) throw new Error("o terminal não carrega arquivos");
+    await win.loadScenario(overlayFiles(win.snapshot() as MachineJson, files));
+    return { status: 0, output: "" };
+  } catch (error) {
+    return { status: 1, output: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 /** Runs the steps of the layers in order and returns how each one ended. */
 export async function runLayers(win: Pick<TerminalWindow, "execute" | "setSpeed"> & Partial<Pick<TerminalWindow, "snapshot" | "loadScenario">>, layers: SetupLayer[], options: RunOptions = {}): Promise<StepResult[]> {
   const results: StepResult[] = [];
@@ -49,14 +60,8 @@ export async function runLayers(win: Pick<TerminalWindow, "execute" | "setSpeed"
       const files = layer.setup.files ?? [];
       if (files.length > 0 && !options.shouldStop?.()) {
         const step: SetupStep = { command: `(${files.length} ${files.length === 1 ? "arquivo" : "arquivos"} do ambiente)` };
-        let result: StepResult;
-        try {
-          if (!win.snapshot || !win.loadScenario) throw new Error("o terminal não carrega arquivos");
-          await win.loadScenario(overlayFiles(win.snapshot() as MachineJson, files));
-          result = { layer, index: layer.setup.steps.length, step, status: 0, output: "" };
-        } catch (error) {
-          result = { layer, index: layer.setup.steps.length, step, status: 1, output: error instanceof Error ? error.message : String(error) };
-        }
+        const { status, output } = await applyFiles(win, files);
+        const result: StepResult = { layer, index: layer.setup.steps.length, step, status, output };
         results.push(result);
         options.onStep?.(result);
       }

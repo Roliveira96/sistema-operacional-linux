@@ -24,6 +24,8 @@ declare module "@legacy-engine/linux/Maquina" {
   import type { Sessao } from "@legacy-engine/linux/Sessao";
   export class Maquina {
     hostname: string;
+    /** The file system: only what the window needs to know about a folder. */
+    fs: { obter(caminho: string): { ehDiretorio(): boolean } | null };
     contas: { usuario(nome: string): Usuario | undefined };
     abrirSessao(usuario: Usuario): Sessao;
     fecharSessao(sessao: Sessao): void;

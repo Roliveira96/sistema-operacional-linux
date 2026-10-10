@@ -35,6 +35,16 @@ export interface Setup {
   files?: SetupFile[];
 }
 
+/** The files of a snapshot that the server would refuse: a path that is not absolute, or a permission that is not complete. */
+export function invalidFiles(setup: Setup | undefined): { path: string; reason: "path" | "mode" }[] {
+  const bad: { path: string; reason: "path" | "mode" }[] = [];
+  for (const file of setup?.files ?? []) {
+    if (!file.path.trim().startsWith("/") || file.path.trim() === "/") bad.push({ path: file.path, reason: "path" });
+    else if (file.mode && !/^[0-7]{3,4}$/.test(file.mode)) bad.push({ path: file.path, reason: "mode" });
+  }
+  return bad;
+}
+
 /** Whether a snapshot does anything: it has commands or files. */
 export const hasSetup = (setup: Setup | undefined): setup is Setup => Boolean(setup && (setup.steps.length > 0 || (setup.files?.length ?? 0) > 0));
 
@@ -122,14 +132,24 @@ interface LayerBlock {
   active?: boolean;
 }
 
-/** The snapshot layers of the cards: the header of a card (a text with a title) carries its own. */
+/**
+ * The snapshot layers of the cards, in the order the machine is prepared: the header of a card (a text with a title)
+ * carries its own, and the group of exercises of the card, which comes after its blocks, carries the base state of its exercises.
+ */
 export function cardLayers(blocks: LayerBlock[]): SetupLayer[] {
   const layers: SetupLayer[] = [];
+  let title = "";
   for (const block of blocks) {
-    const title = str(block.payload.title).trim();
-    if (block.type !== "TEXT" || title === "" || block.active === false) continue;
-    const setup = parseSetup(block.payload.setup);
-    if (hasSetup(setup)) layers.push({ id: block.id, kind: "card", label: title, setup });
+    if (block.active === false) continue;
+    const own = str(block.payload.title).trim();
+    if (block.type === "TEXT" && own !== "") {
+      title = own;
+      const setup = parseSetup(block.payload.setup);
+      if (hasSetup(setup)) layers.push({ id: block.id, kind: "card", label: own, setup });
+    } else if (block.type === "EXERCISES") {
+      const setup = parseSetup(block.payload.setup);
+      if (hasSetup(setup)) layers.push({ id: block.id, kind: "card", label: `${title || "Introdução"} (exercícios)`, setup });
+    }
   }
   return layers;
 }
