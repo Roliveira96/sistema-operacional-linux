@@ -21,6 +21,11 @@ export const authoringMessages = {
 
   // The "i" explanations: what each part does and what it is for, for a teacher who had no training.
   info: {
+    moduleIdentity: "Como o módulo aparece para o aluno: o título é o nome na lista de estudo e a descrição é a ementa, o que ele vai aprender. O slug é o endereço amigável do módulo; se deixar em branco, ele é gerado do título.",
+    moduleValidity: "O período em que o aluno consegue abrir o módulo. Use para liberar uma matéria só no semestre. Se não preencher nada, o módulo fica disponível o tempo todo.",
+    modulePublication: "Define quem vê o módulo e se ele está no ar. Comece como Inativo enquanto você monta o conteúdo e mude para Ativo quando estiver pronto para os alunos.",
+    moduleVisibility: "Público: qualquer pessoa vê, até sem login. Autenticado: só quem entrou na plataforma. Privado: só os alunos das turmas que você escolher.",
+    moduleStatus: "Ativo deixa o módulo no ar. Inativo o tira do ar sem perder nada. Arquivado o guarda fora das listas de estudo.",
     cardHeader: "É a identificação do card. A tag (pill) é a etiqueta curta que aparece no topo, como \"apt update\". O título é o nome que o aluno vê na lista de estudo.",
     description: "É o texto que o aluno lê. Monte-o com blocos na ordem que quiser: texto, código, tabela, imagem, vídeo ou link. Pense numa página de apostila.",
     cardSetup: "Prepara a máquina do aluno antes deste card: cria pastas, arquivos, usuários e grupos. Assim o aluno começa com tudo pronto e você não precisa ensinar a montar o cenário. Você pode digitar os comandos ou gravá-los no terminal.",

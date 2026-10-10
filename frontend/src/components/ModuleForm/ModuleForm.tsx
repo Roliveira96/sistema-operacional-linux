@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 import { descriptionHtml, descriptionText } from "@/lib/description";
+import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import { endsBeforeStart, isoToLocalInput, localInputToIso } from "@/lib/localDateTime";
 import { normalizeSlug, slugProblem, slugify } from "@/lib/slug";
+import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { ptBR } from "@/messages/pt-BR";
 import { ApiProblemError } from "@/services/httpClient";
 import type {
@@ -33,6 +35,10 @@ interface ModuleFormProps {
 
 type FieldName = "title" | "slug" | "description" | "activationStart" | "activationEnd";
 type FieldErrors = Partial<Record<FieldName, string>>;
+
+// Decorative emoji of each choice; the text beside it says the same.
+const VISIBILITY_ICONS: Record<string, string> = { PUBLIC: "🌍", AUTHENTICATED: "🔐", PRIVATE: "👥" };
+const STATUS_ICONS: Record<string, string> = { ACTIVE: "✅", INACTIVE: "⏸️", ARCHIVED: "📦" };
 
 const VISIBILITIES: Visibility[] = ["PUBLIC", "AUTHENTICATED", "PRIVATE"];
 const STATUSES: ModuleStatus[] = ["ACTIVE", "INACTIVE", "ARCHIVED"];
@@ -215,9 +221,15 @@ export function ModuleForm({ initialData, availableClasses = [], onSubmit, isEdi
         <div className={styles.column}>
           <section className={styles.card} aria-labelledby={`${titleId}-section`}>
             <header className={styles.cardHeader}>
-              <h2 id={`${titleId}-section`} className={styles.cardTitle}>
-                {m.sections.identity}
-              </h2>
+              <div className={styles.titleRow}>
+                <span className={styles.cardIcon} aria-hidden="true">
+                  🏷️
+                </span>
+                <h2 id={`${titleId}-section`} className={styles.cardTitle}>
+                  {m.sections.identity}
+                </h2>
+                <InfoTip topic={m.sections.identity}>{authoringMessages.info.moduleIdentity}</InfoTip>
+              </div>
               <p className={styles.cardHint}>{m.sections.identityHint}</p>
             </header>
 
@@ -292,9 +304,15 @@ export function ModuleForm({ initialData, availableClasses = [], onSubmit, isEdi
 
           <section className={styles.card} aria-labelledby={`${startId}-section`}>
             <header className={styles.cardHeader}>
-              <h2 id={`${startId}-section`} className={styles.cardTitle}>
-                {m.sections.validity}
-              </h2>
+              <div className={styles.titleRow}>
+                <span className={styles.cardIcon} aria-hidden="true">
+                  📅
+                </span>
+                <h2 id={`${startId}-section`} className={styles.cardTitle}>
+                  {m.sections.validity}
+                </h2>
+                <InfoTip topic={m.sections.validity}>{authoringMessages.info.moduleValidity}</InfoTip>
+              </div>
               <p className={styles.cardHint}>{m.sections.validityHint}</p>
             </header>
 
@@ -362,17 +380,28 @@ export function ModuleForm({ initialData, availableClasses = [], onSubmit, isEdi
         <div className={styles.column}>
           <section className={styles.card} aria-labelledby={`${visName}-section`}>
             <header className={styles.cardHeader}>
-              <h2 id={`${visName}-section`} className={styles.cardTitle}>
-                {m.sections.publication}
-              </h2>
+              <div className={styles.titleRow}>
+                <span className={styles.cardIcon} aria-hidden="true">
+                  🚀
+                </span>
+                <h2 id={`${visName}-section`} className={styles.cardTitle}>
+                  {m.sections.publication}
+                </h2>
+                <InfoTip topic={m.sections.publication}>{authoringMessages.info.modulePublication}</InfoTip>
+              </div>
               <p className={styles.cardHint}>{m.sections.publicationHint}</p>
             </header>
 
             <fieldset className={styles.options}>
-              <legend className={styles.label}>{m.visibilityLabel} *</legend>
+              <legend className={styles.label}>
+                {m.visibilityLabel} * <InfoTip topic={m.visibilityLabel}>{authoringMessages.info.moduleVisibility}</InfoTip>
+              </legend>
               {VISIBILITIES.map((value) => (
                 <label key={value} className={`${styles.option} ${visibility === value ? styles.selected : ""}`}>
                   <input type="radio" name={visName} value={value} checked={visibility === value} onChange={() => setVisibility(value)} />
+                  <span className={styles.optionIcon} aria-hidden="true">
+                    {VISIBILITY_ICONS[value]}
+                  </span>
                   <span className={styles.optionText}>
                     <span className={styles.optionTitle}>{m.visibilityOptions[value].title}</span>
                     <span className={styles.optionHelp}>{m.visibilityOptions[value].help}</span>
@@ -402,10 +431,15 @@ export function ModuleForm({ initialData, availableClasses = [], onSubmit, isEdi
 
             {isEditing && (
               <fieldset className={styles.options}>
-                <legend className={styles.label}>{m.statusLabel}</legend>
+                <legend className={styles.label}>
+                  {m.statusLabel} <InfoTip topic={m.statusLabel}>{authoringMessages.info.moduleStatus}</InfoTip>
+                </legend>
                 {STATUSES.map((value) => (
                   <label key={value} className={`${styles.option} ${status === value ? styles.selected : ""}`}>
                     <input type="radio" name={statusName} value={value} checked={status === value} onChange={() => setStatus(value)} />
+                    <span className={styles.optionIcon} aria-hidden="true">
+                      {STATUS_ICONS[value]}
+                    </span>
                     <span className={styles.optionText}>
                       <span className={styles.optionTitle}>{m.statusOptions[value].title}</span>
                       <span className={styles.optionHelp}>{m.statusOptions[value].help}</span>

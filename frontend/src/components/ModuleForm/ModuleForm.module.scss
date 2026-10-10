@@ -34,6 +34,19 @@
   min-width: 0;
 }
 
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// The cards come in one after the other.
 .card {
   display: flex;
   flex-direction: column;
@@ -43,6 +56,49 @@
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
+  animation: rise 0.4s var(--easing-standard) both;
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-normal) ease;
+
+  &:hover,
+  &:focus-within {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-md);
+  }
+
+  &:nth-child(2) {
+    animation-delay: 80ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+  }
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cardIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.optionIcon {
+  flex: none;
+  font-size: 1.4rem;
+  line-height: 1.2;
 }
 
 .cardHeader {
@@ -245,6 +301,11 @@
     background var(--transition-fast);
 
   &:hover {
+    border-color: var(--color-border-strong);
+  }
+
+  &:hover {
+    transform: translateX(2px);
     border-color: var(--color-border-strong);
   }
 
