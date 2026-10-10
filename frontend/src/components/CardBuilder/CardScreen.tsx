@@ -7,7 +7,7 @@ import { groupCards, type CardGroup } from "@/lib/cardModel";
 import { allLayers, type Setup, type SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type ContentAuthoringService } from "@/services/contentAuthoringService";
-import { CardBuilder } from "./CardBuilder";
+import { CardBuilder, type CardTab } from "./CardBuilder";
 import styles from "./CardScreen.module.scss";
 
 const m = authoringMessages.builder;
@@ -31,6 +31,8 @@ export function CardScreen({ moduleId, cardKey, afterId, service = contentAuthor
   const router = useRouter();
   const [state, setState] = useState<State>({ status: "loading" });
   const back = `/app/modules/${moduleId}/edit?tab=content`;
+  // The page of an exercise comes back with ?tab=exercises, to the list it left.
+  const initialTab: CardTab = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "exercises" ? "exercises" : "description";
 
   useEffect(() => {
     let active = true;
@@ -81,6 +83,7 @@ export function CardScreen({ moduleId, cardKey, afterId, service = contentAuthor
           group={state.group}
           afterId={afterId}
           before={state.before}
+          initialTab={initialTab}
           service={service}
           onCancel={() => router.push(back)}
           onCreated={(blocks) => router.replace(`/app/modules/${moduleId}/cards/${blocks[0]!.id}`)}

@@ -44,12 +44,14 @@ interface CardBuilderProps {
   /** The snapshots that run before this card: the module and the earlier cards (SPEC-021). */
   before?: SetupLayer[];
   practice?: Pick<PracticeService, "topicScenario">;
+  /** The tab that is open first (the page of an exercise goes back to the exercises). */
+  initialTab?: CardTab;
   /** Called after a new card is stored, with its blocks. */
   onCreated?: (blocks: AuthoredBlock[]) => void;
   onCancel: () => void;
 }
 
-type CardTab = "description" | "commands" | "tips" | "exercises";
+export type CardTab = "description" | "commands" | "tips" | "exercises";
 const TABS: CardTab[] = ["description", "commands", "tips", "exercises"];
 
 const INSERTABLE: Exclude<ElementKind, "block">[] = ["text", "html", "code", "table", "image", "video", "link"];
@@ -239,7 +241,7 @@ function BoxList({ boxes, labels, errors, onChange }: { boxes: CardBox[]; labels
  * The screen to create or edit one card, in the style of the client's card generator: the form on
  * the left and the live preview on the right (SPEC-019 section 3.1).
  */
-export function CardBuilder({ moduleId, group, afterId, service = contentAuthoringService, before = [], practice = practiceService, onCreated, onCancel }: CardBuilderProps) {
+export function CardBuilder({ moduleId, group, afterId, service = contentAuthoringService, before = [], practice = practiceService, initialTab = "description", onCreated, onCancel }: CardBuilderProps) {
   const [stored, setStored] = useState<CardGroup | undefined>(group);
   const [card, setCard] = useState<CardModel>(() => parseCardOrEmpty(group));
   const [baseline, setBaseline] = useState(() => JSON.stringify(parseCardOrEmpty(group), withoutIds));
@@ -251,7 +253,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
   // Each click on "Testar comandos" starts a new test (a new key), on a machine made from zero.
   const [testRun, setTestRun] = useState(0);
   const testPanel = useRef<HTMLDivElement>(null);
-  const [tab, setTab] = useState<CardTab>("description");
+  const [tab, setTab] = useState<CardTab>(initialTab);
 
   const dirty = JSON.stringify(card, withoutIds) !== baseline;
 
@@ -273,13 +275,35 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
 
   const requireTitle = !(stored && !stored.header);
 
+  // The ids behind each tab, to mark the tab that has an error and to open the first one when saving fails.
+  const idsOf = (name: CardTab, from: CardErrors): string[] => {
+    switch (name) {
+      case "description":
+        return card.elements.map((e) => e.id);
+      case "commands":
+        return [...card.commands.map((c) => c.id), "setup", ...Object.keys(from).filter((k) => k.startsWith("setup-"))];
+      case "tips":
+        return [...card.tips, ...card.realWorld, ...card.exams].map((b) => b.id);
+      default:
+        return [...(card.exercises?.items ?? []).map((ex) => ex.id), "exercises-setup", "exercises"];
+    }
+  };
+  const tabWithError = (from: CardErrors) => TABS.find((name) => idsOf(name, from).some((id) => from[id]));
+  const tabHasError = (name: CardTab) => idsOf(name, errors).some((id) => errors[id]);
+  /** Opens the first tab with an error and says which one it is. */
+  const showErrors = (from: CardErrors) => {
+    const name = tabWithError(from);
+    if (name) setTab(name);
+    return name && !from.title ? m.fixErrorsIn(m.tabs[name]) : m.fixErrors;
+  };
+
   const save = async (force = false) => {
     setGeneral(null);
     setConflict(false);
     const found = checkCard(card, requireTitle);
     setErrors(found);
     if (Object.keys(found).length > 0) {
-      setGeneral(m.fixErrors);
+      setGeneral(showErrors(found));
       return;
     }
 
@@ -310,7 +334,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
       } else if (error instanceof ApiProblemError && error.invalidParams.length > 0) {
         const placed = placeServerErrors(built, error.invalidParams);
         setErrors(placed.errors);
-        setGeneral(placed.rest.length > 0 ? placed.rest.join("; ") : m.fixErrors);
+        setGeneral(placed.rest.length > 0 ? placed.rest.join("; ") : showErrors(placed.errors));
       } else {
         setGeneral(error instanceof ApiProblemError && error.detail ? error.detail : m.genericError);
       }
@@ -344,14 +368,6 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
   const patchAt = <T,>(list: T[], i: number, change: Partial<T>) => list.map((item, j) => (j === i ? { ...item, ...change } : item));
   const d = m.description;
 
-  // A tab shows a mark when something in it has an error, so the author does not hunt for it.
-  const idsOf: Record<CardTab, string[]> = {
-    description: card.elements.map((e) => e.id),
-    commands: [...card.commands.map((c) => c.id), "setup", ...Object.keys(errors).filter((k) => k.startsWith("setup-"))],
-    tips: [...card.tips, ...card.realWorld, ...card.exams].map((b) => b.id),
-    exercises: [...(card.exercises?.items ?? []).map((ex) => ex.id), "exercises-setup"],
-  };
-  const tabHasError = (name: CardTab) => idsOf[name].some((id) => errors[id]);
 
   return (
     <div className={styles.builder}>
@@ -453,7 +469,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
           </div>
 
           <div role="tabpanel" id="card-panel-exercises" aria-labelledby="card-tab-exercises" hidden={tab !== "exercises"} className={styles.tabPanel}>
-            <ExercisesTab group={card.exercises} onChange={(exercises) => set({ exercises })} before={cardBefore} loadBase={loadBase} errors={errors} />
+            <ExercisesTab moduleId={moduleId} cardKey={stored?.key} group={card.exercises} onChange={(exercises) => set({ exercises })} before={cardBefore} loadBase={loadBase} errors={errors} dirty={dirty} />
           </div>
         </div>
 

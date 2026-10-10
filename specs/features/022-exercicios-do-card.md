@@ -152,3 +152,12 @@ Nenhuma em aberto. As decisões de modelagem abaixo foram tomadas pelo Implement
 | 10/10/2026 | Tech Lead | Pedido: o "Testar comandos" deve testar o snapshot do grupo e os exercícios. Incluídos RN-09, CA-09 e a decisão D-05; o comando de referência da dica deixa de ser fora de escopo no teste |
 | 10/10/2026 | Tech Lead | Pedido: um exercício pode ser feito de várias formas e o que importa é a finalização. Incluídos as condições de finalização (RN-11, RN-12), a decisão D-07, o CA-11 e o botão "Verificar meu exercício"; a solução gravada passa a ser uma das formas de chegar lá |
 | 10/10/2026 | Implementador (Claude) | Implementada: migração 00014, bloco `EXERCISES` validado no servidor, aba Exercícios, gravação da solução e do snapshot do grupo no terminal, condições de finalização deduzidas da máquina e conferidas na tela do estudante, teste do card e do módulo com os exercícios. Verificada no navegador. Corrigido junto: a pasta atual do terminal se perdia ao carregar os arquivos de um snapshot |
+
+## Página própria do exercício
+
+- Cada exercício tem página própria: `/app/modules/:id/cards/:cardKey/exercises/:index` (`index` = posição, ou `new`). Componentes: `ExerciseScreen` (página) e `ExerciseForm` (formulário reutilizável).
+- A aba Exercícios do card só lista (nível, dicas, solução, condições), ordena, remove e abre; guarda o snapshot do grupo.
+- Abrir/criar exige o card salvo e sem alterações pendentes (a página carrega o card do servidor).
+- A página salva o card inteiro trocando só esse exercício; o botão Voltar/link retorna a `?tab=exercises`.
+- Ao salvar o card com erro, abre-se a primeira aba com erro e a mensagem diz qual: "Corrija os campos marcados na aba X antes de salvar."
+- Evolução prevista (visão do Tech Lead): exercícios do módulo (prática do módulo), dos cards (interação durante a solução) e de avaliação.
