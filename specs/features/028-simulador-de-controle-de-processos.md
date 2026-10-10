@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-028 |
-| **Status** | Rascunho (aguardando aprovação) |
+| **Status** | Aprovada |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -157,3 +157,4 @@ A API de conferência do exercício passa a aceitar, no snapshot enviado, os cam
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; o que o motor já tem foi levantado; pendências P-01 a P-07 abertas com recomendação |
+| 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01 a P-07 |
