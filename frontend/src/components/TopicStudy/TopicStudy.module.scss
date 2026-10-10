@@ -1,0 +1,311 @@
+// Layout of the topic study screen (legacy/src/estilos/base.css ".tela" and
+// topico.css ".topico-divisao"): full width, material left, terminal right.
+.status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-text-body);
+}
+
+.statusActions {
+  display: flex;
+  gap: var(--space-4);
+
+  a {
+    color: var(--color-accent);
+  }
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+
+  // The signed-in area sets --topic-offset to leave room for its account bar.
+  height: calc(100vh - var(--topic-offset, 0px));
+  height: calc(100dvh - var(--topic-offset, 0px));
+  overflow: hidden;
+  background: var(--color-bg);
+  color: var(--color-text-body);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.back {
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.title {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 160px;
+}
+
+.icon {
+  font-size: 30px;
+}
+
+.name {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent);
+}
+
+.seal {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--color-brand-seal-bg);
+  box-shadow: var(--shadow-sm);
+
+  img {
+    display: block;
+    width: auto;
+    height: 22px;
+  }
+}
+
+.campus {
+  padding-left: 8px;
+  border-left: 1px solid var(--color-brand-seal-divider);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-brand-seal-text);
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.action {
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.reset {
+  border-color: var(--color-danger-line);
+  color: var(--color-reset-text);
+
+  &:hover {
+    border-color: var(--color-danger);
+    background: var(--color-danger-faint);
+    color: var(--color-text-primary);
+  }
+}
+
+.split {
+  display: grid;
+  flex: 1;
+  grid-template-columns: var(--split-columns, minmax(0, 44fr) 10px minmax(0, 56fr));
+  min-height: 0;
+
+  // While the divider is dragged, text must not get selected under the pointer.
+  &.dragging {
+    cursor: col-resize;
+    user-select: none;
+  }
+}
+
+// Draggable divider between the material and the terminal (SPEC-016, CA-12).
+.divider {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+
+  &::before {
+    position: absolute;
+    inset: 0 4px;
+    background: var(--color-border);
+    content: "";
+    transition: background var(--transition-fast);
+  }
+
+  &:hover::before,
+  &:focus-visible::before,
+  .dragging > &::before {
+    background: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+.study {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 10px 16px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  margin-bottom: -1px;
+  padding: 9px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &.active {
+    border-color: var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: -2px;
+  }
+}
+
+.counter {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.panel {
+  flex: 1;
+  min-height: 0;
+  padding: 18px 20px 60px;
+  overflow-y: auto;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  z-index: 110;
+  padding: 10px 18px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  transform: translateX(-50%);
+}
+
+@media (width <= 1700px) {
+  .subtitle,
+  .campus {
+    display: none;
+  }
+
+  .header {
+    gap: 10px;
+  }
+}
+
+@media (width <= 1000px) {
+  .screen {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .split {
+    grid-template-columns: 1fr;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  .study {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .panel {
+    overflow: visible;
+  }
+}
+
+.invite {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-info-line);
+  border-radius: var(--radius-md);
+  background: var(--color-info-faint);
+  font-size: 13.5px;
+  color: var(--color-text-primary);
+
+  a {
+    font-weight: var(--font-weight-bold);
+    color: var(--accent);
+  }
+}

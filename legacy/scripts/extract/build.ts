@@ -8,6 +8,7 @@ import type { Desafio, Licao, ModalidadeSimulado, NivelDificuldade, Passo, Quest
 import type { Maquina } from '../../src/linux/Maquina';
 import type { MaquinaJson } from '../../src/linux/Serializador';
 import { evaluate, type Condition } from './catalog';
+import { convertConcepts } from './concepts';
 import { newMachine, prepareBase, runCommands, runSteps, scenarioMachine, seededRandom, snapshot, type Origin } from './execute';
 import { htmlToText, sanitizeHtml } from './sanitize';
 import { suggestConditions } from './suggest';
@@ -224,13 +225,14 @@ function lessonBlocks(topicId: string, index: number, l: Licao): BlockJson[] {
 
 function moduleOf(topic: Topico, isSimulado: boolean): ModuleJson {
   const blocks: BlockJson[] = [];
-  if (topic.conceitos.trim()) {
-    blocks.push({ sourceKey: `${topic.id}/concepts`, type: 'LEGACY_HTML', payload: { html: sanitizeHtml(topic.conceitos) } });
-  }
+  // The concepts become cards of the platform (SPEC-005 RN-02): one per h3, with tips and tables as blocks.
+  if (topic.conceitos.trim()) blocks.push(...convertConcepts(topic.id, sanitizeHtml(topic.conceitos)));
   if (topic.naPratica) {
     blocks.push({ sourceKey: `${topic.id}/real-life`, type: 'CURIOSITY', payload: { title: 'Na vida real', html: sanitizeHtml(topic.naPratica) } });
   }
   if (topic.demonstracao?.length) {
+    // The demonstration is a card of its own, so it does not stick to the last concept card.
+    blocks.push({ sourceKey: `${topic.id}/demo-card`, type: 'TEXT', payload: { title: 'Veja na prática', command: 'demonstração', html: '' } });
     blocks.push({ sourceKey: `${topic.id}/demo`, type: 'COMMAND', payload: { steps: steps(topic.demonstracao) } });
   }
   topic.licoes.forEach((l, i) => blocks.push(...lessonBlocks(topic.id, i, l)));

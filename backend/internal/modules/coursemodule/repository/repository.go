@@ -144,12 +144,33 @@ func (r *Repository) FindModuleWithDetails(ctx context.Context, id uuid.UUID) (M
 	}, nil
 }
 
+// SlugTaken reports whether another module that was not deleted already uses the slug.
+func (r *Repository) SlugTaken(ctx context.Context, slug string, excludeID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.Conn(ctx).Model(&domain.CourseModule{}).
+		Where("slug = ? AND id <> ? AND deleted_at IS NULL", slug, excludeID).
+		Count(&count).Error
+	return count > 0, err
+}
+
 // ListTeacherModules lists modules belonging to the specified teacher.
 func (r *Repository) ListTeacherModules(ctx context.Context, teacherID uuid.UUID, filter ListFilter) (ListResult, error) {
+	return r.listManaged(ctx, &teacherID, filter)
+}
+
+// ListAllModules lists the modules of every teacher: an administrator manages them all.
+func (r *Repository) ListAllModules(ctx context.Context, filter ListFilter) (ListResult, error) {
+	return r.listManaged(ctx, nil, filter)
+}
+
+// listManaged is the administrative listing; a nil teacher means every module.
+func (r *Repository) listManaged(ctx context.Context, teacherID *uuid.UUID, filter ListFilter) (ListResult, error) {
 	conn := r.db.Conn(ctx)
 
-	query := conn.Model(&domain.CourseModule{}).
-		Where("teacher_id = ? AND deleted_at IS NULL", teacherID)
+	query := conn.Model(&domain.CourseModule{}).Where("deleted_at IS NULL")
+	if teacherID != nil {
+		query = query.Where("teacher_id = ?", *teacherID)
+	}
 
 	if filter.Status != "" {
 		query = query.Where("status = ?", filter.Status)
@@ -182,7 +203,7 @@ func (r *Repository) ListTeacherModules(ctx context.Context, teacherID uuid.UUID
 		"course_modules.*, " +
 			"(SELECT COUNT(*) FROM module_exercise_items WHERE module_exercise_items.module_id = course_modules.id) AS total_exercises, " +
 			"(SELECT COUNT(*) FROM module_materials WHERE module_materials.module_id = course_modules.id AND module_materials.deleted_at IS NULL) AS total_materials",
-	).Order("course_modules.created_at DESC").Limit(limit).Offset(offset)
+	).Order("COALESCE(course_modules.display_order, 999999) ASC, course_modules.created_at DESC").Limit(limit).Offset(offset)
 
 	if err := selectQuery.Find(&items).Error; err != nil {
 		return ListResult{}, err
@@ -464,4 +485,18 @@ func (r *Repository) NextExerciseOrder(ctx context.Context, moduleID uuid.UUID) 
 		return 1, err
 	}
 	return *last + 1, nil
+}
+
+// ReorderModules updates the display order of the given module IDs in sequence.
+func (r *Repository) ReorderModules(ctx context.Context, moduleIDs []uuid.UUID) error {
+	return r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
+		conn := r.db.Conn(txCtx)
+		for index, id := range moduleIDs {
+			order := index + 1
+			if err := conn.Model(&domain.CourseModule{}).Where("id = ?", id).Update("display_order", order).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

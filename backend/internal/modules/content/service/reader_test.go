@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -41,6 +42,13 @@ type fakeReadStore struct {
 	keys          map[string]domain.Scenario
 	keyErr        error
 	askedKey      string
+	blocks        []domain.ContentBlock
+	setup         json.RawMessage
+	version       *domain.ModuleVersion
+	// The snapshot of the bank of exercises of the module (SPEC-023).
+	bankSetup json.RawMessage
+	// Every question of the module, drafts included, for the chain of a dependency (SPEC-023 D-20).
+	allQuestions []domain.Question
 }
 
 func (f *fakeReadStore) FindScenarioBySourceKey(_ context.Context, key string) (domain.Scenario, error) {
@@ -53,6 +61,10 @@ func (f *fakeReadStore) FindScenarioBySourceKey(_ context.Context, key string) (
 		return domain.Scenario{}, ErrNotFound
 	}
 	return s, nil
+}
+
+func (f *fakeReadStore) BankSetup(context.Context, uuid.UUID) (json.RawMessage, error) {
+	return f.bankSetup, nil
 }
 
 func (f *fakeReadStore) FindQuestion(context.Context, uuid.UUID) (domain.Question, error) {
@@ -72,17 +84,42 @@ func (f *fakeReadStore) FindScenario(context.Context, uuid.UUID) (domain.Scenari
 	return *f.scenario, nil
 }
 
+func (f *fakeReadStore) LatestVersion(context.Context, uuid.UUID) (domain.ModuleVersion, error) {
+	if f.version == nil {
+		return domain.ModuleVersion{}, ErrNotFound
+	}
+	return *f.version, nil
+}
+
+func (f *fakeReadStore) ModuleSetup(context.Context, uuid.UUID) (json.RawMessage, error) {
+	return f.setup, nil
+}
+
 func (f *fakeReadStore) ListBlocks(context.Context, uuid.UUID) ([]domain.ContentBlock, error) {
+	if f.blocks != nil {
+		return f.blocks, nil
+	}
 	return []domain.ContentBlock{{Position: 1, BlockType: domain.BlockText}}, nil
 }
 
 func (f *fakeReadStore) ListQuestions(_ context.Context, _ uuid.UUID, usage string, includeDrafts bool) ([]domain.Question, error) {
+	if includeDrafts && usage == "" && f.allQuestions != nil {
+		return f.allQuestions, nil
+	}
 	f.includeDrafts, f.usage = includeDrafts, usage
 	return f.questions, nil
 }
 
 func (f *fakeReadStore) ListActiveTemplates(context.Context) ([]TemplateSummary, error) {
 	return []TemplateSummary{{Title: "Quiz", QuestionCount: 30}}, nil
+}
+
+func (f *fakeReadStore) SaveBlockProgress(_ context.Context, userID, blockID uuid.UUID, completed bool) (domain.BlockProgress, error) {
+	return domain.BlockProgress{UserID: userID, BlockID: blockID}, nil
+}
+
+func (f *fakeReadStore) ListModuleBlockProgress(_ context.Context, _, _ uuid.UUID) ([]domain.BlockProgress, error) {
+	return nil, nil
 }
 
 func secretQuestions() []domain.Question {
@@ -283,4 +320,92 @@ func TestModulePracticeItems(t *testing.T) {
 
 	_, err = NewReader(&fakeAccess{err: cmdomain.ErrModuleNotFound}, store).ModulePracticeItems(ctx, uuid.New(), Viewer{})
 	assert.ErrorIs(t, err, ErrModuleNotFound)
+}
+
+// Covers SPEC-019 RN-12: students never get inactive blocks.
+func TestReader_BlocksSkipsInactive(t *testing.T) {
+	now := time.Now()
+	store := &fakeReadStore{blocks: []domain.ContentBlock{
+		{ID: uuid.New(), Position: 1},
+		{ID: uuid.New(), Position: 2, InactiveAt: &now},
+		{ID: uuid.New(), Position: 3},
+	}}
+	r := NewReader(&fakeAccess{}, store)
+	got, err := r.Blocks(context.Background(), uuid.New(), Viewer{})
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, []int{1, 3}, []int{got[0].Position, got[1].Position})
+}
+
+// Covers SPEC-023 D-06: an exercise made in the editor has no machine of its own, and the student still gets and grades it.
+func TestPracticeItem_ExerciseOfTheModuleHasNoScenario(t *testing.T) {
+	q := practical()
+	q.ScenarioID = nil
+	q.EndConditions = json.RawMessage(`[{"kind":"DIR_EXISTS","path":"/a"}]`)
+	item, err := NewReader(&fakeAccess{}, &fakeReadStore{question: &q}).PracticeItem(context.Background(), q.ID, Viewer{})
+	require.NoError(t, err)
+	assert.Nil(t, item.Snapshot, "the screen builds the machine from the layers")
+	assert.Equal(t, domain.CondDirectoryExists, item.Conditions[0].Type)
+}
+
+// Covers SPEC-023 CA-05, CA-06: the student reads an exercise of the module as the screen of the practice knows it, and the
+// snapshot of the available exercises comes with the content.
+func TestReader_ExerciseOfTheModuleForTheStudent(t *testing.T) {
+	q := practical()
+	q.ScenarioID = nil
+	q.Title, q.Statement = "Criar", "<p>Crie</p>"
+	q.Hints = json.RawMessage(`[{"text":"Use <b>mkdir</b>","command":"mkdir /a"},{"text":"Depois confira"}]`)
+	q.ReferenceSolution = json.RawMessage(`{"steps":[{"command":"mkdir /a"},{"command":"su ana","terminal":2}],"files":[{"path":"/a/f","content":"x"}]}`)
+	q.EndConditions = json.RawMessage(`[{"kind":"DIR_EXISTS","path":"/a"}]`)
+
+	got, err := NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), q.ModuleID, domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.True(t, got[0].Layered)
+	require.NotNil(t, got[0].Hint)
+	assert.Equal(t, "<ol><li>Use &lt;b&gt;mkdir&lt;/b&gt; <code>mkdir /a</code></li><li>Depois confira</li></ol>", *got[0].Hint, "the tips are text, written as html with the markup escaped")
+	assert.JSONEq(t, `[{"command":"mkdir /a"},{"command":"su ana","terminal":2}]`, string(got[0].Solution))
+	assert.Nil(t, got[0].ChainSetups, "it depends on nothing")
+
+	// D-16, D-20: an exercise that depends on others gets their recipes, files included, the oldest first, even when the ones it
+	// depends on are not in the practice; a missing or a cyclic dependency ends the chain.
+	first := practical()
+	first.ID, first.ScenarioID, first.Status, first.Usage = uuid.New(), nil, domain.StatusDraft, domain.UsageAssessment
+	first.EndConditions = json.RawMessage(`[{"kind":"DIR_EXISTS","path":"/lab"}]`)
+	first.ReferenceSolution = json.RawMessage(`{"steps":[{"command":"mkdir /lab"}]}`)
+	second := first
+	second.ID, second.Usage, second.Status = uuid.New(), domain.UsageExercise, domain.StatusPublished
+	second.ReferenceSolution = json.RawMessage(`{"steps":[{"command":"touch /lab/x.sh"}]}`)
+	second.DependsOn = &first.ID
+	third := second
+	third.ID, third.ReferenceSolution, third.DependsOn = uuid.New(), json.RawMessage(`{"steps":[{"command":"chmod +x /lab/x.sh"}]}`), &second.ID
+	store := &fakeReadStore{questions: []domain.Question{third}, allQuestions: []domain.Question{first, second, third}}
+	got, err = NewReader(&fakeAccess{}, store).Questions(context.Background(), q.ModuleID, domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	assert.JSONEq(t, `[{"steps":[{"command":"mkdir /lab"}]},{"steps":[{"command":"touch /lab/x.sh"}]}]`, string(got[0].ChainSetups))
+	first.DependsOn = &third.ID
+	store.allQuestions[0] = first
+	got, err = NewReader(&fakeAccess{}, store).Questions(context.Background(), q.ModuleID, domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	assert.JSONEq(t, `[{"steps":[{"command":"mkdir /lab"}]},{"steps":[{"command":"touch /lab/x.sh"}]}]`, string(got[0].ChainSetups), "a cycle ends the walk")
+
+	// A reserved exercise never carries its solution, and one with no tips has no hint.
+	q.Usage = domain.UsageAssessment
+	q.Hints = nil
+	got, err = NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), q.ModuleID, "", Viewer{})
+	require.NoError(t, err)
+	assert.Nil(t, got[0].Solution)
+	assert.Nil(t, got[0].Hint)
+
+	// The content brings the snapshot of the bank: from the published version for the student (the two snapshots of the first form of
+	// the bank are still read, the one of the practice first), from the draft for the author.
+	for name, stored := range map[string]string{"single": `"bankSetup"`, "first form": `"exercisesSetup"`} {
+		version := domain.ModuleVersion{Content: json.RawMessage(`{"blocks":[],"setup":null,` + stored + `:{"steps":[{"command":"mkdir /treino"}]}}`)}
+		content, err := NewReader(&fakeAccess{}, &fakeReadStore{version: &version}).Content(context.Background(), uuid.New(), Viewer{})
+		require.NoError(t, err, name)
+		assert.JSONEq(t, `{"steps":[{"command":"mkdir /treino"}]}`, string(content.BankSetup), name)
+	}
+	draft, err := NewReader(&fakeAccess{}, &fakeReadStore{bankSetup: json.RawMessage(`{"steps":[{"command":"mkdir /rascunho"}]}`)}).draft(context.Background(), uuid.New())
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"steps":[{"command":"mkdir /rascunho"}]}`, string(draft.BankSetup))
 }

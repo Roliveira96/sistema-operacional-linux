@@ -3,6 +3,8 @@ package domain
 
 import (
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,6 +37,8 @@ var (
 	ErrInvalidVisibility       = errors.New("invalid module visibility")
 	ErrInvalidStatus           = errors.New("invalid module status")
 	ErrInvalidDateRange        = errors.New("activation start date must be before or equal to end date")
+	ErrInvalidSlug             = errors.New("slug must have 3 to 60 characters: lowercase letters, digits and single hyphens")
+	ErrSlugTaken               = errors.New("slug is already used by another module")
 	ErrPrivateRequiresClass    = errors.New("private visibility requires at least one assigned class")
 	ErrForbidden               = errors.New("user does not have permission for this module")
 	ErrDuplicateExerciseOrder  = errors.New("duplicate exercise or sequence order detected")
@@ -55,6 +59,7 @@ type CourseModule struct {
 	// Content seed metadata (SPEC-011). SourceKey identifies modules loaded
 	// from the legacy content; EditedByTeacherAt protects them from reloads.
 	SourceKey         *string
+	Slug              *string
 	Icon              *string
 	Color             *string
 	DisplayOrder      *int
@@ -87,6 +92,28 @@ func (m *CourseModule) IsPubliclyAvailable(now time.Time) bool {
 func ValidateDates(start, end *time.Time) error {
 	if start != nil && end != nil && start.After(*end) {
 		return ErrInvalidDateRange
+	}
+	return nil
+}
+
+// SlugPattern is the shape of a module slug: lowercase words joined by single hyphens.
+var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
+// Slug length limits.
+const (
+	SlugMinLength = 3
+	SlugMaxLength = 60
+)
+
+// NormalizeSlug trims and lowers a slug typed by a person.
+func NormalizeSlug(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
+// ValidateSlug checks a normalized, non-empty slug.
+func ValidateSlug(slug string) error {
+	if len(slug) < SlugMinLength || len(slug) > SlugMaxLength || !slugPattern.MatchString(slug) {
+		return ErrInvalidSlug
 	}
 	return nil
 }

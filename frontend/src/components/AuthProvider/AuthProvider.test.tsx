@@ -124,6 +124,6 @@ describe("AuthProvider", () => {
       </AuthProvider>,
     );
     await screen.findByText("content");
-    expect(container.querySelector("nav.bar")).not.toBeNull();
+    expect(container.querySelector("header.bar nav")).not.toBeNull();
   });
 });

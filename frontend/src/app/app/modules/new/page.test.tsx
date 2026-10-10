@@ -1,4 +1,5 @@
-import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
+import type { Editor } from "@tiptap/react";
+import { act, render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { classService } from "@/services/classService";
 import { moduleService } from "@/services/moduleService";
@@ -55,8 +56,10 @@ describe("NewModulePage (/app/modules/new)", () => {
     fireEvent.change(screen.getByLabelText(/Título do Módulo/i), {
       target: { value: "Módulo Gerenciamento de Memória" },
     });
-    fireEvent.change(screen.getByLabelText(/Descrição e Ementa/i), {
-      target: { value: "Paginação e segmentação" },
+    // The description is written in the visual editor (SPEC-010 RN-12).
+    const editor = (await screen.findByRole("textbox", { name: "Descrição e Ementa" })) as HTMLElement & { editor: Editor };
+    act(() => {
+      editor.editor.chain().focus().selectAll().insertContent("Paginação e segmentação").run();
     });
 
     const submitBtn = screen.getByRole("button", { name: "Criar Módulo" });
@@ -66,7 +69,7 @@ describe("NewModulePage (/app/modules/new)", () => {
       expect(moduleService.createModule).toHaveBeenCalledWith(
         expect.objectContaining({
           title: "Módulo Gerenciamento de Memória",
-          description: "Paginação e segmentação",
+          description: "<p>Paginação e segmentação</p>",
           visibility: "PUBLIC",
         })
       );

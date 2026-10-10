@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -40,6 +41,13 @@ func (r *Repository) FindBlockBySourceKey(ctx context.Context, key string) (doma
 // SaveBlock inserts or updates a block.
 func (r *Repository) SaveBlock(ctx context.Context, b *domain.ContentBlock) error {
 	return r.db.Conn(ctx).Save(b).Error
+}
+
+// HasEditedBlocks reports whether any block of the module was marked as edited by the authoring.
+func (r *Repository) HasEditedBlocks(ctx context.Context, moduleID uuid.UUID) (bool, error) {
+	var found bool
+	err := r.db.Conn(ctx).Raw("SELECT EXISTS (SELECT 1 FROM content_blocks WHERE module_id = ? AND edited_by_teacher_at IS NOT NULL)", moduleID).Scan(&found).Error
+	return found, err
 }
 
 // FindScenarioBySourceKey returns the scenario with the given source key.
@@ -93,8 +101,16 @@ func (r *Repository) ReplaceTemplateQuestions(ctx context.Context, templateID uu
 // ListBlocks returns the blocks of a module ordered by position.
 func (r *Repository) ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error) {
 	var blocks []domain.ContentBlock
-	err := r.db.Conn(ctx).Where("module_id = ?", moduleID).Order("position").Find(&blocks).Error
+	err := r.named(ctx).Where("content_blocks.module_id = ?", moduleID).Order("content_blocks.position").Find(&blocks).Error
 	return blocks, err
+}
+
+// named starts a query of blocks that also reads the names of who created and last changed each one.
+func (r *Repository) named(ctx context.Context) *gorm.DB {
+	return r.db.Conn(ctx).Model(&domain.ContentBlock{}).
+		Select(`content_blocks.*, COALESCE(NULLIF(cu.name, ''), cu.email, '') AS created_by_name, COALESCE(NULLIF(uu.name, ''), uu.email, '') AS updated_by_name`).
+		Joins("LEFT JOIN users cu ON cu.id = content_blocks.created_by").
+		Joins("LEFT JOIN users uu ON uu.id = content_blocks.updated_by")
 }
 
 // ListQuestions returns the questions of a module, optionally filtered by
@@ -108,7 +124,8 @@ func (r *Repository) ListQuestions(ctx context.Context, moduleID uuid.UUID, usag
 		q = q.Where("status = ?", domain.StatusPublished)
 	}
 	var out []domain.Question
-	err := q.Order("created_at, id").Find(&out).Error
+	// The exercises of the trail come in the order the teacher gave it (SPEC-023), then the others.
+	err := q.Order("COALESCE((SELECT i.sequence_order FROM module_exercise_items i WHERE i.exercise_id = questions.id AND i.module_id = questions.module_id), 1000000), created_at, id").Find(&out).Error
 	return out, err
 }
 
@@ -137,3 +154,45 @@ func (r *Repository) FindScenario(ctx context.Context, id uuid.UUID) (domain.Sce
 	err := r.db.Conn(ctx).Where("id = ?", id).First(&s).Error
 	return s, notFound(err)
 }
+
+// SaveBlockProgress marks or unmarks a content block as read for a user.
+func (r *Repository) SaveBlockProgress(ctx context.Context, userID, blockID uuid.UUID, completed bool) (domain.BlockProgress, error) {
+	conn := r.db.Conn(ctx)
+	if !completed {
+		err := conn.Where("user_id = ? AND block_id = ?", userID, blockID).Delete(&domain.BlockProgress{}).Error
+		return domain.BlockProgress{}, err
+	}
+	now := time.Now()
+	var p domain.BlockProgress
+	err := conn.Where("user_id = ? AND block_id = ?", userID, blockID).First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		id, err := uuid.NewV7()
+		if err != nil {
+			return domain.BlockProgress{}, err
+		}
+		p = domain.BlockProgress{
+			ID: id, UserID: userID, BlockID: blockID, CompletedAt: now, CreatedAt: now, UpdatedAt: now,
+		}
+		err = conn.Create(&p).Error
+		return p, err
+	}
+	if err != nil {
+		return domain.BlockProgress{}, err
+	}
+	p.CompletedAt = now
+	p.UpdatedAt = now
+	err = conn.Save(&p).Error
+	return p, err
+}
+
+// ListModuleBlockProgress returns all completed block progress records for a user in a module.
+func (r *Repository) ListModuleBlockProgress(ctx context.Context, userID, moduleID uuid.UUID) ([]domain.BlockProgress, error) {
+	var list []domain.BlockProgress
+	err := r.db.Conn(ctx).Table("block_progress AS bp").
+		Select("bp.*").
+		Joins("JOIN content_blocks AS cb ON cb.id = bp.block_id").
+		Where("bp.user_id = ? AND cb.module_id = ?", userID, moduleID).
+		Find(&list).Error
+	return list, err
+}
+

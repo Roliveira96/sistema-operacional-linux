@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -158,4 +159,33 @@ func TestEntitiesFields(t *testing.T) {
 		URL:         "https://example.com",
 	}
 	assert.Equal(t, "Title", mat.Title)
+}
+
+// Covers SPEC-010 (slug): the shape of a module slug.
+func TestValidateSlug(t *testing.T) {
+	valid := []string{"abc", "historia-do-linux", "modulo-2", "a1b", "x-y-z", strings.Repeat("a", 60)}
+	for _, slug := range valid {
+		assert.NoError(t, domain.ValidateSlug(slug), slug)
+	}
+	invalid := []string{"", "ab", strings.Repeat("a", 61), "Historia", "com espaço", "acentuação", "-inicio", "fim-", "duplo--hifen", "under_score", "pon.to", "barra/x"}
+	for _, slug := range invalid {
+		assert.ErrorIs(t, domain.ValidateSlug(slug), domain.ErrInvalidSlug, slug)
+	}
+}
+
+func TestNormalizeSlug(t *testing.T) {
+	assert.Equal(t, "meu-modulo", domain.NormalizeSlug("  Meu-Modulo \n"))
+	assert.Equal(t, "", domain.NormalizeSlug("   "))
+}
+
+// Covers SPEC-010: a module may have only a start, only an end, both or none.
+func TestValidateDatesOpenEnded(t *testing.T) {
+	start := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	end := start.Add(time.Hour)
+	assert.NoError(t, domain.ValidateDates(nil, nil), "no dates")
+	assert.NoError(t, domain.ValidateDates(&start, nil), "only a start")
+	assert.NoError(t, domain.ValidateDates(nil, &end), "only an end")
+	assert.NoError(t, domain.ValidateDates(&start, &end), "start before end")
+	assert.NoError(t, domain.ValidateDates(&start, &start), "same instant is allowed")
+	assert.ErrorIs(t, domain.ValidateDates(&end, &start), domain.ErrInvalidDateRange, "end before start")
 }

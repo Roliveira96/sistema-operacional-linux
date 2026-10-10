@@ -1,0 +1,40 @@
+@use "@/styles/mixins" as *;
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  text-decoration: none;
+
+  @include focusable;
+}
+
+// The logo needs the white seal to be legible on the dark surfaces.
+.seal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-seal-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.logo {
+  display: block;
+  width: auto;
+  height: 22px;
+}
+
+.title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+
+  @include from("sm") {
+    font-size: var(--font-size-lg);
+  }
+}

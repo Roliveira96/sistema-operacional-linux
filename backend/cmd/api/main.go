@@ -33,6 +33,8 @@ import (
 	studenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/handler"
 	studentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/repository"
 	studentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/service"
+	ttshandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/tts/handler"
+	ttsservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/tts/service"
 	userrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/repository"
 	userservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/service"
 
@@ -43,6 +45,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/mailer"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/ratelimit"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/server"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/speech"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/storage"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/migrations"
 )
@@ -160,9 +163,20 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	moduleHandler := coursemodulehandler.New(moduleService, auth)
 	contentReader := contentservice.NewReader(moduleService, contentrepository.New(db))
 	contentHandler := contenthandler.New(contentReader, auth)
+	contentRepo := contentrepository.New(db)
+	contentAuthorHandler := contenthandler.NewAuthor(
+		contentservice.NewAuthor(contentRepo, log), auth, ratelimit.New(120, time.Minute))
+	contentVersionHandler := contenthandler.NewVersions(
+		contentservice.NewVersions(contentRepo, log), auth, ratelimit.New(120, time.Minute))
+	contentExerciseHandler := contenthandler.NewExercises(
+		contentservice.NewExercises(contentRepo, log), auth, ratelimit.New(120, time.Minute))
 	practiceHandler := practicehandler.New(
 		practiceservice.New(contentReader, practicerepository.New(db)), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
+
+	ttsHandler := ttshandler.New(
+		ttsservice.New(speech.NewClient(), ttsservice.Options{Timeout: cfg.TTS.Timeout, MaxConcurrent: cfg.TTS.MaxConcurrent}),
+		auth, ratelimit.New(cfg.TTS.RatePerMinute, time.Minute), log)
 
 	studentRepo := studentrepository.New(db)
 	studentService := studentservice.New(studentservice.Deps{
@@ -187,7 +201,11 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		classHandler,
 		moduleHandler,
 		contentHandler,
+		contentAuthorHandler,
+		contentVersionHandler,
+		contentExerciseHandler,
 		practiceHandler,
+		ttsHandler,
 		studentHandler,
 	)
 	srv := server.New(cfg.HTTPAddr, engine, log)

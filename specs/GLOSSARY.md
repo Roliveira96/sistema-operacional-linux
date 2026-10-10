@@ -67,13 +67,31 @@ Regras:
 | :--- | :--- | :--- | :--- | :--- |
 | Módulo de ensino | `CourseModule` (módulo de backend `coursemodule`) | Unidade didática com blocos, materiais e questões. Não confundir com "módulo de domínio" do `ARCHITECTURE.md` | `Topic`, `Unit`, `Lesson` | Decidido |
 | Bloco | `ContentBlock` | Trecho ordenado do conteúdo de um módulo | `Section`, `Chunk` | Decidido |
-| Tipo de bloco | `TEXT`, `COMMAND`, `TIP`, `CURIOSITY`, `STEP_BY_STEP`, `CARDS`, `WIDGET`, `LEGACY_HTML` | Catálogo fechado da SPEC-011 | — | Decidido |
+| Tipo de bloco | `TEXT`, `COMMAND`, `TIP`, `CURIOSITY`, `STEP_BY_STEP`, `CARDS`, `WIDGET`, `LEGACY_HTML`, `EXERCISES` | Catálogo fechado da SPEC-011, ampliado pela SPEC-022 | — | Decidido |
 | Componente interativo | `Widget` (`PERMISSION_CALCULATOR`, `LS_ANATOMY`) | Componente de código referenciado por um bloco | `Plugin` | Decidido |
 | Uso da questão | `EXERCISE` (exercício), `ASSESSMENT` (avaliação) | Finalidade da questão; "exercício" é questão com uso `EXERCISE` | — | Decidido (resolve o conflito 2) |
 | Condição de validação | `ValidationCondition` | Regra declarativa do catálogo fechado que a correção avalia sobre o estado da máquina | `Check`, `Assertion` | Decidido |
 | Motor de correção | `Grader` | Avaliador das condições de validação no servidor | `Corrector`, `Judge` | Decidido |
 | Chave de origem | `source_key` | Identificador do item no legado, usado pela carga idempotente | `legacy_id` | Decidido |
 | Carga inicial | `seed` | Comando que importa o manifesto do conteúdo para o banco | `import`, `fixture` | Decidido |
+
+## 3.2. Leitura em voz alta (SPEC-017)
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Síntese de fala | `SpeechSynthesis` | Resultado de converter um texto em áudio falado, com as marcas de palavra | `TTSResult`, `Audio` sozinho | Decidido |
+| Marca de palavra | `WordTiming` | Instante inicial e final, em milissegundos, de uma palavra no áudio | `WordBoundary` (termo do provedor, fica restrito ao adaptador), `Timestamp` | Decidido |
+| Voz | `Voice` | Voz neural escolhida de uma lista fechada (`pt-BR-FranciscaNeural`, `pt-BR-AntonioNeural`) | `Speaker`, `Narrator` | Decidido |
+| Narração | `Narration` | Leitura em voz alta, com destaque palavra a palavra, do material de um card (SPEC-018) | `Karaoke`, `Playback` | Proposto |
+| Grupo de exercícios | `ExerciseGroup` | Lista ordenada de exercícios de um card, guardada num bloco `EXERCISES`, com um snapshot opcional que é o estado base da máquina antes deles (SPEC-022) | — | Proposto |
+| Exercício do card | `CardExercise` | Atividade do grupo, com título, dificuldade (`EASY`, `MEDIUM`, `HARD`), descrição, dicas, a solução gravada pela docente e as condições de finalização. Não é uma `Question` e não vale nota | Exercício | Proposto |
+| Exercício do módulo | `ModuleExercise` | Exercício do banco do módulo: uma `Question` prática, com enunciado, nível, dicas, solução gravada pela docente e condições de finalização (SPEC-023) | Exercício | Proposto |
+| Banco de exercícios do módulo | `ModuleExerciseBank` | Conjunto dos exercícios de um módulo, nos dois conjuntos abaixo; é o `QuestionBank` restrito ao módulo (SPEC-023) | Pool | Proposto |
+| Vínculo do exercício | `ExerciseLinks` | Onde um exercício do banco está ligado: à prática do módulo (`practice`, na trilha), à avaliação (`assessment`) ou aos dois; `exclusive` o reserva só à avaliação. O banco é único e o snapshot é um só (`bank_setup`) (SPEC-023) | Conjunto, lista | Proposto |
+| Dependência entre exercícios | `ExerciseDependency` | Um exercício (`depends_on`) cuja solução gravada é montada antes de outro; forma uma cadeia. O sistema só sugere, a docente confirma (SPEC-023 12.3) | Continua do anterior | Proposto |
+| Teste do banco | `BankTest` | Esteira de validação do banco: ambiente consolidado, ordem linear, ordem reversa e rodadas sorteadas, com relatório e sugestões de dependência (SPEC-023 12) | — | Proposto |
+| Condição de finalização | `CompletionCondition` | Algo que precisa valer na máquina ao fim do exercício (pasta existe, arquivo tem o texto, permissão, dono, usuário...), seja qual for a forma como o estudante chegou lá (SPEC-022) | — | Proposto |
+| Trecho de narração | `NarrationChunk` | Parte de até 2000 caracteres de um bloco, com o áudio e as marcas de palavra | `Segment`, `Part` | Proposto |
 
 ## 4. Avaliações e aplicação
 

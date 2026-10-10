@@ -21,25 +21,24 @@ const allowedDevOrigins = (process.env.FRONTEND_ALLOWED_DEV_ORIGINS ?? "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-// SPEC-014 and SPEC-016: the frontend reuses, read-only, the legacy POSIX/VFS
-// engine, the prototype terminal window, its cheat sheet and its styles. The
-// aliases point at legacy/src; only src/engine/ may import them.
+// SPEC-014 and SPEC-016: the frontend reuses the legacy POSIX/VFS engine and
+// the terminal window of the prototype read-only. The
+// alias points at legacy/src; only src/engine/ may import it.
 const monorepoRoot = path.resolve(process.cwd(), "..");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   turbopack: {
     root: monorepoRoot,
-    // Exact aliases: the only entry points src/engine/ imports.
+    // Exact aliases: src/engine/ imports only these two entry points of the engine.
     resolveAlias: {
-      "@legacy-engine/linux/Maquina": "../legacy/src/linux/Maquina.ts",
       "@legacy-engine/linux/Serializador": "../legacy/src/linux/Serializador.ts",
+      "@legacy-engine/linux/Maquina": "../legacy/src/linux/Maquina.ts",
       "@legacy-engine/terminal/JanelaDeTerminais": "../legacy/src/terminal/JanelaDeTerminais.ts",
       "@legacy-engine/app/ArmazemDeMaquinas": "../legacy/src/app/ArmazemDeMaquinas.ts",
       "@legacy-engine/app/ColaDeComandos": "../legacy/src/app/ColaDeComandos.ts",
       "@legacy-engine/conteudo/CatalogoDeTopicos": "../legacy/src/conteudo/CatalogoDeTopicos.ts",
       "@legacy-engine/estilos/terminal.css": "../legacy/src/estilos/terminal.css",
-      "@legacy-engine/estilos/topico.css": "../legacy/src/estilos/topico.css",
     },
   },
   allowedDevOrigins,

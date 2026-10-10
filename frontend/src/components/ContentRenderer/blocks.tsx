@@ -10,7 +10,7 @@ type Payload = Record<string, unknown>;
 const text = (v: unknown): string => (typeof v === "string" ? v : "");
 const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
-function Html({ html, className }: { html: string; className?: string }) {
+export function Html({ html, className }: { html: string; className?: string }) {
   return <div className={`${styles.html} ${className ?? ""}`} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 

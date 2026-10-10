@@ -44,6 +44,8 @@ type fakeService struct {
 	listErr      error
 	listPubErr   error
 	reorderErr   error
+	lastUpdate   service.UpdateModuleInput
+	lastCreate   service.CreateModuleInput
 }
 
 func newFakeService() *fakeService {
@@ -54,6 +56,7 @@ func newFakeService() *fakeService {
 }
 
 func (f *fakeService) CreateModule(ctx context.Context, input service.CreateModuleInput) (domain.CourseModule, error) {
+	f.lastCreate = input
 	if f.createErr != nil {
 		return domain.CourseModule{}, f.createErr
 	}
@@ -80,6 +83,7 @@ func (f *fakeService) UpdateModule(ctx context.Context, input service.UpdateModu
 	if f.updateErr != nil {
 		return domain.CourseModule{}, f.updateErr
 	}
+	f.lastUpdate = input
 	mod, ok := f.modules[input.ModuleID]
 	if !ok {
 		return domain.CourseModule{}, domain.ErrModuleNotFound
@@ -99,11 +103,14 @@ func (f *fakeService) UpdateModule(ctx context.Context, input service.UpdateModu
 	if input.Status != nil {
 		mod.Status = *input.Status
 	}
-	if input.ActivationStart != nil {
-		mod.ActivationStart = input.ActivationStart
+	if input.ActivationStart.Set {
+		mod.ActivationStart = input.ActivationStart.Value
 	}
-	if input.ActivationEnd != nil {
-		mod.ActivationEnd = input.ActivationEnd
+	if input.ActivationEnd.Set {
+		mod.ActivationEnd = input.ActivationEnd.Value
+	}
+	if input.Slug.Set {
+		mod.Slug = input.Slug.Value
 	}
 	f.modules[input.ModuleID] = mod
 	det := f.details[input.ModuleID]
@@ -183,6 +190,10 @@ func (f *fakeService) ReorderExercises(ctx context.Context, moduleID, callerID u
 		return domain.ErrForbidden
 	}
 	return nil
+}
+
+func (f *fakeService) ReorderModules(ctx context.Context, callerID uuid.UUID, isAdmin bool, moduleIDs []uuid.UUID) error {
+	return f.reorderErr
 }
 
 func setupServer(role string) (*httptest.Server, *fakeService, uuid.UUID) {
@@ -276,6 +287,16 @@ func TestHandler_CreateModule(t *testing.T) {
 			"visibility":  "PUBLIC",
 		}, true)
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		svc.createErr = nil
+	})
+
+	t.Run("400 with its own type when the description is empty or too long (SPEC-010 RN-12)", func(t *testing.T) {
+		for err, kind := range map[error]string{service.ErrDescriptionRequired: "description-required", service.ErrDescriptionTooLong: "description-too-long"} {
+			svc.createErr = err
+			resp := doRequest(t, srv, http.MethodPost, "/api/v1/modules", map[string]any{"title": "T", "description": "<p></p>", "visibility": "PUBLIC"}, true)
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+			assert.Contains(t, problemBody(t, resp)["type"], kind)
+		}
 		svc.createErr = nil
 	})
 
@@ -521,5 +542,146 @@ func TestHandler_ReorderExercises(t *testing.T) {
 		err := json.NewDecoder(resp.Body).Decode(&res)
 		require.NoError(t, err)
 		assert.Equal(t, float64(2), res["reorderedCount"])
+	})
+}
+
+func problemBody(t *testing.T, resp *http.Response) map[string]any {
+	t.Helper()
+	defer resp.Body.Close()
+	var body map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	return body
+}
+
+func invalidParamNames(body map[string]any) []string {
+	var names []string
+	for _, p := range body["invalidParams"].([]any) {
+		names = append(names, p.(map[string]any)["name"].(string))
+	}
+	return names
+}
+
+// Covers SPEC-010: the update tells an absent field (keep) from a null (take away) from a value (set).
+func TestHandler_UpdateModule_OptionalFields(t *testing.T) {
+	srv, svc, teacherID := setupServer(authn.RoleTeacher)
+	defer srv.Close()
+
+	modID := uuid.New()
+	start := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	slug := "historia"
+	svc.modules[modID] = domain.CourseModule{
+		Model: database.Model{ID: modID, CreatedAt: time.Now()}, TeacherID: teacherID, Title: "T", Description: "D",
+		Visibility: domain.VisibilityPublic, Status: domain.ModuleStatusActive, ActivationStart: &start, ActivationEnd: &end, Slug: &slug,
+	}
+	svc.details[modID] = repository.ModuleDetails{Module: svc.modules[modID]}
+	patch := func(body map[string]any) *http.Response {
+		return doRequest(t, srv, http.MethodPatch, "/api/v1/modules/"+modID.String(), body, true)
+	}
+
+	t.Run("absent fields are left as they are", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, patch(map[string]any{"title": "Novo"}).StatusCode)
+		assert.False(t, svc.lastUpdate.ActivationStart.Set)
+		assert.False(t, svc.lastUpdate.ActivationEnd.Set)
+		assert.False(t, svc.lastUpdate.Slug.Set)
+	})
+
+	t.Run("null takes a date and the slug away", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, patch(map[string]any{"activationEnd": nil, "slug": nil}).StatusCode)
+		assert.True(t, svc.lastUpdate.ActivationEnd.Set)
+		assert.Nil(t, svc.lastUpdate.ActivationEnd.Value)
+		assert.True(t, svc.lastUpdate.Slug.Set)
+		assert.Nil(t, svc.lastUpdate.Slug.Value)
+		assert.False(t, svc.lastUpdate.ActivationStart.Set, "the start was not mentioned")
+	})
+
+	t.Run("an empty string takes a date away too", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, patch(map[string]any{"activationStart": ""}).StatusCode)
+		assert.True(t, svc.lastUpdate.ActivationStart.Set)
+		assert.Nil(t, svc.lastUpdate.ActivationStart.Value)
+	})
+
+	t.Run("values set the date and the slug", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, patch(map[string]any{"activationStart": "2026-11-01T10:00:00Z", "slug": "novo-slug"}).StatusCode)
+		require.NotNil(t, svc.lastUpdate.ActivationStart.Value)
+		assert.Equal(t, time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC), *svc.lastUpdate.ActivationStart.Value)
+		assert.Equal(t, "novo-slug", *svc.lastUpdate.Slug.Value)
+	})
+
+	t.Run("a date that is not RFC 3339 is a 400 that names the field", func(t *testing.T) {
+		for _, field := range []string{"activationStart", "activationEnd"} {
+			resp := patch(map[string]any{field: "31/12/2026"})
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode, field)
+			body := problemBody(t, resp)
+			assert.Equal(t, "invalid-date-format", body["type"])
+			assert.Equal(t, []string{field}, invalidParamNames(body))
+		}
+	})
+
+	t.Run("an end before the start is a 400 that names the end", func(t *testing.T) {
+		svc.updateErr = domain.ErrInvalidDateRange
+		resp := patch(map[string]any{"activationEnd": "2026-01-01T00:00:00Z"})
+		svc.updateErr = nil
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		body := problemBody(t, resp)
+		assert.Equal(t, "invalid-date-range", body["type"])
+		assert.Equal(t, []string{"activationEnd"}, invalidParamNames(body))
+	})
+
+	t.Run("an invalid slug is a 400 and a slug in use is a 409, both naming the slug", func(t *testing.T) {
+		svc.updateErr = domain.ErrInvalidSlug
+		resp := patch(map[string]any{"slug": "Nao Pode"})
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		body := problemBody(t, resp)
+		assert.Equal(t, "invalid-slug", body["type"])
+		assert.Equal(t, []string{"slug"}, invalidParamNames(body))
+
+		svc.updateErr = domain.ErrSlugTaken
+		resp = patch(map[string]any{"slug": "pacotes"})
+		assert.Equal(t, http.StatusConflict, resp.StatusCode)
+		body = problemBody(t, resp)
+		assert.Equal(t, "slug-taken", body["type"])
+		assert.Equal(t, []string{"slug"}, invalidParamNames(body))
+		svc.updateErr = nil
+	})
+
+	t.Run("creating accepts a slug and reports a slug in use as 409", func(t *testing.T) {
+		resp := doRequest(t, srv, http.MethodPost, "/api/v1/modules", map[string]any{
+			"title": "Novo", "description": "D", "visibility": "PUBLIC", "slug": "meu-novo",
+		}, true)
+		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotNil(t, svc.lastCreate.Slug)
+		assert.Equal(t, "meu-novo", *svc.lastCreate.Slug)
+
+		svc.createErr = domain.ErrSlugTaken
+		resp = doRequest(t, srv, http.MethodPost, "/api/v1/modules", map[string]any{
+			"title": "Novo", "description": "D", "visibility": "PUBLIC", "slug": "meu-novo",
+		}, true)
+		assert.Equal(t, http.StatusConflict, resp.StatusCode)
+		svc.createErr = nil
+	})
+}
+
+func TestReorderModulesHandler(t *testing.T) {
+	srv, svc, _ := setupServer(authn.RoleTeacher)
+	defer srv.Close()
+
+	id1 := uuid.New()
+	id2 := uuid.New()
+
+	t.Run("reorders modules successfully", func(t *testing.T) {
+		resp := doRequest(t, srv, http.MethodPut, "/api/v1/modules/order", map[string]any{
+			"moduleIds": []string{id1.String(), id2.String()},
+		}, true)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("fails when service returns error", func(t *testing.T) {
+		svc.reorderErr = domain.ErrForbidden
+		resp := doRequest(t, srv, http.MethodPut, "/api/v1/modules/order", map[string]any{
+			"moduleIds": []string{id1.String()},
+		}, true)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		svc.reorderErr = nil
 	})
 }

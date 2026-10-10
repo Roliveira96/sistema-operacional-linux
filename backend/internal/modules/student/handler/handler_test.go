@@ -292,6 +292,31 @@ func TestHandler_GetProfile(t *testing.T) {
 		assert.Contains(t, rec.Body.String(), "student@utfpr.edu.br")
 	})
 
+	// SPEC-002 section 5.6: the profile uses camelCase fields, which the topic screen
+	// (SPEC-016, CA-11) reads to show the academic ID and the photo.
+	t.Run("uses the camelCase fields of the contract", func(t *testing.T) {
+		avatar := "https://cdn.example.com/a.png"
+		svc := &fakeStudentService{getProfileFn: func(_ context.Context, id uuid.UUID) (domain.StudentProfileResponse, error) {
+			return domain.StudentProfileResponse{ID: id, AcademicID: "2345678", Email: "a@b.c", Name: "Ana", AvatarURL: &avatar}, nil
+		}}
+		auth := &fakeValidator{principal: authn.Principal{UserID: uuid.New(), Role: authn.RoleStudent}}
+		router := setupTestRouter(svc, auth)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/students/me", nil)
+		req.AddCookie(&http.Cookie{Name: authn.CookieName, Value: "test-token"})
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		var body map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "2345678", body["academicId"])
+		assert.Equal(t, "Ana", body["name"])
+		assert.Equal(t, avatar, body["avatarUrl"])
+		assert.Contains(t, body, "createdAt")
+		assert.NotContains(t, body, "AcademicID")
+		assert.NotContains(t, body, "whatsapp", "optional fields are left out when empty")
+	})
+
 	t.Run("forbidden as teacher", func(t *testing.T) {
 		svc := &fakeStudentService{}
 		auth := &fakeValidator{

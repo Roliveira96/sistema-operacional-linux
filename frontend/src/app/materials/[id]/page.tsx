@@ -1,10 +1,10 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { TopicScreen } from "@/components/TopicScreen/TopicScreen";
+import { TopicStudy } from "@/components/TopicStudy/TopicStudy";
 
-/** Public study page of a module: the topic screen of the prototype (SPEC-016). */
+/** Study screen of a public module: material on the left, terminal on the right (SPEC-016). */
 export default function MaterialPage() {
   const { id } = useParams<{ id: string }>();
-  return <TopicScreen moduleId={id} backHref="/materials" />;
+  return <TopicStudy moduleId={id} backHref="/materials" />;
 }

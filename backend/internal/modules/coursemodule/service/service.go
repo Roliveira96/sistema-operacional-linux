@@ -6,16 +6,20 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/htmlsafe"
 )
 
 var (
 	ErrTitleRequired       = errors.New("module title is required")
 	ErrDescriptionRequired = errors.New("module description is required")
+	// ErrDescriptionTooLong means the description is over MaxDescriptionLength (SPEC-010 RN-12).
+	ErrDescriptionTooLong = errors.New("module description is too long")
 )
 
 // ModuleRepository defines required persistence methods.
@@ -24,18 +28,25 @@ type ModuleRepository interface {
 	FindModuleByID(ctx context.Context, id uuid.UUID) (domain.CourseModule, error)
 	FindModuleWithDetails(ctx context.Context, id uuid.UUID) (repository.ModuleDetails, error)
 	ListTeacherModules(ctx context.Context, teacherID uuid.UUID, filter repository.ListFilter) (repository.ListResult, error)
+	ListAllModules(ctx context.Context, filter repository.ListFilter) (repository.ListResult, error)
+	SlugTaken(ctx context.Context, slug string, excludeID uuid.UUID) (bool, error)
 	ListPublicModules(ctx context.Context, now time.Time, filter repository.ListFilter) (repository.ListResult, error)
 	ListStudentModules(ctx context.Context, studentID uuid.UUID, now time.Time, filter repository.ListFilter) (repository.ListResult, error)
 	UpdateModule(ctx context.Context, module *domain.CourseModule, classIDs []uuid.UUID, assignedBy uuid.UUID) error
 	UpdateExerciseOrder(ctx context.Context, moduleID uuid.UUID, orderedExerciseIDs []uuid.UUID) error
+	ReorderModules(ctx context.Context, moduleIDs []uuid.UUID) error
 	ValidateTeacherClasses(ctx context.Context, teacherID uuid.UUID, classIDs []uuid.UUID) (bool, error)
 	IsStudentEnrolledInAnyClass(ctx context.Context, studentID uuid.UUID, classIDs []uuid.UUID) (bool, error)
 }
+
+// MaxDescriptionLength is the largest description, counted in characters of the filtered html.
+const MaxDescriptionLength = 20000
 
 // Service implements the business logic for course modules.
 type Service struct {
 	repo ModuleRepository
 	now  func() time.Time
+	san  *htmlsafe.Sanitizer
 }
 
 // New creates a new course module service.
@@ -43,7 +54,21 @@ func New(repo ModuleRepository) *Service {
 	return &Service{
 		repo: repo,
 		now:  time.Now,
+		san:  htmlsafe.New(),
 	}
+}
+
+// cleanDescription filters the html of the description, and requires visible text and a size
+// within the limit (SPEC-010 RN-12). A description in plain text stays as it is.
+func (s *Service) cleanDescription(raw string) (string, error) {
+	clean := strings.TrimSpace(s.san.Sanitize(raw))
+	if htmlsafe.PlainText(clean) == "" {
+		return "", ErrDescriptionRequired
+	}
+	if utf8.RuneCountInString(clean) > MaxDescriptionLength {
+		return "", ErrDescriptionTooLong
+	}
+	return clean, nil
 }
 
 // SetNow overrides time generator for testing.
@@ -51,11 +76,20 @@ func (s *Service) SetNow(f func() time.Time) {
 	s.now = f
 }
 
+// Patch is an optional field of an update: absent keeps the stored value, an explicit
+// null clears it, and a value replaces it. A date range can then have only a start, only
+// an end, or both, and a person can take a date away again.
+type Patch[T any] struct {
+	Set   bool
+	Value *T
+}
+
 // CreateModuleInput input for creating a module.
 type CreateModuleInput struct {
 	TeacherID       uuid.UUID
 	Title           string
 	Description     string
+	Slug            *string
 	Visibility      domain.Visibility
 	ActivationStart *time.Time
 	ActivationEnd   *time.Time
@@ -68,9 +102,9 @@ func (s *Service) CreateModule(ctx context.Context, input CreateModuleInput) (do
 	if title == "" {
 		return domain.CourseModule{}, ErrTitleRequired
 	}
-	desc := strings.TrimSpace(input.Description)
-	if desc == "" {
-		return domain.CourseModule{}, ErrDescriptionRequired
+	desc, err := s.cleanDescription(input.Description)
+	if err != nil {
+		return domain.CourseModule{}, err
 	}
 
 	if !domain.ValidateVisibility(input.Visibility) {
@@ -78,6 +112,11 @@ func (s *Service) CreateModule(ctx context.Context, input CreateModuleInput) (do
 	}
 
 	if err := domain.ValidateDates(input.ActivationStart, input.ActivationEnd); err != nil {
+		return domain.CourseModule{}, err
+	}
+
+	slug, err := s.checkSlug(ctx, input.Slug, uuid.Nil)
+	if err != nil {
 		return domain.CourseModule{}, err
 	}
 
@@ -98,6 +137,7 @@ func (s *Service) CreateModule(ctx context.Context, input CreateModuleInput) (do
 		TeacherID:       input.TeacherID,
 		Title:           title,
 		Description:     desc,
+		Slug:            slug,
 		Visibility:      input.Visibility,
 		Status:          domain.ModuleStatusActive,
 		ActivationStart: input.ActivationStart,
@@ -118,10 +158,11 @@ type UpdateModuleInput struct {
 	IsAdmin         bool
 	Title           *string
 	Description     *string
+	Slug            Patch[string]
 	Visibility      *domain.Visibility
 	Status          *domain.ModuleStatus
-	ActivationStart *time.Time
-	ActivationEnd   *time.Time
+	ActivationStart Patch[time.Time]
+	ActivationEnd   Patch[time.Time]
 	ClassIDs        []uuid.UUID
 }
 
@@ -145,9 +186,9 @@ func (s *Service) UpdateModule(ctx context.Context, input UpdateModuleInput) (do
 	}
 
 	if input.Description != nil {
-		d := strings.TrimSpace(*input.Description)
-		if d == "" {
-			return domain.CourseModule{}, ErrDescriptionRequired
+		d, err := s.cleanDescription(*input.Description)
+		if err != nil {
+			return domain.CourseModule{}, err
 		}
 		module.Description = d
 	}
@@ -169,12 +210,12 @@ func (s *Service) UpdateModule(ctx context.Context, input UpdateModuleInput) (do
 	}
 
 	start := module.ActivationStart
-	if input.ActivationStart != nil {
-		start = input.ActivationStart
+	if input.ActivationStart.Set {
+		start = input.ActivationStart.Value
 	}
 	end := module.ActivationEnd
-	if input.ActivationEnd != nil {
-		end = input.ActivationEnd
+	if input.ActivationEnd.Set {
+		end = input.ActivationEnd.Value
 	}
 
 	if err := domain.ValidateDates(start, end); err != nil {
@@ -183,6 +224,14 @@ func (s *Service) UpdateModule(ctx context.Context, input UpdateModuleInput) (do
 
 	module.ActivationStart = start
 	module.ActivationEnd = end
+
+	if input.Slug.Set {
+		slug, err := s.checkSlug(ctx, input.Slug.Value, module.ID)
+		if err != nil {
+			return domain.CourseModule{}, err
+		}
+		module.Slug = slug
+	}
 	// A teacher edit protects the module from content reloads (SPEC-011 RN-04).
 	editedAt := s.now()
 	module.EditedByTeacherAt = &editedAt
@@ -269,7 +318,11 @@ func (s *Service) GetModuleByID(ctx context.Context, moduleID uuid.UUID, userCtx
 
 // ListModules lists modules according to caller's role.
 func (s *Service) ListModules(ctx context.Context, userCtx UserAccessContext, filter repository.ListFilter) (repository.ListResult, error) {
-	if userCtx.IsAdmin || userCtx.IsTeacher {
+	// An administrator manages every module, whoever created it; a teacher only their own (RN-01).
+	if userCtx.IsAdmin {
+		return s.repo.ListAllModules(ctx, filter)
+	}
+	if userCtx.IsTeacher {
 		if userCtx.UserID == nil {
 			return repository.ListResult{}, domain.ErrForbidden
 		}
@@ -313,4 +366,52 @@ func (s *Service) ReorderExercises(ctx context.Context, moduleID, callerID uuid.
 	}
 
 	return s.repo.UpdateExerciseOrder(ctx, moduleID, exerciseIDs)
+}
+
+// ReorderModules changes the display order of modules for a teacher or admin.
+func (s *Service) ReorderModules(ctx context.Context, callerID uuid.UUID, isAdmin bool, moduleIDs []uuid.UUID) error {
+	if len(moduleIDs) == 0 {
+		return nil
+	}
+	seen := make(map[uuid.UUID]bool, len(moduleIDs))
+	for _, id := range moduleIDs {
+		if seen[id] {
+			return errors.New("duplicate module ID in reorder list")
+		}
+		seen[id] = true
+
+		if !isAdmin {
+			mod, err := s.repo.FindModuleByID(ctx, id)
+			if err != nil {
+				return err
+			}
+			if mod.TeacherID != callerID {
+				return domain.ErrForbidden
+			}
+		}
+	}
+	return s.repo.ReorderModules(ctx, moduleIDs)
+}
+
+// checkSlug normalizes and validates a slug and makes sure no other module has it. A nil
+// or blank slug means "no slug".
+func (s *Service) checkSlug(ctx context.Context, raw *string, ownID uuid.UUID) (*string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	slug := domain.NormalizeSlug(*raw)
+	if slug == "" {
+		return nil, nil
+	}
+	if err := domain.ValidateSlug(slug); err != nil {
+		return nil, err
+	}
+	taken, err := s.repo.SlugTaken(ctx, slug, ownID)
+	if err != nil {
+		return nil, err
+	}
+	if taken {
+		return nil, domain.ErrSlugTaken
+	}
+	return &slug, nil
 }

@@ -75,9 +75,12 @@ type Deps struct {
 	Tx          TxRunner
 	Hasher      Hasher
 	GoogleOAuth GoogleOAuthProvider
-	PublicURL   string
-	Log         *zap.Logger
-	Now         func() time.Time
+	// AccessTokens persists personal access tokens (SPEC-024); required only
+	// by the access token use cases.
+	AccessTokens AccessTokenStore
+	PublicURL    string
+	Log          *zap.Logger
+	Now          func() time.Time
 }
 
 // Service is the auth use-case layer.

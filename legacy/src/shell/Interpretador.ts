@@ -1,5 +1,5 @@
 import { Analisador, ErroDeSintaxe, type Ambiente, type ComandoSimples, type Palavra, type Pipeline } from './Analisador';
-import { LeitorDeBlocos, type Instrucao } from './Blocos';
+import { Heredocs, LeitorDeBlocos, type Instrucao } from './Blocos';
 import { Aritmetica } from './Aritmetica';
 import { Contexto, type Executor, type Interacao } from './Contexto';
 import { SaidaEmTexto, SaidaParaArquivo, type Saida } from './Saida';
@@ -364,6 +364,12 @@ export class Interpretador implements Executor {
       const alvo: string = (redirecionamento.alvo as Palavra).texto;
       try {
         if (redirecionamento.tipo === '<') {
+          // << 'EOF': a entrada é o corpo guardado pelo leitor do script
+          const chave: string | null = Heredocs.chaveEm(alvo);
+          if (chave !== null) {
+            entrada = this.corpoDoHeredoc(chave, contexto);
+            continue;
+          }
           const no: No = contexto.localizar(alvo);
           if (no instanceof Diretorio) throw new ErroDeSistema('EISDIR');
           if (!contexto.fs.pode(no, contexto.credencial, 'r')) throw new ErroDeSistema('EACCES');
@@ -418,6 +424,18 @@ export class Interpretador implements Executor {
         }
       }
     }
+  }
+
+  /** O texto de um heredoc. Com o delimitador sem aspas, $VAR e ${VAR} são trocados e \$ vira $; com aspas, vai como está. */
+  private corpoDoHeredoc(chave: string, contexto: Contexto): string {
+    const guardado: { corpo: string; literal: boolean } | undefined = Heredocs.obter(chave);
+    if (guardado === undefined) return '';
+    if (guardado.literal) return guardado.corpo;
+    return guardado.corpo.replace(
+      /\\([$\\`])|\$\{([A-Za-z_][A-Za-z0-9_]*|[0-9]+|[?#@*$!])\}|\$([A-Za-z_][A-Za-z0-9_]*|[0-9]|[?#@*$!])/g,
+      (_trecho: string, escapado: string | undefined, entreChaves: string | undefined, simples: string | undefined) =>
+        escapado ?? this.ambiente(contexto).variavel((entreChaves ?? simples) as string) ?? '',
+    );
   }
 
   // ───────────── achar e rodar o programa ─────────────

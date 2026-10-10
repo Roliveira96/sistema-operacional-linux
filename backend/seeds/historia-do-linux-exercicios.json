@@ -1,0 +1,2110 @@
+[
+  {
+    "key": "s01",
+    "title": "Criar um arquivo vazio",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o arquivo vazio <code>/labs/vazio.txt</code>. O diretório <code>/labs</code> ainda não existe.</p>",
+    "hints": [
+      {
+        "text": "O comando mkdir -p cria um diretório e os que faltam no caminho."
+      },
+      {
+        "text": "O comando touch cria um arquivo vazio.",
+        "command": "touch /labs/vazio.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "touch /labs/vazio.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/vazio.txt"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s02",
+    "title": "Criar diretórios aninhados",
+    "difficulty": "EASY",
+    "statement": "<p>Crie a estrutura de diretórios <code>/labs/a/b/c</code> de uma só vez.</p>",
+    "hints": [
+      {
+        "text": "A opção -p do mkdir cria os diretórios pais que ainda não existem."
+      },
+      {
+        "text": "Um único comando resolve.",
+        "command": "mkdir -p /labs/a/b/c"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/a/b/c"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/a"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/a/b"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/a/b/c"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s03",
+    "title": "Escrever uma palavra em um arquivo",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o arquivo <code>/labs/linux.txt</code> contendo apenas a palavra <code>Linux</code>.</p>",
+    "hints": [
+      {
+        "text": "O comando echo imprime um texto, e o símbolo > manda a saída para um arquivo."
+      },
+      {
+        "text": "Lembre de criar o diretório antes.",
+        "command": "echo Linux > /labs/linux.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "echo Linux > /labs/linux.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/linux.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/linux.txt",
+        "content": "Linux\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s04",
+    "title": "Copiar um arquivo",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o arquivo <code>/labs/origem.txt</code> com o texto <code>copia</code> e faça uma cópia dele em <code>/labs/destino.txt</code>.</p>",
+    "hints": [
+      {
+        "text": "O comando cp copia um arquivo: cp origem destino."
+      },
+      {
+        "text": "Primeiro crie a origem, depois copie.",
+        "command": "cp /labs/origem.txt /labs/destino.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "echo copia > /labs/origem.txt"
+        },
+        {
+          "command": "cp /labs/origem.txt /labs/destino.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/destino.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/destino.txt",
+        "content": "copia\n",
+        "match": "equals"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/origem.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/origem.txt",
+        "content": "copia\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s05",
+    "title": "Renomear um arquivo",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o arquivo <code>/labs/velho.txt</code> com o texto <code>dados</code> e renomeie-o para <code>/labs/novo.txt</code>. Ao final, só o nome novo deve existir.</p>",
+    "hints": [
+      {
+        "text": "No Linux, renomear é mover: o comando mv troca o nome do arquivo."
+      },
+      {
+        "text": "mv origem destino.",
+        "command": "mv /labs/velho.txt /labs/novo.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "echo dados > /labs/velho.txt"
+        },
+        {
+          "command": "mv /labs/velho.txt /labs/novo.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/novo.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/novo.txt",
+        "content": "dados\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s06",
+    "title": "Criar um usuário",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o usuário <code>maria</code> no sistema.</p>",
+    "hints": [
+      {
+        "text": "O comando useradd cria um usuário."
+      },
+      {
+        "text": "useradd nome.",
+        "command": "useradd maria"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "useradd maria"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "USER_EXISTS",
+        "name": "maria"
+      },
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "maria"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s07",
+    "title": "Criar um grupo",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o grupo <code>suporte</code>.</p>",
+    "hints": [
+      {
+        "text": "O comando groupadd cria um grupo."
+      },
+      {
+        "text": "groupadd nome.",
+        "command": "groupadd suporte"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "groupadd suporte"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "suporte"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s08",
+    "title": "Colocar um usuário em um grupo",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o usuário <code>joao</code> e o grupo <code>redes</code>, e faça o <code>joao</code> participar do grupo <code>redes</code>.</p>",
+    "hints": [
+      {
+        "text": "Crie o usuário e o grupo antes de ligar um ao outro."
+      },
+      {
+        "text": "usermod -aG adiciona o usuário a um grupo sem tirá-lo dos outros.",
+        "command": "usermod -aG redes joao"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "useradd joao"
+        },
+        {
+          "command": "groupadd redes"
+        },
+        {
+          "command": "usermod -aG redes joao"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "USER_EXISTS",
+        "name": "joao"
+      },
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "joao"
+      },
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "redes"
+      },
+      {
+        "kind": "USER_IN_GROUP",
+        "user": "joao",
+        "name": "redes"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s09",
+    "title": "Criar um script executável",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o arquivo <code>/labs/backup.sh</code> com a linha <code>#!/bin/bash</code> e deixe-o executável por todos (modo <code>755</code>).</p>",
+    "hints": [
+      {
+        "text": "A primeira linha de um script diz qual interpretador o executa."
+      },
+      {
+        "text": "chmod muda as permissões. O modo 755 dá leitura e execução a todos e escrita ao dono.",
+        "command": "chmod 755 /labs/backup.sh"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "echo '#!/bin/bash' > /labs/backup.sh"
+        },
+        {
+          "command": "chmod 755 /labs/backup.sh"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/backup.sh"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/backup.sh",
+        "content": "#!/bin/bash\n",
+        "match": "equals"
+      },
+      {
+        "kind": "MODE",
+        "path": "/labs/backup.sh",
+        "mode": "755"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s10",
+    "title": "Criar um link simbólico para um diretório",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o link simbólico <code>/labs/logs</code> apontando para o diretório <code>/var/log</code>.</p>",
+    "hints": [
+      {
+        "text": "Um link simbólico é um atalho. O comando é ln com a opção -s."
+      },
+      {
+        "text": "ln -s alvo nome-do-link.",
+        "command": "ln -s /var/log /labs/logs"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "ln -s /var/log /labs/logs"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "LINK",
+        "path": "/labs/logs",
+        "target": "/var/log"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "a1",
+    "title": "Script, passo 1: o diretório do projeto",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o diretório <code>/labs/projeto</code>. O diretório <code>/labs</code> ainda não existe.</p>",
+    "hints": [
+      {
+        "text": "Use mkdir com a opção -p."
+      },
+      {
+        "text": "Um comando basta.",
+        "command": "mkdir -p /labs/projeto"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/projeto"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/projeto"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "a2",
+    "title": "Script, passo 2: escrever o script",
+    "difficulty": "EASY",
+    "statement": "<p>No diretório <code>/labs/projeto</code>, crie o arquivo <code>ola.sh</code> com uma única linha: <code>echo \"Ola, Linux\"</code>.</p>",
+    "hints": [
+      {
+        "text": "Um script é um arquivo de texto com comandos."
+      },
+      {
+        "text": "Use aspas simples por fora para guardar as aspas duplas.",
+        "command": "echo 'echo \"Ola, Linux\"' > /labs/projeto/ola.sh"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "echo 'echo \"Ola, Linux\"' > /labs/projeto/ola.sh"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/projeto/ola.sh"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/projeto/ola.sh",
+        "content": "echo \"Ola, Linux\"\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": "a1",
+    "link": "practice"
+  },
+  {
+    "key": "a3",
+    "title": "Script, passo 3: permitir a execução",
+    "difficulty": "EASY",
+    "statement": "<p>Deixe o <code>ola.sh</code> executável (modo <code>755</code>).</p>",
+    "hints": [
+      {
+        "text": "Um arquivo só roda como programa se tiver a permissão de execução."
+      },
+      {
+        "text": "chmod +x liga a execução.",
+        "command": "chmod 755 /labs/projeto/ola.sh"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "chmod 755 /labs/projeto/ola.sh"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "MODE",
+        "path": "/labs/projeto/ola.sh",
+        "mode": "755"
+      }
+    ],
+    "dependsOn": "a2",
+    "link": "practice"
+  },
+  {
+    "key": "a4",
+    "title": "Script, passo 4: executar e guardar a saída",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Execute o <code>ola.sh</code> e guarde o que ele imprime em <code>/labs/projeto/saida.txt</code>.</p>",
+    "hints": [
+      {
+        "text": "Chame o script pelo caminho completo e redirecione a saída com >."
+      },
+      {
+        "text": "caminho > arquivo.",
+        "command": "/labs/projeto/ola.sh > /labs/projeto/saida.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "/labs/projeto/ola.sh > /labs/projeto/saida.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/projeto/saida.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/projeto/saida.txt",
+        "content": "Ola, Linux\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": "a3",
+    "link": "practice"
+  },
+  {
+    "key": "a5",
+    "title": "Script, passo 5: fazer uma cópia de segurança",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Faça uma cópia da saída em <code>/labs/projeto/saida.bak</code>.</p>",
+    "hints": [
+      {
+        "text": "O cp copia arquivos."
+      },
+      {
+        "text": "cp origem destino.",
+        "command": "cp /labs/projeto/saida.txt /labs/projeto/saida.bak"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "cp /labs/projeto/saida.txt /labs/projeto/saida.bak"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/projeto/saida.bak"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/projeto/saida.bak",
+        "content": "Ola, Linux\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": "a4",
+    "link": "practice"
+  },
+  {
+    "key": "b1",
+    "title": "Equipe, passo 1: o grupo",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o grupo <code>devs</code>.</p>",
+    "hints": [
+      {
+        "text": "groupadd cria grupos."
+      },
+      {
+        "text": "Um comando.",
+        "command": "groupadd devs"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "groupadd devs"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "devs"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "b2",
+    "title": "Equipe, passo 2: a primeira pessoa",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o usuário <code>ana</code> já como integrante do grupo <code>devs</code> (que o passo anterior criou).</p>",
+    "hints": [
+      {
+        "text": "A opção -G do useradd define grupos extras."
+      },
+      {
+        "text": "useradd -G grupo nome.",
+        "command": "useradd -G devs ana"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "useradd -G devs ana"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "USER_EXISTS",
+        "name": "ana"
+      },
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "ana"
+      },
+      {
+        "kind": "USER_IN_GROUP",
+        "user": "ana",
+        "name": "devs"
+      }
+    ],
+    "dependsOn": "b1",
+    "link": "practice"
+  },
+  {
+    "key": "b3",
+    "title": "Equipe, passo 3: a segunda pessoa",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o usuário <code>bruno</code> e coloque-o no grupo <code>devs</code>, que já tem a <code>ana</code>.</p>",
+    "hints": [
+      {
+        "text": "Crie o usuário e depois ligue ao grupo, ou faça tudo no useradd."
+      },
+      {
+        "text": "usermod -aG acrescenta o grupo.",
+        "command": "usermod -aG devs bruno"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "useradd bruno"
+        },
+        {
+          "command": "usermod -aG devs bruno"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "USER_EXISTS",
+        "name": "bruno"
+      },
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "bruno"
+      },
+      {
+        "kind": "USER_IN_GROUP",
+        "user": "bruno",
+        "name": "devs"
+      }
+    ],
+    "dependsOn": "b2",
+    "link": "practice"
+  },
+  {
+    "key": "b4",
+    "title": "Equipe, passo 4: o diretório da equipe",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o diretório <code>/labs/equipe</code>.</p>",
+    "hints": [
+      {
+        "text": "mkdir com -p cria também o /labs."
+      },
+      {
+        "text": "Um comando.",
+        "command": "mkdir -p /labs/equipe"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/equipe"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/equipe"
+      }
+    ],
+    "dependsOn": "b3",
+    "link": "practice"
+  },
+  {
+    "key": "b5",
+    "title": "Equipe, passo 5: o grupo dono",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Faça do grupo <code>devs</code> o grupo dono de <code>/labs/equipe</code>.</p>",
+    "hints": [
+      {
+        "text": "chgrp troca o grupo dono."
+      },
+      {
+        "text": "chgrp grupo caminho.",
+        "command": "chgrp devs /labs/equipe"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "chgrp devs /labs/equipe"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "OWNER",
+        "path": "/labs/equipe",
+        "owner": "root",
+        "group": "devs"
+      }
+    ],
+    "dependsOn": "b4",
+    "link": "practice"
+  },
+  {
+    "key": "b6",
+    "title": "Equipe, passo 6: acesso só da equipe",
+    "difficulty": "HARD",
+    "statement": "<p>Deixe <code>/labs/equipe</code> com acesso total para o dono e para o grupo e nenhum para os outros (modo <code>770</code>).</p>",
+    "hints": [
+      {
+        "text": "Três dígitos: dono, grupo e outros."
+      },
+      {
+        "text": "7 é leitura, escrita e execução; 0 é nada.",
+        "command": "chmod 770 /labs/equipe"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "chmod 770 /labs/equipe"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "MODE",
+        "path": "/labs/equipe",
+        "mode": "770"
+      }
+    ],
+    "dependsOn": "b5",
+    "link": "practice"
+  },
+  {
+    "key": "c1",
+    "title": "Links, passo 1: o arquivo original",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o diretório <code>/labs/links</code> e, dentro dele, o arquivo <code>original.txt</code> com o texto <code>conteudo</code>.</p>",
+    "hints": [
+      {
+        "text": "Crie o diretório antes do arquivo."
+      },
+      {
+        "text": "mkdir -p e echo.",
+        "command": "echo conteudo > /labs/links/original.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/links"
+        },
+        {
+          "command": "echo conteudo > /labs/links/original.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/links"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/links/original.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/links/original.txt",
+        "content": "conteudo\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "c2",
+    "title": "Links, passo 2: um atalho",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o link simbólico <code>/labs/links/atalho.txt</code> apontando para <code>/labs/links/original.txt</code>.</p>",
+    "hints": [
+      {
+        "text": "ln -s cria um link simbólico."
+      },
+      {
+        "text": "ln -s alvo link.",
+        "command": "ln -s /labs/links/original.txt /labs/links/atalho.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "ln -s /labs/links/original.txt /labs/links/atalho.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "LINK",
+        "path": "/labs/links/atalho.txt",
+        "target": "/labs/links/original.txt"
+      }
+    ],
+    "dependsOn": "c1",
+    "link": "practice"
+  },
+  {
+    "key": "c3",
+    "title": "Links, passo 3: um atalho para o diretório",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o link simbólico <code>/labs/atalho_dir</code> apontando para o diretório <code>/labs/links</code>.</p>",
+    "hints": [
+      {
+        "text": "Um link simbólico também pode apontar para um diretório."
+      },
+      {
+        "text": "ln -s alvo link.",
+        "command": "ln -s /labs/links /labs/atalho_dir"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "ln -s /labs/links /labs/atalho_dir"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "LINK",
+        "path": "/labs/atalho_dir",
+        "target": "/labs/links"
+      }
+    ],
+    "dependsOn": "c2",
+    "link": "practice"
+  },
+  {
+    "key": "c4",
+    "title": "Links, passo 4: apagar o original",
+    "difficulty": "HARD",
+    "statement": "<p>Apague o <code>original.txt</code>. O <code>atalho.txt</code> fica quebrado, porque o arquivo para onde ele aponta deixou de existir.</p>",
+    "hints": [
+      {
+        "text": "rm apaga um nome do arquivo."
+      },
+      {
+        "text": "Um comando.",
+        "command": "rm /labs/links/original.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "rm /labs/links/original.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "PATH_ABSENT",
+        "path": "/labs/links/original.txt"
+      }
+    ],
+    "dependsOn": "c3",
+    "link": "practice"
+  },
+  {
+    "key": "s11",
+    "title": "Escrever várias linhas",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o arquivo <code>/labs/numeros.txt</code> com três linhas: <code>um</code>, <code>dois</code> e <code>tres</code>, nessa ordem.</p>",
+    "hints": [
+      {
+        "text": "O comando printf aceita \\n para mudar de linha."
+      },
+      {
+        "text": "Uma só linha de comando faz o arquivo todo.",
+        "command": "printf 'um\\ndois\\ntres\\n' > /labs/numeros.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "printf 'um\\ndois\\ntres\\n' > /labs/numeros.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/numeros.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/numeros.txt",
+        "content": "um\ndois\ntres\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s12",
+    "title": "Diretório de um usuário",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o usuário <code>paula</code>, crie o diretório <code>/labs/paula</code> e faça dela a dona do diretório.</p>",
+    "hints": [
+      {
+        "text": "O comando chown troca o dono de um arquivo ou diretório."
+      },
+      {
+        "text": "chown usuario caminho.",
+        "command": "chown paula /labs/paula"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/paula"
+        },
+        {
+          "command": "useradd paula"
+        },
+        {
+          "command": "chown paula /labs/paula"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "USER_EXISTS",
+        "name": "paula"
+      },
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "paula"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/paula"
+      },
+      {
+        "kind": "OWNER",
+        "path": "/labs/paula",
+        "owner": "paula",
+        "group": "root"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s13",
+    "title": "Diretório restrito",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o diretório <code>/labs/restrito</code> de modo que só o dono possa entrar, ler e escrever nele (modo <code>700</code>).</p>",
+    "hints": [
+      {
+        "text": "O mkdir aceita a opção -m para já criar com um modo."
+      },
+      {
+        "text": "mkdir -m 700 caminho.",
+        "command": "mkdir -m 700 /labs/restrito"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "mkdir -m 700 /labs/restrito"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/restrito"
+      },
+      {
+        "kind": "MODE",
+        "path": "/labs/restrito",
+        "mode": "700"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s14",
+    "title": "Juntar o conteúdo de dois arquivos",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie <code>/labs/p1.txt</code> com o texto <code>a</code> e <code>/labs/p2.txt</code> com o texto <code>b</code>. Depois junte os dois, nessa ordem, em <code>/labs/juntos.txt</code>.</p>",
+    "hints": [
+      {
+        "text": "O comando cat concatena arquivos e mostra o resultado."
+      },
+      {
+        "text": "Redirecione a saída do cat para o arquivo novo.",
+        "command": "cat /labs/p1.txt /labs/p2.txt > /labs/juntos.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "echo a > /labs/p1.txt"
+        },
+        {
+          "command": "echo b > /labs/p2.txt"
+        },
+        {
+          "command": "cat /labs/p1.txt /labs/p2.txt > /labs/juntos.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/juntos.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/juntos.txt",
+        "content": "a\nb\n",
+        "match": "equals"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/p1.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/p1.txt",
+        "content": "a\n",
+        "match": "equals"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/p2.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/p2.txt",
+        "content": "b\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "s15",
+    "title": "Guardar só o começo de um arquivo",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie <code>/labs/linhas.txt</code> com as linhas <code>l1</code>, <code>l2</code> e <code>l3</code>. Depois guarde somente as duas primeiras linhas em <code>/labs/topo.txt</code>.</p>",
+    "hints": [
+      {
+        "text": "O comando head mostra o começo de um arquivo, e -n escolhe quantas linhas."
+      },
+      {
+        "text": "head -n 2 arquivo.",
+        "command": "head -n 2 /labs/linhas.txt > /labs/topo.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "printf 'l1\\nl2\\nl3\\n' > /labs/linhas.txt"
+        },
+        {
+          "command": "head -n 2 /labs/linhas.txt > /labs/topo.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/linhas.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/linhas.txt",
+        "content": "l1\nl2\nl3\n",
+        "match": "equals"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/topo.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/topo.txt",
+        "content": "l1\nl2\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "d1",
+    "title": "Sigilo, passo 1: o arquivo secreto",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o diretório <code>/labs/privado</code> e, dentro dele, o arquivo <code>segredo.txt</code> com o texto <code>segredo</code>.</p>",
+    "hints": [
+      {
+        "text": "mkdir -p e echo."
+      },
+      {
+        "text": "echo texto > arquivo.",
+        "command": "echo segredo > /labs/privado/segredo.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/privado"
+        },
+        {
+          "command": "echo segredo > /labs/privado/segredo.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/privado"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/privado/segredo.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/privado/segredo.txt",
+        "content": "segredo\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "d2",
+    "title": "Sigilo, passo 2: só o dono lê",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Deixe o <code>segredo.txt</code> legível e gravável só pelo dono (modo <code>600</code>).</p>",
+    "hints": [
+      {
+        "text": "Dono: 6 (ler e escrever). Grupo e outros: 0."
+      },
+      {
+        "text": "chmod 600 caminho.",
+        "command": "chmod 600 /labs/privado/segredo.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "chmod 600 /labs/privado/segredo.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "MODE",
+        "path": "/labs/privado/segredo.txt",
+        "mode": "600"
+      }
+    ],
+    "dependsOn": "d1",
+    "link": "practice"
+  },
+  {
+    "key": "d3",
+    "title": "Sigilo, passo 3: um novo dono",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o usuário <code>carla</code> e passe o <code>segredo.txt</code> para ela.</p>",
+    "hints": [
+      {
+        "text": "Crie o usuário, depois troque o dono."
+      },
+      {
+        "text": "chown usuario caminho.",
+        "command": "chown carla /labs/privado/segredo.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "useradd carla"
+        },
+        {
+          "command": "chown carla /labs/privado/segredo.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "USER_EXISTS",
+        "name": "carla"
+      },
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "carla"
+      },
+      {
+        "kind": "OWNER",
+        "path": "/labs/privado/segredo.txt",
+        "owner": "carla",
+        "group": "root"
+      }
+    ],
+    "dependsOn": "d2",
+    "link": "practice"
+  },
+  {
+    "key": "d4",
+    "title": "Sigilo, passo 4: o grupo também lê",
+    "difficulty": "HARD",
+    "statement": "<p>Libere a leitura para o grupo do <code>segredo.txt</code> (modo <code>640</code>).</p>",
+    "hints": [
+      {
+        "text": "O dígito do meio é o do grupo. Leitura vale 4."
+      },
+      {
+        "text": "Dono 6, grupo 4, outros 0.",
+        "command": "chmod 640 /labs/privado/segredo.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "chmod 640 /labs/privado/segredo.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "MODE",
+        "path": "/labs/privado/segredo.txt",
+        "mode": "640"
+      }
+    ],
+    "dependsOn": "d3",
+    "link": "practice"
+  },
+  {
+    "key": "e1",
+    "title": "Cópia de segurança, passo 1: os documentos",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o diretório <code>/labs/docs</code> com três arquivos vazios: <code>a.txt</code>, <code>b.txt</code> e <code>c.txt</code>.</p>",
+    "hints": [
+      {
+        "text": "touch aceita vários nomes."
+      },
+      {
+        "text": "Um touch com os três.",
+        "command": "touch /labs/docs/a.txt /labs/docs/b.txt /labs/docs/c.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/docs"
+        },
+        {
+          "command": "touch /labs/docs/a.txt /labs/docs/b.txt /labs/docs/c.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/docs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/docs/a.txt"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/docs/b.txt"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/docs/c.txt"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "e2",
+    "title": "Cópia de segurança, passo 2: copiar o diretório",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Faça uma cópia de <code>/labs/docs</code>, com tudo que há dentro, em <code>/labs/docs_bkp</code>.</p>",
+    "hints": [
+      {
+        "text": "Para copiar um diretório inteiro o cp precisa da opção -r (recursivo)."
+      },
+      {
+        "text": "cp -r origem destino.",
+        "command": "cp -r /labs/docs /labs/docs_bkp"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "cp -r /labs/docs /labs/docs_bkp"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/docs_bkp"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/docs_bkp/a.txt"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/docs_bkp/b.txt"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/docs_bkp/c.txt"
+      }
+    ],
+    "dependsOn": "e1",
+    "link": "practice"
+  },
+  {
+    "key": "e3",
+    "title": "Cópia de segurança, passo 3: um acidente",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Apague, por engano, o arquivo <code>/labs/docs/a.txt</code>. A cópia em <code>/labs/docs_bkp</code> continua intacta.</p>",
+    "hints": [
+      {
+        "text": "rm apaga arquivos."
+      },
+      {
+        "text": "Um comando.",
+        "command": "rm /labs/docs/a.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "rm /labs/docs/a.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "PATH_ABSENT",
+        "path": "/labs/docs/a.txt"
+      }
+    ],
+    "dependsOn": "e2",
+    "link": "practice"
+  },
+  {
+    "key": "e4",
+    "title": "Cópia de segurança, passo 4: restaurar",
+    "difficulty": "HARD",
+    "statement": "<p>Restaure o <code>a.txt</code> em <code>/labs/docs</code>, copiando-o de <code>/labs/docs_bkp</code>.</p>",
+    "hints": [
+      {
+        "text": "Copie da cópia de segurança de volta para o lugar de origem."
+      },
+      {
+        "text": "cp origem destino.",
+        "command": "cp /labs/docs_bkp/a.txt /labs/docs/a.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "cp /labs/docs_bkp/a.txt /labs/docs/a.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/docs/a.txt"
+      }
+    ],
+    "dependsOn": "e3",
+    "link": "practice"
+  },
+  {
+    "key": "f1",
+    "title": "Frutas, passo 1: a lista",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o arquivo <code>/labs/frutas.txt</code> com as linhas <code>banana</code>, <code>abacaxi</code> e <code>uva</code>, nessa ordem.</p>",
+    "hints": [
+      {
+        "text": "printf escreve várias linhas de uma vez."
+      },
+      {
+        "text": "Use \\n entre as linhas.",
+        "command": "printf 'banana\\nabacaxi\\nuva\\n' > /labs/frutas.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "printf 'banana\\nabacaxi\\nuva\\n' > /labs/frutas.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/frutas.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/frutas.txt",
+        "content": "banana\nabacaxi\nuva\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "f2",
+    "title": "Frutas, passo 2: mais uma fruta",
+    "difficulty": "EASY",
+    "statement": "<p>Acrescente a linha <code>manga</code> ao final do <code>/labs/frutas.txt</code>, sem apagar o que já está lá.</p>",
+    "hints": [
+      {
+        "text": "O símbolo >> acrescenta ao final, e o > sobrescreve."
+      },
+      {
+        "text": "echo texto >> arquivo.",
+        "command": "echo manga >> /labs/frutas.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "echo manga >> /labs/frutas.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/frutas.txt",
+        "content": "banana\nabacaxi\nuva\nmanga\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": "f1",
+    "link": "practice"
+  },
+  {
+    "key": "f3",
+    "title": "Frutas, passo 3: em ordem alfabética",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Guarde as frutas em ordem alfabética em <code>/labs/ordenadas.txt</code>.</p>",
+    "hints": [
+      {
+        "text": "O comando sort ordena as linhas."
+      },
+      {
+        "text": "Redirecione a saída.",
+        "command": "sort /labs/frutas.txt > /labs/ordenadas.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "sort /labs/frutas.txt > /labs/ordenadas.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/ordenadas.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/ordenadas.txt",
+        "content": "abacaxi\nbanana\nmanga\nuva\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": "f2",
+    "link": "practice"
+  },
+  {
+    "key": "f4",
+    "title": "Frutas, passo 4: filtrar",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Guarde em <code>/labs/comecam_b.txt</code> só as linhas de <code>/labs/ordenadas.txt</code> que começam com <code>b</code>.</p>",
+    "hints": [
+      {
+        "text": "O grep filtra linhas. O símbolo ^ marca o começo da linha."
+      },
+      {
+        "text": "grep '^b' arquivo.",
+        "command": "grep '^b' /labs/ordenadas.txt > /labs/comecam_b.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "grep '^b' /labs/ordenadas.txt > /labs/comecam_b.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/comecam_b.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/comecam_b.txt",
+        "content": "banana\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": "f3",
+    "link": "practice"
+  },
+  {
+    "key": "g1",
+    "title": "Projeto, passo 1: a estrutura",
+    "difficulty": "EASY",
+    "statement": "<p>Crie os diretórios <code>/labs/app/src</code> e <code>/labs/app/docs</code>.</p>",
+    "hints": [
+      {
+        "text": "mkdir -p cria os pais."
+      },
+      {
+        "text": "Dois comandos.",
+        "command": "mkdir -p /labs/app/src"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/app/src"
+        },
+        {
+          "command": "mkdir -p /labs/app/docs"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/app"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/app/docs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/app/src"
+      }
+    ],
+    "dependsOn": null,
+    "link": "practice"
+  },
+  {
+    "key": "g2",
+    "title": "Projeto, passo 2: o código",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o arquivo vazio <code>/labs/app/src/main.c</code>.</p>",
+    "hints": [
+      {
+        "text": "touch cria arquivos vazios."
+      },
+      {
+        "text": "Um comando.",
+        "command": "touch /labs/app/src/main.c"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "touch /labs/app/src/main.c"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/app/src/main.c"
+      }
+    ],
+    "dependsOn": "g1",
+    "link": "practice"
+  },
+  {
+    "key": "g3",
+    "title": "Projeto, passo 3: reorganizar",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Mova o <code>main.c</code> de <code>/labs/app/src</code> para <code>/labs/app/docs</code>.</p>",
+    "hints": [
+      {
+        "text": "mv move arquivos entre diretórios."
+      },
+      {
+        "text": "mv origem destino.",
+        "command": "mv /labs/app/src/main.c /labs/app/docs/main.c"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mv /labs/app/src/main.c /labs/app/docs/main.c"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "PATH_ABSENT",
+        "path": "/labs/app/src/main.c"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/app/docs/main.c"
+      }
+    ],
+    "dependsOn": "g2",
+    "link": "practice"
+  },
+  {
+    "key": "s16",
+    "title": "Arquivo somente leitura",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o arquivo <code>/labs/leitura.txt</code> e deixe-o somente para leitura para todos (modo <code>444</code>).</p>",
+    "hints": [
+      {
+        "text": "chmod com um número define as permissões de dono, grupo e outros."
+      },
+      {
+        "text": "Leitura é 4, então 444.",
+        "command": "chmod 444 /labs/leitura.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "touch /labs/leitura.txt"
+        },
+        {
+          "command": "chmod 444 /labs/leitura.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/leitura.txt"
+      },
+      {
+        "kind": "MODE",
+        "path": "/labs/leitura.txt",
+        "mode": "444"
+      }
+    ],
+    "dependsOn": null,
+    "link": "assessment"
+  },
+  {
+    "key": "s17",
+    "title": "Criar dois diretórios",
+    "difficulty": "EASY",
+    "statement": "<p>Crie os diretórios <code>/labs/projetoX</code> e <code>/labs/projetoY</code>.</p>",
+    "hints": [
+      {
+        "text": "O mkdir aceita vários nomes de uma vez."
+      },
+      {
+        "text": "mkdir nome1 nome2.",
+        "command": "mkdir /labs/projetoX /labs/projetoY"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs"
+        },
+        {
+          "command": "mkdir /labs/projetoX /labs/projetoY"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/projetoX"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/projetoY"
+      }
+    ],
+    "dependsOn": null,
+    "link": "assessment"
+  },
+  {
+    "key": "s18",
+    "title": "Guardar um valor em um arquivo",
+    "difficulty": "EASY",
+    "statement": "<p>Crie o diretório <code>/labs/s18/dados</code> e, dentro dele, o arquivo <code>valor.txt</code> contendo o número <code>42</code>.</p>",
+    "hints": [
+      {
+        "text": "Crie primeiro os diretórios, com -p."
+      },
+      {
+        "text": "echo 42 > arquivo.",
+        "command": "echo 42 > /labs/s18/dados/valor.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/s18/dados"
+        },
+        {
+          "command": "echo 42 > /labs/s18/dados/valor.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/s18"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/s18/dados"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/s18/dados/valor.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/s18/dados/valor.txt",
+        "content": "42\n",
+        "match": "equals"
+      }
+    ],
+    "dependsOn": null,
+    "link": "assessment"
+  },
+  {
+    "key": "s19",
+    "title": "Usuário com diretório pessoal",
+    "difficulty": "MEDIUM",
+    "statement": "<p>Crie o usuário <code>lucas</code> já com o diretório pessoal <code>/home/lucas</code>.</p>",
+    "hints": [
+      {
+        "text": "A opção -m do useradd cria o diretório pessoal."
+      },
+      {
+        "text": "useradd -m nome.",
+        "command": "useradd -m lucas"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "useradd -m lucas"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "USER_EXISTS",
+        "name": "lucas"
+      },
+      {
+        "kind": "GROUP_EXISTS",
+        "name": "lucas"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/home/lucas"
+      },
+      {
+        "kind": "MODE",
+        "path": "/home/lucas",
+        "mode": "750"
+      },
+      {
+        "kind": "OWNER",
+        "path": "/home/lucas",
+        "owner": "lucas",
+        "group": "lucas"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/home/lucas/.bash_logout"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/home/lucas/.bash_logout",
+        "content": "# ~/.bash_logout: executado pelo bash(1) quando o shell de login termina.\n",
+        "match": "equals"
+      },
+      {
+        "kind": "OWNER",
+        "path": "/home/lucas/.bash_logout",
+        "owner": "lucas",
+        "group": "lucas"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/home/lucas/.bashrc"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/home/lucas/.bashrc",
+        "content": "# ~/.bashrc: executado pelo bash(1) para shells não-login.\nalias ll='ls -alF'\nalias la='ls -A'\nalias l='ls -CF'\n",
+        "match": "equals"
+      },
+      {
+        "kind": "OWNER",
+        "path": "/home/lucas/.bashrc",
+        "owner": "lucas",
+        "group": "lucas"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/home/lucas/.profile"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/home/lucas/.profile",
+        "content": "# ~/.profile: executado pelo interpretador de comandos para shells de login.\nif [ -n \"$BASH_VERSION\" ]; then\n    . \"$HOME/.bashrc\"\nfi\n",
+        "match": "equals"
+      },
+      {
+        "kind": "OWNER",
+        "path": "/home/lucas/.profile",
+        "owner": "lucas",
+        "group": "lucas"
+      }
+    ],
+    "dependsOn": null,
+    "link": "assessment"
+  },
+  {
+    "key": "s20",
+    "title": "Relatório privado",
+    "difficulty": "HARD",
+    "statement": "<p>Crie o diretório <code>/labs/s20</code> e, dentro dele, o arquivo <code>relatorio.txt</code> com o texto <code>ok</code>, legível e gravável só pelo dono (modo <code>600</code>).</p>",
+    "hints": [
+      {
+        "text": "Crie o diretório, o arquivo e só então mude o modo."
+      },
+      {
+        "text": "Dono 6, grupo 0, outros 0.",
+        "command": "chmod 600 /labs/s20/relatorio.txt"
+      }
+    ],
+    "solution": {
+      "summary": "",
+      "steps": [
+        {
+          "command": "mkdir -p /labs/s20"
+        },
+        {
+          "command": "echo ok > /labs/s20/relatorio.txt"
+        },
+        {
+          "command": "chmod 600 /labs/s20/relatorio.txt"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs"
+      },
+      {
+        "kind": "DIR_EXISTS",
+        "path": "/labs/s20"
+      },
+      {
+        "kind": "FILE_EXISTS",
+        "path": "/labs/s20/relatorio.txt"
+      },
+      {
+        "kind": "FILE_CONTENT",
+        "path": "/labs/s20/relatorio.txt",
+        "content": "ok\n",
+        "match": "equals"
+      },
+      {
+        "kind": "MODE",
+        "path": "/labs/s20/relatorio.txt",
+        "mode": "600"
+      }
+    ],
+    "dependsOn": null,
+    "link": "assessment"
+  }
+]

@@ -45,6 +45,7 @@ func NewSeeder(repo SeedRepository) *Seeder {
 // SeedModuleInput describes a module coming from the content manifest.
 type SeedModuleInput struct {
 	SourceKey    string
+	Slug         string
 	OwnerID      uuid.UUID
 	Title        string
 	Description  string
@@ -61,6 +62,10 @@ func (s *Seeder) UpsertModule(ctx context.Context, in SeedModuleInput) (uuid.UUI
 		return uuid.Nil, "", domain.ErrInvalidVisibility
 	}
 	existing, err := s.repo.FindModuleBySourceKey(ctx, in.SourceKey)
+	var slugPtr *string
+	if in.Slug != "" {
+		slugPtr = &in.Slug
+	}
 	switch {
 	case errors.Is(err, domain.ErrModuleNotFound):
 		key, icon, color, order := in.SourceKey, in.Icon, in.Color, in.DisplayOrder
@@ -71,6 +76,7 @@ func (s *Seeder) UpsertModule(ctx context.Context, in SeedModuleInput) (uuid.UUI
 			Visibility:   in.Visibility,
 			Status:       domain.ModuleStatusActive,
 			SourceKey:    &key,
+			Slug:         slugPtr,
 			Icon:         &icon,
 			Color:        &color,
 			DisplayOrder: &order,
@@ -88,6 +94,7 @@ func (s *Seeder) UpsertModule(ctx context.Context, in SeedModuleInput) (uuid.UUI
 	existing.Title = in.Title
 	existing.Description = in.Description
 	existing.Visibility = in.Visibility
+	existing.Slug = slugPtr
 	existing.Icon = &icon
 	existing.Color = &color
 	existing.DisplayOrder = &order
