@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-023 |
-| **Status** | Implementada |
+| **Status** | Rascunho |
 | **Data de criação** | 10/10/2026 |
-| **Última revisão** | 10/10/2026 (implementada) |
+| **Última revisão** | 10/10/2026 (revisão 2: banco central e snapshot único, aguardando aprovação) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -193,6 +193,46 @@ Nenhuma em aberto. Decisões do Tech Lead de 10/10/2026 (D-01 a D-03) e aceitas 
 
 ---
 
+## 11. Revisão 2: banco central de exercícios e snapshot único
+
+Pedido do Tech Lead de 10/10/2026. **Esta revisão substitui, onde conflitar, os itens indicados da versão implementada (revisão 1); o código só muda depois da aprovação.**
+
+### 11.1. Banco central e vinculação
+
+- O **Banco de exercícios do módulo** é a única fonte da verdade: criar, editar e remover um exercício só acontece nele. Os blocos "Disponíveis no módulo" e "Reservados para avaliação" deixam de criar exercícios: são **listas de vinculação** de exercícios do banco.
+- Um exercício do banco tem **vínculos**: `Prática` (aparece na trilha do estudante, RN-03) e `Avaliação` (reservado para provas), e a marca `Exclusivo da avaliação`. O mesmo exercício pode ter os dois vínculos, a não ser que seja exclusivo: um exercício exclusivo não pode estar na prática. Sem nenhum vínculo, é "Não vinculado".
+- O banco lista **todos** os exercícios, com a etiqueta do que cada um é: Disponível no módulo, Reservado para avaliação, Exclusivo da avaliação ou Não vinculado, e com filtro por vínculo, nível e publicação.
+- Em cada bloco, **"Adicionar do Banco"** abre uma seleção (com filtro) dos exercícios que ainda não estão no bloco, e **"Remover do bloco"** desvincula sem apagar do banco. Se a docente quiser um exercício que ainda não existe, o "Adicionar do Banco" oferece **"Criar nova questão"**: abre o formulário do banco, salva nele e já vincula ao bloco de onde veio.
+- Editar um exercício altera o registro do banco, e vale para todos os blocos em que ele está.
+
+### 11.2. Snapshot único (substitui RN-06, RN-07 e D-03)
+
+- O módulo tem **um** snapshot da base de exercícios (`bank_setup`), no lugar dos dois (`exercises_setup` e `assessment_setup`). Ele é gravado no terminal sobre o snapshot do módulo e vale para **todos** os exercícios do banco, na prática e na avaliação.
+- A máquina de qualquer exercício parte do snapshot do módulo, do snapshot do banco e, se o exercício continua do anterior (RN-11), da receita da cadeia. Não há snapshot por bloco nem por exercício.
+- A avaliação usa esse mesmo snapshot e só **filtra** quais exercícios participam: os vinculados à `Avaliação`. O congelamento do banco no momento em que uma prova é aplicada pertence à spec de avaliação (já existe o congelamento por versão do módulo, SPEC-021, que passa a incluir o `bank_setup`).
+
+### 11.3. Efeitos nos itens da revisão 1
+
+| Item | Efeito |
+| :--- | :--- |
+| RN-03 | A trilha continua sendo o vínculo `Prática`; o vínculo `Avaliação` é novo. Disponibilizar e reservar viram vincular e desvincular, sem tirar o exercício do banco |
+| RN-04 | Só chega ao estudante o exercício publicado e com vínculo `Prática` |
+| RN-10 | O teste do módulo roda o snapshot único e, sobre ele, os exercícios publicados com vínculo `Prática` em sequência e os com vínculo `Avaliação` cada um sobre uma máquina nova |
+| CA-03, CA-04 | CA-03 passa a ser vincular e desvincular; CA-04 passa a gravar um único snapshot |
+| Modelo de dados | `questions` ganha `in_assessment` e `exclusive_assessment` (booleanos); `usage` deixa de decidir a prática (a trilha decide) e fica só para a carga inicial; `course_modules` troca `exercises_setup` e `assessment_setup` por `bank_setup` (os dois atuais se fundem na migração: o de prática vence; o de avaliação vira um aviso na revisão da docente) |
+| API | `PUT /exercises/{id}/links` (corpo: `practice`, `assessment`, `exclusive`); `POST /exercises` aceita os vínculos iniciais; `PUT /exercise-setup` (um só); a listagem traz os vínculos de cada exercício |
+
+### 11.4. Pendências da revisão 2
+
+| ID | Pendência | Recomendação |
+| :--- | :--- | :--- |
+| P-08 | "Snapshot do banco" pode ser o **ambiente** (comandos e arquivos que preparam a máquina) ou o **congelamento do conteúdo** do banco no momento da prova | Ambiente único (11.2). O congelamento do conteúdo na aplicação de uma prova fica para a spec de avaliação |
+| P-09 | O exercício "exclusivo da avaliação" bloqueia só a prática, ou também some dos módulos de outras pessoas | Bloqueia só a prática do próprio módulo (o banco é por módulo, D-02) |
+| P-10 | Os exercícios que já estão no conjunto de avaliação (uso `ASSESSMENT`) e os modelos de avaliação da SPEC-011 que os usam | A migração marca `in_assessment` nos de uso `ASSESSMENT`; os modelos de avaliação passam a ler `in_assessment` em vez de `usage` |
+| P-11 | A migração dos dois snapshots atuais num só | Fundir: o de prática vira o `bank_setup`; se só existir o de avaliação, ele é usado |
+
+---
+
 ## Histórico de revisões
 
 | Data | Autor | Alteração |
@@ -201,3 +241,4 @@ Nenhuma em aberto. Decisões do Tech Lead de 10/10/2026 (D-01 a D-03) e aceitas 
 | 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01 a P-07 (viram D-04 a D-10); seção 5 detalhada |
 | 10/10/2026 | Implementador (Claude) | Implementada: migração 00016, banco de exercícios no backend (serviço, repositório, rotas, trilha, snapshots, autoria, versões), aba Exercícios do módulo e página do exercício, teste do módulo com o banco, entrega ao estudante com o cenário em camadas. Ajustes A-01 a A-08 |
 | 10/10/2026 | Tech Lead | Pedido: exercícios em sequência (criar a pasta, depois o script dentro dela, depois rodar o script), como descrito no TCC (herança de cenários). Incluídos RN-11, CA-11, a coluna `continues_previous` e o ajuste A-09 |
+| 10/10/2026 | Tech Lead | Pedido de revisão 2: banco central de exercícios com blocos de vinculação (adicionar do banco, remover do bloco, criar já vinculando, exclusivo da avaliação) e snapshot único da base de exercícios. Spec volta a Rascunho com as pendências P-08 a P-11 |
