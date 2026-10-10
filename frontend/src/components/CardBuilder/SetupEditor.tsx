@@ -127,6 +127,8 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
   const [checking, setChecking] = useState(false);
   const terminal = useRef<TerminalWindow | null>(null);
   const started = useRef(0);
+  /** True while the layers run: the commands they run are not typed by the author. */
+  const preparing = useRef(false);
   /** The machine the author started from, to build the same one again when checking the result. */
   const baseMachine = useRef<unknown>(null);
   const latest = useRef({ before, loadBase, steps: current });
@@ -181,9 +183,13 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
     terminal.current = win;
     const own = latest.current.steps;
     const layers = own.steps.length > 0 ? [...latest.current.before, { id: "own", kind: "card" as const, label: m.ownLayer, setup: own }] : latest.current.before;
+    preparing.current = true;
     const results = await runLayers(win, layers);
     setConflicts(results.filter(isConflict));
+    // What the layers ran is not what the author typed: the list starts empty after them.
     started.current = win.history().length;
+    preparing.current = false;
+    setTyped([]);
     setReady(true);
   };
 
@@ -418,7 +424,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
             {!base && !failed && <p className={styles.hint}>{m.loading}</p>}
             {base && (
               <div className={styles.terminalBox}>
-                <TerminalPane key={attempt} snapshot={base.machine} onReady={(win) => void prepare(win)} onCommand={() => setTyped(terminal.current ? terminal.current.history().slice(started.current) : [])} />
+                <TerminalPane key={attempt} snapshot={base.machine} onReady={(win) => void prepare(win)} onCommand={() => !preparing.current && setTyped(terminal.current ? terminal.current.history().slice(started.current) : [])} />
               </div>
             )}
           </div>

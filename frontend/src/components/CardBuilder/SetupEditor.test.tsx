@@ -142,6 +142,42 @@ describe("SetupEditor, the commands above the recording", () => {
     expect((onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["mkdir /home/ricardo/financeiro", "touch /home/ricardo/financeiro/a.txt", "ls /home/ricardo/financeiro"]);
   });
 
+  // The real terminal reports every command it runs, the ones of the snapshots included: they are not what the author typed.
+  it("does not list as typed what the snapshots ran while the machine was prepared", async () => {
+    let history: string[] = [];
+    let onCommand: ((snapshot: unknown) => void) | undefined;
+    const win = {
+      execute: vi.fn(async ({ command }: { command: string }) => {
+        history = [...history, command];
+        onCommand?.({});
+        return { status: 0, output: "" };
+      }),
+      setSpeed: vi.fn(),
+      history: () => history,
+      destroy: vi.fn(),
+    };
+    mount.mockImplementation(async (_c: HTMLElement, _s: unknown, callbacks: { onCommand(s: unknown): void }) => {
+      onCommand = callbacks.onCommand;
+      return win;
+    });
+    const before: SetupLayer[] = [{ id: "module", kind: "module", label: "Módulo", setup: { summary: "", steps: [{ command: "mkdir /home/ricardo/financeiro" }, { command: "cd /home/ricardo/financeiro" }] } }];
+    const { onChange } = setup({ before });
+
+    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
+    await waitFor(() => expect(win.execute).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByText(/Preparando a máquina com o módulo/)).toBeNull());
+    expect(screen.getByText("Nenhum comando ainda.")).toBeDefined();
+    expect(screen.queryByText("mkdir /home/ricardo/financeiro")).toBeNull();
+
+    // Only what is typed after them counts.
+    history = [...history, "ls"];
+    onCommand?.({});
+    expect(await screen.findByText("ls")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes comandos" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect((onChange.mock.calls.at(-1)![0] as Setup).steps.map((s) => s.command)).toEqual(["ls"]);
+  });
+
   it("names the command above that fails, as a conflict", async () => {
     mount.mockResolvedValue({ execute: vi.fn(async () => ({ status: 1, output: "x" })), setSpeed: vi.fn(), history: () => [], destroy: vi.fn() });
     setup({ setup: { summary: "", steps: [{ command: "mkdir /ja/existe" }] } });
