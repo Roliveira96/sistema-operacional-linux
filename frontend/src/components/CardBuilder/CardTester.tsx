@@ -18,6 +18,7 @@ export type Verdict =
   | { kind: "okError" }
   | { kind: "finished" }
   | { kind: "notFinished" }
+  | { kind: "untestable" }
   | { kind: "unexpectedError"; code: number }
   | { kind: "expectedErrorMissing" }
   | { kind: "notRun" }
@@ -47,6 +48,8 @@ function verdictText(v: Verdict): string {
       return m.finished;
     case "notFinished":
       return m.notFinished;
+    case "untestable":
+      return m.untestable;
     case "unexpectedError":
       return m.unexpectedError(v.code);
     case "expectedErrorMissing":
@@ -169,6 +172,12 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
           skipFrom(i, { kind: "stopped" });
           if (current && alive.current) setFinished(true);
           return;
+        }
+        if (step.untestable) {
+          // An exercise that cannot be tested fails the test: it is not run, and it is not left out.
+          set(i, { state: "done", verdict: { kind: "untestable" } });
+          passed = false;
+          continue;
         }
         if (step.command.trim() === "") {
           set(i, { state: "done", verdict: { kind: "empty" } });

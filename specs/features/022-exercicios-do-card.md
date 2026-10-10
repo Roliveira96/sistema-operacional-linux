@@ -161,3 +161,8 @@ Nenhuma em aberto. As decisões de modelagem abaixo foram tomadas pelo Implement
 - A página salva o card inteiro trocando só esse exercício; o botão Voltar/link retorna a `?tab=exercises`.
 - Ao salvar o card com erro, abre-se a primeira aba com erro e a mensagem diz qual: "Corrija os campos marcados na aba X antes de salvar."
 - Evolução prevista (visão do Tech Lead): exercícios do módulo (prática do módulo), dos cards (interação durante a solução) e de avaliação.
+
+## Exercício que não dá para testar
+
+- O teste do card e o teste do módulo (cada card, módulo em sequência e dependências) rodam a solução gravada de cada exercício e conferem as condições de término.
+- Um exercício sem solução gravada, ou com solução mas sem condições de término, **não é pulado**: aparece no teste como falha ("Não dá para testar este exercício: complete a solução ou as condições de término"), sem rodar nada. O card e o módulo só ficam com "Teste OK" quando todos os exercícios podem ser testados e passam.

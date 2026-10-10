@@ -180,6 +180,15 @@ describe("CardTester", () => {
     expect(await summary()).toHaveTextContent("1 de 2 comandos como esperado");
   });
 
+  it("fails on an exercise that cannot be tested, without running it and without leaving it out", async () => {
+    const onFinish = vi.fn();
+    setup([cmd("ls"), cmd("(sem solução gravada: grave como fazer o exercício no terminal para poder testá-lo)", { id: "no-solution", untestable: "no-solution" } as Partial<CardCommand>)], { onFinish });
+    await summary();
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Não dá para testar este exercício/)).toBeDefined();
+    await waitFor(() => expect(onFinish).toHaveBeenCalledWith(false));
+  });
+
   it("can be stopped, and what was left is shown as not run (CA-12)", async () => {
     let release: (result: { status: number; output: string }) => void = () => {};
     execute.mockImplementationOnce(() => new Promise((resolve) => (release = resolve)));

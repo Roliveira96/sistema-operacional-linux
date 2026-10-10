@@ -58,21 +58,33 @@ describe("exercises", () => {
 });
 
 describe("exerciseTestItems", () => {
-  it("runs the solution of each exercise, in order, and then checks how it ends; an exercise with no solution is not run", () => {
+  it("runs the solution of each exercise, in order, and then checks how it ends; an exercise that cannot be tested is marked, not skipped", () => {
     const { items, sections } = exerciseTestItems(parseExercises(stored));
-    expect(items.map((i) => i.command)).toEqual(["mkdir /srv/x", "(1 arquivo da solução)", "(conferir como o exercício termina: 2 condições)"]);
+    expect(items.map((i) => i.command)).toEqual([
+      "mkdir /srv/x",
+      "(1 arquivo da solução)",
+      "(conferir como o exercício termina: 2 condições)",
+      "(sem solução gravada: grave como fazer o exercício no terminal para poder testá-lo)",
+    ]);
+    expect(items[3]).toMatchObject({ untestable: "no-solution" });
     expect(items[0]).toMatchObject({ terminal: 2, login: { user: "ana", password: "1" } });
     expect(items[1]!.files).toEqual([{ path: "/srv/x/a.txt", content: "oi" + NL }]);
     expect(items[2]!.check).toHaveLength(2);
-    expect(sections).toEqual({ 0: "Exercício: Criar a pasta" });
+    expect(sections).toEqual({ 0: "Exercício: Criar a pasta", 3: "Exercício: Sem solução" });
+  });
+
+  it("marks an exercise that has a solution but no conditions, since how it ends cannot be checked", () => {
+    const group = parseExercises({ items: [{ title: "Só solução", difficulty: "EASY", solution: { summary: "", steps: [{ command: "ls" }] } }] });
+    const { items } = exerciseTestItems(group);
+    expect(items.map((i) => i.untestable)).toEqual([undefined, "no-conditions"]);
   });
 
   it("puts the exercises after the commands of the card, with the labels at the right place", () => {
     const commands = [{ id: "c1", terminal: 1, command: "ls", expectError: false, answers: [] }];
     const { items, exerciseSections } = cardTestItems({ commands, exercises: parseExercises(stored) });
     expect(items.map((i) => i.command)[0]).toBe("ls");
-    expect(items).toHaveLength(4);
-    expect(exerciseSections).toEqual({ 1: "Exercício: Criar a pasta" });
+    expect(items).toHaveLength(5);
+    expect(exerciseSections).toEqual({ 1: "Exercício: Criar a pasta", 4: "Exercício: Sem solução" });
     expect(cardTestItems({ commands, exercises: undefined })).toEqual({ items: commands, exerciseSections: {} });
   });
 });

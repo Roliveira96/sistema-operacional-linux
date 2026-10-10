@@ -104,18 +104,25 @@ export interface TestItem {
   answers: string[];
   files?: SetupFile[];
   check?: ExerciseCondition[];
+  /** Why this exercise cannot be tested (it has no recorded solution, or no condition that says how it ends); the test fails on it. */
+  untestable?: "no-solution" | "no-conditions";
 }
 
 /**
  * The solution of each exercise, in order, followed by the check of how it ends (SPEC-022 RN-09): the commands the
- * teacher recorded, the files they wrote, and then the conditions of finalization. An exercise with no solution is not run.
+ * teacher recorded, the files they wrote, and then the conditions of finalization. An exercise that cannot be tested (no
+ * recorded solution, or no condition that says how it ends) is not skipped: it shows up in the test as a failure, so the
+ * module is never "tested" with an exercise nobody checked.
  */
 export function exerciseTestItems(group: ExerciseGroup | undefined): { items: TestItem[]; sections: Record<number, string> } {
   const items: TestItem[] = [];
   const sections: Record<number, string> = {};
   for (const ex of group?.items ?? []) {
-    if (!hasSetup(ex.solution)) continue;
     sections[items.length] = `Exercício: ${ex.title.trim() || "sem título"}`;
+    if (!hasSetup(ex.solution)) {
+      items.push({ id: newId(), terminal: 1, command: "(sem solução gravada: grave como fazer o exercício no terminal para poder testá-lo)", expectError: false, answers: [], untestable: "no-solution" });
+      continue;
+    }
     for (const step of ex.solution.steps) {
       items.push({ id: newId(), terminal: step.terminal ?? 1, command: step.command, expectError: false, login: step.login, answers: step.answers ?? [] });
     }
@@ -125,6 +132,8 @@ export function exerciseTestItems(group: ExerciseGroup | undefined): { items: Te
     }
     if (ex.conditions.length > 0) {
       items.push({ id: newId(), terminal: 1, command: `(conferir como o exercício termina: ${ex.conditions.length} ${ex.conditions.length === 1 ? "condição" : "condições"})`, expectError: false, answers: [], check: ex.conditions });
+    } else {
+      items.push({ id: newId(), terminal: 1, command: "(sem condições de término: defina como o exercício termina para poder conferi-lo)", expectError: false, answers: [], untestable: "no-conditions" });
     }
   }
   return { items, sections };

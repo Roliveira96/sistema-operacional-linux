@@ -375,6 +375,7 @@ export const authoringMessages = {
       okError: "Deu erro, como esperado",
       finished: "O exercício terminou como esperado",
       notFinished: "O exercício não terminou como esperado",
+      untestable: "Não dá para testar este exercício: complete a solução ou as condições de término",
       missing: "Faltou:",
       unexpectedError: (code: number) => `Deu erro (código ${code}) e não era esperado`,
       expectedErrorMissing: "Era para dar erro e não deu",
