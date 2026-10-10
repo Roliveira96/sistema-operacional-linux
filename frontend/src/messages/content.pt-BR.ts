@@ -1,6 +1,15 @@
 // Interface text of the content screens (SPEC-012), kept apart from the main
 // messages file. Portuguese, per ARCHITECTURE.md section 4.4.
 export const contentMessages = {
+  gallery: {
+    open: (caption: string) => `Ampliar: ${caption}`,
+    noCaption: "imagem",
+    title: "Galeria de imagens",
+    previous: "Imagem anterior",
+    next: "Próxima imagem",
+    close: "Fechar",
+    position: (n: number, total: number) => `${n} de ${total}`,
+  },
   exercises: {
     title: "Exercícios",
     difficulty: { EASY: "Fácil", MEDIUM: "Médio", HARD: "Difícil" },

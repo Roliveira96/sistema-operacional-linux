@@ -67,6 +67,23 @@
     margin: 0;
   }
 
+  // Several pictures in one element (SPEC-025 rev. 2): a grid that follows the width; a click opens them larger.
+  [class~="md-gallery"] {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
+    gap: var(--space-3);
+
+    img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: var(--color-surface-sunken);
+      object-fit: contain;
+      cursor: zoom-in;
+
+      @include mixins.focusable;
+    }
+  }
+
   figcaption {
     margin-top: var(--space-1);
     font-size: var(--font-size-sm);

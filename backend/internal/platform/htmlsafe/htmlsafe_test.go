@@ -42,6 +42,20 @@ func TestSanitizeKeepsTheImagesOfTheContent(t *testing.T) {
 	assert.NotContains(t, s.Sanitize(`<img src="http://x.com/lab/conteudo/`+hash+`.avif"><script>a</script>">`), "<script")
 }
 
+// Covers SPEC-025 rev. 2 (CA-16): a gallery of pictures of the system comes out of the filter whole, in order, with the class of the grid.
+func TestSanitizeKeepsTheGalleryOfImages(t *testing.T) {
+	s := New()
+	one := "http://192.168.3.104:9100/linux-lab/conteudo/" + strings.Repeat("a1", 32) + ".avif"
+	two := "https://cdn.exemplo.com/lab/conteudo/" + strings.Repeat("b2", 32) + ".gif"
+	in := `<div class="md-gallery"><figure class="md-image"><img src="` + one + `" alt="Um"><figcaption>Um</figcaption></figure>` +
+		`<figure class="md-image"><img src="` + two + `" alt=""></figure></div>`
+	out := s.Sanitize(in)
+	assert.Equal(t, in, out)
+	assert.Less(t, strings.Index(out, one), strings.Index(out, two))
+	// A script smuggled between the pictures does not survive.
+	assert.NotContains(t, s.Sanitize(`<div class="md-gallery"><script>x()</script>`+in+`</div>`), "<script")
+}
+
 func TestPlainText(t *testing.T) {
 	assert.Equal(t, "ls · cd — Resumo da aula", PlainText("<p>ls · cd — Resumo</p><p>da   aula</p>"))
 	assert.Equal(t, "A & B < C", PlainText("<p>A &amp; B &lt; C</p>"))

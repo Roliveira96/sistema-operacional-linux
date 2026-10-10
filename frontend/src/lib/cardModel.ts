@@ -12,6 +12,16 @@ type Payload = Record<string, unknown>;
 
 export type ElementKind = "text" | "html" | "code" | "table" | "image" | "video" | "link" | "block";
 
+/** One picture of an element Imagens (SPEC-025 rev. 2). An empty `url` is a picture whose file is still being sent. */
+export interface GalleryImage {
+  id: string;
+  url: string;
+  caption: string;
+}
+
+/** The most pictures one element holds (SPEC-025 RN-09). */
+export const MAX_GALLERY_IMAGES = 12;
+
 /** One piece of the "descrição modular": the text, raw html, a snippet, a table, a picture, a video or a link. */
 export interface CardElement {
   id: string;
@@ -26,6 +36,8 @@ export interface CardElement {
   rows: string;
   url: string;
   caption: string;
+  /** The pictures of an element Imagens: one is a simple figure, two or more a gallery. */
+  images: GalleryImage[];
   /** A block of another type (steps, cards, widget, raw html), kept as it is. */
   block?: AuthoredBlock;
 }
@@ -126,8 +138,12 @@ export function elementHtml(el: CardElement): string {
       return `<table class="md-table">${head}<tbody>${body}</tbody></table>`;
     }
     case "image": {
-      const caption = el.caption.trim();
-      return `<figure class="md-image"><img src="${escapeHtml(el.url.trim())}" alt="${escapeHtml(caption)}">${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ""}</figure>`;
+      const figure = (img: GalleryImage) => {
+        const caption = img.caption.trim();
+        return `<figure class="md-image"><img src="${escapeHtml(img.url.trim())}" alt="${escapeHtml(caption)}">${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ""}</figure>`;
+      };
+      const pictures = el.images.filter((img) => img.url.trim() !== "");
+      return pictures.length > 1 ? `<div class="md-gallery">${pictures.map(figure).join("")}</div>` : pictures.map(figure).join("");
     }
     case "video":
       return `<div class="md-video"><iframe src="${escapeHtml(el.url.trim())}" allowfullscreen></iframe></div>`;
@@ -138,7 +154,7 @@ export function elementHtml(el: CardElement): string {
   }
 }
 
-const blank = (): Omit<CardElement, "id" | "kind"> => ({ html: "", lang: "bash", code: "", headers: "", rows: "", url: "", caption: "" });
+const blank = (): Omit<CardElement, "id" | "kind"> => ({ html: "", lang: "bash", code: "", headers: "", rows: "", url: "", caption: "", images: [] });
 
 export function newElement(kind: Exclude<ElementKind, "block">): CardElement {
   const base = { id: newId(), kind, ...blank() };
@@ -188,9 +204,16 @@ export function classify(html: string): Omit<CardElement, "id" | "blockId" | "up
       const body = [...el.querySelectorAll("tbody tr, :scope > tr")].map(row);
       return { ...text, kind: "table", html: "", headers: head ? row(head) : "", rows: body.join(String.fromCharCode(10)) };
     }
+    // One picture, or a gallery of them: both open as an element Imagens (a picture of the first release is a gallery of one).
+    const figure = (f: Element): GalleryImage => {
+      const img = f.querySelector("img");
+      return { id: newId(), url: img?.getAttribute("src") ?? "", caption: f.querySelector("figcaption")?.textContent ?? img?.getAttribute("alt") ?? "" };
+    };
     if (el.tagName === "FIGURE" && el.classList.contains("md-image")) {
-      const img = el.querySelector("img");
-      return { ...text, kind: "image", html: "", url: img?.getAttribute("src") ?? "", caption: el.querySelector("figcaption")?.textContent ?? img?.getAttribute("alt") ?? "" };
+      return { ...text, kind: "image", html: "", images: [figure(el)] };
+    }
+    if (el.tagName === "DIV" && el.classList.contains("md-gallery") && el.children.length > 0 && [...el.children].every((c) => c.tagName === "FIGURE" && c.classList.contains("md-image"))) {
+      return { ...text, kind: "image", html: "", images: [...el.children].map(figure) };
     }
     if (el.classList.contains("md-video")) {
       return { ...text, kind: "video", html: "", url: el.querySelector("iframe")?.getAttribute("src") ?? "" };
@@ -357,8 +380,13 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
     if (el.kind === "code" && el.code.trim() === "") add(el.id, "required");
     if (el.kind === "table" && el.rows.trim() === "" && el.headers.trim() === "") add(el.id, "required");
     if (el.kind === "html" && el.html.trim() === "") add(el.id, "required");
-    if (el.kind === "image" && el.url.trim() === "") add(el.id, "image");
-    else if (el.kind === "image" && !httpsUrl.test(el.url.trim()) && !contentImageUrl.test(el.url.trim())) add(el.id, "https");
+    if (el.kind === "image") {
+      // At least one picture, every one already sent (or published elsewhere, from before), and no more than the limit.
+      if (el.images.length === 0) add(el.id, "image");
+      else if (el.images.some((img) => img.url.trim() === "")) add(el.id, "image-pending");
+      else if (el.images.some((img) => !httpsUrl.test(img.url.trim()) && !contentImageUrl.test(img.url.trim()))) add(el.id, "https");
+      if (el.images.length > MAX_GALLERY_IMAGES) add(el.id, "image-limit");
+    }
     if (el.kind === "video" && !youtubeEmbed.test(el.url.trim())) add(el.id, "youtube");
     if (el.kind === "link" && !httpUrl.test(el.url.trim())) add(el.id, "url");
   }

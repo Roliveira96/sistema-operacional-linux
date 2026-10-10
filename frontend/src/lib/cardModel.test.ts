@@ -133,8 +133,10 @@ describe("elements as html", () => {
     const table = { ...newElement("table"), headers: "Caminho | Para quê", rows: ["/etc | config", "/var | dados"].join(String.fromCharCode(10)) };
     expect(classify(elementHtml(table))).toMatchObject({ kind: "table", headers: "Caminho | Para quê", rows: table.rows });
 
-    const image = { ...newElement("image"), url: "https://x.com/a.png", caption: "Fluxo" };
-    expect(classify(elementHtml(image))).toMatchObject({ kind: "image", url: "https://x.com/a.png", caption: "Fluxo" });
+    // One picture is a simple figure, as in the first release; it opens as an element Imagens with one picture.
+    const image = { ...newElement("image"), images: [pic("https://x.com/a.png", "Fluxo")] };
+    expect(elementHtml(image)).toBe('<figure class="md-image"><img src="https://x.com/a.png" alt="Fluxo"><figcaption>Fluxo</figcaption></figure>');
+    expect(classify(elementHtml(image))).toMatchObject({ kind: "image", images: [{ url: "https://x.com/a.png", caption: "Fluxo" }] });
 
     const video = { ...newElement("video"), url: "https://www.youtube.com/embed/abc" };
     expect(classify(elementHtml(video))).toMatchObject({ kind: "video", url: "https://www.youtube.com/embed/abc" });
@@ -144,13 +146,69 @@ describe("elements as html", () => {
   });
 
   it("escapes what the author typed, and treats any other html as a text", () => {
-    const evil = { ...newElement("image"), url: 'https://x.com/a.png" onerror="x()', caption: "<script>" };
+    const evil = { ...newElement("image"), images: [pic('https://x.com/a.png" onerror="x()', "<script>")] };
     const html = elementHtml(evil);
     expect(html).not.toContain('onerror="x()"');
     expect(html).not.toContain("<script>");
     expect(classify("<p>só texto</p>").kind).toBe("text");
     expect(classify("<p>a</p><p>b</p>").kind).toBe("text");
     expect(elementHtml({ ...newElement("code"), lang: "bad lang!", code: "x" })).toContain("language-bash");
+  });
+});
+
+const pic = (url: string, caption = "") => ({ id: Math.random().toString(36), url, caption });
+
+// Covers SPEC-025 rev. 2 (RN-13, RN-14, RN-15, CA-16, CA-18): one picture or a gallery of them, stored as html and read back.
+describe("element Imagens", () => {
+  const html = (images: ReturnType<typeof pic>[]) => elementHtml({ ...newElement("image"), images });
+
+  it("stores two or more pictures as a gallery of figures, with the caption as the alt text, and reads them back in order", () => {
+    const out = html([pic("https://x.com/a.avif", "Um"), pic("https://x.com/b.avif"), pic("https://x.com/c.avif", "Três & <b>")]);
+    expect(out.startsWith('<div class="md-gallery">')).toBe(true);
+    expect(out.match(/<figure class="md-image">/g)).toHaveLength(3);
+    expect(out).toContain('alt="Um"');
+    expect(out).toContain("<figcaption>Três &amp; &lt;b&gt;</figcaption>");
+    // No caption, no figcaption: the alt text is empty.
+    expect(out).toContain('<img src="https://x.com/b.avif" alt="">');
+    const back = classify(out);
+    expect(back.kind).toBe("image");
+    expect(back.images.map((i) => [i.url, i.caption])).toEqual([["https://x.com/a.avif", "Um"], ["https://x.com/b.avif", ""], ["https://x.com/c.avif", "Três & <b>"]]);
+    expect(new Set(back.images.map((i) => i.id)).size).toBe(3);
+  });
+
+  it("keeps one picture as a simple figure, and leaves out the ones still being sent", () => {
+    expect(html([pic("https://x.com/a.avif")])).not.toContain("md-gallery");
+    expect(html([pic("https://x.com/a.avif"), pic("")])).not.toContain("md-gallery");
+    expect(html([pic("")])).toBe("");
+    expect(html([])).toBe("");
+  });
+
+  it("opens the picture of the first release as an element with one picture, and the same html as it was", () => {
+    const old = '<figure class="md-image"><img src="https://x.com/velha.png" alt="Antiga"><figcaption>Antiga</figcaption></figure>';
+    const read = classify(old);
+    expect(read).toMatchObject({ kind: "image", images: [{ url: "https://x.com/velha.png", caption: "Antiga" }] });
+    expect(html(read.images)).toBe(old);
+    // The caption can come only from the alt text.
+    expect(classify('<figure class="md-image"><img src="https://x.com/a.png" alt="Só alt"></figure>').images[0]!.caption).toBe("Só alt");
+  });
+
+  it("does not take for a gallery a div that holds something else", () => {
+    expect(classify('<div class="md-gallery"><figure class="md-image"><img src="https://x.com/a.png"></figure><p>solto</p></div>').kind).not.toBe("image");
+    expect(classify('<div class="md-gallery"></div>').kind).not.toBe("image");
+  });
+
+  it("asks for at least one picture, all of them sent, and no more than 12 (CA-15, CA-17)", () => {
+    const check = (images: ReturnType<typeof pic>[]) => {
+      const card = emptyCard();
+      card.title = "T";
+      card.elements = [{ ...newElement("image"), images }];
+      return checkCard(card, true)[card.elements[0]!.id];
+    };
+    expect(check([])).toEqual(["image"]);
+    expect(check([pic("https://x.com/a.png"), pic("  ")])).toEqual(["image-pending"]);
+    expect(check([pic("https://x.com/a.png"), pic("https://x.com/b.png")])).toBeUndefined();
+    expect(check(Array.from({ length: 13 }, () => pic("https://x.com/a.png")))).toEqual(["image-limit"]);
+    expect(check(Array.from({ length: 12 }, () => pic("https://x.com/a.png")))).toBeUndefined();
   });
 });
 
@@ -162,7 +220,7 @@ describe("checkCard", () => {
     card.tips = [{ id: "t", title: "", html: "<p></p>" }];
     const errors = checkCard(card, true);
     expect(Object.keys(errors)).toEqual(expect.arrayContaining(["title", "c", "t", ...card.elements.map((e) => e.id)]));
-    // An image with no address yet asks to be sent; one with a wrong address asks for https.
+    // An element with no picture yet asks for one.
     expect(errors[card.elements[1]!.id]).toEqual(["image"]);
     expect(errors[card.elements[2]!.id]).toEqual(["youtube"]);
     expect(errors[card.elements[3]!.id]).toEqual(["url"]);
@@ -176,20 +234,20 @@ describe("checkCard", () => {
     const check = (url: string) => {
       const card = emptyCard();
       card.title = "T";
-      card.elements = [{ ...newElement("image"), url }];
+      card.elements = [{ ...newElement("image"), images: [pic(url)] }];
       return checkCard(card, true)[card.elements[0]!.id];
     };
     expect(check(`http://192.168.3.104:9100/linux-lab/conteudo/${hash}.avif`)).toBeUndefined();
     expect(check(`https://cdn.exemplo.com/lab/conteudo/${hash}.gif`)).toBeUndefined();
     expect(check("http://x.com/a.png")).toEqual(["https"]);
     expect(check(`http://x.com/lab/conteudo/${hash}.png`)).toEqual(["https"]);
-    expect(check("   ")).toEqual(["image"]);
+    expect(check("   ")).toEqual(["image-pending"]);
   });
 
   it("finds nothing wrong in a good card", () => {
     const card = emptyCard();
     card.title = "T";
-    card.elements = [{ ...newElement("text"), html: "<p>x</p>" }, { ...newElement("image"), url: "https://x.com/a.png" }];
+    card.elements = [{ ...newElement("text"), html: "<p>x</p>" }, { ...newElement("image"), images: [pic("https://x.com/a.png")] }];
     expect(checkCard(card, true)).toEqual({});
   });
 });

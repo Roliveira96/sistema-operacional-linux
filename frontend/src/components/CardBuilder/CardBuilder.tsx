@@ -205,7 +205,7 @@ function ElementRow({
       break;
     case "image":
       body = (
-        <ImageElement n={n} id={el.id} url={el.url} caption={el.caption} errors={errors} upload={uploadImage} onChange={onChange} />
+        <ImageElement n={n} images={el.images} upload={uploadImage} onChange={onChange} />
       );
       break;
     case "video":

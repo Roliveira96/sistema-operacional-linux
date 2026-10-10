@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-025 |
-| **Status** | Rascunho (revisão 2: galeria e envio como único caminho; revisão 1 implementada) |
+| **Status** | Implementada (revisões 1 e 2) |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -191,13 +191,21 @@ O sanitizador já aceita `div`, `figure`, `figcaption` e `img` com o endereço d
 
 Modelo do card (ler e escrever uma e várias imagens, a imagem antiga, o limite, a legenda como alt, a validação de 1 a 12 e de imagem pendente), o elemento no editor (vários envios em ordem, falha de uma sem perder as outras, reordenar, remover, trocar, legenda, sem campo de endereço, limite), a exibição ao estudante (figura simples e grade) e o sanitizador com a classe `md-gallery`.
 
-### 11.6. Pendências da revisão 2 (com recomendação)
+### 11.6. Decisões da revisão 2 (aprovadas pelo Tech Lead em 10/10/2026, as recomendações do rascunho)
 
-| ID | Pergunta | Recomendação |
-| :--- | :--- | :--- |
-| P-07 | Quantas imagens no máximo por elemento? | 12: cabe folgado no limite de 50.000 caracteres do bloco e evita uma página pesada |
-| P-08 | Como o estudante vê a galeria? | Grade que se ajusta à tela (1 coluna no celular, 2 a 3 no computador), com a legenda sob cada imagem e **clique para ampliar** numa janela, com setas para passar de uma à outra e Esc para fechar |
-| P-09 | A galeria precisa de legenda geral do conjunto? | Não: cada imagem tem a sua legenda; uma legenda geral pode ser um elemento de texto antes ou depois |
+| ID | Decisão |
+| :--- | :--- |
+| D-07 | No máximo 12 imagens por elemento: cabe folgado no limite de 50.000 caracteres do bloco e evita uma página pesada |
+| D-08 | O estudante vê a galeria numa grade que se ajusta à tela, com a legenda sob cada imagem e **clique para ampliar** numa janela, com setas para passar de uma à outra e Esc para fechar |
+| D-09 | Sem legenda geral do conjunto: cada imagem tem a sua, e uma legenda geral pode ser um elemento de texto antes ou depois |
+
+### 11.7. Ajustes de implementação da revisão 2 (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-07 | O elemento é chamado "Imagens (galeria)" no editor. Os envios de um mesmo gesto entram na lista de uma vez, esperando, e seguem um de cada vez; um que falha fica marcado e não derruba os outros; remover o que ainda espera na fila cancela o envio dele |
+| A-08 | A grade usa `object-fit: contain` num quadro 4:3, para não cortar capturas de tela; as imagens da galeria ficam alcançáveis pelo teclado (Enter ou Espaço amplia) e anunciadas como botões, e o foco volta à imagem ao fechar |
+| A-09 | O estilo da grade usa o seletor de atributo `[class~="md-gallery"]`, porque a regra de estilo do projeto proíbe `:global` |
 
 ---
 
@@ -210,3 +218,5 @@ Modelo do card (ler e escrever uma e várias imagens, a imagem antiga, o limite,
 | 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01, P-02, P-05 e P-06 (viram D-03 a D-06) |
 | 10/10/2026 | Implementador (Claude) | Implementada: domínio da imagem (AVIF, 1220 px, GIF intacto), rota de envio, armazenamento com nome por conteúdo e leitura pública do prefixo, elemento Imagem com envio e prévia. Ajustes A-01 a A-06 |
 | 10/10/2026 | Tech Lead | Pedido de revisão 2: tirar o campo de endereço da imagem (substitui D-06) e permitir várias imagens por elemento, estilo galeria. Pendências P-07 a P-09 |
+| 10/10/2026 | Tech Lead | Aprovada a revisão 2, aceitas as recomendações de P-07 a P-09 (viram D-07 a D-09) |
+| 10/10/2026 | Implementador (Claude) | Implementada a revisão 2: elemento Imagens com várias imagens (envio em fila, legenda, ordem, troca, limite de 12), sem campo de endereço, galeria com ampliação para o estudante, leitura das imagens da revisão 1 como galeria de uma. Ajustes A-07 a A-09 |
