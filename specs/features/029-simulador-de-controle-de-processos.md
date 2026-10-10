@@ -1,8 +1,8 @@
-# SPEC-028: Simulador de Controle de Processos
+# SPEC-029: Simulador de Controle de Processos
 
 | Campo | Valor |
 | :--- | :--- |
-| **ID** | SPEC-028 |
+| **ID** | SPEC-029 |
 | **Status** | Aprovada |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
@@ -158,3 +158,4 @@ A API de conferência do exercício passa a aceitar, no snapshot enviado, os cam
 | :--- | :--- | :--- |
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; o que o motor já tem foi levantado; pendências P-01 a P-07 abertas com recomendação |
 | 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01 a P-07 |
+| 10/10/2026 | Implementador (Claude) | Renumerada de SPEC-028 para SPEC-029: o número 028 já foi tomado pelo rascunho "Ampliação dos comandos do terminal do navegador" |
