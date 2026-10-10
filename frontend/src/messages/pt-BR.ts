@@ -110,6 +110,17 @@ export const messages = {
     loadingSession: "Carregando sua sessão…",
     logout: "Sair",
   },
+  account: {
+    region: "Minha conta",
+    myClasses: "Minhas turmas",
+    myProfile: "Meu perfil",
+    empty: "Você ainda não está em nenhuma turma.",
+    error: "Não foi possível carregar as turmas.",
+    retry: "Tentar de novo",
+    pending: "Aguardando aprovação",
+    seeAll: "Ver todas as turmas",
+    count: (shown: number, total: number) => `Mostrando ${shown} de ${total} turmas`,
+  },
   home: {
     greeting: (name: string) => `Olá, ${name}!`,
     intro: "Este é o início da plataforma. As áreas de turmas, alunos e conteúdo chegam nas próximas etapas.",

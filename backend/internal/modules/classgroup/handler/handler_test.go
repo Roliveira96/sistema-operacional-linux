@@ -46,6 +46,10 @@ type fakeService struct {
 	joinErr      error
 	listMemErr   error
 	moderateErr  error
+
+	myResult repository.MyClassesResult
+	myErr    error
+	myRole   string
 }
 
 func newFakeService() *fakeService {
@@ -202,6 +206,14 @@ func (f *fakeService) ModerateMember(ctx context.Context, teacherID, classID, en
 		RejectionReason: rejectionReason,
 		DecidedAt:       &now,
 	}, nil
+}
+
+func (f *fakeService) ListMyClasses(ctx context.Context, userID uuid.UUID, role string) (repository.MyClassesResult, error) {
+	if f.myErr != nil {
+		return repository.MyClassesResult{}, f.myErr
+	}
+	f.myRole = role
+	return f.myResult, nil
 }
 
 func setupServer(role string) (*httptest.Server, *fakeService, uuid.UUID) {

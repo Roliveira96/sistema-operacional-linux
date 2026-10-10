@@ -1,8 +1,8 @@
-# SPEC-025: Menu da Conta na Navbar
+# SPEC-026: Menu da Conta na Navbar
 
 | Campo | Valor |
 | :--- | :--- |
-| **ID** | SPEC-025 |
+| **ID** | SPEC-026 |
 | **Status** | Aprovada |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
@@ -185,3 +185,4 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | :--- | :--- | :--- |
 | 10/10/2026 | Aruna Architect | Criação em Rascunho, a partir do pedido do Tech Lead, com as skills de UX e de UI |
 | 10/10/2026 | Aruna Architect | Pendências P-01 a P-05 viram decisões D-01 a D-05. Aprovada pelo Tech Lead em 10/10/2026 |
+| 10/10/2026 | Implementador (Claude) | Renumerada de SPEC-025 para SPEC-026: o número 025 já tinha sido tomado pela spec de upload de imagens do conteúdo, criada em paralelo |

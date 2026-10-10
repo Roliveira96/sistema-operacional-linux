@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,6 +17,21 @@ import (
 type fakeClassRepo struct {
 	classes     map[uuid.UUID]domain.ClassGroup
 	enrollments map[uuid.UUID]domain.Enrollment
+
+	teacherMenu repository.MyClassesResult
+	studentMenu repository.MyClassesResult
+	menuErr     error
+	menuCalls   []string // "teacher:<id>:<limit>" / "student:<id>:<limit>"
+}
+
+func (f *fakeClassRepo) ListTeacherClassesForMenu(ctx context.Context, teacherID uuid.UUID, limit int) (repository.MyClassesResult, error) {
+	f.menuCalls = append(f.menuCalls, fmt.Sprintf("teacher:%s:%d", teacherID, limit))
+	return f.teacherMenu, f.menuErr
+}
+
+func (f *fakeClassRepo) ListStudentClassesForMenu(ctx context.Context, studentID uuid.UUID, limit int) (repository.MyClassesResult, error) {
+	f.menuCalls = append(f.menuCalls, fmt.Sprintf("student:%s:%d", studentID, limit))
+	return f.studentMenu, f.menuErr
 }
 
 func newFakeRepo() *fakeClassRepo {

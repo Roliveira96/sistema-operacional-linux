@@ -173,6 +173,64 @@ func (r *Repository) ListClassesByTeacher(ctx context.Context, teacherID uuid.UU
 	}, nil
 }
 
+// MyClass is the minimal view of a class for its teacher or an enrolled student (SPEC-026).
+// It intentionally carries no member data and no invite token.
+type MyClass struct {
+	ID               uuid.UUID `gorm:"column:id"`
+	Name             string    `gorm:"column:name"`
+	CourseCode       string    `gorm:"column:course_code"`
+	Semester         string    `gorm:"column:semester"`
+	StartDate        time.Time `gorm:"column:start_date"`
+	Relation         string    `gorm:"-"`
+	EnrollmentStatus *string   `gorm:"column:enrollment_status"`
+}
+
+// MyClassesResult holds at most limit classes and the real total.
+type MyClassesResult struct {
+	Items []MyClass
+	Total int64
+}
+
+// ListTeacherClassesForMenu returns the non-archived classes owned by the teacher,
+// newest start date first, capped at limit, with the real total.
+func (r *Repository) ListTeacherClassesForMenu(ctx context.Context, teacherID uuid.UUID, limit int) (MyClassesResult, error) {
+	query := r.db.Conn(ctx).Table("classes").
+		Where("classes.teacher_id = ? AND classes.deleted_at IS NULL AND classes.status <> ?", teacherID, domain.ClassStatusArchived)
+	return scanMyClasses(query, domain.RelationTeacher, limit)
+}
+
+// ListStudentClassesForMenu returns the classes where the student has an ACTIVE or
+// PENDING_MODERATION enrollment, newest start date first, capped at limit, with the real total.
+func (r *Repository) ListStudentClassesForMenu(ctx context.Context, studentID uuid.UUID, limit int) (MyClassesResult, error) {
+	query := r.db.Conn(ctx).Table("classes").
+		Joins("INNER JOIN class_enrollments ce ON ce.class_id = classes.id AND ce.deleted_at IS NULL").
+		Where("ce.user_id = ? AND ce.status IN ? AND classes.deleted_at IS NULL",
+			studentID, []domain.EnrollmentStatus{domain.EnrollmentActive, domain.EnrollmentPendingModeration})
+	return scanMyClasses(query, domain.RelationStudent, limit)
+}
+
+func scanMyClasses(query *gorm.DB, relation string, limit int) (MyClassesResult, error) {
+	query = query.Session(&gorm.Session{}) // makes the base query safely reusable for Count and Scan
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return MyClassesResult{}, err
+	}
+
+	selectCols := "classes.id, classes.name, classes.course_code, classes.semester, classes.start_date"
+	if relation == domain.RelationStudent {
+		selectCols += ", ce.status AS enrollment_status"
+	}
+	var items []MyClass
+	if err := query.Select(selectCols).
+		Order("classes.start_date DESC, classes.id ASC").Limit(limit).Scan(&items).Error; err != nil {
+		return MyClassesResult{}, err
+	}
+	for i := range items {
+		items[i].Relation = relation
+	}
+	return MyClassesResult{Items: items, Total: total}, nil
+}
+
 // UpdateClass updates class details.
 func (r *Repository) UpdateClass(ctx context.Context, class *domain.ClassGroup) error {
 	err := r.db.Conn(ctx).Save(class).Error

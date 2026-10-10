@@ -10,6 +10,7 @@ import (
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 )
 
 // ClassRepository defines persistence operations needed by the service.
@@ -25,6 +26,9 @@ type ClassRepository interface {
 	FindEnrollmentByID(ctx context.Context, id uuid.UUID) (domain.Enrollment, error)
 	ListEnrollmentsByClass(ctx context.Context, classID uuid.UUID, status string) ([]repository.EnrollmentWithUser, error)
 	UpdateEnrollment(ctx context.Context, enrollment *domain.Enrollment) error
+
+	ListTeacherClassesForMenu(ctx context.Context, teacherID uuid.UUID, limit int) (repository.MyClassesResult, error)
+	ListStudentClassesForMenu(ctx context.Context, studentID uuid.UUID, limit int) (repository.MyClassesResult, error)
 }
 
 // CreateClassInput defines parameters for creating a new class.
@@ -137,6 +141,29 @@ func (s *Service) CreateClass(ctx context.Context, teacherID uuid.UUID, input Cr
 // ListClasses retrieves paginated classes owned by the given teacher.
 func (s *Service) ListClasses(ctx context.Context, teacherID uuid.UUID, filter repository.ListFilter) (repository.ListResult, error) {
 	return s.repo.ListClassesByTeacher(ctx, teacherID, filter)
+}
+
+// ListMyClasses returns the classes of the authenticated user for the account menu (SPEC-026).
+// Teachers get their non-archived classes, students their ACTIVE/PENDING_MODERATION ones,
+// any other role (admin) gets an empty list.
+func (s *Service) ListMyClasses(ctx context.Context, userID uuid.UUID, role string) (repository.MyClassesResult, error) {
+	var (
+		res repository.MyClassesResult
+		err error
+	)
+	switch role {
+	case authn.RoleTeacher:
+		res, err = s.repo.ListTeacherClassesForMenu(ctx, userID, domain.MyClassesLimit)
+	case authn.RoleStudent:
+		res, err = s.repo.ListStudentClassesForMenu(ctx, userID, domain.MyClassesLimit)
+	}
+	if err != nil {
+		return repository.MyClassesResult{}, err
+	}
+	if res.Items == nil {
+		res.Items = []repository.MyClass{}
+	}
+	return res, nil
 }
 
 // GetClass retrieves a single class assuring teacher ownership.
