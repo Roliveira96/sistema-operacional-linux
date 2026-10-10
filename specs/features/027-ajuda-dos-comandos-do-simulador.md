@@ -26,7 +26,7 @@ O pedido do Tech Lead: dar `--help` aos comandos mapeados, útil a alunos e prof
 
 ## 2. Objetivos (Goals)
 
-- Todo comando registrado responde a `--help` com uma ajuda em português, no estilo GNU: **uso**, **descrição**, **opções** e **exemplos**.
+- Todo comando registrado responde a `--help`, e responde ao `-h` **do jeito que o Linux de verdade responde** (ver 3.4) com uma ajuda em português, no estilo GNU: **uso**, **descrição**, **opções** e **exemplos**.
 - A ajuda descreve **só o que o simulador realmente faz**: uma opção que o comando não implementa não aparece, para o aluno não tentar algo que vai falhar.
 - A ajuda vale para o aluno no estudo e nos exercícios, e para o professor ao gravar a solução.
 - As mensagens "Tente 'x --help'" passam a levar a algo que funciona.
@@ -35,7 +35,7 @@ O pedido do Tech Lead: dar `--help` aos comandos mapeados, útil a alunos e prof
 ### 2.1. Fora de escopo (Non-Goals)
 
 - Manual completo (`man` com páginas longas, rolagem e busca).
-- A opção curta `-h` como ajuda (ela é outra coisa em vários comandos, como `ls -h` e `df -h`).
+- Um `-h` global: ele **não** é interceptado para todo comando, porque no Linux de verdade o `-h` muda de significado conforme o comando (ver 3.4).
 - Ajuda em inglês e autocompletar.
 - Mudar o comportamento de qualquer comando além de reconhecer `--help`.
 
@@ -84,7 +84,17 @@ Exemplos:
 | RN-06 | A ajuda funciona em pipe e redirecionamento como qualquer saída (`ls --help \| head -n 3`, `ls --help > ajuda.txt`) |
 | RN-07 | Os comandos embutidos do shell (`cd`, `export`, `alias`, `unset`, `read`...) também respondem `--help` |
 | RN-08 | `help COMANDO` e `man COMANDO` mostram o mesmo conteúdo (nome, uso, descrição, opções e exemplos) em vez de só o resumo (P-02) |
+| RN-10 | O `-h` segue o significado **real de cada comando**: onde no Linux ele é a ajuda, o simulador mostra a ajuda; onde ele é outra opção (legível para humanos, sem nome de arquivo, servidor...), o simulador faz o que o Linux faz; onde o comando não tem `-h`, continua o erro de opção inválida de sempre. Nunca se intercepta `-h` por regra geral |
+| RN-11 | Cada comando declara em `ajuda` se o seu `-h` é ajuda (`h: "ajuda"`) ou outra opção (`h: "outra"`, e então ela aparece na lista de opções); a lista da seção 3.4 diz qual é qual |
 | RN-09 | Um teste do motor falha se um comando registrado não tem `ajuda`, ou se a ajuda não começa com o nome do comando no uso |
+
+### 3.4. O `-h` em cada comando (para o Tech Lead conferir)
+
+| `-h` é a **ajuda** (mostra o mesmo texto do `--help`) | `-h` é **outra opção** (comportamento atual preservado ou implementado) | Sem `-h` (erro de opção inválida, como no Linux) |
+| :--- | :--- | :--- |
+| `useradd`, `userdel`, `usermod`, `groupadd`, `groupdel`, `groupmod`, `gpasswd`, `passwd`, `curl`, `git`, `python3`, `nginx`, `systemctl`, `journalctl`, `lsblk`, `fdisk`, `mount`, `umount`, `blkid`, `lspci`, `dmesg`, `logger`, `sudo`, `su`, `top`, `htop`, `uptime`, `hostname`, `zip`, `unzip`, `apt`, `apt-get`, `dpkg`, `lsb_release`, `neofetch`, `awk` | `ls -h` (tamanhos legíveis), `du -h`, `df -h`, `free -h` (já implementados), `sort -h` (ordem numérica legível), `grep -h` (sem o nome do arquivo), `rsync -h` (números legíveis), `mysql -h` (servidor), `stat`, `cp`, `tar` (conforme o Linux) | `chmod`, `chown`, `chgrp`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `touch`, `echo`, `head`, `tail`, `wc`, `cut`, `tr`, `uniq`, `sed`, `find`, `ps`, `kill`, `date`, `uname`, `id`, `who`, `which` |
+
+Esta tabela é o ponto de partida: na implementação, cada comando é conferido contra o que o simulador já aceita, e **uma opção `-h` que hoje não existe no simulador só é acrescentada se o Tech Lead a pedir** (por exemplo `sort -h`, `grep -h`, `rsync -h`); do contrário o comando continua recusando-a.
 
 ## 4. Modelo de Dados (Data Model)
 
@@ -111,10 +121,13 @@ Sem rotas. Contrato do terminal: `COMANDO --help` → saída padrão com o texto
 - [ ] **CA-06** (evento): QUANDO a saída da ajuda é enviada por pipe ou redirecionada, O SISTEMA DEVE respeitar o pipe e o redirecionamento.
 - [ ] **CA-07** (evento): QUANDO o usuário roda `help COMANDO` ou `man COMANDO`, O SISTEMA DEVE mostrar a ajuda completa do comando.
 - [ ] **CA-08** (ubíquo): TODO comando registrado DEVE ter `ajuda`; o teste do motor falha se faltar.
+- [ ] **CA-09** (evento): QUANDO o usuário roda `-h` num comando onde o `-h` é a ajuda no Linux de verdade, O SISTEMA DEVE mostrar a ajuda; e num comando onde o `-h` é outra opção, DEVE fazer o que essa opção faz, sem mostrar a ajuda.
+- [ ] **CA-10** (indesejado): SE o comando não tem `-h` no Linux, ENTÃO O SISTEMA DEVE responder com o erro de opção inválida do comando, e não com a ajuda.
 
 ## 8. Plano de Testes (Test Plan)
 
 - **Contrato (todos os comandos):** para cada comando registrado, `--help` termina com 0, imprime a linha `Uso: <nome> …` e não altera a máquina (comparação do estado antes e depois).
+- **`-h`:** nos comandos da primeira coluna da seção 3.4 mostra a ajuda; em `ls`, `du`, `df` e `free` continua sendo tamanho legível; num comando sem `-h` dá o erro de opção inválida.
 - **Interpretador:** `--` encerra a procura; `sudo --help` e `sudo ls --help`; `xargs`, `nohup`, `time`; pipe e redirecionamento; comando embutido; comando desconhecido continua dando "comando não encontrado".
 - **`help` e `man`:** mostram o conteúdo estruturado; comando inexistente continua com a mensagem atual.
 - **Amostra de fidelidade:** por grupo (arquivos, texto, usuários, permissões, pacotes, processos, rede/sistema), as opções listadas são exercitadas de verdade pelo comando.
@@ -134,7 +147,8 @@ Sem rotas. Contrato do terminal: `COMANDO --help` → saída padrão com o texto
 | P-01 | Idioma da ajuda | Português, como o resto do simulador |
 | P-02 | `help COMANDO` e `man COMANDO` devem mostrar a mesma ajuda estruturada? | Sim: aproveita o mesmo conteúdo e deixa o `man` do simulador menos pobre |
 | P-03 | Onde fica o texto: dentro de cada comando ou num arquivo à parte? | Dentro de cada comando, junto do código que lê as opções, para mudarem juntos |
-| P-04 | Incluir `-h` como atalho da ajuda? | Não: em vários comandos `-h` tem outro sentido (`ls -h`, `df -h`) |
+| P-04 | `-h` como ajuda? | Resolvida pelo Tech Lead: o `-h` roda como no Linux de verdade, em cada comando (RN-10, seção 3.4); não há `-h` global |
+| P-05 | Acrescentar os `-h` que o Linux tem e o simulador ainda não implementa (`sort -h`, `grep -h`, `rsync -h`)? | Só se você pedir; por padrão o comando segue sem eles, e a ajuda não os lista (RN-03) |
 
 ---
 
@@ -143,3 +157,4 @@ Sem rotas. Contrato do terminal: `COMANDO --help` → saída padrão com o texto
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; pendências P-01 a P-04 abertas com recomendação |
+| 10/10/2026 | Tech Lead | O `-h` deve rodar como no Linux de verdade, em cada comando, e não ser tratado de forma global. Incluídas RN-10, RN-11, a tabela 3.4 e os CA-09 e CA-10 |
