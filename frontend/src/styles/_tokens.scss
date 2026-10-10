@@ -9,6 +9,9 @@
   --color-ubuntu-orange: #e95420;
   --color-aubergine: #77216f;
 
+  // The background of the Ubuntu terminal: aubergine fading from dark to light.
+  --gradient-terminal: linear-gradient(145deg, #2c001e 0%, #3d0a2e 50%, #5e2750 100%);
+
   // Surfaces
   --color-bg: #0e0b10;
   --color-surface: #17131b;
