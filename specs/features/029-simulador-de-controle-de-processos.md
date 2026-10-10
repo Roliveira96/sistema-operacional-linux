@@ -142,7 +142,7 @@ A API de conferência do exercício passa a aceitar, no snapshot enviado, os cam
 2. **Pré-leitura obrigatória:** `specs/AI_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `GLOSSARY.md`, SPEC-020, SPEC-022, SPEC-023 e SPEC-027; no código, `legacy/src/linux/Processos.ts`, `legacy/src/linux/Sessao.ts`, `legacy/src/shell/comandos/Processos.ts`, `Interpretador.ts` e `frontend/src/lib/exerciseConditions.ts`.
 3. **Ordem de execução:** A (comandos e programas, com testes no terminal real), depois B (painel), depois C (condições no frontend, depois no servidor).
 4. **Arquivos a criar ou alterar:** `frontend/src/engine/processes/*` (comandos, estado de prioridade, painel de dados), o adaptador `terminalWindow.ts` (registro) e os componentes do painel; definidos a cada entrega.
-5. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, status `Implementada`.
+5. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, status `Implementada`. Todo comando ou programa novo, renomeado ou removido atualiza o manifesto de conformidade no mesmo commit (SPEC-030, RN-08).
 
 ## 10. Pendências (com recomendação)
 
