@@ -83,6 +83,13 @@ describe("TestAll", () => {
     expect(moduleTestStatus("other", fp)).toBe("untested");
   }, 40000);
 
+  it("says what the test covers, so no card is left out without notice: the inactive ones and the ones with nothing to run", async () => {
+    render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
+    expect(await screen.findByLabelText("Cobertura do teste")).toHaveTextContent(
+      "2 de 4 cards têm o que testar e foram testados · 1 inativo (o aluno não vê, não é testado) · 1 sem comandos, snapshot nem exercícios (nada a testar)",
+    );
+  });
+
   it("shows how many tests were done: the activities alone, the commands in sequence and the commands in reverse order", async () => {
     render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
     expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo aprovado");
@@ -183,6 +190,20 @@ describe("TestAll, the exercises", () => {
     expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo reprovado");
     expect(readTest("mod-1", "a")?.passed).toBe(false);
     expect(screen.getByRole("alert", { name: "O que precisa de atenção" })).toHaveTextContent("A");
+  }, 40000);
+
+  it("fails the module when an exercise has no recorded solution, instead of skipping it", async () => {
+    run.machine = machineWith("srv");
+    const untested = [
+      block("a", "TEXT", 1, { title: "A", html: "" }),
+      block("a2", "COMMAND", 2, { steps: [{ command: "a-cmd" }] }),
+      block("a3", "EXERCISES", 3, { items: [{ title: "Sem gravar", difficulty: "EASY" }] }),
+    ];
+    render(<TestAll moduleId="mod-1" service={service({ blocks: untested, setup: undefined })} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo reprovado");
+    expect(readTest("mod-1", "a")?.passed).toBe(false);
+    // The commands ran; the exercise was not run, and it did not go unnoticed.
+    expect(run.calls).toEqual(["a-cmd", "a-cmd"]);
   }, 40000);
 
   it("marks the card as stale when only an exercise changes", async () => {

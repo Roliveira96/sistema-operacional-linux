@@ -72,6 +72,11 @@ export const authoringMessages = {
       unitsResult: (passed: number, total: number) => `${passed} de ${total} ${total === 1 ? "atividade passou" : "atividades passaram"}`,
       sequenceResult: (good: number, total: number) => `${good} de ${total} ${total === 1 ? "comando" : "comandos"} como esperado`,
       totalsLabel: "Total de testes",
+      coverageLabel: "Cobertura do teste",
+      coverage: (tested: number, total: number, inactive: number, empty: number) =>
+        `${tested} de ${total} ${total === 1 ? "card tem" : "cards têm"} o que testar e ${tested === 1 ? "foi testado" : "foram testados"}` +
+        (inactive > 0 ? ` · ${inactive} inativo${inactive === 1 ? "" : "s"} (o aluno não vê, não é testado)` : "") +
+        (empty > 0 ? ` · ${empty} sem comandos, snapshot nem exercícios (nada a testar)` : ""),
       totals: (done: number, passed: number, failed: number) => `Testes feitos: ${done} · passaram: ${passed} · falharam: ${failed}`,
       totalsDetail: (activities: number, sequence: number, inverse: number) => `${activities} ${activities === 1 ? "atividade sozinha" : "atividades sozinhas"} + ${sequence} ${sequence === 1 ? "comando" : "comandos"} em sequência + ${inverse} ${inverse === 1 ? "comando" : "comandos"} na ordem inversa`,
       approved: "Módulo aprovado",
