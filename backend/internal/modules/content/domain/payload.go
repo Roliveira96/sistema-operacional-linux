@@ -26,6 +26,11 @@ const (
 	MaxSetupFileBytes  = 1 << 20
 	MaxSetupFilesBytes = 4 << 20
 	MaxSetupFilePath   = 500
+	// The group of exercises of a card (SPEC-022).
+	MaxExercises    = 30
+	MaxExerciseHint = 10
+	MaxHintText     = 1000
+	MaxConditions   = 100
 )
 
 // Widget components a block may show (SPEC-019 RN-03).
@@ -117,6 +122,44 @@ type setupPayload struct {
 	Summary string      `json:"summary,omitempty"`
 	Steps   []setupStep `json:"steps"`
 	Files   []setupFile `json:"files,omitempty"`
+}
+
+// exerciseHint is a tip the student asks for, with a command of reference if the teacher wants (SPEC-022 RN-03).
+type exerciseHint struct {
+	Text    string `json:"text"`
+	Command string `json:"command,omitempty"`
+}
+
+// exerciseCondition is one thing that must hold in the machine for the exercise to be done, however the student got
+// there (SPEC-022 RN-11). Which fields a condition uses depends on its kind.
+type exerciseCondition struct {
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Content string `json:"content,omitempty"`
+	Match   string `json:"match,omitempty"`
+	Mode    string `json:"mode,omitempty"`
+	Owner   string `json:"owner,omitempty"`
+	Group   string `json:"group,omitempty"`
+	Target  string `json:"target,omitempty"`
+	Name    string `json:"name,omitempty"`
+	User    string `json:"user,omitempty"`
+}
+
+// exercise is one activity of the group: statement, level, tips and the solution the teacher recorded (RN-02, RN-10).
+type exercise struct {
+	Title       string         `json:"title"`
+	Difficulty  string         `json:"difficulty"`
+	Description string         `json:"description,omitempty"`
+	Hints       []exerciseHint `json:"hints,omitempty"`
+	Solution    *setupPayload  `json:"solution,omitempty"`
+	// Conditions say when the exercise is done: how it ends matters, not how the student did it.
+	Conditions []exerciseCondition `json:"conditions,omitempty"`
+}
+
+// exercisesPayload is the group of exercises of a card, with the snapshot that is its base state (RN-04, RN-05).
+type exercisesPayload struct {
+	Items []exercise    `json:"items"`
+	Setup *setupPayload `json:"setup,omitempty"`
 }
 
 type textPayload struct {
@@ -211,6 +254,114 @@ func (c *checker) setup(prefix string, p *setupPayload) {
 		}
 	}
 	c.setupFiles(prefix, p)
+}
+
+// exercises checks the group of exercises of a card (SPEC-022 RN-02 to RN-05, RN-10).
+func (c *checker) exercises(p *exercisesPayload) {
+	if p.Items == nil {
+		p.Items = []exercise{}
+	}
+	if len(p.Items) > MaxExercises {
+		c.fail("items", fmt.Sprintf("must have at most %d exercises", MaxExercises))
+		return
+	}
+	if len(p.Items) == 0 && p.Setup == nil {
+		c.fail("items", "needs at least one exercise or a snapshot")
+	}
+	for i := range p.Items {
+		ex := &p.Items[i]
+		at := func(name string) string { return fmt.Sprintf("items[%d].%s", i, name) }
+		ex.Title = c.text(at("title"), ex.Title, MaxTitleLength, true)
+		if ex.Difficulty != "EASY" && ex.Difficulty != "MEDIUM" && ex.Difficulty != "HARD" {
+			c.fail(at("difficulty"), "must be EASY, MEDIUM or HARD")
+		}
+		ex.Description = c.html(at("description"), ex.Description, false)
+		if len(ex.Hints) > MaxExerciseHint {
+			c.fail(at("hints"), fmt.Sprintf("must have at most %d hints", MaxExerciseHint))
+		} else {
+			for j := range ex.Hints {
+				h := &ex.Hints[j]
+				h.Text = c.text(fmt.Sprintf("items[%d].hints[%d].text", i, j), h.Text, MaxHintText, true)
+				h.Command = c.text(fmt.Sprintf("items[%d].hints[%d].command", i, j), h.Command, MaxCommandLength, false)
+			}
+		}
+		if ex.Solution != nil {
+			c.setup(at("solution"), ex.Solution)
+		}
+		c.conditions(fmt.Sprintf("items[%d].conditions", i), ex.Conditions)
+	}
+	if p.Setup != nil {
+		c.setup("setup", p.Setup)
+	}
+}
+
+// conditions checks the end-state conditions of an exercise: the kind, the fields it needs, absolute paths and bounded sizes.
+func (c *checker) conditions(prefix string, list []exerciseCondition) {
+	if len(list) > MaxConditions {
+		c.fail(prefix, fmt.Sprintf("must have at most %d conditions", MaxConditions))
+		return
+	}
+	total := 0
+	for i := range list {
+		cond := &list[i]
+		at := func(name string) string { return fmt.Sprintf("%s[%d].%s", prefix, i, name) }
+		path := func() {
+			cond.Path = strings.TrimSpace(cond.Path)
+			if !strings.HasPrefix(cond.Path, "/") || cond.Path == "/" || strings.HasSuffix(cond.Path, "/") || strings.ContainsRune(cond.Path, 0) || hasDotDot(cond.Path) || utf8.RuneCountInString(cond.Path) > MaxSetupFilePath {
+				c.fail(at("path"), "must be an absolute path")
+			}
+		}
+		name := func(field, value string) string {
+			value = strings.TrimSpace(value)
+			if !accName.MatchString(value) {
+				c.fail(at(field), "must be a user or group name")
+			}
+			return value
+		}
+		switch cond.Kind {
+		case "DIR_EXISTS", "FILE_EXISTS", "PATH_ABSENT":
+			path()
+		case "FILE_CONTENT":
+			path()
+			if cond.Match != "equals" && cond.Match != "contains" {
+				c.fail(at("match"), "must be equals or contains")
+			}
+			if strings.ContainsRune(cond.Content, 0) {
+				c.fail(at("content"), "must be text, without NUL")
+			}
+			if len(cond.Content) > MaxSetupFileBytes {
+				c.fail(at("content"), fmt.Sprintf("must have at most %d bytes", MaxSetupFileBytes))
+			}
+			total += len(cond.Content)
+		case "MODE":
+			path()
+			if !fileMode.MatchString(cond.Mode) {
+				c.fail(at("mode"), "must be octal, like 644")
+			}
+		case "OWNER":
+			path()
+			cond.Owner = name("owner", cond.Owner)
+			if cond.Group != "" {
+				cond.Group = name("group", cond.Group)
+			}
+		case "LINK":
+			path()
+			cond.Target = strings.TrimSpace(cond.Target)
+			if cond.Target == "" || utf8.RuneCountInString(cond.Target) > MaxSetupFilePath || strings.ContainsRune(cond.Target, 0) {
+				c.fail(at("target"), "required")
+			}
+		case "USER_EXISTS", "GROUP_EXISTS":
+			cond.Name = name("name", cond.Name)
+		case "USER_IN_GROUP":
+			cond.User = name("user", cond.User)
+			cond.Name = name("name", cond.Name)
+		default:
+			c.fail(at("kind"), "unknown condition")
+		}
+	}
+	if total > MaxSetupFilesBytes {
+		c.fail(prefix, fmt.Sprintf("must have at most %d bytes of text in total", MaxSetupFilesBytes))
+	}
 }
 
 var (
@@ -338,6 +489,13 @@ func decodeFor(t BlockType, raw json.RawMessage, c *checker, out *any) error {
 				c.setup("setup", p.Setup)
 			}
 		}
+		*out = p
+	case BlockExercises:
+		var p exercisesPayload
+		if err := decode(raw, &p); err != nil {
+			return err
+		}
+		c.exercises(&p)
 		*out = p
 	case BlockTip:
 		var p tipPayload

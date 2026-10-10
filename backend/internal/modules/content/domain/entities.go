@@ -21,12 +21,14 @@ const (
 	BlockCards      BlockType = "CARDS"
 	BlockWidget     BlockType = "WIDGET"
 	BlockLegacyHTML BlockType = "LEGACY_HTML"
+	// BlockExercises is the group of exercises of a card (SPEC-022).
+	BlockExercises BlockType = "EXERCISES"
 )
 
 // ValidBlockType reports whether t belongs to the catalog.
 func ValidBlockType(t BlockType) bool {
 	switch t {
-	case BlockText, BlockCommand, BlockTip, BlockCuriosity, BlockStepByStep, BlockCards, BlockWidget, BlockLegacyHTML:
+	case BlockText, BlockCommand, BlockTip, BlockCuriosity, BlockStepByStep, BlockCards, BlockWidget, BlockLegacyHTML, BlockExercises:
 		return true
 	}
 	return false
