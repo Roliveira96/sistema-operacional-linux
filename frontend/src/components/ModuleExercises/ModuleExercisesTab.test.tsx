@@ -7,6 +7,8 @@ import { ModuleExercisesTab } from "./ModuleExercisesTab";
 
 // The terminal window of the prototype is exercised in src/engine; here it is replaced.
 vi.mock("@/engine/terminalWindow", () => ({ mountTerminalWindow: vi.fn() }));
+const sandbox = vi.hoisted(() => ({ create: vi.fn() }));
+vi.mock("@/lib/bankTestEngine", () => ({ createEngineSandbox: sandbox.create }));
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("next/link", () => ({
@@ -283,6 +285,26 @@ describe("ModuleExercisesTab", () => {
     const sent = service.setup.mock.calls[0]![1] as { steps: unknown[] };
     expect(sent.steps).toEqual([{ command: "mkdir /treino" }, { command: "mkdir /prova" }]);
     expect(await screen.findByText("Ambiente do banco salvo.")).toBeDefined();
+  });
+
+  // Covers SPEC-023 12.1 (CA-12): the button builds the machine from the two snapshots before the batteries.
+  it("opens the test of the bank with the snapshot of the module and the one of the bank", async () => {
+    sandbox.create.mockResolvedValue({ sandbox: null, conflicts: [{ layer: { label: "Módulo" }, step: { command: "mkdir /x" } }], destroy: vi.fn() });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    fireEvent.click(screen.getByRole("button", { name: /Testar Banco de Exercícios/ }));
+    expect(await screen.findByRole("dialog", { name: "Teste do banco de exercícios" })).toBeDefined();
+    await waitFor(() => expect(sandbox.create).toHaveBeenCalled());
+    expect((sandbox.create.mock.calls[0]![1] as { id: string }[]).map((l) => l.id)).toEqual(["module", "bank"]);
+    expect(await screen.findByText("Módulo: mkdir /x")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("creates a question in the bank with no block from the bank list", async () => {
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    expect(within(bankBlock()).getByRole("link", { name: "Criar nova questão" }).getAttribute("href")).toBe("/app/modules/mod-1/exercises/new");
   });
 
   it("says so when the bank cannot be loaded, and tries again", async () => {

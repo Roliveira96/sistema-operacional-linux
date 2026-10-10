@@ -35,6 +35,7 @@ import {
   practiceService,
   type PracticeService,
 } from "@/services/practiceService";
+import { BankTest } from "./BankTest";
 import styles from "./ModuleExercisesTab.module.scss";
 
 const m = authoringMessages.moduleExercises;
@@ -132,6 +133,7 @@ export function ModuleExercisesTab({
   const [bankSetup, setBankSetup] = useState<Setup | undefined>();
   const [filter, setFilter] = useState<Filter>("all");
   const [picking, setPicking] = useState<Block | null>(null);
+  const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<{
     kind: "ok" | "error";
     text: string;
@@ -467,12 +469,9 @@ export function ModuleExercisesTab({
           </div>
           <p className={styles.hint}>{m.hint}</p>
         </div>
-        <Link
-          href={`/app/modules/${moduleId}/exercises/new`}
-          className={styles.primary}
-        >
-          {m.add}
-        </Link>
+        <button type="button" className={styles.secondary} title={authoringMessages.bankTest.buttonTitle} onClick={() => setTesting(true)}>
+          <span aria-hidden="true">🧪</span> {authoringMessages.bankTest.button}
+        </button>
       </header>
 
       {message && (
@@ -492,6 +491,11 @@ export function ModuleExercisesTab({
           <div>
             <h3 className={styles.setTitle}>{m.bank.title}</h3>
             <p className={styles.hint}>{m.bank.hint}</p>
+          </div>
+          <div className={styles.setActions}>
+            <Link href={`/app/modules/${moduleId}/exercises/new`} className={styles.primary}>
+              {m.createNew}
+            </Link>
           </div>
         </header>
         <div className={styles.filters} role="group" aria-label={m.bank.filterLabel}>
@@ -527,6 +531,18 @@ export function ModuleExercisesTab({
           {saving ? m.setup.saving : m.setup.save}
         </button>
       </div>
+
+      {testing && (
+        <BankTest
+          moduleId={moduleId}
+          bank={bank}
+          moduleSetup={moduleSetup}
+          loadBase={loadBase}
+          service={service}
+          onClose={() => setTesting(false)}
+          onChanged={() => void refresh()}
+        />
+      )}
 
       {picking && (
         <BankPicker

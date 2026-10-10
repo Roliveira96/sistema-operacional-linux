@@ -112,6 +112,7 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
     // The tab of the exercises is the bank of the module (SPEC-023).
     fireEvent.click(screen.getByRole("tab", { name: "Exercícios" }));
     expect(await screen.findByRole("heading", { name: "Banco de exercícios do módulo" })).toBeDefined();
-    expect(screen.getByRole("link", { name: "+ Novo exercício" }).getAttribute("href")).toBe("/app/modules/mod-1/exercises/new");
+    expect(screen.getByRole("button", { name: /Testar Banco de Exercícios/ })).toBeDefined();
+    expect(screen.getAllByRole("link", { name: "Criar nova questão" }).map((l) => l.getAttribute("href"))).toContain("/app/modules/mod-1/exercises/new");
   });
 });
