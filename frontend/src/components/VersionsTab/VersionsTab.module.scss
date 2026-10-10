@@ -1,0 +1,194 @@
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.head {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.titleRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.help {
+  max-width: 60ch;
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+// The state of the draft: a warning when it has not been published, a confirmation when it has.
+.banner,
+.bannerOk,
+.bannerWarn {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bannerWarn {
+  border-color: var(--color-warning-line);
+  background: var(--color-warning-faint);
+  color: var(--color-warning);
+}
+
+.bannerOk {
+  border-color: var(--color-success-line);
+  background: var(--color-success-faint);
+  color: var(--color-success);
+}
+
+// The note and the Publish button, in a box of their own.
+.publishBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+
+  button {
+    align-self: flex-end;
+  }
+}
+
+// The versions as a timeline: a line on the left with a dot for each one.
+.timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0 0 0 var(--space-6);
+  list-style: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: var(--space-2);
+    bottom: var(--space-2);
+    left: 0.45rem;
+    width: 2px;
+    background: var(--color-border);
+  }
+}
+
+.version {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  animation: rise 0.35s var(--easing-standard) both;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: var(--space-5);
+    left: calc(-1 * var(--space-6) + 0.2rem);
+    width: 0.6rem;
+    height: 0.6rem;
+    border: 2px solid var(--color-surface);
+    border-radius: var(--radius-pill);
+    background: var(--color-border-strong);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.versionCurrent {
+  border-color: var(--color-success-line);
+  background: var(--color-success-faint);
+
+  &::before {
+    background: var(--color-success);
+  }
+}
+
+.versionHead {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.versionNumber {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.liveChip {
+  padding: 1px var(--space-3);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-success);
+}
+
+.meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.note {
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  color: var(--color-text-body);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
