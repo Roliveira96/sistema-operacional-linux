@@ -41,7 +41,7 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
 
   return (
     <>
-      <Section title={m.groupTitle} hint={m.groupHint}>
+      <Section title={m.groupTitle} hint={m.groupHint} info={authoringMessages.info.groupSnapshot}>
         <SetupEditor setup={current.setup} before={before} loadBase={loadBase} help={m.groupHelp} recordLabel={m.groupRecord} onChange={(setup: Setup | undefined) => update({ setup })} />
         <Errors id="exercises-setup" errors={errors} />
       </Section>
@@ -49,6 +49,7 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
       <Section
         title={m.title}
         hint={m.hint}
+        info={authoringMessages.info.exercises}
         action={
           canOpen ? (
             <Link href={`${base}/new`} className={styles.add}>

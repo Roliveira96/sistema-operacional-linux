@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { ContentRenderer } from "@/components/ContentRenderer/ContentRenderer";
 import { cardCounts, groupCards, parseCard, type CardGroup } from "@/lib/cardModel";
 import type { Setup } from "@/lib/setup";
@@ -129,7 +130,10 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
     <div className={styles.tab}>
       <div className={styles.toolbar}>
         <div>
-          <h2 className={styles.title}>{m.title}</h2>
+          <h2 className={styles.title}>
+            {m.title}
+          </h2>
+          <InfoTip topic={m.title}>{authoringMessages.info.contentTab}</InfoTip>
           <p className={styles.hint}>{m.hint}</p>
           {(() => {
             const cards = activeCards(blocks);
@@ -160,6 +164,9 @@ export function ContentTab({ moduleId, service = contentAuthoringService, practi
 
       <details className={styles.environment}>
         <summary className={styles.environmentSummary}>{m.environment.title}</summary>
+        <p className={styles.hint}>
+          <InfoTip topic="Ambiente do módulo">{authoringMessages.info.moduleEnvironment}</InfoTip> Para que serve este ambiente?
+        </p>
         <ModuleSetupTab moduleId={moduleId} service={service} practice={practice} onSaved={setModuleSetup} />
       </details>
 

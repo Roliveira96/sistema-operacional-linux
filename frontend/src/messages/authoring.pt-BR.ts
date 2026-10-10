@@ -19,6 +19,28 @@ export const authoringMessages = {
     redo: "Refazer",
   },
 
+  // The "i" explanations: what each part does and what it is for, for a teacher who had no training.
+  info: {
+    cardHeader: "É a identificação do card. A tag (pill) é a etiqueta curta que aparece no topo, como \"apt update\". O título é o nome que o aluno vê na lista de estudo.",
+    description: "É o texto que o aluno lê. Monte-o com blocos na ordem que quiser: texto, código, tabela, imagem, vídeo ou link. Pense numa página de apostila.",
+    cardSetup: "Prepara a máquina do aluno antes deste card: cria pastas, arquivos, usuários e grupos. Assim o aluno começa com tudo pronto e você não precisa ensinar a montar o cenário. Você pode digitar os comandos ou gravá-los no terminal.",
+    commands: "Comandos que o aluno vê e pode rodar no terminal enquanto estuda. Cada um tem uma explicação antes de rodar e uma explicação da saída, que aparece depois que ele executa.",
+    boxes: "Caixas extras que enriquecem o card: dicas de certificação (LPIC, CompTIA), casos reais de produção e avisos do que cai em prova.",
+    groupSnapshot: "É um ambiente só para os exercícios deste card. Ele vem depois do ambiente do card e antes do exercício. Use quando os exercícios precisam de uma máquina diferente da que a explicação usou. É opcional.",
+    exercises: "Atividades para o aluno praticar. Um exercício pode ser resolvido de várias formas; o que vale é o resultado final na máquina. Cada exercício tem a sua própria página.",
+    exerciseTitle: "O nome do exercício na lista do aluno. Seja direto: \"Criar a pasta financeiro\".",
+    exerciseLevel: "Fácil, médio ou difícil. Serve para o aluno saber o que esperar e para você ordenar do mais simples ao mais difícil.",
+    exerciseStatement: "O enunciado: diz ao aluno o que fazer, sem dar a resposta. É o que ele lê primeiro.",
+    hints: "Ajudas que o aluno pede quando travar, uma de cada vez e na ordem. Comece pela dica mais leve. A dica pode ter um comando de exemplo.",
+    solution: "Mostre no terminal como se resolve o exercício e o sistema grava os comandos. O aluno pode ver como o professor fez. Há mais de um jeito de resolver, então o que será conferido é o resultado, não os comandos.",
+    conditions: "São as regras que dizem se o aluno terminou: por exemplo, \"a pasta /srv existe\" ou \"o arquivo tem este texto\". O sistema as monta sozinho a partir da sua solução. Remova a que não for essencial e ajuste como o texto é comparado.",
+    moduleEnvironment: "É o ambiente de toda a turma: comandos que preparam a máquina antes do primeiro card. Tudo o que você criar aqui estará disponível em todos os cards e exercícios do módulo.",
+    contentTab: "Aqui ficam os cards, a ordem em que o aluno estuda. Clique num card para editá-lo, use as setas para reordenar e \"Testar o módulo\" para conferir se tudo funciona.",
+    moduleTest: "Roda cada card sozinho, depois o módulo inteiro em sequência, para ter certeza de que os comandos e os exercícios funcionam antes de publicar para os alunos.",
+    versions: "Cada vez que você publica, o sistema guarda uma cópia do módulo. Se algo der errado, restaure uma versão anterior. O rascunho é o que você está editando agora e ainda não foi publicado.",
+    files: "Arquivos que já existem na máquina do aluno, com o texto exato que você digitou (também logs e páginas grandes). Você pode criar na hora ou carregar do seu computador.",
+  },
+
   // The "Conteúdo" tab: one card per row.
   cards: {
     title: "Conteúdo do módulo",

@@ -373,7 +373,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
     <div className={styles.builder}>
       <div className={styles.columns}>
         <div className={styles.form}>
-          <Section title={m.header.title} hint={m.header.hint}>
+          <Section title={m.header.title} hint={m.header.hint} info={authoringMessages.info.cardHeader}>
             <div className={styles.pair}>
               <Field label={m.header.pill} htmlFor="card-pill">
                 <input id="card-pill" className={`${styles.input} ${styles.mono}`} value={card.pill} placeholder={m.header.pillPlaceholder} onChange={(e) => set({ pill: e.target.value })} />
@@ -399,7 +399,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
           </div>
 
           <div role="tabpanel" id="card-panel-description" aria-labelledby="card-tab-description" hidden={tab !== "description"} className={styles.tabPanel}>
-          <Section title={d.title} hint={d.hint}>
+          <Section title={d.title} hint={d.hint} info={authoringMessages.info.description}>
             {card.elements.length === 0 && <p className={styles.hint}>{d.empty}</p>}
             {card.elements.map((el, i) => (
               <ElementRow
@@ -426,7 +426,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
           </div>
 
           <div role="tabpanel" id="card-panel-commands" aria-labelledby="card-tab-commands" hidden={tab !== "commands"} className={styles.tabPanel}>
-          <Section title={m.setup.title} hint={m.setup.hint}>
+          <Section title={m.setup.title} hint={m.setup.hint} info={authoringMessages.info.cardSetup}>
             <SetupEditor setup={card.setup} before={before} loadBase={loadBase} errors={errors} onChange={(setup) => set({ setup })} />
             {hasSetup(card.setup) && card.title.trim() === "" && <p className={styles.hint}>{m.setup.needsTitleError}</p>}
             <Errors id="setup" errors={errors} />
@@ -435,6 +435,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
           <Section
             title={m.commands.title}
             hint={m.commands.hint}
+            info={authoringMessages.info.commands}
             action={
               <div className={styles.rowButtons}>
                 <button type="button" className={styles.add} onClick={() => set({ commands: [...card.commands, { id: newId(), terminal: 1, expectError: false, command: "", explanation: "", outputExplanation: "", answers: [] }] })}>
@@ -461,7 +462,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
           </div>
 
           <div role="tabpanel" id="card-panel-tips" aria-labelledby="card-tab-tips" hidden={tab !== "tips"} className={styles.tabPanel}>
-          <Section title={m.boxes.title} hint={m.boxes.hint}>
+          <Section title={m.boxes.title} hint={m.boxes.hint} info={authoringMessages.info.boxes}>
             <BoxList boxes={card.tips} labels={m.boxes.tips} errors={errors} onChange={(tips) => set({ tips })} />
             <BoxList boxes={card.realWorld} labels={m.boxes.real} errors={errors} onChange={(realWorld) => set({ realWorld })} />
             <BoxList boxes={card.exams} labels={m.boxes.exams} errors={errors} onChange={(exams) => set({ exams })} />

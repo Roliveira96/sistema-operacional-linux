@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { TerminalPane } from "@/components/TopicStudy/TerminalPane";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { accountName, isCompleteMode, octalMode } from "@/lib/inputs";
@@ -293,6 +294,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
       <div className={styles.item}>
         <div className={styles.itemHead}>
           <span className={styles.itemTitle}>{m.filesTitle(current.files?.length ?? 0)}</span>
+          <InfoTip topic={m.filesTitle(current.files?.length ?? 0)}>{authoringMessages.info.files}</InfoTip>
         </div>
         <p className={styles.hint}>{m.filesHelp}</p>
         {uploadError && (

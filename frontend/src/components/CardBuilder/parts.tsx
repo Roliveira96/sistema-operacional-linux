@@ -1,3 +1,4 @@
+import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import type { CardErrors } from "@/lib/cardModel";
 import styles from "./CardBuilder.module.scss";
@@ -21,23 +22,29 @@ export function Errors({ id, errors }: { id: string; errors: CardErrors }) {
   );
 }
 
-export function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
+export function Field({ label, htmlFor, info, children }: { label: string; htmlFor?: string; info?: string; children: React.ReactNode }) {
   return (
     <div className={styles.field}>
-      <label className={styles.label} htmlFor={htmlFor}>
-        {label}
-      </label>
+      <div className={styles.labelRow}>
+        <label className={styles.label} htmlFor={htmlFor}>
+          {label}
+        </label>
+        {info && <InfoTip topic={label}>{info}</InfoTip>}
+      </div>
       {children}
     </div>
   );
 }
 
-export function Section({ title, hint, action, children }: { title: string; hint: string; action?: React.ReactNode; children: React.ReactNode }) {
+export function Section({ title, hint, info, action, children }: { title: string; hint: string; info?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className={styles.section}>
       <header className={styles.sectionHead}>
         <div>
-          <h2 className={styles.sectionTitle}>{title}</h2>
+          <div className={styles.titleRow}>
+            <h2 className={styles.sectionTitle}>{title}</h2>
+            {info && <InfoTip topic={title}>{info}</InfoTip>}
+          </div>
           <p className={styles.hint}>{hint}</p>
         </div>
       </header>

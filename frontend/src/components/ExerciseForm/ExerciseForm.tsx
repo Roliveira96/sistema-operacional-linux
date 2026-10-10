@@ -1,5 +1,6 @@
 "use client";
 
+import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { Errors, Field, move, Tools } from "@/components/CardBuilder/parts";
 import { SetupEditor } from "@/components/CardBuilder/SetupEditor";
 import styles from "@/components/CardBuilder/CardBuilder.module.scss";
@@ -50,6 +51,7 @@ export function ExerciseForm({
       <Field
         label={`${m.exerciseTitle} (${number})`}
         htmlFor={`exercise-title-${number}`}
+        info={authoringMessages.info.exerciseTitle}
       >
         <input
           id={`exercise-title-${number}`}
@@ -63,6 +65,7 @@ export function ExerciseForm({
       <Field
         label={`${m.level} (${number})`}
         htmlFor={`exercise-level-${number}`}
+        info={authoringMessages.info.exerciseLevel}
       >
         <select
           id={`exercise-level-${number}`}
@@ -82,7 +85,10 @@ export function ExerciseForm({
       <Errors id={ex.id} errors={errors} />
 
       <div className={styles.field}>
-        <span className={styles.label}>{`${m.description} (${number})`}</span>
+        <div className={styles.labelRow}>
+          <span className={styles.label}>{`${m.description} (${number})`}</span>
+          <InfoTip topic={m.description}>{authoringMessages.info.exerciseStatement}</InfoTip>
+        </div>
         <RichTextEditor
           label={`${m.description} (${number})`}
           value={ex.description}
@@ -97,7 +103,10 @@ export function ExerciseForm({
       />
 
       <div className={styles.group}>
-        <h4 className={styles.groupTitle}>{m.solutionTitle}</h4>
+        <div className={styles.titleRow}>
+          <h4 className={styles.groupTitle}>{m.solutionTitle}</h4>
+          <InfoTip topic={m.solutionTitle}>{authoringMessages.info.solution}</InfoTip>
+        </div>
         <SetupEditor
           setup={ex.solution}
           before={before}
@@ -146,7 +155,10 @@ function HintsEditor({
   return (
     <div className={styles.group}>
       <div className={styles.groupHead}>
-        <h4 className={styles.groupTitle}>{m.hintsTitle}</h4>
+        <div className={styles.titleRow}>
+          <h4 className={styles.groupTitle}>{m.hintsTitle}</h4>
+          <InfoTip topic={m.hintsTitle}>{authoringMessages.info.hints}</InfoTip>
+        </div>
       </div>
       <p className={styles.hint}>{m.hintsHelp}</p>
       {hints.map((hint, i) => (
@@ -208,7 +220,10 @@ function ConditionsEditor({
 }) {
   return (
     <div className={styles.group}>
-      <h4 className={styles.groupTitle}>{m.conditionsTitle}</h4>
+      <div className={styles.titleRow}>
+        <h4 className={styles.groupTitle}>{m.conditionsTitle}</h4>
+        <InfoTip topic={m.conditionsTitle}>{authoringMessages.info.conditions}</InfoTip>
+      </div>
       <p className={styles.hint}>{m.conditionsHelp}</p>
       {conditions.length === 0 ? (
         <p className={styles.hint}>{m.noConditions}</p>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import styles from "@/components/CardBuilder/CardBuilder.module.scss";
+import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type ContentAuthoringService, type ModuleVersion } from "@/services/contentAuthoringService";
 import { ApiProblemError } from "@/services/httpClient";
@@ -88,7 +89,10 @@ export function VersionsTab({ moduleId, service = contentAuthoringService, confi
 
   return (
     <div className={styles.environment}>
-      <h2 className={styles.sectionTitle}>{m.title}</h2>
+      <div className={styles.titleRow}>
+        <h2 className={styles.sectionTitle}>{m.title}</h2>
+        <InfoTip topic={m.title}>{authoringMessages.info.versions}</InfoTip>
+      </div>
       <p className={styles.hint}>{m.help}</p>
       <p className={changed ? styles.error : styles.saved} role="status">
         {changed ? m.unpublished : m.upToDate}
