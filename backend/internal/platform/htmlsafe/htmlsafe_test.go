@@ -1,6 +1,7 @@
 package htmlsafe
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,30 @@ func TestSanitize(t *testing.T) {
 	assert.NotContains(t, s.Sanitize(`<img src="http://x.com/a.png">`), "src")
 	assert.Contains(t, s.Sanitize(`<iframe src="https://www.youtube.com/embed/abc"></iframe>`), "youtube.com/embed/abc")
 	assert.Equal(t, "A &amp; B", s.Sanitize("A & B"), "plain text stays text")
+}
+
+// Covers SPEC-025: an image the system stored keeps its address even over http (the bucket of a development machine), but only in the exact
+// shape of its name; any other http address is still dropped.
+func TestSanitizeKeepsTheImagesOfTheContent(t *testing.T) {
+	s := New()
+	hash := strings.Repeat("a1", 32)
+	for _, src := range []string{
+		"http://192.168.3.104:9100/linux-lab/conteudo/" + hash + ".avif",
+		"https://cdn.exemplo.com/lab/conteudo/" + hash + ".gif",
+	} {
+		assert.Contains(t, s.Sanitize(`<img src="`+src+`" alt="a">`), src)
+	}
+	for _, src := range []string{
+		"http://x.com/conteudo/" + hash + ".avif",         // no bucket in the path
+		"http://x.com/lab/conteudo/" + hash + ".png",      // not the format the system stores
+		"http://x.com/lab/conteudo/abc.avif",              // not the name of a content
+		"http://x.com/lab/conteudo/" + hash + ".avif?x=1", // anything after the name
+		"http://x.com/lab/other/" + hash + ".avif",        // another prefix
+	} {
+		assert.NotContains(t, s.Sanitize(`<img src="`+src+`">`), "src=", src)
+	}
+	// A quote in the name ends the attribute and what follows is only text: no tag comes out of it.
+	assert.NotContains(t, s.Sanitize(`<img src="http://x.com/lab/conteudo/`+hash+`.avif"><script>a</script>">`), "<script")
 }
 
 func TestPlainText(t *testing.T) {

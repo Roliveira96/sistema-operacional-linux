@@ -336,6 +336,8 @@ export type CardErrors = Record<string, string[]>;
 
 const httpUrl = /^https?:\/\/\S+$/i;
 const httpsUrl = /^https:\/\/\S+$/i;
+// An image the system stored (SPEC-025): <bucket>/conteudo/<sha-256>.avif|gif, which a development bucket serves over http.
+const contentImageUrl = /^https?:\/\/[^/\s]+\/[\w.-]+\/conteudo\/[0-9a-f]{64}\.(avif|gif)$/i;
 const youtubeEmbed = /^https:\/\/(www\.)?(youtube\.com|youtube-nocookie\.com)\/embed\/\S+$/i;
 
 /** Problems the form can find on its own; the key is the id of the item (or "title"). */
@@ -355,7 +357,8 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
     if (el.kind === "code" && el.code.trim() === "") add(el.id, "required");
     if (el.kind === "table" && el.rows.trim() === "" && el.headers.trim() === "") add(el.id, "required");
     if (el.kind === "html" && el.html.trim() === "") add(el.id, "required");
-    if (el.kind === "image" && !httpsUrl.test(el.url.trim())) add(el.id, "https");
+    if (el.kind === "image" && el.url.trim() === "") add(el.id, "image");
+    else if (el.kind === "image" && !httpsUrl.test(el.url.trim()) && !contentImageUrl.test(el.url.trim())) add(el.id, "https");
     if (el.kind === "video" && !youtubeEmbed.test(el.url.trim())) add(el.id, "youtube");
     if (el.kind === "link" && !httpUrl.test(el.url.trim())) add(el.id, "url");
   }

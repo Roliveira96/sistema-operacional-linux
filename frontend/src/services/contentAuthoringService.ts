@@ -82,6 +82,14 @@ export function missingTests(error: unknown): TestKind[] {
 }
 
 /** Authoring endpoints of SPEC-019, for ADMIN and the TEACHER who owns the module. */
+/** An image kept by the server: its public address and how it came out. */
+export interface UploadedImage {
+  url: string;
+  width: number;
+  height: number;
+  bytes: number;
+}
+
 export function createContentAuthoringService(client: HttpClient = httpClient) {
   const moduleBlocks = (id: string) => `/teacher/modules/${encodeURIComponent(id)}/blocks`;
   const moduleVersions = (id: string) => `/teacher/modules/${encodeURIComponent(id)}/versions`;
@@ -114,6 +122,12 @@ export function createContentAuthoringService(client: HttpClient = httpClient) {
     publish: async (moduleId: string, note: string) => client.post<{ number: number }>(moduleVersions(moduleId), note.trim() ? { note: note.trim() } : {}),
     /** Copies a version into the draft; it does not publish. */
     restore: async (moduleId: string, number: number) => client.post<{ blocks: AuthoredBlock[] }>(`${moduleVersions(moduleId)}/${number}/restore`, {}),
+    /** Sends an image of the content; the server converts it (AVIF, at most 1220 px wide, GIF as it came) and keeps it in the bucket (SPEC-025). */
+    uploadImage: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return client.post<UploadedImage>("/teacher/content/images", form);
+    },
     saveCard: async (moduleId: string, request: SaveCardRequest) =>
       (await client.put<{ blocks: AuthoredBlock[] }>(moduleCards(moduleId), request)).blocks,
     setCardActive: async (moduleId: string, blockIds: string[], active: boolean) =>

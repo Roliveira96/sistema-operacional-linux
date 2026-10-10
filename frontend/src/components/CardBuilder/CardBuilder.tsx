@@ -35,6 +35,7 @@ import {
 } from "@/services/practiceService";
 import { CardTester } from "./CardTester";
 import { ExercisesTab } from "./ExercisesTab";
+import { ImageElement } from "./ImageElement";
 import { Errors, Field, move, Section, Tools } from "./parts";
 import { SetupEditor } from "./SetupEditor";
 import styles from "./CardBuilder.module.scss";
@@ -108,11 +109,13 @@ function ElementRow({
   onChange,
   onMove,
   onRemove,
+  uploadImage,
 }: {
   el: CardElement;
   index: number;
   total: number;
   errors: CardErrors;
+  uploadImage: ContentAuthoringService["uploadImage"];
   onChange: (patch: Partial<CardElement>) => void;
   onMove: (to: number) => void;
   onRemove: () => void;
@@ -202,10 +205,7 @@ function ElementRow({
       break;
     case "image":
       body = (
-        <>
-          {input(d.imageUrl, el.url, "url")}
-          {input(d.imageCaption, el.caption, "caption")}
-        </>
+        <ImageElement n={n} id={el.id} url={el.url} caption={el.caption} errors={errors} upload={uploadImage} onChange={onChange} />
       );
       break;
     case "video":
@@ -759,6 +759,7 @@ export function CardBuilder({
                   index={i}
                   total={card.elements.length}
                   errors={errors}
+                  uploadImage={service.uploadImage}
                   onChange={(patch) =>
                     set({ elements: patchAt(card.elements, i, patch) })
                   }

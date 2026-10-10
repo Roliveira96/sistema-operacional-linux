@@ -80,7 +80,7 @@ beforeEach(() => {
     saveCard: vi.fn(),
     setCardActive: vi.fn(),
     reorder: vi.fn(),
-    registerTestResult: vi.fn(),
+    registerTestResult: vi.fn(), uploadImage: vi.fn(),
   };
 });
 

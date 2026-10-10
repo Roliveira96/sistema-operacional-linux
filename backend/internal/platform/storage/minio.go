@@ -2,9 +2,13 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -87,3 +91,82 @@ func (s *Storage) GetObjectURL(objectKey string) string {
 	return fmt.Sprintf("%s://%s/%s/%s", scheme, s.endpoint, s.bucket, objectKey)
 }
 
+
+// Exists tells whether an object is in the bucket.
+func (s *Storage) Exists(ctx context.Context, objectKey string) (bool, error) {
+	_, err := s.client.StatObject(ctx, s.bucket, objectKey, minio.StatObjectOptions{})
+	if err == nil {
+		return true, nil
+	}
+	if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+		return false, nil
+	}
+	return false, fmt.Errorf("stat object %s: %w", objectKey, err)
+}
+
+// PutImmutable uploads an object whose name comes from its content, so browsers and proxies can keep it for good.
+func (s *Storage) PutImmutable(ctx context.Context, objectKey string, data []byte, contentType string) error {
+	_, err := s.client.PutObject(ctx, s.bucket, objectKey, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{
+		ContentType:  contentType,
+		CacheControl: "public, max-age=31536000, immutable",
+	})
+	if err != nil {
+		return fmt.Errorf("put object %s: %w", objectKey, err)
+	}
+	return nil
+}
+
+// URL is the public address of an object.
+func (s *Storage) URL(objectKey string) string { return s.GetObjectURL(objectKey) }
+
+// AllowPublicRead lets anyone read the objects under a prefix, and only them; the rest of the bucket stays private. It adds one statement
+// to the policy the bucket already has, so what was granted before (the avatars, for one) is kept, and it can run at every start.
+func (s *Storage) AllowPublicRead(ctx context.Context, prefix string) error {
+	if prefix == "" {
+		return errors.New("prefix is required")
+	}
+	current, err := s.client.GetBucketPolicy(ctx, s.bucket)
+	if err != nil {
+		return fmt.Errorf("get the policy of %s: %w", s.bucket, err)
+	}
+	merged, err := withPublicRead(current, s.bucket, prefix)
+	if err != nil {
+		return err
+	}
+	if err := s.client.SetBucketPolicy(ctx, s.bucket, merged); err != nil {
+		return fmt.Errorf("set public read of %s: %w", prefix, err)
+	}
+	return nil
+}
+
+// withPublicRead returns `current` (a bucket policy, possibly empty) with a statement that lets anyone read what is under `prefix`.
+func withPublicRead(current, bucket, prefix string) (string, error) {
+	policy := map[string]any{"Version": "2012-10-17"}
+	if strings.TrimSpace(current) != "" {
+		if err := json.Unmarshal([]byte(current), &policy); err != nil {
+			return "", fmt.Errorf("read the policy of %s: %w", bucket, err)
+		}
+	}
+	sid := "PublicRead" + strings.NewReplacer("/", "", "-", "", "_", "").Replace(prefix)
+	statements, _ := policy["Statement"].([]any)
+	kept := make([]any, 0, len(statements)+1)
+	for _, st := range statements {
+		if m, ok := st.(map[string]any); ok && m["Sid"] == sid {
+			continue
+		}
+		kept = append(kept, st)
+	}
+	kept = append(kept, map[string]any{
+		"Sid":       sid,
+		"Effect":    "Allow",
+		"Principal": map[string]any{"AWS": []string{"*"}},
+		"Action":    []string{"s3:GetObject"},
+		"Resource":  []string{fmt.Sprintf("arn:aws:s3:::%s/%s*", bucket, prefix)},
+	})
+	policy["Statement"] = kept
+	out, err := json.Marshal(policy)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}

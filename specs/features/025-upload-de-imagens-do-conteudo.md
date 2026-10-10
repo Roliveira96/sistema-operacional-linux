@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-025 |
-| **Status** | Rascunho (decisões D-01 e D-02 do Tech Lead incorporadas; aguardando aprovação) |
+| **Status** | Implementada |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -121,14 +121,25 @@ No frontend, `contentAuthoringService.uploadImage(file)` chama a rota e o elemen
 | D-01 | GIF mantém o formato original: não é convertido para AVIF nem redimensionado (substitui a recomendação P-03, de virar um quadro estático) |
 | D-02 | As imagens são mantidas no bucket, pois o sistema faz exclusão lógica (substitui P-04) |
 
-### Pendências (com recomendação)
+| D-03 | Nome do objeto: `conteudo/<sha-256 do arquivo guardado>.avif` (ou `.gif`) |
+| D-04 | Leitura pública apenas do prefixo `conteudo/`, com cache longo e imutável |
+| D-05 | Conversão para AVIF no servidor, com uma biblioteca sem cgo (WebAssembly): `github.com/gen2brain/avif`, com `github.com/disintegration/imaging` para orientação e redimensionamento |
+| D-06 | O campo de endereço externo continua, como segunda opção |
 
-| ID | Pergunta | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | "O nome deve ser conteúdo": é o **nome pelo conteúdo** (hash do arquivo) ou a pasta/prefixo `conteudo`? | Os dois: `conteudo/<hash-sha256>.avif`. O prefixo `conteudo/` separa essas imagens das outras do bucket e o hash dá nome estável, sem repetição e sem colisão |
-| P-02 | Como o estudante lê a imagem? | Leitura pública só do prefixo `conteudo/*`, com cache longo (o nome por conteúdo nunca muda) |
-| P-05 | Onde converter para AVIF e com qual biblioteca? | No **servidor**, com uma biblioteca AVIF sem cgo (WebAssembly), para não depender de o navegador da docente codificar AVIF (nem todos codificam). Exige aprovar a dependência nova |
-| P-06 | Manter também o campo de URL externa? | Sim, como segunda opção ("usar endereço"), para não quebrar o que já existe; o envio vira o caminho principal |
+### Pendências
+
+Nenhuma em aberto: P-01, P-02, P-05 e P-06 viraram as decisões D-03 a D-06.
+
+### Ajustes de implementação (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-01 | O sanitizador do servidor e a verificação do editor só aceitavam imagem `https://`, e o bucket de uma máquina de desenvolvimento serve em `http`. Passam a aceitar também o endereço **no formato exato do nome que o sistema gera** (`<host>/<bucket>/conteudo/<sha-256>.avif` ou `.gif`, em http ou https); qualquer outro endereço http continua recusado |
+| A-02 | A rota é aberta a qualquer `TEACHER` ou `ADMIN`, e não só ao dono de um módulo, porque o envio não pertence a um módulo (CA-09 vale para quem não tem um desses perfis) |
+| A-03 | A leitura pública do prefixo `conteudo/` é **acrescentada** à política que o bucket já tem (e não a substitui), a cada inicialização do servidor, para não derrubar o que já estava liberado |
+| A-04 | Limites: 30 envios por minuto por usuário, 2 conversões ao mesmo tempo, até 12.000 px de lado e 64 milhões de pixels decodificados; arquivos com cabeçalho acima disso são recusados antes de decodificar |
+| A-05 | Um elemento Imagem vazio pede "Envie uma imagem ou informe o endereço"; o campo de endereço continua disponível como segunda opção (P-06) |
+| A-06 | O teste de integração com o MinIO só roda quando as variáveis `MINIO_*` estão no ambiente |
 
 ---
 
@@ -138,3 +149,5 @@ No frontend, `contentAuthoringService.uploadImage(file)` chama a rota e o elemen
 | :--- | :--- | :--- |
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; pendências P-01 a P-06 abertas com recomendação |
 | 10/10/2026 | Tech Lead | GIF mantém o formato original (D-01); as imagens ficam sempre no bucket, porque o sistema faz exclusão lógica (D-02) |
+| 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01, P-02, P-05 e P-06 (viram D-03 a D-06) |
+| 10/10/2026 | Implementador (Claude) | Implementada: domínio da imagem (AVIF, 1220 px, GIF intacto), rota de envio, armazenamento com nome por conteúdo e leitura pública do prefixo, elemento Imagem com envio e prévia. Ajustes A-01 a A-06 |

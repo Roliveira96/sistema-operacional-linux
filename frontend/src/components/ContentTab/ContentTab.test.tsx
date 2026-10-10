@@ -89,7 +89,7 @@ beforeEach(() => {
     versions: vi.fn(),
     publish: vi.fn(),
     restore: vi.fn(),
-    registerTestResult: vi.fn(),
+    registerTestResult: vi.fn(), uploadImage: vi.fn(),
   };
   service.list.mockResolvedValue(blocks);
 });

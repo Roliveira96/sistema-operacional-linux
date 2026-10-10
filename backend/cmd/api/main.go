@@ -21,6 +21,7 @@ import (
 	classgrouphandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/handler"
 	classgrouprepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
 	classgroupservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/service"
+	contentdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	contenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/handler"
 	contentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/repository"
 	contentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/service"
@@ -116,6 +117,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	if err := store.EnsureBucket(ctx); err != nil {
 		log.Error("could not ensure storage bucket; starting degraded", zap.Error(err))
 	}
+	// The images of the content are read by the students without a session, so that prefix (and only it) is public (SPEC-025 RN-07).
+	if err := store.AllowPublicRead(ctx, contentdomain.ImagePrefix); err != nil {
+		log.Error("could not open the images of the content for reading", zap.Error(err))
+	}
 
 	smtp := mailer.NewSMTPSender(cfg.Mail)
 	dispatcher := mailer.NewDispatcher(smtp, mailer.DefaultDispatcherOptions(cfg.Mail.Workers), log)
@@ -183,6 +188,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	mcpHandler := mcphandler.New(
 		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log),
 		authn.RequiredBearer(auth), log)
+	contentImageHandler := contenthandler.NewImages(contentservice.NewImages(store, log, 2), auth, ratelimit.New(30, time.Minute))
 	practiceHandler := practicehandler.New(
 		practiceservice.New(contentReader, practicerepository.New(db)), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
@@ -229,6 +235,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	if cancel != nil {
 		defer cancel()
 	}
+		contentImageHandler,
 	if shutdownCtx == nil {
 		shutdownCtx = context.Background()
 	}

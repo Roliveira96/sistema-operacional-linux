@@ -162,10 +162,28 @@ describe("checkCard", () => {
     card.tips = [{ id: "t", title: "", html: "<p></p>" }];
     const errors = checkCard(card, true);
     expect(Object.keys(errors)).toEqual(expect.arrayContaining(["title", "c", "t", ...card.elements.map((e) => e.id)]));
-    expect(errors[card.elements[1]!.id]).toEqual(["https"]);
+    // An image with no address yet asks to be sent; one with a wrong address asks for https.
+    expect(errors[card.elements[1]!.id]).toEqual(["image"]);
     expect(errors[card.elements[2]!.id]).toEqual(["youtube"]);
     expect(errors[card.elements[3]!.id]).toEqual(["url"]);
     expect(checkCard(card, false).title).toBeUndefined();
+  });
+
+  // Covers SPEC-025: the address of an image the system kept is accepted even over http (the bucket of a development machine), and only in
+  // the shape of its name.
+  it("accepts the address of an image of the system and refuses other http addresses", () => {
+    const hash = "ab".repeat(32);
+    const check = (url: string) => {
+      const card = emptyCard();
+      card.title = "T";
+      card.elements = [{ ...newElement("image"), url }];
+      return checkCard(card, true)[card.elements[0]!.id];
+    };
+    expect(check(`http://192.168.3.104:9100/linux-lab/conteudo/${hash}.avif`)).toBeUndefined();
+    expect(check(`https://cdn.exemplo.com/lab/conteudo/${hash}.gif`)).toBeUndefined();
+    expect(check("http://x.com/a.png")).toEqual(["https"]);
+    expect(check(`http://x.com/lab/conteudo/${hash}.png`)).toEqual(["https"]);
+    expect(check("   ")).toEqual(["image"]);
   });
 
   it("finds nothing wrong in a good card", () => {
