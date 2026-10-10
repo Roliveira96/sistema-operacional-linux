@@ -231,6 +231,10 @@ export function ContentTab({
       <details className={styles.environment}>
         <summary className={styles.environmentSummary}>
           <span aria-hidden="true">🧪</span> {m.environment.title}
+          <span className={styles.environmentCta}>
+            <span className={styles.ctaOpen}>{m.environment.open}</span>
+            <span className={styles.ctaClose}>{m.environment.close}</span>
+          </span>
         </summary>
         <ModuleSetupTab
           moduleId={moduleId}

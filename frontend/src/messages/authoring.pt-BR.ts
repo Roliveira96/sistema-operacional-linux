@@ -52,7 +52,7 @@ export const authoringMessages = {
     hint: "Os cards que o aluno estuda, na ordem em que aparecem. Cada card tem seu texto, comandos e caixas de dica.",
     preview: "Ver como o aluno →",
     previewDraft: "Ver rascunho →",
-    environment: { title: "Ambiente do módulo (snapshot): comandos que preparam a máquina de todos os cards" },
+    environment: { title: "Ambiente do módulo (snapshot): comandos que preparam a máquina de todos os cards", open: "Clique para configurar", close: "Clique para fechar" },
     testAll: {
       moduleOpen: "Testar o módulo",
       moduleOpenTitle: "Testa cada card (teste unitário) e, depois, o módulo inteiro: o ambiente e os exercícios em sequência, na mesma máquina",

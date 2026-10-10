@@ -530,7 +530,6 @@
   // The arrow turns when the section opens.
   &::after {
     content: "▾";
-    margin-left: auto;
     color: var(--color-text-secondary);
     transition: transform var(--duration-normal) var(--easing-standard);
   }
@@ -554,4 +553,34 @@
       1.2rem 0 0 var(--color-terminal-btn),
       2.4rem 0 0 var(--color-ubuntu-orange);
   }
+}
+
+// "Clique para configurar": says out loud that the bar opens, because it did not look clickable.
+.environmentCta {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-ubuntu-orange);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.ctaClose {
+  display: none;
+}
+
+.environment[open] .ctaOpen {
+  display: none;
+}
+
+.environment[open] .ctaClose {
+  display: inline;
+}
+
+.environmentSummary:hover .environmentCta {
+  background: var(--color-ubuntu-orange);
+  color: var(--color-text-inverse);
 }
