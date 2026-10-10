@@ -48,6 +48,7 @@ export function parseCondition(raw: unknown): ExerciseCondition | undefined {
   const condition: ExerciseCondition = { kind: kind as ExerciseCondition["kind"] };
   for (const key of ["path", "content", "mode", "owner", "group", "target", "name", "user"] as const) if (typeof r[key] === "string") condition[key] = r[key] as string;
   if (r.match === "equals" || r.match === "contains") condition.match = r.match;
+  for (const key of ["signal", "nice"] as const) if (typeof r[key] === "number" && Number.isFinite(r[key])) condition[key] = r[key] as number;
   return condition;
 }
 

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -252,4 +253,38 @@ func TestCheckModuleRejectsInvalidInput(t *testing.T) {
 		_, err = svc.CheckModule(ctx, uuid.New(), student(), json.RawMessage(solvedMachine))
 		assert.ErrorIs(t, err, boom)
 	}
+}
+
+// Covers SPEC-029 CA-11: the machine the student sends carries the processes, and the exercise is graded on how they ended up.
+func TestCheckGradesTheProcessesOfTheMachine(t *testing.T) {
+	withProcesses := func(extra string) string {
+		return strings.Replace(solvedMachine, `"raiz"`, extra+`"raiz"`, 1)
+	}
+	m, err := parseMachine(json.RawMessage(withProcesses(`"processos":[{"pid":2451,"uid":1000,"comando":"sleep 300","estado":"T","nice":5}],"encerrados":[{"pid":2440,"comando":"yes","sinal":15}],`)))
+	require.NoError(t, err)
+	require.Len(t, m.Processes, 1)
+	assert.Equal(t, "sleep 300", m.Processes[0].Command)
+	assert.Equal(t, 5, m.Processes[0].Nice)
+	require.Len(t, m.Ended, 1)
+	assert.Equal(t, 15, m.Ended[0].Signal)
+
+	// A snapshot without them (the machine as it was always sent) is still a machine, with none.
+	plain, err := parseMachine(json.RawMessage(solvedMachine))
+	require.NoError(t, err)
+	assert.Empty(t, plain.Processes)
+	assert.Empty(t, plain.Ended)
+
+	// More than the simulator can have is not a machine of it.
+	many := make([]string, contentdomain.MaxProcessEntries+1)
+	for i := range many {
+		many[i] = `{"pid":1,"uid":0,"comando":"x","estado":"S","nice":0}`
+	}
+	_, err = parseMachine(json.RawMessage(withProcesses(`"processos":[` + strings.Join(many, ",") + `],`)))
+	assert.ErrorIs(t, err, ErrInvalidSnapshot)
+	manyEnded := make([]string, contentdomain.MaxProcessEntries+1)
+	for i := range manyEnded {
+		manyEnded[i] = `{"pid":1,"comando":"x","sinal":9}`
+	}
+	_, err = parseMachine(json.RawMessage(withProcesses(`"encerrados":[` + strings.Join(manyEnded, ",") + `],`)))
+	assert.ErrorIs(t, err, ErrInvalidSnapshot)
 }

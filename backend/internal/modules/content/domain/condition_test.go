@@ -227,3 +227,104 @@ func TestSpec013InvalidConditions(t *testing.T) {
 	installed, version, ok := sample().PackageState("vim")
 	assert.Equal(t, []any{"rc", "", true}, []any{installed, version, ok})
 }
+
+// processes is the machine of the exercise "start a program in one terminal and end it from another": a sleep stopped, a ping running with a
+// low priority, and the yes a signal ended.
+func processes() *Machine {
+	m := sample()
+	m.Processes = []Process{
+		{PID: 2451, UID: 1001, Command: "sleep 300", State: "T", Nice: 0},
+		{PID: 2460, UID: 1001, Command: "/usr/bin/ping -c 100 localhost", State: "S", Nice: 10},
+		{PID: 2470, UID: 0, Command: "-bash", State: "Ss", Nice: 0},
+	}
+	m.Ended = []EndedProcess{{PID: 2440, Command: "yes sim", Signal: 15}, {PID: 2441, Command: "yes", Signal: 9}}
+	return m
+}
+
+// Covers SPEC-029 CA-09, CA-10: the conditions on the processes, one positive and one negative each, by the name of the program.
+func TestProcessConditions(t *testing.T) {
+	m := processes()
+	cases := []struct {
+		name     string
+		cond     Condition
+		expected bool
+	}{
+		{"running: a program that is there and not stopped", Condition{Type: CondProcessRunning, Process: "ping"}, true},
+		{"running: a stopped one is not running", Condition{Type: CondProcessRunning, Process: "sleep"}, false},
+		{"running: one that is not there", Condition{Type: CondProcessRunning, Process: "top"}, false},
+		{"absent: not there", Condition{Type: CondProcessAbsent, Process: "top"}, true},
+		{"absent: stopped is still there", Condition{Type: CondProcessAbsent, Process: "sleep"}, false},
+		{"stopped", Condition{Type: CondProcessStopped, Process: "sleep"}, true},
+		{"stopped: a running one is not", Condition{Type: CondProcessStopped, Process: "ping"}, false},
+		{"ended by: the signal that ended it", Condition{Type: CondProcessEndedBy, Process: "yes", Signal: intp(15)}, true},
+		{"ended by: another run of it, by another signal", Condition{Type: CondProcessEndedBy, Process: "yes", Signal: intp(9)}, true},
+		{"ended by: a signal that did not", Condition{Type: CondProcessEndedBy, Process: "yes", Signal: intp(2)}, false},
+		{"ended by: any signal", Condition{Type: CondProcessEndedBy, Process: "yes"}, true},
+		{"ended by: nothing ended it", Condition{Type: CondProcessEndedBy, Process: "ping"}, false},
+		{"nice: has it", Condition{Type: CondProcessNice, Process: "ping", Nice: intp(10)}, true},
+		{"nice: has another", Condition{Type: CondProcessNice, Process: "ping", Nice: intp(0)}, false},
+		{"program name: no arguments, no folder", Condition{Type: CondProcessRunning, Process: "usr"}, false},
+		{"program name: the login dash is not part of it", Condition{Type: CondProcessRunning, Process: "bash"}, true},
+	}
+	for _, tc := range cases {
+		require.NoError(t, tc.cond.Validate(), tc.name)
+		assert.Equal(t, tc.expected, tc.cond.Holds(m), tc.name)
+	}
+	// A machine with no processes at all: nothing runs, so everything is absent.
+	assert.True(t, Condition{Type: CondProcessAbsent, Process: "sleep"}.Holds(sample()))
+	assert.False(t, Condition{Type: CondProcessRunning, Process: "sleep"}.Holds(sample()))
+}
+
+func TestProgramOf(t *testing.T) {
+	for in, want := range map[string]string{
+		"sleep 300":                     "sleep",
+		"/usr/bin/ping -c 3 host":       "ping",
+		"-bash":                         "bash",
+		"  yes   sim":                   "yes",
+		"nice\t-n 10 ls":                "nice",
+		"":                              "",
+		"sshd: ricardo@pts/1":           "sshd:",
+		"./script.sh arg":               "script.sh",
+		"python3 /home/ana/app/run.py":  "python3",
+	} {
+		assert.Equal(t, want, ProgramOf(in), in)
+	}
+}
+
+// Covers SPEC-029 RN-08: a process condition needs a program name, and the signal and the nice only in their range.
+func TestProcessConditionsAreValidated(t *testing.T) {
+	for name, c := range map[string]Condition{
+		"no name":            {Type: CondProcessRunning},
+		"name with a space":  {Type: CondProcessAbsent, Process: "a b"},
+		"name with a slash":  {Type: CondProcessStopped, Process: "/bin/sleep"},
+		"too long a name":    {Type: CondProcessRunning, Process: string(make([]byte, 65))},
+		"signal 0":           {Type: CondProcessEndedBy, Process: "yes", Signal: intp(0)},
+		"signal 65":          {Type: CondProcessEndedBy, Process: "yes", Signal: intp(65)},
+		"nice missing":       {Type: CondProcessNice, Process: "yes"},
+		"nice above the top": {Type: CondProcessNice, Process: "yes", Nice: intp(20)},
+		"nice below":         {Type: CondProcessNice, Process: "yes", Nice: intp(-21)},
+	} {
+		assert.ErrorIs(t, c.Validate(), ErrInvalidConditions, name)
+	}
+	for _, c := range []Condition{
+		{Type: CondProcessEndedBy, Process: "yes", Signal: intp(64)},
+		{Type: CondProcessNice, Process: "ping-6", Nice: intp(-20)},
+		{Type: CondProcessNice, Process: "a.b_c+d", Nice: intp(19)},
+	} {
+		assert.NoError(t, c.Validate())
+	}
+}
+
+// Grading a list that mixes processes with files: only how it ended counts.
+func TestGradeMixesProcessesAndFiles(t *testing.T) {
+	v, err := Grade(processes(), []Condition{
+		{Type: CondFileExists, Path: "/home/ana/notas.txt"},
+		{Type: CondProcessStopped, Process: "sleep"},
+		{Type: CondProcessEndedBy, Process: "yes", Signal: intp(15)},
+	})
+	require.NoError(t, err)
+	assert.True(t, v.Passed)
+	v, err = Grade(processes(), []Condition{{Type: CondProcessAbsent, Process: "sleep"}})
+	require.NoError(t, err)
+	assert.False(t, v.Passed)
+}

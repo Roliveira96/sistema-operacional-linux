@@ -138,6 +138,16 @@ func catalogFromEnd(list []exerciseCondition) []Condition {
 		case "USER_IN_GROUP":
 			group := e.Name
 			out = append(out, Condition{Type: CondUserInGroup, User: e.User, Group: &group})
+		case "PROCESS_RUNNING":
+			out = append(out, Condition{Type: CondProcessRunning, Process: e.Name})
+		case "PROCESS_ABSENT":
+			out = append(out, Condition{Type: CondProcessAbsent, Process: e.Name})
+		case "PROCESS_STOPPED":
+			out = append(out, Condition{Type: CondProcessStopped, Process: e.Name})
+		case "PROCESS_ENDED_BY":
+			out = append(out, Condition{Type: CondProcessEndedBy, Process: e.Name, Signal: e.Signal})
+		case "PROCESS_NICE":
+			out = append(out, Condition{Type: CondProcessNice, Process: e.Name, Nice: e.Nice})
 		}
 	}
 	return out

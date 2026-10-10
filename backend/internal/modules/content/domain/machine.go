@@ -23,6 +23,64 @@ type Machine struct {
 	Hostname string   `json:"hostname"`
 	Accounts Accounts `json:"contas"`
 	Root     Node     `json:"raiz"`
+	// Processes are the commands of the user running when the machine was sent, and Ended the ones a signal ended (SPEC-029). They are
+	// only for grading: the machine does not keep them, and a snapshot without them has none.
+	Processes []Process      `json:"processos,omitempty"`
+	Ended     []EndedProcess `json:"encerrados,omitempty"`
+}
+
+// MaxProcessEntries is the most processes (and ended ones) a snapshot may carry: more is not a machine of the simulator.
+const MaxProcessEntries = 500
+
+// Process is a command of the user running on the machine.
+type Process struct {
+	PID     int    `json:"pid"`
+	UID     int    `json:"uid"`
+	Command string `json:"comando"`
+	// State is the state letter of ps: R running, S sleeping, T stopped, Z zombie.
+	State string `json:"estado"`
+	Nice  int    `json:"nice"`
+}
+
+// EndedProcess is a command a signal ended.
+type EndedProcess struct {
+	PID     int    `json:"pid"`
+	Command string `json:"comando"`
+	Signal  int    `json:"sinal"`
+}
+
+// ProgramOf is the name of the program of a command line, the way ps shows it: no arguments, no folder, no login dash.
+func ProgramOf(command string) string {
+	first := strings.TrimPrefix(strings.TrimSpace(command), "-")
+	if i := strings.IndexAny(first, " \t"); i >= 0 {
+		first = first[:i]
+	}
+	if i := strings.LastIndex(first, "/"); i >= 0 {
+		first = first[i+1:]
+	}
+	return first
+}
+
+// ProcessesNamed lists the processes that run the program with that name.
+func (m *Machine) ProcessesNamed(name string) []Process {
+	var out []Process
+	for _, p := range m.Processes {
+		if ProgramOf(p.Command) == name {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// EndedNamed lists the ended processes of the program with that name.
+func (m *Machine) EndedNamed(name string) []EndedProcess {
+	var out []EndedProcess
+	for _, p := range m.Ended {
+		if ProgramOf(p.Command) == name {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // Accounts lists users and groups.

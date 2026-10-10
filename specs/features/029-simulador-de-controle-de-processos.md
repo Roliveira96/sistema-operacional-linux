@@ -163,11 +163,11 @@ A API de conferência do exercício passa a aceitar, no snapshot enviado, os cam
 | A, parte 1 | Feita: `nice`, `renice` (regras de permissão do Linux), `yes` (inclusive `yes > /dev/null &`), `watch`, `kill` completo (`kill -l` com os 64 sinais, conversão número/nome, qualquer sinal por nome ou número) e os binários no PATH, com testes de unidade e no terminal real entre terminais |
 | A, parte 2 | Feita em parte: `ps -l` (PRI e NI), `ps -o CAMPOS` (pid, ppid, ni, pri, user, uid, stat, tty, time, pcpu, pmem, comm, cmd, com `campo=TÍTULO`) e `ps --forest` / `ps f` (árvore de pais e filhos sobre qualquer formato do `ps` do motor). Pendente: `top` com PR/NI e atualização ao vivo, estado `Z` e reparentamento |
 | B | Pendente |
-| C | Pendente |
+| C | Feita: o `snapshot()` do terminal leva `processos` e `encerrados` (só para conferir; a máquina não os guarda); os cinco tipos `PROCESS_*` existem no frontend (derivar, conferir, descrever) e no servidor (catálogo, validação, tradução da forma de edição e conferência do snapshot); o professor grava (iniciar em um terminal e encerrar em outro), o sistema deriva as condições por nome de programa e o aluno é conferido em outra máquina, no navegador e no servidor |
 
 ### Limitações do motor sem alterar o `legacy/` (RN-10)
 
-O terminal só imprime "Terminado" e "Morto" quando o processo em primeiro plano é encerrado pelos sinais 15 e 9 (a mensagem fica no interpretador); outros sinais (`USR1`, `ALRM`...) encerram o processo com o código 128 mais o número do sinal, mas sem a mensagem do bash. `kill` com sinal que o motor desconhece só aceita PID (não `%JOB`). O `top` do motor é uma foto; torná-lo vivo é trabalho da parte 2.
+O terminal só imprime "Terminado" e "Morto" quando o processo em primeiro plano é encerrado pelos sinais 15 e 9 (a mensagem fica no interpretador); outros sinais (`USR1`, `ALRM`...) encerram o processo com o código 128 mais o número do sinal, mas sem a mensagem do bash. `kill` com sinal que o motor desconhece só aceita PID (não `%JOB`). O `top` do motor é uma foto; torná-lo vivo é trabalho da parte 2. O `Ctrl+C` interrompe o comando sem passar pelo sinal do processo no motor, então ele não aparece em `encerrados` (só o que um `kill`, `pkill` ou `killall` encerra).
 
 ---
 
@@ -181,3 +181,4 @@ O terminal só imprime "Terminado" e "Morto" quando o processo em primeiro plano
 | 10/10/2026 | Tech Lead | O `legacy/` não deve ser alterado; a implementação é toda em `frontend/src/engine/`. Incluída a RN-10 |
 | 10/10/2026 | Implementador (Claude) | Entrega A, parte 1 implementada em `frontend/src/engine/processes/`; divisão com a SPEC-028 (3.1.1) e limitações do motor registradas |
 | 10/10/2026 | Implementador (Claude) | Entrega A, parte 2 (em parte): `ps -l`, `ps -o` e `ps --forest` |
+| 10/10/2026 | Implementador (Claude) | Entrega C implementada: processos no snapshot de conferência, condições `PROCESS_*` no frontend e no servidor |

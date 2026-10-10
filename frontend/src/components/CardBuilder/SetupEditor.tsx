@@ -129,6 +129,8 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
   const started = useRef(0);
   /** True while the layers run: the commands they run are not typed by the author. */
   const preparing = useRef(false);
+  /** The processes of the machine when the recording started: the ones that were already running, and the ones already ended. */
+  const startedWith = useRef<unknown>(null);
   /** The machine the author started from, to build the same one again when checking the result. */
   const baseMachine = useRef<unknown>(null);
   const latest = useRef({ before, loadBase, steps: current });
@@ -188,6 +190,8 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
     setConflicts(results.filter(isConflict));
     // What the layers ran is not what the author typed: the list starts empty after them.
     started.current = win.history().length;
+    // The processes the layers left running: what the recording starts from (SPEC-029).
+    startedWith.current = typeof win.processes === "function" ? win.processes() : null;
     preparing.current = false;
     setTyped([]);
     setReady(true);
@@ -249,7 +253,12 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
         }
         if (result.steps.length + result.files.length > 0) notes.push(m.reconciled(result.steps.length, result.files.length));
         for (const text of result.inexact) notes.push(m.inexact(text));
-        if (deriveFrom) machines = { before: (await replayMachine(baseMachine.current, latest.current.before)) as MachineTree, after: recorded as MachineTree };
+        if (deriveFrom) {
+          // The headless replay has the files and the accounts, but no processes: those come from the machine the recording started on.
+          const started = (startedWith.current ?? {}) as { processos?: unknown; encerrados?: unknown };
+          const replayed = (await replayMachine(baseMachine.current, latest.current.before)) as MachineTree;
+          machines = { before: { ...replayed, ...(started.processos ? { processos: started.processos, encerrados: started.encerrados ?? [] } : {}) } as MachineTree, after: recorded as MachineTree };
+        }
       } catch {
         notes.push(m.notChecked);
       }
