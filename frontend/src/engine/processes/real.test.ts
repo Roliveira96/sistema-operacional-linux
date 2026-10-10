@@ -118,3 +118,38 @@ describe("kill with every signal on the real terminal", () => {
     expect((await run(t, "kill -FOO 1", 3)).output).toContain("especificação de sinal inválida");
   });
 });
+
+// Covers SPEC-029 CA-04, CA-05: ps with the niceness and the tree, on the real terminal.
+describe("ps on the real terminal", () => {
+  it("shows the priority and the niceness of a process started with nice, and what renice changed", async () => {
+    const t = await terminal();
+    const started = await run(t, "nice -n 10 sleep 60 &", 2);
+    const pid = Number(/\[1\]\s+(\d+)/.exec(started.output)?.[1]);
+    const long = await run(t, "ps -l", 2);
+    const row = long.output.split(String.fromCharCode(10)).find((r) => r.endsWith(" sleep"))!;
+    expect(row).toMatch(/\s+90\s+10 -/);
+    expect(long.output).toContain("PRI  NI");
+    await run(t, `renice 15 -p ${pid}`, 3);
+    const custom = await run(t, `ps -o pid,ppid,ni,stat,comm -p ${pid}`, 3);
+    const rows = custom.output.split(String.fromCharCode(10)).filter(Boolean);
+    expect(rows[0]).toContain("NI");
+    const fields = rows[1]!.split(" ").filter(Boolean);
+    expect([fields[0], fields[2], fields[4]]).toEqual([String(pid), "15", "sleep"]);
+    await run(t, `kill ${pid}`, 3);
+  });
+
+  it("draws the tree of the processes with --forest, with the shell above the command it started", async () => {
+    const t = await terminal();
+    await run(t, "sleep 60 &", 2);
+    const tree = await run(t, "ps --forest", 2);
+
+    const rows = tree.output.split(String.fromCharCode(10)).filter(Boolean);
+    const shell = rows.findIndex((r) => r.endsWith("bash"));
+    const child = rows.findIndex((r) => r.includes("\_ sleep"));
+    expect(shell).toBeGreaterThan(0);
+    expect(child).toBeGreaterThan(shell);
+    // The engine's own ps keeps working.
+    expect((await run(t, "ps aux", 2)).output).toContain("USER");
+    await run(t, "pkill sleep", 3);
+  });
+});

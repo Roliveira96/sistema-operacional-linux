@@ -2,6 +2,7 @@ import { installBinaries } from "./binaries";
 import { yesCommand, watchCommand } from "./loops";
 import { makeKill } from "./kill";
 import { niceCommand, reniceCommand } from "./nice";
+import { makePs, setProcessLister, type ProcessLine } from "./ps";
 import { setNotTerminalOutputs } from "./output";
 import type { EngineCommand } from "./types";
 
@@ -29,6 +30,10 @@ export async function registerProcessCommands(registry: Registry): Promise<void>
   // The commands that extend one of the engine wrap the original, which keeps what it already does.
   const kill = registry.obter("kill") as EngineCommand | undefined;
   if (kill) registry.registrar(makeKill(kill) as unknown as never);
+  const { listarProcessos } = await import("@legacy-engine/shell/comandos/Processos");
+  setProcessLister(listarProcessos as unknown as (machine: unknown) => ProcessLine[]);
+  const ps = registry.obter("ps") as EngineCommand | undefined;
+  if (ps) registry.registrar(makePs(ps) as unknown as never);
 }
 
 /** Gives the machine a binary for each command of the process control, so the shell finds them in the PATH (the engine runs only what exists there). */

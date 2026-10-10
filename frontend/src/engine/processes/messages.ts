@@ -15,6 +15,9 @@ export const messages = {
     failedSet: (pid: number) => `renice: falha ao definir a prioridade de ${pid} (ID do processo): Permissão negada`,
     failedGet: (pid: number) => `renice: falha ao obter a prioridade de ${pid} (ID do processo): Processo inexistente`,
   },
+  ps: {
+    unknownField: (name: string) => `erro: especificador de formato definido pelo usuário desconhecido "${name}"`,
+  },
   yes: {
     // yes has no error message of its own: an unknown option is the one of the engine.
   },

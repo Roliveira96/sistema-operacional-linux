@@ -52,12 +52,15 @@ export function fake(options: { uid?: number; process?: EngineProcess | null; ta
   let beats = 2;
   const table = options.table ?? [];
   const process = options.process === undefined ? makeProcess(900, options.uid ?? 0) : options.process;
-  const saida = options.out ?? { escrever: (t: string) => void out.push(t) };
-  const context = {
+  const terminal = options.out ?? { escrever: (t: string) => void out.push(t) };
+  const build = (saida: object): EngineContext => ({
     maquina: {
       hostname: "ubuntu",
       processos: { listar: () => table, porPid: (pid: number) => table.find((p) => p.pid === pid) },
-      contas: { nomeDoUsuario: (uid: number) => (uid === 0 ? "root" : uid === 1000 ? "ana" : `u${uid}`) },
+      contas: {
+        nomeDoUsuario: (uid: number) => (uid === 0 ? "root" : uid === 1000 ? "ana" : `u${uid}`),
+        usuario: (name: string) => (name === "root" ? { uid: 0 } : name === "ana" || name === "ricardo" ? { uid: 1000 } : undefined),
+      },
     },
     saida,
     erro: { escrever: (t: string) => void err.push(t) },
@@ -80,7 +83,9 @@ export function fake(options: { uid?: number; process?: EngineProcess | null; ta
       beats -= 1;
       return beats > 0;
     },
-    com: () => context,
-  } as unknown as EngineContext;
+    // The same context printing where the command was told to: a command that captures what another one prints uses it.
+    com: (changes: { saida?: object }) => build(changes.saida ?? saida),
+  }) as unknown as EngineContext;
+  const context = build(terminal);
   return { context, out, err, ran, cleared: () => cleared, table, setBeats: (n) => (beats = n) };
 }

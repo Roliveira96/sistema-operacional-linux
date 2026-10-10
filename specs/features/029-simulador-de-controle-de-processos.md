@@ -161,7 +161,7 @@ A API de conferência do exercício passa a aceitar, no snapshot enviado, os cam
 | Entrega | Situação |
 | :--- | :--- |
 | A, parte 1 | Feita: `nice`, `renice` (regras de permissão do Linux), `yes` (inclusive `yes > /dev/null &`), `watch`, `kill` completo (`kill -l` com os 64 sinais, conversão número/nome, qualquer sinal por nome ou número) e os binários no PATH, com testes de unidade e no terminal real entre terminais |
-| A, parte 2 | Pendente: `ps -l` (colunas PRI e NI) e `ps --forest`, `top` com PR/NI e atualização ao vivo, estado `Z` e reparentamento |
+| A, parte 2 | Feita em parte: `ps -l` (PRI e NI), `ps -o CAMPOS` (pid, ppid, ni, pri, user, uid, stat, tty, time, pcpu, pmem, comm, cmd, com `campo=TÍTULO`) e `ps --forest` / `ps f` (árvore de pais e filhos sobre qualquer formato do `ps` do motor). Pendente: `top` com PR/NI e atualização ao vivo, estado `Z` e reparentamento |
 | B | Pendente |
 | C | Pendente |
 
@@ -180,3 +180,4 @@ O terminal só imprime "Terminado" e "Morto" quando o processo em primeiro plano
 | 10/10/2026 | Implementador (Claude) | Renumerada de SPEC-028 para SPEC-029: o número 028 já foi tomado pelo rascunho "Ampliação dos comandos do terminal do navegador" |
 | 10/10/2026 | Tech Lead | O `legacy/` não deve ser alterado; a implementação é toda em `frontend/src/engine/`. Incluída a RN-10 |
 | 10/10/2026 | Implementador (Claude) | Entrega A, parte 1 implementada em `frontend/src/engine/processes/`; divisão com a SPEC-028 (3.1.1) e limitações do motor registradas |
+| 10/10/2026 | Implementador (Claude) | Entrega A, parte 2 (em parte): `ps -l`, `ps -o` e `ps --forest` |
