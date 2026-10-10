@@ -81,7 +81,9 @@ type exerciseResponse struct {
 	Hints      json.RawMessage `json:"hints"`
 	Solution   json.RawMessage `json:"solution"`
 	Conditions json.RawMessage `json:"conditions"`
-	Usage      string          `json:"usage"`
+	// ContinuesPrevious: it starts from where the previous exercise of the trail ended (SPEC-023 RN-11).
+	ContinuesPrevious bool   `json:"continuesPrevious"`
+	Usage             string `json:"usage"`
 	Status     string          `json:"status"`
 	Position   int             `json:"position"`
 	Mandatory  bool            `json:"mandatory"`
@@ -97,7 +99,7 @@ func toExerciseResponse(r service.ExerciseRecord) exerciseResponse {
 	out := exerciseResponse{
 		ID: r.ID, Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: rawOrEmptyList(r.Hints),
 		Usage: r.Usage, Status: r.Status, Position: r.Position, Mandatory: r.Mandatory, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
-		CreatedBy: r.CreatedByName, UpdatedBy: r.UpdatedByName, Legacy: len(r.EndConditions) == 0,
+		CreatedBy: r.CreatedByName, UpdatedBy: r.UpdatedByName, Legacy: len(r.EndConditions) == 0, ContinuesPrevious: r.ContinuesPrevious,
 	}
 	out.Conditions = rawOrEmptyList(r.EndConditions)
 	// The solution of what came from the initial load is in another format; it is only the teacher's when they recorded it here.
@@ -121,12 +123,14 @@ type exerciseRequest struct {
 	Hints      json.RawMessage `json:"hints"`
 	Solution   json.RawMessage `json:"solution"`
 	Conditions json.RawMessage `json:"conditions"`
+	// ContinuesPrevious continues from the previous exercise of the trail (SPEC-023 RN-11).
+	ContinuesPrevious bool       `json:"continuesPrevious"`
 	UpdatedAt  *time.Time      `json:"updatedAt"`
 	Force      bool            `json:"force"`
 }
 
 func (r exerciseRequest) input() domain.ExerciseInput {
-	return domain.ExerciseInput{Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: r.Hints, Solution: r.Solution, Conditions: r.Conditions}
+	return domain.ExerciseInput{Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: r.Hints, Solution: r.Solution, Conditions: r.Conditions, ContinuesPrevious: r.ContinuesPrevious}
 }
 
 func exerciseID(c *gin.Context) (uuid.UUID, bool) {

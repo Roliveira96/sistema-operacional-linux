@@ -113,6 +113,13 @@ func TestExercises_Create(t *testing.T) {
 	assert.JSONEq(t, `[{"type":"DIRECTORY_EXISTS","path":"/a"}]`, string(q.ValidationConditions))
 	assert.JSONEq(t, `[{"kind":"DIR_EXISTS","path":"/a"}]`, string(q.EndConditions))
 	assert.Nil(t, q.ScenarioID, "its machine is made of the layers of the module")
+	assert.False(t, q.ContinuesPrevious)
+
+	in := goodInput()
+	in.ContinuesPrevious = true
+	_, err = svc.Create(context.Background(), owner, module, in)
+	require.NoError(t, err)
+	assert.True(t, store.created.ContinuesPrevious, "RN-11")
 
 	_, err = svc.Create(context.Background(), owner, module, domain.ExerciseInput{Title: "", Difficulty: "EASY"})
 	var perr *domain.PayloadError

@@ -111,6 +111,7 @@ func TestExerciseHandler_List(t *testing.T) {
 	assert.Equal(t, "Ana", first["createdBy"])
 	assert.Equal(t, false, first["legacy"])
 	assert.NotNil(t, first["solution"])
+	assert.Equal(t, false, first["continuesPrevious"])
 	// What came from the initial load has its solution in another format: it is not offered as the teacher's.
 	old := items[1].(map[string]any)
 	assert.Equal(t, true, old["legacy"])

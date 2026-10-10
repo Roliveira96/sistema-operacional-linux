@@ -134,6 +134,15 @@ func TestExerciseBankUpdate(t *testing.T) {
 	assert.JSONEq(t, `{"steps":[{"command":"mkdir /b"}]}`, string(saved.ReferenceSolution))
 	assert.JSONEq(t, `[{"type":"DIRECTORY_EXISTS","path":"/b"}]`, string(saved.ValidationConditions))
 	assert.Equal(t, "Ana Prof", saved.UpdatedByName)
+	assert.False(t, saved.ContinuesPrevious)
+
+	// RN-11: the exercise can be saved as continuing from the previous one, and goes back.
+	clean.ContinuesPrevious = true
+	chained, err := f.repo.UpdateExercise(f.ctx, f.module.ID, a.ID, service.ExerciseUpdate{Exercise: clean, Catalog: catalog, By: f.teacher.ID, Now: later.Add(30 * time.Second)}, nil)
+	require.NoError(t, err)
+	assert.True(t, chained.ContinuesPrevious)
+	clean.ContinuesPrevious = false
+	saved = chained
 
 	// A second save with the instant the editor had before is a conflict; without the guard it goes through.
 	_, err = f.repo.UpdateExercise(f.ctx, f.module.ID, a.ID, service.ExerciseUpdate{Exercise: clean, Catalog: catalog, By: f.teacher.ID, Now: later.Add(time.Minute)}, &a.UpdatedAt)

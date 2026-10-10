@@ -116,6 +116,8 @@ type Question struct {
 	// the exercise ends in the form the teacher edits. EndConditions is nil for what came from the initial load.
 	Hints         json.RawMessage `gorm:"type:jsonb"`
 	EndConditions json.RawMessage `gorm:"type:jsonb"`
+	// ContinuesPrevious: the exercise starts from where the previous one of the trail ended (SPEC-023 RN-11).
+	ContinuesPrevious bool
 	// CreatedBy and UpdatedBy are the teachers who created and last changed it (nil for the initial load).
 	CreatedBy *uuid.UUID `gorm:"type:uuid"`
 	UpdatedBy *uuid.UUID `gorm:"type:uuid"`

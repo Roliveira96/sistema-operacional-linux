@@ -87,6 +87,10 @@ type PublicQuestion struct {
 	// Layered marks an exercise of the module made in the editor (SPEC-023): it has no machine of its own, so the screen
 	// starts it from the snapshot of the module followed by the one of the available exercises.
 	Layered bool `json:"layered,omitempty"`
+	// Continues marks an exercise that starts from where the previous one of the trail ended, and SolutionSetup is the recipe
+	// (commands and files) the screen replays to build the machine of a chain (SPEC-023 RN-11).
+	Continues     bool            `json:"continues,omitempty"`
+	SolutionSetup json.RawMessage `json:"solutionSetup,omitempty"`
 }
 
 // TeacherQuestion is the full view for the module owner and admins.
@@ -275,6 +279,8 @@ func publicView(q domain.Question) PublicQuestion {
 		p.Solution = nil
 		if q.Usage == domain.UsageExercise {
 			p.Solution = solutionCommands(q.ReferenceSolution)
+			p.Continues = q.ContinuesPrevious
+			p.SolutionSetup = q.ReferenceSolution
 		}
 	}
 	if q.Kind != domain.KindPractical && q.Kind != domain.KindDiscursive {

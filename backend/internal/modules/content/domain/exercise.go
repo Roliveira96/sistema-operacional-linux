@@ -15,6 +15,8 @@ type ExerciseInput struct {
 	Hints      json.RawMessage
 	Solution   json.RawMessage
 	Conditions json.RawMessage
+	// ContinuesPrevious says the exercise continues from the previous one of the trail (SPEC-023 RN-11).
+	ContinuesPrevious bool
 }
 
 // NormalizedExercise is an exercise ready to be stored: every field filtered and trimmed, and the conditions in the two
@@ -28,6 +30,8 @@ type NormalizedExercise struct {
 	Solution      json.RawMessage
 	EndConditions json.RawMessage
 	Catalog       []Condition
+	// ContinuesPrevious is passed through as the teacher gave it.
+	ContinuesPrevious bool
 }
 
 // decodeOptional reads a list or object that may be missing or null.
@@ -42,7 +46,7 @@ func decodeOptional(raw json.RawMessage, into any) error {
 // and translates how it ends to the catalog of the server. A *PayloadError lists the invalid fields.
 func NormalizeExercise(in ExerciseInput, s *HTMLSanitizer) (NormalizedExercise, error) {
 	c := &checker{s: s}
-	out := NormalizedExercise{}
+	out := NormalizedExercise{ContinuesPrevious: in.ContinuesPrevious}
 	out.Title = c.text("title", in.Title, MaxTitleLength, true)
 	if in.Difficulty != "EASY" && in.Difficulty != "MEDIUM" && in.Difficulty != "HARD" {
 		c.fail("difficulty", "must be EASY, MEDIUM or HARD")

@@ -62,6 +62,7 @@ A docente quer, na aba Exercícios do módulo, um **banco de exercícios**: cria
 - **RN-07:** o cenário inicial do estudante num exercício disponível é o snapshot do módulo seguido do snapshot dos exercícios disponíveis; num exercício de avaliação, o do módulo seguido do snapshot do banco de avaliação.
 - **RN-08:** salvar exercício e snapshots registra quem alterou e quando (como a autoria dos blocos, SPEC-019).
 - **RN-09:** remover um exercício com progresso de estudante pede confirmação e apaga o progresso dele (como a remoção de card).
+- **RN-11 (herança de cenário, TCC 3.x "Herança de Cenários e Isolamento entre Questões"):** um exercício disponível pode **continuar do anterior**. A máquina dele parte do snapshot do módulo, do snapshot dos exercícios disponíveis e da **receita** do exercício anterior (a solução gravada), e, se o anterior também continua do que veio antes, da dele, e assim por diante, na ordem da trilha. A máquina é sempre montada de novo a partir da receita (nunca é o estado de uma máquina em uso). As condições de finalização do exercício que continua falam só do que ele muda.
 - **RN-10:** o "Testar o módulo" inclui os exercícios disponíveis e os de avaliação; um exercício sem solução gravada ou sem condições de finalização reprova o teste (SPEC-022).
 
 ## 4. Modelo de Dados (Data Model)
@@ -72,6 +73,7 @@ A docente quer, na aba Exercícios do módulo, um **banco de exercícios**: cria
 | `questions` | Reuso do formato de solução e condições | `reference_solution` guarda a solução gravada; `validation_conditions` guarda as condições de finalização no catálogo do servidor (ver P-02) |
 | `course_modules` | Duas colunas novas | `exercises_setup` e `assessment_setup`: snapshots no formato `Setup` da SPEC-021, ambos opcionais |
 | `module_versions` | Conteúdo congelado inclui os dois snapshots | A versão publicada passa a congelar também `exercises_setup` e `assessment_setup` (ver P-04) |
+| `questions` | Coluna nova | `continues_previous` (booleano, padrão falso): o exercício continua de onde o anterior da trilha terminou (RN-11); vale só para o exercício disponível |
 | `module_exercise_items` | Sem mudança de schema | Continua sendo a trilha: um item por exercício disponível, com ordem e obrigatoriedade |
 
 Relacionamentos, índices e unicidades da trilha ficam como na SPEC-010. A exclusão do exercício é lógica (como `Question` hoje); a remoção da trilha é física.
@@ -97,6 +99,7 @@ Todos sob `/api/v1/teacher/modules/{id}`, para a docente dona do módulo ou admi
 | `statement` | HTML | Não | Sanitizado como o texto dos cards; até 20 mil caracteres |
 | `hints` | lista | Não | Até 10; cada uma com `text` (obrigatório, até 1000) e `command` (opcional, até 500) |
 | `solution` | objeto | Não | Snapshot no formato da SPEC-021, mesmos limites |
+| `continuesPrevious` | booleano | Não | Continua do exercício anterior da trilha (RN-11); padrão falso |
 | `conditions` | lista | Não | Até 100, no catálogo do servidor (SPEC-011 e 013) |
 | `updatedAt` | instante | Em `PUT` | Detecta conflito; `force` ignora |
 
@@ -140,6 +143,7 @@ Os endpoints do estudante (`/modules/{id}/scenario`, `/questions/{id}/scenario`,
 - [ ] **CA-07** (evento): QUANDO a docente testa o módulo, O SISTEMA DEVE rodar a solução e conferir o fim de cada exercício dos dois conjuntos, e reprovar o que não puder ser testado (RN-10).
 - [ ] **CA-08** (indesejado): SE outra pessoa alterou o exercício depois que a docente o abriu, ENTÃO O SISTEMA DEVE avisar do conflito e oferecer salvar mesmo assim.
 - [ ] **CA-09** (ubíquo): O SISTEMA DEVE mostrar, em cada exercício, quando foi criado e atualizado e por quem (RN-08).
+- [ ] **CA-11** (evento): QUANDO um exercício continua do anterior, O SISTEMA DEVE montar a máquina dele (na página da docente, no teste e na tela do estudante) com o snapshot do módulo, o dos exercícios disponíveis e a solução gravada dos exercícios da cadeia, nessa ordem (RN-11).
 - [ ] **CA-10** (evento): QUANDO a docente remove um exercício, O SISTEMA DEVE pedir confirmação e avisar que o progresso dos estudantes nele é apagado (RN-09).
 
 ## 8. Plano de Testes (Test Plan)
@@ -184,6 +188,7 @@ Nenhuma em aberto. Decisões do Tech Lead de 10/10/2026 (D-01 a D-03) e aceitas 
 | A-05 | O resultado do teste do módulo passa a depender do banco (exercícios publicados e os dois snapshots): mexer neles o marca como "alterado desde o teste". Um módulo sem banco mantém a impressão digital que tinha |
 | A-06 | Para o estudante, o exercício do módulo chega no formato que a tela de prática já lê (dicas como uma lista em HTML, solução como lista de comandos) e com a marca `layered`: a máquina é o cenário do tópico, com o snapshot do módulo e o dos exercícios disponíveis por cima, sem os snapshots dos cards (RN-07) |
 | A-07 | A listagem de questões do estudante respeita a ordem da trilha |
+| A-09 | RN-11: a questão pública do estudante traz `continues` e, para o exercício disponível, `solutionSetup` (a receita completa, com os arquivos), que a tela usa para montar a máquina da cadeia; a solução já era pública para quem pede "Ver como o professor fez" |
 | A-08 | Os arquivos que uma solução escreveu não têm comando e por isso não aparecem em "Ver como o professor fez" do estudante |
 
 ---
@@ -195,3 +200,4 @@ Nenhuma em aberto. Decisões do Tech Lead de 10/10/2026 (D-01 a D-03) e aceitas 
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; decisões D-01 a D-03 tomadas por ele no mesmo dia; pendências P-01 a P-07 abertas |
 | 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01 a P-07 (viram D-04 a D-10); seção 5 detalhada |
 | 10/10/2026 | Implementador (Claude) | Implementada: migração 00016, banco de exercícios no backend (serviço, repositório, rotas, trilha, snapshots, autoria, versões), aba Exercícios do módulo e página do exercício, teste do módulo com o banco, entrega ao estudante com o cenário em camadas. Ajustes A-01 a A-08 |
+| 10/10/2026 | Tech Lead | Pedido: exercícios em sequência (criar a pasta, depois o script dentro dela, depois rodar o script), como descrito no TCC (herança de cenários). Incluídos RN-11, CA-11, a coluna `continues_previous` e o ajuste A-09 |

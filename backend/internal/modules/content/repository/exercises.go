@@ -82,7 +82,7 @@ func (r *Repository) UpdateExercise(ctx context.Context, moduleID, id uuid.UUID,
 	}
 	fields := map[string]any{
 		"title": e.Title, "difficulty": e.Difficulty, "statement": e.Statement, "hints": jsonOrNil(e.Hints),
-		"reference_solution": jsonOrNil(e.Solution), "end_conditions": jsonOrNil(e.EndConditions), "validation_conditions": string(upd.Catalog),
+		"reference_solution": jsonOrNil(e.Solution), "end_conditions": jsonOrNil(e.EndConditions), "validation_conditions": string(upd.Catalog), "continues_previous": e.ContinuesPrevious,
 		"edited_by_teacher_at": upd.Now, "updated_at": upd.Now, "updated_by": upd.By,
 	}
 	res := q.Updates(fields)

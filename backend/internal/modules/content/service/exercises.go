@@ -157,7 +157,7 @@ func (s *Exercises) Create(ctx context.Context, who Actor, moduleID uuid.UUID, i
 	q := domain.Question{
 		ID: uuid.New(), ModuleID: moduleID, Kind: domain.KindPractical, Usage: domain.UsageAssessment, Difficulty: clean.Difficulty,
 		Status: domain.StatusDraft, Title: clean.Title, Statement: clean.Statement, Hints: clean.Hints, ReferenceSolution: clean.Solution,
-		EndConditions: clean.EndConditions, ValidationConditions: catalog, CreatedBy: &by, UpdatedBy: &by, EditedByTeacherAt: &now,
+		EndConditions: clean.EndConditions, ValidationConditions: catalog, ContinuesPrevious: clean.ContinuesPrevious, CreatedBy: &by, UpdatedBy: &by, EditedByTeacherAt: &now,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	if err := s.store.CreateExercise(ctx, &q); err != nil {

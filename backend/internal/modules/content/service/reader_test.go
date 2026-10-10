@@ -360,6 +360,13 @@ func TestReader_ExerciseOfTheModuleForTheStudent(t *testing.T) {
 	require.NotNil(t, got[0].Hint)
 	assert.Equal(t, "<ol><li>Use &lt;b&gt;mkdir&lt;/b&gt; <code>mkdir /a</code></li><li>Depois confira</li></ol>", *got[0].Hint, "the tips are text, written as html with the markup escaped")
 	assert.JSONEq(t, `[{"command":"mkdir /a"},{"command":"su ana","terminal":2}]`, string(got[0].Solution))
+	// RN-11: the recipe of the exercise, files included, comes for the screen to replay a chain.
+	assert.False(t, got[0].Continues)
+	assert.JSONEq(t, string(q.ReferenceSolution), string(got[0].SolutionSetup))
+	q.ContinuesPrevious = true
+	got, err = NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), q.ModuleID, domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	assert.True(t, got[0].Continues)
 
 	// A reserved exercise never carries its solution, and one with no tips has no hint.
 	q.Usage = domain.UsageAssessment
