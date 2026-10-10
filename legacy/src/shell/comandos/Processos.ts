@@ -1,3 +1,4 @@
+import type { AjudaDoComando } from '../Ajuda';
 import { Comando, Opcoes } from '../Comando';
 import type { Contexto } from '../Contexto';
 import type { Maquina } from '../../linux/Maquina';
@@ -78,6 +79,23 @@ function hora(data: Date): string {
 export class Ps extends Comando {
   public readonly nome: string = 'ps';
   public readonly resumo: string = 'lista processos: ps (os seus), ps aux (todos, com usuário), ps -ef (com o pai)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'ps [aux] [-e] [-f] [-u USUÁRIO] [-p PID[,PID]...] [-C COMANDO]',
+    descricao: 'Lista processos. Sem opções, mostra só os do seu terminal.',
+    opcoes: [
+      ['aux', 'todos os processos, com usuário, CPU e memória'],
+      ['-e, -f', 'todos os processos, com o PID do pai (ps -ef)'],
+      ['-u, --user USUÁRIO', 'só os processos desse usuário'],
+      ['-p, --pid PID', 'só o processo com esse PID (vários separados por vírgula)'],
+      ['-C COMANDO', 'só os processos com esse nome de comando'],
+    ],
+    exemplos: [
+      ['ps', 'lista os processos do seu terminal'],
+      ['ps aux', 'lista todos os processos'],
+      ['ps -ef', 'lista todos, mostrando o PID do pai'],
+      ['ps -u maria', 'lista os processos da maria'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const bsd: boolean = args.some((a: string) => /^[aux]+$/.test(a));
@@ -118,6 +136,12 @@ export class Ps extends Comando {
 export class Top extends Comando {
   public readonly nome: string = 'top';
   public readonly resumo: string = 'monitor de processos (CPU, memória, carga). No real, atualiza ao vivo e sai com q';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'top',
+    descricao: 'Mostra um resumo do sistema (carga, memória) e os processos que mais usam memória. No simulador é uma foto única, não atualiza ao vivo.',
+    exemplos: [['top', 'mostra o resumo e os processos']],
+    h: 'ajuda',
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     const linhas: LinhaDeProcesso[] = listarProcessos(contexto.maquina);
@@ -182,6 +206,21 @@ function sinalizar(linha: LinhaDeProcesso, sinal: number, contexto: Contexto): s
 export class Kill extends Comando {
   public readonly nome: string = 'kill';
   public readonly resumo: string = 'envia um sinal a um processo: kill PID (educado, 15), kill -9 PID (forçado), kill %1 (job)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'kill [-s SINAL | -SINAL] PID|%JOB...',
+    descricao: 'Envia um sinal a um processo ou job. Sem indicar o sinal, envia o 15 (TERM), que pede educadamente para encerrar.',
+    opcoes: [
+      ['-s SINAL', 'envia esse sinal (nome ou número)'],
+      ['-SINAL', 'o mesmo, na forma curta: -9, -KILL'],
+      ['-l', 'lista os sinais disponíveis'],
+    ],
+    exemplos: [
+      ['kill 2451', 'pede ao processo 2451 que encerre'],
+      ['kill -9 2451', 'força o processo 2451 a encerrar'],
+      ['kill %1', 'encerra o job 1 deste terminal'],
+      ['kill -l', 'lista os sinais'],
+    ],
+  };
   public readonly embutido: boolean = true;
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -237,6 +276,37 @@ export class Killall extends Comando {
     this.resumo = nome === 'killall' ? 'mata todos os processos com esse nome: killall sleep'
       : nome === 'pkill' ? 'mata por padrão ou por usuário: pkill sleep | pkill -u maria (derruba a maria)'
         : 'mostra os PIDs dos processos: pgrep nginx | pgrep -u maria -l';
+    const sinais: Array<[string, string]> = [['-SINAL, -s, --signal SINAL', 'envia esse sinal em vez do 15 (TERM): -9, -KILL']];
+    const usuario: [string, string] = ['-u, --user USUÁRIO', 'só os processos desse usuário'];
+    this.ajuda = nome === 'killall'
+      ? {
+        uso: 'killall [-SINAL | -s SINAL] [-u USUÁRIO] NOME',
+        descricao: 'Envia um sinal a todos os processos que têm exatamente esse nome. Sem indicar o sinal, envia o 15 (TERM).',
+        opcoes: [...sinais, usuario],
+        exemplos: [
+          ['killall sleep', 'encerra todos os processos chamados sleep'],
+          ['killall -9 nginx', 'força o encerramento de todos os nginx'],
+        ],
+      }
+      : nome === 'pkill'
+        ? {
+          uso: 'pkill [-SINAL | -s SINAL] [-u USUÁRIO] [PADRÃO]',
+          descricao: 'Envia um sinal aos processos cujo nome contém o PADRÃO, ou aos de um usuário. Sem indicar o sinal, envia o 15 (TERM).',
+          opcoes: [...sinais, usuario],
+          exemplos: [
+            ['pkill sleep', 'encerra os processos com "sleep" no nome'],
+            ['pkill -u maria', 'derruba tudo o que é da maria'],
+          ],
+        }
+        : {
+          uso: 'pgrep [-l] [-u USUÁRIO] [PADRÃO]',
+          descricao: 'Mostra o PID dos processos cujo nome contém o PADRÃO, ou dos de um usuário.',
+          opcoes: [['-l', 'mostra também o nome de cada processo'], usuario],
+          exemplos: [
+            ['pgrep nginx', 'mostra os PIDs do nginx'],
+            ['pgrep -u maria -l', 'mostra PID e nome dos processos da maria'],
+          ],
+        };
   }
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -283,6 +353,15 @@ export class Killall extends Comando {
 export class Jobs extends Comando {
   public readonly nome: string = 'jobs';
   public readonly resumo: string = 'lista os jobs deste terminal (comandos em segundo plano ou parados)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'jobs [-l]',
+    descricao: 'Lista os jobs deste terminal: comandos em segundo plano ou parados com Ctrl+Z.',
+    opcoes: [['-l', 'mostra também o PID de cada job']],
+    exemplos: [
+      ['jobs', 'lista os jobs'],
+      ['jobs -l', 'lista os jobs com o PID'],
+    ],
+  };
   public readonly embutido: boolean = true;
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -299,6 +378,14 @@ export class Jobs extends Comando {
 export class Fg extends Comando {
   public readonly nome: string = 'fg';
   public readonly resumo: string = 'traz um job para o primeiro plano: fg %1';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'fg [%JOB]',
+    descricao: 'Traz um job para o primeiro plano e espera ele terminar. Sem argumento, usa o job mais recente.',
+    exemplos: [
+      ['fg', 'traz o job mais recente'],
+      ['fg %1', 'traz o job número 1'],
+    ],
+  };
   public readonly embutido: boolean = true;
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -330,6 +417,14 @@ export class Fg extends Comando {
 export class Bg extends Comando {
   public readonly nome: string = 'bg';
   public readonly resumo: string = 'continua em segundo plano um job parado com Ctrl+Z: bg %1';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'bg [%JOB]',
+    descricao: 'Continua, em segundo plano, um job que foi parado com Ctrl+Z. Sem argumento, usa o job mais recente.',
+    exemplos: [
+      ['bg', 'continua o job mais recente'],
+      ['bg %1', 'continua o job número 1'],
+    ],
+  };
   public readonly embutido: boolean = true;
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -347,6 +442,11 @@ export class Bg extends Comando {
 export class Wait extends Comando {
   public readonly nome: string = 'wait';
   public readonly resumo: string = 'espera os jobs em segundo plano terminarem (útil em scripts)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'wait',
+    descricao: 'Espera todos os jobs em segundo plano terminarem. Útil em scripts.',
+    exemplos: [['sleep 5 & wait', 'inicia o sleep em segundo plano e espera ele acabar']],
+  };
   public readonly embutido: boolean = true;
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
@@ -360,6 +460,15 @@ export class Wait extends Comando {
 export class Nohup extends Comando {
   public readonly nome: string = 'nohup';
   public readonly resumo: string = 'roda um comando que continua mesmo depois que você sair: nohup comando &';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'nohup COMANDO [ARGUMENTO]...',
+    descricao: 'Roda um comando que continua mesmo depois que você sair. A saída vai para o arquivo nohup.out.',
+    exemplos: [
+      ['nohup sleep 100 &', 'roda o sleep em segundo plano, imune a sair do terminal'],
+      ['nohup ./script.sh &', 'roda o script em segundo plano'],
+    ],
+    soPrimeiro: true,
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args.length === 0) {
@@ -384,6 +493,16 @@ export class Nohup extends Comando {
 export class Uptime extends Comando {
   public readonly nome: string = 'uptime';
   public readonly resumo: string = 'há quanto tempo o servidor está ligado, quantos usuários e a carga';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'uptime [-p]',
+    descricao: 'Mostra há quanto tempo o servidor está ligado, quantos usuários estão conectados e a carga média.',
+    opcoes: [['-p', 'mostra só o tempo ligado, em formato legível']],
+    exemplos: [
+      ['uptime', 'mostra tempo ligado, usuários e carga'],
+      ['uptime -p', 'mostra só há quanto tempo está ligado'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args.includes('-p')) {

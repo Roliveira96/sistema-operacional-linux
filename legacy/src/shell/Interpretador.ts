@@ -1,5 +1,6 @@
 import { Analisador, ErroDeSintaxe, type Ambiente, type ComandoSimples, type Palavra, type Pipeline } from './Analisador';
 import { Heredocs, LeitorDeBlocos, type Instrucao } from './Blocos';
+import { mostrarAjuda, pedeAjuda } from './Ajuda';
 import { Aritmetica } from './Aritmetica';
 import { Contexto, type Executor, type Interacao } from './Contexto';
 import { SaidaEmTexto, SaidaParaArquivo, type Saida } from './Saida';
@@ -499,6 +500,11 @@ export class Interpretador implements Executor {
   }
 
   private async rodarComando(comando: Comando, args: string[], contexto: Contexto): Promise<number> {
+    // `--help` (e o `-h` onde ele é a ajuda) mostra a ajuda sem executar o comando (SPEC-027).
+    if (pedeAjuda(comando, args.slice(1))) {
+      mostrarAjuda(comando, contexto);
+      return 0;
+    }
     try {
       return await comando.executar(args.slice(1), contexto);
     } catch (erro) {

@@ -5,6 +5,7 @@ import { Diretorio, type No } from '../../linux/No';
 import { SistemaDeArquivos } from '../../linux/SistemaDeArquivos';
 import { simOuNao } from './util';
 import { pidDeLog, registrar } from '../../linux/Registro';
+import type { AjudaDoComando } from '../Ajuda';
 
 const NOME_VALIDO: RegExp = /^[a-z_][a-z0-9_-]{0,31}$/;
 
@@ -37,6 +38,14 @@ export async function pedirNovaSenha(contexto: Contexto): Promise<string | null>
 export class Whoami extends Comando {
   public readonly nome: string = 'whoami';
   public readonly resumo: string = 'mostra com qual usuário você está agindo agora';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'whoami',
+    descricao: 'Mostra o nome do usuário com o qual você está agindo agora.',
+    exemplos: [
+      ['whoami', 'mostra o seu usuário, como maria'],
+      ['sudo whoami', 'mostra root, porque o sudo roda o comando como root'],
+    ],
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     contexto.linha(contexto.contas.nomeDoUsuario(contexto.credencial.uid));
@@ -47,6 +56,21 @@ export class Whoami extends Comando {
 export class Id extends Comando {
   public readonly nome: string = 'id';
   public readonly resumo: string = 'mostra UID, GID e todos os grupos de um usuário';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'id [OPÇÃO]... [USUÁRIO]',
+    descricao: 'Mostra o número (UID) do usuário, o grupo principal (GID) e todos os grupos de que ele participa. Sem USUÁRIO, mostra os seus dados.',
+    opcoes: [
+      ['-u', 'mostra só o UID'],
+      ['-g', 'mostra só o grupo principal'],
+      ['-G', 'mostra todos os grupos'],
+      ['-n', 'mostra nomes em vez de números (com -u, -g ou -G)'],
+    ],
+    exemplos: [
+      ['id', 'mostra seu UID, GID e grupos'],
+      ['id maria', 'mostra os dados da maria'],
+      ['id -Gn', 'lista só os nomes dos seus grupos'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args);
@@ -80,6 +104,14 @@ export class Id extends Comando {
 export class Groups extends Comando {
   public readonly nome: string = 'groups';
   public readonly resumo: string = 'lista os grupos de que um usuário participa';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'groups [USUÁRIO]...',
+    descricao: 'Lista os grupos de que um usuário participa. Sem USUÁRIO, lista os seus.',
+    exemplos: [
+      ['groups', 'lista os seus grupos'],
+      ['groups maria', 'lista os grupos da maria'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args.length === 0) {
@@ -103,6 +135,24 @@ export class Groups extends Comando {
 export class Useradd extends Comando {
   public readonly nome: string = 'useradd';
   public readonly resumo: string = 'cria usuário: useradd -m -s /bin/bash maria  (-m cria a home, -G grupos extras)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'useradd [OPÇÃO]... LOGIN',
+    descricao: 'Cria um usuário novo (só o root). Sem -m, a pasta pessoal não é criada.',
+    opcoes: [
+      ['-m, --create-home', 'cria a pasta pessoal do usuário'],
+      ['-s, --shell SHELL', 'define o shell de login, como /bin/bash'],
+      ['-g, --gid GRUPO', 'define o grupo principal'],
+      ['-G, --groups GRUPOS', 'define grupos extras, separados por vírgula'],
+      ['-d, --home DIR', 'define a pasta pessoal'],
+      ['-c, --comment TEXTO', 'define o comentário (nome completo)'],
+      ['-u, --uid UID', 'define o número do usuário'],
+    ],
+    exemplos: [
+      ['sudo useradd -m -s /bin/bash maria', 'cria maria com pasta pessoal e bash'],
+      ['sudo useradd -m -G sudo,dev joao', 'cria joao já nos grupos sudo e dev'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'sgGdcu', {
@@ -182,6 +232,26 @@ export class Adduser extends Comando {
   constructor(nome: 'adduser' | 'addgroup') {
     super();
     this.nome = nome;
+    this.ajuda = nome === 'adduser'
+      ? {
+        uso: 'adduser LOGIN | adduser USUÁRIO GRUPO | adduser --group GRUPO',
+        descricao: 'Jeito amigável do Debian/Ubuntu de criar um usuário (com grupo, pasta pessoal e senha) ou de pôr um usuário em um grupo. Só o root.',
+        opcoes: [
+          ['--group', 'cria um grupo em vez de um usuário'],
+        ],
+        exemplos: [
+          ['sudo adduser maria', 'cria maria, a pasta pessoal e pergunta a senha'],
+          ['sudo adduser maria sudo', 'põe maria no grupo sudo'],
+          ['sudo adduser --group dev', 'cria o grupo dev'],
+        ],
+      }
+      : {
+        uso: 'addgroup GRUPO',
+        descricao: 'Cria um grupo novo (atalho do Debian/Ubuntu para groupadd). Só o root.',
+        exemplos: [
+          ['sudo addgroup dev', 'cria o grupo dev'],
+        ],
+      };
     this.resumo = nome === 'adduser'
       ? 'jeito "amigável" do Debian/Ubuntu: cria usuário, grupo, home e já pede a senha. adduser maria sudo põe no grupo'
       : 'cria um grupo (atalho do Debian/Ubuntu para groupadd)';
@@ -303,6 +373,19 @@ function apagarConta(usuario: Usuario, removerHome: boolean, contexto: Contexto)
 export class Userdel extends Comando {
   public readonly nome: string = 'userdel';
   public readonly resumo: string = 'apaga um usuário (-r apaga também a home dele)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'userdel [OPÇÃO]... LOGIN',
+    descricao: 'Apaga um usuário (só o root). O grupo pessoal dele também some, se ficar vazio.',
+    opcoes: [
+      ['-r, --remove', 'apaga também a pasta pessoal'],
+      ['-f, --force', 'apaga mesmo que o usuário esteja logado'],
+    ],
+    exemplos: [
+      ['sudo userdel maria', 'apaga a conta de maria e mantém a pasta pessoal'],
+      ['sudo userdel -r maria', 'apaga a conta e a pasta pessoal'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { remove: 'r', force: 'f' });
@@ -337,6 +420,18 @@ export class Userdel extends Comando {
 export class Deluser extends Comando {
   public readonly nome: string = 'deluser';
   public readonly resumo: string = 'versão Debian/Ubuntu do userdel (--remove-home apaga a home). deluser maria sudo tira do grupo';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'deluser [--remove-home] USUÁRIO | deluser USUÁRIO GRUPO',
+    descricao: 'Apaga um usuário ou tira um usuário de um grupo (só o root). É a versão Debian/Ubuntu do userdel.',
+    opcoes: [
+      ['--remove-home', 'apaga também a pasta pessoal'],
+    ],
+    exemplos: [
+      ['sudo deluser maria', 'apaga a conta de maria'],
+      ['sudo deluser --remove-home maria', 'apaga a conta e a pasta pessoal'],
+      ['sudo deluser maria dev', 'tira maria do grupo dev'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args);
@@ -377,6 +472,28 @@ export class Deluser extends Comando {
 export class Usermod extends Comando {
   public readonly nome: string = 'usermod';
   public readonly resumo: string = 'altera usuário: -aG grupo (ADICIONA a grupos), -s shell, -l novo_nome, -L bloqueia, -U desbloqueia';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'usermod [OPÇÃO]... LOGIN',
+    descricao: 'Altera um usuário que já existe (só o root). Para pôr alguém em um grupo sem tirá-lo dos outros, use -aG.',
+    opcoes: [
+      ['-a, --append', 'com -G, adiciona aos grupos sem tirar dos outros'],
+      ['-G, --groups GRUPOS', 'define os grupos extras, separados por vírgula'],
+      ['-g, --gid GRUPO', 'muda o grupo principal'],
+      ['-s, --shell SHELL', 'muda o shell de login'],
+      ['-l, --login NOVO', 'muda o nome de login'],
+      ['-d, --home DIR', 'muda a pasta pessoal'],
+      ['-m, --move-home', 'com -d, move o conteúdo da pasta antiga'],
+      ['-c, --comment TEXTO', 'muda o comentário (nome completo)'],
+      ['-L, --lock', 'bloqueia a conta'],
+      ['-U, --unlock', 'desbloqueia a conta'],
+    ],
+    exemplos: [
+      ['sudo usermod -aG sudo maria', 'põe maria no grupo sudo, sem tirá-la dos outros'],
+      ['sudo usermod -s /bin/zsh maria', 'muda o shell de maria'],
+      ['sudo usermod -L maria', 'bloqueia a conta de maria'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'gGsldc', {
@@ -468,6 +585,22 @@ export class Usermod extends Comando {
 export class Passwd extends Comando {
   public readonly nome: string = 'passwd';
   public readonly resumo: string = 'define/troca senha: passwd (a sua) ou passwd maria (como root). -l bloqueia, -u desbloqueia, -S status';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'passwd [OPÇÃO]... [USUÁRIO]',
+    descricao: 'Troca a senha de um usuário. Sem USUÁRIO, troca a sua; trocar a de outro só o root pode.',
+    opcoes: [
+      ['-l, --lock', 'bloqueia a senha da conta (só root)'],
+      ['-u, --unlock', 'desbloqueia a senha da conta (só root)'],
+      ['-d, --delete', 'apaga a senha, deixando a conta sem senha (só root)'],
+      ['-S, --status', 'mostra o estado da senha'],
+    ],
+    exemplos: [
+      ['passwd', 'troca a sua senha'],
+      ['sudo passwd maria', 'define a senha de maria'],
+      ['sudo passwd -l maria', 'bloqueia a senha de maria'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { lock: 'l', unlock: 'u', status: 'S', delete: 'd' });
@@ -524,6 +657,15 @@ export class Passwd extends Comando {
 export class Getent extends Comando {
   public readonly nome: string = 'getent';
   public readonly resumo: string = 'consulta contas: getent passwd maria  |  getent group sudo';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'getent {passwd|group} [CHAVE]',
+    descricao: 'Consulta o banco de usuários (passwd) ou de grupos (group). CHAVE é o nome ou o número procurado; sem ela, lista tudo.',
+    exemplos: [
+      ['getent passwd maria', 'mostra a linha de maria em /etc/passwd'],
+      ['getent group sudo', 'mostra o grupo sudo e seus membros'],
+      ['getent passwd', 'lista todos os usuários'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const [base, chave] = args;

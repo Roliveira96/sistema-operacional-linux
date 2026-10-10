@@ -2,10 +2,23 @@ import { Comando, Opcoes } from '../Comando';
 import type { Contexto } from '../Contexto';
 import { Grupo, type Usuario } from '../../linux/Contas';
 import { exigirRoot } from './Usuarios';
+import type { AjudaDoComando } from '../Ajuda';
 
 export class Groupadd extends Comando {
   public readonly nome: string = 'groupadd';
   public readonly resumo: string = 'cria um grupo: groupadd dev  (-g define o GID)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'groupadd [OPÇÃO]... GRUPO',
+    descricao: 'Cria um grupo novo (só o root).',
+    opcoes: [
+      ['-g, --gid GID', 'define o número do grupo'],
+    ],
+    exemplos: [
+      ['sudo groupadd dev', 'cria o grupo dev'],
+      ['sudo groupadd -g 2000 dev', 'cria o grupo dev com o GID 2000'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'g', { gid: 'g' });
@@ -36,6 +49,14 @@ export class Groupadd extends Comando {
 export class Groupdel extends Comando {
   public readonly nome: string = 'groupdel';
   public readonly resumo: string = 'apaga um grupo (não pode ser o grupo primário de ninguém)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'groupdel GRUPO',
+    descricao: 'Apaga um grupo (só o root). Não apaga o grupo principal de algum usuário.',
+    exemplos: [
+      ['sudo groupdel dev', 'apaga o grupo dev'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const nome: string | undefined = Opcoes.ler(args).operandos[0];
@@ -62,6 +83,19 @@ export class Groupdel extends Comando {
 export class Groupmod extends Comando {
   public readonly nome: string = 'groupmod';
   public readonly resumo: string = 'altera um grupo: groupmod -n novo_nome grupo';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'groupmod [OPÇÃO]... GRUPO',
+    descricao: 'Muda o nome ou o número de um grupo que já existe (só o root).',
+    opcoes: [
+      ['-n, --new-name NOVO', 'muda o nome do grupo'],
+      ['-g, --gid GID', 'muda o número do grupo'],
+    ],
+    exemplos: [
+      ['sudo groupmod -n equipe dev', 'renomeia o grupo dev para equipe'],
+      ['sudo groupmod -g 3000 dev', 'muda o GID do grupo dev para 3000'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'ng', { 'new-name': 'n', gid: 'g' });
@@ -94,6 +128,21 @@ export class Groupmod extends Comando {
 export class Gpasswd extends Comando {
   public readonly nome: string = 'gpasswd';
   public readonly resumo: string = 'administra grupos: gpasswd -a maria dev (adiciona)  |  gpasswd -d maria dev (remove)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'gpasswd {-a USUÁRIO | -d USUÁRIO | -M USUÁRIOS} GRUPO',
+    descricao: 'Administra os membros de um grupo: adiciona, remove ou redefine a lista (só o root).',
+    opcoes: [
+      ['-a, --add USUÁRIO', 'adiciona o usuário ao grupo'],
+      ['-d, --delete USUÁRIO', 'tira o usuário do grupo'],
+      ['-M, --members LISTA', 'define todos os membros, separados por vírgula'],
+    ],
+    exemplos: [
+      ['sudo gpasswd -a maria dev', 'põe maria no grupo dev'],
+      ['sudo gpasswd -d maria dev', 'tira maria do grupo dev'],
+      ['sudo gpasswd -M maria,joao dev', 'o grupo dev passa a ter só maria e joao'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'adM', { add: 'a', delete: 'd', members: 'M' });
@@ -142,6 +191,13 @@ export class Gpasswd extends Comando {
 export class Delgroup extends Comando {
   public readonly nome: string = 'delgroup';
   public readonly resumo: string = 'versão Debian/Ubuntu do groupdel';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'delgroup GRUPO',
+    descricao: 'Apaga um grupo (só o root). É a versão Debian/Ubuntu do groupdel.',
+    exemplos: [
+      ['sudo delgroup dev', 'apaga o grupo dev'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const nome: string | undefined = Opcoes.ler(args).operandos[0];

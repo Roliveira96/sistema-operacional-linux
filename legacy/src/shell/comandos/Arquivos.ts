@@ -1,5 +1,6 @@
 import { Comando, Opcoes, citar } from '../Comando';
 import type { Contexto } from '../Contexto';
+import type { AjudaDoComando } from '../Ajuda';
 import { Arquivo, Diretorio, Link, type No } from '../../linux/No';
 import { ErroDeSistema } from '../../linux/ErroDeSistema';
 import { Permissoes } from '../../linux/Permissoes';
@@ -8,6 +9,14 @@ import { dataCompleta, exigirOperando, lerEntradas, linhasDe, mensagemDe } from 
 
 export class Touch extends Comando {
   public readonly nome: string = 'touch';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'touch ARQUIVO...',
+    descricao: 'cria arquivos vazios. Se o arquivo já existe, só atualiza a data de modificação.',
+    exemplos: [
+      ['touch notas.txt', 'cria notas.txt vazio'],
+      ['touch a.txt b.txt', 'cria dois arquivos de uma vez'],
+    ],
+  };
   public readonly resumo: string = 'cria um arquivo vazio (ou atualiza a data de um que já existe)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -54,6 +63,18 @@ export class Touch extends Comando {
 
 export class Cat extends Comando {
   public readonly nome: string = 'cat';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'cat [OPÇÃO]... [ARQUIVO]...',
+    descricao: 'mostra o conteúdo dos arquivos, um depois do outro. Sem arquivo, lê o que você digita até Ctrl+D.',
+    opcoes: [
+      ['-n, --number', 'numera todas as linhas'],
+    ],
+    exemplos: [
+      ['cat /etc/hostname', 'mostra o conteúdo do arquivo'],
+      ['cat -n notas.txt', 'mostra o arquivo com as linhas numeradas'],
+      ['cat a.txt b.txt', 'mostra os dois arquivos em sequência'],
+    ],
+  };
   public readonly resumo: string = 'mostra o conteúdo de arquivos (-n numera as linhas)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -86,6 +107,21 @@ export class Cat extends Comando {
 
 export class Echo extends Comando {
   public readonly nome: string = 'echo';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'echo [-neE] [TEXTO]...',
+    descricao: 'escreve o texto na tela. Com > ou >> grava num arquivo.',
+    opcoes: [
+      ['-n', 'não termina com quebra de linha'],
+      ['-e', 'interpreta \\n (nova linha) e \\t (tabulação)'],
+      ['-E', 'não interpreta as sequências com barra invertida (padrão)'],
+    ],
+    exemplos: [
+      ['echo Olá, mundo', 'escreve Olá, mundo'],
+      ['echo "linha 1" > notas.txt', 'grava o texto em notas.txt'],
+      ['echo -e "a\\nb"', 'escreve a e b em linhas separadas'],
+    ],
+    semOpcaoDeAjuda: true,
+  };
   public readonly resumo: string = 'imprime um texto (use > para gravar num arquivo e >> para acrescentar)';
   public readonly embutido: boolean = true;
 
@@ -109,6 +145,15 @@ export class Echo extends Comando {
 
 export class Printf extends Comando {
   public readonly nome: string = 'printf';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'printf FORMATO [ARGUMENTO]...',
+    descricao: 'escreve os argumentos seguindo o formato. No formato, %s é texto, %d é inteiro e %f é decimal; \\n é nova linha.',
+    exemplos: [
+      ['printf "%s tem %d anos\\n" Ana 20', 'escreve: Ana tem 20 anos'],
+      ['printf "%.2f\\n" 3.14159', 'escreve: 3.14'],
+    ],
+    semOpcaoDeAjuda: true,
+  };
   public readonly resumo: string = 'imprime com formato: printf "%s tem %d anos\\n" Ana 20';
   public readonly embutido: boolean = true;
 
@@ -172,6 +217,20 @@ abstract class ComandoDeCopia extends Comando {
 
 export class Cp extends ComandoDeCopia {
   public readonly nome: string = 'cp';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'cp [OPÇÃO]... ORIGEM... DESTINO',
+    descricao: 'copia arquivos e diretórios. Com várias origens, o destino precisa ser um diretório.',
+    opcoes: [
+      ['-r, -R, --recursive', 'copia diretórios com tudo dentro'],
+      ['-a', 'copia como -r'],
+      ['-v, --verbose', 'mostra o que foi copiado'],
+    ],
+    exemplos: [
+      ['cp a.txt b.txt', 'copia a.txt para b.txt'],
+      ['cp -r projeto backup', 'copia a pasta projeto inteira para backup'],
+      ['cp -v a.txt /tmp', 'copia para /tmp e mostra o que fez'],
+    ],
+  };
   public readonly resumo: string = 'copia arquivos (-r copia diretórios inteiros, -v mostra o que fez)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -257,6 +316,17 @@ export class Cp extends ComandoDeCopia {
 
 export class Mv extends ComandoDeCopia {
   public readonly nome: string = 'mv';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'mv [OPÇÃO]... ORIGEM... DESTINO',
+    descricao: 'move arquivos e diretórios para outro lugar, ou renomeia quando o destino é um nome novo.',
+    opcoes: [
+      ['-v, --verbose', 'mostra o que foi movido'],
+    ],
+    exemplos: [
+      ['mv velho.txt novo.txt', 'renomeia velho.txt para novo.txt'],
+      ['mv a.txt b.txt /tmp', 'move os dois arquivos para /tmp'],
+    ],
+  };
   public readonly resumo: string = 'move OU renomeia arquivos e diretórios (-v mostra o que fez)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -321,6 +391,17 @@ export class Mv extends ComandoDeCopia {
 
 export class Stat extends Comando {
   public readonly nome: string = 'stat';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'stat [OPÇÃO]... ARQUIVO...',
+    descricao: 'mostra os detalhes de um arquivo: tamanho, permissões, dono, grupo e datas.',
+    opcoes: [
+      ['-c FORMATO', 'mostra só o que o formato pede: %a permissão em número, %A em texto, %U dono, %G grupo, %n nome, %s tamanho'],
+    ],
+    exemplos: [
+      ['stat /etc/passwd', 'mostra todos os detalhes do arquivo'],
+      ['stat -c "%a %U" /etc/passwd', 'mostra só a permissão em número e o dono'],
+    ],
+  };
   public readonly resumo: string = 'mostra os detalhes de um arquivo: permissão em número e texto, dono, grupo, datas';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -363,6 +444,19 @@ export class Stat extends Comando {
 
 export class Ln extends Comando {
   public readonly nome: string = 'ln';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'ln -s [OPÇÃO]... ALVO [NOME]',
+    descricao: 'cria um link simbólico (atalho) chamado NOME apontando para ALVO. O simulador só faz links simbólicos, por isso -s é obrigatório.',
+    opcoes: [
+      ['-s, --symbolic', 'cria um link simbólico (obrigatório)'],
+      ['-f, --force', 'substitui o NOME se ele já existir'],
+      ['-v, --verbose', 'mostra o link criado'],
+    ],
+    exemplos: [
+      ['ln -s /etc/hostname atalho', 'cria o atalho apontando para /etc/hostname'],
+      ['ln -sf /var/log log', 'cria o atalho, substituindo um que já exista'],
+    ],
+  };
   public readonly resumo: string = 'cria links: ln -s ALVO NOME cria um atalho (link simbólico)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -414,6 +508,17 @@ export class Editor extends Comando {
     this.resumo = nome === 'nano'
       ? 'editor simples: Ctrl+O grava, Ctrl+X sai'
       : 'editor modal: i insere, Esc volta ao modo normal, :w grava, :q sai, :wq grava e sai, :q! sai sem gravar';
+    this.ajuda = nome === 'nano'
+      ? {
+        uso: 'nano ARQUIVO',
+        descricao: 'abre o editor de texto nano, em tela cheia. Se o arquivo não existe, ele é criado ao gravar.',
+        exemplos: [['nano notas.txt', 'abre (ou cria) notas.txt; Ctrl+O grava e Ctrl+X sai']],
+      }
+      : {
+        uso: nome + ' ARQUIVO',
+        descricao: 'abre o editor de texto ' + nome + ', em tela cheia e modal. Se o arquivo não existe, ele é criado ao gravar.',
+        exemplos: [[nome + ' notas.txt', 'abre (ou cria) notas.txt; i insere, Esc volta, :wq grava e sai, :q! sai sem gravar']],
+      };
   }
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {

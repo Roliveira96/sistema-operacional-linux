@@ -4,10 +4,24 @@ import { Diretorio } from '../../linux/No';
 import { SistemaDeArquivos } from '../../linux/SistemaDeArquivos';
 import { Disco, Particao } from '../../linux/Discos';
 import { registrar } from '../../linux/Registro';
+import type { AjudaDoComando } from '../Ajuda';
 
 export class Mount extends Comando {
   public readonly nome: string = 'mount';
   public readonly resumo: string = 'monta um sistema de arquivos numa pasta: mount /dev/sdb1 /mnt | mount -a (/etc/fstab)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'mount [-a] [DISPOSITIVO PONTO]',
+    descricao: 'Monta um disco ou partição numa pasta para poder usá-lo. Sem argumentos, lista o que está montado. Montar exige root.',
+    opcoes: [
+      ['-a, --all', 'monta tudo o que está listado em /etc/fstab'],
+    ],
+    exemplos: [
+      ['mount', 'lista os sistemas de arquivos montados'],
+      ['sudo mount /dev/sdb1 /mnt', 'monta a partição sdb1 em /mnt'],
+      ['sudo mount -a', 'monta o que está no /etc/fstab'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'a', { all: 'a' });
@@ -81,6 +95,15 @@ export class Mount extends Comando {
 export class Umount extends Comando {
   public readonly nome: string = 'umount';
   public readonly resumo: string = 'desmonta um sistema de arquivos: umount /mnt | umount /dev/sdb1';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'umount PONTO|DISPOSITIVO',
+    descricao: 'Desmonta um sistema de arquivos, indicando a pasta onde ele está montado ou o dispositivo. Exige root e falha se você estiver dentro da pasta.',
+    exemplos: [
+      ['sudo umount /mnt', 'desmonta o que está montado em /mnt'],
+      ['sudo umount /dev/sdb1', 'desmonta a partição sdb1'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args.length === 0) {
@@ -123,6 +146,18 @@ export class Umount extends Comando {
 export class Fdisk extends Comando {
   public readonly nome: string = 'fdisk';
   public readonly resumo: string = 'manipula a tabela de partições de um disco (fdisk -l | fdisk /dev/sdb)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'fdisk [-l] [DISPOSITIVO]',
+    descricao: 'Lista as tabelas de partições dos discos ou, dado um disco, abre um menu interativo para criar e apagar partições (só root). As mudanças só valem com o comando w.',
+    opcoes: [
+      ['-l, --list', 'lista as partições (de todos os discos ou só do indicado)'],
+    ],
+    exemplos: [
+      ['sudo fdisk -l', 'lista todos os discos e partições'],
+      ['sudo fdisk /dev/sdb', 'edita a tabela de partições do disco sdb (m mostra o menu)'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes = Opcoes.ler(args, 'l', { list: 'l' });
@@ -333,6 +368,25 @@ export class Mkfs extends Comando {
   constructor(nome: string = 'mkfs.ext4') {
     super();
     this.nome = nome;
+    this.ajuda = nome === 'mkfs'
+      ? {
+        uso: 'mkfs [-t TIPO] DISPOSITIVO',
+        descricao: 'Formata uma partição, criando nela um sistema de arquivos (no simulador, sempre ext4) e apagando o que havia. Exige root e a partição não pode estar montada.',
+        opcoes: [
+          ['-t TIPO', 'tipo do sistema de arquivos (aceito, mas o simulador sempre cria ext4)'],
+        ],
+        exemplos: [
+          ['sudo mkfs /dev/sdb1', 'formata a partição sdb1'],
+          ['sudo mkfs -t ext4 /dev/sdb1', 'formata sdb1 como ext4'],
+        ],
+      }
+      : {
+        uso: nome + ' DISPOSITIVO',
+        descricao: 'Formata uma partição, criando nela um sistema de arquivos ext4 e apagando o que havia. Exige root e a partição não pode estar montada.',
+        exemplos: [
+          ['sudo ' + nome + ' /dev/sdb1', 'formata a partição sdb1 como ext4'],
+        ],
+      };
   }
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -385,6 +439,15 @@ export class Mkfs extends Comando {
 export class Blkid extends Comando {
   public readonly nome: string = 'blkid';
   public readonly resumo: string = 'localiza e imprime atributos de dispositivos de bloco (UUIDs, tipos de fs)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'blkid [DISPOSITIVO]',
+    descricao: 'Mostra o UUID e o tipo de sistema de arquivos das partições. O UUID é o identificador usado no /etc/fstab.',
+    exemplos: [
+      ['blkid', 'lista todas as partições com UUID e tipo'],
+      ['blkid /dev/sda2', 'mostra só os dados da partição sda2'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const alvo = args[0];

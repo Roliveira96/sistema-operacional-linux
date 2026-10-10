@@ -2,6 +2,7 @@ import { Comando, Opcoes } from '../Comando';
 import type { Contexto } from '../Contexto';
 import { CATALOGO, GerenciadorDePacotes, type EstadoDoPacote, type Pacote } from '../../linux/Pacotes';
 import { simOuNao } from './util';
+import type { AjudaDoComando } from '../Ajuda';
 
 const esperar = (ms: number): Promise<void> => new Promise((resolver) => setTimeout(resolver, ms));
 
@@ -273,6 +274,34 @@ abstract class Gerenciador extends Comando {
 export class Apt extends Gerenciador {
   public readonly nome: string = 'apt';
   public readonly resumo: string = 'gerenciador de pacotes: apt update | upgrade | install X | remove X | purge X | search X | show X | list';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'apt [OPÇÃO]... COMANDO [PACOTE]...',
+    descricao: 'Instala, remove e atualiza programas (pacotes). Quase tudo exige root: use sudo na frente.',
+    opcoes: [
+      ['update', 'atualiza a lista de pacotes disponíveis'],
+      ['upgrade, full-upgrade', 'atualiza os pacotes instalados para as versões novas'],
+      ['install PACOTE...', 'instala os pacotes (e as dependências deles)'],
+      ['reinstall PACOTE...', 'o simulador trata como install'],
+      ['remove PACOTE...', 'remove os pacotes, mantendo as configurações'],
+      ['purge PACOTE...', 'remove os pacotes e as configurações'],
+      ['autoremove', 'remove as dependências que ninguém mais usa'],
+      ['search TERMO', 'procura pacotes pelo nome ou pela descrição'],
+      ['show PACOTE', 'mostra os detalhes de um pacote'],
+      ['list [PADRÃO]', 'lista pacotes; PADRÃO aceita *'],
+      ['-y, --yes, --assume-yes', 'responde sim a todas as perguntas'],
+      ['--purge', 'no remove, apaga também as configurações'],
+      ['--installed', 'no list, mostra só os instalados'],
+      ['--upgradable', 'no list, mostra só os que têm versão nova'],
+    ],
+    exemplos: [
+      ['sudo apt update', 'atualiza a lista de pacotes'],
+      ['sudo apt install -y tree', 'instala o tree sem perguntar'],
+      ['apt search nginx', 'procura pacotes relacionados ao nginx'],
+      ['apt list --installed', 'lista o que está instalado'],
+    ],
+    h: 'ajuda',
+    soPrimeiro: true,
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { yes: 'y', 'assume-yes': 'y', installed: 'instalados', upgradable: 'atualizaveis', purge: 'purge' });
@@ -346,6 +375,28 @@ export class Apt extends Gerenciador {
 export class AptGet extends Gerenciador {
   public readonly nome: string = 'apt-get';
   public readonly resumo: string = 'versão "clássica" do apt, muito usada em scripts: apt-get update | upgrade | install -y X | remove X';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'apt-get [OPÇÃO]... COMANDO [PACOTE]...',
+    descricao: 'Versão clássica do apt, muito usada em scripts. Instala, remove e atualiza pacotes; exige root.',
+    opcoes: [
+      ['update', 'atualiza a lista de pacotes disponíveis'],
+      ['upgrade, dist-upgrade', 'atualiza os pacotes instalados'],
+      ['install PACOTE...', 'instala os pacotes (e as dependências deles)'],
+      ['remove PACOTE...', 'remove os pacotes, mantendo as configurações'],
+      ['purge PACOTE...', 'remove os pacotes e as configurações'],
+      ['autoremove', 'remove as dependências que ninguém mais usa'],
+      ['clean', 'limpa o cache de pacotes baixados (só confere o root)'],
+      ['-y, --yes, --assume-yes', 'responde sim a todas as perguntas'],
+      ['--purge', 'no remove, apaga também as configurações'],
+    ],
+    exemplos: [
+      ['sudo apt-get update', 'atualiza a lista de pacotes'],
+      ['sudo apt-get install -y cowsay', 'instala o cowsay sem perguntar'],
+      ['sudo apt-get remove tree', 'remove o tree'],
+    ],
+    h: 'ajuda',
+    soPrimeiro: true,
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { yes: 'y', 'assume-yes': 'y', purge: 'purge' });
@@ -378,6 +429,20 @@ export class AptGet extends Gerenciador {
 export class AptCache extends Gerenciador {
   public readonly nome: string = 'apt-cache';
   public readonly resumo: string = 'consulta o catálogo de pacotes: apt-cache search X | show X | policy X';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'apt-cache search TERMO | show PACOTE | policy PACOTE',
+    descricao: 'Consulta o catálogo de pacotes sem instalar nada. Não precisa de root.',
+    opcoes: [
+      ['search TERMO', 'procura pacotes pelo nome ou pela descrição'],
+      ['show PACOTE', 'mostra os detalhes de um pacote'],
+      ['policy PACOTE', 'mostra a versão instalada e a candidata'],
+    ],
+    exemplos: [
+      ['apt-cache search web server', 'procura pacotes de servidor web'],
+      ['apt-cache show nginx', 'mostra os detalhes do nginx'],
+      ['apt-cache policy nginx', 'mostra se o nginx está instalado e qual versão'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const [acao, nome] = args;
@@ -406,6 +471,23 @@ export class AptCache extends Gerenciador {
 export class Dpkg extends Comando {
   public readonly nome: string = 'dpkg';
   public readonly resumo: string = 'nível mais baixo dos pacotes: dpkg -l (lista) | dpkg -L X (arquivos do pacote) | dpkg -s X (status)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'dpkg -l [PADRÃO]... | -L PACOTE | -s PACOTE | -i ARQUIVO.deb',
+    descricao: 'Ferramenta de baixo nível dos pacotes .deb: consulta o que está instalado no sistema.',
+    opcoes: [
+      ['-l, --list [PADRÃO]...', 'lista os pacotes (e o estado); PADRÃO aceita *'],
+      ['-L, --listfiles PACOTE', 'mostra os arquivos que o pacote instalou'],
+      ['-s, --status PACOTE', 'mostra o status e os dados do pacote'],
+      ['-i, --install ARQUIVO', 'instala um .deb (no simulador, avisa que não encontra o arquivo)'],
+    ],
+    exemplos: [
+      ['dpkg -l', 'lista todos os pacotes'],
+      ['dpkg -l \'ng*\'', 'lista os pacotes cujo nome começa com ng'],
+      ['dpkg -L nginx', 'mostra os arquivos instalados pelo nginx'],
+      ['dpkg -s nginx', 'mostra o status do nginx'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'LsSi', { list: 'l', listfiles: 'L', status: 's', install: 'i' });

@@ -1,11 +1,29 @@
 import { Comando, Opcoes, citar } from '../Comando';
 import type { Contexto } from '../Contexto';
+import type { AjudaDoComando } from '../Ajuda';
 import { Diretorio, type No } from '../../linux/No';
 import { SistemaDeArquivos } from '../../linux/SistemaDeArquivos';
 import { exigirOperando, mensagemDe, simOuNao } from './util';
 
 export class Rm extends Comando {
   public readonly nome: string = 'rm';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'rm [OPÇÃO]... ARQUIVO...',
+    descricao: 'apaga arquivos. Para apagar diretórios, use -r. Não há lixeira: o que é apagado não volta.',
+    opcoes: [
+      ['-r, -R, --recursive', 'apaga diretórios com tudo dentro'],
+      ['-f, --force', 'não pergunta e não reclama de arquivo que não existe'],
+      ['-i, --interactive', 'pergunta antes de apagar cada item'],
+      ['-v, --verbose', 'mostra o que foi apagado'],
+      ['-d, --dir', 'apaga também diretórios vazios'],
+      ['--no-preserve-root', 'desliga a proteção contra rm -r /'],
+    ],
+    exemplos: [
+      ['rm notas.txt', 'apaga o arquivo'],
+      ['rm -r pasta', 'apaga a pasta e tudo dentro dela'],
+      ['rm -i a.txt', 'pergunta antes de apagar'],
+    ],
+  };
   public readonly resumo: string = 'apaga arquivos (-r apaga diretórios com tudo dentro, -f não pergunta nem reclama, -i pergunta antes)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {

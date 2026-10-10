@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-027 |
-| **Status** | Rascunho (aguardando aprovação) |
+| **Status** | Implementada |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -150,6 +150,22 @@ Sem rotas. Contrato do terminal: `COMANDO --help` → saída padrão com o texto
 | P-04 | `-h` como ajuda? | Resolvida pelo Tech Lead: o `-h` roda como no Linux de verdade, em cada comando (RN-10, seção 3.4); não há `-h` global |
 | P-05 | Acrescentar os `-h` que o Linux tem e o simulador ainda não implementa (`sort -h`, `grep -h`, `rsync -h`)? | Só se você pedir; por padrão o comando segue sem eles, e a ajuda não os lista (RN-03) |
 
+### Ajustes de implementação (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-01 | O campo é `ajuda` no `Comando` (`legacy/src/shell/Ajuda.ts`, com o tipo, o formato de `--help` e o de `man`); a interceptação fica em `rodarComando` do interpretador, que serve também ao `sudo`, ao pipe e ao script. Cobre os 129 nomes registrados (os 121 comandos e seus aliases, como `printenv`, `addgroup`, `logout`, `gunzip`, `zcat`, `pkill`, `pgrep`, `.`, `mkfs.ext4`) |
+| A-02 | A primeira letra da descrição é maiúscula no `--help` e no `man`, qualquer que seja o jeito de escrever o texto |
+| A-03 | `soPrimeiro` vale também para `git`, `apt`, `apt-get`, `python3`, `openssl`, `awk`, `find`, `bash`, `sh`, `source`, `.`, `env`, `su`, `xargs` e `nohup`, além do `sudo` (o resto dos argumentos é de outro programa); `semOpcaoDeAjuda` vale para `echo`, `printf`, `test`, `[`, `[[`, `true`, `false` e `:`, que no bash tratam `--help` como texto comum |
+| A-04 | O `-h` é a ajuda em `useradd`, `userdel`, `usermod`, `groupadd`, `groupdel`, `groupmod`, `gpasswd`, `passwd`, `curl`, `git`, `python3`, `nginx`, `systemctl`, `journalctl`, `lsblk`, `fdisk`, `mount`, `umount`, `blkid`, `lspci`, `dmesg`, `logger`, `sudo`, `su`, `top`, `htop`, `uptime`, `hostname`, `zip`, `unzip`, `apt`, `apt-get`, `dpkg`, `lsb_release`, `neofetch` e `awk`; é outra opção em `ls`, `du`, `df` e `free` (tamanhos legíveis, já existentes). Conforme P-05, **não** foram acrescentados `sort -h`, `grep -h`, `rsync -h` nem `mysql -h`: o simulador não os tinha, e `mysql`, `tar` e `rsync` ficam sem `-h` |
+| A-05 | `help COMANDO` mostra a mesma ajuda do `--help`; `help` sozinho continua listando os comandos; `help` de um nome que não existe dá a mensagem do bash. `man COMANDO` ganhou as seções SINOPSE, DESCRIÇÃO, OPÇÕES e EXEMPLOS |
+| A-06 | Efeito colateral aceito: `systemctl --help` e `lspci -h` antes eram engolidos como filtro e agora mostram a ajuda |
+
+### Observações do motor, achadas ao escrever as ajudas (nada foi corrigido)
+
+Ficam como insumo para uma próxima spec do motor: `touch`, `date` e o `Editor` aceitam e ignoram qualquer opção; `sort` lê só `-n -r -u`; `awk -v` é lido e o valor não é usado; `du -c` é aceito e não faz nada; `su` e `sudo` não tratam `-c`; `kill` não trata `-n` (a mensagem de erro cita); `tar -C` depois de `-f` pode pegar o operando errado; `mkfs -t` é lido e ignorado; `journalctl -p` filtra de modo incompleto; `tree -L` com valor não numérico para no primeiro nível; `printf` converte `
+` também dentro dos argumentos; `python3` e `openssl` só imprimem a versão; `groupadd -g` e `groupmod -g` não validam número; `shift` e `sleep` não validam argumento ruim; `wait` ignora argumentos; `blkid` com dispositivo inexistente devolve 2 sem mensagem; opção desconhecida em `ls` é ignorada sem erro.
+
 ---
 
 ## Histórico de revisões
@@ -158,3 +174,5 @@ Sem rotas. Contrato do terminal: `COMANDO --help` → saída padrão com o texto
 | :--- | :--- | :--- |
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; pendências P-01 a P-04 abertas com recomendação |
 | 10/10/2026 | Tech Lead | O `-h` deve rodar como no Linux de verdade, em cada comando, e não ser tratado de forma global. Incluídas RN-10, RN-11, a tabela 3.4 e os CA-09 e CA-10 |
+| 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01 a P-03; P-04 resolvida (o `-h` segue o Linux de verdade) |
+| 10/10/2026 | Implementador (Claude) | Implementada: tipo e formato da ajuda, interceptação no interpretador, `help` e `man`, a ajuda dos 129 nomes registrados (escrita lendo o código de cada comando) e o teste de contrato. Ajustes A-01 a A-06 e observações do motor |

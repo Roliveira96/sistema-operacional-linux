@@ -1,4 +1,5 @@
 import { Comando } from '../Comando';
+import type { AjudaDoComando } from '../Ajuda';
 import type { Contexto } from '../Contexto';
 import { Diretorio, Link, type No } from '../../linux/No';
 import { Permissoes } from '../../linux/Permissoes';
@@ -32,6 +33,33 @@ function padraoParaRegex(padrao: string, ignorarCaixa: boolean): RegExp {
 export class Find extends Comando {
   public readonly nome: string = 'find';
   public readonly resumo: string = 'procura arquivos por nome, tipo, tamanho, dono, permissão ou data: find /var -name "*.log" -size +1M';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'find [CAMINHO]... [EXPRESSÃO]',
+    descricao: 'Percorre as pastas a partir de CAMINHO (padrão: a pasta atual) e mostra o que casa com a expressão.',
+    opcoes: [
+      ['-name PADRÃO, -iname PADRÃO', 'nome do arquivo (-iname ignora maiúsculas; aceita * e ?)'],
+      ['-path PADRÃO', 'caminho completo que casa com o padrão'],
+      ['-type f|d|l', 'tipo: arquivo, pasta ou link'],
+      ['-size [+-]N[ckMGb]', 'tamanho (+ maior que, - menor que)'],
+      ['-user NOME, -group NOME', 'dono ou grupo do arquivo'],
+      ['-nouser', 'arquivos cujo dono não existe mais'],
+      ['-perm MODO', 'permissões exatas; -MODO exige todos os bits, /MODO qualquer um'],
+      ['-mtime N, -mmin N', 'modificado há N dias ou minutos (+N mais, -N menos)'],
+      ['-newer ARQUIVO', 'modificado depois de ARQUIVO'],
+      ['-empty', 'arquivos vazios ou pastas vazias'],
+      ['-maxdepth N, -mindepth N', 'limita a profundidade da busca'],
+      ['-a, -o, ! , ( )', 'combina testes: e, ou, não e agrupamento'],
+      ['-print, -ls, -delete', 'mostra o caminho, mostra em formato longo ou apaga'],
+      ['-exec CMD {} ;', 'roda CMD para cada achado ({} é o caminho); com + junta todos de uma vez'],
+    ],
+    exemplos: [
+      ['find /etc -name "*.conf"', 'acha os arquivos .conf em /etc'],
+      ['find . -type d -maxdepth 1', 'lista as pastas da pasta atual'],
+      ['find /var -size +1M', 'acha arquivos maiores que 1 MB'],
+      ['find . -name "*.tmp" -delete', 'apaga os arquivos .tmp'],
+    ],
+    soPrimeiro: true,
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const inicios: string[] = [];
@@ -258,6 +286,22 @@ class LeitorDeExpressao {
 export class Du extends Comando {
   public readonly nome: string = 'du';
   public readonly resumo: string = 'quanto espaço uma pasta ocupa: du -sh /var/log | du -h --max-depth=1 /var';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'du [OPÇÃO]... [ARQUIVO]...',
+    descricao: 'Mostra quanto espaço em disco cada pasta (e, com -a, cada arquivo) ocupa.',
+    opcoes: [
+      ['-h', 'mostra os tamanhos em formato legível (K, M, G)'],
+      ['-s', 'mostra só o total de cada argumento'],
+      ['-a', 'mostra também os arquivos, não só as pastas'],
+      ['-d, --max-depth=N', 'mostra só até N níveis de profundidade'],
+    ],
+    exemplos: [
+      ['du -sh /var/log', 'total de /var/log em formato legível'],
+      ['du -h --max-depth=1 /var', 'tamanho de cada subpasta de /var'],
+      ['du -ah /etc', 'tamanho de cada arquivo e pasta de /etc'],
+    ],
+    h: 'outra',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     let resumo: boolean = false;

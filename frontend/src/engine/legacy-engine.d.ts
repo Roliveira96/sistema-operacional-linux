@@ -93,3 +93,24 @@ declare module "@legacy-engine/estilos/terminal.css" {
   const stylesheet: string;
   export default stylesheet;
 }
+
+declare module "@legacy-engine/shell/Shell" {
+  /** The help of a command (SPEC-027), as the tests of the engine read it. */
+  export interface AjudaDoComando {
+    uso: string;
+    descricao: string;
+    opcoes?: [string, string][];
+    exemplos?: [string, string][];
+    h?: "ajuda" | "outra";
+    soPrimeiro?: boolean;
+    semOpcaoDeAjuda?: boolean;
+  }
+  export interface ComandoDoSimulador {
+    readonly nome: string;
+    readonly resumo: string;
+    readonly ajuda?: AjudaDoComando;
+  }
+  export class Shell {
+    static obterRegistro(): { listar(): ComandoDoSimulador[] };
+  }
+}

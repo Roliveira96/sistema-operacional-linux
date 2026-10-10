@@ -1,12 +1,37 @@
 import { Comando } from '../Comando';
 import type { Contexto } from '../Contexto';
 import { Servicos } from '../../linux/Pacotes';
+import type { AjudaDoComando } from '../Ajuda';
 
 const PATH: string[] = ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin'];
 
 export class Systemctl extends Comando {
   public readonly nome: string = 'systemctl';
   public readonly resumo: string = 'controla serviços: systemctl status|start|stop|restart|enable|disable SERVIÇO';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'systemctl [COMANDO] [SERVIÇO]...',
+    descricao: 'Controla os serviços do sistema (nginx, mysql...). Para iniciar, parar ou habilitar é preciso root.',
+    opcoes: [
+      ['status SERVIÇO', 'mostra se o serviço está rodando'],
+      ['start SERVIÇO', 'inicia o serviço'],
+      ['stop SERVIÇO', 'para o serviço'],
+      ['restart SERVIÇO', 'para e inicia o serviço de novo'],
+      ['reload SERVIÇO', 'no simulador, igual ao restart'],
+      ['enable SERVIÇO', 'faz o serviço iniciar junto com o sistema'],
+      ['disable SERVIÇO', 'impede o serviço de iniciar com o sistema'],
+      ['is-active SERVIÇO', 'diz se o serviço está ativo'],
+      ['is-enabled SERVIÇO', 'diz se o serviço inicia com o sistema'],
+      ['list-units', 'lista os serviços (também sem nenhum comando)'],
+      ['--now', 'com enable ou disable, também inicia ou para o serviço agora'],
+    ],
+    exemplos: [
+      ['systemctl status nginx', 'mostra o estado do nginx'],
+      ['sudo systemctl restart nginx', 'reinicia o nginx'],
+      ['sudo systemctl enable --now nginx', 'habilita o nginx e já o inicia'],
+      ['systemctl is-active mysql', 'diz se o mysql está ativo'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const agora: boolean = args.includes('--now');
@@ -116,6 +141,19 @@ export class Systemctl extends Comando {
 export class Service extends Comando {
   public readonly nome: string = 'service';
   public readonly resumo: string = 'jeito antigo de controlar serviços: service nginx status|start|stop|restart';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'service SERVIÇO COMANDO | service --status-all',
+    descricao: 'Jeito antigo de controlar serviços: repassa o pedido ao systemctl. Iniciar e parar exigem root.',
+    opcoes: [
+      ['--status-all', 'lista todos os serviços: [ + ] rodando, [ - ] parado'],
+      ['COMANDO', 'status, start, stop, restart, reload, enable, disable (os mesmos do systemctl)'],
+    ],
+    exemplos: [
+      ['service nginx status', 'mostra o estado do nginx'],
+      ['sudo service nginx restart', 'reinicia o nginx'],
+      ['service --status-all', 'lista todos os serviços e se estão rodando'],
+    ],
+  };
   private readonly systemctl: Systemctl = new Systemctl();
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -135,6 +173,14 @@ export class Service extends Comando {
 export class Which extends Comando {
   public readonly nome: string = 'which';
   public readonly resumo: string = 'mostra em qual pasta está o programa: which ls → /usr/bin/ls';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'which COMANDO...',
+    descricao: 'Mostra em qual pasta do PATH está o programa. Sem saída e com status 1 quando não o encontra.',
+    exemplos: [
+      ['which ls', 'mostra /usr/bin/ls'],
+      ['which nginx python3', 'mostra o caminho de cada um que existir'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     let status: number = 0;
@@ -150,6 +196,22 @@ export class Which extends Comando {
 export class LsbRelease extends Comando {
   public readonly nome: string = 'lsb_release';
   public readonly resumo: string = 'mostra a distribuição e a versão: lsb_release -a';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'lsb_release [-a] [-i] [-d] [-r] [-c]',
+    descricao: 'Mostra qual distribuição Linux e qual versão estão rodando. Sem opção, mostra tudo.',
+    opcoes: [
+      ['-a', 'mostra todas as informações'],
+      ['-i', 'mostra o identificador da distribuição'],
+      ['-d', 'mostra a descrição'],
+      ['-r', 'mostra o número da versão'],
+      ['-c', 'mostra o codinome da versão'],
+    ],
+    exemplos: [
+      ['lsb_release -a', 'mostra tudo sobre a distribuição'],
+      ['lsb_release -r', 'mostra só o número da versão'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const todas: boolean = args.includes('-a') || args.length === 0;
@@ -165,6 +227,18 @@ export class LsbRelease extends Comando {
 export class Df extends Comando {
   public readonly nome: string = 'df';
   public readonly resumo: string = 'espaço em disco de cada partição montada (-h legível)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'df [-h]',
+    descricao: 'Mostra o espaço total, usado e livre de cada partição montada.',
+    opcoes: [
+      ['-h', 'mostra os tamanhos em unidades legíveis (K, M, G)'],
+    ],
+    exemplos: [
+      ['df', 'mostra os tamanhos em blocos de 1K'],
+      ['df -h', 'mostra os tamanhos em unidades legíveis'],
+    ],
+    h: 'outra',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const humano: boolean = args.some((a: string) => a.startsWith('-') && a.includes('h'));
@@ -223,6 +297,18 @@ export class Df extends Comando {
 export class Free extends Comando {
   public readonly nome: string = 'free';
   public readonly resumo: string = 'uso de memória RAM e swap (-h legível)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'free [-h]',
+    descricao: 'Mostra quanta memória RAM e swap existe, quanto está em uso e quanto está livre.',
+    opcoes: [
+      ['-h', 'mostra os tamanhos em unidades legíveis (Gi, TiB...)'],
+    ],
+    exemplos: [
+      ['free', 'mostra os valores em bytes'],
+      ['free -h', 'mostra os valores em unidades legíveis'],
+    ],
+    h: 'outra',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args.includes('-h')) {
@@ -241,6 +327,14 @@ export class Free extends Comando {
 export class Lsblk extends Comando {
   public readonly nome: string = 'lsblk';
   public readonly resumo: string = 'lista discos e partições (os dispositivos de bloco de /dev)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'lsblk',
+    descricao: 'Lista os discos e as partições em forma de árvore, com tamanho e ponto de montagem. Não tem opções no simulador.',
+    exemplos: [
+      ['lsblk', 'mostra os discos, as partições e onde estão montados'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     contexto.linha('NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS');

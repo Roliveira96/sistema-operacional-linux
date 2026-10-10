@@ -1,4 +1,5 @@
 import { Comando, Opcoes } from '../Comando';
+import type { AjudaDoComando } from '../Ajuda';
 import type { Contexto } from '../Contexto';
 import { lerEntradas, linhasDe, mensagemDe, saidaEhTerminal } from './util';
 import { Arquivo, Binario, Diretorio, Dispositivo, type No } from '../../linux/No';
@@ -33,6 +34,19 @@ abstract class Fatiador extends Comando {
 export class Head extends Fatiador {
   public readonly nome: string = 'head';
   public readonly resumo: string = 'mostra as primeiras linhas (padrão 10; -n 3 para três)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'head [OPÇÃO]... [ARQUIVO]...',
+    descricao: 'Mostra o começo de cada arquivo (ou da entrada padrão): por padrão, as 10 primeiras linhas.',
+    opcoes: [
+      ['-n, --lines NÚMERO', 'mostra as primeiras NÚMERO linhas em vez de 10'],
+      ['-NÚMERO', 'atalho para -n NÚMERO (head -3)'],
+    ],
+    exemplos: [
+      ['head /etc/passwd', 'mostra as 10 primeiras linhas de /etc/passwd'],
+      ['head -n 3 /etc/passwd', 'mostra só as 3 primeiras linhas'],
+      ['ls /etc | head -5', 'mostra os 5 primeiros nomes da lista'],
+    ],
+  };
 
   protected fatiar(linhas: string[], quantidade: number): string[] {
     return linhas.slice(0, quantidade);
@@ -42,6 +56,20 @@ export class Head extends Fatiador {
 export class Tail extends Fatiador {
   public readonly nome: string = 'tail';
   public readonly resumo: string = 'mostra as últimas linhas (padrão 10; -n 3 para três, -f acompanha)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'tail [OPÇÃO]... [ARQUIVO]...',
+    descricao: 'Mostra o final de cada arquivo (ou da entrada padrão): por padrão, as 10 últimas linhas.',
+    opcoes: [
+      ['-n, --lines NÚMERO', 'mostra as últimas NÚMERO linhas em vez de 10'],
+      ['-NÚMERO', 'atalho para -n NÚMERO (tail -3)'],
+      ['-f, --follow', 'continua mostrando as linhas novas que chegam ao arquivo (Ctrl+C para sair)'],
+    ],
+    exemplos: [
+      ['tail /var/log/syslog', 'mostra as 10 últimas linhas do log'],
+      ['tail -n 3 /etc/passwd', 'mostra só as 3 últimas linhas'],
+      ['tail -f /var/log/syslog', 'acompanha o log em tempo real'],
+    ],
+  };
 
   protected fatiar(linhas: string[], quantidade: number): string[] {
     return quantidade === 0 ? [] : linhas.slice(-quantidade);
@@ -84,6 +112,20 @@ export class Tail extends Fatiador {
 export class Wc extends Comando {
   public readonly nome: string = 'wc';
   public readonly resumo: string = 'conta linhas (-l), palavras (-w) e bytes (-c)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'wc [OPÇÃO]... [ARQUIVO]...',
+    descricao: 'Conta linhas, palavras e bytes de cada arquivo (ou da entrada padrão). Sem opção, mostra os três números.',
+    opcoes: [
+      ['-l, --lines', 'mostra só o número de linhas'],
+      ['-w, --words', 'mostra só o número de palavras'],
+      ['-c, --bytes', 'mostra só o número de bytes'],
+    ],
+    exemplos: [
+      ['wc /etc/passwd', 'linhas, palavras e bytes de /etc/passwd'],
+      ['wc -l /etc/passwd', 'só quantas linhas o arquivo tem'],
+      ['ls /etc | wc -l', 'quantos itens há em /etc'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { lines: 'l', words: 'w', bytes: 'c' });
@@ -119,6 +161,27 @@ export class Wc extends Comando {
 export class Grep extends Comando {
   public readonly nome: string = 'grep';
   public readonly resumo: string = 'filtra linhas que contêm um texto (-i ignora maiúsculas, -v inverte, -n numera, -c conta, -r em pastas, -l só nomes)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'grep [OPÇÃO]... PADRÃO [ARQUIVO]...',
+    descricao: 'Procura PADRÃO nas linhas dos arquivos (ou da entrada padrão) e mostra as linhas que casam.',
+    opcoes: [
+      ['-e PADRÃO', 'usa PADRÃO como padrão de busca'],
+      ['-i, --ignore-case', 'ignora a diferença entre maiúsculas e minúsculas'],
+      ['-v, --invert-match', 'mostra as linhas que NÃO casam'],
+      ['-n, --line-number', 'mostra o número de cada linha'],
+      ['-c, --count', 'mostra só quantas linhas casam'],
+      ['-l, --files-with-matches', 'mostra só os nomes dos arquivos que têm o padrão'],
+      ['-w, --word-regexp', 'casa só palavras inteiras'],
+      ['-F', 'trata o padrão como texto simples, não como expressão regular'],
+      ['-r, -R, --recursive', 'procura dentro das pastas, em todos os arquivos'],
+    ],
+    exemplos: [
+      ['grep root /etc/passwd', 'mostra as linhas de /etc/passwd que têm root'],
+      ['grep -in erro /var/log/syslog', 'busca erro sem diferenciar maiúsculas, com o número da linha'],
+      ['grep -rl senha /etc', 'lista os arquivos de /etc que contêm senha'],
+      ['ls /etc | grep -v conf', 'lista o que não tem conf no nome'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'e', {
@@ -229,6 +292,20 @@ export class Grep extends Comando {
 export class Sort extends Comando {
   public readonly nome: string = 'sort';
   public readonly resumo: string = 'ordena linhas (-r invertido, -n numérico, -u sem repetidas)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'sort [OPÇÃO]... [ARQUIVO]...',
+    descricao: 'Ordena as linhas dos arquivos (ou da entrada padrão) e mostra o resultado.',
+    opcoes: [
+      ['-n', 'ordena pelo valor numérico no começo da linha'],
+      ['-r', 'inverte a ordem'],
+      ['-u', 'tira as linhas repetidas'],
+    ],
+    exemplos: [
+      ['sort /etc/passwd', 'ordena as linhas em ordem alfabética'],
+      ['sort -nr numeros.txt', 'ordena numericamente, do maior para o menor'],
+      ['cat nomes.txt | sort -u', 'ordena e tira os repetidos'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args);
@@ -250,6 +327,19 @@ export class Sort extends Comando {
 export class Cut extends Comando {
   public readonly nome: string = 'cut';
   public readonly resumo: string = 'recorta colunas: cut -d: -f1 /etc/passwd lista só os nomes de usuário';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'cut -f LISTA [-d DELIMITADOR] [ARQUIVO]...',
+    descricao: 'Recorta campos (colunas) de cada linha dos arquivos (ou da entrada padrão).',
+    opcoes: [
+      ['-f, --fields LISTA', 'campos a mostrar: 1, 1,3 ou 2-4 (obrigatório)'],
+      ['-d, --delimiter CARACTERE', 'caractere que separa os campos (padrão: tabulação)'],
+    ],
+    exemplos: [
+      ['cut -d: -f1 /etc/passwd', 'lista só os nomes de usuário'],
+      ['cut -d: -f1,7 /etc/passwd', 'mostra o usuário e o shell dele'],
+      ['echo a,b,c | cut -d, -f2-3', 'mostra b,c'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'df', { delimiter: 'd', fields: 'f' });
