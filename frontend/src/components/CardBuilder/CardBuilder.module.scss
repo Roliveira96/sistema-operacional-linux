@@ -71,9 +71,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
   background: var(--color-surface-sunken);
 
   .hint {
@@ -85,9 +85,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface-sunken);
 }
 
@@ -101,23 +101,35 @@
 
 .groupTitle {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
+// A block of the form (an element, a command, a tip): a card with its own header, which lights up when it is being edited.
 .item {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-accent-subtle);
+  border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
-  transition: border-color 0.15s ease;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-normal) ease;
+
+  &:hover {
+    border-color: var(--color-border-strong);
+    border-left-color: var(--color-accent-subtle);
+  }
 
   &:focus-within {
     border-color: var(--color-border-strong);
+    border-left-color: var(--color-accent);
+    box-shadow: var(--shadow-md);
   }
 }
 
@@ -126,12 +138,17 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-hairline);
 }
 
 .itemTitle {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
 }
 
 .exerciseRow {
@@ -197,6 +214,25 @@
 .tools {
   display: flex;
   gap: var(--space-1);
+
+  .small {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+    transition:
+      background var(--duration-fast) ease,
+      color var(--duration-fast) ease;
+  }
+
+  .small:last-child:hover:not(:disabled) {
+    border-color: var(--color-danger);
+    background: var(--color-danger-subtle);
+    color: var(--color-danger);
+  }
 }
 
 .pair {
@@ -294,10 +330,22 @@ textarea.input {
   background: var(--color-surface-sunken);
 
   summary {
+    list-style: none;
     cursor: pointer;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
     transition: color var(--duration-fast) ease;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::before {
+      content: "▸";
+      display: inline-block;
+      margin-right: var(--space-2);
+      transition: transform var(--duration-normal) var(--easing-standard);
+    }
 
     &:hover {
       color: var(--color-text-primary);
@@ -306,6 +354,10 @@ textarea.input {
 
   &[open] {
     border-color: var(--color-border-strong);
+
+    > summary::before {
+      transform: rotate(90deg);
+    }
   }
 
   > :not(summary) {
@@ -619,6 +671,12 @@ textarea.input {
   font-size: var(--font-size-sm);
   color: var(--color-text-body);
   cursor: pointer;
+
+  input {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--color-accent);
+  }
 }
 
 .environment {

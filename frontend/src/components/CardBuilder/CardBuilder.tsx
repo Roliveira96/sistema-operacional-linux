@@ -67,6 +67,9 @@ const TAB_ICONS: Record<CardTab, string> = {
   exercises: "🎯",
 };
 
+// The emoji that marks each kind of element in the form: it only decorates, the title says it all.
+const KIND_ICONS: Record<string, string> = { text: "📝", block: "🧩", code: "💻", table: "📊", image: "🖼️", video: "🎬", link: "🔗" };
+
 const INSERTABLE: Exclude<ElementKind, "block">[] = [
   "text",
   "html",
@@ -214,7 +217,9 @@ function ElementRow({
   return (
     <div className={styles.item}>
       <div className={styles.itemHead}>
-        <span className={styles.itemTitle}>{d.item(d.kinds[el.kind], n)}</span>
+        <span className={styles.itemTitle}>
+          <span aria-hidden="true">{KIND_ICONS[el.kind] ?? "📄"}</span> {d.item(d.kinds[el.kind], n)}
+        </span>
         <Tools
           index={index}
           total={total}
@@ -252,7 +257,9 @@ function CommandRow({
   return (
     <div className={styles.item}>
       <div className={styles.itemHead}>
-        <span className={styles.itemTitle}>{c.item(n)}</span>
+        <span className={styles.itemTitle}>
+          <span aria-hidden="true">⌨️</span> {c.item(n)}
+        </span>
         <Tools
           index={index}
           total={total}
