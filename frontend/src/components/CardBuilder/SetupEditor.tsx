@@ -371,7 +371,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
                     {bytesOf(file.content) > MAX_FILE_BYTES && <p className={styles.error}>{m.fileTooBig}</p>}
                   </div>
                   <button type="button" className={styles.danger} onClick={() => setFiles(current.files!.filter((_, j) => j !== i))} aria-label={m.removeFile(file.path)}>
-                    {m.removeFileShort}
+                    <span aria-hidden="true">🗑️</span> {m.removeFileShort}
                   </button>
                 </details>
               </li>
@@ -395,11 +395,11 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
             {m.add}
           </button>
           <button type="button" className={styles.add} onClick={start}>
-            {recordLabel ?? m.record}
+            <span aria-hidden="true">🎬</span> {recordLabel ?? m.record}
           </button>
           {setup && (
             <button type="button" className={styles.danger} onClick={() => onChange(undefined)}>
-              {m.removeAll}
+              <span aria-hidden="true">🗑️</span> {m.removeAll}
             </button>
           )}
         </div>
