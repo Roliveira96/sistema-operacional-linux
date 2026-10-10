@@ -1,0 +1,646 @@
+@use "@/styles/mixins" as mixins;
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+// The header of the tab: what it is on the left, what can be done on the right.
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  position: relative;
+  padding: var(--space-6) var(--space-5) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--color-surface-raised), var(--color-surface));
+}
+
+// The marks of a box sit at its top right corner.
+.cornerBadge {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-4);
+}
+
+// The title on the left and the marks of the card (test, edited, inactive) on the right of the same line.
+.headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+// The marks sit in a column on the right, beside the menu.
+.badgeBar {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+
+  &:empty {
+    display: none;
+  }
+}
+
+// A card whose test passed has a green edge, so the list can be scanned at a glance.
+.blockOk {
+  border-left: 4px solid var(--color-success);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.titleIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+// "Ver rascunho" and "Ver como o aluno" go together, as two halves of one control.
+.viewGroup {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+
+  .link + .link {
+    border-left: 1px solid var(--color-border);
+  }
+}
+
+.link {
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-body);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  @include mixins.focusable;
+}
+
+.flash {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-success-line);
+  border-radius: var(--radius-md);
+  background: var(--color-success-faint);
+  color: var(--color-success);
+}
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
+
+.blocks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// The cards come in one after the other, and rise a little when the pointer is over them.
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  animation: card-in 0.4s var(--easing-standard) both;
+  transition:
+    transform var(--duration-normal) var(--easing-standard),
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-normal) ease;
+
+  &:nth-child(2) {
+    animation-delay: 60ms;
+  }
+
+  &:nth-child(3) {
+    animation-delay: 120ms;
+  }
+
+  &:nth-child(4) {
+    animation-delay: 180ms;
+  }
+
+  &:nth-child(n + 5) {
+    animation-delay: 240ms;
+  }
+
+  cursor: pointer;
+
+  // The card with an open menu goes over the ones below it, which are stacked by their own animation.
+  position: relative;
+
+  &:has(.menuList) {
+    z-index: 20;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-md);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
+.inactiveBlock {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+// One line per card: position, tag, what it is, its marks and its menu. On a narrow screen the summary takes a line of its own.
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+
+// The position in the list: quiet, so the tile and the title lead.
+.number {
+  flex: none;
+  min-width: 1.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+// The tag of the card (an emoji or a short word) as a tile.
+.pill {
+  display: grid;
+  flex: none;
+  place-items: center;
+  min-width: 3rem;
+  max-width: 7rem;
+  height: 3rem;
+  padding: 0 var(--space-3);
+  overflow: hidden;
+  border: 1px solid var(--color-accent-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-accent);
+}
+
+.summary {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  min-width: 0;
+}
+
+// The title is a button that opens the card in a window.
+.cardTitle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  text-align: left;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--color-accent);
+  }
+
+  &:disabled {
+    cursor: grab;
+  }
+
+  @include mixins.focusable;
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.chip {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  white-space: nowrap;
+}
+
+// The marks of a card: small pills. Neutral for "edited", solid green when the test passed, amber when it needs attention.
+.badge {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: 2px var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  color: var(--color-text-body);
+}
+
+// When and by whom the card was created and last changed.
+.audit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.secondaryOn {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  color: var(--color-text-primary);
+}
+
+// The three dots that open the menu of a card.
+.dots {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.sortHint {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.sortable {
+  cursor: grab;
+
+  &:hover {
+    transform: none;
+  }
+}
+
+.dragging {
+  opacity: 0.45;
+}
+
+.dropTarget {
+  border-color: var(--color-accent);
+  box-shadow: 0 -3px 0 var(--color-accent);
+}
+
+.handle {
+  flex: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  cursor: grab;
+}
+
+.badge::before {
+  content: "✏️";
+}
+
+.badgeOk {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+
+  &::before {
+    content: "✔";
+  }
+}
+
+.badgeOff {
+  border-color: var(--color-warning-line);
+  background: var(--color-warning-faint);
+  color: var(--color-warning);
+
+  &::before {
+    content: "⏳";
+  }
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.smallButton,
+.secondary,
+.primary,
+.danger {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-body);
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  @include mixins.focusable;
+}
+
+.primary {
+  padding: var(--space-2) var(--space-4);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  transition: transform var(--duration-normal) var(--easing-standard);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--color-accent-hover);
+    color: var(--color-accent-contrast);
+  }
+}
+
+.danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.menu {
+  position: relative;
+}
+
+.menuList {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 15rem;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.menuItem {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  color: var(--color-text-body);
+  cursor: pointer;
+  transition: background var(--duration-fast) ease;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+  }
+
+  @include mixins.focusable;
+}
+
+// The icons share a column, so the labels line up.
+.menuIcon {
+  display: inline-block;
+  width: 1.25rem;
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
+}
+
+// Remove is set apart from the other actions, and goes red.
+.menuDanger {
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  color: var(--color-danger);
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-danger-subtle);
+    color: var(--color-danger);
+  }
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-subtle);
+  color: var(--color-text-primary);
+
+  p {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+// The environment of the module (its snapshot) is built beside the content that is tested with it.
+// It looks like the window of the Ubuntu terminal: a gray title bar with the window buttons on the right, over the aubergine screen.
+.environment {
+  overflow: hidden;
+  border: 1px solid var(--color-terminal-bar);
+  border-radius: var(--radius-lg);
+  background: var(--gradient-terminal);
+  box-shadow: var(--shadow-md);
+
+  // The content opens below the title bar, with its own margins.
+  > :not(summary) {
+    margin: var(--space-4) var(--space-5);
+  }
+}
+
+.environmentSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-terminal-bar);
+  font-weight: var(--font-weight-bold);
+  list-style: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  // The arrow turns when the section opens.
+  &::after {
+    content: "▾";
+    color: var(--color-text-secondary);
+    transition: transform var(--duration-normal) var(--easing-standard);
+  }
+
+  .environment:not([open]) &::after {
+    transform: rotate(-90deg);
+  }
+
+  // The window buttons on the right: minimize and maximize in gray, close in Ubuntu orange.
+  &::before {
+    content: "";
+    order: 1;
+    flex: none;
+    width: 0.8rem;
+    height: 0.8rem;
+    margin-left: var(--space-3);
+    margin-right: 1.6rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-terminal-btn);
+    box-shadow:
+      1.2rem 0 0 var(--color-terminal-btn),
+      2.4rem 0 0 var(--color-ubuntu-orange);
+  }
+}
+
+// "Clique para configurar": says out loud that the bar opens, because it did not look clickable.
+.environmentCta {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-ubuntu-orange);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.ctaClose {
+  display: none;
+}
+
+.environment[open] .ctaOpen {
+  display: none;
+}
+
+.environment[open] .ctaClose {
+  display: inline;
+}
+
+.environmentSummary:hover .environmentCta {
+  background: var(--color-ubuntu-orange);
+  color: var(--color-text-inverse);
+}

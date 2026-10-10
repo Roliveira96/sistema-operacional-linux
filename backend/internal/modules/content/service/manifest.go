@@ -26,6 +26,7 @@ type Manifest struct {
 // ManifestModule is a learning module with its ordered blocks.
 type ManifestModule struct {
 	SourceKey    string          `json:"sourceKey"`
+	Slug         string          `json:"slug,omitempty"`
 	Title        string          `json:"title"`
 	Description  string          `json:"description"`
 	Icon         string          `json:"icon"`

@@ -38,6 +38,10 @@ type Users interface {
 type Store interface {
 	FindBlockBySourceKey(ctx context.Context, key string) (domain.ContentBlock, error)
 	SaveBlock(ctx context.Context, b *domain.ContentBlock) error
+	// HasEditedBlocks reports whether the authoring touched any block of the module.
+	HasEditedBlocks(ctx context.Context, moduleID uuid.UUID) (bool, error)
+	// PublishVersion stores the draft as a new version, or returns ErrNoChanges (SPEC-021 RN-08).
+	PublishVersion(ctx context.Context, moduleID, by uuid.UUID, note string) (domain.ModuleVersion, error)
 	FindScenarioBySourceKey(ctx context.Context, key string) (domain.Scenario, error)
 	SaveScenario(ctx context.Context, s *domain.Scenario) error
 	FindQuestionBySourceKey(ctx context.Context, key string) (domain.Question, error)
@@ -99,8 +103,12 @@ func (s *Seeder) Run(ctx context.Context, m Manifest, adminEmail string) (Report
 
 		moduleIDs := map[string]uuid.UUID{}
 		for _, mod := range m.Modules {
+			slug := mod.Slug
+			if slug == "" {
+				slug = mod.SourceKey
+			}
 			id, outcome, err := s.modules.UpsertModule(ctx, cmservice.SeedModuleInput{
-				SourceKey: mod.SourceKey, OwnerID: admin.ID, Title: mod.Title, Description: mod.Description,
+				SourceKey: mod.SourceKey, Slug: slug, OwnerID: admin.ID, Title: mod.Title, Description: mod.Description,
 				Icon: mod.Icon, Color: mod.Color, DisplayOrder: mod.DisplayOrder, Visibility: cmdomain.Visibility(mod.Visibility),
 			})
 			if err != nil {
@@ -108,12 +116,28 @@ func (s *Seeder) Run(ctx context.Context, m Manifest, adminEmail string) (Report
 			}
 			moduleIDs[mod.SourceKey] = id
 			report.Modules.add(outcome)
+			// A module whose blocks were edited belongs to its authors now: loading new blocks or moving
+			// the old ones would collide with the order they made (SPEC-011 RN-04a).
+			frozen, err := s.store.HasEditedBlocks(ctx, id)
+			if err != nil {
+				return err
+			}
 			for i, b := range mod.Blocks {
+				if frozen {
+					report.Blocks.add(cmservice.SeedPreserved)
+					continue
+				}
 				outcome, err := s.upsertBlock(ctx, id, i+1, b)
 				if err != nil {
 					return err
 				}
 				report.Blocks.add(outcome)
+			}
+			// What the load changed reaches the students as a new version; a frozen module is left as it is.
+			if !frozen {
+				if _, err := s.store.PublishVersion(ctx, id, admin.ID, "Carga inicial"); err != nil && !errors.Is(err, ErrNoChanges) {
+					return err
+				}
 			}
 		}
 

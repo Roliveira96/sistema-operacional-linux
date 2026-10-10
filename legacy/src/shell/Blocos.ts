@@ -9,6 +9,43 @@ export type Instrucao =
 
 type Item = { palavraChave: string } | { comando: string };
 
+/**
+ * Os corpos dos heredocs (`cat << 'EOF' ... EOF`) de um script. Quem lê o script troca o `<<EOF` por `< chave` e guarda
+ * aqui o texto das linhas seguintes; na hora de rodar, o `<` com essa chave entrega o corpo como a entrada do comando.
+ */
+export class Heredocs {
+  private static readonly corpos: Map<string, { corpo: string; literal: boolean }> = new Map();
+  private static contador: number = 0;
+  private static readonly CHAVE: RegExp = /\u0001H\d+\u0001/;
+
+  public static reservar(): string {
+    return '\u0001H' + ++Heredocs.contador + '\u0001';
+  }
+
+  /** literal: o delimitador veio entre aspas ('EOF' ou "EOF"), então o corpo não expande variáveis. */
+  public static definir(chave: string, corpo: string, literal: boolean): void {
+    Heredocs.corpos.set(chave, { corpo, literal });
+  }
+
+  public static obter(chave: string): { corpo: string; literal: boolean } | undefined {
+    return Heredocs.corpos.get(chave);
+  }
+
+  /** A chave de heredoc que o texto contém, ou null. */
+  public static chaveEm(texto: string): string | null {
+    return Heredocs.CHAVE.exec(texto)?.[0] ?? null;
+  }
+}
+
+/** Um heredoc visto numa linha, ainda sem o corpo (que vem nas linhas seguintes). */
+interface HeredocPendente {
+  chave: string;
+  delimitador: string;
+  /** <<-: tira os TABs do começo de cada linha do corpo e do delimitador. */
+  tirarTabs: boolean;
+  literal: boolean;
+}
+
 const CHAVES: string[] = ['if', 'then', 'elif', 'else', 'fi', 'for', 'while', 'until', 'do', 'done'];
 /** Palavras-chave que podem vir seguidas de um comando na mesma instrução ("then echo oi"). */
 const COM_COMANDO: string[] = ['then', 'else', 'do'];
@@ -41,6 +78,7 @@ export class LeitorDeBlocos {
     let atual: string = '';
     let aspas: string | null = null;
     let profundidade: number = 0;
+    const pendentes: HeredocPendente[] = [];
     for (let i: number = 0; i < texto.length; i++) {
       const c: string = texto.charAt(i);
       if (aspas !== null) {
@@ -76,6 +114,17 @@ export class LeitorDeBlocos {
       } else if (c === ')' && profundidade > 0) {
         profundidade--;
       }
+      // cat << 'EOF' > arquivo: o operador vira "< chave" e o corpo (as linhas até o delimitador) fica guardado
+      if (c === '<' && texto.charAt(i + 1) === '<' && texto.charAt(i + 2) !== '<' && profundidade === 0) {
+        const lido: RegExpExecArray | null = /^<<(-?)[ \t]*(?:'([^'\n]*)'|"([^"\n]*)"|([^\s;&|<>()'"]+))/.exec(texto.substring(i));
+        if (lido !== null) {
+          const chave: string = Heredocs.reservar();
+          pendentes.push({ chave, delimitador: lido[2] ?? lido[3] ?? lido[4] ?? '', tirarTabs: lido[1] === '-', literal: lido[2] !== undefined || lido[3] !== undefined });
+          atual += '< ' + chave;
+          i += lido[0].length - 1;
+          continue;
+        }
+      }
       if (c === '#' && profundidade === 0 && (atual === '' || /\s$/.test(atual))) {
         while (i < texto.length && texto.charAt(i) !== '\n') i++;
         i--;
@@ -84,15 +133,40 @@ export class LeitorDeBlocos {
       if ((c === '\n' || (c === ';' && texto.charAt(i + 1) !== ';')) && profundidade === 0) {
         if (atual.trim() !== '') partes.push(atual.trim());
         atual = '';
+        if (c === '\n' && pendentes.length > 0) {
+          i = LeitorDeBlocos.lerCorpos(texto, i + 1, pendentes) - 1;
+          pendentes.length = 0;
+        }
         continue;
       }
       atual += c;
     }
+    // heredoc na última linha, sem corpo: fica vazio
+    LeitorDeBlocos.lerCorpos(texto, texto.length, pendentes);
     if (aspas !== null) {
       throw new ErroDeSintaxe('bash: erro de sintaxe: fim inesperado do arquivo (aspas ' + aspas + ' sem fechamento)');
     }
     if (atual.trim() !== '') partes.push(atual.trim());
     return partes;
+  }
+
+  /** Lê, a partir de `inicio`, o corpo de cada heredoc pendente (até a linha do delimitador) e devolve onde parou. */
+  private static lerCorpos(texto: string, inicio: number, pendentes: HeredocPendente[]): number {
+    let posicao: number = inicio;
+    for (const pendente of pendentes) {
+      const linhas: string[] = [];
+      while (posicao < texto.length) {
+        let fim: number = texto.indexOf('\n', posicao);
+        if (fim < 0) fim = texto.length;
+        const bruta: string = texto.substring(posicao, fim);
+        posicao = fim + 1;
+        const linha: string = pendente.tirarTabs ? bruta.replace(/^\t+/, '') : bruta;
+        if (linha === pendente.delimitador) break;
+        linhas.push(linha);
+      }
+      Heredocs.definir(pendente.chave, linhas.length > 0 ? linhas.join('\n') + '\n' : '', pendente.literal);
+    }
+    return Math.min(posicao, texto.length);
   }
 
   private classificar(instrucao: string): void {

@@ -7,6 +7,7 @@ vi.mock("@/services/moduleService", () => ({
   moduleService: {
     listModules: vi.fn(),
     updateModule: vi.fn(),
+    reorderModules: vi.fn(),
   },
 }));
 
@@ -86,6 +87,61 @@ describe("ModulesPage (/app/modules)", () => {
 
     await waitFor(() => {
       expect(moduleService.updateModule).toHaveBeenCalledWith("m-1", { status: "INACTIVE" });
+    });
+  });
+
+  it("toggles reorder mode and saves new module order", async () => {
+    vi.mocked(moduleService.listModules).mockResolvedValue({
+      items: [
+        {
+          id: "m-1",
+          teacherId: "t-1",
+          title: "Módulo 1",
+          description: "Desc 1",
+          visibility: "PUBLIC",
+          status: "ACTIVE",
+          totalExercises: 0,
+          totalMaterials: 0,
+          isActiveNow: true,
+          createdAt: "2026-10-08T00:00:00Z",
+          updatedAt: "2026-10-08T00:00:00Z",
+        },
+        {
+          id: "m-2",
+          teacherId: "t-1",
+          title: "Módulo 2",
+          description: "Desc 2",
+          visibility: "PUBLIC",
+          status: "ACTIVE",
+          totalExercises: 0,
+          totalMaterials: 0,
+          isActiveNow: true,
+          createdAt: "2026-10-08T00:00:00Z",
+          updatedAt: "2026-10-08T00:00:00Z",
+        },
+      ],
+      total: 2,
+      page: 1,
+      limit: 50,
+    });
+    vi.mocked(moduleService.reorderModules).mockResolvedValue({ message: "ok", reorderedCount: 2 });
+
+    render(<ModulesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Módulo 1")).toBeDefined();
+    });
+
+    const editOrderBtn = screen.getByRole("button", { name: "Editar Ordem" });
+    fireEvent.click(editOrderBtn);
+
+    const saveOrderBtn = screen.getByRole("button", { name: "Salvar Ordem" });
+    expect(saveOrderBtn).toBeDefined();
+
+    fireEvent.click(saveOrderBtn);
+
+    await waitFor(() => {
+      expect(moduleService.reorderModules).toHaveBeenCalledWith(["m-1", "m-2"]);
     });
   });
 });

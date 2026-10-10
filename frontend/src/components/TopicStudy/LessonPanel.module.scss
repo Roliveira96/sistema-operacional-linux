@@ -1,0 +1,256 @@
+// Lesson cards of the topic screen (legacy/src/estilos/topico.css, ".licao").
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty {
+  color: var(--color-text-secondary);
+}
+
+.card {
+  scroll-margin-top: 12px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s;
+
+  &.active {
+    border-color: var(--accent);
+    box-shadow:
+      0 0 0 1px var(--accent),
+      0 12px 40px -24px var(--accent);
+  }
+
+  // Blocks inside a card keep the content styles but lose their own boxes.
+  > * + * {
+    margin-top: 12px;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tag {
+  padding: 3px 10px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: var(--font-weight-bold);
+  color: var(--accent);
+}
+
+.title {
+  margin: 0;
+  font-size: 17px;
+}
+
+.cardPlay {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-pill);
+  background: var(--accent-faint);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s;
+
+  &:hover,
+  &.playing {
+    background: var(--accent);
+    color: var(--color-accent-contrast);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.text {
+  font-size: 14.5px;
+  color: var(--color-text-body);
+
+  p {
+    margin: 0 0 8px;
+  }
+}
+
+.label {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.examples {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.example {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+
+  &:hover {
+    background: var(--color-surface-raised);
+  }
+
+  &.current {
+    border-color: var(--accent-line);
+    background: var(--accent-faint);
+  }
+
+  &.running .run {
+    animation: pulse 0.9s ease-in-out infinite;
+  }
+
+  &.done .run {
+    color: var(--color-success);
+  }
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.run {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--color-accent-contrast);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.exampleBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding-top: 3px;
+}
+
+.command {
+  padding: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+
+  &::before {
+    content: "$ ";
+    color: var(--color-text-secondary);
+  }
+}
+
+.explanation {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.outputExplanation {
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--accent-faint);
+  font-size: 13px;
+  color: var(--color-text-body);
+}
+
+.expectError {
+  align-self: flex-start;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-warning);
+}
+
+.terminalTag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--color-module-usr, var(--color-accent));
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: var(--font-weight-black);
+  color: var(--color-accent-contrast);
+  vertical-align: 2px;
+}
+
+.blockCheck {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-success);
+    color: var(--color-success);
+  }
+}
+
+.blockCompleted {
+  border-color: var(--color-success);
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+  font-weight: var(--font-weight-bold);
+}
+
+.cardCompleted {
+  border-left: 4px solid var(--color-success);
+}

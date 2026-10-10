@@ -32,6 +32,15 @@ type Config struct {
 	Storage        StorageConfig
 	Mail           MailConfig
 	Auth           AuthConfig
+	TTS            TTSConfig
+}
+
+// TTSConfig holds the guided voice reader limits (SPEC-017).
+type TTSConfig struct {
+	Timeout       time.Duration
+	MaxConcurrent int
+	// RatePerMinute is the per-user request limit of the speech route (SPEC-018, P-02).
+	RatePerMinute int
 }
 
 // AuthConfig holds authentication settings (SPEC-003, SPEC-008).
@@ -145,6 +154,11 @@ func LoadFrom(lookup LookupFunc) (Config, error) {
 				ClientSecret: r.optional("GOOGLE_CLIENT_SECRET", ""),
 				RedirectURL:  r.optional("GOOGLE_REDIRECT_URL", ""),
 			},
+		},
+		TTS: TTSConfig{
+			Timeout:       r.duration("TTS_TIMEOUT", 15*time.Second),
+			MaxConcurrent: r.positiveInt("TTS_MAX_CONCURRENT", 4),
+			RatePerMinute: r.positiveInt("TTS_RATE_PER_MINUTE", 60),
 		},
 	}
 

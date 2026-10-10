@@ -1,0 +1,150 @@
+// Challenges of the topic screen (legacy/src/estilos/topico.css, ".desafio").
+.empty,
+.intro {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--color-text-body);
+}
+
+.login {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-warning-line);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-faint);
+  font-size: 13.5px;
+  color: var(--color-text-primary);
+
+  a {
+    font-weight: var(--font-weight-bold);
+    color: var(--accent);
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  transition:
+    border-color 0.3s,
+    background 0.3s;
+
+  &.done {
+    border-color: var(--color-success-line);
+    background: var(--color-success-faint);
+  }
+}
+
+.status {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+
+  .done > & {
+    display: grid;
+    place-items: center;
+    border-color: var(--color-success);
+    background: var(--color-success);
+    color: var(--color-surface-sunken);
+    font-size: 13px;
+    font-weight: var(--font-weight-black);
+
+    &::after {
+      content: "✓";
+    }
+  }
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.statement {
+  margin: 0 0 6px;
+  font-size: 14.5px;
+  color: var(--color-text-primary);
+}
+
+.inline {
+  display: inline;
+
+  p {
+    display: inline;
+    margin: 0;
+  }
+}
+
+.actions {
+  margin-bottom: 6px;
+}
+
+.start,
+.runSolution {
+  padding: 5px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.details {
+  margin-top: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  font-size: 13.5px;
+  color: var(--color-text-body);
+
+  summary {
+    cursor: pointer;
+  }
+
+  p {
+    margin: 6px 0 0;
+  }
+}
+
+.solution {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-terminal-bg);
+  font-family: var(--font-mono);
+  font-size: 14.5px;
+  white-space: pre-wrap;
+  color: var(--color-terminal-text);
+}

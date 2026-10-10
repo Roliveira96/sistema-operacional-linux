@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -32,11 +35,18 @@ type ModuleAccess interface {
 // ReadStore reads content for display.
 type ReadStore interface {
 	ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error)
+	ModuleSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
+	// BankSetup returns the snapshot of the bank of exercises of the module (SPEC-023 11.2).
+	BankSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
+	// LatestVersion is the published version students read (SPEC-021); ErrNotFound when there is none.
+	LatestVersion(ctx context.Context, moduleID uuid.UUID) (domain.ModuleVersion, error)
 	ListQuestions(ctx context.Context, moduleID uuid.UUID, usage string, includeDrafts bool) ([]domain.Question, error)
 	ListActiveTemplates(ctx context.Context) ([]TemplateSummary, error)
 	FindQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error)
 	FindScenario(ctx context.Context, id uuid.UUID) (domain.Scenario, error)
 	FindScenarioBySourceKey(ctx context.Context, key string) (domain.Scenario, error)
+	SaveBlockProgress(ctx context.Context, userID, blockID uuid.UUID, completed bool) (domain.BlockProgress, error)
+	ListModuleBlockProgress(ctx context.Context, userID, moduleID uuid.UUID) ([]domain.BlockProgress, error)
 }
 
 // TopicScenarioPrefix prefixes the module source key in the key of the topic
@@ -74,6 +84,12 @@ type PublicQuestion struct {
 	Hint       *string         `json:"hint,omitempty"`
 	Choices    json.RawMessage `json:"choices,omitempty"`
 	Solution   json.RawMessage `json:"solution,omitempty"`
+	// Layered marks an exercise of the module made in the editor (SPEC-023): it has no machine of its own, so the screen
+	// starts it from the snapshot of the module followed by the one of the available exercises.
+	Layered bool `json:"layered,omitempty"`
+	// ChainSetups is the recipe of the exercises this one depends on, the oldest first: the solutions (commands and files) the
+	// screen replays to build its machine (SPEC-023 D-16, D-20).
+	ChainSetups json.RawMessage `json:"chainSetups,omitempty"`
 }
 
 // TeacherQuestion is the full view for the module owner and admins.
@@ -130,12 +146,74 @@ func (r *Reader) module(ctx context.Context, moduleID uuid.UUID, v Viewer) (cmre
 	return details, err
 }
 
+// ModuleContent is what the study screen reads of a module: its blocks and the snapshot of the module.
+type ModuleContent struct {
+	Blocks []domain.ContentBlock
+	Setup  json.RawMessage
+	// BankSetup is the snapshot of the bank of exercises of the module, under the practice (SPEC-023 11.2).
+	BankSetup json.RawMessage
+}
+
+// Content returns the active blocks in order and the snapshot of the module, as the latest published
+// version has them (SPEC-021 RN-06). Edits in progress in the draft are not shown.
+func (r *Reader) Content(ctx context.Context, moduleID uuid.UUID, v Viewer) (ModuleContent, error) {
+	if _, err := r.module(ctx, moduleID, v); err != nil {
+		return ModuleContent{}, err
+	}
+	version, err := r.store.LatestVersion(ctx, moduleID)
+	if errors.Is(err, ErrNotFound) {
+		// Every module has a version since its creation; this only guards a module that lost it.
+		return r.draft(ctx, moduleID)
+	}
+	if err != nil {
+		return ModuleContent{}, err
+	}
+	var content domain.VersionContent
+	if err := json.Unmarshal(version.Content, &content); err != nil {
+		return ModuleContent{}, fmt.Errorf("version %d of module %s: %w", version.Number, moduleID, err)
+	}
+	// Inactive blocks stay in the authoring list only (SPEC-019 RN-12).
+	return ModuleContent{Blocks: content.ContentBlocks(moduleID, true), Setup: content.SetupOrNil(), BankSetup: content.BankSetupOrNil()}, nil
+}
+
+// Draft returns the content being edited, for ADMIN and the owner of the module (SPEC-021 RN-06).
+func (r *Reader) Draft(ctx context.Context, moduleID uuid.UUID, v Viewer) (ModuleContent, error) {
+	details, err := r.module(ctx, moduleID, v)
+	if err != nil {
+		return ModuleContent{}, err
+	}
+	if v.Role != "ADMIN" && (v.UserID == nil || details.Module.TeacherID != *v.UserID) {
+		return ModuleContent{}, ErrForbidden
+	}
+	return r.draft(ctx, moduleID)
+}
+
+func (r *Reader) draft(ctx context.Context, moduleID uuid.UUID) (ModuleContent, error) {
+	all, err := r.store.ListBlocks(ctx, moduleID)
+	if err != nil {
+		return ModuleContent{}, err
+	}
+	active := make([]domain.ContentBlock, 0, len(all))
+	for _, b := range all {
+		if b.Active() {
+			active = append(active, b)
+		}
+	}
+	setup, err := r.store.ModuleSetup(ctx, moduleID)
+	if err != nil {
+		return ModuleContent{}, err
+	}
+	bank, err := r.store.BankSetup(ctx, moduleID)
+	if err != nil {
+		return ModuleContent{}, err
+	}
+	return ModuleContent{Blocks: active, Setup: setup, BankSetup: bank}, nil
+}
+
 // Blocks returns the module blocks in order.
 func (r *Reader) Blocks(ctx context.Context, moduleID uuid.UUID, v Viewer) ([]domain.ContentBlock, error) {
-	if _, err := r.module(ctx, moduleID, v); err != nil {
-		return nil, err
-	}
-	return r.store.ListBlocks(ctx, moduleID)
+	content, err := r.Content(ctx, moduleID, v)
+	return content.Blocks, err
 }
 
 // Questions returns the published questions of a module without answers
@@ -148,11 +226,36 @@ func (r *Reader) Questions(ctx context.Context, moduleID uuid.UUID, usage string
 	if err != nil {
 		return nil, err
 	}
+	all, err := r.dependencies(ctx, moduleID, qs)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]PublicQuestion, len(qs))
 	for i, q := range qs {
-		out[i] = publicView(q)
+		out[i] = publicView(q, all)
 	}
 	return out, nil
+}
+
+// dependencies reads, when one of the questions depends on another, every question of the module by id, so the chain of
+// a dependency can be walked even through an exercise the student does not see (SPEC-023 D-20). Nil when nothing depends.
+func (r *Reader) dependencies(ctx context.Context, moduleID uuid.UUID, qs []domain.Question) (map[uuid.UUID]domain.Question, error) {
+	needed := false
+	for _, q := range qs {
+		needed = needed || q.DependsOn != nil
+	}
+	if !needed {
+		return nil, nil
+	}
+	every, err := r.store.ListQuestions(ctx, moduleID, "", true)
+	if err != nil {
+		return nil, err
+	}
+	all := make(map[uuid.UUID]domain.Question, len(every))
+	for _, q := range every {
+		all[q.ID] = q
+	}
+	return all, nil
 }
 
 // TeacherQuestions returns every question, with answers, to the module owner
@@ -172,7 +275,7 @@ func (r *Reader) TeacherQuestions(ctx context.Context, moduleID uuid.UUID, v Vie
 	out := make([]TeacherQuestion, len(qs))
 	for i, q := range qs {
 		out[i] = TeacherQuestion{
-			PublicQuestion: publicView(q), Status: q.Status, SourceKey: q.SourceKey, Explanation: q.Explanation,
+			PublicQuestion: publicView(q, nil), Status: q.Status, SourceKey: q.SourceKey, Explanation: q.Explanation,
 			ScenarioID: q.ScenarioID, ReferenceSolution: q.ReferenceSolution, ValidationConditions: q.ValidationConditions,
 			AnswerKey: q.AnswerKey, Tags: q.Tags,
 		}
@@ -185,17 +288,98 @@ func (r *Reader) Templates(ctx context.Context) ([]TemplateSummary, error) {
 	return r.store.ListActiveTemplates(ctx)
 }
 
-func publicView(q domain.Question) PublicQuestion {
+func publicView(q domain.Question, all map[uuid.UUID]domain.Question) PublicQuestion {
 	p := PublicQuestion{
 		ID: q.ID, Kind: q.Kind, Usage: q.Usage, Difficulty: q.Difficulty, Title: q.Title, Statement: q.Statement, Hint: q.Hint,
 	}
 	if q.Kind == domain.KindPractical && q.Usage == domain.UsageExercise {
 		p.Solution = q.ReferenceSolution
 	}
+	if len(q.EndConditions) > 0 {
+		// An exercise made in the editor keeps its tips and its solution in the form of the editor; the screen of the student
+		// reads one tip in html and the solution as a list of commands (SPEC-023).
+		p.Layered = true
+		p.Hint = hintsHTML(q.Hints)
+		p.Solution = nil
+		if q.Usage == domain.UsageExercise {
+			p.Solution = solutionCommands(q.ReferenceSolution)
+			p.ChainSetups = chainSetups(q, all)
+		}
+	}
 	if q.Kind != domain.KindPractical && q.Kind != domain.KindDiscursive {
 		p.Choices = q.Choices
 	}
 	return p
+}
+
+// chainSetups collects the solutions of the exercises `q` depends on, the oldest first, walking the dependencies up; nil when it
+// depends on none. A dependency that is gone, is not practical or has no recorded solution is skipped, and a cycle ends the walk.
+func chainSetups(q domain.Question, all map[uuid.UUID]domain.Question) json.RawMessage {
+	var chain []json.RawMessage
+	seen := map[uuid.UUID]bool{q.ID: true}
+	for next := q.DependsOn; next != nil && !seen[*next]; {
+		seen[*next] = true
+		dep, ok := all[*next]
+		if !ok {
+			break
+		}
+		if dep.Kind == domain.KindPractical && len(dep.EndConditions) > 0 && len(dep.ReferenceSolution) > 0 {
+			chain = append([]json.RawMessage{dep.ReferenceSolution}, chain...)
+		}
+		next = dep.DependsOn
+	}
+	if len(chain) == 0 {
+		return nil
+	}
+	out, err := json.Marshal(chain)
+	if err != nil {
+		return nil
+	}
+	return out
+}
+
+// hintsHTML writes the tips of an exercise as one ordered list, each with its command of reference; nil when there are none.
+func hintsHTML(raw json.RawMessage) *string {
+	var hints []struct {
+		Text    string `json:"text"`
+		Command string `json:"command"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &hints) != nil || len(hints) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	b.WriteString("<ol>")
+	for _, h := range hints {
+		b.WriteString("<li>" + html.EscapeString(h.Text))
+		if h.Command != "" {
+			b.WriteString(" <code>" + html.EscapeString(h.Command) + "</code>")
+		}
+		b.WriteString("</li>")
+	}
+	b.WriteString("</ol>")
+	out := b.String()
+	return &out
+}
+
+// solutionCommands reads the commands the teacher recorded as the list the screen of the student runs. The files a solution
+// wrote have no command, so they are left out; nil when there is nothing to show.
+func solutionCommands(raw json.RawMessage) json.RawMessage {
+	var setup struct {
+		Steps []struct {
+			Command  string `json:"command"`
+			Terminal *int   `json:"terminal,omitempty"`
+			Login    any    `json:"login,omitempty"`
+			Answers  any    `json:"answers,omitempty"`
+		} `json:"steps"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &setup) != nil || len(setup.Steps) == 0 {
+		return nil
+	}
+	out, err := json.Marshal(setup.Steps)
+	if err != nil {
+		return nil
+	}
+	return out
 }
 
 // PracticeItem returns a published practical exercise the viewer can access
@@ -208,25 +392,34 @@ func (r *Reader) PracticeItem(ctx context.Context, questionID uuid.UUID, v Viewe
 	if err != nil {
 		return PracticeItem{}, err
 	}
-	if q.Kind != domain.KindPractical || q.Usage != domain.UsageExercise || q.Status != domain.StatusPublished || q.ScenarioID == nil {
+	if q.Kind != domain.KindPractical || q.Usage != domain.UsageExercise || q.Status != domain.StatusPublished {
 		return PracticeItem{}, ErrQuestionNotFound
 	}
 	if _, err := r.module(ctx, q.ModuleID, v); err != nil {
-		return PracticeItem{}, err
-	}
-	scenario, err := r.store.FindScenario(ctx, *q.ScenarioID)
-	if err != nil {
 		return PracticeItem{}, err
 	}
 	var conditions []domain.Condition
 	if err := json.Unmarshal(q.ValidationConditions, &conditions); err != nil {
 		return PracticeItem{}, err
 	}
+	// An exercise made in the editor has no machine of its own (SPEC-023 D-06): the screen builds it from the layers.
+	if q.ScenarioID == nil {
+		if len(q.EndConditions) == 0 {
+			return PracticeItem{}, ErrQuestionNotFound
+		}
+		return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Conditions: conditions}, nil
+	}
+	scenario, err := r.store.FindScenario(ctx, *q.ScenarioID)
+	if err != nil {
+		return PracticeItem{}, err
+	}
 	return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Snapshot: scenario.Snapshot, Conditions: conditions}, nil
 }
 
 // TopicScenario returns the prepared machine of the module topic (SPEC-016
-// 5.1), or nil when the module has none and the default machine applies.
+// 5.1), or nil when the module has none and the default machine applies. The
+// student machine is prepared on top of it by the snapshots of the module and
+// of its cards (SPEC-021).
 func (r *Reader) TopicScenario(ctx context.Context, moduleID uuid.UUID, v Viewer) (json.RawMessage, error) {
 	details, err := r.module(ctx, moduleID, v)
 	if err != nil {
@@ -269,3 +462,55 @@ func (r *Reader) ModulePracticeItems(ctx context.Context, moduleID uuid.UUID, v 
 	}
 	return items, nil
 }
+
+// BlockProgressResult describes a single block progress update.
+type BlockProgressResult struct {
+	BlockID     uuid.UUID  `json:"blockId"`
+	Completed   bool       `json:"completed"`
+	CompletedAt *time.Time `json:"completedAt,omitempty"`
+}
+
+// ModuleBlockProgressResult describes student reading progress for a module.
+type ModuleBlockProgressResult struct {
+	ModuleID           uuid.UUID            `json:"moduleId"`
+	CompletedBlockIDs  []uuid.UUID          `json:"completedBlockIds"`
+	CompletedAtByBlock map[string]time.Time `json:"completedAtByBlock"`
+}
+
+// ToggleBlockProgress marks or unmarks a block as read by the authenticated viewer.
+func (r *Reader) ToggleBlockProgress(ctx context.Context, blockID uuid.UUID, completed bool, v Viewer) (BlockProgressResult, error) {
+	if v.UserID == nil {
+		return BlockProgressResult{}, ErrAuthRequired
+	}
+	p, err := r.store.SaveBlockProgress(ctx, *v.UserID, blockID, completed)
+	if err != nil {
+		return BlockProgressResult{}, err
+	}
+	res := BlockProgressResult{BlockID: blockID, Completed: completed}
+	if completed {
+		res.CompletedAt = &p.CompletedAt
+	}
+	return res, nil
+}
+
+// ModuleBlockProgress retrieves all completed block progress records for a module.
+func (r *Reader) ModuleBlockProgress(ctx context.Context, moduleID uuid.UUID, v Viewer) (ModuleBlockProgressResult, error) {
+	if v.UserID == nil {
+		return ModuleBlockProgressResult{ModuleID: moduleID, CompletedBlockIDs: []uuid.UUID{}, CompletedAtByBlock: map[string]time.Time{}}, nil
+	}
+	if _, err := r.module(ctx, moduleID, v); err != nil {
+		return ModuleBlockProgressResult{}, err
+	}
+	list, err := r.store.ListModuleBlockProgress(ctx, *v.UserID, moduleID)
+	if err != nil {
+		return ModuleBlockProgressResult{}, err
+	}
+	ids := make([]uuid.UUID, len(list))
+	byBlock := make(map[string]time.Time, len(list))
+	for i, bp := range list {
+		ids[i] = bp.BlockID
+		byBlock[bp.BlockID.String()] = bp.CompletedAt
+	}
+	return ModuleBlockProgressResult{ModuleID: moduleID, CompletedBlockIDs: ids, CompletedAtByBlock: byBlock}, nil
+}
+

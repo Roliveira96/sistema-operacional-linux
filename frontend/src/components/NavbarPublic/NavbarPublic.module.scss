@@ -20,56 +20,6 @@
   padding: var(--space-3) var(--space-4);
 }
 
-.brandGroup {
-  display: flex;
-  align-items: center;
-}
-
-.brandLink {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  text-decoration: none;
-  color: var(--color-text-primary);
-  border-radius: var(--radius-sm);
-
-  @include focusable;
-}
-
-.logoBadge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-brand-gold);
-  color: var(--color-brand-gold-contrast);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  border-radius: var(--radius-sm);
-  letter-spacing: 0.05em;
-}
-
-.badgeText {
-  line-height: 1;
-}
-
-.brandText {
-  display: flex;
-  flex-direction: column;
-}
-
-.brandTitle {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  line-height: var(--line-height-body);
-
-  @include from("sm") {
-    font-size: var(--font-size-lg);
-  }
-}
-
 .nav {
   display: none;
   align-items: center;

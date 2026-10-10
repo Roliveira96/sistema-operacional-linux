@@ -64,6 +64,8 @@ A arquitetura visual organiza a casca pública sob o App Router do Next.js, mant
 
 
 * Os botões de ação realizam redirecionamento programático via roteador nativo para a rota de login (`/login`) e tela de cadastro/convite (`/register`).
+* **Reconhece a sessão (revisão de 09/10/2026):** para quem já está logado a barra NÃO mostra "Entrar" nem "Cadastrar". Mostra a foto (ou as iniciais), o nome e o RA do estudante, um botão "Minha área" que leva a `/app` e um botão "Sair" que encerra a sessão. Enquanto a sessão é consultada, nenhum dos dois grupos aparece, para não piscar os botões de visitante.
+* **Logotipo:** a barra usa a logo real da UTFPR (`/utfpr-logo.svg`, a mesma do cabeçalho da tela do tópico), sobre um selo branco, no lugar do texto "UTFPR".
 
 
 * **Página Inicial / Landing Page (`app/page.tsx`):**
@@ -138,6 +140,9 @@ Sem endpoints novos. As telas públicas utilizam coleções estáticas tipadas l
 * [x] QUANDO o usuário interagir com a barra de navegação pública, O SISTEMA DEVE exibir o logotipo institucional da universidade, links para `/`, `/materials`, `/simulations` e alternador de tema.
 * [x] QUANDO o botão "Entrar" na barra de navegação for acionado, O SISTEMA DEVE redirecionar o navegador para a rota `/login`.
 * [x] QUANDO o botão "Cadastrar" na barra de navegação for acionado, O SISTEMA DEVE redirecionar o navegador para a rota `/register`.
+* [x] QUANDO houver um usuário logado, O SISTEMA DEVE ocultar "Entrar" e "Cadastrar" na barra de navegação pública e mostrar o usuário (foto ou iniciais, nome e RA do estudante), "Minha área" (para `/app`) e "Sair"; SE não houver sessão, ENTÃO DEVE mostrar "Entrar" e "Cadastrar"; ENQUANTO a sessão for consultada, NÃO DEVE mostrar nenhum dos dois grupos.
+* [x] QUANDO o usuário acionar "Sair", O SISTEMA DEVE encerrar a sessão no servidor (saindo localmente mesmo se o servidor falhar) e voltar a mostrar "Entrar" e "Cadastrar".
+* [x] QUANDO a barra de navegação pública for renderizada, O SISTEMA DEVE exibir a logo real da UTFPR, e não apenas o texto "UTFPR".
 * [x] QUANDO a rota `/materials` for acessada, O SISTEMA DEVE renderizar a grade pública de módulos didáticos contendo título, descrição, ícone e nível a partir dos dados mockados.
 * [x] QUANDO a rota `/simulations` for acessada, O SISTEMA DEVE renderizar a listagem de simulados práticos contendo duração, quantidade de questões e complexidade a partir dos dados mockados.
 * [x] QUANDO o tema for alternado entre claro e escuro, O SISTEMA DEVE aplicar a mudança instantaneamente em todas as seções e rotas públicas sem recarregar a página.
@@ -226,3 +231,5 @@ Nenhuma pendência em aberto. Spec aprovada e implementada.
 | 08/10/2026 | Aruna Architect | Criação da spec inicial |
 | 08/10/2026 | Tech Lead (Ricardo Martins de Oliveira) | Aprovação para implementação |
 | 08/10/2026 | Implementador (Antigravity) | Implementação completa com 105 testes no frontend, paridade de temas e status alterado para `Implementada` |
+| 09/10/2026 | Tech Lead | Revisão pedida depois de ver a tela `/materials` logado ("essa tela mostra para o aluno entrar ou se cadastrar mesmo estando logado, e não pode") e a barra com o texto "UTFPR" ("devemos utilizar a logo real da UTFPR usada em outras telas") |
+| 09/10/2026 | Implementador (Claude) | Revisão implementada em `NavbarPublic`, que passou a ler a sessão com `useIdentity` (`/auth/me` e, para estudantes, `/students/me`): usuário logado vê o selo do usuário, "Minha área" e "Sair"; visitante vê "Entrar" e "Cadastrar"; durante a consulta, nada. O `UserBadge` foi movido para `components/UserBadge/` para ser compartilhado com a tela do tópico, e a logo real passou a ser exibida no selo branco. Testes: `NavbarPublic.test.tsx` (visitante, estudante, docente, carregando, sair, sair com servidor fora, logo) e `useIdentity.test.ts` (estado "consultando"). Conferido no navegador em `/materials`: visitante vê `Entrar` e `Cadastrar`; estudante logado vê `Minha área` e `Sair` com "Ana Souza Teste / RA 2345678". **Não alterado, mas registrado:** o botão "Começar (exige login)" dos cartões de `/simulations` continua levando a `/login` mesmo para quem está logado, porque o início de um simulado depende de uma spec futura (aplicação de avaliações). |

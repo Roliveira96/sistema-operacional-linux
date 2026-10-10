@@ -51,7 +51,9 @@ export class Set_ extends Embutido {
   public readonly nome: string = 'set';
   public readonly resumo: string = 'lista todas as variáveis do shell (exportadas ou não)';
 
-  public async executar(_args: string[], contexto: Contexto): Promise<number> {
+  public async executar(args: string[], contexto: Contexto): Promise<number> {
+    // set -e, set -u, set -o pipefail...: opções do shell, sem saída (só "set" sozinho lista as variáveis)
+    if (args.length > 0) return 0;
     for (const [nome, valor] of Array.from(contexto.escopo.variaveis).sort((a, b) => a[0].localeCompare(b[0]))) {
       contexto.linha(nome + '=' + (/[\s'"]/.test(valor) ? "'" + valor + "'" : valor));
     }

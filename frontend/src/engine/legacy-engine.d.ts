@@ -1,8 +1,7 @@
-// Typed boundary of the legacy code reused by the frontend (SPEC-014,
-// SPEC-016). The legacy code lives in legacy/src and keeps its Portuguese
-// identifiers; these declarations list only what src/engine/ uses, so the
-// frontend type check does not compile the whole legacy code base with the
-// stricter frontend settings.
+// Typed boundary of the legacy POSIX/VFS engine (SPEC-014). The engine lives
+// in legacy/src and keeps its Portuguese identifiers; these declarations list
+// only what src/engine/ uses, so the frontend type check does not compile the
+// whole legacy code base with the stricter frontend settings.
 
 declare module "@legacy-engine/linux/Contas" {
   export interface Usuario {
@@ -12,20 +11,26 @@ declare module "@legacy-engine/linux/Contas" {
 }
 
 declare module "@legacy-engine/linux/Sessao" {
+  import type { Usuario } from "@legacy-engine/linux/Contas";
   export interface Sessao {
-    /** Command history of the shell, read by the arrow keys. */
-    historico: string[];
+    atual(): { usuario: Usuario; cwd: string };
+    caminhoCurto(): string;
+    readonly historico: string[];
   }
 }
 
 declare module "@legacy-engine/linux/Maquina" {
   import type { Usuario } from "@legacy-engine/linux/Contas";
+  import type { Sessao } from "@legacy-engine/linux/Sessao";
   export class Maquina {
-    static criar(): Maquina;
     hostname: string;
+    /** The file system: only what the window needs to know about a folder. */
+    fs: { obter(caminho: string): { ehDiretorio(): boolean } | null };
     contas: { usuario(nome: string): Usuario | undefined };
-    fecharSessao(sessao: import("@legacy-engine/linux/Sessao").Sessao): void;
+    abrirSessao(usuario: Usuario): Sessao;
+    fecharSessao(sessao: Sessao): void;
     atualizarProc(): void;
+    static criar(): Maquina;
   }
 }
 
@@ -37,25 +42,16 @@ declare module "@legacy-engine/linux/Serializador" {
   }
 }
 
+// SPEC-016: the terminal window of the prototype and the cheat sheet.
 declare module "@legacy-engine/terminal/JanelaDeTerminais" {
   import type { Maquina } from "@legacy-engine/linux/Maquina";
-  import type { Usuario } from "@legacy-engine/linux/Contas";
-  import type { Sessao } from "@legacy-engine/linux/Sessao";
 
-  // The class lives in terminal/TerminalUbuntu; only its type is used here.
   export interface TerminalUbuntu {
     readonly numero: number;
-    usuarioAtual(): string | null;
-    estaLivre(): boolean;
-    escrever(texto: string, classe?: string): void;
-    pedirLogin(): void;
     executarAutomatico(comando: string, respostas?: string[]): Promise<void>;
-    // Members private to the legacy class, used only to swap the machine of
-    // an open terminal while keeping its history (SPEC-016 CA-10).
-    maquina: Maquina;
-    sessao: Sessao | null;
-    posicaoHistorico: number;
-    iniciarSessao(usuario: Usuario): void;
+    escrever(texto: string, classe?: string): void;
+    usuarioAtual(): string | null;
+    focar(): void;
   }
 
   export interface OuvinteDaJanela {
@@ -68,11 +64,8 @@ declare module "@legacy-engine/terminal/JanelaDeTerminais" {
     trocarMaquina(maquina: Maquina): void;
     executarResetAnimado(recriar: () => Maquina): Promise<void>;
     definirVelocidade(velocidade: number): void;
-    focar(): void;
+    aoMudarTitulo(): void;
     destruir(): void;
-    // Private to the legacy class; see TerminalUbuntu.
-    maquina: Maquina;
-    terminais: Array<TerminalUbuntu | null>;
   }
 }
 
@@ -96,5 +89,7 @@ declare module "@legacy-engine/app/ColaDeComandos" {
   }
 }
 
-declare module "@legacy-engine/estilos/terminal.css";
-declare module "@legacy-engine/estilos/topico.css";
+declare module "@legacy-engine/estilos/terminal.css" {
+  const stylesheet: string;
+  export default stylesheet;
+}

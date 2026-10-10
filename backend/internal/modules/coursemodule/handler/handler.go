@@ -2,10 +2,13 @@
 package handler
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +29,7 @@ type CourseModuleService interface {
 	ListModules(ctx context.Context, userCtx service.UserAccessContext, filter repository.ListFilter) (repository.ListResult, error)
 	ListPublicModules(ctx context.Context, filter repository.ListFilter) (repository.ListResult, error)
 	ReorderExercises(ctx context.Context, moduleID, callerID uuid.UUID, isAdmin bool, exerciseIDs []uuid.UUID) error
+	ReorderModules(ctx context.Context, callerID uuid.UUID, isAdmin bool, moduleIDs []uuid.UUID) error
 }
 
 // Handler manages course module HTTP endpoints.
@@ -66,6 +70,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	teacherGroup := r.Group("/modules", authn.Required(h.auth), authn.Roles(authn.RoleTeacher, authn.RoleAdmin))
 	teacherGroup.POST("", h.createModule)
 	teacherGroup.PATCH("/:id", h.updateModule)
+	teacherGroup.PUT("/order", h.reorderModules)
 	teacherGroup.PUT("/:id/exercises/order", h.reorderExercises)
 }
 
@@ -81,9 +86,31 @@ func (h *Handler) optionalAuth() gin.HandlerFunc {
 	}
 }
 
+// optional tells an absent JSON field (keep the value) from an explicit null (clear it).
+type optional[T any] struct {
+	Set   bool
+	Value *T
+}
+
+// UnmarshalJSON is only called when the field is present in the body.
+func (o *optional[T]) UnmarshalJSON(data []byte) error {
+	o.Set = true
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		o.Value = nil
+		return nil
+	}
+	var v T
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	o.Value = &v
+	return nil
+}
+
 type createModuleRequest struct {
 	Title           string      `json:"title"`
 	Description     string      `json:"description"`
+	Slug            *string     `json:"slug"`
 	Visibility      string      `json:"visibility"`
 	ActivationStart *string     `json:"activationStart"`
 	ActivationEnd   *string     `json:"activationEnd"`
@@ -91,13 +118,14 @@ type createModuleRequest struct {
 }
 
 type updateModuleRequest struct {
-	Title           *string     `json:"title"`
-	Description     *string     `json:"description"`
-	Visibility      *string     `json:"visibility"`
-	Status          *string     `json:"status"`
-	ActivationStart *string     `json:"activationStart"`
-	ActivationEnd   *string     `json:"activationEnd"`
-	ClassIDs        []uuid.UUID `json:"classIds"`
+	Title           *string          `json:"title"`
+	Description     *string          `json:"description"`
+	Slug            optional[string] `json:"slug"`
+	Visibility      *string          `json:"visibility"`
+	Status          *string          `json:"status"`
+	ActivationStart optional[string] `json:"activationStart"`
+	ActivationEnd   optional[string] `json:"activationEnd"`
+	ClassIDs        []uuid.UUID      `json:"classIds"`
 }
 
 type reorderExercisesRequest struct {
@@ -116,10 +144,11 @@ type moduleSummaryResponse struct {
 	TotalExercises  int64      `json:"totalExercises"`
 	TotalMaterials  int64      `json:"totalMaterials"`
 	IsActiveNow     bool       `json:"isActiveNow"`
-	// Visual metadata of modules loaded from the legacy content (SPEC-011).
 	Icon         *string   `json:"icon,omitempty"`
 	Color        *string   `json:"color,omitempty"`
 	DisplayOrder *int      `json:"displayOrder,omitempty"`
+	SourceKey    *string   `json:"sourceKey,omitempty"`
+	Slug         *string   `json:"slug,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
@@ -170,6 +199,7 @@ func (h *Handler) createModule(c *gin.Context) {
 		TeacherID:       principal.UserID,
 		Title:           req.Title,
 		Description:     req.Description,
+		Slug:            req.Slug,
 		Visibility:      domain.Visibility(req.Visibility),
 		ActivationStart: start,
 		ActivationEnd:   end,
@@ -211,9 +241,14 @@ func (h *Handler) updateModule(c *gin.Context) {
 		return
 	}
 
-	start, end, err := parseDateRange(req.ActivationStart, req.ActivationEnd)
+	start, err := toTimePatch(req.ActivationStart)
 	if err != nil {
-		fail(c, problem.BadRequest("invalid-date-format", err.Error()))
+		fail(c, invalidDate("activationStart", err))
+		return
+	}
+	end, err := toTimePatch(req.ActivationEnd)
+	if err != nil {
+		fail(c, invalidDate("activationEnd", err))
 		return
 	}
 
@@ -235,6 +270,7 @@ func (h *Handler) updateModule(c *gin.Context) {
 		IsAdmin:         principal.Role == authn.RoleAdmin,
 		Title:           req.Title,
 		Description:     req.Description,
+		Slug:            service.Patch[string]{Set: req.Slug.Set, Value: req.Slug.Value},
 		Visibility:      vis,
 		Status:          st,
 		ActivationStart: start,
@@ -395,6 +431,34 @@ func (h *Handler) reorderExercises(c *gin.Context) {
 	})
 }
 
+type reorderModulesRequest struct {
+	ModuleIDs []uuid.UUID `json:"moduleIds"`
+}
+
+func (h *Handler) reorderModules(c *gin.Context) {
+	principal, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+
+	var req reorderModulesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, problem.BadRequest("malformed-request", "Invalid request body."))
+		return
+	}
+
+	if err := h.svc.ReorderModules(c.Request.Context(), principal.UserID, principal.Role == authn.RoleAdmin, req.ModuleIDs); err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "Modules reordered successfully",
+		"reorderedCount": len(req.ModuleIDs),
+	})
+}
+
 func (h *Handler) toSummaryResponse(m domain.CourseModule, exercises, materials int64) moduleSummaryResponse {
 	return moduleSummaryResponse{
 		ID:              m.ID,
@@ -411,6 +475,8 @@ func (h *Handler) toSummaryResponse(m domain.CourseModule, exercises, materials 
 		Icon:            m.Icon,
 		Color:           m.Color,
 		DisplayOrder:    m.DisplayOrder,
+		SourceKey:       m.SourceKey,
+		Slug:            m.Slug,
 		CreatedAt:       m.CreatedAt,
 		UpdatedAt:       m.UpdatedAt,
 	}
@@ -454,18 +520,52 @@ func parseDateRange(startStr, endStr *string) (*time.Time, *time.Time, error) {
 	return start, end, nil
 }
 
+// toTimePatch turns an optional RFC 3339 field into a patch: absent keeps, null or "" clears.
+func toTimePatch(o optional[string]) (service.Patch[time.Time], error) {
+	if !o.Set {
+		return service.Patch[time.Time]{}, nil
+	}
+	if o.Value == nil || strings.TrimSpace(*o.Value) == "" {
+		return service.Patch[time.Time]{Set: true}, nil
+	}
+	t, err := time.Parse(time.RFC3339, *o.Value)
+	if err != nil {
+		return service.Patch[time.Time]{}, err
+	}
+	return service.Patch[time.Time]{Set: true, Value: &t}, nil
+}
+
+// invalidDate is the 400 for a date that is not RFC 3339, pointing at the field.
+func invalidDate(field string, err error) *problem.Problem {
+	p := problem.BadRequest("invalid-date-format", err.Error())
+	p.InvalidParams = []problem.InvalidParam{{Name: field, Reason: "invalid date"}}
+	return p
+}
+
 func toProblem(err error) *problem.Problem {
 	switch {
 	case errors.Is(err, service.ErrTitleRequired):
 		return problem.BadRequest("title-required", err.Error())
 	case errors.Is(err, service.ErrDescriptionRequired):
 		return problem.BadRequest("description-required", err.Error())
+	case errors.Is(err, service.ErrDescriptionTooLong):
+		return problem.BadRequest("description-too-long", err.Error())
 	case errors.Is(err, domain.ErrInvalidVisibility):
 		return problem.BadRequest("invalid-visibility", err.Error())
 	case errors.Is(err, domain.ErrInvalidStatus):
 		return problem.BadRequest("invalid-status", err.Error())
 	case errors.Is(err, domain.ErrInvalidDateRange):
-		return problem.BadRequest("invalid-date-range", err.Error())
+		p := problem.BadRequest("invalid-date-range", err.Error())
+		p.InvalidParams = []problem.InvalidParam{{Name: "activationEnd", Reason: "must not be before the start"}}
+		return p
+	case errors.Is(err, domain.ErrInvalidSlug):
+		p := problem.BadRequest("invalid-slug", err.Error())
+		p.InvalidParams = []problem.InvalidParam{{Name: "slug", Reason: "invalid format"}}
+		return p
+	case errors.Is(err, domain.ErrSlugTaken):
+		p := problem.Conflict("slug-taken", err.Error())
+		p.InvalidParams = []problem.InvalidParam{{Name: "slug", Reason: "already in use"}}
+		return p
 	case errors.Is(err, domain.ErrPrivateRequiresClass):
 		return problem.BadRequest("private-requires-class", err.Error())
 	case errors.Is(err, domain.ErrDuplicateExerciseOrder):

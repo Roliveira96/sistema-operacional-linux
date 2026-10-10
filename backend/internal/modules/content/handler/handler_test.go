@@ -24,11 +24,21 @@ type fakeReader struct {
 	err    error
 	viewer service.Viewer
 	usage  string
+	setup  json.RawMessage
+	// The snapshot of the bank of exercises (SPEC-023).
+	bankSetup json.RawMessage
+	draft  bool
 }
 
-func (f *fakeReader) Blocks(_ context.Context, _ uuid.UUID, v service.Viewer) ([]domain.ContentBlock, error) {
+func (f *fakeReader) Content(_ context.Context, _ uuid.UUID, v service.Viewer) (service.ModuleContent, error) {
 	f.viewer = v
-	return []domain.ContentBlock{{ID: uuid.New(), BlockType: domain.BlockTip, Position: 1, Payload: json.RawMessage(`{"html":"x"}`)}}, f.err
+	blocks := []domain.ContentBlock{{ID: uuid.New(), BlockType: domain.BlockTip, Position: 1, Payload: json.RawMessage(`{"html":"x"}`)}}
+	return service.ModuleContent{Blocks: blocks, Setup: f.setup, BankSetup: f.bankSetup}, f.err
+}
+
+func (f *fakeReader) Draft(_ context.Context, _ uuid.UUID, v service.Viewer) (service.ModuleContent, error) {
+	f.viewer, f.draft = v, true
+	return service.ModuleContent{Blocks: []domain.ContentBlock{{ID: uuid.New(), BlockType: domain.BlockTip, Position: 1, Payload: json.RawMessage(`{"html":"rascunho"}`)}}}, f.err
 }
 
 func (f *fakeReader) Questions(_ context.Context, _ uuid.UUID, usage string, v service.Viewer) ([]service.PublicQuestion, error) {
@@ -43,6 +53,14 @@ func (f *fakeReader) TeacherQuestions(_ context.Context, _ uuid.UUID, v service.
 
 func (f *fakeReader) Templates(context.Context) ([]service.TemplateSummary, error) {
 	return []service.TemplateSummary{{Title: "Quiz"}}, f.err
+}
+
+func (f *fakeReader) ToggleBlockProgress(_ context.Context, blockID uuid.UUID, completed bool, _ service.Viewer) (service.BlockProgressResult, error) {
+	return service.BlockProgressResult{BlockID: blockID, Completed: completed}, f.err
+}
+
+func (f *fakeReader) ModuleBlockProgress(_ context.Context, moduleID uuid.UUID, _ service.Viewer) (service.ModuleBlockProgressResult, error) {
+	return service.ModuleBlockProgressResult{ModuleID: moduleID, CompletedBlockIDs: []uuid.UUID{}}, f.err
 }
 
 type validator struct {
@@ -138,4 +156,25 @@ func TestTeacherQuestionsAndTemplates(t *testing.T) {
 	assert.Len(t, body["items"], 1)
 	code, _ = call(t, &fakeReader{err: errors.New("x")}, anonymous, "/assessment-templates", false)
 	assert.Equal(t, http.StatusInternalServerError, code)
+}
+
+// Covers SPEC-021 5: the blocks of a module come with its snapshot, or null.
+func TestBlocksCarryTheModuleSetup(t *testing.T) {
+	_, body := call(t, &fakeReader{}, anonymous, "/modules/"+uuid.NewString()+"/blocks", false)
+	assert.Contains(t, body, "setup")
+	assert.Nil(t, body["setup"])
+
+	_, body = call(t, &fakeReader{setup: json.RawMessage(`{"steps":[{"command":"mkdir /x"}]}`)}, anonymous, "/modules/"+uuid.NewString()+"/blocks", false)
+	setup := body["setup"].(map[string]any)
+	assert.Len(t, setup["steps"], 1)
+}
+
+// Covers SPEC-023 CA-06: the content brings the snapshot of the available exercises, null when there is none.
+func TestBlocksCarryTheSnapshotOfTheBank(t *testing.T) {
+	_, body := call(t, &fakeReader{}, anonymous, "/modules/"+uuid.NewString()+"/blocks", false)
+	assert.Contains(t, body, "bankSetup")
+	assert.Nil(t, body["bankSetup"])
+
+	_, body = call(t, &fakeReader{bankSetup: json.RawMessage(`{"steps":[{"command":"mkdir /treino"}]}`)}, anonymous, "/modules/"+uuid.NewString()+"/blocks", false)
+	assert.Len(t, body["bankSetup"].(map[string]any)["steps"], 1)
 }

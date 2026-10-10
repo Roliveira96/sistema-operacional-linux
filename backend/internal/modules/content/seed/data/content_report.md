@@ -1,13 +1,13 @@
 # Relatório de conversão do conteúdo legado
 
-Gerado pelo extrator da SPEC-005. Formato do manifesto: versão 1. Hash do conteúdo: `11d4ba7f770ac902d26d4551a48b41ef490eca902edc5994657b6aa7b92e71e9`.
+Gerado pelo extrator da SPEC-005. Formato do manifesto: versão 1. Hash do conteúdo: `0bd8374513cd4c580505cdf32d55bb8b27b2a3e7432b69fac50f00d074f007ec`.
 
 ## Contagens
 
 | Item | Quantidade |
 | :--- | ---: |
 | Módulos de ensino | 9 |
-| Blocos | 394 |
+| Blocos | 447 |
 | Cenários (base e derivados) | 236 |
 | Questões práticas | 222 |
 | Questões teóricas (quiz) | 30 |

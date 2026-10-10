@@ -1,0 +1,958 @@
+@use "@/styles/mixins" as mixins;
+
+.builder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.columns {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+
+  @include mixins.from("lg") {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sectionFoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-base, 1rem);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.insert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+
+  .hint {
+    margin: 0;
+  }
+}
+
+.insertLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+}
+
+.groupHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+// A block of the form (an element, a command, a tip): a card with its own header, which lights up when it is being edited.
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-normal) ease;
+
+  &:hover {
+    border-color: var(--color-border-strong);
+    border-left-color: var(--color-accent-subtle);
+  }
+
+  &:focus-within {
+    border-color: var(--color-border-strong);
+    border-left-color: var(--color-accent);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.itemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.itemTitle {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.exerciseRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+
+.exerciseNumber {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-accent-subtle);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+}
+
+.exerciseBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.exerciseTitle {
+  overflow-wrap: anywhere;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.exerciseMeta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.exerciseDescription {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.exerciseActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.tools {
+  display: flex;
+  gap: var(--space-1);
+
+  .small {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+    transition:
+      background var(--duration-fast) ease,
+      color var(--duration-fast) ease;
+  }
+
+  .small:last-child:hover:not(:disabled) {
+    border-color: var(--color-danger);
+    background: var(--color-danger-subtle);
+    color: var(--color-danger);
+  }
+}
+
+.pair {
+  display: grid;
+  gap: var(--space-3);
+
+  @include mixins.from("md") {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+// A step of the environment: the terminal is a narrow column, the command takes the rest.
+.stepPair {
+  @include mixins.from("md") {
+    grid-template-columns: 7rem minmax(0, 1fr);
+  }
+}
+
+// The actions of the environment: add and record on the left, remove on the right, apart from the fields.
+.actionBar {
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+
+  // Remove goes to the far right, apart from the buttons that add.
+  .danger {
+    margin-left: auto;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.labelRow,
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+
+  &:hover {
+    border-color: var(--color-border-strong);
+  }
+
+  &:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-glow);
+  }
+
+  &[aria-invalid="true"] {
+    border-color: var(--color-danger);
+  }
+
+  @include mixins.focusable;
+}
+
+textarea.input {
+  resize: vertical;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.advanced {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+
+  summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    transition: color var(--duration-fast) ease;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::before {
+      content: "▸";
+      display: inline-block;
+      margin-right: var(--space-2);
+      transition: transform var(--duration-normal) var(--easing-standard);
+    }
+
+    &:hover {
+      color: var(--color-text-primary);
+    }
+  }
+
+  &[open] {
+    border-color: var(--color-border-strong);
+
+    > summary::before {
+      transform: rotate(90deg);
+    }
+  }
+
+  > :not(summary) {
+    margin-top: var(--space-3);
+  }
+}
+
+// The explanation at the top of the environment, and the tips that open on demand.
+.callout {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-info-line);
+  border-left: 4px solid var(--color-info);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+}
+
+.callout > span:first-child {
+  flex: none;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.tipsBox {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+
+  summary {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    cursor: pointer;
+  }
+
+  p {
+    margin: 0;
+    padding: 0 var(--space-4) var(--space-3);
+  }
+}
+
+// The bar with Save, at the bottom of a form, apart from the fields.
+.footBar {
+  justify-content: flex-end;
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.small,
+.add,
+.secondary,
+.primary,
+.danger {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-body);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  @include mixins.focusable;
+}
+
+// The buttons that do something look like buttons: raised, with a border and a shadow, and they lift when the pointer is over them.
+.add,
+.secondary,
+.primary,
+.danger {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) ease,
+    background var(--duration-fast) ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+.add,
+.secondary {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-raised);
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-accent);
+  }
+}
+
+.primary {
+  padding: var(--space-2) var(--space-5);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+
+  // Nothing to save: it reads as off, not as a muddy orange.
+  &:disabled {
+    border-color: var(--color-border);
+    background: var(--color-surface-raised);
+    color: var(--color-text-secondary);
+    opacity: 1;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--color-accent-hover);
+    color: var(--color-accent-contrast);
+  }
+}
+
+.secondary {
+  padding: var(--space-2) var(--space-4);
+}
+
+// Remove buttons: solid red with a trash can, so they stand out from any background.
+.danger {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-danger);
+    background: var(--color-danger);
+    color: var(--color-text-inverse);
+    filter: brightness(1.12);
+  }
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+
+  p {
+    margin: 0;
+  }
+}
+
+.preview {
+  min-width: 0;
+
+  @include mixins.from("lg") {
+    position: sticky;
+    top: var(--space-4);
+    max-height: calc(100vh - var(--space-8));
+    overflow-y: auto;
+  }
+}
+
+// A pulsing dot tells the preview follows what is typed.
+.previewTitle {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.previewTitle::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-success);
+  animation: pulse 1.8s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.previewCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, var(--color-surface-raised), var(--color-surface));
+  box-shadow: var(--shadow-md);
+}
+
+.previewHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pill {
+  display: grid;
+  place-items: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-accent-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.previewHeading {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.actions {
+  position: sticky;
+  bottom: var(--space-3);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-glass);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+}
+
+.conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-subtle);
+  color: var(--color-text-primary);
+
+  p {
+    margin: 0;
+  }
+}
+
+.unsaved {
+  margin-right: auto;
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+}
+
+.saved {
+  margin-right: auto;
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  cursor: pointer;
+
+  input {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--color-accent);
+  }
+}
+
+.environment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.recorder {
+  display: grid;
+  gap: var(--space-4);
+
+  @include mixins.from("lg") {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+.terminalBox {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: clamp(32rem, 75vh, 52rem);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.terminalBox > * {
+  flex: 1;
+  min-height: 0;
+}
+
+.recorderSide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.commandList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  max-height: 14rem;
+  overflow-y: auto;
+  font-size: var(--font-size-sm);
+}
+
+.recorded {
+  margin: 0;
+  color: var(--color-success);
+}
+
+.rowButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tester {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+// Inside the panel of the test of the module the frame, the title and the buttons are the panel's.
+.compactTester {
+  padding: 0;
+  border: 0;
+
+  .terminalBox {
+    height: clamp(18rem, 50vh, 30rem);
+  }
+
+  .results {
+    max-height: clamp(18rem, 50vh, 30rem);
+  }
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  // As tall as the terminal beside it: a long list scrolls inside, following the command that runs.
+  max-height: clamp(24rem, 60vh, 44rem);
+  overflow-y: auto;
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.resultGood {
+  border-color: var(--color-success-line);
+
+  .resultText {
+    color: var(--color-success);
+  }
+}
+
+.resultBad {
+  border-color: var(--color-danger);
+  background: var(--color-danger-subtle);
+
+  .resultText {
+    color: var(--color-danger);
+  }
+}
+
+.resultText {
+  color: var(--color-text-secondary);
+}
+
+.outputLabel {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.output {
+  margin: 0;
+  padding: var(--space-2);
+  max-height: 10rem;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+// The files of a snapshot, each one a collapsible box to edit it.
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// The sections of the card in tabs: description, commands (the environment and the commands), tips and exercises.
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Segmented tabs: equal columns and a highlight that slides under the chosen one (transform only).
+.tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--tab-count, 4), 1fr);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: var(--space-1) auto var(--space-1) var(--space-1);
+    width: calc((100% - 2 * var(--space-1)) / var(--tab-count, 4));
+    border-radius: var(--radius-md);
+    background: var(--color-accent-subtle);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
+    transform: translateX(calc(var(--tab-index, 0) * 100%));
+    transition: transform 0.3s var(--easing-standard);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      transition: none;
+    }
+  }
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: color var(--duration-fast) ease;
+
+  &:hover,
+  &[aria-selected="true"] {
+    color: var(--color-text-primary);
+  }
+
+  @include mixins.focusable;
+}
+
+.tabMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-danger);
+  color: var(--color-surface);
+  font-size: var(--font-size-xs);
+}
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+
+  &:not([hidden]) {
+    animation: rise 0.35s var(--easing-standard) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:not([hidden]) {
+      animation: none;
+    }
+  }
+}
+
+.soon {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+}
+
+// What a command printed when it passed, folded away until the author wants to read it.
+.passedOutput {
+  summary {
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+  }
+}

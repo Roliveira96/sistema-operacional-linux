@@ -11,6 +11,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    setupFiles: ["src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     css: { modules: { classNameStrategy: "non-scoped" } },
     // SPEC-006: services, hooks and components must stay above 80% coverage.

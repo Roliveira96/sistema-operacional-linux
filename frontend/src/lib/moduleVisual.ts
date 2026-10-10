@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { descriptionText } from "@/lib/description";
 
 // Visual metadata of modules loaded from the legacy content (SPEC-012, SPEC-015).
 
@@ -18,7 +19,9 @@ export interface ModuleDescription {
  * Splits a legacy description ("ls · cd · mkdir — Summary text") into tags and
  * summary. Descriptions without that shape are returned whole as the summary.
  */
-export function splitDescription(description: string): ModuleDescription {
+export function splitDescription(raw: string): ModuleDescription {
+  // The description is formatted text (SPEC-010 RN-12); only its visible text is split.
+  const description = descriptionText(raw);
   const separator = description.indexOf(" — ");
   if (separator < 0) return { tags: [], summary: description };
   const head = description.slice(0, separator);
@@ -33,4 +36,19 @@ export function splitDescription(description: string): ModuleDescription {
 /** Two-digit position label of the prototype cards ("01", "02"). */
 export function orderLabel(displayOrder?: number): string | null {
   return displayOrder && displayOrder > 0 ? String(displayOrder).padStart(2, "0") : null;
+}
+
+/**
+ * Accent variables of a topic screen (SPEC-016): the module color and its tints.
+ * Tints are mixed here, on the element, because the accent changes per module.
+ */
+export function topicAccentVars(color?: string): CSSProperties {
+  const key = color?.match(/^--cor-([a-z]+)$/)?.[1];
+  return {
+    "--accent": key ? `var(--color-module-${key})` : "var(--color-accent)",
+    "--accent-soft": "color-mix(in srgb, var(--accent) 18%, transparent)",
+    "--accent-faint": "color-mix(in srgb, var(--accent) 8%, transparent)",
+    "--accent-line": "color-mix(in srgb, var(--accent) 55%, transparent)",
+    "--accent-glow": "color-mix(in srgb, var(--accent) 35%, transparent)",
+  } as CSSProperties;
 }

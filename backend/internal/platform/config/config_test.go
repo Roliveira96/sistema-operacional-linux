@@ -119,3 +119,31 @@ func TestLoadRejectsInvalidAuthSettings(t *testing.T) {
 		}
 	}
 }
+
+// Covers SPEC-017 RN-05 and RN-08 defaults and validation.
+func TestLoadTTS(t *testing.T) {
+	cfg, err := LoadFrom(lookupFrom(validEnv()))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.TTS.Timeout != 15*time.Second || cfg.TTS.MaxConcurrent != 4 || cfg.TTS.RatePerMinute != 60 {
+		t.Errorf("unexpected TTS defaults: %+v", cfg.TTS)
+	}
+
+	env := validEnv()
+	env["TTS_TIMEOUT"] = "30s"
+	env["TTS_MAX_CONCURRENT"] = "2"
+	env["TTS_RATE_PER_MINUTE"] = "120"
+	cfg, err = LoadFrom(lookupFrom(env))
+	if err != nil || cfg.TTS.Timeout != 30*time.Second || cfg.TTS.MaxConcurrent != 2 || cfg.TTS.RatePerMinute != 120 {
+		t.Errorf("unexpected TTS config: %+v (%v)", cfg.TTS, err)
+	}
+
+	env["TTS_TIMEOUT"] = "soon"
+	env["TTS_MAX_CONCURRENT"] = "0"
+	env["TTS_RATE_PER_MINUTE"] = "-1"
+	_, err = LoadFrom(lookupFrom(env))
+	if err == nil || !strings.Contains(err.Error(), "TTS_TIMEOUT") || !strings.Contains(err.Error(), "TTS_MAX_CONCURRENT") || !strings.Contains(err.Error(), "TTS_RATE_PER_MINUTE") {
+		t.Errorf("expected both TTS variables reported, got %v", err)
+	}
+}

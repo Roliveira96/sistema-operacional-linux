@@ -6,6 +6,12 @@
   box-sizing: border-box;
 }
 
+// The hidden attribute must win over any display set by a component stylesheet. Without
+// it the terminal's closed editor (display: flex) kept half of the window (SPEC-016).
+[hidden] {
+  display: none !important;
+}
+
 html {
   font-family: var(--font-sans);
   line-height: var(--line-height-body);
@@ -59,4 +65,17 @@ a {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
   }
+}
+
+// Karaoke reader (SPEC-018): the word being said and the text already said. The
+// browser highlight API only accepts a few properties, and the underline keeps
+// the current word visible without relying on color alone.
+::highlight(narration-current) {
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  text-decoration: underline;
+}
+
+::highlight(narration-spoken) {
+  color: var(--color-text-secondary);
 }

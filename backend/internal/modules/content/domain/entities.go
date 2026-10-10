@@ -21,12 +21,14 @@ const (
 	BlockCards      BlockType = "CARDS"
 	BlockWidget     BlockType = "WIDGET"
 	BlockLegacyHTML BlockType = "LEGACY_HTML"
+	// BlockExercises is the group of exercises of a card (SPEC-022).
+	BlockExercises BlockType = "EXERCISES"
 )
 
 // ValidBlockType reports whether t belongs to the catalog.
 func ValidBlockType(t BlockType) bool {
 	switch t {
-	case BlockText, BlockCommand, BlockTip, BlockCuriosity, BlockStepByStep, BlockCards, BlockWidget, BlockLegacyHTML:
+	case BlockText, BlockCommand, BlockTip, BlockCuriosity, BlockStepByStep, BlockCards, BlockWidget, BlockLegacyHTML, BlockExercises:
 		return true
 	}
 	return false
@@ -58,10 +60,21 @@ type ContentBlock struct {
 	BlockType         BlockType
 	Position          int
 	Payload           json.RawMessage `gorm:"type:jsonb"`
+	// InactiveAt is when the block was inactivated; nil means it is active (SPEC-019 RN-12).
+	InactiveAt        *time.Time
 	EditedByTeacherAt *time.Time
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+	// CreatedBy and UpdatedBy are the teachers who created and last changed the content (nil for what came from the seed).
+	CreatedBy *uuid.UUID `gorm:"type:uuid"`
+	UpdatedBy *uuid.UUID `gorm:"type:uuid"`
+	// The names behind them, read with the block and never written.
+	CreatedByName string `gorm:"->"`
+	UpdatedByName string `gorm:"->"`
 }
+
+// Active reports whether students can see the block.
+func (b ContentBlock) Active() bool { return b.InactiveAt == nil }
 
 // TableName pins the table name.
 func (ContentBlock) TableName() string { return "content_blocks" }
@@ -99,10 +112,25 @@ type Question struct {
 	Choices              json.RawMessage `gorm:"type:jsonb"`
 	AnswerKey            json.RawMessage `gorm:"type:jsonb"`
 	Tags                 json.RawMessage `gorm:"type:jsonb"`
-	EditedByTeacherAt    *time.Time
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	DeletedAt            gorm.DeletedAt
+	// Hints and EndConditions belong to the exercises of the module (SPEC-023): the tips the student asks for, and how
+	// the exercise ends in the form the teacher edits. EndConditions is nil for what came from the initial load.
+	Hints         json.RawMessage `gorm:"type:jsonb"`
+	EndConditions json.RawMessage `gorm:"type:jsonb"`
+	// InAssessment links the exercise to the assessment, and ExclusiveAssessment keeps it out of the practice; being in the
+	// practice is having the usage EXERCISE (SPEC-023 11.1). DependsOn is the exercise whose recipe is built before this one (D-16).
+	InAssessment        bool
+	ExclusiveAssessment bool
+	DependsOn           *uuid.UUID `gorm:"type:uuid"`
+	// CreatedBy and UpdatedBy are the teachers who created and last changed it (nil for the initial load).
+	CreatedBy *uuid.UUID `gorm:"type:uuid"`
+	UpdatedBy *uuid.UUID `gorm:"type:uuid"`
+	// The names behind them, read with the question and never written.
+	CreatedByName     string `gorm:"->"`
+	UpdatedByName     string `gorm:"->"`
+	EditedByTeacherAt *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         gorm.DeletedAt
 }
 
 // TableName pins the table name.
@@ -137,3 +165,17 @@ type TemplateQuestion struct {
 
 // TableName pins the table name.
 func (TemplateQuestion) TableName() string { return "assessment_template_questions" }
+
+// BlockProgress tracks when a student completes reading a content block.
+type BlockProgress struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserID      uuid.UUID `gorm:"type:uuid;not null;index"`
+	BlockID     uuid.UUID `gorm:"type:uuid;not null;index"`
+	CompletedAt time.Time `gorm:"not null"`
+	CreatedAt   time.Time `gorm:"not null"`
+	UpdatedAt   time.Time `gorm:"not null"`
+}
+
+// TableName pins the table name.
+func (BlockProgress) TableName() string { return "block_progress" }
+

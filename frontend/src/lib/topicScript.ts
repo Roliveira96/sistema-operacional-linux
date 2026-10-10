@@ -1,0 +1,125 @@
+// Groups the content blocks of a module into the lesson cards of the prototype
+// and flattens their commands into the script the player runs (SPEC-016).
+import type { ContentBlock } from "@/services/contentService";
+import type { TerminalStep } from "@/engine/terminalWindow";
+
+/** A command of the script with its explanation, ready for the screen. */
+export interface ScriptStep extends TerminalStep {
+  /** Position in the whole script, across cards. */
+  index: number;
+  explanation?: string;
+  outputExplanation?: string;
+  /** The command fails on purpose, and the student is told so (SPEC-020). */
+  expectError?: boolean;
+}
+
+/**
+ * One thing the player does, in page order (SPEC-018): read the title of a card,
+ * read a text block, or run a command (which is also spoken).
+ */
+export type TimelineItem =
+  | { kind: "title"; card: number }
+  | { kind: "block"; card: number; blockId: string }
+  | { kind: "step"; card: number; step: number };
+
+export interface LessonCard {
+  index: number;
+  /** Short label shown in the player and on the card (the command or concept). */
+  label: string;
+  title: string;
+  blocks: ContentBlock[];
+  /** Range of the script steps of this card: [start, end). */
+  start: number;
+  end: number;
+  /** What the player does in this card, in order. */
+  items: TimelineItem[];
+}
+
+export interface TopicScript {
+  cards: LessonCard[];
+  steps: ScriptStep[];
+  /** The items of every card, in order. */
+  timeline: TimelineItem[];
+}
+
+/** Block types the voice reads; COMMAND is handled step by step and WIDGET is never read. */
+const NARRATED_BLOCKS = new Set(["TEXT", "LEGACY_HTML", "TIP", "CURIOSITY", "STEP_BY_STEP", "CARDS"]);
+
+/** Label of the introductory card (blocks before the first titled TEXT block). */
+export const INTRO_LABEL = "conceitos";
+const INTRO_TITLE = "Antes dos comandos";
+
+const text = (value: unknown): string => (typeof value === "string" ? value : "");
+
+interface RawStep {
+  command?: unknown;
+  explanation?: unknown;
+  outputExplanation?: unknown;
+  expectError?: unknown;
+  terminal?: unknown;
+  login?: { user?: unknown; password?: unknown };
+  answers?: unknown;
+}
+
+function toStep(raw: RawStep, index: number): ScriptStep {
+  const step: ScriptStep = { index, command: text(raw.command) };
+  if (typeof raw.explanation === "string" && raw.explanation) step.explanation = raw.explanation;
+  if (typeof raw.outputExplanation === "string" && raw.outputExplanation) step.outputExplanation = raw.outputExplanation;
+  if (raw.expectError === true) step.expectError = true;
+  if (typeof raw.terminal === "number") step.terminal = raw.terminal;
+  if (raw.login && typeof raw.login.user === "string") {
+    step.login = { user: raw.login.user, password: text(raw.login.password) };
+  }
+  if (Array.isArray(raw.answers)) step.answers = raw.answers.filter((a): a is string => typeof a === "string");
+  return step;
+}
+
+/**
+ * A TEXT block with a title opens a new card; the blocks after it, until the
+ * next titled TEXT block, belong to it. The blocks before the first card form
+ * the introductory "concepts" card.
+ */
+export function buildTopicScript(blocks: ContentBlock[]): TopicScript {
+  const cards: LessonCard[] = [];
+  const steps: ScriptStep[] = [];
+
+  const open = (label: string, title: string): LessonCard => {
+    const card: LessonCard = {
+      index: cards.length,
+      label,
+      title,
+      blocks: [],
+      start: steps.length,
+      end: steps.length,
+      items: [{ kind: "title", card: cards.length }],
+    };
+    cards.push(card);
+    return card;
+  };
+
+  let current: LessonCard | null = null;
+  for (const block of [...blocks].sort((a, b) => a.position - b.position)) {
+    const title = text(block.payload.title);
+    if (block.type === "TEXT" && title) {
+      current = open(text(block.payload.command) || title, title);
+    } else {
+      current ??= open(INTRO_LABEL, INTRO_TITLE);
+    }
+    current.blocks.push(block);
+    if (block.type === "COMMAND" && Array.isArray(block.payload.steps)) {
+      for (const raw of block.payload.steps as RawStep[]) {
+        current.items.push({ kind: "step", card: current.index, step: steps.length });
+        steps.push(toStep(raw, steps.length));
+      }
+      current.end = steps.length;
+    } else if (NARRATED_BLOCKS.has(block.type)) {
+      current.items.push({ kind: "block", card: current.index, blockId: block.id });
+    }
+  }
+  return { cards, steps, timeline: cards.flatMap((card) => card.items) };
+}
+
+/** Index of the card that owns a script step, or -1. */
+export function cardOfStep(cards: LessonCard[], step: number): number {
+  return cards.findIndex((card) => step >= card.start && step < card.end);
+}

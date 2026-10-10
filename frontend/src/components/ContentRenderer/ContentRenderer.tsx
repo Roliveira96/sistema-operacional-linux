@@ -11,6 +11,7 @@ import {
   UnknownBlock,
   WidgetBlock,
 } from "./blocks";
+import { ExercisesBlock } from "./ExercisesBlock";
 import styles from "./ContentRenderer.module.scss";
 
 const COMPONENTS: Record<string, ComponentType<{ payload: Record<string, unknown> }>> = {
@@ -22,6 +23,7 @@ const COMPONENTS: Record<string, ComponentType<{ payload: Record<string, unknown
   CARDS: CardsBlock,
   WIDGET: WidgetBlock,
   LEGACY_HTML: LegacyHtmlBlock,
+  EXERCISES: ExercisesBlock,
 };
 
 /** Renders a module's blocks in order; unknown types do not break the page (SPEC-012 CA-09). */
