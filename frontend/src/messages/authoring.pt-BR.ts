@@ -157,6 +157,19 @@ export const authoringMessages = {
     failed: "Não foi possível salvar o ambiente do módulo.",
   },
   builder: {
+    tabs: {
+      label: "Seções do card",
+      description: "Descrição",
+      commands: "Comandos",
+      tips: "Dicas",
+      exercises: "Exercícios",
+      withError: "tem erro nesta aba",
+    },
+    exercises: {
+      title: "Exercícios do card",
+      hint: "Atividades para o aluno praticar o que aprendeu neste card.",
+      soon: "Em breve: aqui o professor vai criar os exercícios deste card. Por enquanto, os exercícios do módulo ficam na aba Exercícios da edição do módulo.",
+    },
     back: "← Conteúdo do módulo",
     newTitle: "Novo card",
     editTitle: "Editar card",
@@ -182,7 +195,7 @@ export const authoringMessages = {
     previewTitle: "Preview ao vivo do card",
     previewEmpty: "Preencha o card para ver como o aluno o verá.",
     header: {
-      title: "1. Cabeçalho do card",
+      title: "Cabeçalho do card",
       hint: "Identificação básica",
       pill: "Tag / Pill (badge)",
       pillPlaceholder: "ex.: apt update, systemctl",
@@ -190,7 +203,7 @@ export const authoringMessages = {
       cardTitlePlaceholder: "ex.: Atualizar a lista de pacotes",
     },
     description: {
-      title: "2. Descrição modular do card",
+      title: "Descrição do card",
       hint: "Adicione texto, código, tabela, imagem, vídeo ou link, na ordem desejada.",
       insert: "Inserir:",
       empty: "Nenhum elemento ainda. Use os botões acima para adicionar.",
@@ -223,7 +236,7 @@ export const authoringMessages = {
       text: "Texto",
     },
     commands: {
-      title: "4. Comandos práticos",
+      title: "Comandos práticos",
       hint: "Comandos que o aluno roda no terminal, com a explicação antes e a descrição oculta depois de rodar.",
       add: "+ Novo comando",
       empty: "Nenhum comando ainda.",
@@ -276,7 +289,7 @@ export const authoringMessages = {
       section: (title: string) => `Card: ${title}`,
     },
     setup: {
-      title: "3. Ambiente do card (snapshot)",
+      title: "Ambiente do card (snapshot)",
       hint: "Comandos que preparam a máquina do aluno: pastas, arquivos, usuários, grupos e configurações.",
       help: "O aluno recebe a máquina preparada pelos comandos do módulo, depois pelos dos cards anteriores e, por fim, por estes. Digite os comandos na lista ou grave-os no terminal, que já parte da máquina preparada pelo que vem antes.",
       fileTips: "Para criar um arquivo com texto: echo \"texto\" > /caminho/arquivo. Pastas com itens dentro: mkdir -p /pasta/{a,b} e touch /pasta/a/{1,2}.txt. O que você escrever no nano, no vim ou no tee entra como arquivo, com o texto exatamente como está (inclusive arquivos grandes, como logs e páginas HTML). Heredoc (<<EOF) não existe neste terminal.",
@@ -335,7 +348,7 @@ export const authoringMessages = {
       needsTitleError: "Dê um título ao card para guardar o ambiente.",
     },
     boxes: {
-      title: "5. Blocos especiais e certificações",
+      title: "Dicas, casos reais e certificações",
       hint: "Dicas de certificação, casos da vida real e avisos de prova.",
       tips: { title: "Dicas de certificação (LPIC / CompTIA)", add: "+ Adicionar dica", empty: "Nenhuma dica adicionada.", name: "Certificação", placeholder: "ex.: LPIC-1 102.4", item: (n: number) => `Dica ${n}` },
       real: { title: "Na vida real (casos de produção)", add: "+ Adicionar caso real", empty: "Nenhum caso adicionado.", name: "Título", placeholder: "Na vida real", item: (n: number) => `Caso ${n}` },

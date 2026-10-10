@@ -53,6 +53,7 @@ async function typeInto(name: string, html: string) {
   });
 }
 
+const openTab = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
 const input = (name: string) => screen.getByLabelText(name) as HTMLInputElement;
 
 describe("CardBuilder, a new card", () => {
@@ -66,12 +67,14 @@ describe("CardBuilder, a new card", () => {
     fireEvent.click(screen.getByRole("button", { name: "Texto / HTML" }));
     await typeInto("Texto 1", "<p>Oi <code>ls</code></p>");
 
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
     fireEvent.change(input("Linha de comando (1)"), { target: { value: "ls -la" } });
     fireEvent.change(input("Terminal (1)"), { target: { value: "2" } });
     fireEvent.change(input("Descrição explicativa (antes de rodar) (1)"), { target: { value: "lista" } });
     fireEvent.change(input("Descrição oculta pós-execução (mostrada depois que o aluno roda) (1)"), { target: { value: "viu os arquivos" } });
 
+    openTab("Dicas");
     fireEvent.click(screen.getByRole("button", { name: "+ Adicionar dica" }));
     fireEvent.change(input("Certificação (Dica 1)"), { target: { value: "LPIC-1" } });
     await typeInto("Texto (Dica 1)", "<p>dica</p>");
@@ -94,6 +97,7 @@ describe("CardBuilder, a new card", () => {
   it("asks for the title and for the text before saving, without calling the server", async () => {
     renderBuilder();
     fireEvent.click(screen.getByRole("button", { name: "Texto / HTML" }));
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
 
@@ -124,6 +128,7 @@ describe("CardBuilder, a new card", () => {
 
     fireEvent.change(input("Tag / Pill (badge)"), { target: { value: "apt update" } });
     fireEvent.change(input("Título principal do card"), { target: { value: "Atualizar a lista" } });
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
     fireEvent.change(input("Linha de comando (1)"), { target: { value: "sudo apt update" } });
 
@@ -152,6 +157,7 @@ describe("CardBuilder, a new card", () => {
 
   it("writes a real-world note and an exam alert (CA-26)", async () => {
     renderBuilder();
+    openTab("Dicas");
     fireEvent.click(screen.getByRole("button", { name: "+ Adicionar caso real" }));
     fireEvent.click(screen.getByRole("button", { name: "+ Adicionar alerta" }));
     fireEvent.change(input("Título (Caso 1)"), { target: { value: "Na vida real" } });
@@ -187,8 +193,11 @@ describe("CardBuilder, an existing card", () => {
     renderBuilder({ group: group() });
     expect(input("Tag / Pill (badge)").value).toBe("apt update");
     expect(input("Título principal do card").value).toBe("Atualizar");
+    openTab("Comandos");
     expect(input("Linha de comando (1)").value).toBe("apt update");
+    openTab("Dicas");
     expect(input("Certificação (Dica 1)").value).toBe("LPIC-1 102.4");
+    openTab("Descrição");
     expect(within(await screen.findByRole("textbox", { name: "Texto 1" })).getByText("Texto inicial")).toBeDefined();
     expect((screen.getByRole("button", { name: "Salvar card" }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -223,6 +232,7 @@ describe("CardBuilder, an existing card", () => {
       new ApiProblemError({ type: "validation-error", title: "Invalid", invalidParams: [{ name: "blocks[1].steps[0].command", reason: "too long" }, { name: "replaceIds", reason: "bad" }] }, 400),
     );
     renderBuilder({ group: group() });
+    openTab("Comandos");
     fireEvent.change(input("Linha de comando (1)"), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
     expect(await screen.findByText("command: too long")).toBeDefined();
@@ -269,6 +279,7 @@ describe("CardBuilder, the introduction", () => {
     const intro = [block("i1", "LEGACY_HTML", 1, { html: "<p>Boas-vindas</p>" })];
     service.saveCard.mockResolvedValue(intro);
     renderBuilder({ group: groupCards(intro)[0]! });
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
     fireEvent.change(input("Linha de comando (1)"), { target: { value: "ls" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
@@ -305,6 +316,7 @@ describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => 
     service.saveCard.mockResolvedValue([]);
     renderBuilder();
     fireEvent.change(screen.getByLabelText("Título principal do card"), { target: { value: "T" } });
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
     fireEvent.change(input("Linha de comando (1)"), { target: { value: "curl http://localhost" } });
     const box = screen.getByLabelText("Erro esperado (este comando deve falhar de propósito)") as HTMLInputElement;
@@ -323,6 +335,7 @@ describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => 
   it("shows the snapshot kept in the card header, lets the author change it and saves it with the card (SPEC-021 CA-02)", async () => {
     service.saveCard.mockResolvedValue([]);
     renderBuilder({ group: withSetup() });
+    openTab("Comandos");
     expect(input("Comando (1)").value).toBe("mkdir /x");
     expect(input("Resumo do cenário preparado").value).toBe("pronto");
 
@@ -337,6 +350,7 @@ describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => 
   it("takes the snapshot away with the card, without keeping a trace", async () => {
     service.saveCard.mockResolvedValue([]);
     renderBuilder({ group: withSetup() });
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "Remover o ambiente" }));
     expect(screen.getByText("Há alterações não salvas.")).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
@@ -346,6 +360,7 @@ describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => 
 
   it("refuses an empty snapshot command before sending anything", async () => {
     renderBuilder({ group: withSetup() });
+    openTab("Comandos");
     fireEvent.change(input("Comando (1)"), { target: { value: " " } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
     expect(await screen.findByText("Informe o comando.")).toBeDefined();
@@ -366,6 +381,7 @@ describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => 
     renderBuilder({ practice: practice as never, before });
     fireEvent.change(screen.getByLabelText("Título principal do card"), { target: { value: "T" } });
 
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
     await waitFor(() => expect(win.execute).toHaveBeenCalledWith(expect.objectContaining({ command: "m1" })));
     expect(practice.topicScenario).toHaveBeenCalledWith("mod-1");
@@ -390,12 +406,14 @@ describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => 
     const before = [{ id: "module", kind: "module" as const, label: "Módulo", setup: { summary: "", steps: [{ command: "mkdir /a" }] } }];
     renderBuilder({ practice: { topicScenario: vi.fn().mockResolvedValue(null) } as never, before });
     fireEvent.change(screen.getByLabelText("Título principal do card"), { target: { value: "T" } });
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
     expect(await screen.findByText(/Conflito em "Módulo": o comando "mkdir \/a" deu erro/)).toBeDefined();
   });
 
   it("asks for a title to keep the snapshot, and puts a server error on the step", async () => {
     renderBuilder();
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "+ Adicionar comando de ambiente" }));
     fireEvent.change(input("Comando (1)"), { target: { value: "ls" } });
     expect(screen.getByText("Dê um título ao card para guardar o ambiente.")).toBeDefined();
@@ -428,6 +446,7 @@ describe("CardBuilder, testing the commands (SPEC-020 CA-10)", () => {
     const bar = screen.getByRole("button", { name: "Salvar card" }).parentElement as HTMLElement;
     const test = within(bar).getByRole("button", { name: "Testar comandos" }) as HTMLButtonElement;
     expect(test.disabled).toBe(true);
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
     fireEvent.change(input("Linha de comando (1)"), { target: { value: "mkdir /x" } });
     expect(test.disabled).toBe(false);
@@ -469,10 +488,73 @@ describe("CardBuilder, testing the commands (SPEC-020 CA-10)", () => {
     win.execute.mockResolvedValue({ status: 1, output: "cat: /nao-existe: No such file or directory" } as never);
     mount.mockResolvedValue(win);
     renderBuilder({ practice: { topicScenario: vi.fn().mockResolvedValue(null) } as never });
+    openTab("Comandos");
     fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
     fireEvent.change(input("Linha de comando (1)"), { target: { value: "cat /nao-existe" } });
     fireEvent.click(screen.getByRole("button", { name: "Testar comandos" }));
     expect(await screen.findByText("cat: /nao-existe: No such file or directory")).toBeDefined();
     expect(screen.getByText("Deu erro (código 1) e não era esperado")).toBeDefined();
+  });
+});
+
+describe("CardBuilder, the sections in tabs", () => {
+  const selected = () => screen.getAllByRole("tab").filter((t) => t.getAttribute("aria-selected") === "true").map((t) => t.textContent);
+
+  it("has the tabs Descrição, Comandos, Dicas and Exercícios, and starts on the description", () => {
+    renderBuilder();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Descrição", "Comandos", "Dicas", "Exercícios"]);
+    expect(selected()).toEqual(["Descrição"]);
+    expect(screen.getByRole("button", { name: "Texto / HTML" })).toBeDefined();
+    // The others are not on screen yet, but the title of the card is always there.
+    expect(screen.queryByRole("button", { name: "+ Novo comando" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "+ Adicionar dica" })).toBeNull();
+    expect(screen.getByLabelText("Título principal do card")).toBeDefined();
+  });
+
+  it("keeps the environment and the commands together in the Comandos tab", () => {
+    renderBuilder();
+    openTab("Comandos");
+    expect(selected()).toEqual(["Comandos"]);
+    expect(screen.getByRole("heading", { name: "Ambiente do card (snapshot)" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Comandos práticos" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "+ Adicionar comando de ambiente" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "+ Novo comando" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Texto / HTML" })).toBeNull();
+  });
+
+  it("keeps the tips, the real-world cases and the exam alerts in the Dicas tab", () => {
+    renderBuilder();
+    openTab("Dicas");
+    for (const name of ["+ Adicionar dica", "+ Adicionar caso real", "+ Adicionar alerta"]) expect(screen.getByRole("button", { name })).toBeDefined();
+  });
+
+  it("has an Exercícios tab that says it is coming", () => {
+    renderBuilder();
+    openTab("Exercícios");
+    expect(screen.getByRole("heading", { name: "Exercícios do card" })).toBeDefined();
+    expect(screen.getByRole("status")).toHaveTextContent("Em breve");
+  });
+
+  it("does not lose what was written when the author changes tab", () => {
+    renderBuilder();
+    openTab("Comandos");
+    fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
+    fireEvent.change(input("Linha de comando (1)"), { target: { value: "ls -la" } });
+    openTab("Dicas");
+    openTab("Comandos");
+    expect(input("Linha de comando (1)").value).toBe("ls -la");
+  });
+
+  it("marks the tab that has an error after trying to save", async () => {
+    renderBuilder();
+    fireEvent.change(screen.getByLabelText("Título principal do card"), { target: { value: "T" } });
+    openTab("Comandos");
+    fireEvent.click(screen.getByRole("button", { name: "+ Novo comando" }));
+    openTab("Descrição");
+    expect(screen.queryByRole("img", { name: "tem erro nesta aba" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
+    const mark = await screen.findByRole("img", { name: "tem erro nesta aba" });
+    expect(within(screen.getByRole("tab", { name: /Comandos/ })).getByRole("img", { name: "tem erro nesta aba" })).toBe(mark);
+    expect(service.saveCard).not.toHaveBeenCalled();
   });
 });

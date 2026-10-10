@@ -46,6 +46,9 @@ interface CardBuilderProps {
   onCancel: () => void;
 }
 
+type CardTab = "description" | "commands" | "tips" | "exercises";
+const TABS: CardTab[] = ["description", "commands", "tips", "exercises"];
+
 const INSERTABLE: Exclude<ElementKind, "block">[] = ["text", "html", "code", "table", "image", "video", "link"];
 const NEWLINE = String.fromCharCode(10);
 
@@ -312,6 +315,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
   // Each click on "Testar comandos" starts a new test (a new key), on a machine made from zero.
   const [testRun, setTestRun] = useState(0);
   const testPanel = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<CardTab>("description");
 
   const dirty = JSON.stringify(card, withoutIds) !== baseline;
 
@@ -398,6 +402,15 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
   const patchAt = <T,>(list: T[], i: number, change: Partial<T>) => list.map((item, j) => (j === i ? { ...item, ...change } : item));
   const d = m.description;
 
+  // A tab shows a mark when something in it has an error, so the author does not hunt for it.
+  const idsOf: Record<CardTab, string[]> = {
+    description: card.elements.map((e) => e.id),
+    commands: [...card.commands.map((c) => c.id), "setup", ...Object.keys(errors).filter((k) => k.startsWith("setup-"))],
+    tips: [...card.tips, ...card.realWorld, ...card.exams].map((b) => b.id),
+    exercises: [],
+  };
+  const tabHasError = (name: CardTab) => idsOf[name].some((id) => errors[id]);
+
   return (
     <div className={styles.builder}>
       <div className={styles.columns}>
@@ -414,6 +427,20 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             <Errors id="title" errors={errors} />
           </Section>
 
+          <div role="tablist" aria-label={m.tabs.label} className={styles.tabs}>
+            {TABS.map((name) => (
+              <button key={name} type="button" role="tab" id={`card-tab-${name}`} aria-selected={tab === name} aria-controls={`card-panel-${name}`} className={styles.tab} onClick={() => setTab(name)}>
+                {m.tabs[name]}
+                {tabHasError(name) && (
+                  <span className={styles.tabMark} role="img" aria-label={m.tabs.withError}>
+                    !
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div role="tabpanel" id="card-panel-description" aria-labelledby="card-tab-description" hidden={tab !== "description"} className={styles.tabPanel}>
           <Section title={d.title} hint={d.hint}>
             <div className={styles.insert}>
               <span className={styles.hint}>{d.insert}</span>
@@ -438,6 +465,9 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             ))}
           </Section>
 
+          </div>
+
+          <div role="tabpanel" id="card-panel-commands" aria-labelledby="card-tab-commands" hidden={tab !== "commands"} className={styles.tabPanel}>
           <Section title={m.setup.title} hint={m.setup.hint}>
             <SetupEditor setup={card.setup} before={before} loadBase={loadBase} errors={errors} onChange={(setup) => set({ setup })} />
             {hasSetup(card.setup) && card.title.trim() === "" && <p className={styles.hint}>{m.setup.needsTitleError}</p>}
@@ -470,11 +500,23 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
             ))}
           </Section>
 
+          </div>
+
+          <div role="tabpanel" id="card-panel-tips" aria-labelledby="card-tab-tips" hidden={tab !== "tips"} className={styles.tabPanel}>
           <Section title={m.boxes.title} hint={m.boxes.hint}>
             <BoxList boxes={card.tips} labels={m.boxes.tips} errors={errors} onChange={(tips) => set({ tips })} />
             <BoxList boxes={card.realWorld} labels={m.boxes.real} errors={errors} onChange={(realWorld) => set({ realWorld })} />
             <BoxList boxes={card.exams} labels={m.boxes.exams} errors={errors} onChange={(exams) => set({ exams })} />
           </Section>
+          </div>
+
+          <div role="tabpanel" id="card-panel-exercises" aria-labelledby="card-tab-exercises" hidden={tab !== "exercises"} className={styles.tabPanel}>
+            <Section title={m.exercises.title} hint={m.exercises.hint}>
+              <p className={styles.soon} role="status">
+                {m.exercises.soon}
+              </p>
+            </Section>
+          </div>
         </div>
 
         <aside className={styles.preview} aria-label={m.previewTitle}>
