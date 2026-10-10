@@ -6,12 +6,17 @@
   gap: var(--space-4);
 }
 
+// The header of the tab: what it is on the left, what can be done on the right.
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--color-surface-raised), var(--color-surface));
 }
 
 .titleRow {
@@ -49,13 +54,27 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+}
+
+// "Ver rascunho" and "Ver como o aluno" go together, as two halves of one control.
+.viewGroup {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+
+  .link + .link {
+    border-left: 1px solid var(--color-border);
+  }
 }
 
 .link {
-  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-surface);
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-body);
   text-decoration: none;
 
   &:hover {
@@ -227,6 +246,55 @@
   border-radius: var(--radius-pill);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+}
+
+.secondaryOn {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  color: var(--color-text-primary);
+}
+
+// The three dots that open the menu of a card.
+.dots {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.sortHint {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.sortable {
+  cursor: grab;
+}
+
+.dragging {
+  opacity: 0.45;
+}
+
+.dropTarget {
+  border-color: var(--color-accent);
+  box-shadow: 0 -3px 0 var(--color-accent);
+}
+
+.handle {
+  flex: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  cursor: grab;
 }
 
 .badge::before {

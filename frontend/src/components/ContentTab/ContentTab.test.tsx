@@ -205,11 +205,31 @@ describe("ContentTab", () => {
     service.reorder.mockResolvedValue([blocks[4], blocks[0], blocks[1], blocks[2], blocks[3]]);
     renderTab();
     await screen.findByText("Atualizar");
+    // The arrows only show in sort mode.
+    expect(screen.queryByRole("button", { name: "Subir 1" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Ordenar" }));
     expect((screen.getByRole("button", { name: "Subir 1" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Descer 3" }) as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Descer 2" }));
     await waitFor(() => expect(service.reorder).toHaveBeenCalledWith("mod-1", ["i1", "h2", "h1", "c1", "t1"]));
+  });
+
+  it("drags a card to a new place in sort mode, and leaves sort mode with Concluir ordem", async () => {
+    service.reorder.mockResolvedValue(blocks);
+    renderTab();
+    await screen.findByText("Atualizar");
+    expect(screen.queryByRole("img", { name: "Arrastar o card 1" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Ordenar" }));
+    expect(screen.getByRole("img", { name: "Arrastar o card 1" })).toBeDefined();
+    const items = screen.getAllByRole("listitem").filter((li) => li.getAttribute("draggable") === "true");
+    expect(items).toHaveLength(3);
+    fireEvent.dragStart(items[0]!);
+    fireEvent.dragOver(items[2]!);
+    fireEvent.drop(items[2]!);
+    await waitFor(() => expect(service.reorder).toHaveBeenCalledWith("mod-1", ["h1", "c1", "t1", "h2", "i1"]));
+    fireEvent.click(screen.getByRole("button", { name: "Concluir ordem" }));
+    expect(screen.queryByRole("img", { name: "Arrastar o card 1" })).toBeNull();
   });
 
   it("asks before removing a card and removes all its blocks after confirmation (CA-04)", async () => {

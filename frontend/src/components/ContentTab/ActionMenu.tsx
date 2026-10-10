@@ -65,7 +65,7 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
       <button
         ref={button}
         type="button"
-        className={styles.smallButton}
+        className={`${styles.smallButton} ${styles.dots}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -78,7 +78,7 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
           }
         }}
       >
-        {text} ▾
+        <span aria-hidden="true">{text}</span>
       </button>
       {open && (
         <div id={menuId} role="menu" aria-label={label} className={styles.menuList} onKeyDown={onMenuKey}>
