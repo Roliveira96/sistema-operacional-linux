@@ -108,6 +108,10 @@ export const authoringMessages = {
     position: (n: number, total: number) => `Card ${n} de ${total}`,
     edited: "editado",
     inactive: "inativo",
+    audit: {
+      created: (when: string, who: string) => `Criado em ${when}${who ? ` por ${who}` : ""}`,
+      updated: (when: string, who: string) => `Atualizado em ${when}${who ? ` por ${who}` : ""}`,
+    },
     test: {
       title: "Resultado do último teste dos comandos deste card, neste navegador",
       untested: "não testado",

@@ -101,8 +101,16 @@ func (r *Repository) ReplaceTemplateQuestions(ctx context.Context, templateID uu
 // ListBlocks returns the blocks of a module ordered by position.
 func (r *Repository) ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error) {
 	var blocks []domain.ContentBlock
-	err := r.db.Conn(ctx).Where("module_id = ?", moduleID).Order("position").Find(&blocks).Error
+	err := r.named(ctx).Where("content_blocks.module_id = ?", moduleID).Order("content_blocks.position").Find(&blocks).Error
 	return blocks, err
+}
+
+// named starts a query of blocks that also reads the names of who created and last changed each one.
+func (r *Repository) named(ctx context.Context) *gorm.DB {
+	return r.db.Conn(ctx).Model(&domain.ContentBlock{}).
+		Select(`content_blocks.*, COALESCE(NULLIF(cu.name, ''), cu.email, '') AS created_by_name, COALESCE(NULLIF(uu.name, ''), uu.email, '') AS updated_by_name`).
+		Joins("LEFT JOIN users cu ON cu.id = content_blocks.created_by").
+		Joins("LEFT JOIN users uu ON uu.id = content_blocks.updated_by")
 }
 
 // ListQuestions returns the questions of a module, optionally filtered by

@@ -301,10 +301,27 @@
   white-space: nowrap;
 }
 
+// The marks of a card: small pills. Neutral for "edited", solid green when the test passed, amber when it needs attention.
 .badge {
-  padding: 1px var(--space-2);
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: 2px var(--space-3);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  color: var(--color-text-body);
+}
+
+// When and by whom the card was created and last changed.
+.audit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+  margin-top: var(--space-1);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
@@ -363,26 +380,26 @@
 }
 
 .badge::before {
-  content: "✏️ ";
+  content: "✏️";
 }
 
 .badgeOk {
   border-color: var(--color-success);
-  background: var(--color-success-faint);
-  color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-text-inverse);
 
   &::before {
-    content: "✅ ";
+    content: "✔";
   }
 }
 
 .badgeOff {
-  border-color: var(--color-warning);
+  border-color: var(--color-warning-line);
   background: var(--color-warning-faint);
   color: var(--color-warning);
 
   &::before {
-    content: "⏳ ";
+    content: "⏳";
   }
 }
 

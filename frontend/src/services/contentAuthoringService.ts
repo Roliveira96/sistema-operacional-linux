@@ -14,6 +14,10 @@ export interface AuthoredBlock {
   active: boolean;
   /** The instant to send back when saving, to detect a change by someone else. */
   updatedAt: string;
+  /** When it was created, and the names of who created and last changed it (empty for what came from the initial load). */
+  createdAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 /** One block of a card, as saved (SPEC-019 5.7). A block with an id is updated in place. */

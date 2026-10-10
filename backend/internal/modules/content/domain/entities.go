@@ -65,6 +65,12 @@ type ContentBlock struct {
 	EditedByTeacherAt *time.Time
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+	// CreatedBy and UpdatedBy are the teachers who created and last changed the content (nil for what came from the seed).
+	CreatedBy *uuid.UUID `gorm:"type:uuid"`
+	UpdatedBy *uuid.UUID `gorm:"type:uuid"`
+	// The names behind them, read with the block and never written.
+	CreatedByName string `gorm:"->"`
+	UpdatedByName string `gorm:"->"`
 }
 
 // Active reports whether students can see the block.

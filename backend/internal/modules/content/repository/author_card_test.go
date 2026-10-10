@@ -113,3 +113,41 @@ func TestReplaceCard(t *testing.T) {
 	assert.True(t, blocks[2].Active())
 	require.NoError(t, repo.SetActiveMany(ctx, module.ID, nil, true, later))
 }
+
+// Covers SPEC-019: who created and who last changed a card is kept and read back with the names.
+func TestReplaceCardKeepsWhoCreatedAndChanged(t *testing.T) {
+	db := dbtest.Open(t)
+	ctx := context.Background()
+	repo := repository.New(db)
+
+	ana := userdomain.User{Name: ptr("Ana Prof"), Email: "ana@example.com", Role: userdomain.RoleTeacher, Status: userdomain.StatusActive}
+	bia := userdomain.User{Email: "bia@example.com", Role: userdomain.RoleTeacher, Status: userdomain.StatusActive}
+	require.NoError(t, userrepository.New(db).Create(ctx, &ana))
+	require.NoError(t, userrepository.New(db).Create(ctx, &bia))
+	module := cmdomain.CourseModule{TeacherID: ana.ID, Title: "M", Description: "d", Visibility: cmdomain.VisibilityPublic, Status: cmdomain.ModuleStatusActive}
+	require.NoError(t, cmrepository.New(db).CreateModule(ctx, &module, nil, ana.ID))
+
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	created, err := repo.ReplaceCard(ctx, service.ReplaceCardInput{ModuleID: module.ID, By: ana.ID, Now: now,
+		Entries: []service.ReplaceCardEntry{{Type: domain.BlockText, Payload: json.RawMessage(`{"title":"Um","html":""}`)}}})
+	require.NoError(t, err)
+	assert.Equal(t, "Ana Prof", created[0].CreatedByName)
+	assert.Equal(t, "Ana Prof", created[0].UpdatedByName)
+
+	// Another teacher changes the text: the creator stays, the last change is hers (her e-mail stands for a missing name).
+	block := created[0]
+	changed, err := repo.ReplaceCard(ctx, service.ReplaceCardInput{ModuleID: module.ID, ReplaceIDs: []uuid.UUID{block.ID}, By: bia.ID, Now: now.Add(time.Minute),
+		Entries: []service.ReplaceCardEntry{{ID: &block.ID, ExpectedUpdatedAt: &block.UpdatedAt, Type: domain.BlockText, Payload: json.RawMessage(`{"title":"Um editado","html":""}`)}}})
+	require.NoError(t, err)
+	assert.Equal(t, "Ana Prof", changed[0].CreatedByName)
+	assert.Equal(t, "bia@example.com", changed[0].UpdatedByName)
+
+	listed, err := repo.ListBlocks(ctx, module.ID)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, "Ana Prof", listed[0].CreatedByName)
+	assert.Equal(t, "bia@example.com", listed[0].UpdatedByName)
+	assert.True(t, listed[0].CreatedAt.Equal(now))
+}
+
+func ptr[T any](v T) *T { return &v }

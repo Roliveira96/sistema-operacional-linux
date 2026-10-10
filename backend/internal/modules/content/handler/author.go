@@ -97,10 +97,14 @@ type authoredBlock struct {
 	Edited    bool            `json:"edited"`
 	Active    bool            `json:"active"`
 	UpdatedAt time.Time       `json:"updatedAt"`
+	CreatedAt time.Time       `json:"createdAt"`
+	// The names of who created and last changed it; empty for what came from the initial load.
+	CreatedBy string `json:"createdBy"`
+	UpdatedBy string `json:"updatedBy"`
 }
 
 func toAuthored(b domain.ContentBlock) authoredBlock {
-	return authoredBlock{ID: b.ID, Type: string(b.BlockType), Position: b.Position, Payload: b.Payload, Edited: b.EditedByTeacherAt != nil, Active: b.Active(), UpdatedAt: b.UpdatedAt}
+	return authoredBlock{ID: b.ID, Type: string(b.BlockType), Position: b.Position, Payload: b.Payload, Edited: b.EditedByTeacherAt != nil, Active: b.Active(), UpdatedAt: b.UpdatedAt, CreatedAt: b.CreatedAt, CreatedBy: b.CreatedByName, UpdatedBy: b.UpdatedByName}
 }
 
 func toAuthoredList(blocks []domain.ContentBlock) []authoredBlock {

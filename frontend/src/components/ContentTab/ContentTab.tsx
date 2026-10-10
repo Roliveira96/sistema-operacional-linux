@@ -56,6 +56,35 @@ function summaryOf(group: CardGroup): { icon: string; text: string }[] {
   return parts.filter((p): p is { icon: string; text: string } => Boolean(p));
 }
 
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+
+/** When the card was created and by whom, and when it was last changed and by whom (the update is left out if nothing changed since the creation). */
+function auditOf(group: CardGroup): { created?: string; updated?: string } {
+  const withDate = group.blocks.filter((b) => b.createdAt);
+  if (withDate.length === 0) return {};
+  const first = withDate.reduce((a, b) =>
+    a.createdAt! <= b.createdAt! ? a : b,
+  );
+  const last = group.blocks.reduce((a, b) =>
+    a.updatedAt >= b.updatedAt ? a : b,
+  );
+  const created = m.audit.created(
+    when(first.createdAt!),
+    first.createdBy ?? "",
+  );
+  const changed = last.updatedAt > first.createdAt!;
+  return {
+    created,
+    updated: changed
+      ? m.audit.updated(when(last.updatedAt), last.updatedBy ?? "")
+      : undefined,
+  };
+}
+
 const lastBlockId = (group: CardGroup) =>
   group.blocks[group.blocks.length - 1]!.id;
 const editHref = (moduleId: string, group: CardGroup) =>
@@ -344,6 +373,22 @@ export function ContentTab({
                             </span>
                           ))}
                     </span>
+                    {(() => {
+                      const { created, updated } = auditOf(group);
+                      if (!created) return null;
+                      return (
+                        <span className={styles.audit}>
+                          <span>
+                            <span aria-hidden="true">🆕</span> {created}
+                          </span>
+                          {updated && (
+                            <span>
+                              <span aria-hidden="true">🔄</span> {updated}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className={styles.badgeBar}>
                     {status !== "none" && (

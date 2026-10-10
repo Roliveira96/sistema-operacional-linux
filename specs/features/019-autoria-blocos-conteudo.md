@@ -323,3 +323,11 @@ Nenhuma em aberto. O Tech Lead aprovou em 09/10/2026 as recomendações de P-01 
 | 09/10/2026 | Tech Lead | Esclarecimento: o gerador de cards do protótipo é a referência do que a plataforma precisa, e criar e editar é uma **tela própria**, não um painel na lista. A lista passa a ser de **cards** (grupos de blocos como o estudante os vê). Incluídos: tela do card (3.1), RN-13, RN-04a, rotas 5.7 e 5.8 e CA-25 a CA-28. O cenário/snapshot da máquina e o exercício do card seguem fora, por dependerem das specs de prática (013/014) |
 | 09/10/2026 | Implementador (Claude) | Conversão do HTML legado (SPEC-005, RN-02): o novo elemento **HTML avançado** guarda o que o editor visual não alcança, e a classificação ao abrir um card só trata como texto o que o editor segura sem perda. Tabela sem cabeçalho passa a ser gravada sem `thead` |
 | 09/10/2026 | Implementador (Claude) | Descrição do módulo com o editor visual entregue (CA-16 a CA-18, RN-11, P-07): HTML filtrado no servidor, limite de 20.000 caracteres, texto simples extraído por uma função única no frontend (`descriptionText`) para os cartões, o subtítulo da tela de estudo e as etiquetas de comandos. A regra passou a se chamar RN-12 na SPEC-010 |
+
+## Quem criou e quem alterou (autoria do conteúdo)
+
+- Cada bloco guarda `created_by` e `updated_by` (professor, nulo para o que veio da carga inicial). Migração 00015.
+- Salvar o card (`PUT /teacher/modules/{id}/cards`) grava o professor logado: no bloco novo, como criador e último a alterar; no bloco alterado, só como último a alterar.
+- O blocos devolvidos ao autor trazem `createdAt`, `createdBy` e `updatedBy` (nome do usuário, ou o e-mail na falta dele).
+- A lista de conteúdo mostra, em cada card, "Criado em … por …" e, se mudou depois, "Atualizado em … por …" (a criação vem do bloco mais antigo; a atualização, do mais recente).
+- Fora do escopo: o endpoint antigo de alterar um bloco isolado não grava o autor da alteração.

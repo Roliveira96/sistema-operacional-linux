@@ -119,6 +119,7 @@ func (a *Author) Create(ctx context.Context, who Actor, moduleID uuid.UUID, t do
 	}
 	now := a.now()
 	b := domain.ContentBlock{ID: uuid.New(), ModuleID: moduleID, BlockType: t, Payload: clean, EditedByTeacherAt: &now, CreatedAt: now, UpdatedAt: now}
+	b.CreatedBy, b.UpdatedBy = &who.UserID, &who.UserID
 	if err := a.store.InsertBlock(ctx, &b, afterID); err != nil {
 		return domain.ContentBlock{}, err
 	}

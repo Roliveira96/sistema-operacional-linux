@@ -61,6 +61,12 @@ func (r *Repository) ReplaceCard(ctx context.Context, in service.ReplaceCardInpu
 			start, end = last+1, last
 		}
 
+		// Nobody is recorded when the caller does not say who saves (the foreign key would refuse the zero id).
+		var by *uuid.UUID
+		if in.By != uuid.Nil {
+			by = &in.By
+		}
+
 		kept := make(map[uuid.UUID]bool, len(in.Entries))
 		for _, e := range in.Entries {
 			if e.ID != nil {
@@ -89,7 +95,7 @@ func (r *Repository) ReplaceCard(ctx context.Context, in service.ReplaceCardInpu
 			position := start + i
 			if e.ID == nil {
 				b := domain.ContentBlock{ID: uuid.New(), ModuleID: in.ModuleID, BlockType: e.Type, Position: position,
-					Payload: e.Payload, EditedByTeacherAt: &in.Now, CreatedAt: in.Now, UpdatedAt: in.Now}
+					Payload: e.Payload, EditedByTeacherAt: &in.Now, CreatedAt: in.Now, UpdatedAt: in.Now, CreatedBy: by, UpdatedBy: by}
 				if err := conn.Create(&b).Error; err != nil {
 					return err
 				}
@@ -114,7 +120,7 @@ func (r *Repository) ReplaceCard(ctx context.Context, in service.ReplaceCardInpu
 			if e.ExpectedUpdatedAt != nil {
 				q = q.Where("updated_at = ?", e.ExpectedUpdatedAt.UTC())
 			}
-			res := q.Updates(map[string]any{"payload": e.Payload, "position": position, "edited_by_teacher_at": in.Now, "updated_at": in.Now})
+			res := q.Updates(map[string]any{"payload": e.Payload, "position": position, "edited_by_teacher_at": in.Now, "updated_at": in.Now, "updated_by": by})
 			if res.Error != nil {
 				return res.Error
 			}
@@ -122,6 +128,7 @@ func (r *Repository) ReplaceCard(ctx context.Context, in service.ReplaceCardInpu
 				return service.ErrBlockConflict
 			}
 			prev.Payload, prev.Position, prev.UpdatedAt, prev.EditedByTeacherAt = e.Payload, position, in.Now, &in.Now
+			prev.UpdatedBy = by
 			result = append(result, prev)
 		}
 		return protectModule(conn, in.ModuleID, in.Now)
@@ -129,7 +136,16 @@ func (r *Repository) ReplaceCard(ctx context.Context, in service.ReplaceCardInpu
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	// Read again, with the names of who created and changed each block.
+	ids := make([]uuid.UUID, len(result))
+	for i, b := range result {
+		ids[i] = b.ID
+	}
+	var named []domain.ContentBlock
+	if err := r.named(ctx).Where("content_blocks.id IN ?", ids).Order("content_blocks.position").Find(&named).Error; err != nil {
+		return nil, err
+	}
+	return named, nil
 }
 
 // SetActiveMany inactivates or reactivates blocks of one module and marks them as edited.

@@ -255,6 +255,37 @@ describe("ContentTab", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
+  it("tells when each card was created and last changed, and by whom", async () => {
+    const stamped = blocks.map((b) =>
+      b.id === "h1"
+        ? {
+            ...b,
+            createdAt: "2026-10-09T17:20:00Z",
+            createdBy: "Ana Prof",
+            updatedAt: "2026-10-10T09:30:00Z",
+            updatedBy: "bia@example.com",
+          }
+        : b.id === "h2"
+          ? {
+              ...b,
+              createdAt: "2026-10-09T18:00:00Z",
+              updatedAt: "2026-10-09T18:00:00Z",
+            }
+          : b,
+    );
+    service.content.mockResolvedValue({ blocks: stamped, setup: undefined });
+    service.list.mockResolvedValue(stamped);
+    renderTab();
+    await screen.findByText("Atualizar");
+    expect(screen.getByText(/Criado em .+ por Ana Prof/)).toBeDefined();
+    expect(
+      screen.getByText(/Atualizado em .+ por bia@example.com/),
+    ).toBeDefined();
+    // A card that was never changed has only the creation, and without a name when it came from the seed.
+    expect(screen.getAllByText(/^Criado em/)).toHaveLength(2);
+    expect(screen.getAllByText(/^Atualizado em/)).toHaveLength(1);
+  });
+
   it("opens the card screen from Edit", async () => {
     renderTab();
     await screen.findByText("Atualizar");

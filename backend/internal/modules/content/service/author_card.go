@@ -55,6 +55,8 @@ type ReplaceCardInput struct {
 	AfterID    *uuid.UUID
 	Entries    []ReplaceCardEntry
 	Now        time.Time
+	// By is the teacher who saves the card.
+	By uuid.UUID
 }
 
 // SaveCard validates and stores a whole card: the blocks that stay are updated in place, the
@@ -99,7 +101,7 @@ func (a *Author) SaveCard(ctx context.Context, who Actor, moduleID uuid.UUID, in
 		return nil, err
 	}
 
-	saved, err := a.store.ReplaceCard(ctx, ReplaceCardInput{ModuleID: moduleID, ReplaceIDs: in.ReplaceIDs, AfterID: in.AfterID, Entries: entries, Now: a.now()})
+	saved, err := a.store.ReplaceCard(ctx, ReplaceCardInput{ModuleID: moduleID, ReplaceIDs: in.ReplaceIDs, AfterID: in.AfterID, Entries: entries, Now: a.now(), By: who.UserID})
 	if err != nil {
 		return nil, err
 	}
