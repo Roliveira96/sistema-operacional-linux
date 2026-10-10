@@ -80,10 +80,13 @@ export const authoringMessages = {
       traceEmpty: "Nenhum comando rodou nesta atividade.",
       traceCount: (passed: number, total: number) => `${passed} de ${total} ${total === 1 ? "comando" : "comandos"} como esperado`,
       coverageLabel: "Cobertura do teste",
-      coverage: (tested: number, total: number, inactive: number, empty: number) =>
+      coverage: (tested: number, total: number, inactive: number, empty: number, drafts = 0) =>
         `${tested} de ${total} ${total === 1 ? "card tem" : "cards têm"} o que testar e ${tested === 1 ? "foi testado" : "foram testados"}` +
         (inactive > 0 ? ` · ${inactive} inativo${inactive === 1 ? "" : "s"} (o aluno não vê, não é testado)` : "") +
-        (empty > 0 ? ` · ${empty} sem comandos, snapshot nem exercícios (nada a testar)` : ""),
+        (empty > 0 ? ` · ${empty} sem comandos, snapshot nem exercícios (nada a testar)` : "") +
+        (drafts > 0 ? ` · ${drafts} ${drafts === 1 ? "exercício do banco em rascunho" : "exercícios do banco em rascunho"} (não ${drafts === 1 ? "é testado" : "são testados"}, só os publicados)` : ""),
+      bankAvailable: "Exercícios disponíveis do módulo",
+      bankAssessment: "Banco de avaliação do módulo",
       totals: (done: number, passed: number, failed: number) => `Testes feitos: ${done} · passaram: ${passed} · falharam: ${failed}`,
       totalsDetail: (activities: number, sequence: number, inverse: number) => `${activities} ${activities === 1 ? "atividade sozinha" : "atividades sozinhas"} + ${sequence} ${sequence === 1 ? "comando" : "comandos"} em sequência + ${inverse} ${inverse === 1 ? "comando" : "comandos"} na ordem inversa`,
       approved: "Módulo aprovado",

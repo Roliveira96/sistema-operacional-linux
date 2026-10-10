@@ -8,7 +8,11 @@ import {
   type CardGroup,
   type CardModel,
 } from "@/lib/cardModel";
-import { cardTestItems, type TestItem } from "@/lib/exercises";
+import {
+  cardTestItems,
+  exerciseTestItems,
+  type TestItem,
+} from "@/lib/exercises";
 import { allLayers, hasSetup, type SetupLayer } from "@/lib/setup";
 import {
   activeCards,
@@ -18,6 +22,13 @@ import {
 } from "@/lib/testRecord";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import type { ContentAuthoringService } from "@/services/contentAuthoringService";
+import {
+  bankTestKey,
+  bankToTest,
+  moduleExerciseService,
+  type ExerciseBank,
+  type ModuleExerciseService,
+} from "@/services/moduleExerciseService";
 import type { PracticeService } from "@/services/practiceService";
 import styles from "./TestAll.module.scss";
 
@@ -26,7 +37,8 @@ const tester = authoringMessages.builder.tester;
 
 interface Item {
   group: CardGroup;
-  card: CardModel;
+  /** The card, to record its result; a set of exercises of the bank has none (SPEC-023). */
+  card?: CardModel;
   title: string;
   layers: SetupLayer[];
   /** What the unit test of the card runs after its snapshots: its commands, then the solutions of its exercises. */
@@ -46,7 +58,13 @@ interface Whole {
   /** The cards that have commands, in order, with how many each has. */
   cards: { key: string; title: string; count: number }[];
   /** What the test covers: the cards with something to test, the inactive ones (students do not see them) and the ones with nothing to run. */
-  coverage: { total: number; tested: number; inactive: number; empty: number };
+  coverage: {
+    total: number;
+    tested: number;
+    inactive: number;
+    empty: number;
+    drafts: number;
+  };
   /** The same commands with the cards in the opposite order, to find the activities that depend on others. */
   reversed: { commands: TestItem[]; sections: Record<number, string> };
 }
@@ -99,6 +117,8 @@ interface TestAllProps {
   /** Called after each result is recorded, so the list can show its new mark. */
   onResult: () => void;
   onClose: () => void;
+  /** The bank of exercises of the module, whose exercises are tested too (SPEC-023). */
+  bank?: Pick<ModuleExerciseService, "bank">;
 }
 
 /**
@@ -110,6 +130,7 @@ export function TestAll({
   moduleId,
   service,
   practice,
+  bank = moduleExerciseService,
   onResult,
   onClose,
 }: TestAllProps) {
@@ -129,9 +150,13 @@ export function TestAll({
 
   useEffect(() => {
     let active = true;
-    service
-      .content(moduleId)
-      .then(({ blocks, setup }) => {
+    // The bank of exercises of the module is part of what is tested; a bank that cannot be read is an empty one.
+    const noBank: ExerciseBank = { items: [] };
+    Promise.all([
+      service.content(moduleId),
+      Promise.resolve(bank.bank(moduleId)).catch(() => noBank),
+    ])
+      .then(([{ blocks, setup }, bankData]) => {
         if (!active) return;
         const groups = groupCards(blocks.filter((b) => b.active));
         const cards = groups.map(parseCard);
@@ -207,21 +232,77 @@ export function TestAll({
           });
         });
         const everyCard = groupCards(blocks).length;
+        const cardsTested = list.length;
+
+        // The exercises of the module (SPEC-023): each set on the machine of the module and of its own snapshot. The available
+        // ones also go at the end of the module in sequence, as the student gets them.
+        const toTest = bankToTest(bankData);
+        const moduleLayers = allLayers(setup, []);
+        const setLayer = (
+          key: string,
+          label: string,
+          snapshot: ExerciseBank["exercisesSetup"],
+        ): SetupLayer[] =>
+          hasSetup(snapshot)
+            ? [{ id: key, kind: "card", label, setup: snapshot }]
+            : [];
+        const exercisesLayer = setLayer(
+          "bank-available",
+          m.bankAvailable,
+          bankData.exercisesSetup,
+        );
+        for (const [key, title, exercises, layer] of [
+          ["bank-available", m.bankAvailable, toTest.available, exercisesLayer],
+          [
+            "bank-assessment",
+            m.bankAssessment,
+            toTest.assessment,
+            setLayer(
+              "bank-assessment",
+              m.bankAssessment,
+              bankData.assessmentSetup,
+            ),
+          ],
+        ] as const) {
+          const ran = exerciseTestItems({ items: exercises });
+          if (ran.items.length === 0) continue;
+          list.push({
+            group: { key, blocks: [] },
+            title,
+            layers: [...moduleLayers, ...layer],
+            items: ran.items,
+            sections: ran.sections,
+          });
+          if (key === "bank-available") {
+            owners[commands.length] = title;
+            for (const [at, label] of Object.entries(ran.sections))
+              sections[commands.length + Number(at)] = label;
+            commands.push(...ran.items);
+          }
+        }
         setWhole({
           coverage: {
             total: everyCard,
-            tested: list.length,
+            tested: cardsTested,
             inactive: everyCard - groups.length,
-            empty: groups.length - list.length,
+            empty: groups.length - cardsTested,
+            drafts: toTest.drafts,
           },
           commands,
           sections,
           owners,
-          layers: allLayers(
+          layers: [
+            ...allLayers(
+              setup,
+              groups.flatMap((g) => g.blocks),
+            ),
+            ...exercisesLayer,
+          ],
+          fingerprint: moduleFingerprint(
+            activeCards(blocks),
             setup,
-            groups.flatMap((g) => g.blocks),
+            bankTestKey(bankData),
           ),
-          fingerprint: moduleFingerprint(activeCards(blocks), setup),
           cards: withCommands.map((c) => ({
             key: c.key,
             title: c.title,
@@ -235,7 +316,7 @@ export function TestAll({
     return () => {
       active = false;
     };
-  }, [service, moduleId]);
+  }, [service, bank, moduleId]);
 
   const loadBase = useMemo(
     () => () => practice.topicScenario(moduleId),
@@ -422,6 +503,7 @@ export function TestAll({
             whole.coverage.total,
             whole.coverage.inactive,
             whole.coverage.empty,
+            whole.coverage.drafts,
           )}
         </p>
       )}
@@ -564,7 +646,8 @@ export function TestAll({
                     }));
                 }}
                 onFinish={(ok) => {
-                  saveTest(moduleId, current.group.key, ok, current.card);
+                  if (current.card)
+                    saveTest(moduleId, current.group.key, ok, current.card);
                   setResults((prev) => [...prev, ok]);
                   onResult();
                   // Leaves the result of this card on screen for a moment before the next one starts.

@@ -12,6 +12,11 @@ import {
 } from "@/lib/cardModel";
 import type { Setup } from "@/lib/setup";
 import {
+  bankTestKey,
+  moduleExerciseService,
+  type ModuleExerciseService,
+} from "@/services/moduleExerciseService";
+import {
   activeCards,
   moduleFingerprint,
   moduleTestStatus,
@@ -39,6 +44,8 @@ interface ContentTabProps {
   moduleId: string;
   service?: ContentAuthoringService;
   practice?: Pick<PracticeService, "topicScenario">;
+  /** The bank of exercises of the module, to know whether the test is still valid (SPEC-023). */
+  bank?: Pick<ModuleExerciseService, "bank">;
 }
 
 /** What the card has, one chip each: "3 comandos", "1 dica"… (the list is empty for a card with no content). */
@@ -98,8 +105,11 @@ export function ContentTab({
   moduleId,
   service = contentAuthoringService,
   practice = practiceService,
+  bank = moduleExerciseService,
 }: ContentTabProps) {
   const router = useRouter();
+  // What the exercises of the module add to the result of the test of the module (SPEC-023), empty while it is not known.
+  const [bankKey, setBankKey] = useState("");
   // Sort mode: the cards can be dragged (or moved with the arrows) to a new place.
   const [sorting, setSorting] = useState(false);
   const [dragging, setDragging] = useState<number | null>(null);
@@ -110,10 +120,21 @@ export function ContentTab({
   const [viewing, setViewing] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+
   const [testingModule, setTestingModule] = useState(0);
   const [moduleSetup, setModuleSetup] = useState<Setup | undefined>();
   // Each result of the test of all cards redraws the list, which reads the marks from storage.
-  const [, setMarks] = useState(0);
+  const [marks, setMarks] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    Promise.resolve(bank.bank(moduleId))
+      .then((loaded) => active && setBankKey(bankTestKey(loaded)))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [bank, moduleId, marks]);
 
   useEffect(() => {
     let active = true;
@@ -202,7 +223,7 @@ export function ContentTab({
             if (!cards.some((c) => c.commands.length > 0)) return null;
             const status = moduleTestStatus(
               moduleId,
-              moduleFingerprint(cards, moduleSetup),
+              moduleFingerprint(cards, moduleSetup, bankKey),
             );
             return (
               <span
@@ -279,6 +300,7 @@ export function ContentTab({
           moduleId={moduleId}
           service={service}
           practice={practice}
+          bank={bank}
           onResult={() => setMarks((n) => n + 1)}
           onClose={() => setTestingModule(0)}
         />

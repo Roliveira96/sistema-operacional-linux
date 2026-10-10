@@ -51,8 +51,8 @@ export default function EditModulePage({
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   // "Voltar" from a card comes back with ?tab=content, to the list the author left.
-  const [tab, setTab] = useState<Tab>(
-    () => (typeof window !== "undefined" ? initialTab() : "details"),
+  const [tab, setTab] = useState<Tab>(() =>
+    typeof window !== "undefined" ? initialTab() : "details",
   );
   /** Changes every time the module is saved, so the form starts again from what is stored. */
   const [formVersion, setFormVersion] = useState(0);
@@ -210,7 +210,7 @@ export default function EditModulePage({
         aria-labelledby="tab-content"
         hidden={tab !== "content"}
       >
-        {id && <ContentTab moduleId={id} />}
+        {id && tab === "content" && <ContentTab moduleId={id} />}
       </section>
 
       <section

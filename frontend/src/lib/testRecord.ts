@@ -59,8 +59,9 @@ export function testStatus(moduleId: string, cardKey: string, card: Pick<CardMod
 const moduleKey = (moduleId: string) => `module-test:${moduleId}`;
 
 /** What the module test depends on: the snapshot of the module and the commands and snapshot of each card. */
-export function moduleFingerprint(cards: Pick<CardModel, "commands" | "setup" | "exercises">[], setup?: Setup): string {
-  return JSON.stringify({ setup: setup ? setupPayload(setup) : null, cards: cards.map(fingerprint) });
+export function moduleFingerprint(cards: Pick<CardModel, "commands" | "setup" | "exercises">[], setup?: Setup, bankKey = ""): string {
+  // The bank of exercises of the module is part of what is tested (SPEC-023); a module without one keeps the fingerprint it had.
+  return JSON.stringify({ setup: setup ? setupPayload(setup) : null, cards: cards.map(fingerprint), ...(bankKey ? { bank: bankKey } : {}) });
 }
 
 export function saveModuleTest(moduleId: string, passed: boolean, fingerprintOfModule: string) {
