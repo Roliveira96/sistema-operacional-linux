@@ -498,47 +498,33 @@
 }
 
 // The environment of the module (its snapshot) is built beside the content that is tested with it.
+// It looks like the window of the Ubuntu terminal: a gray title bar with the window buttons on the right, over the aubergine screen.
 .environment {
-  padding: var(--space-3) var(--space-5);
-  border: 1px solid var(--color-aubergine);
-  border-left: 4px solid var(--color-ubuntu-orange);
+  overflow: hidden;
+  border: 1px solid var(--color-terminal-bar);
   border-radius: var(--radius-lg);
   background: var(--gradient-terminal);
   box-shadow: var(--shadow-md);
 
-  // The content opens below the title with a space and a line between them.
+  // The content opens below the title bar, with its own margins.
   > :not(summary) {
-    margin-top: var(--space-3);
+    margin: var(--space-4) var(--space-5);
   }
-}
-
-.environment[open] {
-  border-color: var(--color-border-strong);
 }
 
 .environmentSummary {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-terminal-bar);
+  font-weight: var(--font-weight-bold);
   list-style: none;
+  color: var(--color-text-primary);
   cursor: pointer;
 
   &::-webkit-details-marker {
     display: none;
-  }
-
-  // The three buttons of a terminal window, before the title.
-  &::before {
-    content: "";
-    flex: none;
-    width: 0.6rem;
-    height: 0.6rem;
-    margin-right: 1.4rem;
-    border-radius: var(--radius-pill);
-    background: var(--color-danger);
-    box-shadow:
-      1rem 0 0 var(--color-warning),
-      2rem 0 0 var(--color-success);
   }
 
   // The arrow turns when the section opens.
@@ -553,6 +539,19 @@
     transform: rotate(-90deg);
   }
 
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
+  // The window buttons on the right: minimize and maximize in gray, close in Ubuntu orange.
+  &::before {
+    content: "";
+    order: 1;
+    flex: none;
+    width: 0.8rem;
+    height: 0.8rem;
+    margin-left: var(--space-3);
+    margin-right: 1.6rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-terminal-btn);
+    box-shadow:
+      1.2rem 0 0 var(--color-terminal-btn),
+      2.4rem 0 0 var(--color-ubuntu-orange);
+  }
 }
