@@ -87,7 +87,9 @@ Regras:
 | Exercício do card | `CardExercise` | Atividade do grupo, com título, dificuldade (`EASY`, `MEDIUM`, `HARD`), descrição, dicas, a solução gravada pela docente e as condições de finalização. Não é uma `Question` e não vale nota | Exercício | Proposto |
 | Exercício do módulo | `ModuleExercise` | Exercício do banco do módulo: uma `Question` prática, com enunciado, nível, dicas, solução gravada pela docente e condições de finalização (SPEC-023) | Exercício | Proposto |
 | Banco de exercícios do módulo | `ModuleExerciseBank` | Conjunto dos exercícios de um módulo, nos dois conjuntos abaixo; é o `QuestionBank` restrito ao módulo (SPEC-023) | Pool | Proposto |
-| Conjunto de exercícios | `ExerciseSet` | `EXERCISE` (disponíveis na prática do módulo, na trilha) ou `ASSESSMENT` (reservados para avaliação); cada conjunto tem o seu snapshot (`exercises_setup`, `assessment_setup`) | Lista | Proposto |
+| Vínculo do exercício | `ExerciseLinks` | Onde um exercício do banco está ligado: à prática do módulo (`practice`, na trilha), à avaliação (`assessment`) ou aos dois; `exclusive` o reserva só à avaliação. O banco é único e o snapshot é um só (`bank_setup`) (SPEC-023) | Conjunto, lista | Proposto |
+| Dependência entre exercícios | `ExerciseDependency` | Um exercício (`depends_on`) cuja solução gravada é montada antes de outro; forma uma cadeia. O sistema só sugere, a docente confirma (SPEC-023 12.3) | Continua do anterior | Proposto |
+| Teste do banco | `BankTest` | Esteira de validação do banco: ambiente consolidado, ordem linear, ordem reversa e rodadas sorteadas, com relatório e sugestões de dependência (SPEC-023 12) | — | Proposto |
 | Condição de finalização | `CompletionCondition` | Algo que precisa valer na máquina ao fim do exercício (pasta existe, arquivo tem o texto, permissão, dono, usuário...), seja qual for a forma como o estudante chegou lá (SPEC-022) | — | Proposto |
 | Trecho de narração | `NarrationChunk` | Parte de até 2000 caracteres de um bloco, com o áudio e as marcas de palavra | `Segment`, `Part` | Proposto |
 

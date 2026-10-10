@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-023 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 10/10/2026 |
-| **Última revisão** | 10/10/2026 (revisões 2 e 3 aprovadas) |
+| **Última revisão** | 10/10/2026 (revisões 2 e 3 implementadas) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -191,6 +191,19 @@ Nenhuma em aberto. Decisões do Tech Lead de 10/10/2026 (D-01 a D-03) e aceitas 
 | A-09 | RN-11: a questão pública do estudante traz `continues` e, para o exercício disponível, `solutionSetup` (a receita completa, com os arquivos), que a tela usa para montar a máquina da cadeia; a solução já era pública para quem pede "Ver como o professor fez" |
 | A-08 | Os arquivos que uma solução escreveu não têm comando e por isso não aparecem em "Ver como o professor fez" do estudante |
 
+### Ajustes de implementação das revisões 2 e 3 (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-10 | Migração 00018: `in_assessment`, `exclusive_assessment` e `depends_on` na questão; `continues_previous` migrado para `depends_on` (o anterior da trilha) e removido; `bank_setup` substitui os dois snapshots (os dois antigos são unidos, o de prática primeiro). Restrições no banco: exclusivo exige avaliação e não vai à prática; ninguém depende de si mesmo; o ciclo é barrado pelo serviço |
+| A-11 | Rotas: `PUT /exercises/:id/links` (prática, avaliação, exclusivo e estado) substitui `/availability`; `PUT /exercise-setup` (`bankSetup`) substitui `/exercise-setups`; `POST` aceita `dependsOn` e `links`; a listagem devolve `bankSetup` |
+| A-12 | D-20: o estudante recebe `chainSetups` (as soluções dos antecessores, do mais antigo ao mais novo) resolvido no servidor; `continues` e `solutionSetup` foram removidos da questão pública. A versão do módulo congela `bankSetup` |
+| A-13 | O banco de exercícios sempre mostra todos os exercícios; "Remover do bloco" só desfaz o vínculo, e apagar do banco é uma ação do menu do banco, com o aviso de que o progresso dos alunos vai junto. Sair da avaliação desmarca "exclusivo"; marcar "exclusivo" tira o exercício da prática |
+| A-14 | "Criar nova questão" abre a página do exercício com `?link=practice` ou `?link=assessment`: ao salvar, o exercício nasce no banco já vinculado ao bloco de onde veio. No cabeçalho do banco, a mesma ação cria sem vínculo |
+| A-15 | A busca de dependências do teste só considera como suspeito um exercício que não crie ciclo com os já declarados; o teste e o teste do módulo põem o antecessor sempre antes do dependente, mesmo que ele esteja só na avaliação |
+| A-16 | O motor do terminal não tem link físico nem `tar -C`, então os exercícios carregados usam só o que ele sabe fazer; a carga dos 50 exercícios de História do Linux foi gerada rodando cada solução no terminal de verdade e passando o banco inteiro pelo Testar Banco (semente 2026: sem conflito, sem dependência a confirmar) |
+| A-17 | Carga: `go run ./cmd/seed-exercises -module <id> -file seeds/historia-do-linux-exercicios.json` cria, vincula e publica os exercícios pelo serviço, como a docente dona do módulo, e pode ser repetida sem duplicar (compara o título) |
+
 ---
 
 ## 11. Revisão 2: banco central de exercícios e snapshot único
@@ -294,3 +307,4 @@ Um sumário (modal) com: o estado geral (sucesso ou falhas); a lista dos exercí
 | 10/10/2026 | Tech Lead | Pedido de revisão 2: banco central de exercícios com blocos de vinculação (adicionar do banco, remover do bloco, criar já vinculando, exclusivo da avaliação) e snapshot único da base de exercícios. Spec volta a Rascunho com as pendências P-08 a P-11 |
 | 10/10/2026 | Tech Lead | Pedido de revisão 3: "Testar Banco de Exercícios" (preparo por snapshots, ordem linear, reversa e sorteada), dependências explícitas entre exercícios e sorteio seguro. Pendências P-12 a P-16 |
 | 10/10/2026 | Tech Lead | Aprovadas as revisões 2 e 3, aceitas as recomendações de P-08 a P-16 (viram D-11 a D-19); acrescentada a decisão D-20 |
+| 10/10/2026 | Implementador (Claude) | Implementadas as revisões 2 e 3: migração 00018, vínculos e dependências no backend, aba Exercícios como banco central com blocos de vínculo, snapshot único, Testar Banco de Exercícios com relatório, e carga dos 50 exercícios de História do Linux. Ajustes A-10 a A-17 |
