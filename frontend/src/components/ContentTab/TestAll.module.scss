@@ -212,13 +212,107 @@
 
 .activity {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   color: var(--color-text-body);
+}
+
+.activityRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+// What each activity ran, to read after the test: a line per command, with what the terminal printed folded away.
+.trace {
+  margin-left: var(--space-6);
+
+  > summary {
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+
+    &:hover {
+      color: var(--color-text-primary);
+    }
+  }
+}
+
+.traceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.traceRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+.traceOk {
+  border-left-color: var(--color-success);
+}
+
+.traceBad {
+  border-left-color: var(--color-danger);
+}
+
+.traceSection {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.traceLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: baseline;
+
+  code {
+    font-family: var(--font-mono);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+  }
+}
+
+.traceText {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.traceOutput {
+  summary {
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+  }
+
+  pre {
+    max-height: 10rem;
+    margin: var(--space-1) 0 0;
+    padding: var(--space-2);
+    overflow: auto;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    white-space: pre-wrap;
+    color: var(--color-text-body);
+  }
 }
 
 .activityName {

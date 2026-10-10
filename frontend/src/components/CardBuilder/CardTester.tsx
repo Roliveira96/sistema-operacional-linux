@@ -6,7 +6,12 @@ import type { TerminalWindow } from "@/engine/terminalWindow";
 import { checkConditions, describeCondition } from "@/lib/exerciseConditions";
 import type { TestItem } from "@/lib/exercises";
 import { stepCount, type SetupLayer } from "@/lib/setup";
-import { applyFiles, isConflict, runLayers, type StepResult } from "@/lib/setupRunner";
+import {
+  applyFiles,
+  isConflict,
+  runLayers,
+  type StepResult,
+} from "@/lib/setupRunner";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import styles from "./CardBuilder.module.scss";
 
@@ -26,16 +31,35 @@ export type Verdict =
   | { kind: "stopped" }
   | { kind: "empty" };
 
-type Result = { state: "pending" } | { state: "running" } | { state: "done"; verdict: Verdict; output?: string };
+/** What one command did in a test: kept so the author can read it after the test, to debug. */
+export interface TestRow {
+  command: string;
+  /** The card or exercise this command starts, when it starts one. */
+  section?: string;
+  ok: boolean;
+  /** How it ended, in words ("Ok", "Falhou com o código 1"…). */
+  text: string;
+  /** What the terminal printed (or what was missing, for the check of an exercise). */
+  output: string;
+}
+
+type Result =
+  | { state: "pending" }
+  | { state: "running" }
+  | { state: "done"; verdict: Verdict; output?: string };
 type EnvState = "pending" | "running" | "ok" | "failed";
 
-const isGood = (v: Verdict) => v.kind === "ok" || v.kind === "okError" || v.kind === "finished";
+const isGood = (v: Verdict) =>
+  v.kind === "ok" || v.kind === "okError" || v.kind === "finished";
 
 /** Compares the exit status of a command with what the author expects of it. */
 export function judge(status: number | null, expectError: boolean): Verdict {
   if (status === null) return { kind: "notRun" };
-  if (status === 0) return expectError ? { kind: "expectedErrorMissing" } : { kind: "ok" };
-  return expectError ? { kind: "okError" } : { kind: "unexpectedError", code: status };
+  if (status === 0)
+    return expectError ? { kind: "expectedErrorMissing" } : { kind: "ok" };
+  return expectError
+    ? { kind: "okError" }
+    : { kind: "unexpectedError", code: status };
 }
 
 function verdictText(v: Verdict): string {
@@ -77,6 +101,8 @@ interface CardTesterProps {
   onFinish?: (passed: boolean) => void;
   /** Called just before `onFinish`: whether each command ended as expected, by command index. */
   onVerdicts?: (good: boolean[]) => void;
+  /** Called just before `onFinish`: what each command did and what the terminal said, for the author to read afterwards. */
+  onReport?: (rows: TestRow[]) => void;
   /** The label of what each command starts (a card, an exercise), by command index, for a test of several parts in sequence. */
   sections?: Record<number, string>;
   /** Inside the panel of the test of the module: no title, help or buttons, and a smaller terminal. */
@@ -89,7 +115,17 @@ interface CardTesterProps {
  * fails is a conflict and is reported with what the terminal said. It shows whether each command ended as
  * expected and, when one fails, what the terminal said. It works on a throwaway machine: nothing is saved.
  */
-export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVerdicts, sections, compact = false }: CardTesterProps) {
+export function CardTester({
+  commands,
+  loadBase,
+  layers,
+  onClose,
+  onFinish,
+  onVerdicts,
+  onReport,
+  sections,
+  compact = false,
+}: CardTesterProps) {
   const [base, setBase] = useState<{ machine: unknown } | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -97,14 +133,16 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
   const [env, setEnv] = useState<EnvState>("pending");
   const [conflicts, setConflicts] = useState<StepResult[]>([]);
   const [envProgress, setEnvProgress] = useState(0);
-  const [results, setResults] = useState<Result[]>(() => commands.map(() => ({ state: "pending" })));
+  const [results, setResults] = useState<Result[]>(() =>
+    commands.map(() => ({ state: "pending" })),
+  );
   const [finished, setFinished] = useState(false);
   const stop = useRef(false);
   const list = useRef<HTMLOListElement>(null);
   const alive = useRef(true);
-  const latest = useRef({ commands, layers, onFinish, onVerdicts });
+  const latest = useRef({ commands, layers, sections, onFinish, onVerdicts, onReport });
   useEffect(() => {
-    latest.current = { commands, layers, onFinish, onVerdicts };
+    latest.current = { commands, layers, sections, onFinish, onVerdicts, onReport };
   });
 
   useEffect(() => {
@@ -131,11 +169,16 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
     const { commands: steps, layers: toRun } = latest.current;
     let passed = true;
     const good = steps.map(() => false);
+    const rows: TestRow[] = [];
     stop.current = false;
     let current = true;
-    const set = (i: number, result: Result) => current && alive.current && setResults((prev) => prev.map((r, j) => (j === i ? result : r)));
+    const set = (i: number, result: Result) =>
+      current &&
+      alive.current &&
+      setResults((prev) => prev.map((r, j) => (j === i ? result : r)));
     const skipFrom = (from: number, verdict: Verdict) => {
-      for (let j = from; j < steps.length; j++) set(j, { state: "done", verdict });
+      for (let j = from; j < steps.length; j++)
+        set(j, { state: "done", verdict });
     };
 
     void (async () => {
@@ -147,7 +190,8 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
         const results = await runLayers(terminal, toRun, {
           restoreSpeed: 6,
           shouldStop: () => stop.current || !current,
-          onStep: () => current && alive.current && setEnvProgress((n) => n + 1),
+          onStep: () =>
+            current && alive.current && setEnvProgress((n) => n + 1),
         });
         const bad = results.filter(isConflict);
         if (current && alive.current) {
@@ -173,14 +217,23 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
           if (current && alive.current) setFinished(true);
           return;
         }
+        const row = (verdict: Verdict, output = ""): TestRow => ({
+          command: step.command,
+          section: latest.current.sections?.[i],
+          ok: isGood(verdict),
+          text: verdictText(verdict),
+          output,
+        });
         if (step.untestable) {
           // An exercise that cannot be tested fails the test: it is not run, and it is not left out.
           set(i, { state: "done", verdict: { kind: "untestable" } });
+          rows[i] = row({ kind: "untestable" });
           passed = false;
           continue;
         }
         if (step.command.trim() === "") {
           set(i, { state: "done", verdict: { kind: "empty" } });
+          rows[i] = row({ kind: "empty" });
           passed = false;
           continue;
         }
@@ -194,23 +247,37 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
           // How the exercise ended is what matters: the conditions of finalization on this machine.
           const result = checkConditions(step.check, terminal.snapshot());
           status = result.done ? 0 : 1;
-          output = result.missing.map((c) => `- ${describeCondition(c)}`).join("\n");
+          output = result.missing
+            .map((c) => `- ${describeCondition(c)}`)
+            .join("\n");
         } else {
           ({ status, output } = await terminal.execute({
             command: step.command.trim(),
             terminal: step.terminal,
-            login: step.login && step.login.user.trim() ? { user: step.login.user.trim(), password: step.login.password } : undefined,
+            login:
+              step.login && step.login.user.trim()
+                ? {
+                    user: step.login.user.trim(),
+                    password: step.login.password,
+                  }
+                : undefined,
             answers: step.answers.filter((a) => a.trim() !== ""),
           }));
         }
-        const verdict: Verdict = step.check ? (status === 0 ? { kind: "finished" } : { kind: "notFinished" }) : judge(status, step.expectError);
+        const verdict: Verdict = step.check
+          ? status === 0
+            ? { kind: "finished" }
+            : { kind: "notFinished" }
+          : judge(status, step.expectError);
         passed = passed && isGood(verdict);
         good[i] = isGood(verdict);
+        rows[i] = row(verdict, output);
         set(i, { state: "done", verdict, output });
       }
       if (current && alive.current) {
         setFinished(true);
         latest.current.onVerdicts?.(good);
+        latest.current.onReport?.(rows);
         latest.current.onFinish?.(passed);
       }
     })();
@@ -224,7 +291,9 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
     const rows = list.current?.querySelectorAll<HTMLElement>("[data-state]");
     if (!rows) return;
     const running = [...rows].find((row) => row.dataset.state === "running");
-    const lastDone = [...rows].reverse().find((row) => row.dataset.state === "done");
+    const lastDone = [...rows]
+      .reverse()
+      .find((row) => row.dataset.state === "done");
     (running ?? lastDone)?.scrollIntoView?.({ block: "nearest" });
   }, [results, env]);
 
@@ -238,34 +307,56 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
     setAttempt((n) => n + 1);
   };
 
-  const done = results.filter((r): r is Extract<Result, { state: "done" }> => r.state === "done");
+  const done = results.filter(
+    (r): r is Extract<Result, { state: "done" }> => r.state === "done",
+  );
   const good = done.filter((r) => isGood(r.verdict)).length;
   const hasEnv = layers.length > 0;
-  const envText = env === "pending" ? m.pending : env === "running" ? m.progress(envProgress, stepCount(layers)) : env === "ok" ? m.environmentOk : m.environmentFailed(conflicts.length);
+  const envText =
+    env === "pending"
+      ? m.pending
+      : env === "running"
+        ? m.progress(envProgress, stepCount(layers))
+        : env === "ok"
+          ? m.environmentOk
+          : m.environmentFailed(conflicts.length);
 
   return (
-    <div className={`${styles.tester} ${compact ? styles.compactTester : ""}`} role="region" aria-label={m.title}>
+    <div
+      className={`${styles.tester} ${compact ? styles.compactTester : ""}`}
+      role="region"
+      aria-label={m.title}
+    >
       {!compact && (
         <>
-        <div className={styles.groupHead}>
-          <h3 className={styles.groupTitle}>{m.title}</h3>
-          <div className={styles.rowButtons}>
-            {!finished && (
-              <button type="button" className={styles.secondary} onClick={() => (stop.current = true)} disabled={!terminal}>
-                {m.stop}
+          <div className={styles.groupHead}>
+            <h3 className={styles.groupTitle}>{m.title}</h3>
+            <div className={styles.rowButtons}>
+              {!finished && (
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  onClick={() => (stop.current = true)}
+                  disabled={!terminal}
+                >
+                  {m.stop}
+                </button>
+              )}
+              {finished && (
+                <button type="button" className={styles.add} onClick={again}>
+                  {m.again}
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.secondary}
+                onClick={onClose}
+              >
+                {m.close}
               </button>
-            )}
-            {finished && (
-              <button type="button" className={styles.add} onClick={again}>
-                {m.again}
-              </button>
-            )}
-            <button type="button" className={styles.secondary} onClick={onClose}>
-              {m.close}
-            </button>
+            </div>
           </div>
-        </div>
-        <p className={styles.hint}>{m.help}</p>
+          <p className={styles.hint}>{m.help}</p>
         </>
       )}
 
@@ -279,7 +370,12 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
           {!base && !failed && <p className={styles.hint}>{m.loading}</p>}
           {base && (
             <div className={styles.terminalBox}>
-              <TerminalPane key={attempt} snapshot={base.machine} onReady={setTerminal} onCommand={() => {}} />
+              <TerminalPane
+                key={attempt}
+                snapshot={base.machine}
+                onReady={setTerminal}
+                onCommand={() => {}}
+              />
             </div>
           )}
         </div>
@@ -287,15 +383,26 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
         <div className={styles.recorderSide}>
           <ol className={styles.results} ref={list}>
             {hasEnv && (
-              <li className={`${styles.result} ${env === "failed" ? styles.resultBad : env === "ok" ? styles.resultGood : ""}`} aria-label={m.environmentStep}>
+              <li
+                className={`${styles.result} ${env === "failed" ? styles.resultBad : env === "ok" ? styles.resultGood : ""}`}
+                aria-label={m.environmentStep}
+              >
                 <code>{m.environmentStep}</code>
                 <span className={styles.resultText}>{envText}</span>
                 {conflicts.map((c) => (
                   <div key={`${c.layer.id}-${c.index}`} role="alert">
-                    <span className={styles.outputLabel}>{m.conflict(c.layer.label, c.step.command, c.layer.kind === "module")}</span>
+                    <span className={styles.outputLabel}>
+                      {m.conflict(
+                        c.layer.label,
+                        c.step.command,
+                        c.layer.kind === "module",
+                      )}
+                    </span>
                     {c.output && (
                       <>
-                        <span className={styles.outputLabel}>{m.terminalSaid}</span>
+                        <span className={styles.outputLabel}>
+                          {m.terminalSaid}
+                        </span>
                         <pre className={styles.output}>{c.output}</pre>
                       </>
                     )}
@@ -307,23 +414,57 @@ export function CardTester({ commands, loadBase, layers, onClose, onFinish, onVe
               const r = results[i] ?? { state: "pending" as const };
               const bad = r.state === "done" && !isGood(r.verdict);
               return (
-                <li key={c.id} data-state={r.state} data-section={sections?.[i]} className={`${styles.result} ${bad ? styles.resultBad : ""} ${r.state === "done" && !bad ? styles.resultGood : ""}`} aria-label={m.item(i + 1, c.command)}>
-                  {sections?.[i] && <span className={styles.outputLabel}>{sections[i]}</span>}
+                <li
+                  key={c.id}
+                  data-state={r.state}
+                  data-section={sections?.[i]}
+                  className={`${styles.result} ${bad ? styles.resultBad : ""} ${r.state === "done" && !bad ? styles.resultGood : ""}`}
+                  aria-label={m.item(i + 1, c.command)}
+                >
+                  {sections?.[i] && (
+                    <span className={styles.outputLabel}>{sections[i]}</span>
+                  )}
                   <code>{c.command || "—"}</code>
-                  <span className={styles.resultText}>{r.state === "pending" ? m.pending : r.state === "running" ? m.running : verdictText(r.verdict)}</span>
+                  <span className={styles.resultText}>
+                    {r.state === "pending"
+                      ? m.pending
+                      : r.state === "running"
+                        ? m.running
+                        : verdictText(r.verdict)}
+                  </span>
                   {bad && r.output && (
                     <>
-                      <span className={styles.outputLabel}>{c.check ? m.missing : m.terminalSaid}</span>
+                      <span className={styles.outputLabel}>
+                        {c.check ? m.missing : m.terminalSaid}
+                      </span>
                       <pre className={styles.output}>{r.output}</pre>
                     </>
                   )}
+                  {/* What the command printed when it passed, for the author who is looking for a problem. */}
+                  {r.state === "done" &&
+                    !bad &&
+                    (r.output ?? "").trim() !== "" && (
+                      <details className={styles.passedOutput}>
+                        <summary>{m.seeOutput}</summary>
+                        <pre className={styles.output}>{r.output}</pre>
+                      </details>
+                    )}
                 </li>
               );
             })}
           </ol>
           {finished && !compact && (
-            <p className={env !== "failed" && done.length > 0 && good === commands.length ? styles.saved : styles.error} role="status">
-              {env === "failed" ? m.envFailedSummary : `${m.summary(good, commands.length)}. ${good === commands.length ? m.allGood : m.someBad}`}
+            <p
+              className={
+                env !== "failed" && done.length > 0 && good === commands.length
+                  ? styles.saved
+                  : styles.error
+              }
+              role="status"
+            >
+              {env === "failed"
+                ? m.envFailedSummary
+                : `${m.summary(good, commands.length)}. ${good === commands.length ? m.allGood : m.someBad}`}
             </p>
           )}
         </div>

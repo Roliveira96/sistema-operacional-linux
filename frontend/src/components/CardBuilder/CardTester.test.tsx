@@ -100,8 +100,11 @@ describe("CardTester", () => {
     await summary();
     expect(within(row(2, "cat /nao-existe")).getByText("O terminal disse:")).toBeDefined();
     expect(within(row(2, "cat /nao-existe")).getByText("cat: /nao-existe: No such file or directory")).toBeDefined();
-    // What went as expected needs no explanation.
-    expect(within(row(1, "touch /a")).queryByText("criado")).toBeNull();
+    // What went as expected is not shown by default, but it is there to be read, folded away, for whoever is debugging.
+    expect(within(row(1, "touch /a")).queryByText("O terminal disse:")).toBeNull();
+    const folded = within(row(1, "touch /a")).getByText("Ver o que o terminal mostrou").closest("details")!;
+    expect(folded.open).toBe(false);
+    expect(folded).toHaveTextContent("criado");
     expect(within(row(3, "false")).queryByText("O terminal disse:")).toBeNull();
   });
 

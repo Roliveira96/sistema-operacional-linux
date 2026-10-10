@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CardTester } from "@/components/CardBuilder/CardTester";
+import { CardTester, type TestRow } from "@/components/CardBuilder/CardTester";
 import {
   groupCards,
   parseCard,
@@ -124,6 +124,8 @@ export function TestAll({
   const [forward, setForward] = useState<boolean[] | null>(null);
   const [backward, setBackward] = useState<boolean[] | null>(null);
   const [picked, setPicked] = useState<Phase | null>(null);
+  /** What each activity ran in the unit test and what the terminal said, by card key, to read after the test. */
+  const [traces, setTraces] = useState<Record<string, TestRow[]>>({});
 
   useEffect(() => {
     let active = true;
@@ -471,27 +473,73 @@ export function TestAll({
             <ul className={styles.activities}>
               {items.map((item, i) => (
                 <li key={item.group.key} className={styles.activity}>
-                  <Icon
-                    mark={
-                      results[i] === undefined
+                  <div className={styles.activityRow}>
+                    <Icon
+                      mark={
+                        results[i] === undefined
+                          ? i === at
+                            ? "running"
+                            : "idle"
+                          : results[i]
+                            ? "good"
+                            : "bad"
+                      }
+                    />
+                    <span className={styles.activityName}>{item.title}</span>
+                    <span className={styles.activityState}>
+                      {results[i] === undefined
                         ? i === at
-                          ? "running"
-                          : "idle"
+                          ? m.running
+                          : m.waiting
                         : results[i]
-                          ? "good"
-                          : "bad"
-                    }
-                  />
-                  <span className={styles.activityName}>{item.title}</span>
-                  <span className={styles.activityState}>
-                    {results[i] === undefined
-                      ? i === at
-                        ? m.running
-                        : m.waiting
-                      : results[i]
-                        ? m.passed
-                        : m.failed}
-                  </span>
+                          ? m.passed
+                          : m.failed}
+                    </span>
+                  </div>
+                  {traces[item.group.key] && results[i] !== undefined && (
+                    <details className={styles.trace}>
+                      <summary>
+                        {m.traceTitle} ·{" "}
+                        {m.traceCount(
+                          traces[item.group.key]!.filter((r) => r.ok).length,
+                          traces[item.group.key]!.length,
+                        )}
+                      </summary>
+                      {traces[item.group.key]!.length === 0 ? (
+                        <p className={styles.detailHelp}>{m.traceEmpty}</p>
+                      ) : (
+                        <ol className={styles.traceList}>
+                          {traces[item.group.key]!.map((row, n) => (
+                            <li
+                              key={n}
+                              className={`${styles.traceRow} ${row.ok ? styles.traceOk : styles.traceBad}`}
+                            >
+                              {row.section && (
+                                <span className={styles.traceSection}>
+                                  {row.section}
+                                </span>
+                              )}
+                              <span className={styles.traceLine}>
+                                <span aria-hidden="true">
+                                  {row.ok ? "✓" : "✗"}
+                                </span>
+                                <code>{row.command}</code>
+                                <span className={styles.traceText}>
+                                  {row.text}
+                                </span>
+                              </span>
+                              {row.output.trim() !== "" && (
+                                <details className={styles.traceOutput}>
+                                  <summary>{tester.seeOutput}</summary>
+                                  <pre>{row.output}</pre>
+                                </details>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>
@@ -504,6 +552,9 @@ export function TestAll({
                 loadBase={loadBase}
                 layers={current.layers}
                 onClose={onClose}
+                onReport={(rows) =>
+                  setTraces((prev) => ({ ...prev, [current.group.key]: rows }))
+                }
                 onVerdicts={(good) => {
                   const bad = good.findIndex((ok) => !ok);
                   if (bad >= 0)

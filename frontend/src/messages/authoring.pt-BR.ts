@@ -72,6 +72,9 @@ export const authoringMessages = {
       unitsResult: (passed: number, total: number) => `${passed} de ${total} ${total === 1 ? "atividade passou" : "atividades passaram"}`,
       sequenceResult: (good: number, total: number) => `${good} de ${total} ${total === 1 ? "comando" : "comandos"} como esperado`,
       totalsLabel: "Total de testes",
+      traceTitle: "Comandos que rodaram",
+      traceEmpty: "Nenhum comando rodou nesta atividade.",
+      traceCount: (passed: number, total: number) => `${passed} de ${total} ${total === 1 ? "comando" : "comandos"} como esperado`,
       coverageLabel: "Cobertura do teste",
       coverage: (tested: number, total: number, inactive: number, empty: number) =>
         `${tested} de ${total} ${total === 1 ? "card tem" : "cards têm"} o que testar e ${tested === 1 ? "foi testado" : "foram testados"}` +
@@ -393,6 +396,7 @@ export const authoringMessages = {
       conflict: (label: string, command: string, isModule: boolean) => `${isModule ? "Snapshot do módulo" : `Snapshot do card "${label}"`}: o comando "${command}" deu erro.`,
       envFailedSummary: "Os snapshots deram conflito, então nenhum comando rodou. Corrija o snapshot indicado e teste outra vez.",
       terminalSaid: "O terminal disse:",
+      seeOutput: "Ver o que o terminal mostrou",
       stopped: "Parado antes de rodar",
       empty: "Comando vazio",
       summary: (good: number, total: number) => `${good} de ${total} ${total === 1 ? "comando" : "comandos"} como esperado`,

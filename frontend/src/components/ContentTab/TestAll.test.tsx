@@ -90,6 +90,15 @@ describe("TestAll", () => {
     );
   });
 
+  it("keeps what each activity ran after the test, so the author can read it to debug", async () => {
+    render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
+    expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toBeDefined();
+    const trace = screen.getAllByText(/Comandos que rodaram · 1 de 1 comando como esperado/);
+    expect(trace.length).toBeGreaterThan(0);
+    const list = trace[0]!.closest("details")!;
+    expect(list).toHaveTextContent("a-cmd");
+  }, 40000);
+
   it("shows how many tests were done: the activities alone, the commands in sequence and the commands in reverse order", async () => {
     render(<TestAll moduleId="mod-1" service={service()} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
     expect(await screen.findByText(DONE, {}, { timeout: 30000 })).toHaveTextContent("Módulo aprovado");

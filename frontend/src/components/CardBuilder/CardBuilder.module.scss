@@ -947,3 +947,12 @@ textarea.input {
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
 }
+
+// What a command printed when it passed, folded away until the author wants to read it.
+.passedOutput {
+  summary {
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+  }
+}
