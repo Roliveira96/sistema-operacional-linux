@@ -328,6 +328,6 @@ Nenhuma em aberto. O Tech Lead aprovou em 09/10/2026 as recomendações de P-01 
 
 - Cada bloco guarda `created_by` e `updated_by` (professor, nulo para o que veio da carga inicial). Migração 00015.
 - Salvar o card (`PUT /teacher/modules/{id}/cards`) grava o professor logado: no bloco novo, como criador e último a alterar; no bloco alterado, só como último a alterar.
-- O blocos devolvidos ao autor trazem `createdAt`, `createdBy` e `updatedBy` (nome do usuário, ou o e-mail na falta dele).
+- Os blocos devolvidos ao autor trazem `createdAt`, `createdBy` e `updatedBy` (nome do usuário, ou o e-mail na falta dele).
 - A lista de conteúdo mostra, em cada card, "Criado em … por …" e, se mudou depois, "Atualizado em … por …" (a criação vem do bloco mais antigo; a atualização, do mais recente).
 - Fora do escopo: o endpoint antigo de alterar um bloco isolado não grava o autor da alteração.
