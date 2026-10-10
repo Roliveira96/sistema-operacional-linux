@@ -28,6 +28,22 @@ func (ModuleVersion) TableName() string { return "module_versions" }
 type VersionContent struct {
 	Blocks []VersionBlock  `json:"blocks"`
 	Setup  json.RawMessage `json:"setup"`
+	// The snapshots of the two sets of exercises of the module (SPEC-023 D-07); absent in versions made before them.
+	ExercisesSetup  json.RawMessage `json:"exercisesSetup,omitempty"`
+	AssessmentSetup json.RawMessage `json:"assessmentSetup,omitempty"`
+}
+
+// ExercisesSetupOrNil is the snapshot of the available exercises stored in the version, or nil when it had none.
+func (c VersionContent) ExercisesSetupOrNil() json.RawMessage { return nilIfNull(c.ExercisesSetup) }
+
+// AssessmentSetupOrNil is the snapshot of the assessment exercises stored in the version, or nil when it had none.
+func (c VersionContent) AssessmentSetupOrNil() json.RawMessage { return nilIfNull(c.AssessmentSetup) }
+
+func nilIfNull(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	return raw
 }
 
 // VersionBlock is one block of a version; Active is false for a block the author inactivated.
@@ -52,9 +68,4 @@ func (c VersionContent) ContentBlocks(moduleID uuid.UUID, activeOnly bool) []Con
 }
 
 // SetupOrNil is the snapshot of the module stored in the version, or nil when it had none.
-func (c VersionContent) SetupOrNil() json.RawMessage {
-	if len(c.Setup) == 0 || string(c.Setup) == "null" {
-		return nil
-	}
-	return c.Setup
-}
+func (c VersionContent) SetupOrNil() json.RawMessage { return nilIfNull(c.Setup) }

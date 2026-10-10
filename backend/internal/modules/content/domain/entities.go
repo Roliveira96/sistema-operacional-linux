@@ -112,10 +112,20 @@ type Question struct {
 	Choices              json.RawMessage `gorm:"type:jsonb"`
 	AnswerKey            json.RawMessage `gorm:"type:jsonb"`
 	Tags                 json.RawMessage `gorm:"type:jsonb"`
-	EditedByTeacherAt    *time.Time
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	DeletedAt            gorm.DeletedAt
+	// Hints and EndConditions belong to the exercises of the module (SPEC-023): the tips the student asks for, and how
+	// the exercise ends in the form the teacher edits. EndConditions is nil for what came from the initial load.
+	Hints         json.RawMessage `gorm:"type:jsonb"`
+	EndConditions json.RawMessage `gorm:"type:jsonb"`
+	// CreatedBy and UpdatedBy are the teachers who created and last changed it (nil for the initial load).
+	CreatedBy *uuid.UUID `gorm:"type:uuid"`
+	UpdatedBy *uuid.UUID `gorm:"type:uuid"`
+	// The names behind them, read with the question and never written.
+	CreatedByName     string `gorm:"->"`
+	UpdatedByName     string `gorm:"->"`
+	EditedByTeacherAt *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         gorm.DeletedAt
 }
 
 // TableName pins the table name.

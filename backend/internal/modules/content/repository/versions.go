@@ -14,12 +14,16 @@ import (
 
 // draftSQL builds the content of the draft: the blocks in order and the snapshot of the module.
 // It is the same expression the migration 00013 uses for the first versions.
-const draftSQL = `SELECT jsonb_build_object(
+const draftSQL = `SELECT (jsonb_build_object(
     'blocks', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', b.id, 'type', b.block_type, 'position', b.position,
                                                             'payload', b.payload, 'active', b.inactive_at IS NULL)
                                          ORDER BY b.position)
                         FROM content_blocks b WHERE b.module_id = m.id), '[]'::jsonb),
-    'setup', m.setup)::text AS content
+    'setup', m.setup)
+    -- The snapshots of the exercises only enter when they exist, so a module that has none keeps the hash it had.
+    || CASE WHEN m.exercises_setup IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('exercisesSetup', m.exercises_setup) END
+    || CASE WHEN m.assessment_setup IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('assessmentSetup', m.assessment_setup) END
+    )::text AS content
 FROM course_modules m WHERE m.id = ?`
 
 // draft returns the content of the draft as jsonb text, and its hash.
@@ -155,6 +159,14 @@ func (r *Repository) RestoreVersion(ctx context.Context, moduleID uuid.UUID, num
 		if s := content.SetupOrNil(); s != nil {
 			setup = string(s)
 		}
-		return conn.Exec("UPDATE course_modules SET setup = ?::jsonb WHERE id = ?", setup, moduleID).Error
+		var exercisesSetup, assessmentSetup any
+		if s := content.ExercisesSetupOrNil(); s != nil {
+			exercisesSetup = string(s)
+		}
+		if s := content.AssessmentSetupOrNil(); s != nil {
+			assessmentSetup = string(s)
+		}
+		return conn.Exec("UPDATE course_modules SET setup = ?::jsonb, exercises_setup = ?::jsonb, assessment_setup = ?::jsonb WHERE id = ?",
+			setup, exercisesSetup, assessmentSetup, moduleID).Error
 	})
 }
