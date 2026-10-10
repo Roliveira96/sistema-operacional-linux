@@ -5,7 +5,7 @@
 | **ID** | SPEC-023 |
 | **Status** | Rascunho |
 | **Data de criação** | 10/10/2026 |
-| **Última revisão** | 10/10/2026 (revisão 2: banco central e snapshot único, aguardando aprovação) |
+| **Última revisão** | 10/10/2026 (revisões 2 e 3: banco central, snapshot único e teste do banco, aguardando aprovação) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -233,6 +233,55 @@ Pedido do Tech Lead de 10/10/2026. **Esta revisão substitui, onde conflitar, os
 
 ---
 
+## 12. Revisão 3: Testar Banco de Exercícios e dependências entre exercícios
+
+Pedido do Tech Lead de 10/10/2026, sobre a revisão 2 (banco central e snapshot único). Também só vale depois da aprovação.
+
+### 12.1. O botão e o preparo
+
+- A aba Exercícios ganha o botão **"Testar Banco de Exercícios"**. Ele roda uma esteira de validação sobre o banco todo (os exercícios publicados, com qualquer vínculo) e mostra o progresso e, no fim, o relatório.
+- Antes de qualquer bateria, o ambiente é consolidado: carrega e executa o **snapshot do módulo** e, depois, o **snapshot do banco** (11.2). Só quando os dois terminam sem conflito as baterias começam; um conflito aqui encerra o teste com o motivo.
+
+### 12.2. As três baterias
+
+| Fase | Como roda | Para que serve |
+| :--- | :--- | :--- |
+| 1. Ordem linear | Os exercícios em sequência, do primeiro ao último, na mesma máquina, como a trilha | Confirma que o fluxo planejado roda sem falhas |
+| 2. Ordem reversa | Do último ao primeiro | Revela dependências de estado que um exercício herdou de outro sem avisar |
+| 3. Rodadas sorteadas | Sorteios de exercícios, cada rodada numa máquina nova, para simular uma prova sorteada | Mostra como o banco se comporta numa prova |
+
+- **Amostragem das rodadas:** com mais de 10 exercícios, 5 rodadas; com até 10, o número de rodadas cai proporcionalmente, para não repetir sorteios (ver P-12). A semente do sorteio aparece no relatório, para repetir a rodada.
+
+### 12.3. Dependências entre exercícios (substitui RN-11)
+
+- A docente registra explicitamente que o exercício B **depende** do exercício A (ver P-13). Isso generaliza o "continua do anterior": o antecessor deixa de ser sempre o anterior da trilha. A máquina de B parte do snapshot do módulo, do snapshot do banco e da receita da cadeia (a solução de A, e a dos antecessores de A), na ordem.
+- **Detecção:** quando um exercício falha na ordem reversa ou numa rodada sorteada, o sistema procura quem o resolve: refaz o exercício em máquina nova, depois da solução de cada outro exercício, e o primeiro que o faz passar é o suspeito. O relatório avisa: "O exercício [X] possui dependência do exercício [Y]", com o botão **Confirmar vínculo** (o sistema sugere, a docente decide; ver P-14).
+- **Sorteio seguro:** um exercício que tem antecessor nunca é sorteado sozinho: o sorteio traz o antecessor (e os dele) na ordem certa e avisa que puxou o bloco encadeado (ver P-15). Vale para as rodadas do teste e para a prova sorteada.
+
+### 12.4. Relatório final
+
+Um sumário (modal) com: o estado geral (sucesso ou falhas); a lista dos exercícios que conflitam ou não se resolvem isolados; e a lista ou grafo das dependências, as confirmadas e as sugeridas, cada uma com o botão de confirmar ou descartar.
+
+### 12.5. Critérios de aceite da revisão 3
+
+- [ ] **CA-12** (evento): QUANDO a docente aciona "Testar Banco de Exercícios", O SISTEMA DEVE montar o snapshot do módulo e o do banco e, só então, rodar as três baterias.
+- [ ] **CA-13** (evento): QUANDO o banco tem mais de 10 exercícios, O SISTEMA DEVE fazer 5 rodadas sorteadas, e com até 10, um número proporcionalmente menor (P-12).
+- [ ] **CA-14** (indesejado): SE um exercício falha na ordem reversa ou sorteada e passa depois da solução de outro, ENTÃO O SISTEMA DEVE avisar que ele depende desse outro, e deixar a docente confirmar o vínculo.
+- [ ] **CA-15** (estado): ENQUANTO um exercício tem antecessor, O SISTEMA NÃO DEVE sorteá-lo sem o antecessor: DEVE puxar a cadeia na ordem e avisar.
+- [ ] **CA-16** (evento): QUANDO o teste termina, O SISTEMA DEVE mostrar o relatório com o estado geral, os conflitos e as dependências.
+
+### 12.6. Pendências da revisão 3
+
+| ID | Pendência | Recomendação |
+| :--- | :--- | :--- |
+| P-12 | Como "reduzir proporcionalmente" para bancos de até 10 exercícios, e quantos exercícios tem cada rodada | Cada rodada sorteia metade do banco (arredondada para cima); as rodadas são `max(1, metade do número de exercícios)`, no máximo 5 |
+| P-13 | Um exercício depende de **um** antecessor, ou de vários | Um só antecessor (forma uma cadeia, que cobre os exemplos); vários antecessores ficam para uma spec futura. A coluna `continues_previous` é trocada por `depends_on` (o exercício de que depende), com a migração dos que já continuam do anterior |
+| P-14 | Quem grava a dependência encontrada | O sistema só sugere; a docente confirma (ou descarta) no relatório |
+| P-15 | Sorteio de exercício com antecessor | Puxar a cadeia na ordem e avisar (e não bloquear) |
+| P-16 | Onde a esteira roda | No navegador da docente, com o mesmo motor dos outros testes; a semente do sorteio vai no relatório |
+
+---
+
 ## Histórico de revisões
 
 | Data | Autor | Alteração |
@@ -242,3 +291,4 @@ Pedido do Tech Lead de 10/10/2026. **Esta revisão substitui, onde conflitar, os
 | 10/10/2026 | Implementador (Claude) | Implementada: migração 00016, banco de exercícios no backend (serviço, repositório, rotas, trilha, snapshots, autoria, versões), aba Exercícios do módulo e página do exercício, teste do módulo com o banco, entrega ao estudante com o cenário em camadas. Ajustes A-01 a A-08 |
 | 10/10/2026 | Tech Lead | Pedido: exercícios em sequência (criar a pasta, depois o script dentro dela, depois rodar o script), como descrito no TCC (herança de cenários). Incluídos RN-11, CA-11, a coluna `continues_previous` e o ajuste A-09 |
 | 10/10/2026 | Tech Lead | Pedido de revisão 2: banco central de exercícios com blocos de vinculação (adicionar do banco, remover do bloco, criar já vinculando, exclusivo da avaliação) e snapshot único da base de exercícios. Spec volta a Rascunho com as pendências P-08 a P-11 |
+| 10/10/2026 | Tech Lead | Pedido de revisão 3: "Testar Banco de Exercícios" (preparo por snapshots, ordem linear, reversa e sorteada), dependências explícitas entre exercícios e sorteio seguro. Pendências P-12 a P-16 |
