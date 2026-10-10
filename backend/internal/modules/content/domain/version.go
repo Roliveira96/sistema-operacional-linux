@@ -28,16 +28,22 @@ func (ModuleVersion) TableName() string { return "module_versions" }
 type VersionContent struct {
 	Blocks []VersionBlock  `json:"blocks"`
 	Setup  json.RawMessage `json:"setup"`
-	// The snapshots of the two sets of exercises of the module (SPEC-023 D-07); absent in versions made before them.
+	// The snapshot of the bank of exercises of the module (SPEC-023 D-07, D-14). The two snapshots of the first form of the bank
+	// are still read, the one of the practice first, from the versions made before the single one.
+	BankSetup       json.RawMessage `json:"bankSetup,omitempty"`
 	ExercisesSetup  json.RawMessage `json:"exercisesSetup,omitempty"`
 	AssessmentSetup json.RawMessage `json:"assessmentSetup,omitempty"`
 }
 
-// ExercisesSetupOrNil is the snapshot of the available exercises stored in the version, or nil when it had none.
-func (c VersionContent) ExercisesSetupOrNil() json.RawMessage { return nilIfNull(c.ExercisesSetup) }
-
-// AssessmentSetupOrNil is the snapshot of the assessment exercises stored in the version, or nil when it had none.
-func (c VersionContent) AssessmentSetupOrNil() json.RawMessage { return nilIfNull(c.AssessmentSetup) }
+// BankSetupOrNil is the snapshot of the bank stored in the version, or nil when it had none.
+func (c VersionContent) BankSetupOrNil() json.RawMessage {
+	for _, raw := range []json.RawMessage{c.BankSetup, c.ExercisesSetup, c.AssessmentSetup} {
+		if s := nilIfNull(raw); s != nil {
+			return s
+		}
+	}
+	return nil
+}
 
 func nilIfNull(raw json.RawMessage) json.RawMessage {
 	if len(raw) == 0 || string(raw) == "null" {

@@ -51,15 +51,6 @@ func TestNormalizeExercise(t *testing.T) {
 		assert.Equal(t, CondDirectoryExists, out.Catalog[0].Type)
 	})
 
-	t.Run("passes on that the exercise continues from the previous one (RN-11)", func(t *testing.T) {
-		out, err := NormalizeExercise(input(func(in *ExerciseInput) { in.ContinuesPrevious = true }), s)
-		require.NoError(t, err)
-		assert.True(t, out.ContinuesPrevious)
-		out, err = NormalizeExercise(input(nil), s)
-		require.NoError(t, err)
-		assert.False(t, out.ContinuesPrevious)
-	})
-
 	t.Run("accepts an exercise with nothing but a title and a level, as a draft", func(t *testing.T) {
 		out, err := NormalizeExercise(ExerciseInput{Title: "Rascunho", Difficulty: "HARD"}, s)
 		require.NoError(t, err)

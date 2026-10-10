@@ -116,8 +116,11 @@ type Question struct {
 	// the exercise ends in the form the teacher edits. EndConditions is nil for what came from the initial load.
 	Hints         json.RawMessage `gorm:"type:jsonb"`
 	EndConditions json.RawMessage `gorm:"type:jsonb"`
-	// ContinuesPrevious: the exercise starts from where the previous one of the trail ended (SPEC-023 RN-11).
-	ContinuesPrevious bool
+	// InAssessment links the exercise to the assessment, and ExclusiveAssessment keeps it out of the practice; being in the
+	// practice is having the usage EXERCISE (SPEC-023 11.1). DependsOn is the exercise whose recipe is built before this one (D-16).
+	InAssessment        bool
+	ExclusiveAssessment bool
+	DependsOn           *uuid.UUID `gorm:"type:uuid"`
 	// CreatedBy and UpdatedBy are the teachers who created and last changed it (nil for the initial load).
 	CreatedBy *uuid.UUID `gorm:"type:uuid"`
 	UpdatedBy *uuid.UUID `gorm:"type:uuid"`

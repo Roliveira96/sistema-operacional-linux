@@ -21,12 +21,12 @@ import (
 type ExerciseBanking interface {
 	List(ctx context.Context, who service.Actor, moduleID uuid.UUID) (service.ExerciseBank, error)
 	Get(ctx context.Context, who service.Actor, moduleID, id uuid.UUID) (service.ExerciseRecord, error)
-	Create(ctx context.Context, who service.Actor, moduleID uuid.UUID, in domain.ExerciseInput) (service.ExerciseRecord, error)
-	Update(ctx context.Context, who service.Actor, moduleID, id uuid.UUID, in domain.ExerciseInput, expected time.Time, force bool) (service.ExerciseRecord, error)
-	SetAvailability(ctx context.Context, who service.Actor, moduleID, id uuid.UUID, usage, status string) (service.ExerciseRecord, error)
+	Create(ctx context.Context, who service.Actor, moduleID uuid.UUID, in domain.ExerciseInput, dependsOn *uuid.UUID, links service.ExerciseLinks) (service.ExerciseRecord, error)
+	Update(ctx context.Context, who service.Actor, moduleID, id uuid.UUID, in domain.ExerciseInput, dependsOn *uuid.UUID, expected time.Time, force bool) (service.ExerciseRecord, error)
+	SetLinks(ctx context.Context, who service.Actor, moduleID, id uuid.UUID, links service.ExerciseLinks, status string) (service.ExerciseRecord, error)
 	Delete(ctx context.Context, who service.Actor, moduleID, id uuid.UUID) error
 	Reorder(ctx context.Context, who service.Actor, moduleID uuid.UUID, items []service.OrderItem) error
-	SetSetups(ctx context.Context, who service.Actor, moduleID uuid.UUID, exercises, assessment json.RawMessage) (json.RawMessage, json.RawMessage, error)
+	SetBankSetup(ctx context.Context, who service.Actor, moduleID uuid.UUID, setup json.RawMessage) (json.RawMessage, error)
 }
 
 // ExerciseHandler serves the routes of the exercises of the module.
@@ -50,9 +50,9 @@ func (h *ExerciseHandler) Register(r gin.IRouter) {
 	teacher.PUT("/modules/:id/exercises/order", h.bounded(maxAuthoringBody), h.reorder)
 	teacher.GET("/modules/:id/exercises/:exerciseId", h.get)
 	teacher.PUT("/modules/:id/exercises/:exerciseId", h.bounded(maxSetupBody), h.update)
-	teacher.PUT("/modules/:id/exercises/:exerciseId/availability", h.bounded(maxAuthoringBody), h.availability)
+	teacher.PUT("/modules/:id/exercises/:exerciseId/links", h.bounded(maxAuthoringBody), h.links)
 	teacher.DELETE("/modules/:id/exercises/:exerciseId", h.bounded(maxAuthoringBody), h.remove)
-	teacher.PUT("/modules/:id/exercise-setups", h.bounded(maxSetupBody), h.setups)
+	teacher.PUT("/modules/:id/exercise-setup", h.bounded(maxSetupBody), h.setup)
 }
 
 // bounded bounds the body and the rate of the routes that change exercises.
@@ -81,25 +81,30 @@ type exerciseResponse struct {
 	Hints      json.RawMessage `json:"hints"`
 	Solution   json.RawMessage `json:"solution"`
 	Conditions json.RawMessage `json:"conditions"`
-	// ContinuesPrevious: it starts from where the previous exercise of the trail ended (SPEC-023 RN-11).
-	ContinuesPrevious bool   `json:"continuesPrevious"`
-	Usage             string `json:"usage"`
-	Status     string          `json:"status"`
-	Position   int             `json:"position"`
-	Mandatory  bool            `json:"mandatory"`
-	CreatedAt  time.Time       `json:"createdAt"`
-	UpdatedAt  time.Time       `json:"updatedAt"`
-	CreatedBy  string          `json:"createdBy"`
-	UpdatedBy  string          `json:"updatedBy"`
+	// The links of the exercise (SPEC-023 11.1): in the practice (with a place in the trail), in the assessment, and exclusive to it.
+	Practice   bool `json:"practice"`
+	Assessment bool `json:"assessment"`
+	Exclusive  bool `json:"exclusive"`
+	// DependsOn is the exercise whose recipe is built before this one (D-16).
+	DependsOn *uuid.UUID `json:"dependsOn"`
+	Status    string     `json:"status"`
+	Position  int        `json:"position"`
+	Mandatory bool       `json:"mandatory"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
+	CreatedBy string     `json:"createdBy"`
+	UpdatedBy string     `json:"updatedBy"`
 	// Legacy marks what came from the initial load: it has no solution recorded and no conditions in the form of the editor.
 	Legacy bool `json:"legacy"`
 }
 
 func toExerciseResponse(r service.ExerciseRecord) exerciseResponse {
+	links := r.Links()
 	out := exerciseResponse{
 		ID: r.ID, Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: rawOrEmptyList(r.Hints),
-		Usage: r.Usage, Status: r.Status, Position: r.Position, Mandatory: r.Mandatory, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
-		CreatedBy: r.CreatedByName, UpdatedBy: r.UpdatedByName, Legacy: len(r.EndConditions) == 0, ContinuesPrevious: r.ContinuesPrevious,
+		Practice: links.Practice, Assessment: links.Assessment, Exclusive: links.Exclusive, DependsOn: r.DependsOn,
+		Status: r.Status, Position: r.Position, Mandatory: r.Mandatory, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		CreatedBy: r.CreatedByName, UpdatedBy: r.UpdatedByName, Legacy: len(r.EndConditions) == 0,
 	}
 	out.Conditions = rawOrEmptyList(r.EndConditions)
 	// The solution of what came from the initial load is in another format; it is only the teacher's when they recorded it here.
@@ -116,6 +121,17 @@ func rawOrEmptyList(raw json.RawMessage) json.RawMessage {
 	return raw
 }
 
+// linksBody are the links of an exercise as a request carries them.
+type linksBody struct {
+	Practice   bool `json:"practice"`
+	Assessment bool `json:"assessment"`
+	Exclusive  bool `json:"exclusive"`
+}
+
+func (l linksBody) links() service.ExerciseLinks {
+	return service.ExerciseLinks{Practice: l.Practice, Assessment: l.Assessment, Exclusive: l.Exclusive}
+}
+
 type exerciseRequest struct {
 	Title      string          `json:"title"`
 	Difficulty string          `json:"difficulty"`
@@ -123,14 +139,16 @@ type exerciseRequest struct {
 	Hints      json.RawMessage `json:"hints"`
 	Solution   json.RawMessage `json:"solution"`
 	Conditions json.RawMessage `json:"conditions"`
-	// ContinuesPrevious continues from the previous exercise of the trail (SPEC-023 RN-11).
-	ContinuesPrevious bool       `json:"continuesPrevious"`
-	UpdatedAt  *time.Time      `json:"updatedAt"`
-	Force      bool            `json:"force"`
+	// DependsOn is the exercise this one depends on (SPEC-023 D-16).
+	DependsOn *uuid.UUID `json:"dependsOn"`
+	// Links are where a new exercise comes linked, when it is created from a block of the screen.
+	Links     linksBody  `json:"links"`
+	UpdatedAt *time.Time `json:"updatedAt"`
+	Force     bool       `json:"force"`
 }
 
 func (r exerciseRequest) input() domain.ExerciseInput {
-	return domain.ExerciseInput{Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: r.Hints, Solution: r.Solution, Conditions: r.Conditions, ContinuesPrevious: r.ContinuesPrevious}
+	return domain.ExerciseInput{Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: r.Hints, Solution: r.Solution, Conditions: r.Conditions}
 }
 
 func exerciseID(c *gin.Context) (uuid.UUID, bool) {
@@ -158,7 +176,7 @@ func (h *ExerciseHandler) list(c *gin.Context) {
 	for i, it := range bank.Items {
 		items[i] = toExerciseResponse(it)
 	}
-	c.JSON(http.StatusOK, gin.H{"moduleId": id, "items": items, "exercisesSetup": bank.ExercisesSetup, "assessmentSetup": bank.AssessmentSetup})
+	c.JSON(http.StatusOK, gin.H{"moduleId": id, "items": items, "bankSetup": bank.BankSetup})
 }
 
 // get returns one exercise: GET /teacher/modules/{id}/exercises/{exerciseId}.
@@ -177,7 +195,7 @@ func (h *ExerciseHandler) get(c *gin.Context) {
 	c.JSON(http.StatusOK, toExerciseResponse(rec))
 }
 
-// create stores a new exercise: POST /teacher/modules/{id}/exercises.
+// create stores a new exercise in the bank: POST /teacher/modules/{id}/exercises.
 func (h *ExerciseHandler) create(c *gin.Context) {
 	id, ok := moduleID(c)
 	who, authed := actor(c)
@@ -188,7 +206,7 @@ func (h *ExerciseHandler) create(c *gin.Context) {
 	if !bindBody(c, &req) {
 		return
 	}
-	rec, err := h.bank.Create(c.Request.Context(), who, id, req.input())
+	rec, err := h.bank.Create(c.Request.Context(), who, id, req.input(), req.DependsOn, req.Links.links())
 	if err != nil {
 		exerciseFail(c, err)
 		return
@@ -216,7 +234,7 @@ func (h *ExerciseHandler) update(c *gin.Context) {
 	if req.UpdatedAt != nil {
 		expected = *req.UpdatedAt
 	}
-	rec, err := h.bank.Update(c.Request.Context(), who, id, ex, req.input(), expected, req.Force)
+	rec, err := h.bank.Update(c.Request.Context(), who, id, ex, req.input(), req.DependsOn, expected, req.Force)
 	if err != nil {
 		exerciseFail(c, err)
 		return
@@ -224,24 +242,24 @@ func (h *ExerciseHandler) update(c *gin.Context) {
 	c.JSON(http.StatusOK, toExerciseResponse(rec))
 }
 
-type availabilityRequest struct {
-	Usage  string `json:"usage"`
+type linksRequest struct {
+	linksBody
 	Status string `json:"status"`
 }
 
-// availability makes the exercise available or reserved, published or draft: PUT .../exercises/{exerciseId}/availability.
-func (h *ExerciseHandler) availability(c *gin.Context) {
+// links links the exercise to the practice and to the assessment, and sets its publication: PUT .../exercises/{exerciseId}/links.
+func (h *ExerciseHandler) links(c *gin.Context) {
 	id, ok := moduleID(c)
 	who, authed := actor(c)
 	ex, exOK := exerciseID(c)
 	if !ok || !authed || !exOK {
 		return
 	}
-	var req availabilityRequest
+	var req linksRequest
 	if !bindBody(c, &req) {
 		return
 	}
-	rec, err := h.bank.SetAvailability(c.Request.Context(), who, id, ex, req.Usage, req.Status)
+	rec, err := h.bank.SetLinks(c.Request.Context(), who, id, ex, req.links(), req.Status)
 	if err != nil {
 		exerciseFail(c, err)
 		return
@@ -249,7 +267,7 @@ func (h *ExerciseHandler) availability(c *gin.Context) {
 	c.JSON(http.StatusOK, toExerciseResponse(rec))
 }
 
-// remove deletes an exercise: DELETE /teacher/modules/{id}/exercises/{exerciseId}.
+// remove deletes an exercise from the bank: DELETE /teacher/modules/{id}/exercises/{exerciseId}.
 func (h *ExerciseHandler) remove(c *gin.Context) {
 	id, ok := moduleID(c)
 	who, authed := actor(c)
@@ -293,28 +311,27 @@ func (h *ExerciseHandler) reorder(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-type setupsRequest struct {
-	ExercisesSetup  json.RawMessage `json:"exercisesSetup"`
-	AssessmentSetup json.RawMessage `json:"assessmentSetup"`
+type setupRequest struct {
+	BankSetup json.RawMessage `json:"bankSetup"`
 }
 
-// setups stores the snapshots of the two sets: PUT /teacher/modules/{id}/exercise-setups.
-func (h *ExerciseHandler) setups(c *gin.Context) {
+// setup stores the snapshot of the bank: PUT /teacher/modules/{id}/exercise-setup.
+func (h *ExerciseHandler) setup(c *gin.Context) {
 	id, ok := moduleID(c)
 	who, authed := actor(c)
 	if !ok || !authed {
 		return
 	}
-	var req setupsRequest
+	var req setupRequest
 	if !bindBody(c, &req) {
 		return
 	}
-	exercises, assessment, err := h.bank.SetSetups(c.Request.Context(), who, id, req.ExercisesSetup, req.AssessmentSetup)
+	setup, err := h.bank.SetBankSetup(c.Request.Context(), who, id, req.BankSetup)
 	if err != nil {
 		exerciseFail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"moduleId": id, "exercisesSetup": exercises, "assessmentSetup": assessment})
+	c.JSON(http.StatusOK, gin.H{"moduleId": id, "bankSetup": setup})
 }
 
 // exerciseFail turns the errors of the exercises into problems; the others go the way of the authoring.
@@ -325,14 +342,19 @@ func exerciseFail(c *gin.Context, err error) {
 	case errors.Is(err, service.ErrExerciseConflict):
 		err = problem.Conflict("block-conflict", "The exercise was changed by someone else after you opened it.")
 	case errors.Is(err, service.ErrInvalidExerciseOrder):
-		err = problem.Validation("The order must list every available exercise exactly once.",
-			problem.InvalidParam{Name: "items", Reason: "must be exactly the available exercises of the module"})
+		err = problem.Validation("The order must list every exercise of the practice exactly once.",
+			problem.InvalidParam{Name: "items", Reason: "must be exactly the exercises of the practice"})
 	case errors.Is(err, service.ErrExerciseIncomplete):
 		err = problem.Validation("An exercise needs at least one condition of finalization to be published.",
 			problem.InvalidParam{Name: "conditions", Reason: "required"})
-	case errors.Is(err, service.ErrInvalidAvailability):
-		err = problem.Validation("The usage and the status are not valid.",
-			problem.InvalidParam{Name: "usage", Reason: "must be EXERCISE or ASSESSMENT"}, problem.InvalidParam{Name: "status", Reason: "must be DRAFT or PUBLISHED"})
+	case errors.Is(err, service.ErrInvalidLinks):
+		err = problem.Validation("An exclusive exercise must be linked to the assessment and not to the practice.",
+			problem.InvalidParam{Name: "exclusive", Reason: "needs the assessment and no practice"})
+	case errors.Is(err, service.ErrInvalidStatus):
+		err = problem.Validation("The status is not valid.", problem.InvalidParam{Name: "status", Reason: "must be DRAFT or PUBLISHED"})
+	case errors.Is(err, service.ErrInvalidDependency):
+		err = problem.Validation("An exercise can only depend on another exercise of the module, without cycles.",
+			problem.InvalidParam{Name: "dependsOn", Reason: "must be another exercise of the module that does not depend on this one"})
 	}
 	authorFail(c, err)
 }

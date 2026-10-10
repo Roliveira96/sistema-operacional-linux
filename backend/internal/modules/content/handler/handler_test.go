@@ -25,15 +25,15 @@ type fakeReader struct {
 	viewer service.Viewer
 	usage  string
 	setup  json.RawMessage
-	// The snapshot of the available exercises (SPEC-023).
-	exercisesSetup json.RawMessage
+	// The snapshot of the bank of exercises (SPEC-023).
+	bankSetup json.RawMessage
 	draft  bool
 }
 
 func (f *fakeReader) Content(_ context.Context, _ uuid.UUID, v service.Viewer) (service.ModuleContent, error) {
 	f.viewer = v
 	blocks := []domain.ContentBlock{{ID: uuid.New(), BlockType: domain.BlockTip, Position: 1, Payload: json.RawMessage(`{"html":"x"}`)}}
-	return service.ModuleContent{Blocks: blocks, Setup: f.setup, ExercisesSetup: f.exercisesSetup}, f.err
+	return service.ModuleContent{Blocks: blocks, Setup: f.setup, BankSetup: f.bankSetup}, f.err
 }
 
 func (f *fakeReader) Draft(_ context.Context, _ uuid.UUID, v service.Viewer) (service.ModuleContent, error) {
@@ -170,11 +170,11 @@ func TestBlocksCarryTheModuleSetup(t *testing.T) {
 }
 
 // Covers SPEC-023 CA-06: the content brings the snapshot of the available exercises, null when there is none.
-func TestBlocksCarryTheSnapshotOfTheExercises(t *testing.T) {
+func TestBlocksCarryTheSnapshotOfTheBank(t *testing.T) {
 	_, body := call(t, &fakeReader{}, anonymous, "/modules/"+uuid.NewString()+"/blocks", false)
-	assert.Contains(t, body, "exercisesSetup")
-	assert.Nil(t, body["exercisesSetup"])
+	assert.Contains(t, body, "bankSetup")
+	assert.Nil(t, body["bankSetup"])
 
-	_, body = call(t, &fakeReader{exercisesSetup: json.RawMessage(`{"steps":[{"command":"mkdir /treino"}]}`)}, anonymous, "/modules/"+uuid.NewString()+"/blocks", false)
-	assert.Len(t, body["exercisesSetup"].(map[string]any)["steps"], 1)
+	_, body = call(t, &fakeReader{bankSetup: json.RawMessage(`{"steps":[{"command":"mkdir /treino"}]}`)}, anonymous, "/modules/"+uuid.NewString()+"/blocks", false)
+	assert.Len(t, body["bankSetup"].(map[string]any)["steps"], 1)
 }

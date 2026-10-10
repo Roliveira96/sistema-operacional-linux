@@ -43,7 +43,7 @@ func (r *Repository) exerciseQuery(ctx context.Context) *gorm.DB {
 		Where("q.kind = ? AND q.deleted_at IS NULL", domain.KindPractical)
 }
 
-// ListExercises returns the exercises of the bank: the available ones in the order of the trail, then the reserved ones.
+// ListExercises returns the exercises of the bank: the ones in the practice in the order of the trail, then the others.
 func (r *Repository) ListExercises(ctx context.Context, moduleID uuid.UUID) ([]service.ExerciseRecord, error) {
 	var rows []exerciseRow
 	if err := r.exerciseQuery(ctx).Where("q.module_id = ?", moduleID).Order("i.sequence_order NULLS LAST, q.created_at, q.id").Scan(&rows).Error; err != nil {
@@ -68,9 +68,28 @@ func (r *Repository) FindExercise(ctx context.Context, moduleID, id uuid.UUID) (
 	return rows[0].record(), nil
 }
 
-// CreateExercise inserts the question.
+// CreateExercise inserts the question and, when it is in the practice, gives it the last place of the trail.
 func (r *Repository) CreateExercise(ctx context.Context, q *domain.Question) error {
-	return r.db.Conn(ctx).Create(q).Error
+	return r.db.WithinTransaction(ctx, func(ctx context.Context) error {
+		conn := r.db.Conn(ctx)
+		if err := conn.Create(q).Error; err != nil {
+			return err
+		}
+		if q.Usage != domain.UsageExercise {
+			return nil
+		}
+		return appendToTrail(conn, q.ModuleID, q.ID, q.CreatedAt)
+	})
+}
+
+// appendToTrail gives the exercise the last place of the trail of the module.
+func appendToTrail(conn *gorm.DB, moduleID, id uuid.UUID, now time.Time) error {
+	var last int
+	if err := conn.Table("module_exercise_items").Where("module_id = ?", moduleID).Select("COALESCE(MAX(sequence_order), 0)").Scan(&last).Error; err != nil {
+		return err
+	}
+	return conn.Exec(`INSERT INTO module_exercise_items (id, module_id, exercise_id, sequence_order, is_mandatory, created_at, updated_at)
+        VALUES (?, ?, ?, ?, true, ?, ?)`, uuid.New(), moduleID, id, last+1, now, now).Error
 }
 
 // UpdateExercise writes the fields the teacher edits. expected guards against a concurrent change.
@@ -80,10 +99,14 @@ func (r *Repository) UpdateExercise(ctx context.Context, moduleID, id uuid.UUID,
 	if expected != nil {
 		q = q.Where("updated_at = ?", expected.UTC())
 	}
+	var dependsOn any
+	if upd.DependsOn != nil {
+		dependsOn = *upd.DependsOn
+	}
 	fields := map[string]any{
 		"title": e.Title, "difficulty": e.Difficulty, "statement": e.Statement, "hints": jsonOrNil(e.Hints),
-		"reference_solution": jsonOrNil(e.Solution), "end_conditions": jsonOrNil(e.EndConditions), "validation_conditions": string(upd.Catalog), "continues_previous": e.ContinuesPrevious,
-		"edited_by_teacher_at": upd.Now, "updated_at": upd.Now, "updated_by": upd.By,
+		"reference_solution": jsonOrNil(e.Solution), "end_conditions": jsonOrNil(e.EndConditions), "validation_conditions": string(upd.Catalog),
+		"depends_on": dependsOn, "edited_by_teacher_at": upd.Now, "updated_at": upd.Now, "updated_by": upd.By,
 	}
 	res := q.Updates(fields)
 	if res.Error != nil {
@@ -120,13 +143,13 @@ func compactTrail(conn *gorm.DB, moduleID uuid.UUID) error {
         WHERE t.id = r.id`, moduleID).Error
 }
 
-// SetAvailability changes the set and the publication of an exercise: available means a place at the end of the trail, reserved
-// means no place (SPEC-023 RN-03).
-func (r *Repository) SetAvailability(ctx context.Context, moduleID, id uuid.UUID, usage, status string, now time.Time) (service.ExerciseRecord, error) {
+// SetLinks links the exercise to the practice (a place at the end of the trail) and to the assessment, or unlinks it, and sets
+// its publication. The exercise stays in the bank (SPEC-023 RN-03, 11.1).
+func (r *Repository) SetLinks(ctx context.Context, moduleID, id uuid.UUID, links service.ExerciseLinks, status string, now time.Time) (service.ExerciseRecord, error) {
 	err := r.db.WithinTransaction(ctx, func(ctx context.Context) error {
 		conn := r.db.Conn(ctx)
 		res := conn.Model(&domain.Question{}).Where("id = ? AND module_id = ? AND kind = ?", id, moduleID, domain.KindPractical).
-			Updates(map[string]any{"usage": usage, "status": status, "updated_at": now})
+			Updates(map[string]any{"usage": links.Usage(), "in_assessment": links.Assessment, "exclusive_assessment": links.Exclusive, "status": status, "updated_at": now})
 		if res.Error != nil {
 			return res.Error
 		}
@@ -138,14 +161,9 @@ func (r *Repository) SetAvailability(ctx context.Context, moduleID, id uuid.UUID
 			return err
 		}
 		switch {
-		case usage == domain.UsageExercise && inTrail == 0:
-			var last int
-			if err := conn.Table("module_exercise_items").Where("module_id = ?", moduleID).Select("COALESCE(MAX(sequence_order), 0)").Scan(&last).Error; err != nil {
-				return err
-			}
-			return conn.Exec(`INSERT INTO module_exercise_items (id, module_id, exercise_id, sequence_order, is_mandatory, created_at, updated_at)
-                VALUES (?, ?, ?, ?, true, ?, ?)`, uuid.New(), moduleID, id, last+1, now, now).Error
-		case usage == domain.UsageAssessment && inTrail > 0:
+		case links.Practice && inTrail == 0:
+			return appendToTrail(conn, moduleID, id, now)
+		case !links.Practice && inTrail > 0:
 			if err := conn.Exec("DELETE FROM module_exercise_items WHERE module_id = ? AND exercise_id = ?", moduleID, id).Error; err != nil {
 				return err
 			}
@@ -159,7 +177,8 @@ func (r *Repository) SetAvailability(ctx context.Context, moduleID, id uuid.UUID
 	return r.FindExercise(ctx, moduleID, id)
 }
 
-// DeleteExercise removes the exercise (logically), its place in the trail and the progress of the students in it (SPEC-023 RN-09).
+// DeleteExercise removes the exercise (logically), its place in the trail, the progress of the students in it and the
+// dependencies on it (SPEC-023 RN-09).
 func (r *Repository) DeleteExercise(ctx context.Context, moduleID, id uuid.UUID, now time.Time) error {
 	return r.db.WithinTransaction(ctx, func(ctx context.Context) error {
 		conn := r.db.Conn(ctx)
@@ -171,6 +190,9 @@ func (r *Repository) DeleteExercise(ctx context.Context, moduleID, id uuid.UUID,
 			return service.ErrExerciseNotFound
 		}
 		if err := conn.Exec("DELETE FROM exercise_progress WHERE question_id = ?", id).Error; err != nil {
+			return err
+		}
+		if err := conn.Exec("UPDATE questions SET depends_on = NULL WHERE depends_on = ?", id).Error; err != nil {
 			return err
 		}
 		if err := conn.Exec("DELETE FROM module_exercise_items WHERE module_id = ? AND exercise_id = ?", moduleID, id).Error; err != nil {
@@ -219,23 +241,45 @@ func (r *Repository) ReorderExercises(ctx context.Context, moduleID uuid.UUID, i
 	})
 }
 
-// ExerciseSetups returns the snapshots of the two sets, nil for the one the module has not recorded.
-func (r *Repository) ExerciseSetups(ctx context.Context, moduleID uuid.UUID) (exercises, assessment json.RawMessage, err error) {
-	var row struct{ ExercisesSetup, AssessmentSetup []byte }
-	if err := r.db.Conn(ctx).Raw("SELECT exercises_setup, assessment_setup FROM course_modules WHERE id = ?", moduleID).Scan(&row).Error; err != nil {
-		return nil, nil, err
+// ValidDependency tells whether the exercise `id` (nil when it does not exist yet) can depend on `dependsOn`: the latter must be a
+// practical exercise of the module and the chain of dependencies above it must not lead back to `id`.
+func (r *Repository) ValidDependency(ctx context.Context, moduleID uuid.UUID, id *uuid.UUID, dependsOn uuid.UUID) (bool, error) {
+	conn := r.db.Conn(ctx)
+	var found int64
+	if err := conn.Table("questions").Where("id = ? AND module_id = ? AND kind = ? AND deleted_at IS NULL", dependsOn, moduleID, domain.KindPractical).Count(&found).Error; err != nil {
+		return false, err
 	}
-	if len(row.ExercisesSetup) > 0 {
-		exercises = json.RawMessage(row.ExercisesSetup)
+	if found == 0 {
+		return false, nil
 	}
-	if len(row.AssessmentSetup) > 0 {
-		assessment = json.RawMessage(row.AssessmentSetup)
+	if id == nil {
+		return true, nil
 	}
-	return exercises, assessment, nil
+	if *id == dependsOn {
+		return false, nil
+	}
+	var cycle int64
+	err := conn.Raw(`WITH RECURSIVE chain AS (
+            SELECT id, depends_on FROM questions WHERE id = ?
+            UNION
+            SELECT q.id, q.depends_on FROM questions q JOIN chain c ON q.id = c.depends_on
+        ) SELECT COUNT(*) FROM chain WHERE id = ?`, dependsOn, *id).Scan(&cycle).Error
+	return cycle == 0, err
 }
 
-// SaveExerciseSetups replaces the snapshots of the two sets.
-func (r *Repository) SaveExerciseSetups(ctx context.Context, moduleID uuid.UUID, exercises, assessment json.RawMessage) error {
-	return r.db.Conn(ctx).Exec("UPDATE course_modules SET exercises_setup = ?::jsonb, assessment_setup = ?::jsonb WHERE id = ?",
-		jsonOrNil(exercises), jsonOrNil(assessment), moduleID).Error
+// BankSetup returns the snapshot of the bank, or nil when the module has not recorded one (SPEC-023 11.2).
+func (r *Repository) BankSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error) {
+	var row struct{ BankSetup []byte }
+	if err := r.db.Conn(ctx).Raw("SELECT bank_setup FROM course_modules WHERE id = ?", moduleID).Scan(&row).Error; err != nil {
+		return nil, err
+	}
+	if len(row.BankSetup) == 0 {
+		return nil, nil
+	}
+	return json.RawMessage(row.BankSetup), nil
+}
+
+// SaveBankSetup replaces the snapshot of the bank.
+func (r *Repository) SaveBankSetup(ctx context.Context, moduleID uuid.UUID, setup json.RawMessage) error {
+	return r.db.Conn(ctx).Exec("UPDATE course_modules SET bank_setup = ?::jsonb WHERE id = ?", jsonOrNil(setup), moduleID).Error
 }

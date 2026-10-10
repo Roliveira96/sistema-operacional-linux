@@ -17,20 +17,48 @@ var (
 	ErrExerciseNotFound = errors.New("exercise not found")
 	// ErrExerciseConflict means the exercise changed after the instant the editor knew.
 	ErrExerciseConflict = errors.New("exercise was changed by someone else")
-	// ErrInvalidExerciseOrder means the list is not exactly the available exercises of the module.
-	ErrInvalidExerciseOrder = errors.New("the order must list every available exercise once")
+	// ErrInvalidExerciseOrder means the list is not exactly the exercises of the practice.
+	ErrInvalidExerciseOrder = errors.New("the order must list every exercise of the practice once")
 	// ErrExerciseIncomplete means the exercise has no condition that says how it ends, so it cannot be published.
 	ErrExerciseIncomplete = errors.New("an exercise without conditions of finalization cannot be published")
-	// ErrInvalidAvailability means the usage or the status is not one the teacher can choose.
-	ErrInvalidAvailability = errors.New("the usage must be EXERCISE or ASSESSMENT and the status DRAFT or PUBLISHED")
+	// ErrInvalidLinks means the links are not a combination the bank accepts (an exclusive exercise is in the assessment only).
+	ErrInvalidLinks = errors.New("an exclusive exercise must be linked to the assessment and not to the practice")
+	// ErrInvalidStatus means the status is not DRAFT or PUBLISHED.
+	ErrInvalidStatus = errors.New("the status must be DRAFT or PUBLISHED")
+	// ErrInvalidDependency means the exercise it depends on does not exist in the module, is itself, or would close a cycle.
+	ErrInvalidDependency = errors.New("an exercise can only depend on another exercise of the module, without cycles")
 )
 
-// ExerciseRecord is an exercise as the store reads it: the question, and its place in the trail when it is available.
+// ExerciseLinks are the places of the module an exercise of the bank is linked to (SPEC-023 11.1): the practice (with a place
+// in the trail), the assessment, and whether it is exclusive to the assessment, which keeps it out of the practice.
+type ExerciseLinks struct {
+	Practice   bool
+	Assessment bool
+	Exclusive  bool
+}
+
+// Valid reports whether the links are a combination the bank accepts.
+func (l ExerciseLinks) Valid() bool { return !l.Exclusive || (l.Assessment && !l.Practice) }
+
+// Usage is the usage column that says whether the exercise is in the practice.
+func (l ExerciseLinks) Usage() string {
+	if l.Practice {
+		return domain.UsageExercise
+	}
+	return domain.UsageAssessment
+}
+
+// ExerciseRecord is an exercise as the store reads it: the question, and its place in the trail when it is in the practice.
 type ExerciseRecord struct {
 	domain.Question
-	// Position is the place in the trail of the module, 0 for an exercise reserved for assessment.
+	// Position is the place in the trail of the module, 0 for an exercise that is not in the practice.
 	Position  int
 	Mandatory bool
+}
+
+// Links are the links of the exercise as the store holds them.
+func (r ExerciseRecord) Links() ExerciseLinks {
+	return ExerciseLinks{Practice: r.Usage == domain.UsageExercise, Assessment: r.InAssessment, Exclusive: r.ExclusiveAssessment}
 }
 
 // ExerciseUpdate is what saving an exercise writes.
@@ -38,8 +66,10 @@ type ExerciseUpdate struct {
 	Exercise domain.NormalizedExercise
 	// Catalog is Exercise.Catalog as stored, the conditions that grade the student.
 	Catalog json.RawMessage
-	By      uuid.UUID
-	Now     time.Time
+	// DependsOn is the exercise whose recipe is built before this one (SPEC-023 D-16), nil for none.
+	DependsOn *uuid.UUID
+	By        uuid.UUID
+	Now       time.Time
 }
 
 // OrderItem is one place of the trail of the module.
@@ -53,15 +83,18 @@ type ExerciseStore interface {
 	ModuleTeacher(ctx context.Context, moduleID uuid.UUID) (uuid.UUID, error)
 	ListExercises(ctx context.Context, moduleID uuid.UUID) ([]ExerciseRecord, error)
 	FindExercise(ctx context.Context, moduleID, id uuid.UUID) (ExerciseRecord, error)
+	// CreateExercise inserts the question and, when it is linked to the practice, gives it the last place of the trail.
 	CreateExercise(ctx context.Context, q *domain.Question) error
 	// UpdateExercise writes the exercise; when expected is not nil it only writes if the exercise still has that
 	// updated_at, and returns ErrExerciseConflict otherwise.
 	UpdateExercise(ctx context.Context, moduleID, id uuid.UUID, upd ExerciseUpdate, expected *time.Time) (ExerciseRecord, error)
-	SetAvailability(ctx context.Context, moduleID, id uuid.UUID, usage, status string, now time.Time) (ExerciseRecord, error)
+	SetLinks(ctx context.Context, moduleID, id uuid.UUID, links ExerciseLinks, status string, now time.Time) (ExerciseRecord, error)
 	DeleteExercise(ctx context.Context, moduleID, id uuid.UUID, now time.Time) error
 	ReorderExercises(ctx context.Context, moduleID uuid.UUID, items []OrderItem, now time.Time) error
-	ExerciseSetups(ctx context.Context, moduleID uuid.UUID) (exercises, assessment json.RawMessage, err error)
-	SaveExerciseSetups(ctx context.Context, moduleID uuid.UUID, exercises, assessment json.RawMessage) error
+	// ValidDependency tells whether the exercise `id` (nil for one that does not exist yet) can depend on `dependsOn`.
+	ValidDependency(ctx context.Context, moduleID uuid.UUID, id *uuid.UUID, dependsOn uuid.UUID) (bool, error)
+	BankSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
+	SaveBankSetup(ctx context.Context, moduleID uuid.UUID, setup json.RawMessage) error
 }
 
 // Exercises is the use case of the exercises of the module and its bank (SPEC-023).
@@ -100,11 +133,10 @@ func (s *Exercises) audit(action string, who Actor, moduleID uuid.UUID, exercise
 	s.log.Info("module exercise change", fields...)
 }
 
-// ExerciseBank is the whole bank of a module: its exercises and the snapshots of the two sets.
+// ExerciseBank is the whole bank of a module: its exercises and the snapshot that prepares the machine of all of them.
 type ExerciseBank struct {
-	Items           []ExerciseRecord
-	ExercisesSetup  json.RawMessage
-	AssessmentSetup json.RawMessage
+	Items     []ExerciseRecord
+	BankSetup json.RawMessage
 }
 
 // List returns the bank of the module (RN-01).
@@ -116,11 +148,11 @@ func (s *Exercises) List(ctx context.Context, who Actor, moduleID uuid.UUID) (Ex
 	if err != nil {
 		return ExerciseBank{}, err
 	}
-	exercises, assessment, err := s.store.ExerciseSetups(ctx, moduleID)
+	setup, err := s.store.BankSetup(ctx, moduleID)
 	if err != nil {
 		return ExerciseBank{}, err
 	}
-	return ExerciseBank{Items: items, ExercisesSetup: exercises, AssessmentSetup: assessment}, nil
+	return ExerciseBank{Items: items, BankSetup: setup}, nil
 }
 
 // Get returns one exercise.
@@ -143,22 +175,44 @@ func (s *Exercises) normalize(in domain.ExerciseInput) (domain.NormalizedExercis
 	return clean, catalog, nil
 }
 
-// Create stores a new exercise: a draft, reserved for assessment until the teacher makes it available (RN-03).
-func (s *Exercises) Create(ctx context.Context, who Actor, moduleID uuid.UUID, in domain.ExerciseInput) (ExerciseRecord, error) {
+// checkDependency makes sure the exercise it depends on is one of the module and closes no cycle (SPEC-023 D-16).
+func (s *Exercises) checkDependency(ctx context.Context, moduleID uuid.UUID, id *uuid.UUID, dependsOn *uuid.UUID) error {
+	if dependsOn == nil {
+		return nil
+	}
+	ok, err := s.store.ValidDependency(ctx, moduleID, id, *dependsOn)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrInvalidDependency
+	}
+	return nil
+}
+
+// Create stores a new exercise in the bank: a draft, linked where the teacher said (RN-03). An exercise created from a block
+// of the screen comes already linked to it.
+func (s *Exercises) Create(ctx context.Context, who Actor, moduleID uuid.UUID, in domain.ExerciseInput, dependsOn *uuid.UUID, links ExerciseLinks) (ExerciseRecord, error) {
 	if err := s.authorize(ctx, moduleID, who); err != nil {
 		return ExerciseRecord{}, err
+	}
+	if !links.Valid() {
+		return ExerciseRecord{}, ErrInvalidLinks
 	}
 	clean, catalog, err := s.normalize(in)
 	if err != nil {
 		return ExerciseRecord{}, err
 	}
+	if err := s.checkDependency(ctx, moduleID, nil, dependsOn); err != nil {
+		return ExerciseRecord{}, err
+	}
 	now := s.now()
 	by := who.UserID
 	q := domain.Question{
-		ID: uuid.New(), ModuleID: moduleID, Kind: domain.KindPractical, Usage: domain.UsageAssessment, Difficulty: clean.Difficulty,
-		Status: domain.StatusDraft, Title: clean.Title, Statement: clean.Statement, Hints: clean.Hints, ReferenceSolution: clean.Solution,
-		EndConditions: clean.EndConditions, ValidationConditions: catalog, ContinuesPrevious: clean.ContinuesPrevious, CreatedBy: &by, UpdatedBy: &by, EditedByTeacherAt: &now,
-		CreatedAt: now, UpdatedAt: now,
+		ID: uuid.New(), ModuleID: moduleID, Kind: domain.KindPractical, Usage: links.Usage(), InAssessment: links.Assessment, ExclusiveAssessment: links.Exclusive,
+		Difficulty: clean.Difficulty, Status: domain.StatusDraft, Title: clean.Title, Statement: clean.Statement, Hints: clean.Hints,
+		ReferenceSolution: clean.Solution, EndConditions: clean.EndConditions, ValidationConditions: catalog, DependsOn: dependsOn,
+		CreatedBy: &by, UpdatedBy: &by, EditedByTeacherAt: &now, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := s.store.CreateExercise(ctx, &q); err != nil {
 		return ExerciseRecord{}, err
@@ -168,7 +222,7 @@ func (s *Exercises) Create(ctx context.Context, who Actor, moduleID uuid.UUID, i
 }
 
 // Update saves an exercise; a change by someone else after expected is a conflict unless force is set (RN-05, CA-08).
-func (s *Exercises) Update(ctx context.Context, who Actor, moduleID, id uuid.UUID, in domain.ExerciseInput, expected time.Time, force bool) (ExerciseRecord, error) {
+func (s *Exercises) Update(ctx context.Context, who Actor, moduleID, id uuid.UUID, in domain.ExerciseInput, dependsOn *uuid.UUID, expected time.Time, force bool) (ExerciseRecord, error) {
 	if err := s.authorize(ctx, moduleID, who); err != nil {
 		return ExerciseRecord{}, err
 	}
@@ -176,11 +230,14 @@ func (s *Exercises) Update(ctx context.Context, who Actor, moduleID, id uuid.UUI
 	if err != nil {
 		return ExerciseRecord{}, err
 	}
+	if err := s.checkDependency(ctx, moduleID, &id, dependsOn); err != nil {
+		return ExerciseRecord{}, err
+	}
 	var guard *time.Time
 	if !force {
 		guard = &expected
 	}
-	record, err := s.store.UpdateExercise(ctx, moduleID, id, ExerciseUpdate{Exercise: clean, Catalog: catalog, By: who.UserID, Now: s.now()}, guard)
+	record, err := s.store.UpdateExercise(ctx, moduleID, id, ExerciseUpdate{Exercise: clean, Catalog: catalog, DependsOn: dependsOn, By: who.UserID, Now: s.now()}, guard)
 	if err != nil {
 		return ExerciseRecord{}, err
 	}
@@ -188,11 +245,15 @@ func (s *Exercises) Update(ctx context.Context, who Actor, moduleID, id uuid.UUI
 	return record, nil
 }
 
-// SetAvailability makes an exercise available in the module or reserves it for assessment, and publishes it or takes it back to
-// draft (RN-03, RN-04). Publishing needs at least one condition of finalization, or nobody could finish it.
-func (s *Exercises) SetAvailability(ctx context.Context, who Actor, moduleID, id uuid.UUID, usage, status string) (ExerciseRecord, error) {
-	if (usage != domain.UsageExercise && usage != domain.UsageAssessment) || (status != domain.StatusDraft && status != domain.StatusPublished) {
-		return ExerciseRecord{}, ErrInvalidAvailability
+// SetLinks links an exercise to the practice and to the assessment, or unlinks it, and publishes it or takes it back to draft
+// (RN-03, RN-04). It never removes the exercise from the bank. Publishing needs at least one condition of finalization, or nobody
+// could finish it.
+func (s *Exercises) SetLinks(ctx context.Context, who Actor, moduleID, id uuid.UUID, links ExerciseLinks, status string) (ExerciseRecord, error) {
+	if status != domain.StatusDraft && status != domain.StatusPublished {
+		return ExerciseRecord{}, ErrInvalidStatus
+	}
+	if !links.Valid() {
+		return ExerciseRecord{}, ErrInvalidLinks
 	}
 	if err := s.authorize(ctx, moduleID, who); err != nil {
 		return ExerciseRecord{}, err
@@ -206,15 +267,15 @@ func (s *Exercises) SetAvailability(ctx context.Context, who Actor, moduleID, id
 			return ExerciseRecord{}, ErrExerciseIncomplete
 		}
 	}
-	record, err := s.store.SetAvailability(ctx, moduleID, id, usage, status, s.now())
+	record, err := s.store.SetLinks(ctx, moduleID, id, links, status, s.now())
 	if err != nil {
 		return ExerciseRecord{}, err
 	}
-	s.audit("exercise-availability", who, moduleID, &id)
+	s.audit("exercise-links", who, moduleID, &id)
 	return record, nil
 }
 
-// Delete removes an exercise and the progress of the students in it (RN-09).
+// Delete removes an exercise from the bank, with the progress of the students in it (RN-09).
 func (s *Exercises) Delete(ctx context.Context, who Actor, moduleID, id uuid.UUID) error {
 	if err := s.authorize(ctx, moduleID, who); err != nil {
 		return err
@@ -226,7 +287,7 @@ func (s *Exercises) Delete(ctx context.Context, who Actor, moduleID, id uuid.UUI
 	return nil
 }
 
-// Reorder sets the order of the trail and which exercises are mandatory: the list must be exactly the available ones.
+// Reorder sets the order of the trail and which exercises are mandatory: the list must be exactly the ones in the practice.
 func (s *Exercises) Reorder(ctx context.Context, who Actor, moduleID uuid.UUID, items []OrderItem) error {
 	if err := s.authorize(ctx, moduleID, who); err != nil {
 		return err
@@ -238,35 +299,29 @@ func (s *Exercises) Reorder(ctx context.Context, who Actor, moduleID uuid.UUID, 
 	return nil
 }
 
-// SetSetups validates and stores the snapshots of the two sets (RN-06). A nil snapshot removes it.
-func (s *Exercises) SetSetups(ctx context.Context, who Actor, moduleID uuid.UUID, exercises, assessment json.RawMessage) (json.RawMessage, json.RawMessage, error) {
+// SetBankSetup validates and stores the snapshot of the bank, the same for the practice and the assessment (SPEC-023 11.2).
+// A nil snapshot removes it.
+func (s *Exercises) SetBankSetup(ctx context.Context, who Actor, moduleID uuid.UUID, raw json.RawMessage) (json.RawMessage, error) {
 	if err := s.authorize(ctx, moduleID, who); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	clean := func(raw json.RawMessage, field string) (json.RawMessage, error) {
-		if len(raw) == 0 || string(raw) == "null" {
-			return nil, nil
-		}
-		out, err := domain.NormalizeSetup(raw)
+	var clean json.RawMessage
+	if len(raw) > 0 && string(raw) != "null" {
+		var err error
+		clean, err = domain.NormalizeSetup(raw)
 		var perr *domain.PayloadError
 		if errors.As(err, &perr) {
 			for i := range perr.Fields {
-				perr.Fields[i].Field = field + perr.Fields[i].Field[len("setup"):]
+				perr.Fields[i].Field = "bankSetup" + perr.Fields[i].Field[len("setup"):]
 			}
 		}
-		return out, err
+		if err != nil {
+			return nil, err
+		}
 	}
-	cleanExercises, err := clean(exercises, "exercisesSetup")
-	if err != nil {
-		return nil, nil, err
+	if err := s.store.SaveBankSetup(ctx, moduleID, clean); err != nil {
+		return nil, err
 	}
-	cleanAssessment, err := clean(assessment, "assessmentSetup")
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := s.store.SaveExerciseSetups(ctx, moduleID, cleanExercises, cleanAssessment); err != nil {
-		return nil, nil, err
-	}
-	s.audit("exercise-setups", who, moduleID, nil)
-	return cleanExercises, cleanAssessment, nil
+	s.audit("bank-setup", who, moduleID, nil)
+	return clean, nil
 }

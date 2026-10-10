@@ -36,8 +36,8 @@ type ModuleAccess interface {
 type ReadStore interface {
 	ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error)
 	ModuleSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
-	// ExerciseSetups returns the snapshots of the two sets of exercises of the module (SPEC-023).
-	ExerciseSetups(ctx context.Context, moduleID uuid.UUID) (exercises, assessment json.RawMessage, err error)
+	// BankSetup returns the snapshot of the bank of exercises of the module (SPEC-023 11.2).
+	BankSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
 	// LatestVersion is the published version students read (SPEC-021); ErrNotFound when there is none.
 	LatestVersion(ctx context.Context, moduleID uuid.UUID) (domain.ModuleVersion, error)
 	ListQuestions(ctx context.Context, moduleID uuid.UUID, usage string, includeDrafts bool) ([]domain.Question, error)
@@ -87,10 +87,9 @@ type PublicQuestion struct {
 	// Layered marks an exercise of the module made in the editor (SPEC-023): it has no machine of its own, so the screen
 	// starts it from the snapshot of the module followed by the one of the available exercises.
 	Layered bool `json:"layered,omitempty"`
-	// Continues marks an exercise that starts from where the previous one of the trail ended, and SolutionSetup is the recipe
-	// (commands and files) the screen replays to build the machine of a chain (SPEC-023 RN-11).
-	Continues     bool            `json:"continues,omitempty"`
-	SolutionSetup json.RawMessage `json:"solutionSetup,omitempty"`
+	// ChainSetups is the recipe of the exercises this one depends on, the oldest first: the solutions (commands and files) the
+	// screen replays to build its machine (SPEC-023 D-16, D-20).
+	ChainSetups json.RawMessage `json:"chainSetups,omitempty"`
 }
 
 // TeacherQuestion is the full view for the module owner and admins.
@@ -151,8 +150,8 @@ func (r *Reader) module(ctx context.Context, moduleID uuid.UUID, v Viewer) (cmre
 type ModuleContent struct {
 	Blocks []domain.ContentBlock
 	Setup  json.RawMessage
-	// ExercisesSetup is the snapshot of the exercises available in the practice of the module (SPEC-023 RN-07).
-	ExercisesSetup json.RawMessage
+	// BankSetup is the snapshot of the bank of exercises of the module, under the practice (SPEC-023 11.2).
+	BankSetup json.RawMessage
 }
 
 // Content returns the active blocks in order and the snapshot of the module, as the latest published
@@ -174,7 +173,7 @@ func (r *Reader) Content(ctx context.Context, moduleID uuid.UUID, v Viewer) (Mod
 		return ModuleContent{}, fmt.Errorf("version %d of module %s: %w", version.Number, moduleID, err)
 	}
 	// Inactive blocks stay in the authoring list only (SPEC-019 RN-12).
-	return ModuleContent{Blocks: content.ContentBlocks(moduleID, true), Setup: content.SetupOrNil(), ExercisesSetup: content.ExercisesSetupOrNil()}, nil
+	return ModuleContent{Blocks: content.ContentBlocks(moduleID, true), Setup: content.SetupOrNil(), BankSetup: content.BankSetupOrNil()}, nil
 }
 
 // Draft returns the content being edited, for ADMIN and the owner of the module (SPEC-021 RN-06).
@@ -204,11 +203,11 @@ func (r *Reader) draft(ctx context.Context, moduleID uuid.UUID) (ModuleContent, 
 	if err != nil {
 		return ModuleContent{}, err
 	}
-	exercises, _, err := r.store.ExerciseSetups(ctx, moduleID)
+	bank, err := r.store.BankSetup(ctx, moduleID)
 	if err != nil {
 		return ModuleContent{}, err
 	}
-	return ModuleContent{Blocks: active, Setup: setup, ExercisesSetup: exercises}, nil
+	return ModuleContent{Blocks: active, Setup: setup, BankSetup: bank}, nil
 }
 
 // Blocks returns the module blocks in order.
@@ -227,11 +226,36 @@ func (r *Reader) Questions(ctx context.Context, moduleID uuid.UUID, usage string
 	if err != nil {
 		return nil, err
 	}
+	all, err := r.dependencies(ctx, moduleID, qs)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]PublicQuestion, len(qs))
 	for i, q := range qs {
-		out[i] = publicView(q)
+		out[i] = publicView(q, all)
 	}
 	return out, nil
+}
+
+// dependencies reads, when one of the questions depends on another, every question of the module by id, so the chain of
+// a dependency can be walked even through an exercise the student does not see (SPEC-023 D-20). Nil when nothing depends.
+func (r *Reader) dependencies(ctx context.Context, moduleID uuid.UUID, qs []domain.Question) (map[uuid.UUID]domain.Question, error) {
+	needed := false
+	for _, q := range qs {
+		needed = needed || q.DependsOn != nil
+	}
+	if !needed {
+		return nil, nil
+	}
+	every, err := r.store.ListQuestions(ctx, moduleID, "", true)
+	if err != nil {
+		return nil, err
+	}
+	all := make(map[uuid.UUID]domain.Question, len(every))
+	for _, q := range every {
+		all[q.ID] = q
+	}
+	return all, nil
 }
 
 // TeacherQuestions returns every question, with answers, to the module owner
@@ -251,7 +275,7 @@ func (r *Reader) TeacherQuestions(ctx context.Context, moduleID uuid.UUID, v Vie
 	out := make([]TeacherQuestion, len(qs))
 	for i, q := range qs {
 		out[i] = TeacherQuestion{
-			PublicQuestion: publicView(q), Status: q.Status, SourceKey: q.SourceKey, Explanation: q.Explanation,
+			PublicQuestion: publicView(q, nil), Status: q.Status, SourceKey: q.SourceKey, Explanation: q.Explanation,
 			ScenarioID: q.ScenarioID, ReferenceSolution: q.ReferenceSolution, ValidationConditions: q.ValidationConditions,
 			AnswerKey: q.AnswerKey, Tags: q.Tags,
 		}
@@ -264,7 +288,7 @@ func (r *Reader) Templates(ctx context.Context) ([]TemplateSummary, error) {
 	return r.store.ListActiveTemplates(ctx)
 }
 
-func publicView(q domain.Question) PublicQuestion {
+func publicView(q domain.Question, all map[uuid.UUID]domain.Question) PublicQuestion {
 	p := PublicQuestion{
 		ID: q.ID, Kind: q.Kind, Usage: q.Usage, Difficulty: q.Difficulty, Title: q.Title, Statement: q.Statement, Hint: q.Hint,
 	}
@@ -279,14 +303,39 @@ func publicView(q domain.Question) PublicQuestion {
 		p.Solution = nil
 		if q.Usage == domain.UsageExercise {
 			p.Solution = solutionCommands(q.ReferenceSolution)
-			p.Continues = q.ContinuesPrevious
-			p.SolutionSetup = q.ReferenceSolution
+			p.ChainSetups = chainSetups(q, all)
 		}
 	}
 	if q.Kind != domain.KindPractical && q.Kind != domain.KindDiscursive {
 		p.Choices = q.Choices
 	}
 	return p
+}
+
+// chainSetups collects the solutions of the exercises `q` depends on, the oldest first, walking the dependencies up; nil when it
+// depends on none. A dependency that is gone, is not practical or has no recorded solution is skipped, and a cycle ends the walk.
+func chainSetups(q domain.Question, all map[uuid.UUID]domain.Question) json.RawMessage {
+	var chain []json.RawMessage
+	seen := map[uuid.UUID]bool{q.ID: true}
+	for next := q.DependsOn; next != nil && !seen[*next]; {
+		seen[*next] = true
+		dep, ok := all[*next]
+		if !ok {
+			break
+		}
+		if dep.Kind == domain.KindPractical && len(dep.EndConditions) > 0 && len(dep.ReferenceSolution) > 0 {
+			chain = append([]json.RawMessage{dep.ReferenceSolution}, chain...)
+		}
+		next = dep.DependsOn
+	}
+	if len(chain) == 0 {
+		return nil
+	}
+	out, err := json.Marshal(chain)
+	if err != nil {
+		return nil
+	}
+	return out
 }
 
 // hintsHTML writes the tips of an exercise as one ordered list, each with its command of reference; nil when there are none.
