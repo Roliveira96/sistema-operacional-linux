@@ -169,6 +169,17 @@
   color: var(--color-text-secondary);
 }
 
+.exerciseDescription {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
 .exerciseActions {
   display: flex;
   flex: none;

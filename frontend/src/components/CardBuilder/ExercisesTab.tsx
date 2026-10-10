@@ -11,6 +11,9 @@ import { SetupEditor } from "./SetupEditor";
 
 const m = authoringMessages.builder.exercises;
 
+/** The text of the statement, without the markup, to show a summary of it on the list. */
+const textOf = (html?: string) => new DOMParser().parseFromString(html ?? "", "text/html").body.textContent?.trim() ?? "";
+
 interface ExercisesTabProps {
   moduleId: string;
   /** The key of the stored card; a card that was never saved has none, and its exercises have no page yet. */
@@ -71,6 +74,7 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
                 <span className={styles.exerciseMeta}>
                   {m.difficulty[ex.difficulty]} · {m.hintCount(ex.hints.length)} · {ex.solution ? m.hasSolution : m.noSolution} · {m.conditionCount(ex.conditions.length)}
                 </span>
+                {textOf(ex.description) && <p className={styles.exerciseDescription}>{textOf(ex.description)}</p>}
                 <Errors id={ex.id} errors={errors} />
               </div>
               <div className={styles.exerciseActions}>

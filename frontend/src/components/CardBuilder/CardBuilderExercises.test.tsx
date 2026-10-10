@@ -38,7 +38,7 @@ const tree = (...folders: string[]) => ({
   contas: { usuarios: [{ nome: "root", uid: 0 }], grupos: [{ nome: "root", gid: 0 }] },
 });
 
-const withExercises = (items: unknown[] = [{ title: "Criar a pasta", difficulty: "EASY", hints: [{ text: "a" }, { text: "b" }], solution: { steps: [{ command: "mkdir /srv" }] }, conditions: [{ kind: "DIR_EXISTS", path: "/srv" }] }, { title: "Listar", difficulty: "HARD" }], extra: Record<string, unknown> = {}) =>
+const withExercises = (items: unknown[] = [{ title: "Criar a pasta", difficulty: "EASY", description: "<p>Crie a pasta <strong>financeiro</strong>.</p>", hints: [{ text: "a" }, { text: "b" }], solution: { steps: [{ command: "mkdir /srv" }] }, conditions: [{ kind: "DIR_EXISTS", path: "/srv" }] }, { title: "Listar", difficulty: "HARD" }], extra: Record<string, unknown> = {}) =>
   groupCards([block("h", "TEXT", 1, { title: "Card", html: "<p>t</p>" }), block("e", "EXERCISES", 2, { items, ...extra })])[0]!;
 
 // Covers SPEC-022: the tab of the exercises of the card. Each exercise has a page of its own (ExerciseScreen).
@@ -63,6 +63,7 @@ describe("CardBuilder, the tab of the exercises", () => {
     openTab("Exercícios");
     const list = screen.getByRole("list", { name: "Exercícios" });
     expect(list).toHaveTextContent("Criar a pasta");
+    expect(list).toHaveTextContent("Crie a pasta financeiro.");
     expect(list).toHaveTextContent("Fácil · 2 dicas · com solução · 1 condição");
     expect(list).toHaveTextContent("Difícil · 0 dicas · sem solução · 0 condições");
     expect(screen.getByRole("link", { name: "Abrir o exercício Criar a pasta" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h/exercises/0");
