@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -34,6 +35,10 @@ const (
 
 // ErrNotAuthenticated means there is no valid session.
 var ErrNotAuthenticated = errors.New("not authenticated")
+
+// ErrForbidden means the credential is valid but its user may not use it
+// (for example, a personal access token of a user that is no longer a teacher).
+var ErrForbidden = errors.New("forbidden")
 
 // SessionExpiredError means the session existed but expired.
 type SessionExpiredError struct {
@@ -98,6 +103,50 @@ func Required(v Validator) gin.HandlerFunc {
 		c.Request = c.Request.WithContext(WithPrincipal(c.Request.Context(), p))
 		c.Next()
 	}
+}
+
+// BearerValidator resolves a raw personal access token into a principal, or
+// returns ErrNotAuthenticated or ErrForbidden.
+type BearerValidator interface {
+	AuthenticateAccessToken(ctx context.Context, raw string) (Principal, error)
+}
+
+// RequiredBearer authenticates the request from "Authorization: Bearer
+// <token>" (SPEC-024) and stores the principal in the request context. It
+// never reads the session cookie. Failures abort with 401 invalid-access-token;
+// a role other than ADMIN or TEACHER aborts with 403 forbidden.
+func RequiredBearer(v BearerValidator) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		scheme, token, ok := strings.Cut(c.GetHeader("Authorization"), " ")
+		token = strings.TrimSpace(token)
+		if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" {
+			abort(c, invalidAccessToken())
+			return
+		}
+		p, err := v.AuthenticateAccessToken(c.Request.Context(), token)
+		switch {
+		case errors.Is(err, ErrNotAuthenticated):
+			abort(c, invalidAccessToken())
+			return
+		case errors.Is(err, ErrForbidden):
+			abort(c, problem.Forbidden("forbidden", "This action is not allowed for the current user."))
+			return
+		case err != nil:
+			_ = c.Error(err)
+			c.Abort()
+			return
+		}
+		if p.Role != RoleAdmin && p.Role != RoleTeacher {
+			abort(c, problem.Forbidden("forbidden", "This action is not allowed for the current user."))
+			return
+		}
+		c.Request = c.Request.WithContext(WithPrincipal(c.Request.Context(), p))
+		c.Next()
+	}
+}
+
+func invalidAccessToken() *problem.Problem {
+	return problem.Unauthorized("invalid-access-token", "The access token is missing, unknown, expired or revoked.")
 }
 
 // Optional stores the principal when the request carries a valid session and
