@@ -85,6 +85,9 @@ Regras:
 | Narração | `Narration` | Leitura em voz alta, com destaque palavra a palavra, do material de um card (SPEC-018) | `Karaoke`, `Playback` | Proposto |
 | Grupo de exercícios | `ExerciseGroup` | Lista ordenada de exercícios de um card, guardada num bloco `EXERCISES`, com um snapshot opcional que é o estado base da máquina antes deles (SPEC-022) | — | Proposto |
 | Exercício do card | `CardExercise` | Atividade do grupo, com título, dificuldade (`EASY`, `MEDIUM`, `HARD`), descrição, dicas, a solução gravada pela docente e as condições de finalização. Não é uma `Question` e não vale nota | Exercício | Proposto |
+| Exercício do módulo | `ModuleExercise` | Exercício do banco do módulo: uma `Question` prática, com enunciado, nível, dicas, solução gravada pela docente e condições de finalização (SPEC-023) | Exercício | Proposto |
+| Banco de exercícios do módulo | `ModuleExerciseBank` | Conjunto dos exercícios de um módulo, nos dois conjuntos abaixo; é o `QuestionBank` restrito ao módulo (SPEC-023) | Pool | Proposto |
+| Conjunto de exercícios | `ExerciseSet` | `EXERCISE` (disponíveis na prática do módulo, na trilha) ou `ASSESSMENT` (reservados para avaliação); cada conjunto tem o seu snapshot (`exercises_setup`, `assessment_setup`) | Lista | Proposto |
 | Condição de finalização | `CompletionCondition` | Algo que precisa valer na máquina ao fim do exercício (pasta existe, arquivo tem o texto, permissão, dono, usuário...), seja qual for a forma como o estudante chegou lá (SPEC-022) | — | Proposto |
 | Trecho de narração | `NarrationChunk` | Parte de até 2000 caracteres de um bloco, com o áudio e as marcas de palavra | `Segment`, `Part` | Proposto |
 

@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-023 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 10/10/2026 |
-| **Última revisão** | 10/10/2026 |
+| **Última revisão** | 10/10/2026 (aprovada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -78,20 +78,46 @@ Relacionamentos, índices e unicidades da trilha ficam como na SPEC-010. A exclu
 
 ## 5. Contrato de API (API Contract)
 
-Endpoints novos, todos sob `/api/v1/teacher/modules/{id}`, para a docente dona do módulo ou administrador (detalhes de campos e erros a fechar na aprovação, ver P-06):
+Todos sob `/api/v1/teacher/modules/{id}`, para a docente dona do módulo ou administrador. Erros no formato RFC 7807, com os mesmos `type` da autoria de conteúdo (`validation-error`, `not-found`, `forbidden`, `not-authenticated`, `payload-too-large`) e `block-conflict` para o conflito de edição.
 
-| Endpoint | Função |
-| :--- | :--- |
-| `GET /exercises` | Lista os exercícios do banco, nos dois conjuntos, com resumo e autoria |
-| `POST /exercises` | Cria um exercício (rascunho, reservado para avaliação por padrão) |
-| `GET /exercises/{exerciseId}` | Lê um exercício completo |
-| `PUT /exercises/{exerciseId}` | Salva o exercício (título, enunciado, nível, dicas, solução, condições), com detecção de conflito por `updatedAt` |
-| `PUT /exercises/{exerciseId}/availability` | Disponibiliza ou reserva, e publica ou volta a rascunho |
-| `DELETE /exercises/{exerciseId}` | Remove o exercício |
-| `PUT /exercises/order` | Reordena os disponíveis e marca obrigatórios (substitui o de hoje) |
-| `PUT /exercise-setups` | Salva os dois snapshots do módulo |
+**`GET /exercises`**: lista os exercícios do banco.
 
-Os endpoints de leitura do estudante (`/modules/{id}/scenario`, `/questions/{id}/scenario`, `/questions/{id}/check`, `/modules/{id}/progress`) continuam, com o cenário composto como na RN-07.
+| Campo da resposta | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `items` | lista | Um item por exercício, com os campos de `GET /exercises/{exerciseId}` menos enunciado, solução e condições |
+| `exercisesSetup` | objeto ou nulo | Snapshot dos exercícios disponíveis |
+| `assessmentSetup` | objeto ou nulo | Snapshot do banco de avaliação |
+
+**`POST /exercises`** e **`PUT /exercises/{exerciseId}`**: cria e salva.
+
+| Campo do corpo | Tipo | Obrigatório | Regra / Validação |
+| :--- | :--- | :--- | :--- |
+| `title` | texto | Sim | 1 a 200 caracteres |
+| `difficulty` | texto | Sim | `EASY`, `MEDIUM` ou `HARD` |
+| `statement` | HTML | Não | Sanitizado como o texto dos cards; até 20 mil caracteres |
+| `hints` | lista | Não | Até 10; cada uma com `text` (obrigatório, até 1000) e `command` (opcional, até 500) |
+| `solution` | objeto | Não | Snapshot no formato da SPEC-021, mesmos limites |
+| `conditions` | lista | Não | Até 100, no catálogo do servidor (SPEC-011 e 013) |
+| `updatedAt` | instante | Em `PUT` | Detecta conflito; `force` ignora |
+
+| Campo da resposta | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `id`, `title`, `difficulty`, `statement`, `hints`, `solution`, `conditions` | | Como no corpo |
+| `usage` | texto | `EXERCISE` (disponível) ou `ASSESSMENT` (reservado) |
+| `status` | texto | `DRAFT` ou `PUBLISHED` |
+| `position`, `mandatory` | inteiro, booleano | Na trilha; só se disponível |
+| `createdAt`, `updatedAt`, `createdBy`, `updatedBy` | | Autoria (RN-08) |
+| `legacy` | booleano | Veio da carga inicial, sem solução gravada (P-05) |
+
+**`PUT /exercises/{exerciseId}/availability`**: corpo com `usage` (`EXERCISE` ou `ASSESSMENT`) e `status` (`DRAFT` ou `PUBLISHED`). Disponibilizar põe no fim da trilha (RN-03).
+
+**`DELETE /exercises/{exerciseId}`**: remove (RN-09).
+
+**`PUT /exercises/order`**: corpo com `items`, lista de `{exerciseId, mandatory}` na ordem desejada; precisa conter exatamente os disponíveis.
+
+**`PUT /exercise-setups`**: corpo com `exercisesSetup` e `assessmentSetup`, cada um um snapshot ou nulo. Corpo até 6 MB.
+
+Os endpoints do estudante (`/modules/{id}/scenario`, `/questions/{id}/scenario`, `/questions/{id}/check`, `/modules/{id}/progress`) continuam; a resposta de `/modules/{id}/exercises` (novo, autenticação opcional) traz só os exercícios disponíveis e publicados, em ordem, com enunciado, nível, dicas e condições, mais os dois snapshots necessários (módulo e dos exercícios disponíveis).
 
 ## 6. Impacto e Riscos (Impact & Risks)
 
@@ -130,19 +156,22 @@ Os endpoints de leitura do estudante (`/modules/{id}/scenario`, `/questions/{id}
 3. **Arquivos a criar ou alterar:** a definir na aprovação, depois de resolvidas as pendências.
 4. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, status `Implementada`.
 
-## 10. Pendências para aprovação
+## 10. Pendências
 
-Decisões já tomadas pelo Tech Lead em 10/10/2026: o exercício é uma `Question` (D-01); o banco é por módulo (D-02); há um snapshot por conjunto, e nenhum por exercício (D-03).
+Nenhuma em aberto. Decisões do Tech Lead de 10/10/2026 (D-01 a D-03) e aceitas por ele na aprovação (D-04 a D-10, as recomendações do rascunho):
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | O que `Question` guarda hoje como dica é um texto único; o exercício do card tem uma lista de dicas com comando opcional | Acrescentar a lista de dicas à `Question` e ler a dica única antiga como a primeira da lista |
-| P-02 | As condições de finalização da tela (SPEC-022: `DIR_EXISTS`, `FILE_CONTENT`, `OWNER`, etc.) e o catálogo de condições do servidor (SPEC-011 e 013) são diferentes | Mapear cada condição derivada para o catálogo do servidor e, para o que não tiver equivalente, ampliar o catálogo por revisão (como a SPEC-013), com um teste que compara os dois avaliadores |
-| P-03 | O cenário de hoje é uma máquina inteira serializada (`Scenario`), e os snapshots da SPEC-021 são comandos e arquivos executados no cliente | O servidor devolve a composição de camadas (módulo + conjunto) e o cliente a executa; a máquina serializada fica só para o que veio da carga inicial |
-| P-04 | A versão publicada (SPEC-021) congela blocos e o snapshot do módulo; os dois snapshots e os exercícios devem entrar? | Os dois snapshots entram na versão; os exercícios continuam fora (têm ciclo de publicação próprio: rascunho e publicado) |
-| P-05 | Os exercícios da carga inicial (190 publicados) aparecem como? | Somente leitura, com o aviso "grave a solução para poder testar", e viram editáveis ao gravar a solução |
-| P-06 | Campos e erros de cada endpoint da seção 5 | Detalhar na revisão desta spec, no formato do template, antes de aprovar |
-| P-07 | Termos novos para o glossário: exercício do módulo, banco de exercícios do módulo, conjunto de exercícios (disponíveis e de avaliação) | Incluir no `GLOSSARY.md`, ligando "banco de exercícios do módulo" ao `QuestionBank` já proposto |
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | O exercício do módulo e do banco é uma `Question` prática |
+| D-02 | O banco é por módulo |
+| D-03 | Um snapshot por conjunto (disponíveis e avaliação); nenhum por exercício |
+| D-04 | A `Question` ganha uma lista de dicas; a dica única antiga é lida como a primeira da lista |
+| D-05 | As condições de finalização derivadas na tela são traduzidas para o catálogo do servidor ao salvar: `DIR_EXISTS` → `DIRECTORY_EXISTS`, `FILE_EXISTS`, `PATH_ABSENT`, `FILE_CONTENT` igual → `CONTENT_EQUALS` e contém → `CONTENT_CONTAINS`, `MODE` → `PERMISSION_MODE`, `OWNER` → `OWNER` e `GROUP_OWNER`, `LINK` → `SYMLINK`, `USER_EXISTS`, `GROUP_EXISTS`, `USER_IN_GROUP`. O catálogo do servidor já tem todos, então não é preciso ampliá-lo |
+| D-06 | O servidor entrega as camadas (snapshot do módulo e do conjunto) e o cliente as executa; a máquina serializada (`Scenario`) fica só para o que veio da carga inicial |
+| D-07 | Os dois snapshots entram na versão publicada do módulo; os exercícios ficam fora (têm ciclo próprio de rascunho e publicado) |
+| D-08 | Os exercícios da carga inicial aparecem no banco como somente leitura (`legacy`) com o aviso "grave a solução para poder testar", e viram editáveis ao gravar a solução |
+| D-09 | Campos e erros dos endpoints: os da seção 5 |
+| D-10 | Os termos novos entram no glossário: exercício do módulo, banco de exercícios do módulo, conjunto de exercícios |
 
 ---
 
@@ -151,3 +180,4 @@ Decisões já tomadas pelo Tech Lead em 10/10/2026: o exercício é uma `Questio
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; decisões D-01 a D-03 tomadas por ele no mesmo dia; pendências P-01 a P-07 abertas |
+| 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01 a P-07 (viram D-04 a D-10); seção 5 detalhada |
