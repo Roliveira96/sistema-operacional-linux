@@ -235,9 +235,17 @@ describe("ContentTab", () => {
     await screen.findByText("Atualizar");
     const menu = screen.getByRole("button", { name: "Ações do card 2" });
     fireEvent.click(menu);
-    expect(screen.getAllByRole("menuitem").map((el) => el.textContent)).toEqual(
-      ["Ver", "Editar", "Criar card depois deste", "Inativar", "Remover"],
-    );
+    expect(
+      screen
+        .getAllByRole("menuitem")
+        .map((el) => el.textContent?.replace(/^\P{L}+/u, "")),
+    ).toEqual([
+      "Ver",
+      "Editar",
+      "Criar card depois deste",
+      "Inativar",
+      "Remover",
+    ]);
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
     expect(document.activeElement).toBe(menu);

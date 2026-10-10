@@ -436,17 +436,20 @@ export function ContentTab({
                           actions={[
                             {
                               key: "view",
+                              icon: "👁️",
                               label: m.view,
                               onSelect: () => setViewing(group.key),
                             },
                             {
                               key: "edit",
+                              icon: "✏️",
                               label: m.edit,
                               onSelect: () =>
                                 router.push(editHref(moduleId, group)),
                             },
                             {
                               key: "after",
+                              icon: "➕",
                               label: m.addAfter,
                               onSelect: () =>
                                 router.push(
@@ -455,12 +458,14 @@ export function ContentTab({
                             },
                             {
                               key: "active",
+                              icon: inactive ? "▶️" : "⏸️",
                               label: inactive ? m.activate : m.inactivate,
                               onSelect: () =>
                                 void toggleActive(group, inactive),
                             },
                             {
                               key: "remove",
+                              icon: "🗑️",
                               label: m.remove,
                               danger: true,
                               onSelect: () => setRemoving(group.key),

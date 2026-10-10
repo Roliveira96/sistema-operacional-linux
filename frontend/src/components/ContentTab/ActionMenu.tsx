@@ -8,6 +8,8 @@ export interface MenuAction {
   label: string;
   onSelect: () => void;
   danger?: boolean;
+  /** An emoji before the label; it only decorates, the label says it all. */
+  icon?: string;
 }
 
 interface ActionMenuProps {
@@ -81,7 +83,13 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
         <span aria-hidden="true">{text}</span>
       </button>
       {open && (
-        <div id={menuId} role="menu" aria-label={label} className={styles.menuList} onKeyDown={onMenuKey}>
+        <div
+          id={menuId}
+          role="menu"
+          aria-label={label}
+          className={styles.menuList}
+          onKeyDown={onMenuKey}
+        >
           {actions.map((action, index) => (
             <button
               key={action.key}
@@ -96,6 +104,11 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
                 action.onSelect();
               }}
             >
+              {action.icon && (
+                <span className={styles.menuIcon} aria-hidden="true">
+                  {action.icon}
+                </span>
+              )}
               {action.label}
             </button>
           ))}
