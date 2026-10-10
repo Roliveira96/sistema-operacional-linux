@@ -982,3 +982,38 @@ func TestReorderModules(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+type fakeVersioner struct {
+	calls int
+	by    uuid.UUID
+	err   error
+}
+
+func (f *fakeVersioner) CreateInitialVersion(_ context.Context, _, by uuid.UUID) error {
+	f.calls++
+	f.by = by
+	return f.err
+}
+
+func TestService_CreateModule_InitialVersion(t *testing.T) {
+	teacherID := uuid.New()
+	in := service.CreateModuleInput{TeacherID: teacherID, Title: "T", Description: "desc", Visibility: domain.VisibilityPublic}
+
+	t.Run("publishes version 1 for the new module (SPEC-021 RN-11)", func(t *testing.T) {
+		v := &fakeVersioner{}
+		svc := service.New(newMockRepository())
+		svc.SetInitialVersioner(v)
+		_, err := svc.CreateModule(context.Background(), in)
+		require.NoError(t, err)
+		assert.Equal(t, 1, v.calls)
+		assert.Equal(t, teacherID, v.by)
+	})
+
+	t.Run("returns the error when version 1 cannot be created", func(t *testing.T) {
+		v := &fakeVersioner{err: errors.New("db down")}
+		svc := service.New(newMockRepository())
+		svc.SetInitialVersioner(v)
+		_, err := svc.CreateModule(context.Background(), in)
+		require.Error(t, err)
+	})
+}

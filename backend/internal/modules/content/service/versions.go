@@ -147,3 +147,25 @@ func requireTests(state domain.TestState) error {
 	}
 	return nil
 }
+
+// InitialVersionStore publishes the first version without the gate of the tests (SPEC-021 RN-11).
+type InitialVersionStore interface {
+	PublishVersion(ctx context.Context, moduleID, by uuid.UUID, note string) (domain.ModuleVersion, error)
+}
+
+// InitialVersions creates the version 1 of a new module, so a module is never without a published version.
+type InitialVersions struct{ store InitialVersionStore }
+
+// NewInitialVersions creates the service.
+func NewInitialVersions(store InitialVersionStore) *InitialVersions {
+	return &InitialVersions{store: store}
+}
+
+// CreateInitialVersion publishes the draft of a just created module as version 1; a module that already has versions is left alone.
+func (s *InitialVersions) CreateInitialVersion(ctx context.Context, moduleID, by uuid.UUID) error {
+	_, err := s.store.PublishVersion(ctx, moduleID, by, "Initial version")
+	if errors.Is(err, ErrNoChanges) {
+		return nil
+	}
+	return err
+}

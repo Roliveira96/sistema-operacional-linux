@@ -39,6 +39,7 @@ A API REST já cobre todo o fluxo de autoria (SPEC-010, 019, 021, 022, 023). A l
 - Ferramentas para turmas, estudantes, provas, notas e auditoria acadêmica. Turmas ainda não foram implementadas no fluxo de módulos; ficam para spec futura (decisão do Tech Lead, 10/10/2026).
 - Executar comandos de shell no servidor (D-02).
 - Frontend do MCP além de emitir e revogar tokens.
+- Questões teóricas (escolha, verdadeiro/falso, dissertativa): a SPEC-023 trata só das práticas e não há autoria delas na plataforma; ficam para spec futura.
 - Tornar o MCP público ou liberar leitura de conteúdo para estudantes.
 - Novo modelo de ciclo de vida do módulo: vale o das SPEC-010 e SPEC-021.
 - Publicar uma versão e restaurar uma versão no rascunho pelo MCP: ficam só na interface web, por decisão do Tech Lead (10/10/2026).
@@ -66,14 +67,14 @@ Seção "Acesso por agentes (MCP)" no perfil, visível só para `ADMIN` e `TEACH
 | :--- | :--- | :--- |
 | `list_modules` | Lista os módulos que o usuário pode editar, com estado e se há alterações não publicadas | `coursemodule` |
 | `get_module` | Devolve dados, blocos do rascunho, snapshot, exercícios e versões | `coursemodule`, `content` |
-| `create_module` | Cria o módulo (título, slug, descrição, vigência, visibilidade, vídeo e links); nasce com a versão 1 vazia | `coursemodule` (SPEC-010, SPEC-021 RN-11) |
+| `create_module` | Cria o módulo (título, slug, descrição, vigência e visibilidade); nasce com a versão 1 vazia | `coursemodule` (SPEC-010, SPEC-021 RN-11) |
 | `update_module_metadata` | Edita qualquer dado do módulo, inclusive o estado `ACTIVE`, `INACTIVE` ou `ARCHIVED` | `coursemodule` |
 | `archive_module` | Arquiva o módulo, preservando turmas e histórico | `coursemodule` |
 | `append_content_blocks` | Acrescenta blocos ao rascunho, validados pelo tipo | `content` (SPEC-019) |
 | `update_content_block` | Edita, ativa, desativa ou remove um bloco do rascunho | `content` |
 | `replace_content_blocks` | Substitui todos os blocos do rascunho numa só operação atômica | `content` |
 | `set_module_setup` | Grava o snapshot do módulo (passos e arquivos) | `content` (SPEC-021) |
-| `create_module_exercise` | Cria exercício do módulo (prático, teórico ou dissertativo, dificuldade, uso, vínculos) | `content` (SPEC-023) |
+| `create_module_exercise` | Cria exercício prático do módulo (dificuldade, uso, vínculos, dependência); fica em `DRAFT` e a docente o publica na tela | `content` (SPEC-023) |
 | `update_module_exercise` | Edita, remove e reordena exercícios | `content` |
 | `set_exercise_setup` | Define o cenário do exercício, inclusive herança de outro exercício do módulo | `content` (SPEC-023 RN-11) |
 | `validate_module` | Roda as validações estruturais do rascunho e devolve a lista de problemas, para o agente corrigir antes de a docente publicar | `content`, `coursemodule` |
@@ -255,3 +256,5 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | 10/10/2026 | Aruna Architect | Por decisão do Tech Lead: publicar exige o teste do módulo aprovado, feito pela docente no sistema (RN-13, CA-17 a CA-20) |
 | 10/10/2026 | Aruna Architect | Turmas ficam fora da v1 (decisão do Tech Lead); pendência P-07 resolvida e removida |
 | 10/10/2026 | Aruna Architect | Testes de conteúdo e de banco de exercícios obrigatórios para publicar (RN-13, CA-17 a CA-21). Pendências P-01 a P-09 viram decisões D-01 a D-10. Aprovada pelo Tech Lead em 10/10/2026 |
+| 10/10/2026 | Implementador (Claude) | Correção: o módulo não tem vídeo nem links próprios (o vídeo é por bloco, SPEC-019); removidos de `create_module`. Exercícios criados pelo MCP ficam em `DRAFT` e a docente os publica na tela |
+| 10/10/2026 | Implementador (Claude) | `create_module_exercise` é só de exercício prático, em linha com a SPEC-023 (seção 2.1); questões teóricas ficam para spec futura |

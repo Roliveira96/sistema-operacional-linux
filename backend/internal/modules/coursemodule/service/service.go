@@ -4,6 +4,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -42,11 +43,17 @@ type ModuleRepository interface {
 // MaxDescriptionLength is the largest description, counted in characters of the filtered html.
 const MaxDescriptionLength = 20000
 
+// InitialVersioner publishes the empty version 1 of a new module (SPEC-021 RN-11). The content module implements it.
+type InitialVersioner interface {
+	CreateInitialVersion(ctx context.Context, moduleID, by uuid.UUID) error
+}
+
 // Service implements the business logic for course modules.
 type Service struct {
-	repo ModuleRepository
-	now  func() time.Time
-	san  *htmlsafe.Sanitizer
+	repo     ModuleRepository
+	versions InitialVersioner
+	now      func() time.Time
+	san      *htmlsafe.Sanitizer
 }
 
 // New creates a new course module service.
@@ -70,6 +77,9 @@ func (s *Service) cleanDescription(raw string) (string, error) {
 	}
 	return clean, nil
 }
+
+// SetInitialVersioner makes every new module be born with its version 1 published (SPEC-021 RN-11).
+func (s *Service) SetInitialVersioner(v InitialVersioner) { s.versions = v }
 
 // SetNow overrides time generator for testing.
 func (s *Service) SetNow(f func() time.Time) {
@@ -146,6 +156,11 @@ func (s *Service) CreateModule(ctx context.Context, input CreateModuleInput) (do
 
 	if err := s.repo.CreateModule(ctx, &module, input.ClassIDs, input.TeacherID); err != nil {
 		return domain.CourseModule{}, err
+	}
+	if s.versions != nil {
+		if err := s.versions.CreateInitialVersion(ctx, module.ID, input.TeacherID); err != nil {
+			return domain.CourseModule{}, fmt.Errorf("create initial version: %w", err)
+		}
 	}
 
 	return module, nil

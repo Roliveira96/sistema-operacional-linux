@@ -27,6 +27,8 @@ import (
 	coursemodulehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/handler"
 	coursemodulerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
 	coursemoduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/service"
+	mcphandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/mcp/handler"
+	mcpservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/mcp/service"
 	practicehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/handler"
 	practicerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/repository"
 	practiceservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/service"
@@ -38,6 +40,7 @@ import (
 	userrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/repository"
 	userservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/service"
 
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/config"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/health"
@@ -126,16 +129,17 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		cfg.Auth.Google.RedirectURL,
 	)
 	auth, err := authservice.New(authservice.Deps{
-		Users:       users,
-		Store:       authStore,
-		NotFound:    authrepository.ErrNotFound,
-		Auditor:     auditor,
-		Mailer:      dispatcher,
-		Tx:          db,
-		Hasher:      authservice.Argon2Hasher{},
-		GoogleOAuth: googleOAuth,
-		PublicURL:   cfg.Auth.PublicURL,
-		Log:         log,
+		Users:        users,
+		Store:        authStore,
+		AccessTokens: authStore,
+		NotFound:     authrepository.ErrNotFound,
+		Auditor:      auditor,
+		Mailer:       dispatcher,
+		Tx:           db,
+		Hasher:       authservice.Argon2Hasher{},
+		GoogleOAuth:  googleOAuth,
+		PublicURL:    cfg.Auth.PublicURL,
+		Log:          log,
 	})
 	if err != nil {
 		return err
@@ -154,6 +158,8 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		ForgotID:      ratelimit.New(3, time.Hour),
 	}, !cfg.IsDevelopment())
 
+	accessTokenHandler := authhandler.NewAccessTokens(auth, auth, ratelimit.New(10, time.Hour))
+
 	classRepo := classgrouprepository.New(db)
 	classService := classgroupservice.New(classRepo)
 	classHandler := classgrouphandler.New(classService, auth)
@@ -164,12 +170,19 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	contentReader := contentservice.NewReader(moduleService, contentrepository.New(db))
 	contentHandler := contenthandler.New(contentReader, auth)
 	contentRepo := contentrepository.New(db)
-	contentAuthorHandler := contenthandler.NewAuthor(
-		contentservice.NewAuthor(contentRepo, log), auth, ratelimit.New(120, time.Minute))
-	contentVersionHandler := contenthandler.NewVersions(
-		contentservice.NewVersions(contentRepo, log), auth, ratelimit.New(120, time.Minute))
-	contentExerciseHandler := contenthandler.NewExercises(
-		contentservice.NewExercises(contentRepo, log), auth, ratelimit.New(120, time.Minute))
+	// A module is born with its version 1 published (SPEC-021 RN-11).
+	moduleService.SetInitialVersioner(contentservice.NewInitialVersions(contentRepo))
+	// The writes of the authoring screens and of the MCP server count together (SPEC-024 RN-10).
+	authoringLimiter := ratelimit.New(120, time.Minute)
+	contentAuthor := contentservice.NewAuthor(contentRepo, log)
+	contentVersions := contentservice.NewVersions(contentRepo, log)
+	contentExercises := contentservice.NewExercises(contentRepo, log)
+	contentAuthorHandler := contenthandler.NewAuthor(contentAuthor, auth, authoringLimiter)
+	contentVersionHandler := contenthandler.NewVersions(contentVersions, auth, ratelimit.New(120, time.Minute))
+	contentExerciseHandler := contenthandler.NewExercises(contentExercises, auth, ratelimit.New(120, time.Minute))
+	mcpHandler := mcphandler.New(
+		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log),
+		authn.RequiredBearer(auth), log)
 	practiceHandler := practicehandler.New(
 		practiceservice.New(contentReader, practicerepository.New(db)), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
@@ -198,6 +211,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	engine := server.NewEngine(log, cfg.TrustedProxies,
 		health.NewHandler(checker, version, log),
 		authHandler,
+		accessTokenHandler,
 		classHandler,
 		moduleHandler,
 		contentHandler,
@@ -208,6 +222,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		ttsHandler,
 		studentHandler,
 	)
+	mcpHandler.Register(engine)
 	srv := server.New(cfg.HTTPAddr, engine, log)
 
 	shutdownCtx, cancel, err := srv.Run(ctx, cfg.ShutdownTimeout)
