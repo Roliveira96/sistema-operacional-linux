@@ -83,7 +83,7 @@ describe("ContentTab", () => {
     const card = parseCard(groupCards(blocks)[1]!);
     saveTest("mod-1", "h1", true, card);
     renderTab();
-    expect(await screen.findByText("testado: passou")).toBeDefined();
+    expect(await screen.findByText("Teste OK")).toBeDefined();
     cleanup();
 
     saveTest("mod-1", "h1", false, card);

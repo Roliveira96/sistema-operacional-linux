@@ -177,7 +177,7 @@ export function ContentTab({
             );
             return (
               <span
-                className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`}
+                className={`${styles.badge} ${styles.cornerBadge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`}
                 title={m.testAll.moduleTitle}
               >
                 {m.testAll.moduleTest[status]}
@@ -298,6 +298,29 @@ export function ContentTab({
                   setOver(null);
                 }}
               >
+                <div className={styles.badgeBar}>
+                  {(() => {
+                    const status = testStatus(
+                      moduleId,
+                      group.key,
+                      parseCard(group),
+                    );
+                    return status === "none" ? null : (
+                      <span
+                        className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`}
+                        title={m.test.title}
+                      >
+                        {m.test[status]}
+                      </span>
+                    );
+                  })()}
+                  {edited && <span className={styles.badge}>{m.edited}</span>}
+                  {inactive && (
+                    <span className={`${styles.badge} ${styles.badgeOff}`}>
+                      {m.inactive}
+                    </span>
+                  )}
+                </div>
                 <div className={styles.row}>
                   {sorting && (
                     <span
@@ -330,27 +353,6 @@ export function ContentTab({
                           ))}
                     </span>
                   </div>
-                  {(() => {
-                    const status = testStatus(
-                      moduleId,
-                      group.key,
-                      parseCard(group),
-                    );
-                    return status === "none" ? null : (
-                      <span
-                        className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`}
-                        title={m.test.title}
-                      >
-                        {m.test[status]}
-                      </span>
-                    );
-                  })()}
-                  {edited && <span className={styles.badge}>{m.edited}</span>}
-                  {inactive && (
-                    <span className={`${styles.badge} ${styles.badgeOff}`}>
-                      {m.inactive}
-                    </span>
-                  )}
                   <div className={styles.rowActions}>
                     {sorting ? (
                       <>

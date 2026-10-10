@@ -57,7 +57,7 @@ export const authoringMessages = {
       moduleOpen: "Testar o módulo",
       moduleOpenTitle: "Testa cada card (teste unitário) e, depois, o módulo inteiro: o ambiente e os exercícios em sequência, na mesma máquina",
       moduleTitle: "Teste do módulo",
-      moduleTest: { untested: "módulo não testado", passed: "módulo testado: passou", failed: "módulo testado: falhou", stale: "módulo alterado desde o teste" },
+      moduleTest: { untested: "módulo não testado", passed: "Teste OK", failed: "módulo testado: falhou", stale: "módulo alterado desde o teste" },
       lead: "O módulo é testado em três etapas. Clique numa etapa para ver o terminal e os comandos dela.",
       scoreboard: "Etapas do teste do módulo",
       unitsName: "Cada atividade sozinha",
@@ -111,7 +111,7 @@ export const authoringMessages = {
     test: {
       title: "Resultado do último teste dos comandos deste card, neste navegador",
       untested: "não testado",
-      passed: "testado: passou",
+      passed: "Teste OK",
       failed: "testado: falhou",
       stale: "alterado desde o teste",
     },
