@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { InfoTip } from "@/components/InfoTip/InfoTip";
-import { ContentRenderer } from "@/components/ContentRenderer/ContentRenderer";
 import {
   cardCounts,
   groupCards,
@@ -29,6 +28,7 @@ import {
   type PracticeService,
 } from "@/services/practiceService";
 import { ActionMenu } from "./ActionMenu";
+import { CardModal } from "./CardModal";
 import { ModuleSetupTab } from "@/components/ModuleSetupTab/ModuleSetupTab";
 import { TestAll } from "./TestAll";
 import styles from "./ContentTab.module.scss";
@@ -280,6 +280,17 @@ export function ContentTab({
                 key={group.key}
                 className={`${styles.block} ${inactive ? styles.inactiveBlock : ""} ${status === "passed" ? styles.blockOk : ""} ${sorting ? styles.sortable : ""} ${dragging === index ? styles.dragging : ""} ${over === index && dragging !== null && dragging !== index ? styles.dropTarget : ""}`}
                 draggable={sorting}
+                onClick={(event) => {
+                  // A click on the row opens the card, except on the buttons and links inside it, and while sorting.
+                  if (
+                    sorting ||
+                    (event.target as HTMLElement).closest(
+                      "a, button, [role=menu]",
+                    )
+                  )
+                    return;
+                  setViewing(group.key);
+                }}
                 onDragStart={() => setDragging(index)}
                 onDragOver={(event) => {
                   if (dragging === null) return;
@@ -316,9 +327,14 @@ export function ContentTab({
                   {pill && <code className={styles.pill}>{pill}</code>}
                   <div className={styles.summary}>
                     <div className={styles.headline}>
-                      <span className={styles.cardTitle}>
+                      <button
+                        type="button"
+                        className={styles.cardTitle}
+                        disabled={sorting}
+                        onClick={() => setViewing(group.key)}
+                      >
                         {title || m.untitled}
-                      </span>
+                      </button>
                       <div className={styles.badgeBar}>
                         {status !== "none" && (
                           <span
@@ -441,27 +457,27 @@ export function ContentTab({
                     </div>
                   </div>
                 )}
-
-                {viewing === group.key && (
-                  <div className={styles.viewer}>
-                    <div className={styles.viewerHead}>
-                      <h3 className={styles.viewerTitle}>{m.viewTitle}</h3>
-                      <button
-                        type="button"
-                        className={styles.secondary}
-                        onClick={() => setViewing(null)}
-                      >
-                        {m.close}
-                      </button>
-                    </div>
-                    <ContentRenderer blocks={group.blocks} />
-                  </div>
-                )}
               </li>
             );
           })}
         </ol>
       )}
+
+      {(() => {
+        const open = groups.find((g) => g.key === viewing);
+        if (!open) return null;
+        const header = open.header
+          ? String(open.header.payload.title ?? "")
+          : "";
+        return (
+          <CardModal
+            title={header || m.intro}
+            blocks={open.blocks}
+            editHref={editHref(moduleId, open)}
+            onClose={() => setViewing(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

@@ -186,9 +186,11 @@
     animation-delay: 240ms;
   }
 
+  cursor: pointer;
+
   &:hover {
     transform: translateY(-2px);
-    border-color: var(--color-border-strong);
+    border-color: var(--color-accent);
     box-shadow: var(--shadow-md);
   }
 
@@ -211,33 +213,38 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
+// The position in the list: quiet, so the tile and the title lead.
 .number {
+  flex: none;
+  min-width: 1.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+// The tag of the card (an emoji or a short word) as a tile.
+.pill {
   display: grid;
   flex: none;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--radius-pill);
+  min-width: 3rem;
+  max-width: 7rem;
+  height: 3rem;
+  padding: 0 var(--space-3);
+  overflow: hidden;
+  border: 1px solid var(--color-accent-subtle);
+  border-radius: var(--radius-md);
   background: var(--color-accent-subtle);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
-}
-
-.pill {
-  flex: none;
-  padding: 2px var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--color-accent);
 }
 
@@ -248,10 +255,28 @@
   min-width: 0;
 }
 
+// The title is a button that opens the card in a window.
 .cardTitle {
-  font-weight: var(--font-weight-semibold);
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  text-align: left;
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--color-accent);
+  }
+
+  &:disabled {
+    cursor: grab;
+  }
+
+  @include mixins.focusable;
 }
 
 .counts {
@@ -308,6 +333,10 @@
 
 .sortable {
   cursor: grab;
+
+  &:hover {
+    transform: none;
+  }
 }
 
 .dragging {
@@ -472,29 +501,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
-}
-
-.viewer {
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.viewerHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.viewerTitle {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
 }
 
 // The environment of the module (its snapshot) is built beside the content that is tested with it.

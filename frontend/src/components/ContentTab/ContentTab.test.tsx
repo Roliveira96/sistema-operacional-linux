@@ -166,14 +166,22 @@ describe("ContentTab", () => {
     expect(push).toHaveBeenLastCalledWith("/app/modules/mod-1/cards/i1");
   });
 
-  it("shows a card as the student sees it, then closes it (CA-23)", async () => {
+  it("shows a card as the student sees it in a window, from the menu or from a click on the card, then closes it (CA-23)", async () => {
     renderTab();
     await screen.findByText("Atualizar");
     choose(2, "Ver");
-    const viewer = screen.getByText("Como o aluno vê").closest("div")!.parentElement as HTMLElement;
-    expect(within(viewer).getByText("apt upgrade")).toBeDefined();
-    fireEvent.click(within(viewer).getByRole("button", { name: "Fechar" }));
-    expect(screen.queryByText("Como o aluno vê")).toBeNull();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Como o aluno vê")).toBeDefined();
+    expect(within(dialog).getByText("apt upgrade")).toBeDefined();
+    expect(within(dialog).getByRole("link", { name: /Editar/ }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h1");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // A click on the title opens it too, and Escape closes it.
+    fireEvent.click(screen.getByRole("button", { name: "Segundo" }));
+    expect(screen.getByRole("dialog")).toBeDefined();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("inactivates every block of the card, then reactivates it (CA-21)", async () => {
