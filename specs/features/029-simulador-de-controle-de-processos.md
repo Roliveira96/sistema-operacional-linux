@@ -90,6 +90,7 @@ Um painel **somente de leitura**, ao lado dos terminais do estudo e dos exercíc
 | RN-06 | O painel de processos mostra o mesmo estado que `ps` e `top` mostram; nunca um estado diferente |
 | RN-07 | Os processos não são salvos com a máquina: ao recarregar, voltam a ser os do sistema, como num reinício |
 | RN-08 | As condições de processo só valem para processos de usuário; os do sistema (`systemd`, serviços) não entram na conferência |
+| RN-10 | **O `legacy/` não é alterado** (SPEC-014, decisão do Tech Lead de 10/10/2026): tudo desta spec é código novo em `frontend/src/engine/` (em inglês, com testes), que se registra no catálogo de comandos do motor pelo adaptador, só lendo o legado. Quando um comando novo precisa estender um do motor (`ps`, `kill`, `tail`), o comando novo **embrulha** o original: trata o que é novo e entrega o resto ao comando do motor, sem editá-lo |
 | RN-09 | O comportamento (saída, códigos de saída e mensagens) é o do Linux de verdade, comando a comando, e a ajuda (`--help`, SPEC-027) descreve só o que o simulador faz |
 
 ## 4. Modelo de Dados (Data Model)
@@ -133,10 +134,11 @@ A API de conferência do exercício passa a aceitar, no snapshot enviado, os cam
 
 ## 9. Contexto Final da IA (AI Final Context Execution)
 
-1. **Pré-leitura obrigatória:** `specs/AI_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `GLOSSARY.md`, SPEC-020, SPEC-022, SPEC-023 e SPEC-027; no código, `legacy/src/linux/Processos.ts`, `legacy/src/linux/Sessao.ts`, `legacy/src/shell/comandos/Processos.ts`, `Interpretador.ts` e `frontend/src/lib/exerciseConditions.ts`.
-2. **Ordem de execução:** A (comandos e programas, com testes no terminal real), depois B (painel), depois C (condições no frontend, depois no servidor).
-3. **Arquivos a criar ou alterar:** definidos a cada entrega, depois da aprovação.
-4. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, status `Implementada`.
+1. **Restrição:** não editar nada em `legacy/` (RN-10).
+2. **Pré-leitura obrigatória:** `specs/AI_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `GLOSSARY.md`, SPEC-020, SPEC-022, SPEC-023 e SPEC-027; no código, `legacy/src/linux/Processos.ts`, `legacy/src/linux/Sessao.ts`, `legacy/src/shell/comandos/Processos.ts`, `Interpretador.ts` e `frontend/src/lib/exerciseConditions.ts`.
+3. **Ordem de execução:** A (comandos e programas, com testes no terminal real), depois B (painel), depois C (condições no frontend, depois no servidor).
+4. **Arquivos a criar ou alterar:** `frontend/src/engine/processes/*` (comandos, estado de prioridade, painel de dados), o adaptador `terminalWindow.ts` (registro) e os componentes do painel; definidos a cada entrega.
+5. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, status `Implementada`.
 
 ## 10. Pendências (com recomendação)
 
@@ -159,3 +161,4 @@ A API de conferência do exercício passa a aceitar, no snapshot enviado, os cam
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; o que o motor já tem foi levantado; pendências P-01 a P-07 abertas com recomendação |
 | 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01 a P-07 |
 | 10/10/2026 | Implementador (Claude) | Renumerada de SPEC-028 para SPEC-029: o número 028 já foi tomado pelo rascunho "Ampliação dos comandos do terminal do navegador" |
+| 10/10/2026 | Tech Lead | O `legacy/` não deve ser alterado; a implementação é toda em `frontend/src/engine/`. Incluída a RN-10 |
