@@ -230,7 +230,7 @@ describe("ContentTab", () => {
     expect(await screen.findByText("Atualizar")).toBeDefined();
   });
 
-  it("offers See, Edit, Inactivate and Remove in the action menu, with the keyboard too (CA-22)", async () => {
+  it("offers See, Edit, Create after, Inactivate and Remove in the action menu, with the keyboard too (CA-22)", async () => {
     renderTab();
     await screen.findByText("Atualizar");
     const menu = screen.getByRole("button", { name: "Ações do card 2" });
@@ -246,11 +246,11 @@ describe("ContentTab", () => {
     const items = screen.getAllByRole("menuitem");
     expect(document.activeElement).toBe(items[0]);
     fireEvent.keyDown(screen.getByRole("menu"), { key: "End" });
-    expect(document.activeElement).toBe(items[3]);
+    expect(document.activeElement).toBe(items[4]);
     fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
     expect(document.activeElement).toBe(items[0]);
     fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowUp" });
-    expect(document.activeElement).toBe(items[3]);
+    expect(document.activeElement).toBe(items[4]);
     fireEvent.mouseDown(document.body);
     expect(screen.queryByRole("menu")).toBeNull();
   });
