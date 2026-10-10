@@ -11,20 +11,52 @@
   padding: var(--space-6) var(--space-4);
 }
 
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// The hero: the module the teacher is editing, with a soft glow of the brand color.
 .header {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  padding: var(--space-6);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(60rem 18rem at 0% 0%, var(--color-accent-glow), transparent 60%),
+    linear-gradient(180deg, var(--color-surface-raised), var(--color-surface));
+  box-shadow: var(--shadow-md);
+  animation: rise 0.5s var(--easing-standard) both;
 }
 
 .back {
   align-self: flex-start;
-  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-glass);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   text-decoration: none;
+  transition:
+    transform var(--duration-normal) var(--easing-standard),
+    color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
 
   &:hover {
+    transform: translateX(-2px);
+    border-color: var(--color-border-strong);
     color: var(--color-text-primary);
   }
 
@@ -53,7 +85,8 @@
 .title {
   margin: 0;
   font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-black);
+  letter-spacing: -0.02em;
   color: var(--color-text-primary);
 }
 
@@ -103,33 +136,93 @@
   gap: var(--space-4);
 }
 
+// Segmented tabs: equal columns, and a highlight that slides under the chosen one (transform only).
 .tabs {
-  display: flex;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--tab-count), 1fr);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  animation: rise 0.5s 0.08s var(--easing-standard) both;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: var(--space-1) auto var(--space-1) var(--space-1);
+    width: calc((100% - 2 * var(--space-1)) / var(--tab-count));
+    border-radius: var(--radius-md);
+    background: var(--color-accent-subtle);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
+    transform: translateX(calc(var(--tab-index) * 100%));
+    transition: transform 0.3s var(--easing-standard);
+  }
 }
 
 .tab {
-  margin-bottom: -1px;
-  padding: var(--space-3) var(--space-4);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-md);
   background: none;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   cursor: pointer;
+  transition: color var(--duration-fast) ease;
 
   &:hover {
     color: var(--color-text-primary);
   }
 
   &[aria-selected="true"] {
-    border-bottom-color: var(--color-accent);
     color: var(--color-text-primary);
   }
 
+  @include mixins.from("md") {
+    font-size: var(--font-size-md);
+  }
+
   @include mixins.focusable;
+}
+
+.tabIcon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+
+  [aria-selected="true"] > & {
+    stroke: var(--color-accent);
+  }
+}
+
+// The content of a tab slides in when it is chosen.
+.panel:not([hidden]) {
+  animation: rise 0.35s var(--easing-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header,
+  .tabs,
+  .panel:not([hidden]) {
+    animation: none;
+  }
+
+  .tabs::before,
+  .back {
+    transition: none;
+  }
 }
 
 .sectionHeader {

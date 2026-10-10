@@ -14,6 +14,15 @@ import styles from "./page.module.scss";
 type Tab = "details" | "content" | "versions" | "exercises";
 const TABS: Tab[] = ["details", "content", "versions", "exercises"];
 
+// One icon per tab, drawn with the same stroke so the set looks like one family.
+const ICONS: Record<Tab, string> = {
+  details: "M4 6h16M4 12h16M4 18h10",
+  content: "M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM8 8h7M8 12h7",
+  versions: "M12 7v5l3 2M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4",
+  exercises: "M9 12l2 2 4-4M5 4h14v16H5z",
+};
+
+
 export default function EditModulePage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const m = ptBR.modules;
 
@@ -122,7 +131,7 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      <div role="tablist" aria-label={m.tabs.label} className={styles.tabs}>
+      <div role="tablist" aria-label={m.tabs.label} className={styles.tabs} style={{ "--tab-index": TABS.indexOf(tab), "--tab-count": TABS.length } as React.CSSProperties}>
         {TABS.map((key) => (
           <button
             key={key}
@@ -134,24 +143,27 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
             className={styles.tab}
             onClick={() => setTab(key)}
           >
+            <svg className={styles.tabIcon} viewBox="0 0 24 24" aria-hidden="true">
+              <path d={ICONS[key]} />
+            </svg>
             {m.tabs[key]}
           </button>
         ))}
       </div>
 
-      <div role="tabpanel" id="panel-details" aria-labelledby="tab-details" hidden={tab !== "details"}>
+      <div role="tabpanel" id="panel-details" aria-labelledby="tab-details" hidden={tab !== "details"} className={styles.panel}>
         <ModuleForm key={formVersion} initialData={moduleData} availableClasses={availableClasses} onSubmit={handleSubmit} isEditing />
       </div>
 
-      <section className={styles.section} role="tabpanel" id="panel-content" aria-labelledby="tab-content" hidden={tab !== "content"}>
+      <section className={`${styles.section} ${styles.panel}`} role="tabpanel" id="panel-content" aria-labelledby="tab-content" hidden={tab !== "content"}>
         {id && <ContentTab moduleId={id} />}
       </section>
 
-      <section className={styles.section} role="tabpanel" id="panel-versions" aria-labelledby="tab-versions" hidden={tab !== "versions"}>
+      <section className={`${styles.section} ${styles.panel}`} role="tabpanel" id="panel-versions" aria-labelledby="tab-versions" hidden={tab !== "versions"}>
         {id && tab === "versions" && <VersionsTab moduleId={id} />}
       </section>
 
-      <section className={styles.section} role="tabpanel" id="panel-exercises" aria-labelledby="tab-exercises" hidden={tab !== "exercises"}>
+      <section className={`${styles.section} ${styles.panel}`} role="tabpanel" id="panel-exercises" aria-labelledby="tab-exercises" hidden={tab !== "exercises"}>
         <ExerciseOrderList exercises={moduleData.exerciseItems || []} onSaveOrder={handleReorder} />
       </section>
     </main>
