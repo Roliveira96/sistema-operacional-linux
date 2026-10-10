@@ -28,7 +28,7 @@ O motor já tem uma tabela de processos compartilhada entre os terminais, os sin
 
 ### O que falta
 
-1. **Programas que ficam rodando** e que o aluno reconhece: `ping`, `yes`, `watch`, `tail -f` interativo e `top` que reage a teclas (`k` para matar, `r` para mudar a prioridade, `q` para sair).
+1. **Programas que ficam rodando** e que o aluno reconhece: `ping`, `yes`, `watch` e `top` que reage a teclas (`k` para matar, `r` para mudar a prioridade, `q` para sair).
 2. **Comandos da matéria** que não existem: `nice`, `renice`, `pstree`, `pidof`, `kill -l` (lista de sinais) e `ps --forest`/`-ejH` para ver pai e filhos.
 3. **Ver o que está acontecendo**: hoje o aluno só vê o processo por `ps`; falta uma visão ao vivo dos processos e dos estados (rodando, dormindo, parado, zumbi) para entender o efeito dos sinais.
 4. **Corrigir o exercício**: o professor não consegue dizer "ao final, o processo `sleep` não pode mais existir, e foi encerrado pelo sinal 15". As **condições de término** (SPEC-022) olham só o sistema de arquivos e as contas; **processo não faz parte do estado da máquina** que a tela e o servidor conferem.
@@ -57,7 +57,7 @@ Três entregas, na ordem, cada uma pronta e testada antes da seguinte.
 | `ping HOST` | Fica rodando e imprimindo respostas (`64 bytes from ...: icmp_seq=1 ttl=64 time=...`) até `Ctrl+C`, que imprime as estatísticas; `-c N` para N pacotes |
 | `yes [TEXTO]` | Imprime sem parar até ser interrompido |
 | `watch [-n S] COMANDO` | Repete o comando a cada S segundos até `Ctrl+C` |
-| `tail -f ARQUIVO` | Fica seguindo o arquivo até `Ctrl+C` (hoje encerra) |
+| `tail -f ARQUIVO` | Já funciona no motor (segue o arquivo até `Ctrl+C`); só entra nos testes da entrega |
 | `top` interativo | Atualiza a tela; `k` pede o PID e o sinal, `r` pede o PID e o `nice`, `q` sai; mostra PID, USER, PR, NI, S, %CPU, %MEM |
 | `nice -n N COMANDO` e `renice N -p PID` | Iniciam com e mudam a prioridade (-20 a 19); só o root diminui abaixo de 0; a coluna NI do `ps -l` e do `top` mostra |
 | `pstree [-p]` e `ps --forest` | Mostram quem é pai de quem, com os PIDs |
@@ -66,6 +66,10 @@ Três entregas, na ordem, cada uma pronta e testada antes da seguinte.
 | `ps` | Passa a mostrar a coluna `NI` em `-l` e a árvore em `--forest`; os estados são `R` (rodando), `S` (dormindo), `T` (parado), `Z` (zumbi) |
 
 Os sinais já existentes seguem, e entram `USR1`, `USR2` e `CHLD` (ignorados por padrão, como no Linux). O processo que recebe `SIGTSTP`/`SIGSTOP` mostra "Parado" no terminal onde estava, e o `kill -CONT` o faz continuar. Quando um processo é morto por outro terminal, o terminal dele mostra "Terminado" (15), "Morto" (9) ou o que o bash mostra para o sinal, e o prompt volta.
+
+### 3.1.1. Divisão com a SPEC-028 (ampliação dos comandos)
+
+A SPEC-028 (rascunho de outra frente) também acrescenta comandos de rede, texto e processos como código do frontend. Para não escrever o mesmo código duas vezes: `pstree` e `pidof` ficam **com a SPEC-028**; o `ping` também é dela, e esta spec só exige que ele **fique rodando até `Ctrl+C`** (CA-01); `nice` e `renice` são **desta spec** (a prioridade precisa ser guardada e mostrada por `ps -l` e `top`), e o `nice` desta spec, registrado depois, substitui o da SPEC-028.
 
 ### 3.2. Entrega B: painel de processos (frontend)
 
@@ -152,6 +156,19 @@ A API de conferência do exercício passa a aceitar, no snapshot enviado, os cam
 | P-06 | Zumbis e órfãos (a matéria costuma mostrar)? | Entram só como estado `Z` e reparentamento ao `init` no `pstree`, quando um processo pai morre antes do filho; sem comando próprio para fabricar zumbi |
 | P-07 | Exercícios prontos de processos entram nesta spec? | Não: esta spec entrega o simulador e a correção; os exercícios do módulo são conteúdo, feitos depois com o professor |
 
+### Andamento da implementação
+
+| Entrega | Situação |
+| :--- | :--- |
+| A, parte 1 | Feita: `nice`, `renice` (regras de permissão do Linux), `yes` (inclusive `yes > /dev/null &`), `watch`, `kill` completo (`kill -l` com os 64 sinais, conversão número/nome, qualquer sinal por nome ou número) e os binários no PATH, com testes de unidade e no terminal real entre terminais |
+| A, parte 2 | Pendente: `ps -l` (colunas PRI e NI) e `ps --forest`, `top` com PR/NI e atualização ao vivo, estado `Z` e reparentamento |
+| B | Pendente |
+| C | Pendente |
+
+### Limitações do motor sem alterar o `legacy/` (RN-10)
+
+O terminal só imprime "Terminado" e "Morto" quando o processo em primeiro plano é encerrado pelos sinais 15 e 9 (a mensagem fica no interpretador); outros sinais (`USR1`, `ALRM`...) encerram o processo com o código 128 mais o número do sinal, mas sem a mensagem do bash. `kill` com sinal que o motor desconhece só aceita PID (não `%JOB`). O `top` do motor é uma foto; torná-lo vivo é trabalho da parte 2.
+
 ---
 
 ## Histórico de revisões
@@ -162,3 +179,4 @@ A API de conferência do exercício passa a aceitar, no snapshot enviado, os cam
 | 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01 a P-07 |
 | 10/10/2026 | Implementador (Claude) | Renumerada de SPEC-028 para SPEC-029: o número 028 já foi tomado pelo rascunho "Ampliação dos comandos do terminal do navegador" |
 | 10/10/2026 | Tech Lead | O `legacy/` não deve ser alterado; a implementação é toda em `frontend/src/engine/`. Incluída a RN-10 |
+| 10/10/2026 | Implementador (Claude) | Entrega A, parte 1 implementada em `frontend/src/engine/processes/`; divisão com a SPEC-028 (3.1.1) e limitações do motor registradas |

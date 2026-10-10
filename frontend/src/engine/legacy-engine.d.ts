@@ -111,6 +111,39 @@ declare module "@legacy-engine/shell/Shell" {
     readonly ajuda?: AjudaDoComando;
   }
   export class Shell {
-    static obterRegistro(): { listar(): ComandoDoSimulador[] };
+    static obterRegistro(): {
+      listar(): ComandoDoSimulador[];
+      obter(nome: string): ComandoDoSimulador | undefined;
+      registrar(...comandos: ComandoDoSimulador[]): void;
+    };
   }
+}
+
+declare module "@legacy-engine/shell/Saida" {
+  /** Where a command prints: the terminal, a file (>) or the next command of a pipe (|). */
+  export class SaidaEmTexto {
+    texto: string;
+    escrever(texto: string): void;
+  }
+  export class SaidaParaArquivo {
+    escrever(texto: string): void;
+  }
+}
+
+declare module "@legacy-engine/shell/comandos/Processos" {
+  /** One line of ps: a system process, a service, an SSH session or a user command. */
+  export interface LinhaDeProcesso {
+    pid: number;
+    ppid: number;
+    usuario: string;
+    tty: string;
+    estado: string;
+    comando: string;
+    inicio: Date;
+    cpu: number;
+    mem: number;
+    tipo: "sistema" | "servico" | "sshd" | "shell" | "usuario";
+    processo?: object;
+  }
+  export function listarProcessos(maquina: unknown): LinhaDeProcesso[];
 }

@@ -34,6 +34,9 @@ const nextConfig: NextConfig = {
     resolveAlias: {
       "@legacy-engine/linux/Serializador": "../legacy/src/linux/Serializador.ts",
       "@legacy-engine/linux/Maquina": "../legacy/src/linux/Maquina.ts",
+      "@legacy-engine/shell/Shell": "../legacy/src/shell/Shell.ts",
+      "@legacy-engine/shell/Saida": "../legacy/src/shell/Saida.ts",
+      "@legacy-engine/shell/comandos/Processos": "../legacy/src/shell/comandos/Processos.ts",
       "@legacy-engine/terminal/JanelaDeTerminais": "../legacy/src/terminal/JanelaDeTerminais.ts",
       "@legacy-engine/app/ArmazemDeMaquinas": "../legacy/src/app/ArmazemDeMaquinas.ts",
       "@legacy-engine/app/ColaDeComandos": "../legacy/src/app/ColaDeComandos.ts",
