@@ -124,7 +124,8 @@ func (r *Repository) ListQuestions(ctx context.Context, moduleID uuid.UUID, usag
 		q = q.Where("status = ?", domain.StatusPublished)
 	}
 	var out []domain.Question
-	err := q.Order("created_at, id").Find(&out).Error
+	// The exercises of the trail come in the order the teacher gave it (SPEC-023), then the others.
+	err := q.Order("COALESCE((SELECT i.sequence_order FROM module_exercise_items i WHERE i.exercise_id = questions.id AND i.module_id = questions.module_id), 1000000), created_at, id").Find(&out).Error
 	return out, err
 }
 

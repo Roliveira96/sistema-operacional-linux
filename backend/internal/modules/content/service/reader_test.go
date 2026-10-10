@@ -45,6 +45,8 @@ type fakeReadStore struct {
 	blocks        []domain.ContentBlock
 	setup         json.RawMessage
 	version       *domain.ModuleVersion
+	// The snapshot of the available exercises of the module (SPEC-023).
+	exercisesSetup json.RawMessage
 }
 
 func (f *fakeReadStore) FindScenarioBySourceKey(_ context.Context, key string) (domain.Scenario, error) {
@@ -57,6 +59,10 @@ func (f *fakeReadStore) FindScenarioBySourceKey(_ context.Context, key string) (
 		return domain.Scenario{}, ErrNotFound
 	}
 	return s, nil
+}
+
+func (f *fakeReadStore) ExerciseSetups(context.Context, uuid.UUID) (json.RawMessage, json.RawMessage, error) {
+	return f.exercisesSetup, nil, nil
 }
 
 func (f *fakeReadStore) FindQuestion(context.Context, uuid.UUID) (domain.Question, error) {
@@ -324,4 +330,51 @@ func TestReader_BlocksSkipsInactive(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 	assert.Equal(t, []int{1, 3}, []int{got[0].Position, got[1].Position})
+}
+
+// Covers SPEC-023 D-06: an exercise made in the editor has no machine of its own, and the student still gets and grades it.
+func TestPracticeItem_ExerciseOfTheModuleHasNoScenario(t *testing.T) {
+	q := practical()
+	q.ScenarioID = nil
+	q.EndConditions = json.RawMessage(`[{"kind":"DIR_EXISTS","path":"/a"}]`)
+	item, err := NewReader(&fakeAccess{}, &fakeReadStore{question: &q}).PracticeItem(context.Background(), q.ID, Viewer{})
+	require.NoError(t, err)
+	assert.Nil(t, item.Snapshot, "the screen builds the machine from the layers")
+	assert.Equal(t, domain.CondDirectoryExists, item.Conditions[0].Type)
+}
+
+// Covers SPEC-023 CA-05, CA-06: the student reads an exercise of the module as the screen of the practice knows it, and the
+// snapshot of the available exercises comes with the content.
+func TestReader_ExerciseOfTheModuleForTheStudent(t *testing.T) {
+	q := practical()
+	q.ScenarioID = nil
+	q.Title, q.Statement = "Criar", "<p>Crie</p>"
+	q.Hints = json.RawMessage(`[{"text":"Use <b>mkdir</b>","command":"mkdir /a"},{"text":"Depois confira"}]`)
+	q.ReferenceSolution = json.RawMessage(`{"steps":[{"command":"mkdir /a"},{"command":"su ana","terminal":2}],"files":[{"path":"/a/f","content":"x"}]}`)
+	q.EndConditions = json.RawMessage(`[{"kind":"DIR_EXISTS","path":"/a"}]`)
+
+	got, err := NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), q.ModuleID, domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.True(t, got[0].Layered)
+	require.NotNil(t, got[0].Hint)
+	assert.Equal(t, "<ol><li>Use &lt;b&gt;mkdir&lt;/b&gt; <code>mkdir /a</code></li><li>Depois confira</li></ol>", *got[0].Hint, "the tips are text, written as html with the markup escaped")
+	assert.JSONEq(t, `[{"command":"mkdir /a"},{"command":"su ana","terminal":2}]`, string(got[0].Solution))
+
+	// A reserved exercise never carries its solution, and one with no tips has no hint.
+	q.Usage = domain.UsageAssessment
+	q.Hints = nil
+	got, err = NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), q.ModuleID, "", Viewer{})
+	require.NoError(t, err)
+	assert.Nil(t, got[0].Solution)
+	assert.Nil(t, got[0].Hint)
+
+	// The content brings the snapshot of the available exercises: from the published version for the student, from the draft for the author.
+	version := domain.ModuleVersion{Content: json.RawMessage(`{"blocks":[],"setup":null,"exercisesSetup":{"steps":[{"command":"mkdir /treino"}]}}`)}
+	content, err := NewReader(&fakeAccess{}, &fakeReadStore{version: &version}).Content(context.Background(), uuid.New(), Viewer{})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"steps":[{"command":"mkdir /treino"}]}`, string(content.ExercisesSetup))
+	draft, err := NewReader(&fakeAccess{}, &fakeReadStore{exercisesSetup: json.RawMessage(`{"steps":[{"command":"mkdir /rascunho"}]}`)}).draft(context.Background(), uuid.New())
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"steps":[{"command":"mkdir /rascunho"}]}`, string(draft.ExercisesSetup))
 }

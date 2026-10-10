@@ -77,7 +77,7 @@ func (h *Handler) blocks(c *gin.Context) {
 	for i, b := range content.Blocks {
 		out[i] = blockResponse{ID: b.ID, Type: string(b.BlockType), Position: b.Position, Payload: b.Payload}
 	}
-	c.JSON(http.StatusOK, gin.H{"moduleId": id, "blocks": out, "setup": setupOrNull(content.Setup)})
+	c.JSON(http.StatusOK, gin.H{"moduleId": id, "blocks": out, "setup": setupOrNull(content.Setup), "exercisesSetup": setupOrNull(content.ExercisesSetup)})
 }
 
 func (h *Handler) questions(c *gin.Context) {

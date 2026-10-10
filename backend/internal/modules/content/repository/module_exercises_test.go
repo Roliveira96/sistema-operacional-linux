@@ -209,3 +209,28 @@ func TestExerciseSetupsInVersions(t *testing.T) {
 	assert.Nil(t, ex)
 	assert.Nil(t, as)
 }
+
+// Covers SPEC-023 CA-05, CA-06: the student reads the published exercises of the practice in the order of the trail, and never the
+// reserved ones or the drafts as practice.
+func TestExerciseBankForTheStudent(t *testing.T) {
+	f := newBank(t)
+	a, b, c, d := f.create(t, "A"), f.create(t, "B"), f.create(t, "C"), f.create(t, "D")
+	for _, rec := range []service.ExerciseRecord{a, b, c} {
+		_, err := f.repo.SetAvailability(f.ctx, f.module.ID, rec.ID, domain.UsageExercise, domain.StatusPublished, f.now)
+		require.NoError(t, err)
+	}
+	_, err := f.repo.SetAvailability(f.ctx, f.module.ID, d.ID, domain.UsageAssessment, domain.StatusPublished, f.now)
+	require.NoError(t, err)
+	// The teacher puts C first, and B is taken back to draft.
+	require.NoError(t, f.repo.ReorderExercises(f.ctx, f.module.ID, []service.OrderItem{{ExerciseID: c.ID, Mandatory: true}, {ExerciseID: a.ID, Mandatory: true}, {ExerciseID: b.ID, Mandatory: true}}, f.now))
+	_, err = f.repo.SetAvailability(f.ctx, f.module.ID, b.ID, domain.UsageExercise, domain.StatusDraft, f.now)
+	require.NoError(t, err)
+
+	practice, err := f.repo.ListQuestions(f.ctx, f.module.ID, domain.UsageExercise, false)
+	require.NoError(t, err)
+	titles := make([]string, len(practice))
+	for i, q := range practice {
+		titles[i] = q.Title
+	}
+	assert.Equal(t, []string{"C", "A"}, titles, "published and available, in the order of the trail")
+}

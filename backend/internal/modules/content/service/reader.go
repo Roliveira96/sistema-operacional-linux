@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,6 +36,8 @@ type ModuleAccess interface {
 type ReadStore interface {
 	ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error)
 	ModuleSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
+	// ExerciseSetups returns the snapshots of the two sets of exercises of the module (SPEC-023).
+	ExerciseSetups(ctx context.Context, moduleID uuid.UUID) (exercises, assessment json.RawMessage, err error)
 	// LatestVersion is the published version students read (SPEC-021); ErrNotFound when there is none.
 	LatestVersion(ctx context.Context, moduleID uuid.UUID) (domain.ModuleVersion, error)
 	ListQuestions(ctx context.Context, moduleID uuid.UUID, usage string, includeDrafts bool) ([]domain.Question, error)
@@ -80,6 +84,9 @@ type PublicQuestion struct {
 	Hint       *string         `json:"hint,omitempty"`
 	Choices    json.RawMessage `json:"choices,omitempty"`
 	Solution   json.RawMessage `json:"solution,omitempty"`
+	// Layered marks an exercise of the module made in the editor (SPEC-023): it has no machine of its own, so the screen
+	// starts it from the snapshot of the module followed by the one of the available exercises.
+	Layered bool `json:"layered,omitempty"`
 }
 
 // TeacherQuestion is the full view for the module owner and admins.
@@ -140,6 +147,8 @@ func (r *Reader) module(ctx context.Context, moduleID uuid.UUID, v Viewer) (cmre
 type ModuleContent struct {
 	Blocks []domain.ContentBlock
 	Setup  json.RawMessage
+	// ExercisesSetup is the snapshot of the exercises available in the practice of the module (SPEC-023 RN-07).
+	ExercisesSetup json.RawMessage
 }
 
 // Content returns the active blocks in order and the snapshot of the module, as the latest published
@@ -161,7 +170,7 @@ func (r *Reader) Content(ctx context.Context, moduleID uuid.UUID, v Viewer) (Mod
 		return ModuleContent{}, fmt.Errorf("version %d of module %s: %w", version.Number, moduleID, err)
 	}
 	// Inactive blocks stay in the authoring list only (SPEC-019 RN-12).
-	return ModuleContent{Blocks: content.ContentBlocks(moduleID, true), Setup: content.SetupOrNil()}, nil
+	return ModuleContent{Blocks: content.ContentBlocks(moduleID, true), Setup: content.SetupOrNil(), ExercisesSetup: content.ExercisesSetupOrNil()}, nil
 }
 
 // Draft returns the content being edited, for ADMIN and the owner of the module (SPEC-021 RN-06).
@@ -191,7 +200,11 @@ func (r *Reader) draft(ctx context.Context, moduleID uuid.UUID) (ModuleContent, 
 	if err != nil {
 		return ModuleContent{}, err
 	}
-	return ModuleContent{Blocks: active, Setup: setup}, nil
+	exercises, _, err := r.store.ExerciseSetups(ctx, moduleID)
+	if err != nil {
+		return ModuleContent{}, err
+	}
+	return ModuleContent{Blocks: active, Setup: setup, ExercisesSetup: exercises}, nil
 }
 
 // Blocks returns the module blocks in order.
@@ -254,10 +267,64 @@ func publicView(q domain.Question) PublicQuestion {
 	if q.Kind == domain.KindPractical && q.Usage == domain.UsageExercise {
 		p.Solution = q.ReferenceSolution
 	}
+	if len(q.EndConditions) > 0 {
+		// An exercise made in the editor keeps its tips and its solution in the form of the editor; the screen of the student
+		// reads one tip in html and the solution as a list of commands (SPEC-023).
+		p.Layered = true
+		p.Hint = hintsHTML(q.Hints)
+		p.Solution = nil
+		if q.Usage == domain.UsageExercise {
+			p.Solution = solutionCommands(q.ReferenceSolution)
+		}
+	}
 	if q.Kind != domain.KindPractical && q.Kind != domain.KindDiscursive {
 		p.Choices = q.Choices
 	}
 	return p
+}
+
+// hintsHTML writes the tips of an exercise as one ordered list, each with its command of reference; nil when there are none.
+func hintsHTML(raw json.RawMessage) *string {
+	var hints []struct {
+		Text    string `json:"text"`
+		Command string `json:"command"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &hints) != nil || len(hints) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	b.WriteString("<ol>")
+	for _, h := range hints {
+		b.WriteString("<li>" + html.EscapeString(h.Text))
+		if h.Command != "" {
+			b.WriteString(" <code>" + html.EscapeString(h.Command) + "</code>")
+		}
+		b.WriteString("</li>")
+	}
+	b.WriteString("</ol>")
+	out := b.String()
+	return &out
+}
+
+// solutionCommands reads the commands the teacher recorded as the list the screen of the student runs. The files a solution
+// wrote have no command, so they are left out; nil when there is nothing to show.
+func solutionCommands(raw json.RawMessage) json.RawMessage {
+	var setup struct {
+		Steps []struct {
+			Command  string `json:"command"`
+			Terminal *int   `json:"terminal,omitempty"`
+			Login    any    `json:"login,omitempty"`
+			Answers  any    `json:"answers,omitempty"`
+		} `json:"steps"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &setup) != nil || len(setup.Steps) == 0 {
+		return nil
+	}
+	out, err := json.Marshal(setup.Steps)
+	if err != nil {
+		return nil
+	}
+	return out
 }
 
 // PracticeItem returns a published practical exercise the viewer can access
@@ -270,18 +337,25 @@ func (r *Reader) PracticeItem(ctx context.Context, questionID uuid.UUID, v Viewe
 	if err != nil {
 		return PracticeItem{}, err
 	}
-	if q.Kind != domain.KindPractical || q.Usage != domain.UsageExercise || q.Status != domain.StatusPublished || q.ScenarioID == nil {
+	if q.Kind != domain.KindPractical || q.Usage != domain.UsageExercise || q.Status != domain.StatusPublished {
 		return PracticeItem{}, ErrQuestionNotFound
 	}
 	if _, err := r.module(ctx, q.ModuleID, v); err != nil {
 		return PracticeItem{}, err
 	}
-	scenario, err := r.store.FindScenario(ctx, *q.ScenarioID)
-	if err != nil {
-		return PracticeItem{}, err
-	}
 	var conditions []domain.Condition
 	if err := json.Unmarshal(q.ValidationConditions, &conditions); err != nil {
+		return PracticeItem{}, err
+	}
+	// An exercise made in the editor has no machine of its own (SPEC-023 D-06): the screen builds it from the layers.
+	if q.ScenarioID == nil {
+		if len(q.EndConditions) == 0 {
+			return PracticeItem{}, ErrQuestionNotFound
+		}
+		return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Conditions: conditions}, nil
+	}
+	scenario, err := r.store.FindScenario(ctx, *q.ScenarioID)
+	if err != nil {
 		return PracticeItem{}, err
 	}
 	return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Snapshot: scenario.Snapshot, Conditions: conditions}, nil
