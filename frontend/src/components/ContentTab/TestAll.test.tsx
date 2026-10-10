@@ -670,7 +670,7 @@ describe("TestAll, the exercises", () => {
     }, 40000);
   });
 
-  it("marks the card as stale when only an exercise changes", async () => {
+  it("sends the card back to untested when only an exercise changes", async () => {
     const { testStatus } = await import("@/lib/testRecord");
     const { parseCard, groupCards } = await import("@/lib/cardModel");
     const card = parseCard(groupCards(withExercises)[0]!);
@@ -679,7 +679,7 @@ describe("TestAll, the exercises", () => {
     saveTest("mod-1", "a", true, card);
     expect(testStatus("mod-1", "a", card)).toBe("passed");
     card.exercises!.items[0]!.conditions = [];
-    expect(testStatus("mod-1", "a", card)).toBe("stale");
+    expect(testStatus("mod-1", "a", card)).toBe("untested");
   });
 });
 

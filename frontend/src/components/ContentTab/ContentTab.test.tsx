@@ -138,9 +138,10 @@ describe("ContentTab", () => {
   it("tells, for each card with commands, whether it was tested and passed", async () => {
     renderTab();
     await screen.findByText("Atualizar");
-    // "Atualizar" has commands, "Segundo" and the introduction have nothing to test.
+    // "Atualizar" has commands; "Segundo" and the introduction have nothing to test and say so.
     expect(screen.getByText("não testado")).toBeDefined();
     expect(screen.getAllByTitle(/Resultado do último teste/)).toHaveLength(1);
+    expect(screen.getAllByText("não precisa ser testado")).toHaveLength(2);
     cleanup();
 
     const card = parseCard(groupCards(blocks)[1]!);
@@ -159,7 +160,10 @@ describe("ContentTab", () => {
       commands: card.commands.slice(1),
     });
     renderTab();
-    expect(await screen.findByText("alterado desde o teste")).toBeDefined();
+    // Changed since the test: back to "not tested" (and there is no "changed since the test" for a card).
+    expect(await screen.findByText("não testado")).toBeDefined();
+    expect(screen.queryByText("alterado desde o teste")).toBeNull();
+    expect(screen.queryByText("Teste OK")).toBeNull();
   });
 
   it("opens the test of the module from its button and shows whether the module was tested", async () => {

@@ -13,6 +13,7 @@ export interface TestRecord {
   fingerprint: string;
 }
 
+/** `stale` is only for the test of the whole module; a card changed since its test is simply `untested`. */
 export type TestStatus = "none" | "untested" | "passed" | "failed" | "stale";
 
 const key = (moduleId: string, cardKey: string) => `card-test:${moduleId}:${cardKey}`;
@@ -45,12 +46,15 @@ export function readTest(moduleId: string, cardKey: string): TestRecord | undefi
   }
 }
 
-/** "none" when the card has nothing to test (no commands and no snapshot). */
+/**
+ * "none" when the card has nothing to test (no commands, no snapshot, no exercises). A card changed in what the test covers since the last
+ * test goes back to "untested": the result belonged to what it was before.
+ */
 export function testStatus(moduleId: string, cardKey: string, card: Pick<CardModel, "commands" | "setup" | "exercises">): TestStatus {
   if (card.commands.length === 0 && !hasSetup(card.setup) && !hasExercises(card.exercises)) return "none";
   const record = readTest(moduleId, cardKey);
   if (!record) return "untested";
-  if (record.fingerprint !== fingerprint(card)) return "stale";
+  if (record.fingerprint !== fingerprint(card)) return "untested";
   return record.passed ? "passed" : "failed";
 }
 
