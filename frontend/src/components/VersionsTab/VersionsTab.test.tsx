@@ -6,7 +6,9 @@ import { VersionsTab } from "./VersionsTab";
 
 afterEach(cleanup);
 
-const list = (changed: boolean) => ({
+const list = (changed: boolean, moduleTestPassed = true, exerciseBankTestPassed = true) => ({
+  moduleTestPassed,
+  exerciseBankTestPassed,
   versions: [
     { number: 2, note: "com permissões", createdAt: "2026-10-09T12:00:00Z", createdBy: "Profa", blockCount: 5, current: true },
     { number: 1, note: "", createdAt: "2026-10-01T12:00:00Z", createdBy: "", blockCount: 0, current: false },
@@ -79,5 +81,69 @@ describe("VersionsTab", () => {
     render(<VersionsTab moduleId="m1" service={service} />);
     fireEvent.click(await screen.findByRole("button", { name: "Publicar nova versão" }));
     expect(await screen.findByText("Não foi possível publicar.")).toBeDefined();
+  });
+
+  // SPEC-024 CA-19: Publish is off until both tests passed, and the hint says which one is missing.
+  it("keeps Publish disabled until both tests passed and says which one is missing (CA-19)", async () => {
+    const service = make(true);
+    service.versions.mockResolvedValue(list(true, false, true));
+    render(<VersionsTab moduleId="m1" service={service} />);
+    const button = (await screen.findByRole("button", { name: "Publicar nova versão" })) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.getByText(/falta passar: Testar o módulo\./)).toBeDefined();
+    expect(screen.queryByText(/Testar Banco de Exercícios\./)).toBeNull();
+    cleanup();
+
+    service.versions.mockResolvedValue(list(true, false, false));
+    render(<VersionsTab moduleId="m1" service={service} />);
+    await screen.findByRole("button", { name: "Publicar nova versão" });
+    expect(screen.getByText(/Testar o módulo e Testar Banco de Exercícios/)).toBeDefined();
+    cleanup();
+
+    service.versions.mockResolvedValue(list(true, true, false));
+    render(<VersionsTab moduleId="m1" service={service} />);
+    await screen.findByRole("button", { name: "Publicar nova versão" });
+    expect(screen.getByText(/falta passar: Testar Banco de Exercícios\./)).toBeDefined();
+    cleanup();
+
+    service.versions.mockResolvedValue(list(true, true, true));
+    render(<VersionsTab moduleId="m1" service={service} />);
+    expect(((await screen.findByRole("button", { name: "Publicar nova versão" })) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText(/Os testes exigidos passaram/)).toBeDefined();
+  });
+
+  it("treats a response without the flags as not tested", async () => {
+    const service = make(true);
+    service.versions.mockResolvedValue({ versions: [], hasUnpublishedChanges: true });
+    render(<VersionsTab moduleId="m1" service={service} />);
+    expect(((await screen.findByRole("button", { name: "Publicar nova versão" })) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("shows which tests the server says are missing on a 409 and reads the flags again", async () => {
+    const service = make(true);
+    service.publish.mockRejectedValue(new ApiProblemError({ type: "module-not-tested", title: "Not tested", missingTests: ["EXERCISE_BANK"] }, 409));
+    render(<VersionsTab moduleId="m1" service={service} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Publicar nova versão" }));
+    service.versions.mockResolvedValue(list(true, true, false));
+    expect(await screen.findByRole("alert")).toHaveTextContent("O servidor recusou a publicação: falta passar Testar Banco de Exercícios.");
+    await waitFor(() => expect(service.versions).toHaveBeenCalledTimes(2));
+    expect(((await screen.findByRole("button", { name: "Publicar nova versão" })) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("falls back to the generic message when a 409 names no test, and survives a failed refresh", async () => {
+    const service = make(true);
+    service.publish.mockRejectedValue(new ApiProblemError({ type: "module-not-tested", title: "Not tested" }, 409));
+    render(<VersionsTab moduleId="m1" service={service} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Publicar nova versão" }));
+    service.versions.mockRejectedValue(new Error("x"));
+    expect(await screen.findByText("Não foi possível publicar.")).toBeDefined();
+  });
+
+  it("tells the note is too long", async () => {
+    const service = make(true);
+    service.publish.mockRejectedValue(new ApiProblemError({ type: "validation-error", title: "x", invalidParams: [{ name: "note", reason: "too long" }] }, 400));
+    render(<VersionsTab moduleId="m1" service={service} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Publicar nova versão" }));
+    expect(await screen.findByText("A nota tem no máximo 200 caracteres.")).toBeDefined();
   });
 });

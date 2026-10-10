@@ -62,12 +62,25 @@ const dependentBank = (): ExerciseBank => ({ items: [item("a", "/a", { position:
 const update = vi.fn();
 const onClose = vi.fn();
 const onChanged = vi.fn();
+const registerTestResult = vi.fn();
 const renderTest = (bank: ExerciseBank) =>
-  render(<BankTest moduleId="mod-1" bank={bank} moduleSetup={{ summary: "", steps: [{ command: "mk /m" }] }} loadBase={vi.fn().mockResolvedValue(null)} service={{ update }} onClose={onClose} onChanged={onChanged} />);
+  render(
+    <BankTest
+      moduleId="mod-1"
+      bank={bank}
+      moduleSetup={{ summary: "", steps: [{ command: "mk /m" }] }}
+      loadBase={vi.fn().mockResolvedValue(null)}
+      service={{ update }}
+      results={{ registerTestResult }}
+      onClose={onClose}
+      onChanged={onChanged}
+    />,
+  );
 
 beforeEach(() => {
   engine.create.mockResolvedValue({ sandbox: fakeSandbox(), conflicts: [], destroy: vi.fn() });
   update.mockResolvedValue(undefined);
+  registerTestResult.mockResolvedValue({});
 });
 
 // Covers SPEC-023 12 (CA-12, CA-14, CA-16): the button runs the batteries and the report offers the dependencies it found.
@@ -165,5 +178,42 @@ describe("BankTest", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  // SPEC-024 RN-13 and CA-19: the verdict of a run that ended is recorded on the server; an unfinished run records nothing.
+  it("records an approved EXERCISE_BANK test when the run ends", async () => {
+    renderTest(soundBank());
+    await screen.findByText(/Banco aprovado/);
+    expect(registerTestResult).toHaveBeenCalledTimes(1);
+    expect(registerTestResult).toHaveBeenCalledWith("mod-1", {
+      kind: "EXERCISE_BANK",
+      passed: true,
+      summary: expect.objectContaining({ exercises: 2, conflicts: [], isolated: [], untestable: [], suggestedDependencies: 0 }),
+    });
+  });
+
+  it("records a reproved test as not passed, with the dependencies it suggests", async () => {
+    renderTest({ items: [item("a", "/a"), item("n", null)] });
+    await screen.findByText(/Banco com falhas/);
+    expect(registerTestResult.mock.calls[0]![1]).toMatchObject({ kind: "EXERCISE_BANK", passed: false });
+    cleanup();
+    registerTestResult.mockClear();
+
+    renderTest(dependentBank());
+    await screen.findByText(/Banco com falhas/);
+    expect(registerTestResult).toHaveBeenCalledWith("mod-1", expect.objectContaining({ passed: false, summary: expect.objectContaining({ suggestedDependencies: 1 }) }));
+  });
+
+  it("records nothing when the run did not end, and warns when the record fails", async () => {
+    engine.create.mockResolvedValue({ sandbox: null, conflicts: [{ layer: { label: "Módulo" }, step: { command: "mkdir /x" } }], destroy: vi.fn() });
+    renderTest(soundBank());
+    await screen.findByText(/as baterias não rodaram/);
+    expect(registerTestResult).not.toHaveBeenCalled();
+    cleanup();
+
+    engine.create.mockResolvedValue({ sandbox: fakeSandbox(), conflicts: [], destroy: vi.fn() });
+    registerTestResult.mockRejectedValue(new Error("x"));
+    renderTest(soundBank());
+    expect(await screen.findByText(/não foi registrado no servidor/)).toBeDefined();
   });
 });

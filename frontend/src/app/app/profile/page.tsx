@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AccessTokensSection } from "@/components/AccessTokensSection/AccessTokensSection";
 import { StudentAvatarUpload } from "@/components/StudentAvatarUpload/StudentAvatarUpload";
 import { useAuth } from "@/hooks/useAuth";
 import { messages } from "@/messages/pt-BR";
@@ -98,6 +99,8 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {(user.role === "ADMIN" || user.role === "TEACHER") && <AccessTokensSection />}
     </main>
   );
 }

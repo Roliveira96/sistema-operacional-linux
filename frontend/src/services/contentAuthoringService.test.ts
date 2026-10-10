@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createContentAuthoringService } from "./contentAuthoringService";
-import type { HttpClient } from "./httpClient";
+import { createContentAuthoringService, missingTests } from "./contentAuthoringService";
+import { ApiProblemError, createHttpClient, type HttpClient } from "./httpClient";
 
 describe("contentAuthoringService", () => {
   let client: HttpClient;
@@ -45,5 +45,42 @@ describe("contentAuthoringService", () => {
     vi.mocked(client.put).mockResolvedValueOnce({ blocks: [] });
     await service.reorder("m", ["b2", "b1"]);
     expect(client.put).toHaveBeenCalledWith("/teacher/modules/m/blocks/order", { blockIds: ["b2", "b1"] });
+  });
+
+  // SPEC-024 RN-13: versions carry the test flags, results are registered, a 409 names the missing tests.
+  it("reads the versions with the flags of the tests, false when the server does not say", async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({ versions: [], hasUnpublishedChanges: true, moduleTestPassed: true, exerciseBankTestPassed: true });
+    expect(await service.versions("m 1")).toEqual({ versions: [], hasUnpublishedChanges: true, moduleTestPassed: true, exerciseBankTestPassed: true });
+    expect(client.get).toHaveBeenCalledWith("/teacher/modules/m%201/versions");
+    vi.mocked(client.get).mockResolvedValueOnce({ versions: [], hasUnpublishedChanges: false });
+    expect(await service.versions("m")).toMatchObject({ moduleTestPassed: false, exerciseBankTestPassed: false });
+  });
+
+  it("registers the result of a test through a fake fetch and gets the 201 body", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: "r1", kind: "MODULE", passed: true, contentHash: "h", createdAt: "x" }), { status: 201, headers: { "Content-Type": "application/json" } }),
+    );
+    const real = createContentAuthoringService(createHttpClient(fetcher as unknown as typeof fetch));
+    expect(await real.registerTestResult("m 1", { kind: "MODULE", passed: true, summary: { a: 1 } })).toMatchObject({ id: "r1", contentHash: "h" });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("/api/v1/teacher/modules/m%201/test-results");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ kind: "MODULE", passed: true, summary: { a: 1 } });
+  });
+
+  it("raises the 409 module-not-tested and lists the missing tests", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ type: "module-not-tested", title: "x", status: 409, missingTests: ["MODULE", "bogus", "EXERCISE_BANK"] }), {
+        status: 409,
+        headers: { "Content-Type": "application/problem+json" },
+      }),
+    );
+    const real = createContentAuthoringService(createHttpClient(fetcher as unknown as typeof fetch));
+    const error = await real.publish("m", "").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiProblemError);
+    expect(missingTests(error)).toEqual(["MODULE", "EXERCISE_BANK"]);
+    expect(missingTests(new ApiProblemError({ type: "no-changes", title: "x", missingTests: ["MODULE"] }, 409))).toEqual([]);
+    expect(missingTests(new ApiProblemError({ type: "module-not-tested", title: "x" }, 409))).toEqual([]);
+    expect(missingTests(new Error("x"))).toEqual([]);
   });
 });

@@ -13,7 +13,7 @@ import {
   moduleTestStatus,
   readTest,
 } from "@/lib/testRecord";
-import type { AuthoredBlock } from "@/services/contentAuthoringService";
+import type { AuthoredBlock, ContentAuthoringService } from "@/services/contentAuthoringService";
 import { TestAll } from "./TestAll";
 
 const run = vi.hoisted(() => ({
@@ -681,4 +681,42 @@ describe("TestAll, the exercises", () => {
     card.exercises!.items[0]!.conditions = [];
     expect(testStatus("mod-1", "a", card)).toBe("stale");
   });
+});
+
+// SPEC-024 RN-13 and CA-19: the verdict of the content test (units and sequence) is recorded on the server when the run ends.
+describe("TestAll, the record on the server", () => {
+  const withRegister = (register: ReturnType<typeof vi.fn>) => ({ ...service(), registerTestResult: register as unknown as ContentAuthoringService["registerTestResult"] });
+  const renderAll = (register: ReturnType<typeof vi.fn>) =>
+    render(<TestAll moduleId="mod-1" service={withRegister(register)} practice={practice} onResult={vi.fn()} onClose={vi.fn()} />);
+
+  it("records an approved MODULE test once, after the sequence ended", async () => {
+    const register = vi.fn().mockResolvedValue({});
+    renderAll(register);
+    await screen.findByText("Módulo aprovado", {}, { timeout: 30000 });
+    expect(register).toHaveBeenCalledTimes(1);
+    expect(register).toHaveBeenCalledWith("mod-1", {
+      kind: "MODULE",
+      passed: true,
+      summary: { activities: 2, activitiesPassed: 2, commands: 2, sequencePassed: true },
+    });
+    expect(screen.queryByText(/não foi registrado/)).toBeNull();
+  }, 40000);
+
+  it("records a reproved MODULE test as not passed", async () => {
+    run.failing.add("b-cmd");
+    const register = vi.fn().mockResolvedValue({});
+    renderAll(register);
+    await screen.findByText("Módulo reprovado", {}, { timeout: 30000 });
+    expect(register).toHaveBeenCalledTimes(1);
+    expect(register.mock.calls[0]![1]).toMatchObject({ kind: "MODULE", passed: false });
+  }, 40000);
+
+  it("does not record anything while the run has not ended, and warns when the record fails", async () => {
+    const register = vi.fn().mockRejectedValue(new Error("x"));
+    renderAll(register);
+    await screen.findByText(/Cada atividade sozinha/);
+    expect(register).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert", {}, { timeout: 30000 })).toHaveTextContent(/não foi registrado/);
+    expect(register).toHaveBeenCalledTimes(1);
+  }, 40000);
 });

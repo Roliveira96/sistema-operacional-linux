@@ -9,6 +9,10 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: vi.fn(),
 }));
 
+vi.mock("@/components/AccessTokensSection/AccessTokensSection", () => ({
+  AccessTokensSection: () => <section>Acesso por agentes (MCP)</section>,
+}));
+
 vi.mock("@/services/studentService", () => ({
   getStudentProfile: vi.fn(),
   uploadAvatar: vi.fn(),
@@ -86,5 +90,17 @@ describe("ProfilePage", () => {
     expect(screen.getByText("Profa Sediane")).toBeDefined();
     expect(getStudentProfile).not.toHaveBeenCalled();
     expect(screen.queryByText(messages.students.profile.avatarTitle)).toBeNull();
+  });
+
+  it.each(["ADMIN", "TEACHER", "STUDENT"] as const)("shows the access tokens section only to ADMIN and TEACHER (%s)", async (role) => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { userId: "u-1", name: "X", email: "x@utfpr.edu.br", role, status: "ACTIVE", mustChangePassword: false, sessionCreatedAt: "", sessionExpiresAt: "" },
+      logout: vi.fn(),
+      refresh: vi.fn(),
+    });
+    vi.mocked(getStudentProfile).mockResolvedValue({ id: "u-1", name: "X", academicId: "1", email: "x@utfpr.edu.br", whatsapp: "", discord: "", avatarUrl: "", createdAt: "" });
+    render(<ProfilePage />);
+    await waitFor(() => expect(screen.getByText(messages.students.profile.title)).toBeDefined());
+    expect(screen.queryByText("Acesso por agentes (MCP)") !== null).toBe(role !== "STUDENT");
   });
 });

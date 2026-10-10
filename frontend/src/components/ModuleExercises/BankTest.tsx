@@ -7,6 +7,7 @@ import { testBank, type BankItem, type BankReport, type Dependency } from "@/lib
 import { createEngineSandbox } from "@/lib/bankTestEngine";
 import { hasSetup, type Setup, type SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
+import { contentAuthoringService, type ContentAuthoringService } from "@/services/contentAuthoringService";
 import type { ExerciseBank, ModuleExerciseService } from "@/services/moduleExerciseService";
 import styles from "./BankTest.module.scss";
 
@@ -19,6 +20,8 @@ interface BankTestProps {
   /** The machine of the topic the tests start from. */
   loadBase: () => Promise<unknown>;
   service: Pick<ModuleExerciseService, "update">;
+  /** Records the verdict of a run that ended, so publishing can require it (SPEC-024 RN-13). */
+  results?: Pick<ContentAuthoringService, "registerTestResult">;
   onClose: () => void;
   /** Called after a dependency is confirmed, so the tab reads the bank again. */
   onChanged: () => void;
@@ -48,17 +51,18 @@ export function bankItems(bank: ExerciseBank): BankItem[] {
  * "Testar Banco de Exercícios" (SPEC-023 12): builds the machine from the snapshot of the module and the one of the bank, runs the
  * three batteries in the browser of the teacher and shows the report, where the dependencies the test found can be confirmed.
  */
-export function BankTest({ moduleId, bank, moduleSetup, loadBase, service, onClose, onChanged }: BankTestProps) {
+export function BankTest({ moduleId, bank, moduleSetup, loadBase, service, results = contentAuthoringService, onClose, onChanged }: BankTestProps) {
   const titleId = useId();
   const [state, setState] = useState<State>({ kind: "preparing" });
   const [attempt, setAttempt] = useState(0);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [confirmed, setConfirmed] = useState<string[]>([]);
   const [problem, setProblem] = useState(false);
-  const latest = useRef({ bank, moduleSetup, loadBase });
+  const [registerFailed, setRegisterFailed] = useState(false);
+  const latest = useRef({ bank, moduleSetup, loadBase, results, moduleId });
   // Kept for the run to read, so a change in the bank while it runs does not start it over.
   useEffect(() => {
-    latest.current = { bank, moduleSetup, loadBase };
+    latest.current = { bank, moduleSetup, loadBase, results, moduleId };
   });
 
   useEffect(() => {
@@ -72,7 +76,7 @@ export function BankTest({ moduleId, bank, moduleSetup, loadBase, service, onClo
     let destroy = () => {};
     void (async () => {
       try {
-        const { bank: current, moduleSetup: moduleSnapshot, loadBase: base } = latest.current;
+        const { bank: current, moduleSetup: moduleSnapshot, loadBase: base, results: registry, moduleId: id } = latest.current;
         const layers: SetupLayer[] = [
           ...(hasSetup(moduleSnapshot) ? [{ id: "module", kind: "module" as const, label: "Módulo", setup: moduleSnapshot }] : []),
           ...(hasSetup(current.bankSetup) ? [{ id: "bank", kind: "card" as const, label: authoringMessages.moduleExercisePage.bankLayer, setup: current.bankSetup }] : []),
@@ -89,7 +93,25 @@ export function BankTest({ moduleId, bank, moduleSetup, loadBase, service, onClo
             if (active) setState({ kind: "running", done, total, phase: m.phases[label as keyof typeof m.phases] ?? label });
           },
         });
-        if (active) setState({ kind: "done", report });
+        if (active) {
+          setState({ kind: "done", report });
+          // Only a run that ended is recorded. Suggested dependencies are a warning, not a failure (SPEC-023 D-17).
+          setRegisterFailed(false);
+          void Promise.resolve(
+            registry.registerTestResult(id, {
+              kind: "EXERCISE_BANK",
+              passed: report.status === "ok",
+              summary: {
+                seed: report.seed,
+                exercises: current.items.length,
+                conflicts: report.conflicts,
+                isolated: report.isolated,
+                untestable: report.untestable,
+                suggestedDependencies: report.suggested.length,
+              },
+            }),
+          ).catch(() => active && setRegisterFailed(true));
+        }
       } catch {
         if (active) setState({ kind: "error" });
       } finally {
@@ -158,6 +180,7 @@ export function BankTest({ moduleId, bank, moduleSetup, loadBase, service, onClo
             </p>
           )}
           {state.kind === "error" && <p role="alert">{m.loadFailed}</p>}
+          {registerFailed && <p role="alert">{authoringMessages.testResult.registerFailed}</p>}
           {state.kind === "baseFailed" && (
             <div role="alert">
               <p>{m.baseFailed}</p>

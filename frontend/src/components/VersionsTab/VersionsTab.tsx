@@ -6,8 +6,11 @@ import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import {
   contentAuthoringService,
+  missingTests,
   type ContentAuthoringService,
   type ModuleVersion,
+  type ModuleVersions,
+  type TestKind,
 } from "@/services/contentAuthoringService";
 import { ApiProblemError } from "@/services/httpClient";
 import styles from "./VersionsTab.module.scss";
@@ -33,6 +36,7 @@ export function VersionsTab({
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [versions, setVersions] = useState<ModuleVersion[]>([]);
   const [changed, setChanged] = useState(false);
+  const [tests, setTests] = useState({ moduleTestPassed: false, exerciseBankTestPassed: false });
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{
@@ -40,11 +44,13 @@ export function VersionsTab({
     text: string;
   } | null>(null);
 
-  const load = useCallback(async () => {
-    const r = await service.versions(moduleId);
+  const apply = useCallback((r: ModuleVersions) => {
     setVersions(r.versions);
     setChanged(r.hasUnpublishedChanges);
-  }, [service, moduleId]);
+    setTests({ moduleTestPassed: r.moduleTestPassed, exerciseBankTestPassed: r.exerciseBankTestPassed });
+  }, []);
+
+  const load = useCallback(async () => apply(await service.versions(moduleId)), [service, moduleId, apply]);
 
   useEffect(() => {
     let active = true;
@@ -52,15 +58,14 @@ export function VersionsTab({
       .versions(moduleId)
       .then((r) => {
         if (!active) return;
-        setVersions(r.versions);
-        setChanged(r.hasUnpublishedChanges);
+        apply(r);
         setState("ready");
       })
       .catch(() => active && setState("error"));
     return () => {
       active = false;
     };
-  }, [service, moduleId]);
+  }, [service, moduleId, apply]);
 
   const run = async (action: () => Promise<string>, failed: string) => {
     setBusy(true);
@@ -69,15 +74,22 @@ export function VersionsTab({
       setMessage({ kind: "ok", text: await action() });
       await load();
     } catch (error: unknown) {
+      const missing = missingTests(error);
       const text =
         error instanceof ApiProblemError
-          ? error.type === "no-changes"
-            ? m.noChanges
-            : error.invalidParams.some((p) => p.name === "note")
-              ? m.noteTooLong
+          ? error.type === "module-not-tested"
+            ? missing.length > 0
+              ? m.notTested(missing)
               : failed
+            : error.type === "no-changes"
+              ? m.noChanges
+              : error.invalidParams.some((p) => p.name === "note")
+                ? m.noteTooLong
+                : failed
           : failed;
       setMessage({ kind: "error", text });
+      // The server is the judge: read the flags again, in case a test went stale.
+      if (error instanceof ApiProblemError && error.type === "module-not-tested") await load().catch(() => undefined);
     } finally {
       setBusy(false);
     }
@@ -97,6 +109,11 @@ export function VersionsTab({
       return m.restored(version.number);
     }, m.restoreFailed);
   };
+
+  const missing: TestKind[] = [
+    ...(tests.moduleTestPassed ? [] : (["MODULE"] as const)),
+    ...(tests.exerciseBankTestPassed ? [] : (["EXERCISE_BANK"] as const)),
+  ];
 
   if (state === "loading")
     return <p className={cardStyles.hint}>{m.loading}</p>;
@@ -148,11 +165,16 @@ export function VersionsTab({
           type="button"
           className={cardStyles.primary}
           onClick={() => void publish()}
-          disabled={busy || !changed}
+          disabled={busy || !changed || missing.length > 0}
+          aria-describedby="publish-tests"
         >
           <span aria-hidden="true">🚀</span> {busy ? m.publishing : m.publish}
         </button>
       </section>
+      <p id="publish-tests" className={missing.length > 0 ? styles.bannerWarn : styles.bannerOk} >
+        <span aria-hidden="true">{missing.length > 0 ? "🧪" : "✅"}</span>{" "}
+        {missing.length > 0 ? m.testsMissing(missing) : m.testsPassed}
+      </p>
       {message && (
         <p
           className={

@@ -197,6 +197,11 @@ export const authoringMessages = {
     restored: (n: number) => `Versão ${n} copiada para o rascunho. Revise e publique se quiser.`,
     restoreFailed: "Não foi possível restaurar.",
     noteTooLong: "A nota tem no máximo 200 caracteres.",
+    testsPassed: "Os testes exigidos passaram (conteúdo e banco de exercícios).",
+    testsMissing: (tests: ("MODULE" | "EXERCISE_BANK")[]) =>
+      `Para publicar, falta passar: ${tests.map((t) => (t === "MODULE" ? "Testar o módulo" : "Testar Banco de Exercícios")).join(" e ")}. Rode o teste na aba correspondente; se você editou algo depois, rode de novo.`,
+    notTested: (tests: ("MODULE" | "EXERCISE_BANK")[]) =>
+      `O servidor recusou a publicação: falta passar ${tests.map((t) => (t === "MODULE" ? "Testar o módulo" : "Testar Banco de Exercícios")).join(" e ")}.`,
   },
   exercisePage: {
     back: "← Exercícios do card",
@@ -284,6 +289,9 @@ export const authoringMessages = {
     genericError: "Não foi possível concluir a ação.",
     created: (when: string, who: string) => `Criado em ${when}${who ? ` por ${who}` : ""}`,
     updated: (when: string, who: string) => `Atualizado em ${when}${who ? ` por ${who}` : ""}`,
+  },
+  testResult: {
+    registerFailed: "O teste terminou, mas o resultado não foi registrado no servidor. Rode de novo para poder publicar.",
   },
   bankTest: {
     button: "Testar Banco de Exercícios",

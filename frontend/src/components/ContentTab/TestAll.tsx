@@ -112,7 +112,8 @@ function Icon({ mark }: { mark: Mark }) {
 
 interface TestAllProps {
   moduleId: string;
-  service: Pick<ContentAuthoringService, "content">;
+  /** `registerTestResult` records the verdict on the server so publishing can require it (SPEC-024 RN-13). */
+  service: Pick<ContentAuthoringService, "content"> & Partial<Pick<ContentAuthoringService, "registerTestResult">>;
   practice: Pick<PracticeService, "topicScenario">;
   /** Called after each result is recorded, so the list can show its new mark. */
   onResult: () => void;
@@ -147,6 +148,7 @@ export function TestAll({
   const [picked, setPicked] = useState<Phase | null>(null);
   /** What each activity ran in the unit test and what the terminal said, by card key, to read after the test. */
   const [traces, setTraces] = useState<Record<string, TestRow[]>>({});
+  const [registerFailed, setRegisterFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -451,6 +453,12 @@ export function TestAll({
 
       {nothing && <p className={styles.lead}>{m.nothing}</p>}
 
+      {registerFailed && (
+        <p className={styles.problemsTitle} role="alert">
+          {authoringMessages.testResult.registerFailed}
+        </p>
+      )}
+
       {finished && !nothing && (
         <div
           className={`${styles.verdict} ${passed ? styles.verdictGood : styles.verdictBad}`}
@@ -658,6 +666,15 @@ export function TestAll({
                     whole.fingerprint,
                   );
                   onResult();
+                  // The test of the content ends with the sequence; the inverse order only warns (SPEC-024 RN-13).
+                  setRegisterFailed(false);
+                  void Promise.resolve(
+                    service.registerTestResult?.(moduleId, {
+                      kind: "MODULE",
+                      passed: ok && results.every(Boolean),
+                      summary: { activities: items.length, activitiesPassed: results.filter(Boolean).length, commands: whole.commands.length, sequencePassed: ok },
+                    }),
+                  ).catch(() => setRegisterFailed(true));
                 }}
               />
             </div>
