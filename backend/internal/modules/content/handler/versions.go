@@ -19,9 +19,10 @@ import (
 
 // Versioning is the use-case port of the versions of a module (SPEC-021).
 type Versioning interface {
-	List(ctx context.Context, who service.Actor, moduleID uuid.UUID) ([]service.VersionSummary, bool, error)
+	List(ctx context.Context, who service.Actor, moduleID uuid.UUID) (service.VersionList, error)
 	Publish(ctx context.Context, who service.Actor, moduleID uuid.UUID, note string) (domain.ModuleVersion, error)
 	Restore(ctx context.Context, who service.Actor, moduleID uuid.UUID, number int) ([]domain.ContentBlock, json.RawMessage, error)
+	RecordTestResult(ctx context.Context, who service.Actor, moduleID uuid.UUID, kind domain.TestKind, passed bool, summary []byte) (domain.ModuleTestResult, error)
 }
 
 // VersionHandler serves the routes of the versions of a module.
@@ -43,6 +44,7 @@ func (h *VersionHandler) Register(r gin.IRouter) {
 	teacher.GET("/modules/:id/versions", h.list)
 	teacher.POST("/modules/:id/versions", h.write, h.publish)
 	teacher.POST("/modules/:id/versions/:number/restore", h.write, h.restore)
+	teacher.POST("/modules/:id/test-results", h.write, h.recordTest)
 }
 
 // write bounds the body and the rate of the routes that change content.
@@ -66,12 +68,13 @@ func (h *VersionHandler) list(c *gin.Context) {
 	if !ok || !authed {
 		return
 	}
-	list, changed, err := h.versions.List(c.Request.Context(), who, id)
+	list, err := h.versions.List(c.Request.Context(), who, id)
 	if err != nil {
 		versionFail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"moduleId": id, "versions": list, "hasUnpublishedChanges": changed})
+	c.JSON(http.StatusOK, gin.H{"moduleId": id, "versions": list.Versions, "hasUnpublishedChanges": list.HasUnpublishedChanges,
+		"moduleTestPassed": list.ModuleTestPassed, "exerciseBankTestPassed": list.ExerciseBankTestPassed})
 }
 
 func (h *VersionHandler) publish(c *gin.Context) {
@@ -94,6 +97,33 @@ func (h *VersionHandler) publish(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"moduleId": id, "number": v.Number, "note": v.Note, "createdAt": v.CreatedAt})
 }
 
+// recordTest stores the result of a test the teacher ran in the screen of the module (SPEC-024 RN-13).
+func (h *VersionHandler) recordTest(c *gin.Context) {
+	id, ok := moduleID(c)
+	who, authed := actor(c)
+	if !ok || !authed {
+		return
+	}
+	var req struct {
+		Kind    domain.TestKind `json:"kind"`
+		Passed  *bool           `json:"passed"`
+		Summary json.RawMessage `json:"summary"`
+	}
+	if !bindBody(c, &req) {
+		return
+	}
+	if req.Passed == nil {
+		authFail(c, problem.Validation("The result of the test is required.", problem.InvalidParam{Name: "passed", Reason: "is required"}))
+		return
+	}
+	r, err := h.versions.RecordTestResult(c.Request.Context(), who, id, req.Kind, *req.Passed, req.Summary)
+	if err != nil {
+		versionFail(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"id": r.ID, "kind": r.Kind, "passed": r.Passed, "contentHash": r.ContentHash, "createdAt": r.CreatedAt})
+}
+
 func (h *VersionHandler) restore(c *gin.Context) {
 	id, ok := moduleID(c)
 	who, authed := actor(c)
@@ -114,7 +144,17 @@ func (h *VersionHandler) restore(c *gin.Context) {
 }
 
 func versionFail(c *gin.Context, err error) {
+	var missing *service.MissingTestsError
 	switch {
+	case errors.As(err, &missing):
+		err = problem.Conflict("module-not-tested", "The module must pass its tests before publishing.").WithExtension("missingTests", missing.Tests)
+	case errors.Is(err, service.ErrInvalidTestKind):
+		err = problem.Validation("The kind of the test is not valid.", problem.InvalidParam{Name: "kind", Reason: "must be MODULE or EXERCISE_BANK"})
+	case errors.Is(err, service.ErrInvalidSummary):
+		err = problem.Validation("The summary of the test is not valid.", problem.InvalidParam{Name: "summary", Reason: "must be a JSON object"})
+	case errors.Is(err, service.ErrSummaryTooLarge):
+		// SPEC-024 5 names this problem payload-too-large.
+		err = problem.New(http.StatusRequestEntityTooLarge, "payload-too-large", "The summary of the test has at most 64 KB.")
 	case errors.Is(err, service.ErrNoChanges):
 		err = problem.Conflict("no-changes", "The draft has no changes since the latest version.")
 	case errors.Is(err, service.ErrVersionNotFound):

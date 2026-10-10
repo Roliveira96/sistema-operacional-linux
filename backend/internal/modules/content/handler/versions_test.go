@@ -24,14 +24,23 @@ import (
 
 type fakeVersioning struct {
 	err    error
+	kind   domain.TestKind
+	passed bool
+	sum    string
 	who    service.Actor
 	note   string
 	number int
 }
 
-func (f *fakeVersioning) List(_ context.Context, who service.Actor, _ uuid.UUID) ([]service.VersionSummary, bool, error) {
+func (f *fakeVersioning) List(_ context.Context, who service.Actor, _ uuid.UUID) (service.VersionList, error) {
 	f.who = who
-	return []service.VersionSummary{{Number: 2, Note: "n", Current: true}, {Number: 1}}, true, f.err
+	return service.VersionList{Versions: []service.VersionSummary{{Number: 2, Note: "n", Current: true}, {Number: 1}},
+		HasUnpublishedChanges: true, ModuleTestPassed: true}, f.err
+}
+
+func (f *fakeVersioning) RecordTestResult(_ context.Context, who service.Actor, _ uuid.UUID, kind domain.TestKind, passed bool, summary []byte) (domain.ModuleTestResult, error) {
+	f.who, f.kind, f.passed, f.sum = who, kind, passed, string(summary)
+	return domain.ModuleTestResult{ID: uuid.New(), Kind: kind, Passed: passed, ContentHash: "h", CreatedAt: time.Now()}, f.err
 }
 
 func (f *fakeVersioning) Publish(_ context.Context, who service.Actor, _ uuid.UUID, note string) (domain.ModuleVersion, error) {
@@ -68,6 +77,8 @@ func TestVersionHandler_ListPublishRestore(t *testing.T) {
 	assert.Equal(t, true, body["hasUnpublishedChanges"])
 	assert.Len(t, body["versions"], 2)
 	assert.Equal(t, "TEACHER", f.who.Role)
+	assert.Equal(t, true, body["moduleTestPassed"])
+	assert.Equal(t, false, body["exerciseBankTestPassed"])
 
 	code, body = versionCall(t, f, teacher, 100, http.MethodPost, versionsPath(), `{"note":"revisado"}`)
 	assert.Equal(t, http.StatusCreated, code)

@@ -25,6 +25,9 @@ type fakeVersionStore struct {
 	by       uuid.UUID
 	restored int
 	restErr  error
+	// state is what the gate of the publication sees; saved is the last result stored.
+	state domain.TestState
+	saved *domain.ModuleTestResult
 }
 
 func (f *fakeVersionStore) ModuleTeacher(context.Context, uuid.UUID) (uuid.UUID, error) {
@@ -38,9 +41,22 @@ func (f *fakeVersionStore) ListVersions(context.Context, uuid.UUID) ([]VersionSu
 	return f.versions, f.changed, nil
 }
 
-func (f *fakeVersionStore) PublishVersion(_ context.Context, _, by uuid.UUID, note string) (domain.ModuleVersion, error) {
+func (f *fakeVersionStore) PublishGated(_ context.Context, _, by uuid.UUID, note string, gate func(domain.TestState) error) (domain.ModuleVersion, error) {
+	if err := gate(f.state); err != nil {
+		return domain.ModuleVersion{}, err
+	}
 	f.by, f.note = by, note
 	return domain.ModuleVersion{Number: 2, Note: note}, f.pubErr
+}
+
+func (f *fakeVersionStore) TestState(context.Context, uuid.UUID) (domain.TestState, error) {
+	return f.state, nil
+}
+
+func (f *fakeVersionStore) SaveTestResult(_ context.Context, r domain.ModuleTestResult) (domain.ModuleTestResult, error) {
+	r.ContentHash = "hash-of-" + string(r.Kind)
+	f.saved = &r
+	return r, nil
 }
 
 func (f *fakeVersionStore) RestoreVersion(_ context.Context, _ uuid.UUID, number int, _ time.Time) error {
@@ -58,7 +74,7 @@ func (f *fakeVersionStore) ModuleSetup(context.Context, uuid.UUID) (json.RawMess
 
 func versionFixture() (*Versions, *fakeVersionStore, Actor, Actor) {
 	owner := Actor{UserID: uuid.New(), Role: "TEACHER"}
-	store := &fakeVersionStore{owner: owner.UserID}
+	store := &fakeVersionStore{owner: owner.UserID, state: testedState()}
 	return NewVersions(store, zap.NewNop()), store, owner, Actor{UserID: uuid.New(), Role: "ADMIN"}
 }
 
@@ -97,12 +113,13 @@ func TestVersions_ListMarksTheCurrentOne(t *testing.T) {
 	s, store, owner, _ := versionFixture()
 	store.versions = []VersionSummary{{Number: 3}, {Number: 2}, {Number: 1}}
 	store.changed = true
-	list, changed, err := s.List(context.Background(), owner, uuid.New())
+	got, err := s.List(context.Background(), owner, uuid.New())
 	require.NoError(t, err)
-	assert.True(t, changed)
+	list := got.Versions
+	assert.True(t, got.HasUnpublishedChanges)
 	assert.Equal(t, []bool{true, false, false}, []bool{list[0].Current, list[1].Current, list[2].Current})
 
-	_, _, err = s.List(context.Background(), Actor{UserID: uuid.New(), Role: "TEACHER"}, uuid.New())
+	_, err = s.List(context.Background(), Actor{UserID: uuid.New(), Role: "TEACHER"}, uuid.New())
 	assert.ErrorIs(t, err, ErrForbidden)
 }
 
