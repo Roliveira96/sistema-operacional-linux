@@ -1,7 +1,16 @@
 import { parseSetup } from "@/lib/setup";
 import { httpClient, type HttpClient } from "./httpClient";
 
-export type BlockType = "TEXT" | "COMMAND" | "TIP" | "CURIOSITY" | "STEP_BY_STEP" | "CARDS" | "WIDGET" | "LEGACY_HTML" | "EXERCISES";
+export type BlockType =
+  | "TEXT"
+  | "COMMAND"
+  | "TIP"
+  | "CURIOSITY"
+  | "STEP_BY_STEP"
+  | "CARDS"
+  | "WIDGET"
+  | "LEGACY_HTML"
+  | "EXERCISES";
 
 export interface ContentBlock {
   id: string;
@@ -21,6 +30,8 @@ export interface PublicQuestion {
   choices?: string[];
   /** Reference solution of practical exercises (SPEC-016, P-02); never sent on assessments. */
   solution?: { command: string; terminal?: number }[];
+  /** An exercise of the module made in the editor (SPEC-023): it has no machine of its own, it starts from the layers. */
+  layered?: boolean;
 }
 
 export interface AssessmentTemplateSummary {
@@ -48,8 +59,19 @@ export function createContentService(client: HttpClient = httpClient) {
   return {
     /** The blocks of the module and its snapshot, as the published version has them; `draft` asks for the version being edited (authors only). */
     content: async (moduleId: string, draft = false) => {
-      const r = await client.get<{ blocks: ContentBlock[]; setup?: unknown }>(`/modules/${encodeURIComponent(moduleId)}/blocks${draft ? "?draft=true" : ""}`);
-      return { blocks: r.blocks, setup: parseSetup(r.setup) };
+      const r = await client.get<{
+        blocks: ContentBlock[];
+        setup?: unknown;
+        exercisesSetup?: unknown;
+      }>(
+        `/modules/${encodeURIComponent(moduleId)}/blocks${draft ? "?draft=true" : ""}`,
+      );
+      // The snapshot of the exercises available in the practice of the module comes with it (SPEC-023 RN-07).
+      return {
+        blocks: r.blocks,
+        setup: parseSetup(r.setup),
+        exercisesSetup: parseSetup(r.exercisesSetup),
+      };
     },
     questions: async (moduleId: string, usage?: "EXERCISE" | "ASSESSMENT") =>
       (
@@ -57,11 +79,21 @@ export function createContentService(client: HttpClient = httpClient) {
           `/modules/${encodeURIComponent(moduleId)}/questions${usage ? `?usage=${usage}` : ""}`,
         )
       ).questions,
-    templates: async () => (await client.get<{ items: AssessmentTemplateSummary[] }>("/assessment-templates")).items,
+    templates: async () =>
+      (
+        await client.get<{ items: AssessmentTemplateSummary[] }>(
+          "/assessment-templates",
+        )
+      ).items,
     toggleBlockProgress: async (blockId: string, completed = true) =>
-      client.post<BlockProgressResult>(`/blocks/${encodeURIComponent(blockId)}/progress`, { completed }),
+      client.post<BlockProgressResult>(
+        `/blocks/${encodeURIComponent(blockId)}/progress`,
+        { completed },
+      ),
     getModuleBlockProgress: async (moduleId: string) =>
-      client.get<ModuleBlockProgressResult>(`/modules/${encodeURIComponent(moduleId)}/blocks/progress`),
+      client.get<ModuleBlockProgressResult>(
+        `/modules/${encodeURIComponent(moduleId)}/blocks/progress`,
+      ),
   };
 }
 

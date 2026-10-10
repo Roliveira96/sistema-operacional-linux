@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-023 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 10/10/2026 |
-| **Última revisão** | 10/10/2026 (aprovada) |
+| **Última revisão** | 10/10/2026 (implementada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -173,6 +173,19 @@ Nenhuma em aberto. Decisões do Tech Lead de 10/10/2026 (D-01 a D-03) e aceitas 
 | D-09 | Campos e erros dos endpoints: os da seção 5 |
 | D-10 | Os termos novos entram no glossário: exercício do módulo, banco de exercícios do módulo, conjunto de exercícios |
 
+### Ajustes de implementação (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-01 | D-05: a tradução das condições para o catálogo do servidor é feita pelo **servidor** ao salvar (e não pela tela). A coluna `end_conditions` guarda as condições na forma de edição e `validation_conditions` guarda as do catálogo, para a docente reabrir o exercício sem perder nada |
+| A-02 | D-08: o exercício da carga inicial pode ser editado na hora; a página mostra o aviso "veio da carga inicial e não tem a solução gravada" até a docente gravar a solução, em vez de ficar somente leitura |
+| A-03 | Publicar exige pelo menos uma condição de finalização (RN-04): um exercício que ninguém consegue concluir não vai ao estudante |
+| A-04 | O teste do módulo (RN-10) roda só os exercícios **publicados** de cada conjunto; os rascunhos são contados na cobertura e não rodam. O conjunto disponível entra também no módulo em sequência, ao final; o de avaliação roda sozinho, sobre o snapshot do módulo e o dele |
+| A-05 | O resultado do teste do módulo passa a depender do banco (exercícios publicados e os dois snapshots): mexer neles o marca como "alterado desde o teste". Um módulo sem banco mantém a impressão digital que tinha |
+| A-06 | Para o estudante, o exercício do módulo chega no formato que a tela de prática já lê (dicas como uma lista em HTML, solução como lista de comandos) e com a marca `layered`: a máquina é o cenário do tópico, com o snapshot do módulo e o dos exercícios disponíveis por cima, sem os snapshots dos cards (RN-07) |
+| A-07 | A listagem de questões do estudante respeita a ordem da trilha |
+| A-08 | Os arquivos que uma solução escreveu não têm comando e por isso não aparecem em "Ver como o professor fez" do estudante |
+
 ---
 
 ## Histórico de revisões
@@ -181,3 +194,4 @@ Nenhuma em aberto. Decisões do Tech Lead de 10/10/2026 (D-01 a D-03) e aceitas 
 | :--- | :--- | :--- |
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; decisões D-01 a D-03 tomadas por ele no mesmo dia; pendências P-01 a P-07 abertas |
 | 10/10/2026 | Tech Lead | Aprovada, aceitas as recomendações de P-01 a P-07 (viram D-04 a D-10); seção 5 detalhada |
+| 10/10/2026 | Implementador (Claude) | Implementada: migração 00016, banco de exercícios no backend (serviço, repositório, rotas, trilha, snapshots, autoria, versões), aba Exercícios do módulo e página do exercício, teste do módulo com o banco, entrega ao estudante com o cenário em camadas. Ajustes A-01 a A-08 |
