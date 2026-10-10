@@ -68,7 +68,16 @@ const TAB_ICONS: Record<CardTab, string> = {
 };
 
 // The emoji that marks each kind of element in the form: it only decorates, the title says it all.
-const KIND_ICONS: Record<string, string> = { text: "📝", block: "🧩", code: "💻", table: "📊", image: "🖼️", video: "🎬", link: "🔗" };
+const KIND_ICONS: Record<string, string> = {
+  text: "📝",
+  html: "🧩",
+  block: "🧩",
+  code: "💻",
+  table: "📊",
+  image: "🖼️",
+  video: "🎬",
+  link: "🔗",
+};
 
 const INSERTABLE: Exclude<ElementKind, "block">[] = [
   "text",
@@ -218,7 +227,8 @@ function ElementRow({
     <div className={styles.item}>
       <div className={styles.itemHead}>
         <span className={styles.itemTitle}>
-          <span aria-hidden="true">{KIND_ICONS[el.kind] ?? "📄"}</span> {d.item(d.kinds[el.kind], n)}
+          <span aria-hidden="true">{KIND_ICONS[el.kind] ?? "📄"}</span>{" "}
+          {d.item(d.kinds[el.kind], n)}
         </span>
         <Tools
           index={index}
@@ -759,7 +769,9 @@ export function CardBuilder({
                 />
               ))}
               <div className={styles.insert}>
-                <span className={styles.hint}>{d.insert}</span>
+                <span className={styles.insertLabel}>
+                  <span aria-hidden="true">➕</span> {d.insert}
+                </span>
                 {INSERTABLE.map((kind) => (
                   <button
                     key={kind}
@@ -769,6 +781,7 @@ export function CardBuilder({
                       set({ elements: [...card.elements, newElement(kind)] })
                     }
                   >
+                    <span aria-hidden="true">{KIND_ICONS[kind]}</span>{" "}
                     {d.kinds[kind]}
                   </button>
                 ))}

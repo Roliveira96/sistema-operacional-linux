@@ -21,14 +21,42 @@ interface RichTextEditorProps {
  * filters it again. "Comando" marks a snippet as inline code, which the voice reader (SPEC-018)
  * already says as a command.
  */
-export function RichTextEditor({ label, value, onChange, placeholder, invalid, describedBy }: RichTextEditorProps) {
+// What each button shows (the name is in its aria-label and its title), and where a new group of buttons starts.
+const GLYPHS: Record<string, string> = {
+  bold: "B",
+  italic: "I",
+  code: "</>",
+  codeBlock: "{ }",
+  heading: "H",
+  bulletList: "•",
+  orderedList: "1.",
+  blockquote: "❝",
+  link: "🔗",
+  undo: "↶",
+  redo: "↷",
+};
+const GROUP_STARTS = new Set(["code", "heading", "link", "undo"]);
+
+export function RichTextEditor({
+  label,
+  value,
+  onChange,
+  placeholder,
+  invalid,
+  describedBy,
+}: RichTextEditorProps) {
   const t = authoringMessages.richText;
   const labelId = useId();
   const [linkOpen, setLinkOpen] = useState(false);
   const [url, setUrl] = useState("");
 
   const editor = useEditor({
-    extensions: [StarterKit.configure({ heading: { levels: [3, 4] }, link: { openOnClick: false } })],
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [3, 4] },
+        link: { openOnClick: false },
+      }),
+    ],
     content: value,
     immediatelyRender: false,
     editorProps: {
@@ -41,7 +69,8 @@ export function RichTextEditor({ label, value, onChange, placeholder, invalid, d
         class: styles.content ?? "",
       },
     },
-    onUpdate: ({ editor: current }) => onChange(current.isEmpty ? "" : current.getHTML()),
+    onUpdate: ({ editor: current }) =>
+      onChange(current.isEmpty ? "" : current.getHTML()),
   });
 
   const active = useEditorState({
@@ -68,15 +97,63 @@ export function RichTextEditor({ label, value, onChange, placeholder, invalid, d
     editor.commands.focus();
   };
 
-  const buttons: { key: string; label: string; title?: string; pressed?: boolean; disabled?: boolean; onClick: () => void }[] = [
-    { key: "bold", label: t.bold, pressed: active?.bold, onClick: run(() => editor.chain().toggleBold().run()) },
-    { key: "italic", label: t.italic, pressed: active?.italic, onClick: run(() => editor.chain().toggleItalic().run()) },
-    { key: "code", label: t.command, title: t.commandHelp, pressed: active?.code, onClick: run(() => editor.chain().toggleCode().run()) },
-    { key: "codeBlock", label: t.codeBlock, pressed: active?.codeBlock, onClick: run(() => editor.chain().toggleCodeBlock().run()) },
-    { key: "heading", label: t.heading, pressed: active?.heading, onClick: run(() => editor.chain().toggleHeading({ level: 3 }).run()) },
-    { key: "bulletList", label: t.bulletList, pressed: active?.bulletList, onClick: run(() => editor.chain().toggleBulletList().run()) },
-    { key: "orderedList", label: t.orderedList, pressed: active?.orderedList, onClick: run(() => editor.chain().toggleOrderedList().run()) },
-    { key: "blockquote", label: t.quote, pressed: active?.blockquote, onClick: run(() => editor.chain().toggleBlockquote().run()) },
+  const buttons: {
+    key: string;
+    label: string;
+    title?: string;
+    pressed?: boolean;
+    disabled?: boolean;
+    onClick: () => void;
+  }[] = [
+    {
+      key: "bold",
+      label: t.bold,
+      pressed: active?.bold,
+      onClick: run(() => editor.chain().toggleBold().run()),
+    },
+    {
+      key: "italic",
+      label: t.italic,
+      pressed: active?.italic,
+      onClick: run(() => editor.chain().toggleItalic().run()),
+    },
+    {
+      key: "code",
+      label: t.command,
+      title: t.commandHelp,
+      pressed: active?.code,
+      onClick: run(() => editor.chain().toggleCode().run()),
+    },
+    {
+      key: "codeBlock",
+      label: t.codeBlock,
+      pressed: active?.codeBlock,
+      onClick: run(() => editor.chain().toggleCodeBlock().run()),
+    },
+    {
+      key: "heading",
+      label: t.heading,
+      pressed: active?.heading,
+      onClick: run(() => editor.chain().toggleHeading({ level: 3 }).run()),
+    },
+    {
+      key: "bulletList",
+      label: t.bulletList,
+      pressed: active?.bulletList,
+      onClick: run(() => editor.chain().toggleBulletList().run()),
+    },
+    {
+      key: "orderedList",
+      label: t.orderedList,
+      pressed: active?.orderedList,
+      onClick: run(() => editor.chain().toggleOrderedList().run()),
+    },
+    {
+      key: "blockquote",
+      label: t.quote,
+      pressed: active?.blockquote,
+      onClick: run(() => editor.chain().toggleBlockquote().run()),
+    },
     {
       key: "link",
       label: t.link,
@@ -86,13 +163,24 @@ export function RichTextEditor({ label, value, onChange, placeholder, invalid, d
         setLinkOpen((open) => !open);
       },
     },
-    { key: "undo", label: t.undo, disabled: !active?.canUndo, onClick: run(() => editor.chain().undo().run()) },
-    { key: "redo", label: t.redo, disabled: !active?.canRedo, onClick: run(() => editor.chain().redo().run()) },
+    {
+      key: "undo",
+      label: t.undo,
+      disabled: !active?.canUndo,
+      onClick: run(() => editor.chain().undo().run()),
+    },
+    {
+      key: "redo",
+      label: t.redo,
+      disabled: !active?.canRedo,
+      onClick: run(() => editor.chain().redo().run()),
+    },
   ];
 
   const applyLink = () => {
     const href = url.trim();
-    if (href) editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
+    if (href)
+      editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
     else editor.chain().focus().extendMarkRange("link").unsetLink().run();
     setLinkOpen(false);
   };
@@ -107,14 +195,14 @@ export function RichTextEditor({ label, value, onChange, placeholder, invalid, d
           <button
             key={b.key}
             type="button"
-            className={styles.tool}
+            className={`${styles.tool} ${styles[`tool${b.key[0]!.toUpperCase()}${b.key.slice(1)}`] ?? ""} ${GROUP_STARTS.has(b.key) ? styles.groupStart : ""}`}
             aria-label={b.label}
             aria-pressed={b.pressed === undefined ? undefined : b.pressed}
             title={b.title ?? b.label}
             disabled={b.disabled}
             onClick={b.onClick}
           >
-            {b.label}
+            <span aria-hidden="true">{GLYPHS[b.key] ?? b.label}</span>
           </button>
         ))}
       </div>
@@ -142,7 +230,12 @@ export function RichTextEditor({ label, value, onChange, placeholder, invalid, d
               type="button"
               className={styles.tool}
               onClick={() => {
-                editor.chain().focus().extendMarkRange("link").unsetLink().run();
+                editor
+                  .chain()
+                  .focus()
+                  .extendMarkRange("link")
+                  .unsetLink()
+                  .run();
                 setLinkOpen(false);
               }}
             >
