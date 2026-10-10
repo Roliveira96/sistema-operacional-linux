@@ -194,16 +194,12 @@
 
 .tabIcon {
   flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
-  fill: none;
-  stroke: currentcolor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: transform var(--duration-normal) var(--easing-standard);
 
   [aria-selected="true"] > & {
-    stroke: var(--color-accent);
+    transform: scale(1.15);
   }
 }
 

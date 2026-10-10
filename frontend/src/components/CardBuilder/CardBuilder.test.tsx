@@ -498,11 +498,13 @@ describe("CardBuilder, testing the commands (SPEC-020 CA-10)", () => {
 });
 
 describe("CardBuilder, the sections in tabs", () => {
-  const selected = () => screen.getAllByRole("tab").filter((t) => t.getAttribute("aria-selected") === "true").map((t) => t.textContent);
+  // The emoji in front of each name only decorates the tab.
+  const tabName = (t: HTMLElement) => t.textContent?.replace(/^\P{L}+/u, "");
+  const selected = () => screen.getAllByRole("tab").filter((t) => t.getAttribute("aria-selected") === "true").map(tabName);
 
   it("has the tabs Descrição, Comandos, Dicas and Exercícios, and starts on the description", () => {
     renderBuilder();
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Descrição", "Comandos", "Dicas", "Exercícios"]);
+    expect(screen.getAllByRole("tab").map(tabName)).toEqual(["Descrição", "Comandos", "Dicas", "Exercícios"]);
     expect(selected()).toEqual(["Descrição"]);
     expect(screen.getByRole("button", { name: "Texto / HTML" })).toBeDefined();
     // The others are not on screen yet, but the title of the card is always there.

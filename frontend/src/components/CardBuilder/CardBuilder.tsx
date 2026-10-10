@@ -53,6 +53,7 @@ interface CardBuilderProps {
 
 export type CardTab = "description" | "commands" | "tips" | "exercises";
 const TABS: CardTab[] = ["description", "commands", "tips", "exercises"];
+const TAB_ICONS: Record<CardTab, string> = { description: "📝", commands: "💻", tips: "💡", exercises: "🎯" };
 
 const INSERTABLE: Exclude<ElementKind, "block">[] = ["text", "html", "code", "table", "image", "video", "link"];
 const NEWLINE = String.fromCharCode(10);
@@ -388,7 +389,7 @@ export function CardBuilder({ moduleId, group, afterId, service = contentAuthori
           <div role="tablist" aria-label={m.tabs.label} className={styles.tabs}>
             {TABS.map((name) => (
               <button key={name} type="button" role="tab" id={`card-tab-${name}`} aria-selected={tab === name} aria-controls={`card-panel-${name}`} className={styles.tab} onClick={() => setTab(name)}>
-                {m.tabs[name]}
+                <span aria-hidden="true">{TAB_ICONS[name]}</span> {m.tabs[name]}
                 {tabHasError(name) && (
                   <span className={styles.tabMark} role="img" aria-label={m.tabs.withError}>
                     !

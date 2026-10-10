@@ -14,12 +14,12 @@ import styles from "./page.module.scss";
 type Tab = "details" | "content" | "versions" | "exercises";
 const TABS: Tab[] = ["details", "content", "versions", "exercises"];
 
-// One icon per tab, drawn with the same stroke so the set looks like one family.
+// One colored emoji per tab: friendly and quick to tell apart.
 const ICONS: Record<Tab, string> = {
-  details: "M4 6h16M4 12h16M4 18h10",
-  content: "M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM8 8h7M8 12h7",
-  versions: "M12 7v5l3 2M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4",
-  exercises: "M9 12l2 2 4-4M5 4h14v16H5z",
+  details: "📝",
+  content: "📚",
+  versions: "🕘",
+  exercises: "🎯",
 };
 
 
@@ -143,9 +143,9 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
             className={styles.tab}
             onClick={() => setTab(key)}
           >
-            <svg className={styles.tabIcon} viewBox="0 0 24 24" aria-hidden="true">
-              <path d={ICONS[key]} />
-            </svg>
+            <span className={styles.tabIcon} aria-hidden="true">
+              {ICONS[key]}
+            </span>
             {m.tabs[key]}
           </button>
         ))}
