@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AccountMenu } from "@/components/AccountMenu/AccountMenu";
 import { BrandMark } from "@/components/BrandMark/BrandMark";
 import { Button } from "@/components/Button/Button";
-import { UserBadge } from "@/components/UserBadge/UserBadge";
 import { useIdentity, type IdentitySources } from "@/hooks/useIdentity";
 import { messages } from "@/messages/pt-BR";
 import { authService } from "@/services/authService";
@@ -19,8 +19,8 @@ export interface NavbarPublicProps {
 }
 
 /**
- * Top bar of the public pages. It knows the session: a signed-in user sees their
- * photo and name, a link to their area and a way out, never the sign-in and sign-up
+ * Top bar of the public pages. It knows the session: a signed-in user sees a link to
+ * their area and the account menu (SPEC-026), never the sign-in and sign-up
  * buttons; a visitor sees the buttons; while the session is read, neither.
  */
 export function NavbarPublic({ identity: sources, logout = () => authService.logout() }: NavbarPublicProps = {}) {
@@ -69,13 +69,10 @@ export function NavbarPublic({ identity: sources, logout = () => authService.log
           )}
           {user && (
             <>
-              <UserBadge identity={user} />
               <Button variant="primary" className={styles.registerBtn} onClick={() => router.push("/app")}>
                 {messages.public.nav.myArea}
               </Button>
-              <Button variant="secondary" className={styles.loginBtn} onClick={() => void leave()}>
-                {messages.public.nav.logout}
-              </Button>
+              <AccountMenu user={user} logout={leave} />
             </>
           )}
         </div>

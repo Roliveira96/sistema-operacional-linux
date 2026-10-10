@@ -83,6 +83,21 @@ export interface ClassMember {
   decidedAt?: string;
 }
 
+/** A class of the signed-in user, for the account menu (SPEC-026). */
+export interface MyClass {
+  id: string;
+  name: string;
+  courseCode: string;
+  semester: string;
+  relation: "TEACHER" | "STUDENT";
+  enrollmentStatus?: "ACTIVE" | "PENDING_MODERATION";
+}
+
+export interface MyClassesResult {
+  items: MyClass[];
+  total: number;
+}
+
 /** Class management API client (SPEC-009). */
 export function createClassService(client: HttpClient = httpClient) {
   return {
@@ -95,6 +110,7 @@ export function createClassService(client: HttpClient = httpClient) {
       const qs = query.toString();
       return client.get<ListClassesResult>(`/classes${qs ? `?${qs}` : ""}`);
     },
+    myClasses: () => client.get<MyClassesResult>("/me/classes"),
     getClass: (id: string) => client.get<ClassGroup>(`/classes/${id}`),
     createClass: (payload: CreateClassPayload) => client.post<ClassGroup>("/classes", payload),
     updateClass: (id: string, payload: UpdateClassPayload) => client.patch<ClassGroup>(`/classes/${id}`, payload),

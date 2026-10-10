@@ -1,0 +1,322 @@
+@use "@/styles/mixins" as *;
+
+.root {
+  position: relative;
+  min-width: 0;
+}
+
+// Closed: one button with the photo, the name and a chevron. Below 640px only the photo.
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 16rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font: inherit;
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  @include transition(background-color, border-color);
+  @include focusable;
+
+  &:hover,
+  &[aria-expanded="true"] {
+    background: var(--color-overlay-soft);
+    border-color: var(--color-hairline);
+  }
+}
+
+.avatar {
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+}
+
+.small {
+  width: var(--space-8);
+  height: var(--space-8);
+}
+
+.big {
+  width: var(--space-12);
+  height: var(--space-12);
+}
+
+.initials {
+  display: grid;
+  place-items: center;
+  background: var(--color-accent-subtle);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+}
+
+.small.initials {
+  font-size: var(--font-size-sm);
+}
+
+.big.initials {
+  font-size: var(--font-size-md);
+}
+
+.name {
+  display: none;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+
+  @include truncate;
+}
+
+.chevron {
+  display: none;
+  flex-shrink: 0;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-bottom: var(--space-1);
+  border-right: 2px solid var(--color-text-secondary);
+  border-bottom: 2px solid var(--color-text-secondary);
+  transform: rotate(45deg);
+
+  @include transition(transform);
+}
+
+.chevronOpen {
+  margin-top: var(--space-1);
+  margin-bottom: 0;
+  transform: rotate(225deg);
+}
+
+@include from("sm") {
+  .name {
+    display: block;
+  }
+
+  .chevron {
+    display: block;
+  }
+}
+
+// Open: one elevation above the bar, translucent border, 320px (screen minus 32px on phones).
+.panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(20rem, 100vw - 2rem);
+  padding: var(--space-2);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-pop);
+
+  &:focus {
+    outline: none;
+  }
+
+  // No animation for those who ask for reduced motion (SPEC-026 CA-11).
+  @media (prefers-reduced-motion: no-preference) {
+    animation: enter var(--duration-normal) var(--easing-standard);
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--space-1) * -1));
+  }
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fullName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.email,
+.role {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.classes {
+  padding: var(--space-2);
+  border-top: 1px solid var(--color-hairline);
+}
+
+.heading {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.itemLink {
+  @include transition(background-color);
+  @include focusable;
+
+  &:hover {
+    background: var(--color-overlay-soft);
+  }
+}
+
+.className {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.classMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.tag {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-warning-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-warning-faint);
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
+
+.empty,
+.count,
+.error p {
+  margin: 0;
+  padding: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.seeAll {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+
+  @include focusable;
+}
+
+.retry,
+.profile,
+.logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+
+  @include transition(background-color);
+  @include focusable;
+}
+
+.retry {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
+.profile {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-decoration: none;
+
+  &:hover {
+    background: var(--color-overlay-soft);
+  }
+}
+
+.divider {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--color-hairline);
+}
+
+.logout {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+
+  &:hover {
+    background: var(--color-overlay-soft);
+    color: var(--color-text-primary);
+  }
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+
+  span {
+    height: var(--space-4);
+    border-radius: var(--radius-sm);
+    background: var(--color-overlay-soft);
+
+    @media (prefers-reduced-motion: no-preference) {
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.4;
+  }
+}

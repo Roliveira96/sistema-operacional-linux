@@ -8,7 +8,7 @@ import { emitSessionEvent } from "@/services/sessionEvents";
 import { problem, router, setTheme, themes } from "@/test/helpers";
 import { AuthProvider } from "./AuthProvider";
 
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/app" }));
 
 const user: CurrentUser = {
   userId: "1",
@@ -103,7 +103,8 @@ describe("AuthProvider", () => {
         </AppShell>
       </AuthProvider>,
     );
-    expect(await screen.findByText("Ricardo")).toBeTruthy();
+    // The account menu shows only the name; the role and the way out are inside the panel (SPEC-026).
+    fireEvent.click(await screen.findByRole("button", { name: "Ricardo" }));
     expect(screen.getByText(messages.home.role.ADMIN!)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: messages.auth.logout }));
     await vi.waitFor(() => expect(router.replace).toHaveBeenCalledWith("/login?reason=LOGOUT"));
