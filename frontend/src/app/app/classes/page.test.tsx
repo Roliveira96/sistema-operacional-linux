@@ -90,4 +90,38 @@ describe("ClassesPage", () => {
       expect(archiveSpy).toHaveBeenCalledWith("class-1", "Fim do semestre letivo");
     });
   });
+
+  it("handles search input change and clearing", async () => {
+    const listSpy = vi.spyOn(classService, "listClasses").mockResolvedValue(mockListResult);
+
+    render(<ClassesPage />);
+
+    const searchInput = screen.getByPlaceholderText(/Buscar por nome/i);
+    fireEvent.change(searchInput, { target: { value: "SO34E" } });
+
+    await waitFor(() => {
+      expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ search: "SO34E" }));
+    });
+
+    const clearBtn = screen.getByLabelText("Limpar busca");
+    fireEvent.click(clearBtn);
+
+    expect((searchInput as HTMLInputElement).value).toBe("");
+  });
+
+  it("renders empty state when listClasses returns no classes", async () => {
+    vi.spyOn(classService, "listClasses").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      limit: 50,
+    });
+
+    render(<ClassesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Nenhuma turma encontrada.")).toBeDefined();
+    });
+  });
 });
+
