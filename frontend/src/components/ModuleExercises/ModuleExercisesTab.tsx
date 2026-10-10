@@ -319,6 +319,11 @@ export function ModuleExercisesTab({
           >
             {m.status[it.status]}
           </span>
+          {trail && it.continuesPrevious && index > 0 && (
+            <span className={styles.chain}>
+              <span aria-hidden="true">↪</span> {m.continuesChip}
+            </span>
+          )}
           {trail && (
             <label className={styles.mandatory}>
               <input

@@ -8,12 +8,14 @@ import { CardTester } from "@/components/CardBuilder/CardTester";
 import styles from "@/components/CardBuilder/CardScreen.module.scss";
 import { ExercisesBlock } from "@/components/ContentRenderer/ExercisesBlock";
 import { ExerciseForm } from "@/components/ExerciseForm/ExerciseForm";
+import { InfoTip } from "@/components/InfoTip/InfoTip";
 import {
   emptyExercise,
   exercisesPayload,
   exerciseTestItems,
   type Exercise,
 } from "@/lib/exercises";
+import { chainLayers } from "@/lib/exerciseChain";
 import { hasSetup, type Setup, type SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import {
@@ -48,6 +50,8 @@ type State =
   | {
       status: "ready";
       stored?: ModuleExercise;
+      /** The available exercises in the order of the trail, to build the chain an exercise continues from. */
+      trail: ModuleExercise[];
       layers: Record<"EXERCISE" | "ASSESSMENT", SetupLayer[]>;
     };
 
@@ -72,6 +76,8 @@ export function ModuleExerciseScreen({
   const [state, setState] = useState<State>({ status: "loading" });
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [baseline, setBaseline] = useState("");
+  /** The exercise starts from where the previous one of the trail ended (RN-11). */
+  const [continues, setContinues] = useState(false);
   const [updatedAt, setUpdatedAt] = useState("");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [message, setMessage] = useState<{
@@ -112,6 +118,9 @@ export function ModuleExerciseScreen({
         setState({
           status: "ready",
           stored,
+          trail: bank.items
+            .filter((it) => it.usage === "EXERCISE")
+            .sort((a, b) => a.position - b.position),
           layers: {
             EXERCISE: [
               ...moduleLayer,
@@ -125,7 +134,13 @@ export function ModuleExerciseScreen({
         });
         const first = stored?.exercise ?? emptyExercise();
         setExercise(first);
-        setBaseline(JSON.stringify(first, withoutIds));
+        setContinues(stored?.continuesPrevious ?? false);
+        setBaseline(
+          JSON.stringify(
+            [first, stored?.continuesPrevious ?? false],
+            withoutIds,
+          ),
+        );
         setUpdatedAt(stored?.updatedAt ?? "");
       })
       .catch(() => active && setState({ status: "missing" }));
@@ -139,7 +154,8 @@ export function ModuleExerciseScreen({
     [practice, moduleId],
   );
   const dirty =
-    exercise !== null && JSON.stringify(exercise, withoutIds) !== baseline;
+    exercise !== null &&
+    JSON.stringify([exercise, continues], withoutIds) !== baseline;
 
   // Leaving the page with an unsaved exercise loses the work.
   useEffect(() => {
@@ -170,7 +186,21 @@ export function ModuleExerciseScreen({
   }
 
   const usage = state.stored?.usage ?? "ASSESSMENT";
-  const before = state.layers[usage];
+  // An exercise that continues starts from the recipe of the chain before it (RN-11): the solutions recorded, in the order of the trail.
+  const position = state.trail.findIndex((it) => it.exercise.id === exerciseId);
+  const canContinue = usage === "EXERCISE" && position > 0;
+  const chain = chainLayers(
+    state.trail.map((it, i) => ({
+      id: it.exercise.id,
+      title: it.exercise.title.trim() || m.untitled,
+      continues:
+        i === position ? continues && canContinue : it.continuesPrevious,
+      solution: it.exercise.solution,
+    })),
+    position,
+    m.chainLayer,
+  );
+  const before = [...state.layers[usage], ...chain];
 
   const save = async (force = false) => {
     setMessage(null);
@@ -178,17 +208,18 @@ export function ModuleExerciseScreen({
     setSaving(true);
     try {
       const saved = isNew
-        ? await service.create(moduleId, exercise)
+        ? await service.create(moduleId, exercise, continues)
         : await service.update(
             moduleId,
             exerciseId,
             exercise,
             updatedAt,
             force,
+            continues,
           );
       setErrors({});
       setUpdatedAt(saved.updatedAt);
-      setBaseline(JSON.stringify(exercise, withoutIds));
+      setBaseline(JSON.stringify([exercise, continues], withoutIds));
       setMessage({ kind: "ok", text: m.saved });
       if (isNew)
         router.replace(
@@ -252,6 +283,22 @@ export function ModuleExerciseScreen({
           <span aria-hidden="true">⚠️</span> {m.legacy}
         </p>
       )}
+
+      <label className={cardStyles.check}>
+        <input
+          type="checkbox"
+          checked={continues && canContinue}
+          disabled={!canContinue}
+          onChange={(e) => setContinues(e.target.checked)}
+        />
+        <span>{m.continues}</span>
+        <InfoTip topic={m.continues}>
+          {authoringMessages.info.exerciseChain}
+        </InfoTip>
+      </label>
+      <p className={cardStyles.hint}>
+        {canContinue ? m.continuesHelp : m.continuesOnlyAvailable}
+      </p>
 
       <div className={cardStyles.columns}>
         <ExerciseForm

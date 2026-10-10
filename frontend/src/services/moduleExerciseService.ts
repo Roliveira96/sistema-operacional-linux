@@ -26,6 +26,8 @@ export interface ModuleExercise {
   createdAt: string;
   createdBy: string;
   updatedBy: string;
+  /** Starts from where the previous exercise of the trail ended (RN-11). */
+  continuesPrevious: boolean;
   /** Came from the initial load: it has no solution recorded nor conditions in the form of the editor. */
   legacy: boolean;
 }
@@ -71,12 +73,16 @@ export function parseModuleExercise(
     createdAt: str(raw.createdAt),
     createdBy: str(raw.createdBy),
     updatedBy: str(raw.updatedBy),
+    continuesPrevious: raw.continuesPrevious === true,
     legacy: raw.legacy === true,
   };
 }
 
 /** What is sent to create or save an exercise. */
-export function exerciseBody(exercise: Exercise): Record<string, unknown> {
+export function exerciseBody(
+  exercise: Exercise,
+  continuesPrevious = false,
+): Record<string, unknown> {
   return {
     title: exercise.title.trim(),
     difficulty: exercise.difficulty,
@@ -90,6 +96,7 @@ export function exerciseBody(exercise: Exercise): Record<string, unknown> {
       ? { solution: setupPayload(exercise.solution) }
       : {}),
     conditions: exercise.conditions,
+    ...(continuesPrevious ? { continuesPrevious: true } : {}),
   };
 }
 
@@ -170,11 +177,15 @@ export function createModuleExerciseService(client: HttpClient = httpClient) {
       parseModuleExercise(
         await client.get<Record<string, unknown>>(one(moduleId, id)),
       ),
-    create: async (moduleId: string, exercise: Exercise) =>
+    create: async (
+      moduleId: string,
+      exercise: Exercise,
+      continuesPrevious = false,
+    ) =>
       parseModuleExercise(
         await client.post<Record<string, unknown>>(
           `${base(moduleId)}/exercises`,
-          exerciseBody(exercise),
+          exerciseBody(exercise, continuesPrevious),
         ),
       ),
     /** Saves it; `force` writes over what someone else changed in the meantime. */
@@ -184,10 +195,11 @@ export function createModuleExerciseService(client: HttpClient = httpClient) {
       exercise: Exercise,
       updatedAt: string,
       force = false,
+      continuesPrevious = false,
     ) =>
       parseModuleExercise(
         await client.put<Record<string, unknown>>(one(moduleId, id), {
-          ...exerciseBody(exercise),
+          ...exerciseBody(exercise, continuesPrevious),
           ...(force ? { force: true } : { updatedAt }),
         }),
       ),

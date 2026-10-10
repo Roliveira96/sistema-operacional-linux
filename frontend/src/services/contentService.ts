@@ -32,6 +32,9 @@ export interface PublicQuestion {
   solution?: { command: string; terminal?: number }[];
   /** An exercise of the module made in the editor (SPEC-023): it has no machine of its own, it starts from the layers. */
   layered?: boolean;
+  /** Starts from where the previous exercise ended; `solutionSetup` is the recipe the screen replays to build that machine (SPEC-023 RN-11). */
+  continues?: boolean;
+  solutionSetup?: unknown;
 }
 
 export interface AssessmentTemplateSummary {

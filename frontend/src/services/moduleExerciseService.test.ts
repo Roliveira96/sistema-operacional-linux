@@ -19,6 +19,7 @@ const stored = {
   createdAt: "2026-10-10T11:00:00Z",
   createdBy: "Ana",
   updatedBy: "Bia",
+  continuesPrevious: true,
   legacy: false,
 };
 
@@ -37,7 +38,7 @@ describe("moduleExerciseService", () => {
     expect(ex.exercise).toMatchObject({ id: "q1", title: "Criar", difficulty: "HARD", description: "<p>x</p>", solution: { steps: [{ command: "mkdir /a" }] } });
     expect(ex.exercise.hints.map((h) => [h.text, h.command])).toEqual([["dica", "mkdir /a"], ["outra", ""]]);
     expect(ex.exercise.conditions).toHaveLength(2);
-    expect(ex).toMatchObject({ usage: "EXERCISE", status: "PUBLISHED", position: 2, mandatory: true, createdBy: "Ana", updatedBy: "Bia", legacy: false });
+    expect(ex).toMatchObject({ usage: "EXERCISE", status: "PUBLISHED", position: 2, mandatory: true, createdBy: "Ana", updatedBy: "Bia", legacy: false, continuesPrevious: true });
     // What is missing or unknown falls back to something safe.
     const bare = parseModuleExercise({ id: "q2", difficulty: "X", usage: "?" });
     expect(bare).toMatchObject({ usage: "ASSESSMENT", status: "DRAFT", position: 0, legacy: false });

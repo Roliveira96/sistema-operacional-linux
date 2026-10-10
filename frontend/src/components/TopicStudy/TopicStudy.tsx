@@ -23,7 +23,14 @@ import {
   type ExerciseChecker,
 } from "@/components/ContentRenderer/exerciseContext";
 import { checkConditions } from "@/lib/exerciseConditions";
-import { allLayers, hasSetup, type Setup, type SetupLayer } from "@/lib/setup";
+import { chainLayers } from "@/lib/exerciseChain";
+import {
+  allLayers,
+  hasSetup,
+  parseSetup,
+  type Setup,
+  type SetupLayer,
+} from "@/lib/setup";
 import { runLayers } from "@/lib/setupRunner";
 import type { TerminalWindow } from "@/engine/terminalWindow";
 import { cheatSheetHtml } from "@/engine/terminalWindow";
@@ -524,7 +531,18 @@ function TopicScreen({
       if (challenge.layered) {
         // An exercise made in the editor starts from the topic machine, with the layers of the module and of the exercises on it.
         await win.current.loadScenario(scenario);
-        await runLayers(win.current, exerciseLayers, {
+        // An exercise that continues from the previous one also gets the recipe of the chain (RN-11).
+        const chain = chainLayers(
+          challenges.map((c) => ({
+            id: c.id,
+            title: c.title,
+            continues: c.continues === true,
+            solution: parseSetup(c.solutionSetup),
+          })),
+          challenges.findIndex((c) => c.id === challenge.id),
+          (title) => `Solução do exercício ${title}`,
+        );
+        await runLayers(win.current, [...exerciseLayers, ...chain], {
           restoreSpeed: typingSpeed.current,
         });
       } else {

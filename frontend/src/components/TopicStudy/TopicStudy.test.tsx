@@ -524,20 +524,16 @@ describe("TopicStudy divider", () => {
 // Covers SPEC-016 CA-11: the signed-in user at the left of the header.
 describe("TopicStudy user", () => {
   const student = {
-    me: vi
-      .fn()
-      .mockResolvedValue({
-        name: "Ana Souza",
-        email: "ana@example.com",
-        role: "STUDENT",
-      }),
-    studentProfile: vi
-      .fn()
-      .mockResolvedValue({
-        name: "Ana Souza",
-        academicId: "2345678",
-        avatarUrl: "http://files/ana.png",
-      }),
+    me: vi.fn().mockResolvedValue({
+      name: "Ana Souza",
+      email: "ana@example.com",
+      role: "STUDENT",
+    }),
+    studentProfile: vi.fn().mockResolvedValue({
+      name: "Ana Souza",
+      academicId: "2345678",
+      avatarUrl: "http://files/ana.png",
+    }),
   };
 
   it("shows the photo, the name and the academic ID of the student at the right end of the header", async () => {
@@ -752,16 +748,14 @@ describe("TopicStudy challenges", () => {
     ];
     const { practice } = setup({
       content: {
-        content: vi
-          .fn()
-          .mockResolvedValue({
-            blocks: withCardSnapshot,
-            setup: { summary: "", steps: [{ command: "mkdir /modulo" }] },
-            exercisesSetup: {
-              summary: "",
-              steps: [{ command: "mkdir /treino" }],
-            },
-          }),
+        content: vi.fn().mockResolvedValue({
+          blocks: withCardSnapshot,
+          setup: { summary: "", steps: [{ command: "mkdir /modulo" }] },
+          exercisesSetup: {
+            summary: "",
+            steps: [{ command: "mkdir /treino" }],
+          },
+        }),
         questions: vi
           .fn()
           .mockResolvedValue([challenge("q1", { layered: true })]),
@@ -786,6 +780,66 @@ describe("TopicStudy challenges", () => {
       ).toEqual(["mkdir /modulo", "mkdir /treino"]),
     );
     expect(practice.scenario).not.toHaveBeenCalled();
+  });
+
+  // Covers SPEC-023 RN-11, CA-11: an exercise that continues from the previous one gets the recipe of the chain after the layers.
+  it("starts an exercise that continues from the previous one with the solutions of the chain on the machine", async () => {
+    const first = challenge("q1", {
+      layered: true,
+      solutionSetup: { steps: [{ command: "mkdir /lab" }] },
+    });
+    const second = challenge("q2", {
+      layered: true,
+      continues: true,
+      solutionSetup: { steps: [{ command: "touch /lab/ola.sh" }] },
+    });
+    const third = challenge("q3", {
+      layered: true,
+      continues: true,
+      solutionSetup: { steps: [{ command: "chmod +x /lab/ola.sh" }] },
+    });
+    setup({
+      content: {
+        content: vi
+          .fn()
+          .mockResolvedValue({
+            blocks,
+            setup: { summary: "", steps: [{ command: "mkdir /modulo" }] },
+            exercisesSetup: {
+              summary: "",
+              steps: [{ command: "mkdir /treino" }],
+            },
+          }),
+        questions: vi.fn().mockResolvedValue([first, second, third]),
+      },
+    });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    await waitFor(() => expect(fake.window.setSpeed).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    fake.window.execute.mockClear();
+    fireEvent.click(screen.getAllByRole("button", { name: "▶ Iniciar" })[2]!);
+    await waitFor(() =>
+      expect(
+        fake.window.execute.mock.calls.map(
+          (c) => (c as unknown as [{ command: string }])[0].command,
+        ),
+      ).toEqual([
+        "mkdir /modulo",
+        "mkdir /treino",
+        "mkdir /lab",
+        "touch /lab/ola.sh",
+      ]),
+    );
+    // The first of the chain starts with the layers only.
+    fake.window.execute.mockClear();
+    fireEvent.click(screen.getAllByRole("button", { name: "▶ Iniciar" })[0]!);
+    await waitFor(() =>
+      expect(
+        fake.window.execute.mock.calls.map(
+          (c) => (c as unknown as [{ command: string }])[0].command,
+        ),
+      ).toEqual(["mkdir /modulo", "mkdir /treino"]),
+    );
   });
 
   it("warns when the scenario cannot be loaded", async () => {
@@ -963,20 +1017,18 @@ describe("TopicStudy narration", () => {
   // Covers SPEC-020 CA-07: a command that must fail on purpose is marked and announced.
   it("marks a command that must fail on purpose and warns before running it", async () => {
     const content = {
-      content: vi
-        .fn()
-        .mockResolvedValue({
-          blocks: [
-            block(1, "TEXT", { title: "T", html: "<p>x</p>" }),
-            block(2, "COMMAND", {
-              steps: [
-                { command: "uname -o", expectError: true },
-                { command: "pwd" },
-              ],
-            }),
-          ],
-          setup: undefined,
-        }),
+      content: vi.fn().mockResolvedValue({
+        blocks: [
+          block(1, "TEXT", { title: "T", html: "<p>x</p>" }),
+          block(2, "COMMAND", {
+            steps: [
+              { command: "uname -o", expectError: true },
+              { command: "pwd" },
+            ],
+          }),
+        ],
+        setup: undefined,
+      }),
       questions: vi.fn().mockResolvedValue([]),
     };
     const { speech } = setup({ content });
