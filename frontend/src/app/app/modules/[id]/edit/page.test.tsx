@@ -8,7 +8,6 @@ vi.mock("@/services/moduleService", () => ({
   moduleService: {
     getModuleById: vi.fn(),
     updateModule: vi.fn(),
-    reorderExercises: vi.fn(),
   },
 }));
 
@@ -19,6 +18,10 @@ vi.mock("@/services/contentAuthoringService", () => ({
     ]),
     content: vi.fn().mockResolvedValue({ blocks: [], setup: undefined }),
   },
+}));
+
+vi.mock("@/services/moduleExerciseService", () => ({
+  moduleExerciseService: { bank: vi.fn().mockResolvedValue({ items: [] }) },
 }));
 
 vi.mock("@/services/classService", () => ({
@@ -51,7 +54,7 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
     vi.clearAllMocks();
   });
 
-  it("loads module and classes, allows updating module and reordering exercises", async () => {
+  it("loads module and classes, allows updating the module and opens the bank of exercises", async () => {
     const stored = {
       id: "mod-1",
       teacherId: "teach-1",
@@ -81,7 +84,6 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
       limit: 50,
     });
     vi.mocked(moduleService.updateModule).mockResolvedValueOnce({} as never);
-    vi.mocked(moduleService.reorderExercises).mockResolvedValueOnce({ message: "ok", reorderedCount: 2 });
 
     render(<EditModulePage params={Promise.resolve({ id: "mod-1" })} />);
 
@@ -107,13 +109,9 @@ describe("EditModulePage (/app/modules/:id/edit)", () => {
     expect(await screen.findByText("Módulo atualizado com sucesso!")).toBeDefined();
     expect(mockPush).not.toHaveBeenCalled();
 
-    // Reorder exercises
+    // The tab of the exercises is the bank of the module (SPEC-023).
     fireEvent.click(screen.getByRole("tab", { name: "Exercícios" }));
-    const reorderBtn = screen.getByRole("button", { name: "Salvar Ordem" });
-    fireEvent.click(reorderBtn);
-
-    await waitFor(() => {
-      expect(moduleService.reorderExercises).toHaveBeenCalledWith("mod-1", ["ex-11", "ex-22"]);
-    });
+    expect(await screen.findByRole("heading", { name: "Banco de exercícios do módulo" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "+ Novo exercício" }).getAttribute("href")).toBe("/app/modules/mod-1/exercises/new");
   });
 });

@@ -1,0 +1,471 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { SetupEditor } from "@/components/CardBuilder/SetupEditor";
+import {
+  ActionMenu,
+  type MenuAction,
+} from "@/components/ContentTab/ActionMenu";
+import { InfoTip } from "@/components/InfoTip/InfoTip";
+import {
+  hasSetup,
+  invalidFiles,
+  setupPayload,
+  type Setup,
+  type SetupLayer,
+} from "@/lib/setup";
+import { authoringMessages } from "@/messages/authoring.pt-BR";
+import {
+  contentAuthoringService,
+  type ContentAuthoringService,
+} from "@/services/contentAuthoringService";
+import { ApiProblemError } from "@/services/httpClient";
+import {
+  moduleExerciseService,
+  type ExerciseBank,
+  type ExerciseUsage,
+  type ModuleExercise,
+  type ModuleExerciseService,
+} from "@/services/moduleExerciseService";
+import {
+  practiceService,
+  type PracticeService,
+} from "@/services/practiceService";
+import styles from "./ModuleExercisesTab.module.scss";
+
+const m = authoringMessages.moduleExercises;
+const level = authoringMessages.builder.exercises;
+
+interface ModuleExercisesTabProps {
+  moduleId: string;
+  service?: ModuleExerciseService;
+  content?: Pick<ContentAuthoringService, "content">;
+  practice?: Pick<PracticeService, "topicScenario">;
+}
+
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+const same = (a?: Setup, b?: Setup) =>
+  JSON.stringify(a && hasSetup(a) ? setupPayload(a) : null) ===
+  JSON.stringify(b && hasSetup(b) ? setupPayload(b) : null);
+
+/**
+ * The tab Exercícios of the edition of the module (SPEC-023): the bank of exercises in two sets, the ones available in the
+ * practice of the module (the trail) and the ones reserved for assessment, each with the snapshot that prepares its machine.
+ */
+export function ModuleExercisesTab({
+  moduleId,
+  service = moduleExerciseService,
+  content = contentAuthoringService,
+  practice = practiceService,
+}: ModuleExercisesTabProps) {
+  const router = useRouter();
+  const [state, setState] = useState<"loading" | "error" | "ready">("loading");
+  const [bank, setBank] = useState<ExerciseBank>({ items: [] });
+  const [moduleSetup, setModuleSetup] = useState<Setup | undefined>();
+  const [exercisesSetup, setExercisesSetup] = useState<Setup | undefined>();
+  const [assessmentSetup, setAssessmentSetup] = useState<Setup | undefined>();
+  const [message, setMessage] = useState<{
+    kind: "ok" | "error";
+    text: string;
+  } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    let active = true;
+    Promise.all([
+      service.bank(moduleId),
+      Promise.resolve(content.content(moduleId)),
+    ])
+      .then(([loaded, c]) => {
+        if (!active) return;
+        setBank(loaded);
+        setExercisesSetup(loaded.exercisesSetup);
+        setAssessmentSetup(loaded.assessmentSetup);
+        setModuleSetup(c?.setup);
+        setState("ready");
+      })
+      .catch(() => active && setState("error"));
+    return () => {
+      active = false;
+    };
+  }, [service, content, moduleId]);
+
+  useEffect(() => load(), [load]);
+
+  /** Reloads the bank after a change, keeping the snapshots that are being written. */
+  const refresh = async () => {
+    const loaded = await service.bank(moduleId);
+    setBank(loaded);
+  };
+
+  const loadBase = useMemo(
+    () => () => practice.topicScenario(moduleId),
+    [practice, moduleId],
+  );
+  const before: SetupLayer[] = hasSetup(moduleSetup)
+    ? [{ id: "module", kind: "module", label: "Módulo", setup: moduleSetup }]
+    : [];
+  const dirty =
+    !same(exercisesSetup, bank.exercisesSetup) ||
+    !same(assessmentSetup, bank.assessmentSetup);
+  const invalid =
+    invalidFiles(exercisesSetup).length > 0 ||
+    invalidFiles(assessmentSetup).length > 0;
+
+  const run = async (action: () => Promise<void>, ok: string) => {
+    setMessage(null);
+    try {
+      await action();
+      await refresh();
+      setMessage({ kind: "ok", text: ok });
+    } catch (error: unknown) {
+      setMessage({
+        kind: "error",
+        text:
+          error instanceof ApiProblemError && error.invalidParams.length > 0
+            ? error.invalidParams.map((p) => p.reason).join("; ")
+            : m.genericError,
+      });
+    }
+  };
+
+  const available = bank.items
+    .filter((it) => it.usage === "EXERCISE")
+    .sort((a, b) => a.position - b.position);
+  const reserved = bank.items.filter((it) => it.usage === "ASSESSMENT");
+
+  const sendOrder = (list: ModuleExercise[]) =>
+    run(
+      () =>
+        service.order(
+          moduleId,
+          list.map((it) => ({
+            exerciseId: it.exercise.id,
+            mandatory: it.mandatory,
+          })),
+        ),
+      m.changed,
+    );
+  const move = (index: number, to: number) => {
+    const next = [...available];
+    next.splice(to, 0, next.splice(index, 1)[0]!);
+    void sendOrder(next);
+  };
+  const toggleMandatory = (index: number) =>
+    void sendOrder(
+      available.map((it, i) =>
+        i === index ? { ...it, mandatory: !it.mandatory } : it,
+      ),
+    );
+
+  const saveSetups = async () => {
+    setSaving(true);
+    await run(
+      () => service.setups(moduleId, { exercisesSetup, assessmentSetup }),
+      m.setup.saved,
+    );
+    setSaving(false);
+  };
+
+  const actionsOf = (it: ModuleExercise): MenuAction[] => {
+    const to =
+      (usage: ExerciseUsage, status = it.status) =>
+      () =>
+        void run(
+          () =>
+            service
+              .availability(moduleId, it.exercise.id, usage, status)
+              .then(() => undefined),
+          m.changed,
+        );
+    return [
+      {
+        key: "open",
+        icon: "✏️",
+        label: m.open,
+        onSelect: () =>
+          router.push(`/app/modules/${moduleId}/exercises/${it.exercise.id}`),
+      },
+      it.usage === "EXERCISE"
+        ? {
+            key: "reserve",
+            icon: "🔒",
+            label: m.reserve,
+            onSelect: to("ASSESSMENT"),
+          }
+        : {
+            key: "available",
+            icon: "🎯",
+            label: m.makeAvailable,
+            onSelect: to("EXERCISE"),
+          },
+      it.status === "PUBLISHED"
+        ? {
+            key: "unpublish",
+            icon: "📝",
+            label: m.unpublish,
+            onSelect: to(it.usage, "DRAFT"),
+          }
+        : {
+            key: "publish",
+            icon: "🚀",
+            label: m.publish,
+            onSelect: to(it.usage, "PUBLISHED"),
+          },
+      {
+        key: "remove",
+        icon: "🗑️",
+        label: m.remove,
+        danger: true,
+        onSelect: () => setRemoving(it.exercise.id),
+      },
+    ];
+  };
+
+  if (state === "loading") return <p className={styles.note}>{m.loading}</p>;
+  if (state === "error")
+    return (
+      <div className={styles.note} role="alert">
+        <p>{m.loadFailed}</p>
+        <button
+          type="button"
+          className={styles.secondary}
+          onClick={() => {
+            setState("loading");
+            load();
+          }}
+        >
+          {m.retry}
+        </button>
+      </div>
+    );
+
+  const row = (it: ModuleExercise, index: number, trail: boolean) => {
+    const ex = it.exercise;
+    const title = ex.title.trim() || m.untitled;
+    return (
+      <li key={ex.id} className={styles.row}>
+        <span className={styles.number} aria-hidden="true">
+          {trail ? index + 1 : "🔒"}
+        </span>
+        <div className={styles.body}>
+          <Link
+            href={`/app/modules/${moduleId}/exercises/${ex.id}`}
+            className={styles.title}
+            aria-label={m.openExercise(title)}
+          >
+            {title}
+          </Link>
+          <span className={styles.meta}>
+            {level.difficulty[ex.difficulty]} ·{" "}
+            {level.hintCount(ex.hints.length)} ·{" "}
+            {ex.solution ? level.hasSolution : level.noSolution} ·{" "}
+            {level.conditionCount(ex.conditions.length)}
+          </span>
+          {it.legacy && <span className={styles.legacy}>{m.legacy}</span>}
+          <span className={styles.audit}>
+            {it.createdAt && (
+              <span>
+                <span aria-hidden="true">🆕</span>{" "}
+                {m.created(when(it.createdAt), it.createdBy)}
+              </span>
+            )}
+            {it.updatedAt && it.updatedAt !== it.createdAt && (
+              <span>
+                <span aria-hidden="true">🔄</span>{" "}
+                {m.updated(when(it.updatedAt), it.updatedBy)}
+              </span>
+            )}
+          </span>
+          {removing === ex.id && (
+            <div
+              className={styles.confirm}
+              role="alertdialog"
+              aria-label={m.remove}
+            >
+              <p>{m.removeConfirm}</p>
+              <div className={styles.confirmActions}>
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  onClick={() => setRemoving(null)}
+                >
+                  {m.cancel}
+                </button>
+                <button
+                  type="button"
+                  className={styles.danger}
+                  onClick={() => {
+                    setRemoving(null);
+                    void run(() => service.remove(moduleId, ex.id), m.removed);
+                  }}
+                >
+                  {m.removeYes}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className={styles.marks}>
+          <span
+            className={`${styles.badge} ${it.status === "PUBLISHED" ? styles.badgeOk : styles.badgeOff}`}
+          >
+            {m.status[it.status]}
+          </span>
+          {trail && (
+            <label className={styles.mandatory}>
+              <input
+                type="checkbox"
+                checked={it.mandatory}
+                onChange={() => toggleMandatory(index)}
+                aria-label={m.mandatoryLabel(title)}
+              />{" "}
+              {it.mandatory ? m.mandatory : m.optional}
+            </label>
+          )}
+        </div>
+        <div className={styles.actions}>
+          {trail && (
+            <>
+              <button
+                type="button"
+                className={styles.small}
+                onClick={() => move(index, index - 1)}
+                disabled={index === 0}
+                aria-label={`${m.moveUp} ${title}`}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className={styles.small}
+                onClick={() => move(index, index + 1)}
+                disabled={index === available.length - 1}
+                aria-label={`${m.moveDown} ${title}`}
+              >
+                ↓
+              </button>
+            </>
+          )}
+          <ActionMenu
+            label={m.actionsOf(title)}
+            text="⋮"
+            actions={actionsOf(it)}
+          />
+        </div>
+      </li>
+    );
+  };
+
+  const set = (kind: "available" | "assessment") => {
+    const list = kind === "available" ? available : reserved;
+    const text = m[kind];
+    const setup = kind === "available" ? exercisesSetup : assessmentSetup;
+    const change =
+      kind === "available" ? setExercisesSetup : setAssessmentSetup;
+    return (
+      <section className={styles.set} aria-label={text.title}>
+        <header className={styles.setHead}>
+          <span className={styles.icon} aria-hidden="true">
+            {kind === "available" ? "🎯" : "🔒"}
+          </span>
+          <div>
+            <div className={styles.titleRow}>
+              <h3 className={styles.setTitle}>{text.title}</h3>
+              <InfoTip topic={text.title}>
+                {
+                  authoringMessages.info[
+                    kind === "available" ? "availableSet" : "assessmentSet"
+                  ]
+                }
+              </InfoTip>
+            </div>
+            <p className={styles.hint}>{text.hint}</p>
+          </div>
+        </header>
+        {list.length === 0 ? (
+          <p className={styles.empty}>{text.empty}</p>
+        ) : (
+          <ol className={styles.list}>
+            {list.map((it, i) => row(it, i, kind === "available"))}
+          </ol>
+        )}
+        <details className={styles.setup}>
+          <summary>
+            <span aria-hidden="true">🧪</span> {m.setup[kind]}
+          </summary>
+          <p className={styles.hint}>
+            <InfoTip topic={m.setup[kind]}>
+              {authoringMessages.info.exerciseSetup}
+            </InfoTip>{" "}
+            {m.setup.help}
+          </p>
+          <SetupEditor
+            setup={setup}
+            before={before}
+            loadBase={loadBase}
+            help={m.setup.help}
+            recordLabel={m.setup.record}
+            onChange={change}
+          />
+        </details>
+      </section>
+    );
+  };
+
+  return (
+    <div className={styles.tab}>
+      <header className={styles.head}>
+        <span className={styles.headIcon} aria-hidden="true">
+          🎯
+        </span>
+        <div className={styles.headText}>
+          <div className={styles.titleRow}>
+            <h2 className={styles.headTitle}>{m.title}</h2>
+            <InfoTip topic={m.title}>
+              {authoringMessages.info.exerciseBank}
+            </InfoTip>
+          </div>
+          <p className={styles.hint}>{m.hint}</p>
+        </div>
+        <Link
+          href={`/app/modules/${moduleId}/exercises/new`}
+          className={styles.primary}
+        >
+          {m.add}
+        </Link>
+      </header>
+
+      {message && (
+        <p
+          className={message.kind === "ok" ? styles.ok : styles.error}
+          role={message.kind === "ok" ? "status" : "alert"}
+        >
+          {message.text}
+        </p>
+      )}
+
+      {set("available")}
+      {set("assessment")}
+
+      <div className={styles.foot}>
+        {dirty && <span className={styles.unsaved}>{m.setup.unsaved}</span>}
+        <button
+          type="button"
+          className={styles.primary}
+          onClick={() => void saveSetups()}
+          disabled={saving || !dirty || invalid}
+        >
+          {saving ? m.setup.saving : m.setup.save}
+        </button>
+      </div>
+    </div>
+  );
+}

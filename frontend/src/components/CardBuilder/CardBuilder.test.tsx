@@ -615,7 +615,8 @@ describe("CardBuilder, expected error and snapshot (SPEC-020, SPEC-021)", () => 
     renderBuilder({ group: withSetup() });
     openTab("Comandos");
     expect(input("Comando (1)").value).toBe("mkdir /x");
-    expect(input("Resumo do cenário preparado").value).toBe("pronto");
+    // The group of exercises has an environment of its own, in the hidden tab: the summary asked for is the one on screen.
+    expect((within(screen.getByRole("tabpanel")).getByLabelText("Resumo do cenário preparado") as HTMLInputElement).value).toBe("pronto");
 
     fireEvent.change(input("Comando (1)"), { target: { value: "mkdir /y" } });
     fireEvent.click(

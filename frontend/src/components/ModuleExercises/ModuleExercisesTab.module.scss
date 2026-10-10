@@ -1,0 +1,355 @@
+@use "@/styles/mixins" as mixins;
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.note {
+  color: var(--color-text-secondary);
+}
+
+// The header: what the tab is, with the button that creates an exercise.
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--color-surface-raised), var(--color-surface));
+}
+
+.headIcon,
+.icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.headText {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.headTitle,
+.setTitle {
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.headTitle {
+  font-size: var(--font-size-lg);
+}
+
+.setTitle {
+  font-size: var(--font-size-md);
+}
+
+.hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+// A set: its exercises and, folded away, the environment that prepares their machine.
+.set {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  animation: rise 0.4s var(--easing-standard) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.setHead {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+
+  &:has([role="menu"]) {
+    z-index: 20;
+  }
+}
+
+.number {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-subtle);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+}
+
+.body {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.title {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-accent);
+  }
+
+  @include mixins.focusable;
+}
+
+.meta,
+.audit {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.audit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+}
+
+.legacy {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
+
+.marks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-end;
+}
+
+.badge {
+  padding: 2px var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-body);
+}
+
+.badgeOk {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.badgeOff {
+  border-color: var(--color-warning-line);
+  background: var(--color-warning-faint);
+  color: var(--color-warning);
+}
+
+.mandatory {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-body);
+  cursor: pointer;
+
+  input {
+    accent-color: var(--color-accent);
+  }
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.small,
+.secondary,
+.primary,
+.danger {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-body);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--easing-standard);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--color-accent);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  @include mixins.focusable;
+}
+
+.small {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+
+.primary {
+  min-height: 2.5rem;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.danger {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-subtle);
+  color: var(--color-text-primary);
+
+  p {
+    margin: 0;
+  }
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.setup {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+
+  > summary {
+    padding: var(--space-3) var(--space-4);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    cursor: pointer;
+  }
+
+  > :not(summary) {
+    margin: var(--space-3) var(--space-4);
+  }
+}
+
+.ok,
+.error {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ok {
+  border: 1px solid var(--color-success-line);
+  background: var(--color-success-faint);
+  color: var(--color-success);
+}
+
+.error {
+  border: 1px solid var(--color-danger-line);
+  background: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
+
+.foot {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.unsaved {
+  margin-right: auto;
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+}

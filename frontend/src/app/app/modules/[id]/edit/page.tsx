@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ContentTab } from "@/components/ContentTab/ContentTab";
 import { VersionsTab } from "@/components/VersionsTab/VersionsTab";
-import { ExerciseOrderList } from "@/components/ExerciseOrderList/ExerciseOrderList";
+import { ModuleExercisesTab } from "@/components/ModuleExercises/ModuleExercisesTab";
 import { ModuleForm } from "@/components/ModuleForm/ModuleForm";
 import { ptBR } from "@/messages/pt-BR";
 import { classService } from "@/services/classService";
-import { moduleService, type CourseModuleDetails, type UpdateModulePayload } from "@/services/moduleService";
+import {
+  moduleService,
+  type CourseModuleDetails,
+  type UpdateModulePayload,
+} from "@/services/moduleService";
 import styles from "./page.module.scss";
 
 type Tab = "details" | "content" | "versions" | "exercises";
@@ -22,18 +26,33 @@ const ICONS: Record<Tab, string> = {
   exercises: "🎯",
 };
 
+/** The tab the address asks for (a card or an exercise goes back to its own); the details otherwise. */
+function initialTab(): Tab {
+  const asked = new URLSearchParams(window.location.search).get("tab");
+  return asked === "content" || asked === "exercises" || asked === "versions"
+    ? asked
+    : "details";
+}
 
-export default function EditModulePage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
+export default function EditModulePage({
+  params,
+}: {
+  params: Promise<{ id: string }> | { id: string };
+}) {
   const m = ptBR.modules;
 
   const [id, setId] = useState<string | null>(null);
-  const [moduleData, setModuleData] = useState<CourseModuleDetails | null>(null);
-  const [availableClasses, setAvailableClasses] = useState<{ id: string; name: string }[]>([]);
+  const [moduleData, setModuleData] = useState<CourseModuleDetails | null>(
+    null,
+  );
+  const [availableClasses, setAvailableClasses] = useState<
+    { id: string; name: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   // "Voltar" from a card comes back with ?tab=content, to the list the author left.
-  const [tab, setTab] = useState<Tab>(() =>
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "content" ? "content" : "details",
+  const [tab, setTab] = useState<Tab>(
+    () => (typeof window !== "undefined" ? initialTab() : "details"),
   );
   /** Changes every time the module is saved, so the form starts again from what is stored. */
   const [formVersion, setFormVersion] = useState(0);
@@ -52,11 +71,21 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
     if (!id) return;
     let active = true;
 
-    Promise.all([moduleService.getModuleById(id), classService.listClasses({ status: "ACTIVE", limit: 50 }).catch(() => ({ items: [] }))])
+    Promise.all([
+      moduleService.getModuleById(id),
+      classService
+        .listClasses({ status: "ACTIVE", limit: 50 })
+        .catch(() => ({ items: [] })),
+    ])
       .then(([mod, cls]) => {
         if (active) {
           setModuleData(mod);
-          setAvailableClasses(cls.items.map((c) => ({ id: c.id, name: `${c.name} (${c.semester})` })));
+          setAvailableClasses(
+            cls.items.map((c) => ({
+              id: c.id,
+              name: `${c.name} (${c.semester})`,
+            })),
+          );
         }
       })
       .catch(() => {
@@ -83,11 +112,6 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
     },
     [id],
   );
-
-  const handleReorder = async (orderedIds: string[]) => {
-    if (!id) return;
-    await moduleService.reorderExercises(id, orderedIds);
-  };
 
   if (loading) {
     return (
@@ -120,7 +144,9 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
             <span className={styles.badge} data-status={moduleData.status}>
               {m.statusBadge[moduleData.status]}
             </span>
-            <span className={styles.badge}>{m.visibilityBadge[moduleData.visibility]}</span>
+            <span className={styles.badge}>
+              {m.visibilityBadge[moduleData.visibility]}
+            </span>
           </div>
         </div>
       </header>
@@ -131,7 +157,17 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      <div role="tablist" aria-label={m.tabs.label} className={styles.tabs} style={{ "--tab-index": TABS.indexOf(tab), "--tab-count": TABS.length } as React.CSSProperties}>
+      <div
+        role="tablist"
+        aria-label={m.tabs.label}
+        className={styles.tabs}
+        style={
+          {
+            "--tab-index": TABS.indexOf(tab),
+            "--tab-count": TABS.length,
+          } as React.CSSProperties
+        }
+      >
         {TABS.map((key) => (
           <button
             key={key}
@@ -151,20 +187,50 @@ export default function EditModulePage({ params }: { params: Promise<{ id: strin
         ))}
       </div>
 
-      <div role="tabpanel" id="panel-details" aria-labelledby="tab-details" hidden={tab !== "details"} className={styles.panel}>
-        <ModuleForm key={formVersion} initialData={moduleData} availableClasses={availableClasses} onSubmit={handleSubmit} isEditing />
+      <div
+        role="tabpanel"
+        id="panel-details"
+        aria-labelledby="tab-details"
+        hidden={tab !== "details"}
+        className={styles.panel}
+      >
+        <ModuleForm
+          key={formVersion}
+          initialData={moduleData}
+          availableClasses={availableClasses}
+          onSubmit={handleSubmit}
+          isEditing
+        />
       </div>
 
-      <section className={`${styles.section} ${styles.panel}`} role="tabpanel" id="panel-content" aria-labelledby="tab-content" hidden={tab !== "content"}>
+      <section
+        className={`${styles.section} ${styles.panel}`}
+        role="tabpanel"
+        id="panel-content"
+        aria-labelledby="tab-content"
+        hidden={tab !== "content"}
+      >
         {id && <ContentTab moduleId={id} />}
       </section>
 
-      <section className={`${styles.section} ${styles.panel}`} role="tabpanel" id="panel-versions" aria-labelledby="tab-versions" hidden={tab !== "versions"}>
+      <section
+        className={`${styles.section} ${styles.panel}`}
+        role="tabpanel"
+        id="panel-versions"
+        aria-labelledby="tab-versions"
+        hidden={tab !== "versions"}
+      >
         {id && tab === "versions" && <VersionsTab moduleId={id} />}
       </section>
 
-      <section className={`${styles.section} ${styles.panel}`} role="tabpanel" id="panel-exercises" aria-labelledby="tab-exercises" hidden={tab !== "exercises"}>
-        <ExerciseOrderList exercises={moduleData.exerciseItems || []} onSaveOrder={handleReorder} />
+      <section
+        className={`${styles.section} ${styles.panel}`}
+        role="tabpanel"
+        id="panel-exercises"
+        aria-labelledby="tab-exercises"
+        hidden={tab !== "exercises"}
+      >
+        {id && tab === "exercises" && <ModuleExercisesTab moduleId={id} />}
       </section>
     </main>
   );

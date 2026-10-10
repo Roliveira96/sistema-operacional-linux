@@ -40,7 +40,7 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 
 export const emptyExercise = (): Exercise => ({ id: newId(), title: "", difficulty: "MEDIUM", description: "", hints: [], conditions: [] });
 
-function parseCondition(raw: unknown): ExerciseCondition | undefined {
+export function parseCondition(raw: unknown): ExerciseCondition | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const r = raw as Record<string, unknown>;
   const kind = str(r.kind);

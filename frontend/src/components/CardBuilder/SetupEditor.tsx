@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { TerminalPane } from "@/components/TopicStudy/TerminalPane";
 import type { TerminalWindow } from "@/engine/terminalWindow";
@@ -38,7 +38,7 @@ interface SetupEditorProps {
   errors?: Record<string, string[]>;
 }
 
-function StepRow({ step, index, total, onChange, onMove, onRemove }: { step: SetupStep; index: number; total: number; onChange: (patch: Partial<SetupStep>) => void; onMove: (to: number) => void; onRemove: () => void }) {
+function StepRow({ uid, step, index, total, onChange, onMove, onRemove }: { uid: string; step: SetupStep; index: number; total: number; onChange: (patch: Partial<SetupStep>) => void; onMove: (to: number) => void; onRemove: () => void }) {
   const n = index + 1;
   const label = (text: string) => `${text} (${n})`;
   return (
@@ -61,10 +61,10 @@ function StepRow({ step, index, total, onChange, onMove, onRemove }: { step: Set
       </div>
       <div className={`${styles.pair} ${styles.stepPair}`}>
         <div className={styles.field}>
-          <label className={styles.label} htmlFor={`setup-terminal-${index}`}>
+          <label className={styles.label} htmlFor={`${uid}-terminal-${index}`}>
             {label(m.terminal)}
           </label>
-          <select id={`setup-terminal-${index}`} className={styles.input} value={step.terminal ?? 1} onChange={(e) => onChange({ terminal: Number(e.target.value) })}>
+          <select id={`${uid}-terminal-${index}`} className={styles.input} value={step.terminal ?? 1} onChange={(e) => onChange({ terminal: Number(e.target.value) })}>
             {[1, 2, 3].map((t) => (
               <option key={t} value={t}>
                 T{t}
@@ -73,33 +73,33 @@ function StepRow({ step, index, total, onChange, onMove, onRemove }: { step: Set
           </select>
         </div>
         <div className={styles.field}>
-          <label className={styles.label} htmlFor={`setup-command-${index}`}>
+          <label className={styles.label} htmlFor={`${uid}-command-${index}`}>
             {label(m.command)}
           </label>
-          <input id={`setup-command-${index}`} className={`${styles.input} ${styles.mono}`} value={step.command} placeholder="mkdir /financeiro" onChange={(e) => onChange({ command: e.target.value })} />
+          <input id={`${uid}-command-${index}`} className={`${styles.input} ${styles.mono}`} value={step.command} placeholder="mkdir /financeiro" onChange={(e) => onChange({ command: e.target.value })} />
         </div>
       </div>
       <details className={styles.advanced}>
         <summary>{label(m.advanced)}</summary>
         <div className={styles.pair}>
           <div className={styles.field}>
-            <label className={styles.label} htmlFor={`setup-user-${index}`}>
+            <label className={styles.label} htmlFor={`${uid}-user-${index}`}>
               {label(m.user)}
             </label>
-            <input id={`setup-user-${index}`} className={styles.input} value={step.login?.user ?? ""} onChange={(e) => onChange({ login: { user: e.target.value, password: step.login?.password ?? "" } })} />
+            <input id={`${uid}-user-${index}`} className={styles.input} value={step.login?.user ?? ""} onChange={(e) => onChange({ login: { user: e.target.value, password: step.login?.password ?? "" } })} />
           </div>
           <div className={styles.field}>
-            <label className={styles.label} htmlFor={`setup-password-${index}`}>
+            <label className={styles.label} htmlFor={`${uid}-password-${index}`}>
               {label(m.password)}
             </label>
-            <input id={`setup-password-${index}`} className={styles.input} value={step.login?.password ?? ""} onChange={(e) => onChange({ login: { user: step.login?.user ?? "", password: e.target.value } })} />
+            <input id={`${uid}-password-${index}`} className={styles.input} value={step.login?.password ?? ""} onChange={(e) => onChange({ login: { user: step.login?.user ?? "", password: e.target.value } })} />
           </div>
         </div>
         <div className={styles.field}>
-          <label className={styles.label} htmlFor={`setup-answers-${index}`}>
+          <label className={styles.label} htmlFor={`${uid}-answers-${index}`}>
             {label(m.answers)}
           </label>
-          <textarea id={`setup-answers-${index}`} className={styles.input} rows={2} value={(step.answers ?? []).join(NEWLINE)} onChange={(e) => onChange({ answers: e.target.value === "" ? [] : e.target.value.split(NEWLINE) })} />
+          <textarea id={`${uid}-answers-${index}`} className={styles.input} rows={2} value={(step.answers ?? []).join(NEWLINE)} onChange={(e) => onChange({ answers: e.target.value === "" ? [] : e.target.value.split(NEWLINE) })} />
         </div>
       </details>
     </div>
@@ -112,6 +112,8 @@ function StepRow({ step, index, total, onChange, onMove, onRemove }: { step: Set
  * replays the snapshots that come before, so the author sees the machine the student will have.
  */
 export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, recordLabel, loadBase, before, errors = {} }: SetupEditorProps) {
+  // The ids of the fields start with an id of this editor, so two editors on one page (the two sets of exercises) do not share them.
+  const uid = useId().replace(/:/g, "");
   const current = setup ?? emptySetup();
   const [open, setOpen] = useState(false);
   const [base, setBase] = useState<{ machine: unknown } | null>(null);
@@ -269,10 +271,10 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
       </details>
 
       <div className={styles.field}>
-        <label className={styles.label} htmlFor="setup-summary">
+        <label className={styles.label} htmlFor={`${uid}-summary`}>
           {m.summaryLabel}
         </label>
-        <input id="setup-summary" className={styles.input} value={current.summary} placeholder={m.summaryPlaceholder} onChange={(e) => onChange({ ...current, summary: e.target.value })} />
+        <input id={`${uid}-summary`} className={styles.input} value={current.summary} placeholder={m.summaryPlaceholder} onChange={(e) => onChange({ ...current, summary: e.target.value })} />
       </div>
 
       {checking && (
@@ -291,7 +293,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
       {current.steps.length === 0 && <p className={styles.hint}>{m.empty}</p>}
       {current.steps.map((step, i) => (
         <div key={i}>
-          <StepRow step={step} index={i} total={current.steps.length} onChange={(change) => patch(current.steps.map((s, j) => (j === i ? { ...s, ...change } : s)))} onMove={(to) => move(i, to)} onRemove={() => patch(current.steps.filter((_, j) => j !== i))} />
+          <StepRow uid={uid} step={step} index={i} total={current.steps.length} onChange={(change) => patch(current.steps.map((s, j) => (j === i ? { ...s, ...change } : s)))} onMove={(to) => move(i, to)} onRemove={() => patch(current.steps.filter((_, j) => j !== i))} />
           {errors[`setup-${i}`]?.map((reason) => (
             <p key={reason} className={styles.error} role="alert">
               {reason === "required" ? m.required : reason}
@@ -325,18 +327,18 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
                   </summary>
                   <div className={styles.pair}>
                     <div className={styles.field}>
-                      <label className={styles.label} htmlFor={`setup-file-path-${i}`}>
+                      <label className={styles.label} htmlFor={`${uid}-file-path-${i}`}>
                         {m.filePath} ({i + 1})
                       </label>
-                      <input id={`setup-file-path-${i}`} className={`${styles.input} ${styles.mono}`} value={file.path} placeholder="/home/ricardo/financeiro/teste.sh" onChange={(e) => patchFile(i, { path: e.target.value })} aria-invalid={file.path !== "" && !file.path.startsWith("/")} />
+                      <input id={`${uid}-file-path-${i}`} className={`${styles.input} ${styles.mono}`} value={file.path} placeholder="/home/ricardo/financeiro/teste.sh" onChange={(e) => patchFile(i, { path: e.target.value })} aria-invalid={file.path !== "" && !file.path.startsWith("/")} />
                       {file.path !== "" && !file.path.startsWith("/") && <p className={styles.error}>{m.pathInvalid}</p>}
                     </div>
                     <div className={styles.field}>
-                      <label className={styles.label} htmlFor={`setup-file-mode-${i}`}>
+                      <label className={styles.label} htmlFor={`${uid}-file-mode-${i}`}>
                         {m.fileMode} ({i + 1})
                       </label>
                       <input
-                        id={`setup-file-mode-${i}`}
+                        id={`${uid}-file-mode-${i}`}
                         className={`${styles.input} ${styles.mono}`}
                         value={file.mode ?? ""}
                         placeholder="644"
@@ -351,23 +353,23 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
                   </div>
                   <div className={styles.pair}>
                     <div className={styles.field}>
-                      <label className={styles.label} htmlFor={`setup-file-owner-${i}`}>
+                      <label className={styles.label} htmlFor={`${uid}-file-owner-${i}`}>
                         {m.fileOwner} ({i + 1})
                       </label>
-                      <input id={`setup-file-owner-${i}`} className={styles.input} value={file.owner ?? ""} placeholder="root" maxLength={32} autoComplete="off" onChange={(e) => patchFile(i, { owner: accountName(e.target.value) })} />
+                      <input id={`${uid}-file-owner-${i}`} className={styles.input} value={file.owner ?? ""} placeholder="root" maxLength={32} autoComplete="off" onChange={(e) => patchFile(i, { owner: accountName(e.target.value) })} />
                     </div>
                     <div className={styles.field}>
-                      <label className={styles.label} htmlFor={`setup-file-group-${i}`}>
+                      <label className={styles.label} htmlFor={`${uid}-file-group-${i}`}>
                         {m.fileGroup} ({i + 1})
                       </label>
-                      <input id={`setup-file-group-${i}`} className={styles.input} value={file.group ?? ""} placeholder="root" maxLength={32} autoComplete="off" onChange={(e) => patchFile(i, { group: accountName(e.target.value) })} />
+                      <input id={`${uid}-file-group-${i}`} className={styles.input} value={file.group ?? ""} placeholder="root" maxLength={32} autoComplete="off" onChange={(e) => patchFile(i, { group: accountName(e.target.value) })} />
                     </div>
                   </div>
                   <div className={styles.field}>
-                    <label className={styles.label} htmlFor={`setup-file-content-${i}`}>
+                    <label className={styles.label} htmlFor={`${uid}-file-content-${i}`}>
                       {m.fileContent} ({i + 1})
                     </label>
-                    <textarea id={`setup-file-content-${i}`} className={`${styles.input} ${styles.mono}`} rows={14} spellCheck={false} value={file.content} onChange={(e) => patchFile(i, { content: e.target.value })} />
+                    <textarea id={`${uid}-file-content-${i}`} className={`${styles.input} ${styles.mono}`} rows={14} spellCheck={false} value={file.content} onChange={(e) => patchFile(i, { content: e.target.value })} />
                     {bytesOf(file.content) > MAX_FILE_BYTES && <p className={styles.error}>{m.fileTooBig}</p>}
                   </div>
                   <button type="button" className={styles.danger} onClick={() => setFiles(current.files!.filter((_, j) => j !== i))} aria-label={m.removeFile(file.path)}>
