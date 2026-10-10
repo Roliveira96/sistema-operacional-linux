@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-025 |
-| **Status** | Rascunho (aguardando aprovação) |
+| **Status** | Rascunho (decisões D-01 e D-02 do Tech Lead incorporadas; aguardando aprovação) |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -27,7 +27,7 @@ O pedido do Tech Lead: a docente **envia a imagem para o sistema**; o sistema a 
 ## 2. Objetivos (Goals)
 
 - O elemento Imagem passa a ter **envio de arquivo** (escolher ou arrastar), com prévia e botão para trocar.
-- O servidor valida que o arquivo é mesmo uma imagem, **converte para AVIF**, **limita a largura a 1220 px sem ampliar** imagens menores (proporção mantida) e **remove metadados** (EXIF, localização).
+- O servidor valida que o arquivo é mesmo uma imagem, **converte para AVIF**, **limita a largura a 1220 px sem ampliar** imagens menores (proporção mantida) e **remove metadados** (EXIF, localização). **GIF é exceção: mantém o formato e o arquivo originais** (D-01).
 - A imagem é salva no bucket do sistema com um **nome determinado pelo conteúdo** (P-01) e o card passa a apontar para a URL dela.
 - As imagens já cadastradas por URL continuam funcionando.
 
@@ -45,7 +45,7 @@ O pedido do Tech Lead: a docente **envia a imagem para o sistema**; o sistema a 
 1. A docente escolhe um arquivo no elemento Imagem. O navegador confere tipo e tamanho e envia (`multipart/form-data`).
 2. O servidor lê o arquivo **decodificando-o** (a extensão e o tipo informado não bastam), recusa o que não for imagem aceita, aplica a orientação do EXIF e descarta os metadados.
 3. Se a largura passa de **1220 px**, reduz para 1220 mantendo a proporção; se for menor ou igual, mantém. Nunca amplia.
-4. Codifica em **AVIF** e calcula o nome pelo conteúdo do resultado (P-01).
+4. Codifica em **AVIF** (exceto GIF, que segue como veio) e calcula o nome pelo conteúdo do arquivo que será guardado (P-01).
 5. Grava no bucket (se já existir um objeto com o mesmo nome, não regrava) e devolve a URL pública, a largura, a altura e o tamanho.
 6. O card guarda a URL no elemento. A legenda continua sendo texto livre.
 
@@ -57,10 +57,11 @@ O pedido do Tech Lead: a docente **envia a imagem para o sistema**; o sistema a 
 | RN-02 | Formatos de entrada aceitos: JPEG, PNG, WebP, GIF e AVIF, até 10 MB. SVG é recusado (pode carregar script) |
 | RN-03 | A decodificação é que decide: um arquivo que não decodifica como imagem é recusado com erro de validação, qualquer que seja a extensão |
 | RN-04 | Largura máxima de saída 1220 px; imagem menor ou igual mantém a largura; a proporção é sempre mantida e a imagem nunca é ampliada |
-| RN-05 | A saída é sempre AVIF, sem metadados; GIF animado vira a imagem do primeiro quadro (P-03) |
+| RN-04a | **GIF** (animado ou não) não é convertido nem redimensionado: é guardado como veio, com a extensão `.gif` (D-01). Vale o limite de 10 MB e o de dimensão decodificada |
+| RN-05 | A saída dos demais formatos é sempre AVIF, sem metadados |
 | RN-06 | O nome do objeto vem do conteúdo da saída, então a mesma imagem enviada de novo reaproveita o objeto |
 | RN-07 | Imagens do conteúdo ficam sob o prefixo próprio do bucket e são legíveis publicamente, para o estudante ver sem sessão no arquivo (P-02) |
-| RN-08 | Excluir o elemento ou o card não apaga o objeto do bucket, que pode ser usado por outro card (P-04) |
+| RN-08 | As imagens **ficam sempre no bucket**: excluir o elemento ou o card não apaga o objeto, porque o sistema usa exclusão lógica (soft delete) e o conteúdo pode voltar ou ser usado por outro card (D-02) |
 
 ## 4. Modelo de Dados (Data Model)
 
@@ -90,14 +91,16 @@ No frontend, `contentAuthoringService.uploadImage(file)` chama a rota e o elemen
 - [ ] **CA-03** (estado): ENQUANTO a imagem tem 1220 px ou menos de largura, O SISTEMA DEVE manter a largura e NÃO DEVE ampliá-la.
 - [ ] **CA-04** (indesejado): SE o arquivo não decodifica como imagem, é SVG ou passa de 10 MB, ENTÃO O SISTEMA DEVE recusá-lo com o motivo e não gravar nada no bucket.
 - [ ] **CA-05** (evento): QUANDO a mesma imagem é enviada duas vezes, O SISTEMA DEVE reaproveitar o mesmo objeto, com o mesmo nome.
-- [ ] **CA-06** (ubíquo): A imagem gravada NÃO DEVE conter metadados (EXIF, localização) e DEVE respeitar a orientação original.
+- [ ] **CA-06** (ubíquo): A imagem AVIF gravada NÃO DEVE conter metadados (EXIF, localização) e DEVE respeitar a orientação original.
+- [ ] **CA-10** (evento): QUANDO o arquivo enviado é um GIF, O SISTEMA DEVE guardá-lo no formato original, sem converter nem redimensionar, preservando a animação.
+- [ ] **CA-11** (estado): ENQUANTO um elemento ou card é excluído, O SISTEMA NÃO DEVE apagar a imagem do bucket.
 - [ ] **CA-07** (evento): QUANDO o elemento Imagem recebe o envio, O SISTEMA DEVE mostrar a prévia, preencher o endereço sozinho e permitir trocar a imagem.
 - [ ] **CA-08** (estado): ENQUANTO um card tem imagem por URL externa, O SISTEMA DEVE continuar mostrando-a como antes.
 - [ ] **CA-09** (indesejado): SE quem envia não é `TEACHER` do módulo nem `ADMIN`, ENTÃO O SISTEMA DEVE responder 403.
 
 ## 8. Plano de Testes (Test Plan)
 
-- **Domínio/serviço (Go):** redimensiona acima de 1220 e mantém abaixo; proporção; sem ampliar; recusa de SVG, arquivo não imagem, acima do limite e acima da dimensão máxima; remoção de metadados; orientação EXIF; nome estável para o mesmo conteúdo; GIF animado vira o primeiro quadro.
+- **Domínio/serviço (Go):** redimensiona acima de 1220 e mantém abaixo; proporção; sem ampliar; recusa de SVG, arquivo não imagem, acima do limite e acima da dimensão máxima; remoção de metadados; orientação EXIF; nome estável para o mesmo conteúdo; GIF guardado byte a byte, com `.gif` e animação intacta.
 - **Handler (Go):** 201 com o corpo esperado, 400, 413, 429, 403 e 503, com o bucket simulado.
 - **Frontend:** o elemento Imagem envia o arquivo, mostra prévia, preenche o endereço, troca a imagem, mostra o erro do servidor e mantém a URL externa antiga; o serviço chama a rota com `multipart`.
 - **Integração:** um envio de verdade contra o MinIO local confere que o objeto é AVIF, com a largura certa.
@@ -109,14 +112,21 @@ No frontend, `contentAuthoringService.uploadImage(file)` chama a rota e o elemen
 3. **Arquivos a criar ou alterar:** a definir na aprovação.
 4. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, status `Implementada`.
 
-## 10. Pendências (com recomendação)
+## 10. Decisões e pendências
+
+### Decisões do Tech Lead (10/10/2026)
+
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | GIF mantém o formato original: não é convertido para AVIF nem redimensionado (substitui a recomendação P-03, de virar um quadro estático) |
+| D-02 | As imagens são mantidas no bucket, pois o sistema faz exclusão lógica (substitui P-04) |
+
+### Pendências (com recomendação)
 
 | ID | Pergunta | Recomendação |
 | :--- | :--- | :--- |
 | P-01 | "O nome deve ser conteúdo": é o **nome pelo conteúdo** (hash do arquivo) ou a pasta/prefixo `conteudo`? | Os dois: `conteudo/<hash-sha256>.avif`. O prefixo `conteudo/` separa essas imagens das outras do bucket e o hash dá nome estável, sem repetição e sem colisão |
 | P-02 | Como o estudante lê a imagem? | Leitura pública só do prefixo `conteudo/*`, com cache longo (o nome por conteúdo nunca muda) |
-| P-03 | GIF animado? | Vira a imagem do primeiro quadro; animação fica fora do escopo |
-| P-04 | Apagar do bucket quando o elemento sai do card? | Não: o objeto pode estar em outro card; limpeza de órfãos fica para uma spec futura |
 | P-05 | Onde converter para AVIF e com qual biblioteca? | No **servidor**, com uma biblioteca AVIF sem cgo (WebAssembly), para não depender de o navegador da docente codificar AVIF (nem todos codificam). Exige aprovar a dependência nova |
 | P-06 | Manter também o campo de URL externa? | Sim, como segunda opção ("usar endereço"), para não quebrar o que já existe; o envio vira o caminho principal |
 
@@ -127,3 +137,4 @@ No frontend, `contentAuthoringService.uploadImage(file)` chama a rota e o elemen
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 10/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead; pendências P-01 a P-06 abertas com recomendação |
+| 10/10/2026 | Tech Lead | GIF mantém o formato original (D-01); as imagens ficam sempre no bucket, porque o sistema faz exclusão lógica (D-02) |
