@@ -208,6 +208,30 @@
   }
 }
 
+// A step of the environment: the terminal is a narrow column, the command takes the rest.
+.stepPair {
+  @include mixins.from("md") {
+    grid-template-columns: 7rem minmax(0, 1fr);
+  }
+}
+
+// The actions of the environment: add and record on the left, remove on the right, apart from the fields.
+.actionBar {
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+
+  .danger {
+    margin-left: auto;
+    border-color: transparent;
+    background: transparent;
+
+    &:hover:not(:disabled) {
+      border-color: var(--color-danger);
+    }
+  }
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -223,9 +247,11 @@
 }
 
 .label {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
 }
 
 .input {
@@ -256,8 +282,9 @@ textarea.input {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  border: 1px dashed var(--color-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
 
   summary {
     cursor: pointer;
@@ -271,7 +298,6 @@ textarea.input {
   }
 
   &[open] {
-    border-style: solid;
     border-color: var(--color-border-strong);
   }
 
@@ -282,6 +308,9 @@ textarea.input {
 
 // The explanation at the top of the environment, and the tips that open on demand.
 .callout {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
   margin: 0;
   padding: var(--space-3) var(--space-4);
   border-left: 3px solid var(--color-info);
@@ -290,6 +319,12 @@ textarea.input {
   font-size: var(--font-size-sm);
   line-height: 1.5;
   color: var(--color-text-body);
+}
+
+.callout > span:first-child {
+  flex: none;
+  font-size: 1.25rem;
+  line-height: 1.2;
 }
 
 .tipsBox {
@@ -351,6 +386,14 @@ textarea.input {
   border-color: var(--color-accent);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+
+  // Nothing to save: it reads as off, not as a muddy orange.
+  &:disabled {
+    border-color: var(--color-border);
+    background: var(--color-surface-raised);
+    color: var(--color-text-secondary);
+    opacity: 1;
+  }
 
   &:hover:not(:disabled) {
     background: var(--color-accent-hover);

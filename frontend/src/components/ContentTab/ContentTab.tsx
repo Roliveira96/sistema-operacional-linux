@@ -232,12 +232,6 @@ export function ContentTab({
         <summary className={styles.environmentSummary}>
           <span aria-hidden="true">🧪</span> {m.environment.title}
         </summary>
-        <p className={styles.hint}>
-          <InfoTip topic="Ambiente do módulo">
-            {authoringMessages.info.moduleEnvironment}
-          </InfoTip>{" "}
-          Para que serve este ambiente?
-        </p>
         <ModuleSetupTab
           moduleId={moduleId}
           service={service}

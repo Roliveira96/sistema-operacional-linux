@@ -59,7 +59,7 @@ function StepRow({ step, index, total, onChange, onMove, onRemove }: { step: Set
           </button>
         </div>
       </div>
-      <div className={styles.pair}>
+      <div className={`${styles.pair} ${styles.stepPair}`}>
         <div className={styles.field}>
           <label className={styles.label} htmlFor={`setup-terminal-${index}`}>
             {label(m.terminal)}
@@ -390,7 +390,7 @@ export function SetupEditor({ setup, help, onChange, onAdopted, deriveFrom, reco
       </div>
 
       {!open && (
-        <div className={styles.rowButtons}>
+        <div className={`${styles.rowButtons} ${styles.actionBar}`}>
           <button type="button" className={styles.add} onClick={() => patch([...current.steps, { command: "" }])}>
             {m.add}
           </button>
