@@ -62,15 +62,18 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
         {current.items.length === 0 && <p className={styles.hint}>{m.empty}</p>}
         <ol className={styles.fileList} aria-label={m.title}>
           {current.items.map((ex, i) => (
-            <li key={ex.id} className={styles.item}>
-              <div className={styles.itemHead}>
-                <span className={styles.itemTitle}>{ex.title.trim() || m.untitled(i + 1)}</span>
-                <span className={styles.hint}>
+            <li key={ex.id} className={styles.exerciseRow}>
+              <span className={styles.exerciseNumber} aria-hidden="true">
+                {i + 1}
+              </span>
+              <div className={styles.exerciseBody}>
+                <span className={styles.exerciseTitle}>{ex.title.trim() || m.untitled(i + 1)}</span>
+                <span className={styles.exerciseMeta}>
                   {m.difficulty[ex.difficulty]} · {m.hintCount(ex.hints.length)} · {ex.solution ? m.hasSolution : m.noSolution} · {m.conditionCount(ex.conditions.length)}
                 </span>
+                <Errors id={ex.id} errors={errors} />
               </div>
-              <Errors id={ex.id} errors={errors} />
-              <div className={styles.rowButtons}>
+              <div className={styles.exerciseActions}>
                 {canOpen ? (
                   <Link href={`${base}/${i}`} className={styles.add} aria-label={m.openExercise(ex.title.trim() || String(i + 1))}>
                     {m.edit}
