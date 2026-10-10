@@ -193,6 +193,13 @@
 
   cursor: pointer;
 
+  // The card with an open menu goes over the ones below it, which are stacked by their own animation.
+  position: relative;
+
+  &:has(.menuList) {
+    z-index: 20;
+  }
+
   &:hover {
     transform: translateY(-2px);
     border-color: var(--color-accent);
