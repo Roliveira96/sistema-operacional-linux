@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-023 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 10/10/2026 |
-| **Última revisão** | 10/10/2026 (revisões 2 e 3: banco central, snapshot único e teste do banco, aguardando aprovação) |
+| **Última revisão** | 10/10/2026 (revisões 2 e 3 aprovadas) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -222,14 +222,14 @@ Pedido do Tech Lead de 10/10/2026. **Esta revisão substitui, onde conflitar, os
 | Modelo de dados | `questions` ganha `in_assessment` e `exclusive_assessment` (booleanos); `usage` deixa de decidir a prática (a trilha decide) e fica só para a carga inicial; `course_modules` troca `exercises_setup` e `assessment_setup` por `bank_setup` (os dois atuais se fundem na migração: o de prática vence; o de avaliação vira um aviso na revisão da docente) |
 | API | `PUT /exercises/{id}/links` (corpo: `practice`, `assessment`, `exclusive`); `POST /exercises` aceita os vínculos iniciais; `PUT /exercise-setup` (um só); a listagem traz os vínculos de cada exercício |
 
-### 11.4. Pendências da revisão 2
+### 11.4. Decisões da revisão 2 (aprovadas pelo Tech Lead em 10/10/2026, as recomendações do rascunho)
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-08 | "Snapshot do banco" pode ser o **ambiente** (comandos e arquivos que preparam a máquina) ou o **congelamento do conteúdo** do banco no momento da prova | Ambiente único (11.2). O congelamento do conteúdo na aplicação de uma prova fica para a spec de avaliação |
-| P-09 | O exercício "exclusivo da avaliação" bloqueia só a prática, ou também some dos módulos de outras pessoas | Bloqueia só a prática do próprio módulo (o banco é por módulo, D-02) |
-| P-10 | Os exercícios que já estão no conjunto de avaliação (uso `ASSESSMENT`) e os modelos de avaliação da SPEC-011 que os usam | A migração marca `in_assessment` nos de uso `ASSESSMENT`; os modelos de avaliação passam a ler `in_assessment` em vez de `usage` |
-| P-11 | A migração dos dois snapshots atuais num só | Fundir: o de prática vira o `bank_setup`; se só existir o de avaliação, ele é usado |
+| ID | Decisão |
+| :--- | :--- |
+| D-11 | O "snapshot do banco" é o **ambiente** (comandos e arquivos que preparam a máquina). O congelamento do conteúdo do banco na aplicação de uma prova fica para a spec de avaliação |
+| D-12 | O exercício "exclusivo da avaliação" bloqueia só a prática do próprio módulo (o banco é por módulo, D-02) |
+| D-13 | A migração marca `in_assessment` nos exercícios de uso `ASSESSMENT`; os modelos de avaliação passam a ler `in_assessment` em vez de `usage` |
+| D-14 | Os dois snapshots atuais se fundem num só (`bank_setup`): o de prática vence; se só existir o de avaliação, ele é usado |
 
 ---
 
@@ -270,15 +270,16 @@ Um sumário (modal) com: o estado geral (sucesso ou falhas); a lista dos exercí
 - [ ] **CA-15** (estado): ENQUANTO um exercício tem antecessor, O SISTEMA NÃO DEVE sorteá-lo sem o antecessor: DEVE puxar a cadeia na ordem e avisar.
 - [ ] **CA-16** (evento): QUANDO o teste termina, O SISTEMA DEVE mostrar o relatório com o estado geral, os conflitos e as dependências.
 
-### 12.6. Pendências da revisão 3
+### 12.6. Decisões da revisão 3 (aprovadas pelo Tech Lead em 10/10/2026, as recomendações do rascunho)
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-12 | Como "reduzir proporcionalmente" para bancos de até 10 exercícios, e quantos exercícios tem cada rodada | Cada rodada sorteia metade do banco (arredondada para cima); as rodadas são `max(1, metade do número de exercícios)`, no máximo 5 |
-| P-13 | Um exercício depende de **um** antecessor, ou de vários | Um só antecessor (forma uma cadeia, que cobre os exemplos); vários antecessores ficam para uma spec futura. A coluna `continues_previous` é trocada por `depends_on` (o exercício de que depende), com a migração dos que já continuam do anterior |
-| P-14 | Quem grava a dependência encontrada | O sistema só sugere; a docente confirma (ou descarta) no relatório |
-| P-15 | Sorteio de exercício com antecessor | Puxar a cadeia na ordem e avisar (e não bloquear) |
-| P-16 | Onde a esteira roda | No navegador da docente, com o mesmo motor dos outros testes; a semente do sorteio vai no relatório |
+| ID | Decisão |
+| :--- | :--- |
+| D-15 | Cada rodada sorteada traz metade do banco (arredondada para cima); as rodadas são `max(1, metade do número de exercícios)`, no máximo 5 |
+| D-16 | Um exercício depende de **um** antecessor (forma uma cadeia); vários antecessores ficam para uma spec futura. A coluna `continues_previous` é trocada por `depends_on`, com a migração dos que já continuam do anterior |
+| D-17 | O sistema só sugere a dependência encontrada; a docente a confirma ou descarta no relatório |
+| D-18 | O sorteio de um exercício com antecessor puxa a cadeia na ordem e avisa, sem bloquear |
+| D-19 | A esteira roda no navegador da docente, com o mesmo motor dos outros testes; a semente do sorteio vai no relatório |
+| D-20 | Para o estudante, o servidor entrega a receita da cadeia de cada exercício da prática (`chainSetups`), já resolvida a partir de `depends_on`, em vez de o cliente deduzi-la da trilha |
 
 ---
 
@@ -292,3 +293,4 @@ Um sumário (modal) com: o estado geral (sucesso ou falhas); a lista dos exercí
 | 10/10/2026 | Tech Lead | Pedido: exercícios em sequência (criar a pasta, depois o script dentro dela, depois rodar o script), como descrito no TCC (herança de cenários). Incluídos RN-11, CA-11, a coluna `continues_previous` e o ajuste A-09 |
 | 10/10/2026 | Tech Lead | Pedido de revisão 2: banco central de exercícios com blocos de vinculação (adicionar do banco, remover do bloco, criar já vinculando, exclusivo da avaliação) e snapshot único da base de exercícios. Spec volta a Rascunho com as pendências P-08 a P-11 |
 | 10/10/2026 | Tech Lead | Pedido de revisão 3: "Testar Banco de Exercícios" (preparo por snapshots, ordem linear, reversa e sorteada), dependências explícitas entre exercícios e sorteio seguro. Pendências P-12 a P-16 |
+| 10/10/2026 | Tech Lead | Aprovadas as revisões 2 e 3, aceitas as recomendações de P-08 a P-16 (viram D-11 a D-19); acrescentada a decisão D-20 |
