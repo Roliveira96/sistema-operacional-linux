@@ -270,6 +270,7 @@ export function ContentTab({
           {groups.map((group, index) => {
             const inactive = group.blocks.every((b) => !b.active);
             const edited = group.blocks.some((b) => b.edited);
+            const status = testStatus(moduleId, group.key, parseCard(group));
             const title = group.header
               ? String(group.header.payload.title ?? "")
               : m.intro;
@@ -279,7 +280,7 @@ export function ContentTab({
             return (
               <li
                 key={group.key}
-                className={`${styles.block} ${inactive ? styles.inactiveBlock : ""} ${sorting ? styles.sortable : ""} ${dragging === index ? styles.dragging : ""} ${over === index && dragging !== null && dragging !== index ? styles.dropTarget : ""}`}
+                className={`${styles.block} ${inactive ? styles.inactiveBlock : ""} ${status === "passed" ? styles.blockOk : ""} ${sorting ? styles.sortable : ""} ${dragging === index ? styles.dragging : ""} ${over === index && dragging !== null && dragging !== index ? styles.dropTarget : ""}`}
                 draggable={sorting}
                 onDragStart={() => setDragging(index)}
                 onDragOver={(event) => {
@@ -298,29 +299,6 @@ export function ContentTab({
                   setOver(null);
                 }}
               >
-                <div className={styles.badgeBar}>
-                  {(() => {
-                    const status = testStatus(
-                      moduleId,
-                      group.key,
-                      parseCard(group),
-                    );
-                    return status === "none" ? null : (
-                      <span
-                        className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`}
-                        title={m.test.title}
-                      >
-                        {m.test[status]}
-                      </span>
-                    );
-                  })()}
-                  {edited && <span className={styles.badge}>{m.edited}</span>}
-                  {inactive && (
-                    <span className={`${styles.badge} ${styles.badgeOff}`}>
-                      {m.inactive}
-                    </span>
-                  )}
-                </div>
                 <div className={styles.row}>
                   {sorting && (
                     <span
@@ -339,9 +317,31 @@ export function ContentTab({
                   </span>
                   {pill && <code className={styles.pill}>{pill}</code>}
                   <div className={styles.summary}>
-                    <span className={styles.cardTitle}>
-                      {title || m.untitled}
-                    </span>
+                    <div className={styles.headline}>
+                      <span className={styles.cardTitle}>
+                        {title || m.untitled}
+                      </span>
+                      <div className={styles.badgeBar}>
+                        {status !== "none" && (
+                          <span
+                            className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`}
+                            title={m.test.title}
+                          >
+                            {m.test[status]}
+                          </span>
+                        )}
+                        {edited && (
+                          <span className={styles.badge}>{m.edited}</span>
+                        )}
+                        {inactive && (
+                          <span
+                            className={`${styles.badge} ${styles.badgeOff}`}
+                          >
+                            {m.inactive}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     <span className={styles.counts}>
                       {summaryOf(group).length === 0
                         ? m.summary.none
