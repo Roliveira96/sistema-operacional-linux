@@ -147,3 +147,13 @@ declare module "@legacy-engine/shell/comandos/Processos" {
   }
   export function listarProcessos(maquina: unknown): LinhaDeProcesso[];
 }
+
+declare module "@legacy-engine/linux/Pacotes" {
+  /** A package of the simulated apt: `programas` are "bin/name" or "sbin/name". */
+  export interface Pacote {
+    nome: string;
+    programas: string[];
+    base?: boolean;
+  }
+  export const CATALOGO: Pacote[];
+}
