@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/Alert/Alert";
 import { Button } from "@/components/Button/Button";
 import type { TerminalWindow } from "@/engine/terminalWindow";
-import { downloadText, manifestSize, reportToText, transcriptFile, transcriptFilename, verifyEngine, type CaseResult, type ConformanceProgress, type ConformanceReport, type SuiteResult, type VerifyOptions } from "@/engine/conformance";
+import { downloadText, exportFilename, manifestSize, reportToText, transcriptFile, transcriptFilename, verifyEngine, type CaseResult, type ConformanceProgress, type ConformanceReport, type SuiteResult, type VerifyOptions } from "@/engine/conformance";
 import { messages } from "@/messages/pt-BR";
 import styles from "./EngineConformance.module.scss";
 
@@ -157,7 +157,8 @@ function Result({
     return report.suites
       .filter((result) => !filterFailures || !result.passed)
       .filter((result) => !term || result.suite.name.toLowerCase().includes(term) || result.cases.some((test) => test.command.toLowerCase().includes(term)))
-      .sort((a, b) => Number(a.passed) - Number(b.passed));
+      .sort((a, b) => Number(a.passed) - Number(b.passed))
+      .map((result) => ({ result, shown: casesShown(result, filterFailures, term) }));
   }, [report, filterFailures, search]);
   // Copying and exporting the commands, to send the ones that failed (RN-17).
   const [copied, setCopied] = useState<"all" | "failures" | "error" | null>(null);
@@ -169,7 +170,8 @@ function Result({
       setCopied("error");
     }
   };
-  const setAll = (value: boolean) => setOpened(Object.fromEntries(rows.map((row) => [row.suite.name, value])));
+  const setAll = (value: boolean) => setOpened(Object.fromEntries(rows.map(({ result }) => [result.suite.name, value])));
+  const downloadCommands = (which: "all" | "failures") => download(exportFilename(which === "all" ? "comandos" : "falhas"), reportToText(report, which === "failures"));
 
   return (
     <div className={styles.stack}>
@@ -203,6 +205,12 @@ function Result({
         <Button variant="secondary" onClick={() => void copy("failures")} disabled={report.casesFailed === 0}>
           {c.copyFailures}
         </Button>
+        <Button variant="secondary" onClick={() => downloadCommands("all")}>
+          {c.downloadAll}
+        </Button>
+        <Button variant="secondary" onClick={() => downloadCommands("failures")} disabled={report.casesFailed === 0}>
+          {c.downloadFailures}
+        </Button>
         <Button variant="secondary" onClick={() => download(transcriptFilename(), transcriptFile(report))}>
           {c.downloadTerminal}
         </Button>
@@ -230,8 +238,8 @@ function Result({
         <p className={styles.empty}>{c.noRows}</p>
       ) : (
         <ul className={styles.suites} aria-label={c.listLabel}>
-          {rows.map((result) => (
-            <Suite key={`${result.suite.kind}-${result.suite.name}`} result={result} open={Boolean(opened[result.suite.name])} onToggle={() => setOpened((now) => ({ ...now, [result.suite.name]: !now[result.suite.name] }))} />
+          {rows.map(({ result, shown }) => (
+            <Suite key={`${result.suite.kind}-${result.suite.name}`} result={result} shown={shown} open={Boolean(opened[result.suite.name])} onToggle={() => setOpened((now) => ({ ...now, [result.suite.name]: !now[result.suite.name] }))} />
           ))}
         </ul>
       )}
@@ -239,7 +247,13 @@ function Result({
   );
 }
 
-function Suite({ result, open, onToggle }: { result: SuiteResult; open: boolean; onToggle: () => void }) {
+/** The cases of a suite the screen lists: with "only failures" the ones that failed, and with a search the ones that match it (the whole suite when its name does; RN-20). */
+const casesShown = (result: SuiteResult, onlyFailures: boolean, term: string): CaseResult[] => {
+  const byName = !term || result.suite.name.toLowerCase().includes(term);
+  return result.cases.filter((test) => (!onlyFailures || !test.passed) && (byName || test.command.toLowerCase().includes(term)));
+};
+
+function Suite({ result, shown, open, onToggle }: { result: SuiteResult; shown: CaseResult[]; open: boolean; onToggle: () => void }) {
   const c = messages.conformance;
   const { suite, passed, cases } = result;
   const panel = `suite-${suite.kind}-${suite.name}`.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -254,6 +268,7 @@ function Suite({ result, open, onToggle }: { result: SuiteResult; open: boolean;
           {suite.kind === "command" ? c.kind.command : c.kind.program} · {suite.group}
         </span>
         <span className={styles.count}>{c.suiteCount(cases.filter((test) => test.passed).length, cases.length)}</span>
+        {shown.length !== cases.length && <span className={styles.count}>{c.suiteShowing(shown.length, cases.length)}</span>}
         <span className={passed ? styles.ok : styles.fail}>
           <span aria-hidden="true">{passed ? "✓ " : "✕ "}</span>
           {passed ? c.state.passed : c.state.failed}
@@ -261,7 +276,7 @@ function Suite({ result, open, onToggle }: { result: SuiteResult; open: boolean;
       </button>
       {open && (
         <ol id={panel} className={styles.cases} aria-label={c.casesLabel(suite.name)}>
-          {cases.map((test, index) => (
+          {shown.map((test, index) => (
             <Case key={`${index}-${test.command}`} test={test} />
           ))}
         </ol>

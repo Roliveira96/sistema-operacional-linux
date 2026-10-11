@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-030 |
-| **Status** | Rascunho (revisão 10 aguarda aprovação do Tech Lead) |
+| **Status** | Implementada |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 11/10/2026 (revisão 10) |
 | **Autor** | Aruna Architect (redigida por agente de IA a pedido do Tech Lead) |
@@ -189,8 +189,8 @@ Impacto em módulos existentes: um link novo no `AppShell` (visível ao ADMIN), 
 - [x] **CA-24** (evento): QUANDO o administrador acionar "Copiar todos os comandos", O SISTEMA DEVE copiar o texto com todos os comandos digitados, em ordem, cada um com `[ok]` ou `[FAILED]` e, nas falhas, o esperado, o código obtido e o começo da saída; QUANDO acionar "Copiar só as falhas", DEVE copiar só os casos que falharam; SE a cópia não for possível, ENTÃO DEVE avisar e manter o texto do terminal selecionável (RN-17).
 - [x] **CA-25** (ubíquo): O SISTEMA DEVE ter no manifesto pelo menos 5000 casos, além do `--help` automático de cada comando, e o teste do repositório DEVE falhar se o total ficar abaixo disso (RN-18).
 - [x] **CA-26** (evento): QUANDO o administrador acionar "Baixar o terminal (.txt)", O SISTEMA DEVE salvar um arquivo de texto com o cabeçalho, e a transcrição completa do terminal, na ordem, com cada comando, a saída inteira e o estado, sem cortar a saída (RN-19).
-- [ ] **CA-27** (evento): QUANDO o administrador acionar "Baixar todos os comandos (.txt)" ou "Baixar só as falhas (.txt)", O SISTEMA DEVE salvar um arquivo de texto com o mesmo conteúdo que o respectivo botão de copiar geraria; o segundo DEVE ficar desabilitado se nada falhou (RN-20).
-- [ ] **CA-28** (estado): ENQUANTO o filtro "Só falhas" estiver ligado, O SISTEMA DEVE mostrar dentro de cada suíte apenas os casos que falharam, com o contador de falhas mostradas, e DEVE voltar a mostrar todos os casos ao desligá-lo, sem reexecutar a verificação (RN-20).
+- [x] **CA-27** (evento): QUANDO o administrador acionar "Baixar todos os comandos (.txt)" ou "Baixar só as falhas (.txt)", O SISTEMA DEVE salvar um arquivo de texto com o mesmo conteúdo que o respectivo botão de copiar geraria; o segundo DEVE ficar desabilitado se nada falhou (RN-20).
+- [x] **CA-28** (estado): ENQUANTO o filtro "Só falhas" estiver ligado, O SISTEMA DEVE mostrar dentro de cada suíte apenas os casos que falharam, com o contador de falhas mostradas, e DEVE voltar a mostrar todos os casos ao desligá-lo, sem reexecutar a verificação (RN-20).
 - [x] **CA-21** (indesejado): SE um caso falhar, ENTÃO O SISTEMA DEVE seguir para os casos seguintes da suíte e das demais, registrando cada falha (RN-04, RN-11).
 
 ## 8. Plano de Testes (Test Plan)
@@ -243,11 +243,11 @@ Impacto em módulos existentes: um link novo no `AppShell` (visível ao ADMIN), 
 
 ## 10. Pendências para aprovação
 
-Uma, aberta pela revisão 10. As anteriores foram resolvidas em 10/10/2026, com as recomendações aceitas pelo Tech Lead, e entraram nas seções acima.
+Nenhuma. As pendências foram resolvidas em 10/10/2026, com as recomendações aceitas pelo Tech Lead, e entraram nas seções acima.
 
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
-| P-05 | A busca por texto, com "Só falhas" ligado, também deve esconder os casos que não contêm o termo dentro da suíte, ou só filtrar as suítes como hoje? | Esconder também os casos, para a tela mostrar só o que bate com a busca e com o filtro. |
+| — | Nenhuma em aberto | P-05 resolvida: a busca também esconde os casos que não batem (D-13) |
 
 ### 10.1. Decisões (aprovadas pelo Tech Lead em 10/10/2026)
 
@@ -286,3 +286,4 @@ Uma, aberta pela revisão 10. As anteriores foram resolvidas em 10/10/2026, com 
 | 11/10/2026 | Aruna Architect | Revisão 9: a verificação só começa quando o administrador aciona "Iniciar a verificação"; ao abrir a tela nada roda (CA-03, D-12), a pedido do Tech Lead |
 | 11/10/2026 | Implementador (Claude) | Revisões 2 a 9 implementadas: manifesto de 189 comandos e programas com 8209 casos (1136 de usuários, 2095 de arquivos, 1270 de texto, 1442 com programas, 1283 de rede e processos, 1135 de pacotes e sistema e 984 de shell), terminal ao vivo sempre na velocidade máxima, que mantém a tela entre as suítes (`swapMachine`), copiar, baixar o terminal em `.txt`, início por botão. A verificação completa no motor real levou 62 min e passou depois da correção de 7 casos mal escritos (openssl, ufw, wget). As lacunas do motor achadas (comandos que o motor não faz como o Linux) ficaram fora dos casos e vão para uma spec futura de correção |
 | 11/10/2026 | Aruna Architect | Revisão 10: baixar todos os comandos e só as falhas em `.txt`, e filtro "Só falhas" que esconde os casos aprovados (RN-20, CA-27, CA-28, D-13, P-05), a pedido do Tech Lead; volta a Rascunho até a aprovação |
+| 11/10/2026 | Implementador (Claude) | Revisão 10 implementada a pedido do Tech Lead ("quer fazer"), com a recomendação da P-05 aceita: botões de baixar todos os comandos e só as falhas, e "Só falhas" que esconde os casos aprovados, com a busca também estreitando os casos. 28 testes da tela e da exportação passam; `tsc` e ESLint sem erros |

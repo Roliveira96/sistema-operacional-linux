@@ -40,11 +40,14 @@ export function reportToText(report: ConformanceReport, onlyFailures = false): s
   return [head.join("\n"), ...suites.map((result) => suiteText(result, onlyFailures))].join("\n\n").concat("\n");
 }
 
-/** The name of the file with the terminal, with the moment of the run: terminal-conformidade-2026-10-11-1130.txt. */
-export const transcriptFilename = (now: Date = new Date()): string => {
+/** The name of an exported file, with the moment: comandos-conformidade-2026-10-11-1130.txt (SPEC-030 RN-19, RN-20). */
+export const exportFilename = (prefix: "terminal" | "comandos" | "falhas", now: Date = new Date()): string => {
   const two = (n: number) => String(n).padStart(2, "0");
-  return `terminal-conformidade-${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}-${two(now.getHours())}${two(now.getMinutes())}.txt`;
+  return `${prefix}-conformidade-${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}-${two(now.getHours())}${two(now.getMinutes())}.txt`;
 };
+
+/** The name of the file with the terminal, with the moment of the run: terminal-conformidade-2026-10-11-1130.txt. */
+export const transcriptFilename = (now: Date = new Date()): string => exportFilename("terminal", now);
 
 /** The text of the file with everything the terminal printed, with a header that says what it is and how the run ended (SPEC-030 RN-19). */
 export function transcriptFile(report: ConformanceReport, now: Date = new Date()): string {

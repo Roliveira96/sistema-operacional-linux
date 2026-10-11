@@ -240,6 +240,48 @@ describe("EngineConformance", () => {
     expect(text).toContain("$ ls\nsaida\n[exit 0 · ok]");
   });
 
+  // Covers SPEC-030 CA-27, RN-20: every command, or only the failures, goes to a text file.
+  it("downloads every command, or only the failures, as a text file", async () => {
+    const download = vi.fn();
+    view(<EngineConformance verify={async () => report([suite("ls", [ok("ls -la"), bad("ls /x")])])} download={download} />);
+    await screen.findByText("Fora de conformidade: 1 caso falhou");
+    fireEvent.click(screen.getByRole("button", { name: "Baixar todos os comandos (.txt)" }));
+    expect(download.mock.calls[0]![0]).toMatch(/^comandos-conformidade-\d{4}-\d{2}-\d{2}-\d{4}\.txt$/);
+    expect(download.mock.calls[0]![1]).toContain("[ok] $ ls -la");
+    fireEvent.click(screen.getByRole("button", { name: "Baixar só as falhas (.txt)" }));
+    expect(download.mock.calls[1]![0]).toMatch(/^falhas-conformidade-/);
+    expect(download.mock.calls[1]![1]).not.toContain("ls -la");
+    expect(download.mock.calls[1]![1]).toContain("[FAILED] $ ls /x");
+  });
+
+  it("disables downloading only the failures when nothing failed", async () => {
+    view(<EngineConformance verify={async () => report([suite("ls", [ok("ls")])])} />);
+    await screen.findByText("Em conformidade");
+    expect(screen.getByRole("button", { name: "Baixar só as falhas (.txt)" })).toHaveProperty("disabled", true);
+  });
+
+  // Covers SPEC-030 CA-28, RN-20: with "only failures" the passed cases leave the suite; the search narrows the cases too.
+  it("hides the passed cases while only failures is on, and shows them again when it is off", async () => {
+    view(<EngineConformance verify={async () => report([suite("ls", [ok("ls -la"), bad("ls /x")])])} />);
+    await screen.findByText("Fora de conformidade: 1 caso falhou");
+    expect(screen.getByText("ls /x")).toBeInTheDocument();
+    expect(screen.queryByText("ls -la")).not.toBeInTheDocument();
+    expect(screen.getByText("mostrando 1 de 2 casos")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Só falhas" }));
+    expect(screen.getByText("ls -la")).toBeInTheDocument();
+    expect(screen.queryByText("mostrando 1 de 2 casos")).not.toBeInTheDocument();
+  });
+
+  it("narrows the cases by the search, unless the name of the suite matches", async () => {
+    view(<EngineConformance verify={async () => report([suite("ls", [bad("ls -la"), bad("ls /x")])])} />);
+    await screen.findByText("Fora de conformidade: 2 casos falharam");
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "/x" } });
+    expect(screen.queryByText("ls -la")).not.toBeInTheDocument();
+    expect(screen.getByText("ls /x")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "ls" } });
+    expect(screen.getByText("ls -la")).toBeInTheDocument();
+  });
+
   it("does not show a late result after it is closed", async () => {
     let finish: (value: ConformanceReport) => void = () => {};
     const { unmount } = view(<EngineConformance verify={() => new Promise((resolve) => (finish = resolve))} />);

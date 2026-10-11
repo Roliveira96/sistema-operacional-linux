@@ -4,7 +4,7 @@ import { manifest } from "./manifest";
 import { casesOf, runConformance } from "./runner";
 import type { ConformanceProgress, ConformanceReport } from "./types";
 
-export { downloadText, reportToText, transcriptFile, transcriptFilename } from "./exportText";
+export { downloadText, exportFilename, reportToText, transcriptFile, transcriptFilename } from "./exportText";
 export { manifest } from "./manifest";
 export type { CaseResult, ConformanceCase, ConformanceProgress, ConformanceReport, ConformanceSuite, SuiteResult } from "./types";
 
