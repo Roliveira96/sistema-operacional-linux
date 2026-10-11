@@ -20,9 +20,9 @@ const PATH_FOLDERS = ["/usr/bin", "/usr/sbin", "/bin", "/sbin", "/usr/local/bin"
  */
 export async function engineCatalog(): Promise<EngineCatalog> {
   const [{ Shell }, { Maquina }, { CATALOGO }] = await Promise.all([
-    import("@legacy-engine/shell/Shell"),
-    import("@legacy-engine/linux/Maquina"),
-    import("@legacy-engine/linux/Pacotes"),
+    import("@engine-core/shell/Shell"),
+    import("@engine-core/linux/Maquina"),
+    import("@engine-core/linux/Pacotes"),
   ]);
   // The adapter registers its commands once per catalog, so asking for the catalog first does not leave any out.
   registerEngineCommands(Shell.obterRegistro() as unknown as CommandRegistry);

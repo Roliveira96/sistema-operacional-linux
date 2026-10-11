@@ -25,13 +25,13 @@ const done = new WeakSet<object>();
 export async function registerProcessCommands(registry: Registry): Promise<void> {
   if (done.has(registry)) return;
   done.add(registry);
-  const { SaidaEmTexto, SaidaParaArquivo } = await import("@legacy-engine/shell/Saida");
+  const { SaidaEmTexto, SaidaParaArquivo } = await import("@engine-core/shell/Saida");
   setNotTerminalOutputs([SaidaEmTexto, SaidaParaArquivo]);
   registry.registrar(...(processCommands as unknown as never[]));
   // The commands that extend one of the engine wrap the original, which keeps what it already does.
   const kill = registry.obter("kill") as EngineCommand | undefined;
   if (kill) registry.registrar(makeKill(kill) as unknown as never);
-  const { listarProcessos } = await import("@legacy-engine/shell/comandos/Processos");
+  const { listarProcessos } = await import("@engine-core/shell/comandos/Processos");
   setProcessLister(listarProcessos as unknown as (machine: unknown) => ProcessLine[]);
   const ps = registry.obter("ps") as EngineCommand | undefined;
   if (ps) registry.registrar(makePs(ps) as unknown as never);

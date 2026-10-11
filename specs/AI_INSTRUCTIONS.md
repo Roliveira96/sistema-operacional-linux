@@ -59,7 +59,7 @@ O agente **não pode**:
 - Supor requisitos não documentados. Na dúvida, perguntar (seção 7).
 - Inventar nome de domínio. Todo termo vem de `GLOSSARY.md`. Se faltar algum, propor a inclusão antes de usar.
 - Violar qualquer regra de `ARCHITECTURE.md`, mesmo "temporariamente".
-- Alterar arquivos em `legacy/`, exceto quando uma spec aprovada mandar.
+- Alterar `frontend/src/engine/core/` (o motor do terminal, incorporado pela SPEC-034) sem spec aprovada que mande.
 - Colocar código, JSON mockado, SQL ou scripts dentro de documentos de spec.
 - Entregar código de produção sem os testes automatizados correspondentes no mesmo commit, ou com cobertura igual ou abaixo de 80% no escopo definido em `ARCHITECTURE.md`, seção 5.
 - Trabalhar fora da branch `projeto-tcc2`.
@@ -105,6 +105,6 @@ Ao final de cada tarefa, o implementador informa:
 | `specs/features/` | Specs funcionais numeradas (`NNN-slug.md`) |
 | `backend/` | Serviço Go (ver `ARCHITECTURE.md`) |
 | `frontend/` | Aplicação Next.js (ver `ARCHITECTURE.md`) |
-| `legacy/` | Simulador client-side original "Linux na Prática" (TypeScript + Vite + Vitest). Base de conhecimento do motor POSIX/VFS, congelada: serve só para leitura. **Não rode os testes nem o build do legado** como verificação de entrega. |
+| `frontend/src/engine/core/` | Motor POSIX/VFS e terminal do simulador original "Linux na Prática", incorporados ao frontend (SPEC-034); a pasta `legacy/` foi removida. A verificação dele é a conformidade da SPEC-030. |
 | `docs/arquitetura/` | Fontes canônicas de requisitos da transição |
 | `docs/tcc/` | Monografia em LaTeX (fonte canônica de domínio) |

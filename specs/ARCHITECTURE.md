@@ -12,14 +12,13 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 | :--- | :--- |
 | `backend/` | Serviço único em Go (monólito modular): API REST, hub WebSocket, correção no servidor, persistência |
 | `frontend/` | Aplicação Next.js (interface de docentes e estudantes) |
-| `legacy/` | Simulador client-side original, congelado como referência de leitura. O motor POSIX/VFS será reaproveitado pelo frontend conforme spec própria |
+| `frontend/src/engine/core/` | Motor POSIX/VFS e janela de terminais do simulador original "Linux na Prática", incorporados ao frontend (SPEC-034). A pasta `legacy/` foi removida |
 | `specs/` | Governança Spec-Driven Development |
 | `docs/` | Fontes canônicas (arquitetura da transição e monografia) |
 
 - Branch única de desenvolvimento: `projeto-tcc2`.
-- `backend/` e `frontend/` têm dependências independentes. Nenhum dos dois importa código do outro nem de `legacy/` por caminho relativo. O compartilhamento de código entre eles exige spec dedicada.
-- **Exceção aprovada (SPEC-014):** o frontend usa o motor POSIX/VFS do legado (`legacy/src/linux` e `legacy/src/shell`), somente leitura, pelo alias `@legacy-engine/*`. Só `frontend/src/engine/` pode importá-lo, e uma regra de ESLint impõe isso; os tipos usados ficam em declarações próprias (`legacy-engine.d.ts`). O legado mantém os identificadores em português. A correção continua no servidor, pelo motor em Go da SPEC-011.
-- **Exceção aprovada (SPEC-016):** pelo mesmo alias e só em `frontend/src/engine/`, o frontend também usa, somente leitura, a janela de terminais do protótipo (`legacy/src/terminal`), a cola de comandos e o catálogo de tópicos (`legacy/src/app/ColaDeComandos.ts`, `legacy/src/conteudo/CatalogoDeTopicos.ts`), o armazém de máquinas (`legacy/src/app/ArmazemDeMaquinas.ts`) e a folha `legacy/src/estilos/terminal.css`. A regra de ESLint e as declarações de tipos continuam as mesmas. O terminal em React, o `NanoDialog` e o painel de prática da SPEC-014 foram removidos.
+- `backend/` e `frontend/` têm dependências independentes. Nenhum dos dois importa código do outro por caminho relativo. O compartilhamento de código entre eles exige spec dedicada.
+- **Motor do terminal (SPEC-014, SPEC-016, SPEC-034):** o motor POSIX/VFS, a janela de terminais, a cola de comandos, o catálogo de tópicos, o armazém de máquinas e a folha do terminal vivem em `frontend/src/engine/core/` (a pasta `legacy/` foi removida) e são usados pelo alias `@engine-core/*`. Só `frontend/src/engine/` pode importá-los, e uma regra de ESLint impõe isso; os tipos usados ficam em declarações próprias (`engine-core.d.ts`). O código mantém os identificadores em português e fica fora da checagem de estilo e de tipos. A correção continua no servidor, pelo motor em Go da SPEC-011.
 - **Manutenção do catálogo do motor (SPEC-030):** todo comando ou programa novo, renomeado ou removido em `frontend/src/engine/` exige a atualização do manifesto de conformidade (`frontend/src/engine/conformance/`) no mesmo commit; um teste compara o catálogo real com o manifesto e falha se divergirem.
 
 ## 2. Princípios gerais
@@ -164,7 +163,7 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 - **Qualidade:** cada critério de aceite é mapeado a pelo menos um teste nomeado; asserções verificam saídas, estados e erros, não contagem de chamadas internas.
 - Verificação estática obrigatória no frontend: ESLint e Stylelint. O Stylelint proíbe cores literais em qualquer arquivo de estilo, exceto `_tokens.scss`.
 - Backend: testes de unidade de services, com repositories substituídos por implementações de teste das interfaces, e testes de integração de repositories contra PostgreSQL real.
-- A suíte do `legacy/` (Vitest) **NÃO** faz parte da verificação do projeto: o legado está congelado e não é executado nem testado como critério de pronto. Ele só volta a ser testado se uma spec aprovada o alterar.
+- A verificação do motor do terminal é a verificação de conformidade da SPEC-030 e seus testes; `frontend/src/engine/core/` não entra na medição de cobertura.
 
 ## 6. Decisões em aberto
 
