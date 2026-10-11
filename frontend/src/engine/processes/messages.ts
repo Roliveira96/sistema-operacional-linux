@@ -18,6 +18,13 @@ export const messages = {
   ps: {
     unknownField: (name: string) => `erro: especificador de formato definido pelo usuário desconhecido "${name}"`,
   },
+  ping: {
+    missingDestination: "ping: erro de uso: endereço de destino obrigatório",
+    unknownHost: (name: string) => `ping: ${name}: Nome ou serviço desconhecido`,
+    invalidCount: (value: string) => `ping: argumento inválido: '${value}'`,
+    invalidInterval: (value: string) => `ping: intervalo inválido: '${value}'`,
+    tooFast: "ping: não é possível inundar; o intervalo mínimo permitido para o usuário é 200ms",
+  },
   yes: {
     // yes has no error message of its own: an unknown option is the one of the engine.
   },

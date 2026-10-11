@@ -3,11 +3,11 @@ import { newCommands } from "./index";
 
 // Covers SPEC-028 RN-14 and CA-17 (the shape of SPEC-027, RN-09): every new command has a help that starts with its name.
 describe("the help of the new commands (CA-17)", () => {
-  it("adds 43 commands to the engine", () => {
+  it("adds 47 commands to the engine", () => {
     expect(newCommands.map((command) => command.nome).sort()).toEqual(
       [
         "base64", "basename", "cal", "dd", "diff", "dirname", "du", "file", "hostnamectl", "ifconfig", "ip", "lscpu", "md5sum", "nl", "nproc", "nslookup",
-        "paste", "rev", "seq", "sha256sum", "cksum", "base32", "od", "hexdump", "sha1sum", "sha224sum", "sha384sum", "sha512sum", "ssh-keygen", "ssh-copy-id", "shuf", "ss", "ssh", "swapon", "tac", "time", "tty", "ufw", "wget", "whatis", "whereis", "xxd", "expr",
+        "paste", "rev", "seq", "sha256sum", "cksum", "base32", "od", "hexdump", "sha1sum", "sha224sum", "sha384sum", "sha512sum", "ssh-keygen", "ssh-copy-id", "shuf", "ss", "ssh", "swapon", "tac", "time", "tty", "ufw", "wget", "whatis", "whereis", "xxd", "expr", "traceroute", "netstat", "dig", "scp",
       ].sort(),
     );
   });

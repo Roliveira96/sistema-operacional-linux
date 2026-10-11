@@ -6,7 +6,7 @@ import type { EngineCommand, EngineContext } from "./types";
 const MAC = "52:54:00:12:34:56";
 
 /** The address of the machine, the same one `hostname -I` shows, and the gateway of its network. */
-function addresses(context: EngineContext): { ip: string; gateway: string; broadcast: string; hostname: string } {
+export function addresses(context: EngineContext): { ip: string; gateway: string; broadcast: string; hostname: string } {
   const ip = (context.maquina.constructor as unknown as { IP?: string }).IP ?? "192.168.0.10";
   const prefix = ip.split(".").slice(0, 3).join(".");
   return { ip, gateway: `${prefix}.1`, broadcast: `${prefix}.255`, hostname: context.maquina.hostname };
@@ -20,7 +20,7 @@ const INTERNET: Record<string, string> = {
   "ubuntu.com": "185.125.190.20",
 };
 
-interface Target {
+export interface Target {
   /** The name or address as typed. */
   name: string;
   ip: string;
@@ -29,7 +29,7 @@ interface Target {
 }
 
 /** Who answers to a name: the machine, its gateway, the names of /etc/hosts and the fixed list of the internet. */
-function resolve(name: string, context: EngineContext): Target | null {
+export function resolve(name: string, context: EngineContext): Target | null {
   const { ip, gateway, hostname } = addresses(context);
   if (name === "localhost" || name === "127.0.0.1") return { name, ip: "127.0.0.1", local: true };
   if (name === hostname || name === ip) return { name, ip, local: true };
@@ -134,12 +134,12 @@ const ipCommand = defineCommand(
 );
 
 /** Services whose sockets `ss` lists when the service is active on the machine. */
-const SERVICES: { unit: string; program: string; port: number; udp?: boolean; bind: string; v6: boolean }[] = [
+export const SERVICES: { unit: string; program: string; port: number; udp?: boolean; bind: string; v6: boolean }[] = [
   { unit: "ssh", program: "sshd", port: 22, bind: "0.0.0.0", v6: true },
   { unit: "nginx", program: "nginx", port: 80, bind: "0.0.0.0", v6: true },
   { unit: "mysql", program: "mysqld", port: 3306, bind: "127.0.0.1", v6: false },
 ];
-const PORT_NAMES: Record<number, string> = { 22: "ssh", 53: "domain", 80: "http", 3306: "mysql" };
+export const PORT_NAMES: Record<number, string> = { 22: "ssh", 53: "domain", 80: "http", 3306: "mysql" };
 
 const ss = defineCommand(
   "ss",

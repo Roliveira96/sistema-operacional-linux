@@ -1,6 +1,7 @@
 import { installBinaries } from "./binaries";
 import { yesCommand, watchCommand } from "./loops";
 import { makeKill } from "./kill";
+import { pingCommand } from "./ping";
 import { niceCommand, reniceCommand } from "./nice";
 import { makePs, setProcessLister, type ProcessLine } from "./ps";
 import { setNotTerminalOutputs } from "./output";
@@ -13,7 +14,7 @@ interface Registry {
 }
 
 /** The commands the process control adds on its own (SPEC-029 entrega A). */
-export const processCommands: EngineCommand[] = [yesCommand, watchCommand, niceCommand, reniceCommand];
+export const processCommands: EngineCommand[] = [yesCommand, watchCommand, niceCommand, reniceCommand, pingCommand];
 
 const done = new WeakSet<object>();
 
