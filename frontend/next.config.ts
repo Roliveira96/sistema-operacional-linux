@@ -34,6 +34,7 @@ const nextConfig: NextConfig = {
     resolveAlias: {
       "@legacy-engine/linux/Serializador": "../legacy/src/linux/Serializador.ts",
       "@legacy-engine/linux/Maquina": "../legacy/src/linux/Maquina.ts",
+      "@legacy-engine/linux/Pacotes": "../legacy/src/linux/Pacotes.ts",
       "@legacy-engine/shell/Shell": "../legacy/src/shell/Shell.ts",
       "@legacy-engine/shell/Saida": "../legacy/src/shell/Saida.ts",
       "@legacy-engine/shell/comandos/Processos": "../legacy/src/shell/comandos/Processos.ts",

@@ -41,6 +41,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             </>
           )}
+          {user.role === "ADMIN" && (
+            <Link href="/app/admin/conformidade" className={styles.link}>
+              {messages.conformance.nav}
+            </Link>
+          )}
           <Link href="/app/profile/security" className={styles.link}>
             {messages.home.security}
           </Link>

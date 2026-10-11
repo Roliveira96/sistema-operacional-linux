@@ -41,10 +41,18 @@ export interface TerminalWindow {
   /** Like run, and also gives what the command printed, to show the error of a command that failed. */
   execute(step: TerminalStep): Promise<CommandResult>;
   setSpeed(speed: number): void;
+  /** With true, a command is sent at once, without the typing and its pauses; the output, the status and the machine are the same (SPEC-032). */
+  setInstant(on: boolean): void;
   /** Replaces the machine at once and reopens the root terminal. */
   reset(snapshot: unknown): void;
   /** Resets with the formatting and boot animation of the prototype. */
   resetAnimated(snapshot: unknown): Promise<void>;
+  /**
+   * Puts a fresh machine under the open terminals without clearing them: the screen, with every command typed and what it printed, stays to be read and
+   * copied, and each terminal gets a new session (no variables, aliases or shell history of the machine before). `label` is written on the first terminal
+   * as a mark. A terminal that was closed (exit, logout) cannot be kept, so the window is rebuilt (SPEC-030 RN-16).
+   */
+  swapMachine(snapshot: unknown, label?: string): Promise<void>;
   /** Loads a scenario under the open terminals, keeping their screen and history (CA-10). */
   loadScenario(snapshot: unknown): Promise<void>;
   snapshot(): unknown;
@@ -78,6 +86,11 @@ export function cleanOutput(printed: string, command: string): string {
 
 const PREPARING_MESSAGE = "Preparando máquina…\n";
 const PREPARING_PAUSE_MS = 700;
+const processTable = (machine: unknown) => (machine as { processos: { listar(): Array<{ encerrado: boolean }> } }).processos.listar();
+
+/** The longest wait, and the step, for the processes a signal ended to leave the process table. */
+const SETTLE_MS = 300;
+const SETTLE_STEP_MS = 10;
 const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 /** Mounts the terminal window in container, on the machine of snapshot (null for the default one). */
@@ -128,12 +141,19 @@ export async function mountTerminalWindow(
     } | null;
     usuarioAtual(): string | null;
     renderizarEntrada(): void;
+    estado: string;
+    buffer: string;
+    cursor: number;
+    emAutomacao: boolean;
+    respostasAutomaticas: string[];
+    enviarComando(): Promise<void>;
   }
   interface WindowInternals {
     maquina: typeof machine;
     terminais: Array<TerminalInternals | null>;
   }
 
+  let instant = false;
   const execute = async (step: TerminalStep): Promise<CommandResult> => {
       const login = step.login ? { usuario: step.login.user, senha: step.login.password } : undefined;
       const terminal = (await window3.obter(step.terminal ?? 1, login)) as unknown as TerminalInternals & {
@@ -150,10 +170,28 @@ export async function mountTerminalWindow(
         original.call(terminal, text, className);
       };
       try {
-        await terminal.executarAutomatico(step.command, step.answers ?? []);
+        if (instant && terminal.estado === "comando") {
+          // What executarAutomatico does without the typing and the pauses: the line goes to the buffer and is sent (SPEC-032 RN-01).
+          terminal.emAutomacao = true;
+          terminal.respostasAutomaticas = (step.answers ?? []).slice();
+          terminal.buffer = step.command;
+          terminal.cursor = step.command.length;
+          try {
+            await terminal.enviarComando();
+          } finally {
+            terminal.respostasAutomaticas = [];
+            terminal.emAutomacao = false;
+          }
+        } else {
+          await terminal.executarAutomatico(step.command, step.answers ?? []);
+        }
       } finally {
         terminal.escrever = original;
       }
+
+      // A process that got a signal leaves the table only when its own loop notices it, up to 100 ms later (legacy `dormir`). Waiting for that here keeps the
+      // next command from seeing the dead process, which a person typing never would (SPEC-030 RN-22).
+      for (let waited = 0; waited < SETTLE_MS && processTable(machine).some((process) => process.encerrado); waited += SETTLE_STEP_MS) await pause(SETTLE_STEP_MS);
 
       // The legacy terminal keeps the status of the last command in the scope of the session. When the
       // history did not grow the command never ran (the terminal was busy), so there is no status.
@@ -172,6 +210,10 @@ export async function mountTerminalWindow(
       window3.definirVelocidade(speed);
     },
 
+    setInstant(on) {
+      instant = on;
+    },
+
     reset(state) {
       machine = build(state);
       window3.trocarMaquina(machine);
@@ -184,6 +226,37 @@ export async function mountTerminalWindow(
         notify();
         return machine;
       });
+    },
+
+    async swapMachine(state, label) {
+      const first = await window3.obter(1);
+      if (label) first.escrever(`${label}\n`, "c-info");
+      const next = build(state);
+      const internals = window3 as unknown as WindowInternals;
+      if (internals.terminais.some((terminal) => terminal && !terminal.sessao)) {
+        // A closed terminal asks for a login: the only way to open it again is to rebuild the window, which clears it.
+        machine = next;
+        window3.trocarMaquina(machine);
+        notify();
+        return;
+      }
+      for (const terminal of internals.terminais) {
+        if (!terminal) continue;
+        const previous = terminal.sessao;
+        const user = next.contas.usuario(terminal.usuarioAtual() ?? "root") ?? next.contas.usuario("root");
+        terminal.maquina = next;
+        if (user) {
+          const session = next.abrirSessao(user);
+          // What ends the session from the outside (kill, pkill -u) keeps working on the new one.
+          (session as unknown as { aoEncerrar?: unknown }).aoEncerrar = (previous as unknown as { aoEncerrar?: unknown } | null)?.aoEncerrar;
+          terminal.sessao = session as unknown as typeof previous;
+        }
+        terminal.renderizarEntrada();
+      }
+      internals.maquina = next;
+      machine = next;
+      window3.aoMudarTitulo();
+      notify();
     },
 
     async loadScenario(state) {

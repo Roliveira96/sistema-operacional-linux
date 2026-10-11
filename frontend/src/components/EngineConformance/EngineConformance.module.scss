@@ -1,0 +1,370 @@
+@use "@/styles/mixins" as mixins;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+
+  @include mixins.from("md") {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+// Progress: the fill only moves with transform-free width changes at a human pace, and stays still for people who ask for less motion.
+.bar {
+  position: relative;
+  height: var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+
+.barFill {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.2s ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.indeterminate .barFill {
+  width: 35%;
+  animation: slide 1.2s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    width: 100%;
+    animation: none;
+    opacity: 0.4;
+  }
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.progressText {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+// The live terminal of the run (SPEC-030 RN-15): a frame of fixed height, with the same look as the study terminal.
+.terminal {
+  height: 24rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+
+  // Selecting and copying the history is the point of keeping it on the screen.
+  user-select: text;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.intro {
+  max-width: 60ch;
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.seal {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-lg);
+}
+
+.sealOk {
+  color: var(--color-success);
+  background: var(--color-success-subtle);
+  border-color: var(--color-success-line);
+}
+
+.sealFail {
+  color: var(--color-danger);
+  background: var(--color-danger-subtle);
+  border-color: var(--color-danger);
+}
+
+.sealIcon {
+  font-size: var(--font-size-xl);
+  line-height: 1;
+}
+
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+
+  div {
+    min-width: 8rem;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  dt {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+  }
+
+  dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-lg);
+    color: var(--color-text-primary);
+  }
+}
+
+.exportBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.copied {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.runBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+
+  input,
+  select {
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+
+    @include mixins.focusable;
+  }
+}
+
+.empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+// One row per command or program; the row opens to show every case that was run (SPEC-030 RN-13).
+.suites {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suite {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.suiteFailed {
+  border-color: var(--color-danger);
+}
+
+.suiteHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+
+  @include mixins.focusable;
+
+  &:hover {
+    background: var(--color-surface-raised);
+  }
+}
+
+.chevron {
+  width: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.name {
+  min-width: 8rem;
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.meta,
+.count {
+  color: var(--color-text-secondary);
+}
+
+.count {
+  margin-left: auto;
+}
+
+.cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.case {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-sm);
+}
+
+.caseHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.command {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.expected {
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.case summary {
+  min-height: 24px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.output {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ok {
+  color: var(--color-success);
+}
+
+.fail {
+  color: var(--color-danger);
+}

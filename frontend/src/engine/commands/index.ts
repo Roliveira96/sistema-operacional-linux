@@ -5,6 +5,7 @@ import { withVersion } from "./curl";
 import { diskCommands } from "./disk";
 import { encodingCommands } from "./encoding";
 import { networkCommands } from "./network";
+import { networkToolCommands } from "./network-tools";
 import { processCommands } from "./process";
 import { setRegistry } from "./registry";
 import { systemCommands } from "./system";
@@ -12,7 +13,7 @@ import { textCommands } from "./text";
 import type { CommandRegistry, EngineCommand } from "./types";
 
 /** The commands SPEC-028 adds to the engine, and the du that replaces the one of the engine (RN-13). */
-export const newCommands: EngineCommand[] = [...textCommands, ...systemCommands, ...processCommands, ...networkCommands, ...diskCommands, ...encodingCommands, ...sshCommands];
+export const newCommands: EngineCommand[] = [...textCommands, ...systemCommands, ...processCommands, ...networkCommands, ...networkToolCommands, ...diskCommands, ...encodingCommands, ...sshCommands];
 
 /** Gives the machine a binary for each new command, so the shell finds them in the PATH. */
 export function addEngineBinaries(machine: Parameters<typeof installEngineBinaries>[0]): void {
