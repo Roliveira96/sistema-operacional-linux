@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-030 |
-| **Status** | Implementada |
+| **Status** | Rascunho (revisão 10 aguarda aprovação do Tech Lead) |
 | **Data de criação** | 10/10/2026 |
-| **Última revisão** | 11/10/2026 (revisão 9) |
+| **Última revisão** | 11/10/2026 (revisão 10) |
 | **Autor** | Aruna Architect (redigida por agente de IA a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Frontend (sem backend, sem banco, sem API) |
@@ -72,8 +72,9 @@ Há também uma segunda lacuna, de processo: quando um comando ou programa novo 
 - **Lista de suítes:** uma linha por comando ou programa, com o nome, o grupo, a contagem "N de M casos aprovados" e o estado (aprovada se todos os casos passaram, falhou se algum falhou). Ela abre e fecha por um botão (padrão de divulgação, com `aria-expanded`), e com falhas as suítes que falharam vêm primeiro e já abertas.
 - **Dentro da suíte:** a lista de **todos os casos executados**, na ordem, cada um com: o comando digitado (por exemplo `ls -la /tmp/lab`), o estado do caso, o que se esperava (código de saída e, quando há, o trecho de saída) e o que o motor respondeu (a saída, com limite de 2000 caracteres e um aviso quando cortada). O `--help` é o primeiro caso de toda suíte de comando.
 - **Totais:** passam a contar **casos** (verificados, aprovados, com falha) e também suítes.
-- **Busca:** acha pelo nome da suíte **e** pelo texto de um comando de caso (digitar `-la` mostra as suítes que têm um caso com `-la`). O filtro "Só falhas" mostra só as suítes com falha; dentro delas todos os casos aparecem, com os que falharam em destaque e já com a saída aberta. Há também "Abrir todos" e "Fechar todos".
+- **Busca:** acha pelo nome da suíte **e** pelo texto de um comando de caso (digitar `-la` mostra as suítes que têm um caso com `-la`). O filtro "Só falhas" mostra só as suítes com falha; dentro delas aparecem **só os casos que falharam**, já com a saída aberta, e um contador "mostrando N falhas de M casos" (revisão 10; antes todos os casos apareciam). Com o filtro desligado, todos os casos aparecem, com os que falharam em destaque. Há também "Abrir todos" e "Fechar todos".
 - **Copiar e exportar:** dois botões, "Copiar todos os comandos" e "Copiar só as falhas" (desabilitado se nada falhou), copiam para a área de transferência um texto simples com **todos os comandos digitados**, em ordem e agrupados por comando ou programa, cada um marcado `[ok]` ou `[FAILED]` e, nos que falharam, o esperado, o código obtido e o começo da saída do motor. Uma mensagem confirma "Copiado" ou avisa que não foi possível copiar (revisão 6).
+- **Baixar os comandos (revisão 10):** dois botões, "Baixar todos os comandos (.txt)" e "Baixar só as falhas (.txt)" (desabilitado se nada falhou), salvam como arquivo o mesmo texto que os botões de copiar geram (RN-17), para quem não quer copiar da tela. Os nomes trazem a data e a hora (`comandos-conformidade-AAAA-MM-DD-HHMM.txt` e `falhas-conformidade-AAAA-MM-DD-HHMM.txt`). O arquivo das falhas traz, em cada caso, o esperado, o código obtido e a saída do motor.
 - **Baixar o terminal:** o botão "Baixar o terminal (.txt)" salva um arquivo de texto com **tudo o que o terminal imprimiu** durante a verificação, para análise: cada comando digitado, a saída **inteira** (sem corte) e o estado (`[exit 0 · ok]`, `[exit 2 · FAILED]`, `[timeout … · FAILED]`), na ordem em que rodaram, com a marca `# comando ls` onde cada suíte começa e um cabeçalho com data, totais e a explicação do formato. O nome do arquivo traz a data e a hora (`terminal-conformidade-AAAA-MM-DD-HHMM.txt`) (revisão 8).
 - **Progresso:** conta casos ("N de M casos") e mostra o comando do caso em execução.
 
@@ -107,6 +108,7 @@ Cada comando ou programa verificado é um **item** do manifesto.
 - **RN-16 (o terminal não reinicia):** entre as suítes, só a máquina de baixo é trocada pelo instantâneo preparado; o terminal mantém a tela e todo o histórico impresso (comandos e saídas), e cada suíte abre uma sessão nova nele, sem variáveis, apelidos nem histórico de shell da suíte anterior. A exceção é o terminal fechado por `exit` ou `logout`, que só se reabre recriando a janela, e isso limpa a tela (revisão 4, pedido do Tech Lead em 11/10/2026).
 - **RN-17 (exportar os comandos):** o administrador copia, por botão, o texto com todos os comandos executados e o estado de cada um, ou só o das falhas, para enviar os comandos que deram errado (revisão 6, pedido do Tech Lead em 11/10/2026). O texto é gerado no navegador, na hora; nada é enviado a servidor.
 - **RN-18 (volume mínimo):** o manifesto tem **pelo menos 5000 casos** no total, além do `--help` automático de cada comando, para dar segurança num ambiente de simulado de Sistemas Operacionais em que um aluno avançado pode digitar qualquer coisa (revisão 7, pedido do Tech Lead em 11/10/2026). O volume vem de variedade real (matrizes de opções, variações de argumentos, cenários de várias etapas, pipelines e erros previstos), não de repetição, e um teste do repositório cobra o total.
+- **RN-20 (baixar os comandos e filtrar as falhas):** o texto da RN-17 também pode ser baixado como arquivo (todos os comandos, ou só as falhas), e o filtro "Só falhas" da tela esconde os casos aprovados dentro das suítes. Tudo é gerado no navegador; nada é enviado a servidor (revisão 10, pedido do Tech Lead em 11/10/2026).
 - **RN-19 (o terminal exportado):** além do texto resumido da RN-17, a verificação guarda, durante a execução, **a transcrição completa** do que o terminal imprimiu, sem o corte de 2000 caracteres da tela, e o administrador a baixa como arquivo `.txt` por botão (revisão 8, pedido do Tech Lead em 11/10/2026). O arquivo é montado no navegador; nada é enviado a servidor.
 - **RN-14 (isolamento por suíte):** cada suíte começa de um instantâneo novo da máquina preparada; o tempo limite de 5 segundos vale **por caso**.
 - **RN-09 (só administrador):** a tela e o botão são do papel ADMIN. Para os demais papéis, a rota redireciona para a tela inicial.
@@ -187,6 +189,8 @@ Impacto em módulos existentes: um link novo no `AppShell` (visível ao ADMIN), 
 - [x] **CA-24** (evento): QUANDO o administrador acionar "Copiar todos os comandos", O SISTEMA DEVE copiar o texto com todos os comandos digitados, em ordem, cada um com `[ok]` ou `[FAILED]` e, nas falhas, o esperado, o código obtido e o começo da saída; QUANDO acionar "Copiar só as falhas", DEVE copiar só os casos que falharam; SE a cópia não for possível, ENTÃO DEVE avisar e manter o texto do terminal selecionável (RN-17).
 - [x] **CA-25** (ubíquo): O SISTEMA DEVE ter no manifesto pelo menos 5000 casos, além do `--help` automático de cada comando, e o teste do repositório DEVE falhar se o total ficar abaixo disso (RN-18).
 - [x] **CA-26** (evento): QUANDO o administrador acionar "Baixar o terminal (.txt)", O SISTEMA DEVE salvar um arquivo de texto com o cabeçalho, e a transcrição completa do terminal, na ordem, com cada comando, a saída inteira e o estado, sem cortar a saída (RN-19).
+- [ ] **CA-27** (evento): QUANDO o administrador acionar "Baixar todos os comandos (.txt)" ou "Baixar só as falhas (.txt)", O SISTEMA DEVE salvar um arquivo de texto com o mesmo conteúdo que o respectivo botão de copiar geraria; o segundo DEVE ficar desabilitado se nada falhou (RN-20).
+- [ ] **CA-28** (estado): ENQUANTO o filtro "Só falhas" estiver ligado, O SISTEMA DEVE mostrar dentro de cada suíte apenas os casos que falharam, com o contador de falhas mostradas, e DEVE voltar a mostrar todos os casos ao desligá-lo, sem reexecutar a verificação (RN-20).
 - [x] **CA-21** (indesejado): SE um caso falhar, ENTÃO O SISTEMA DEVE seguir para os casos seguintes da suíte e das demais, registrando cada falha (RN-04, RN-11).
 
 ## 8. Plano de Testes (Test Plan)
@@ -211,7 +215,7 @@ Impacto em módulos existentes: um link novo no `AppShell` (visível ao ADMIN), 
   - ao abrir nada roda e a tela oferece o botão de iniciar, com o tamanho da verificação; ao iniciar, progresso e selo verde (cobre CA-03, CA-04);
   - selo vermelho, tabela de falhas e detalhe do que se esperava e do que o motor respondeu (cobre CA-05);
   - erro do motor com "Tentar de novo" (cobre CA-07), "Executar de novo" (cobre CA-08);
-  - terminal ao vivo, sem seletor de velocidade (cobre CA-22); botões de copiar, com e sem falhas e com erro de cópia (cobre CA-24); botão de baixar o terminal (cobre CA-26);
+  - terminal ao vivo, sem seletor de velocidade (cobre CA-22); botões de copiar, com e sem falhas e com erro de cópia (cobre CA-24); botão de baixar o terminal (cobre CA-26); botões de baixar todos os comandos e só as falhas, o segundo desabilitado sem falhas (cobre CA-27); filtro "Só falhas" esconde os casos aprovados e mostra o contador (cobre CA-28);
   - lista de suítes, abrir e fechar, casos com comando, esperado e resposta, suíte com falha aberta e primeiro (cobre CA-16, CA-18); busca por comando de caso (cobre CA-19);
   - filtros e busca (cobre CA-15); rótulos e foco por teclado (cobre CA-14).
 - **Documentação:** teste simples que lê `ARCHITECTURE.md`, `GLOSSARY.md` e as SPEC-028 e SPEC-029 e confere a presença da regra de manutenção (cobre CA-13).
@@ -239,7 +243,11 @@ Impacto em módulos existentes: um link novo no `AppShell` (visível ao ADMIN), 
 
 ## 10. Pendências para aprovação
 
-Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pelo Tech Lead, e entraram nas seções acima.
+Uma, aberta pela revisão 10. As anteriores foram resolvidas em 10/10/2026, com as recomendações aceitas pelo Tech Lead, e entraram nas seções acima.
+
+| ID | Pendência | Recomendação |
+| :--- | :--- | :--- |
+| P-05 | A busca por texto, com "Só falhas" ligado, também deve esconder os casos que não contêm o termo dentro da suíte, ou só filtrar as suítes como hoje? | Esconder também os casos, para a tela mostrar só o que bate com a busca e com o filtro. |
 
 ### 10.1. Decisões (aprovadas pelo Tech Lead em 10/10/2026)
 
@@ -249,6 +257,7 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | D-02 | O resultado não é guardado: sem histórico, tabela ou rota nesta spec. Histórico é spec futura |
 | D-03 | "Programa" inclui o que um pacote instalado pelo `apt` simulado oferece. Cada pacote do catálogo do `apt` é verificado (instala, roda o programa, remove) dentro do limite de tempo e na máquina em memória (seção 3.3, RN-01) |
 | D-04 | A regra de manutenção (RN-08) já foi escrita em `ARCHITECTURE.md`, `GLOSSARY.md`, SPEC-028 e SPEC-029 (só a linha da regra) |
+| D-13 | Revisão 10 (11/10/2026): baixar todos os comandos e só as falhas como arquivo, e "Só falhas" passa a esconder os casos aprovados (RN-20, CA-27, CA-28) |
 | D-12 | Revisão 9 (11/10/2026): a verificação **não** roda ao abrir a tela; o administrador escolhe iniciar, por um botão (CA-03). Substitui a D-01 |
 | D-11 | Revisão 8 (11/10/2026): botão para baixar tudo o que o terminal imprimiu em um `.txt`, saída inteira, para análise (RN-19, CA-26) |
 | D-10 | Revisão 7 (11/10/2026): o manifesto passa a ter pelo menos 5000 casos, de variedade real (RN-18, CA-25) |
@@ -276,3 +285,4 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | 11/10/2026 | Aruna Architect | Revisão 8: exportar a transcrição completa do terminal em `.txt` (RN-19, CA-26, D-11), a pedido do Tech Lead |
 | 11/10/2026 | Aruna Architect | Revisão 9: a verificação só começa quando o administrador aciona "Iniciar a verificação"; ao abrir a tela nada roda (CA-03, D-12), a pedido do Tech Lead |
 | 11/10/2026 | Implementador (Claude) | Revisões 2 a 9 implementadas: manifesto de 189 comandos e programas com 8209 casos (1136 de usuários, 2095 de arquivos, 1270 de texto, 1442 com programas, 1283 de rede e processos, 1135 de pacotes e sistema e 984 de shell), terminal ao vivo sempre na velocidade máxima, que mantém a tela entre as suítes (`swapMachine`), copiar, baixar o terminal em `.txt`, início por botão. A verificação completa no motor real levou 62 min e passou depois da correção de 7 casos mal escritos (openssl, ufw, wget). As lacunas do motor achadas (comandos que o motor não faz como o Linux) ficaram fora dos casos e vão para uma spec futura de correção |
+| 11/10/2026 | Aruna Architect | Revisão 10: baixar todos os comandos e só as falhas em `.txt`, e filtro "Só falhas" que esconde os casos aprovados (RN-20, CA-27, CA-28, D-13, P-05), a pedido do Tech Lead; volta a Rascunho até a aprovação |
