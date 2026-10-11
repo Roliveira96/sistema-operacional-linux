@@ -1,19 +1,29 @@
 /** A command is registered in the catalog of the engine; a program is an executable that is not (SPEC-030, section 3.3). */
 export type ItemKind = "command" | "program";
 
+/** A setup command that asks questions, with the answers typed to them. */
+export interface SetupStep {
+  command: string;
+  answers: string[];
+}
+
 /** One check of the manifest: what is typed on the terminal and what is expected (SPEC-030 RN-01, RN-02). */
 export interface ConformanceItem {
   name: string;
   kind: ItemKind;
   group: string;
   /** Typed before the checked command, in order; they only build the state the item needs. */
-  setup?: string[];
+  setup?: Array<string | SetupStep>;
   /** The checked command. */
   command: string;
-  /** Expected exit status. Defaults to 0. */
-  code?: number;
+  /** Answers typed to the questions the command asks (passwords). */
+  answers?: string[];
+  /** Expected exit status. Defaults to 0; null means the terminal closed and gave no status (exit, logout). */
+  code?: number | null;
   /** A text the output must contain. */
   expect?: string;
+  /** False for the commands that have no --help on Linux either (echo, true, [...]). Defaults to true. */
+  help?: boolean;
 }
 
 export interface ItemResult {

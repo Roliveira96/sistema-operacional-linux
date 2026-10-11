@@ -1,3 +1,6 @@
+import { registerEngineCommands } from "../commands";
+import type { CommandRegistry } from "../commands/types";
+import { registerProcessCommands } from "../processes/register";
 import type { ItemKind } from "./types";
 
 export interface EngineCatalog {
@@ -21,6 +24,9 @@ export async function engineCatalog(): Promise<EngineCatalog> {
     import("@legacy-engine/linux/Maquina"),
     import("@legacy-engine/linux/Pacotes"),
   ]);
+  // The adapter registers its commands once per catalog, so asking for the catalog first does not leave any out.
+  registerEngineCommands(Shell.obterRegistro() as unknown as CommandRegistry);
+  await registerProcessCommands(Shell.obterRegistro());
   const commands = Shell.obterRegistro()
     .listar()
     .map((command) => command.nome)

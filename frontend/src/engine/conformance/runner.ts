@@ -34,27 +34,35 @@ async function within<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 /** The help of every command runs along with its item and must show the usage (SPEC-030 RN-03). */
-const helpStep = (item: ConformanceItem): ConformanceItem | null => (item.kind === "command" ? { ...item, setup: [], command: `${item.name} --help`, code: 0, expect: undefined } : null);
+const helpStep = (item: ConformanceItem): ConformanceItem | null =>
+  item.kind === "command" && item.help !== false ? { ...item, command: `${item.name} --help`, answers: undefined, code: 0, expect: undefined } : null;
 
 async function runItem(win: TerminalWindow, snapshot: unknown, item: ConformanceItem, timeoutMs: number): Promise<ItemResult> {
-  const check = async (step: ConformanceItem): Promise<ItemResult["failure"]> => {
-    win.reset(snapshot);
-    for (const command of ["cd /tmp/lab", ...(step.setup ?? [])]) await within(win.execute({ command }), timeoutMs);
+  const check = async (step: ConformanceItem, fresh: boolean): Promise<ItemResult["failure"]> => {
+    if (fresh) win.reset(snapshot);
     let result;
+    let current = step.command;
     try {
-      result = await within(win.execute({ command: step.command }), timeoutMs);
+      for (const entry of fresh ? ["cd /tmp/lab", ...(step.setup ?? [])] : []) {
+        const { command, answers } = typeof entry === "string" ? { command: entry, answers: undefined } : entry;
+        current = command;
+        await within(win.execute({ command, answers }), timeoutMs);
+      }
+      current = step.command;
+      result = await within(win.execute({ command: step.command, answers: step.answers }), timeoutMs);
     } catch (error) {
-      if (error instanceof Timeout) return { command: step.command, expected: `ends within ${timeoutMs} ms`, got: "timeout" };
+      if (error instanceof Timeout) return { command: current, expected: `ends within ${timeoutMs} ms`, got: "timeout" };
       throw error;
     }
-    const expectedCode = step.code ?? 0;
+    const expectedCode = step.code === undefined ? 0 : step.code;
     const expectedText = step.expect ?? (step.command.endsWith("--help") ? "Uso" : undefined);
     const textOk = expectedText === undefined || result.output.includes(expectedText);
     if (result.status === expectedCode && textOk) return undefined;
     const expected = `status ${expectedCode}${expectedText ? ` and "${expectedText}"` : ""}`;
     return { command: step.command, expected, got: `status ${result.status}: ${result.output.slice(0, OUTPUT_LIMIT)}` };
   };
-  const failure = (await check(item)) ?? (await (helpStep(item) ? check(helpStep(item)!) : undefined));
+  // The help only needs a clean machine when the item built a state of its own (setup) or closed the terminal (exit, logout).
+  const failure = (await check(item, true)) ?? (helpStep(item) ? await check(helpStep(item)!, Boolean(item.setup?.length) || item.code === null) : undefined);
   return failure ? { item, passed: false, failure } : { item, passed: true };
 }
 

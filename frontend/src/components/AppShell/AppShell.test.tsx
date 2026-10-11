@@ -79,6 +79,16 @@ describe("AppShell", () => {
     expect(screen.queryByText(/^RA /)).toBeNull();
   });
 
+  // Covers SPEC-030 CA-01: the engine conformance button is the administrator's alone.
+  it.each([["ADMIN", true], ["TEACHER", false], ["STUDENT", false]] as const)("%s sees the engine conformance link: %s", (role, visible) => {
+    signIn(role);
+    vi.mocked(getStudentProfile).mockResolvedValue({ id: "1", name: "Aluno", academicId: "1234567", email: "a@b.c", createdAt: "" });
+    renderShell();
+    const link = screen.queryByRole("link", { name: messages.conformance.nav });
+    expect(link !== null).toBe(visible);
+    if (link) expect(link.getAttribute("href")).toBe("/app/admin/conformidade");
+  });
+
   // Covers SPEC-015: the bar follows the pattern of the study screen.
   it("shows the logo of the university and the platform at the left", () => {
     signIn("ADMIN");
