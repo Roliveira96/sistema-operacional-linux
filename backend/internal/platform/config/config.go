@@ -50,6 +50,10 @@ type AuthConfig struct {
 	// PublicURL is the frontend address used in e-mail links.
 	PublicURL string
 	Google    GoogleOAuthConfig
+	// MCPDevUserEmail lets the MCP endpoint run without login as this user. Development only (SPEC-024 RN-15).
+	MCPDevUserEmail string
+	// MCPPublicURL is the public address of this backend, used in the OAuth metadata of the MCP login (SPEC-024 RN-14).
+	MCPPublicURL string
 }
 
 // GoogleOAuthConfig holds Google OAuth2 credentials (SPEC-008).
@@ -149,6 +153,8 @@ func LoadFrom(lookup LookupFunc) (Config, error) {
 			AdminEmail:           strings.ToLower(r.optional("ADMIN_EMAIL", "admin@rmo.dev.br")),
 			AdminInitialPassword: r.required("ADMIN_INITIAL_PASSWORD"),
 			PublicURL:            r.httpURL("APP_PUBLIC_URL"),
+			MCPDevUserEmail:      strings.ToLower(r.optional("MCP_DEV_USER_EMAIL", "")),
+			MCPPublicURL:         strings.TrimRight(r.optional("MCP_PUBLIC_URL", "http://localhost:8080"), "/"),
 			Google: GoogleOAuthConfig{
 				ClientID:     r.optional("GOOGLE_CLIENT_ID", ""),
 				ClientSecret: r.optional("GOOGLE_CLIENT_SECRET", ""),
@@ -167,6 +173,10 @@ func LoadFrom(lookup LookupFunc) (Config, error) {
 		defaultLevel = "info"
 	}
 	cfg.LogLevel = r.oneOf("LOG_LEVEL", defaultLevel, "debug", "info", "warn", "error")
+
+	if cfg.AppEnv == EnvProduction && cfg.Auth.MCPDevUserEmail != "" {
+		r.fail("MCP_DEV_USER_EMAIL", "must not be set when APP_ENV=production")
+	}
 
 	if len(r.errs) > 0 {
 		return Config{}, errors.Join(r.errs...)

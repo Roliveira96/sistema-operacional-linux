@@ -14,15 +14,23 @@ export type AuthMode = "LOGIN" | "REGISTER";
 export interface AuthContainerProps {
   initialMode?: AuthMode;
   reason?: string | null;
+  /** Local path to return to after a successful login (e.g. the OAuth consent screen). */
+  next?: string | null;
   onLoginSuccess?: (result: LoginResult) => void;
   onRegisterSuccess?: (result: RegisterResult) => void;
   service?: AuthService;
+}
+
+/** Only same-origin paths are accepted as a return target (no open redirect). */
+export function safeNextPath(next?: string | null): string | null {
+  return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : null;
 }
 
 /** Unified authentication and registration dual-panel container (SPEC-008). */
 export function AuthContainer({
   initialMode = "LOGIN",
   reason,
+  next,
   onLoginSuccess,
   onRegisterSuccess,
   service = defaultAuthService,
@@ -35,7 +43,7 @@ export function AuthContainer({
       onLoginSuccess(result);
       return;
     }
-    router.replace(result.mustChangePassword ? "/change-password" : "/app");
+    router.replace(result.mustChangePassword ? "/change-password" : (safeNextPath(next) ?? "/app"));
   }
 
   function handleRegisterSuccess(result: RegisterResult) {

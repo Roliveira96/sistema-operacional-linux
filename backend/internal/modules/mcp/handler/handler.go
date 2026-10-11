@@ -65,6 +65,11 @@ func (h *Handler) serve(c *gin.Context) {
 		refuse(c, problem.Forbidden(domain.TypeForbidden, "This server is only for administrators and teachers."))
 		return
 	}
+	if c.Request.Header.Get("Authorization") == "" {
+		// The SDK demands a bearer header; the authentication middleware already vouched for the caller (the
+		// local development user, SPEC-024 RN-15) and verifyPrincipal ignores the value.
+		c.Request.Header.Set("Authorization", "Bearer dev")
+	}
 	h.mcp.ServeHTTP(c.Writer, c.Request)
 }
 

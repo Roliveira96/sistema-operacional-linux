@@ -595,6 +595,27 @@ export const messages = {
     revoked: (name: string) => `Token "${name}" revogado.`,
     revokeFailed: "Não foi possível revogar o token.",
   },
+  oauthConsent: {
+    title: "Autorizar acesso do agente",
+    loading: "Carregando a solicitação…",
+    invalidRequest: "Solicitação inválida: faltam dados do cliente.",
+    clientNotFound: "Cliente não encontrado. Volte ao agente e inicie o login de novo.",
+    loadFailed: "Não foi possível carregar a solicitação. Tente de novo.",
+    denied: "Acesso negado. Somente docentes e administradores podem autorizar um agente.",
+    intro: (client: string) => `O cliente "${client}" pede acesso à sua conta para redigir módulos de ensino.`,
+    canTitle: "Ele poderá",
+    can: "Criar e editar rascunhos de módulos, conteúdos e exercícios em seu nome.",
+    cannotTitle: "Ele não poderá",
+    cannot: "Publicar. Os estudantes só veem as alterações depois que você publicar aqui no sistema.",
+    redirectTo: (uri: string) => `Ao decidir, você volta para ${uri}.`,
+    allow: "Autorizar",
+    deny: "Negar",
+    submitting: "Enviando…",
+    rateLimited: "Muitas tentativas. Aguarde um pouco e tente de novo.",
+    forbidden: "Você não tem permissão para autorizar este acesso.",
+    badRequest: "A solicitação é inválida ou expirou. Volte ao agente e inicie o login de novo.",
+    submitFailed: "Não foi possível concluir. Tente de novo.",
+  },
 } as const;
 
 export const ptBR = messages;

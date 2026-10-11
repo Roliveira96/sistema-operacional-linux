@@ -137,6 +137,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		Users:        users,
 		Store:        authStore,
 		AccessTokens: authStore,
+		OAuth:        authStore,
 		NotFound:     authrepository.ErrNotFound,
 		Auditor:      auditor,
 		Mailer:       dispatcher,
@@ -164,6 +165,9 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	}, !cfg.IsDevelopment())
 
 	accessTokenHandler := authhandler.NewAccessTokens(auth, auth, ratelimit.New(10, time.Hour))
+	mcpOAuthHandler := authhandler.NewMCPOAuth(auth, auth,
+		authhandler.MCPOAuthURLs{Backend: cfg.Auth.MCPPublicURL, Frontend: cfg.Auth.PublicURL},
+		ratelimit.New(10, time.Hour), ratelimit.New(30, time.Minute))
 
 	classRepo := classgrouprepository.New(db)
 	classService := classgroupservice.New(classRepo)
@@ -184,11 +188,17 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	contentExercises := contentservice.NewExercises(contentRepo, log)
 	contentAuthorHandler := contenthandler.NewAuthor(contentAuthor, auth, authoringLimiter)
 	contentVersionHandler := contenthandler.NewVersions(contentVersions, auth, ratelimit.New(120, time.Minute))
+	contentImageHandler := contenthandler.NewImages(contentservice.NewImages(store, log, 2), auth, ratelimit.New(30, time.Minute))
 	contentExerciseHandler := contenthandler.NewExercises(contentExercises, auth, ratelimit.New(120, time.Minute))
+	bearer := authn.BearerOptions{ResourceMetadataURL: cfg.Auth.MCPPublicURL + authhandler.ProtectedResourceMetadataPath}
+	if email := cfg.Auth.MCPDevUserEmail; email != "" {
+		// Local development only: config refuses this variable in production (SPEC-024 RN-15).
+		log.Warn("MCP runs without login as a local development user", zap.String("email", email))
+		bearer.DevUser = func(ctx context.Context) (authn.Principal, error) { return auth.DevPrincipal(ctx, email) }
+	}
 	mcpHandler := mcphandler.New(
 		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log),
-		authn.RequiredBearer(auth), log)
-	contentImageHandler := contenthandler.NewImages(contentservice.NewImages(store, log, 2), auth, ratelimit.New(30, time.Minute))
+		authn.RequiredBearerWith(auth, bearer), log)
 	practiceHandler := practicehandler.New(
 		practiceservice.New(contentReader, practicerepository.New(db)), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
@@ -218,16 +228,19 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		health.NewHandler(checker, version, log),
 		authHandler,
 		accessTokenHandler,
+		mcpOAuthHandler,
 		classHandler,
 		moduleHandler,
 		contentHandler,
 		contentAuthorHandler,
 		contentVersionHandler,
 		contentExerciseHandler,
+		contentImageHandler,
 		practiceHandler,
 		ttsHandler,
 		studentHandler,
 	)
+	mcpOAuthHandler.RegisterRoot(engine)
 	mcpHandler.Register(engine)
 	srv := server.New(cfg.HTTPAddr, engine, log)
 
@@ -235,7 +248,6 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	if cancel != nil {
 		defer cancel()
 	}
-		contentImageHandler,
 	if shutdownCtx == nil {
 		shutdownCtx = context.Background()
 	}

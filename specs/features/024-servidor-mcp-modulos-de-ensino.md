@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-024 |
-| **Status** | Aprovada |
+| **Status** | Aprovada (revisão 4 aprovada pelo Tech Lead em 10/10/2026) |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Aruna Architect |
@@ -14,7 +14,7 @@
 | **Prioridade** | Alta |
 | **Depende de** | SPEC-003, SPEC-010, SPEC-011, SPEC-019, SPEC-021, SPEC-022, SPEC-023 (revisão 3: teste do banco de exercícios) |
 | **Substitui** | Nenhuma |
-| **Fontes canônicas** | Pedido do Tech Lead de 10/10/2026 (servidor MCP para o Claude, fluxo completo dos módulos de ensino, acesso só de `ADMIN` e `TEACHER`) e o rascunho de requisitos RF-01 a RF-12 e RNF-01 a RNF-04 anexado ao pedido |
+| **Fontes canônicas** | Especificação de autorização do MCP (OAuth 2.1 com PKCE, RFC 9728, RFC 8414, RFC 7591), pedido do Tech Lead de 10/10/2026 (login automático do cliente MCP) e o pedido original (servidor MCP para o Claude, fluxo completo dos módulos de ensino, acesso só de `ADMIN` e `TEACHER`) e o rascunho de requisitos RF-01 a RF-12 e RNF-01 a RNF-04 anexado ao pedido |
 
 ---
 
@@ -32,13 +32,14 @@ A API REST já cobre todo o fluxo de autoria (SPEC-010, 019, 021, 022, 023). A l
 - Só `ADMIN` e `TEACHER` usam o MCP. `STUDENT` e visitante nunca. `TEACHER` age apenas nos módulos de que é dono; `ADMIN` age em todos.
 - O MCP **não tem regra de negócio própria**: cada ferramenta chama o service existente, então as validações, limites e papéis das specs anteriores valem sem cópia.
 - Respostas e erros são claros e estruturados, para o agente se corrigir sozinho (campo inválido, valor recebido, valor esperado).
-- O acesso é autenticado por token de acesso pessoal, revogável, emitido na interface web.
+- O acesso é autenticado por token de acesso pessoal, revogável. O cliente MCP (Claude Code, Claude Desktop) obtém o token sozinho por login OAuth no navegador (RN-14); emitir manualmente na interface web continua valendo.
 
 ### 2.1. Fora de escopo (Non-Goals)
 
 - Ferramentas para turmas, estudantes, provas, notas e auditoria acadêmica. Turmas ainda não foram implementadas no fluxo de módulos; ficam para spec futura (decisão do Tech Lead, 10/10/2026).
 - Executar comandos de shell no servidor (D-02).
-- Frontend do MCP além de emitir e revogar tokens.
+- Frontend do MCP além de emitir e revogar tokens e da tela de consentimento do login OAuth.
+- Refresh token, escopos por ferramenta e login OAuth de terceiros que não sejam clientes MCP locais (D-12, D-13).
 - Questões teóricas (escolha, verdadeiro/falso, dissertativa): a SPEC-023 trata só das práticas e não há autoria delas na plataforma; ficam para spec futura.
 - Tornar o MCP público ou liberar leitura de conteúdo para estudantes.
 - Novo modelo de ciclo de vida do módulo: vale o das SPEC-010 e SPEC-021.
@@ -52,10 +53,12 @@ Seção "Acesso por agentes (MCP)" no perfil, visível só para `ADMIN` e `TEACH
 
 - lista os tokens do usuário (nome, criado em, último uso, expira em);
 - botão "Criar token": pede um nome e a validade (30, 90 ou 365 dias) e mostra o valor **uma única vez**, com o botão copiar e o trecho de configuração do cliente MCP;
-- botão "Revogar" por token, com confirmação;
+- botão "Revogar" por token, com confirmação (tokens obtidos por login OAuth aparecem na mesma lista, com o nome do cliente);
 - estados: carregando, vazio, erro, sucesso. Textos em português no arquivo de mensagens; chamadas de rede só em `frontend/src/services/`.
 
 ### 3.2. Backend (Go: Camada de Módulo/Service)
+
+**Tela de consentimento (`/oauth/authorize`, RN-14).** Página do frontend, aberta pelo cliente MCP no navegador. Sem sessão, envia para o login e volta. Com sessão de `ADMIN` ou `TEACHER`, mostra o nome do cliente, o que ele poderá fazer (editar rascunhos de módulos, sem publicar) e os botões "Autorizar" e "Negar". `STUDENT` vê mensagem de acesso negado. Textos no arquivo de mensagens; chamadas só em `frontend/src/services/`.
 
 **Transporte (RN-01).** Endpoint MCP no mesmo serviço Go, em `/mcp`, no transporte HTTP com streaming definido pelo protocolo MCP. Fora da árvore `/api/v1` porque não é REST.
 
@@ -84,6 +87,15 @@ Não existem ferramentas de publicar nem de restaurar versão (RN-08).
 
 **Regras de negócio.**
 
+- **RN-14 (login OAuth do cliente MCP):** o backend implementa o fluxo de autorização do MCP (OAuth 2.1, código de autorização com PKCE `S256` obrigatório), para o cliente obter o token sem copiar e colar:
+  - `/mcp` sem token responde 401 com `WWW-Authenticate` apontando para `/.well-known/oauth-protected-resource`; os metadados do servidor de autorização ficam em `/.well-known/oauth-authorization-server`;
+  - o cliente se registra em `/oauth/register` (registro dinâmico), sem credencial; só são aceitos `redirect_uri` de loopback (`http://localhost` e `http://127.0.0.1`, qualquer porta) (D-13);
+  - o navegador abre a tela de consentimento do frontend; ao autorizar, a sessão por cookie da docente emite um código de uso único, válido por 5 minutos e ligado ao cliente, ao `redirect_uri` e ao `code_challenge`;
+  - o cliente troca o código em `/oauth/token` (com `code_verifier`) e recebe um token de acesso pessoal comum, de 30 dias, sem refresh token (D-12), gravado em `access_tokens` com o nome "<cliente> (OAuth)". Ao vencer, o cliente repete o login;
+  - o token nasce do usuário que autorizou e segue as RN-02, RN-03 e RN-08 sem diferença: hash no banco, papel lido a cada chamada, revogável no perfil, sem acesso às rotas de publicar e restaurar;
+  - só `ADMIN` e `TEACHER` autorizam; código usado duas vezes ou vencido é recusado e, no reuso, o token já emitido por ele é revogado;
+  - a emissão de código tem limite de 10 por hora por usuário; o registro e a troca de código, 30 por minuto por IP.
+- **RN-15 (modo local sem login):** com `APP_ENV=development` e `MCP_DEV_USER_EMAIL` definido, o `/mcp` aceita chamadas sem token e age como esse usuário (que deve ser `ADMIN` ou `TEACHER` ativo; papel e posse valem como na RN-03 e RN-05). O servidor **recusa iniciar** se `MCP_DEV_USER_EMAIL` estiver definido em `APP_ENV=production`, e registra um aviso no log a cada inicialização em que o modo estiver ligado. Fora desse modo, vale sempre a autenticação da RN-14. Na tela de consentimento, a docente entra com usuário e senha pelo login existente (sem tela nova de credenciais).
 - **RN-01 (transporte):** o MCP responde só em HTTPS em produção; em desenvolvimento aceita HTTP local.
 - **RN-02 (token de acesso pessoal):** o token é aleatório, com 256 bits de entropia, mostrado uma única vez; o banco guarda só o hash (SHA-256). Validade de 30 a 365 dias. Revogar é imediato.
 - **RN-03 (papéis):** só `ADMIN` e `TEACHER`. Se o papel do usuário mudar ou o usuário for desativado, os tokens dele deixam de valer na hora, porque o papel é lido do usuário a cada chamada, nunca guardado no token.
@@ -117,7 +129,14 @@ Migração nova, `access_tokens`:
 | `revoked_at` | timestamp | Não | | Preenchido ao revogar |
 | `created_at`, `updated_at` | timestamp | Sim | | Auditoria |
 
-Exclusão lógica (o histórico de uso tem valor forense). Tabela nova `module_test_results` (RN-13):
+Exclusão lógica (o histórico de uso tem valor forense). Tabelas novas do login OAuth (RN-14):
+
+| Tabela | Campos | Regra |
+| :--- | :--- | :--- |
+| `oauth_clients` | `id` (uuid v7), `client_name` (até 80), `redirect_uris` (lista), `created_at`, `updated_at` | Cliente registrado dinamicamente; sem segredo |
+| `oauth_authorization_codes` | `id` (uuid v7), `client_id` (FK), `user_id` (FK), `code_hash` (SHA-256, único), `redirect_uri`, `code_challenge`, `expires_at`, `used_at`, `access_token_id` (FK, preenchido na troca), `created_at` | Código de uso único; o valor nunca é gravado |
+
+Tabela nova `module_test_results` (RN-13):
 
 | Campo | Tipo | Obrigatório | Restrições | Descrição / Regra |
 | :--- | :--- | :--- | :--- | :--- |
@@ -167,7 +186,16 @@ O servidor calcula o `content_hash` do que o `kind` cobre no momento do registro
 
 **`POST /api/v1/teacher/modules/{id}/versions` (SPEC-021, alterada):** passa a responder também 409 `module-not-tested` com `missingTests` (RN-13). `GET /api/v1/teacher/modules/{id}/versions` passa a devolver `moduleTestPassed` e `exerciseBankTestPassed` (o resultado mais recente de cada teste está aprovado e vale para o estado atual; o segundo é verdadeiro quando o módulo não tem exercícios), para a tela habilitar o botão Publicar.
 
-**`/mcp` (protocolo MCP):** autenticado por `Authorization: Bearer`. Falhas de autenticação: 401 `invalid-access-token` (token desconhecido, expirado ou revogado) e 403 `forbidden` (papel sem acesso). Dentro do protocolo, os erros de ferramenta seguem a RN-06.
+**Login OAuth (RN-14).** Rotas fora de `/api/v1`, como o `/mcp`:
+
+| Rota | Função |
+| :--- | :--- |
+| `GET /.well-known/oauth-protected-resource` e `GET /.well-known/oauth-authorization-server` | Metadados de descoberta; o `authorization_endpoint` aponta para a tela do frontend |
+| `POST /oauth/register` | Registro dinâmico do cliente; 400 `invalid_redirect_uri` fora do loopback |
+| `POST /api/v1/oauth/authorize` | Por sessão (cookie), `ADMIN` ou `TEACHER`: recebe `client_id`, `redirect_uri`, `code_challenge`, `state` e a decisão; devolve a URL de retorno com o código (ou `access_denied`) |
+| `POST /oauth/token` | Troca `code` + `code_verifier` pelo token; erros no formato OAuth (`invalid_grant`, `invalid_request`, `invalid_client`) |
+
+**`/mcp` (protocolo MCP):** autenticado por `Authorization: Bearer`. Falhas de autenticação: 401 `invalid-access-token`, com o cabeçalho `WWW-Authenticate` da RN-14, (token desconhecido, expirado ou revogado) e 403 `forbidden` (papel sem acesso). Dentro do protocolo, os erros de ferramenta seguem a RN-06.
 
 ## 6. Impacto e Riscos (Impact & Risks)
 
@@ -179,6 +207,8 @@ O servidor calcula o `content_hash` do que o `kind` cobre no momento do registro
 | Conteúdo vindo de fonte não confiável (injeção de instruções no material que o agente lê) induz ações indevidas | Posse por módulo (RN-05), sem ferramenta destrutiva fora do rascunho, auditoria (RN-11) |
 | Regra duplicada entre REST e MCP diverge com o tempo | Adaptadores finos sobre os mesmos services (RN-04); teste que compara a recusa do MCP com a do service |
 | Nova dependência externa (biblioteca MCP) | Aprovada na D-03 |
+| Cliente malicioso se registra e pede consentimento fingindo ser o Claude | Consentimento explícito mostra nome e destino; `redirect_uri` só de loopback; PKCE obrigatório; código curto, de uso único e ligado ao cliente; token revogável no perfil |
+| Código interceptado no redirecionamento | PKCE `S256` e `redirect_uri` fixado no registro |
 | O teste roda no navegador, então o resultado enviado ao servidor é declarado pelo cliente e não prova que o teste rodou | A regra é um **processo de qualidade** da docente, não uma barreira contra ela: só `ADMIN` e o dono registram, o resultado fica ligado ao `content_hash` e ao autor, e o Tech Lead aceita esse limite (D-08) |
 | A RN-13 muda a SPEC-021 (publicar passa a exigir teste) e depende do botão "Testar Banco de Exercícios" da SPEC-023 (revisão 3) | Registrado no histórico; a SPEC-021 recebe uma revisão na implementação; módulos antigos e a carga inicial não são afetados |
 
@@ -204,6 +234,13 @@ Impacto em módulos existentes: nenhum em comportamento; `auth` ganha a validaç
 - [ ] **CA-19** (evento): QUANDO a docente rodar "Testar o módulo" e "Testar Banco de Exercícios" na tela e os dois forem aprovados, O SISTEMA DEVE gravar os resultados e habilitar o botão Publicar.
 - [ ] **CA-20** (indesejado): SE o MCP tentar registrar resultado de teste, ENTÃO O SISTEMA NÃO DEVE oferecer essa operação (sem ferramenta e sem aceitar Bearer na rota).
 - [ ] **CA-21** (estado): ENQUANTO o módulo não tiver exercícios, O SISTEMA NÃO DEVE exigir o teste do banco de exercícios.
+- [ ] **CA-22** (evento): QUANDO o cliente MCP chamar `/mcp` sem token, O SISTEMA DEVE responder 401 com `WWW-Authenticate` apontando para os metadados OAuth, e os metadados DEVEM descrever os endpoints de registro, autorização e token.
+- [ ] **CA-23** (evento): QUANDO `ADMIN` ou `TEACHER` autorizar o cliente na tela de consentimento e o cliente trocar o código com o `code_verifier` correto, O SISTEMA DEVE emitir um token de acesso pessoal de 30 dias, listado no perfil, que funciona em `/mcp`.
+- [ ] **CA-24** (indesejado): SE o código for usado duas vezes, estiver vencido, vier com `code_verifier` ou `redirect_uri` diferente, ENTÃO O SISTEMA DEVE recusar com `invalid_grant` e, no reuso, revogar o token já emitido.
+- [ ] **CA-25** (indesejado): SE o `redirect_uri` do registro não for de loopback, ou `STUDENT` tentar autorizar, ENTÃO O SISTEMA DEVE recusar sem emitir código.
+- [ ] **CA-26** (ubíquo): O SISTEMA NÃO DEVE aceitar o token emitido por OAuth nas rotas REST de publicar e restaurar (CA-13).
+- [ ] **CA-27** (estado): ENQUANTO `APP_ENV=development` e `MCP_DEV_USER_EMAIL` apontar para um `ADMIN` ou `TEACHER` ativo, O SISTEMA DEVE aceitar `/mcp` sem token, agindo como esse usuário.
+- [ ] **CA-28** (indesejado): SE `MCP_DEV_USER_EMAIL` estiver definido com `APP_ENV=production`, ENTÃO O SISTEMA NÃO DEVE iniciar e DEVE informar o motivo; o modo local NUNCA pode estar ativo em produção.
 - [ ] **CA-13a** (evento): QUANDO `validate_module` encontrar problemas, O SISTEMA DEVE listar todos, com caminho do campo.
 - [ ] **CA-14** (evento): QUANDO `archive_module` for chamada, O SISTEMA DEVE impedir novo uso em turmas e preservar turmas e histórico existentes.
 - [ ] **CA-15** (ubíquo): O SISTEMA DEVE registrar no log cada gravação por MCP (usuário, ferramenta, módulo), sem token nem conteúdo.
@@ -214,6 +251,7 @@ Impacto em módulos existentes: nenhum em comportamento; `auth` ganha a validaç
 - **Backend (service `mcp` e `auth`):** unidade com repositories de teste: criação, hash, expiração, revogação e troca de papel (cobre CA-02, CA-03, CA-06, CA-07); posse e `ADMIN` (CA-04, CA-05); tradução de erro do service para RN-06 (CA-10); atomicidade (CA-11); registro em log (CA-15).
 - **Backend (ferramentas):** teste por ferramenta contra services de teste, com o roteador `/mcp` real e `httptest` (CA-01, CA-08, CA-09, CA-12, CA-13a, CA-14); lista de ferramentas sem publicar/restaurar (CA-12); rotas de versão recusam Bearer (CA-13).
 - **Teste do módulo (RN-13):** unidade do service de versões: publicar sem resultado, com resultado reprovado, com resultado de outro `content_hash`, com só um dos dois testes e com os dois válidos; módulo sem exercícios (CA-17, CA-18, CA-21); handler de `test-results` recusando Bearer (CA-20); frontend: botão Publicar desabilitado até o teste passar e habilitado depois (CA-19).
+- **Login OAuth (RN-14):** unidade do service: registro, código de uso único, PKCE correto e errado, vencimento, reuso com revogação, papel `STUDENT`, redirect fora do loopback (CA-24, CA-25); handler com `httptest`: metadados, `WWW-Authenticate` no `/mcp`, troca de código e uso do token emitido no `/mcp` (CA-22, CA-23, CA-26); frontend: tela de consentimento com sessão, sem sessão, `STUDENT`, autorizar e negar. Manual: `claude mcp add --transport http linux-lab http://localhost:8080/mcp` sem cabeçalho e `/mcp` no Claude Code para autenticar.
 - **Repository:** integração com PostgreSQL real (`testcontainers-go`) para `access_tokens` e atomicidade de `replace_content_blocks` (CA-11).
 - **Frontend:** testes de componente da seção do perfil com `fetch` falso: lista, criação com exibição única, revogação, estados de erro e vazio (CA-16).
 - **Manual:** conectar o Claude Code ao `/mcp` com um token de `TEACHER`, criar um módulo com blocos e um exercício por conversa e validar; em seguida, publicar pela tela do sistema (cobre CA-01, CA-08, CA-12).
@@ -223,7 +261,7 @@ Impacto em módulos existentes: nenhum em comportamento; `auth` ganha a validaç
 
 1. **Pré-leitura:** `specs/AI_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `GLOSSARY.md`, SPEC-003, 010, 019, 021, 022, 023 e o código de `backend/internal/platform/authn`, `modules/coursemodule/service`, `modules/content/service`.
 2. **Ordem:** (1) migração e domínio do token; (2) validador de token plugado no `authn`; (3) service e handler REST de tokens; (4) módulo `mcp` com transporte e ferramentas, de leitura para escrita; (5) tela do perfil; (6) glossário.
-3. **Arquivos a criar ou alterar:** `backend/migrations/` (migração de `access_tokens`), `backend/internal/modules/auth/**`, `backend/internal/modules/content/**` (resultado de teste e regra de publicar), tela de edição do módulo (aba Versões e botão Testar), `specs/features/021-...` (revisão), `backend/internal/modules/mcp/**` (novo), `backend/internal/platform/authn/` (aceitar Bearer só na rota `/mcp`; rotas REST seguem só com cookie), `backend/cmd/api/main.go` (composition root), `frontend/src/services/`, componente e mensagens da seção do perfil, `specs/GLOSSARY.md`. Qualquer outro exige justificativa na entrega.
+3. **Arquivos a criar ou alterar:** `backend/migrations/` (migração de `access_tokens`), `backend/internal/modules/auth/**` (inclui o login OAuth), `frontend/src/app/oauth/authorize/` (tela de consentimento), `backend/internal/modules/content/**` (resultado de teste e regra de publicar), tela de edição do módulo (aba Versões e botão Testar), `specs/features/021-...` (revisão), `backend/internal/modules/mcp/**` (novo), `backend/internal/platform/authn/` (aceitar Bearer só na rota `/mcp`; rotas REST seguem só com cookie), `backend/cmd/api/main.go` (composition root), `frontend/src/services/`, componente e mensagens da seção do perfil, `specs/GLOSSARY.md`. Qualquer outro exige justificativa na entrega.
 4. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `ARCHITECTURE.md`, status `Implementada`.
 
 ## 10. Pendências para aprovação
@@ -244,6 +282,10 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | D-08 | O resultado dos testes é declarado pelo navegador da docente (o motor roda lá); o registro guarda autor e hash. Rodar os testes no servidor depende da spec futura da D-02 |
 | D-09 | Publicar e restaurar versão só pela interface; publicar exige o teste do conteúdo e o do banco de exercícios aprovados (RN-08, RN-13) |
 | D-10 | Turmas ficam fora da v1 |
+| D-11 | O login OAuth (RN-14) complementa a D-05: o token continua opaco e o mesmo `access_tokens`; emitir manualmente no perfil segue valendo |
+| D-12 | Sem refresh token: o token OAuth vale 30 dias e o cliente repete o login ao vencer |
+| D-13 | Só clientes MCP locais: `redirect_uri` de loopback; sem escopos por ferramenta |
+| D-14 | Em desenvolvimento o `/mcp` pode rodar sem login, por `MCP_DEV_USER_EMAIL` (RN-15); em produção a autenticação é obrigatória e o servidor não sobe com o modo local ligado |
 
 ---
 
@@ -258,3 +300,5 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | 10/10/2026 | Aruna Architect | Testes de conteúdo e de banco de exercícios obrigatórios para publicar (RN-13, CA-17 a CA-21). Pendências P-01 a P-09 viram decisões D-01 a D-10. Aprovada pelo Tech Lead em 10/10/2026 |
 | 10/10/2026 | Implementador (Claude) | Correção: o módulo não tem vídeo nem links próprios (o vídeo é por bloco, SPEC-019); removidos de `create_module`. Exercícios criados pelo MCP ficam em `DRAFT` e a docente os publica na tela |
 | 10/10/2026 | Implementador (Claude) | `create_module_exercise` é só de exercício prático, em linha com a SPEC-023 (seção 2.1); questões teóricas ficam para spec futura |
+| 10/10/2026 | Implementador (Claude) | Revisão 4, a pedido do Tech Lead: login OAuth do cliente MCP para obter o token sem copiar e colar (RN-14, CA-22 a CA-26, D-11 a D-13) e modo local sem login só em desenvolvimento (RN-15, CA-27, CA-28, D-14). Volta a Rascunho; aguarda aprovação do Tech Lead |
+| 10/10/2026 | Tech Lead | Revisão 4 aprovada (login OAuth e modo local sem login) |

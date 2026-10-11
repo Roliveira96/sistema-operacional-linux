@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AuthContainer } from "./AuthContainer";
+import { AuthContainer, safeNextPath } from "./AuthContainer";
 import { messages } from "@/messages/pt-BR";
 
 vi.mock("next/navigation", () => ({
@@ -145,5 +145,15 @@ describe("AuthContainer", () => {
         role: "STUDENT",
       });
     });
+  });
+});
+
+describe("safeNextPath", () => {
+  it("accepts only local paths", () => {
+    expect(safeNextPath("/oauth/authorize?a=1")).toBe("/oauth/authorize?a=1");
+    expect(safeNextPath("//evil.com")).toBeNull();
+    expect(safeNextPath("/\\evil.com")).toBeNull();
+    expect(safeNextPath("https://evil.com")).toBeNull();
+    expect(safeNextPath(null)).toBeNull();
   });
 });
