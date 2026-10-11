@@ -88,6 +88,35 @@
   color: var(--color-text-secondary);
 }
 
+// The live terminal of the run (SPEC-030 RN-15): a frame of fixed height, with the same look as the study terminal.
+.terminal {
+  height: 24rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+
+  // Selecting and copying the history is the point of keeping it on the screen.
+  user-select: text;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.intro {
+  max-width: 60ch;
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
 .srOnly {
   position: absolute;
   width: 1px;
@@ -151,6 +180,18 @@
   }
 }
 
+.exportBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.copied {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -174,7 +215,8 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 
-  input {
+  input,
+  select {
     min-height: 44px;
     padding: 0 var(--space-3);
     border: 1px solid var(--color-border);
@@ -191,45 +233,125 @@
   color: var(--color-text-secondary);
 }
 
-// The table scrolls inside its own frame so a narrow screen does not overflow.
-.tableWrap {
-  overflow-x: auto;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-
-  @include mixins.focusable;
+// One row per command or program; the row opens to show every case that was run (SPEC-030 RN-13).
+.suites {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.table {
+.suite {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.suiteFailed {
+  border-color: var(--color-danger);
+}
+
+.suiteHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
   width: 100%;
-  border-collapse: collapse;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
 
-  th,
-  td {
-    padding: var(--space-3) var(--space-4);
-    text-align: left;
-    vertical-align: top;
-    border-bottom: 1px solid var(--color-border);
-  }
+  @include mixins.focusable;
 
-  thead th {
-    position: sticky;
-    top: 0;
+  &:hover {
     background: var(--color-surface-raised);
-    color: var(--color-text-secondary);
-    font-weight: var(--font-weight-semibold);
   }
+}
 
-  tbody tr:hover {
-    background: var(--color-surface);
-  }
+.chevron {
+  width: var(--space-4);
+  color: var(--color-text-secondary);
 }
 
 .name {
+  min-width: 8rem;
   font-family: var(--font-mono);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+}
+
+.meta,
+.count {
+  color: var(--color-text-secondary);
+}
+
+.count {
+  margin-left: auto;
+}
+
+.cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.case {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-sm);
+}
+
+.caseHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.command {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.expected {
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.case summary {
+  min-height: 24px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.output {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .ok {
@@ -238,24 +360,4 @@
 
 .fail {
   color: var(--color-danger);
-}
-
-.detail {
-  margin: var(--space-2) 0 0;
-  font-size: var(--font-size-xs);
-
-  dt {
-    color: var(--color-text-secondary);
-  }
-
-  dd {
-    margin: 0 0 var(--space-2);
-    color: var(--color-text-primary);
-    overflow-wrap: anywhere;
-  }
-
-  code {
-    font-family: var(--font-mono);
-    white-space: pre-wrap;
-  }
 }

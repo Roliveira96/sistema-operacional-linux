@@ -103,6 +103,8 @@ Regras:
 | Verificação de conformidade | `EngineConformance` | Execução, pelo administrador e no navegador, de todos os comandos e programas do motor, para conferir se o simulador está íntegro (SPEC-030) | `HealthCheck` | Proposto |
 | Manifesto de conformidade | `ConformanceManifest` | Lista única com uma verificação (item) por comando e por programa; um teste do repositório falha se divergir do catálogo real | `Checklist` | Proposto |
 | Programa (do motor) | `EngineProgram` | Executável em pasta do `PATH` da máquina padrão que não é comando do catálogo, ou que um pacote do `apt` simulado oferece | — | Proposto |
+| Suíte de conformidade | `ConformanceSuite` | Os casos de teste de um comando ou programa, que rodam em ordem na mesma máquina; a verificação tem uma por comando e por programa (SPEC-030) | `TestSet` | Proposto |
+| Caso de conformidade | `ConformanceCase` | Uma linha digitada no terminal com o que se espera dela (código de saída e trecho da saída) (SPEC-030) | `TestCase` (já é de outro assunto) | Proposto |
 
 ## 4. Avaliações e aplicação
 

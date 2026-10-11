@@ -45,6 +45,12 @@ export interface TerminalWindow {
   reset(snapshot: unknown): void;
   /** Resets with the formatting and boot animation of the prototype. */
   resetAnimated(snapshot: unknown): Promise<void>;
+  /**
+   * Puts a fresh machine under the open terminals without clearing them: the screen, with every command typed and what it printed, stays to be read and
+   * copied, and each terminal gets a new session (no variables, aliases or shell history of the machine before). `label` is written on the first terminal
+   * as a mark. A terminal that was closed (exit, logout) cannot be kept, so the window is rebuilt (SPEC-030 RN-16).
+   */
+  swapMachine(snapshot: unknown, label?: string): Promise<void>;
   /** Loads a scenario under the open terminals, keeping their screen and history (CA-10). */
   loadScenario(snapshot: unknown): Promise<void>;
   snapshot(): unknown;
@@ -184,6 +190,37 @@ export async function mountTerminalWindow(
         notify();
         return machine;
       });
+    },
+
+    async swapMachine(state, label) {
+      const first = await window3.obter(1);
+      if (label) first.escrever(`${label}\n`, "c-info");
+      const next = build(state);
+      const internals = window3 as unknown as WindowInternals;
+      if (internals.terminais.some((terminal) => terminal && !terminal.sessao)) {
+        // A closed terminal asks for a login: the only way to open it again is to rebuild the window, which clears it.
+        machine = next;
+        window3.trocarMaquina(machine);
+        notify();
+        return;
+      }
+      for (const terminal of internals.terminais) {
+        if (!terminal) continue;
+        const previous = terminal.sessao;
+        const user = next.contas.usuario(terminal.usuarioAtual() ?? "root") ?? next.contas.usuario("root");
+        terminal.maquina = next;
+        if (user) {
+          const session = next.abrirSessao(user);
+          // What ends the session from the outside (kill, pkill -u) keeps working on the new one.
+          (session as unknown as { aoEncerrar?: unknown }).aoEncerrar = (previous as unknown as { aoEncerrar?: unknown } | null)?.aoEncerrar;
+          terminal.sessao = session as unknown as typeof previous;
+        }
+        terminal.renderizarEntrada();
+      }
+      internals.maquina = next;
+      machine = next;
+      window3.aoMudarTitulo();
+      notify();
     },
 
     async loadScenario(state) {
