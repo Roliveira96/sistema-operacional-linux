@@ -21,9 +21,9 @@ const allowedDevOrigins = (process.env.FRONTEND_ALLOWED_DEV_ORIGINS ?? "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-// SPEC-014 and SPEC-016: the frontend reuses the legacy POSIX/VFS engine and
+// SPEC-014 and SPEC-016: the frontend reuses the POSIX/VFS engine core and
 // the terminal window of the prototype read-only. The
-// alias points at legacy/src; only src/engine/ may import it.
+// alias points at src/engine/core; only src/engine/ may import it.
 const monorepoRoot = path.resolve(process.cwd(), "..");
 
 const nextConfig: NextConfig = {
@@ -32,17 +32,17 @@ const nextConfig: NextConfig = {
     root: monorepoRoot,
     // Exact aliases: src/engine/ imports only these two entry points of the engine.
     resolveAlias: {
-      "@legacy-engine/linux/Serializador": "../legacy/src/linux/Serializador.ts",
-      "@legacy-engine/linux/Maquina": "../legacy/src/linux/Maquina.ts",
-      "@legacy-engine/linux/Pacotes": "../legacy/src/linux/Pacotes.ts",
-      "@legacy-engine/shell/Shell": "../legacy/src/shell/Shell.ts",
-      "@legacy-engine/shell/Saida": "../legacy/src/shell/Saida.ts",
-      "@legacy-engine/shell/comandos/Processos": "../legacy/src/shell/comandos/Processos.ts",
-      "@legacy-engine/terminal/JanelaDeTerminais": "../legacy/src/terminal/JanelaDeTerminais.ts",
-      "@legacy-engine/app/ArmazemDeMaquinas": "../legacy/src/app/ArmazemDeMaquinas.ts",
-      "@legacy-engine/app/ColaDeComandos": "../legacy/src/app/ColaDeComandos.ts",
-      "@legacy-engine/conteudo/CatalogoDeTopicos": "../legacy/src/conteudo/CatalogoDeTopicos.ts",
-      "@legacy-engine/estilos/terminal.css": "../legacy/src/estilos/terminal.css",
+      "@engine-core/linux/Serializador": "./src/engine/core/linux/Serializador.ts",
+      "@engine-core/linux/Maquina": "./src/engine/core/linux/Maquina.ts",
+      "@engine-core/linux/Pacotes": "./src/engine/core/linux/Pacotes.ts",
+      "@engine-core/shell/Shell": "./src/engine/core/shell/Shell.ts",
+      "@engine-core/shell/Saida": "./src/engine/core/shell/Saida.ts",
+      "@engine-core/shell/comandos/Processos": "./src/engine/core/shell/comandos/Processos.ts",
+      "@engine-core/terminal/JanelaDeTerminais": "./src/engine/core/terminal/JanelaDeTerminais.ts",
+      "@engine-core/app/ArmazemDeMaquinas": "./src/engine/core/app/ArmazemDeMaquinas.ts",
+      "@engine-core/app/ColaDeComandos": "./src/engine/core/app/ColaDeComandos.ts",
+      "@engine-core/conteudo/CatalogoDeTopicos": "./src/engine/core/conteudo/CatalogoDeTopicos.ts",
+      "@engine-core/estilos/terminal.css": "./src/engine/core/estilos/terminal.css",
     },
   },
   allowedDevOrigins,

@@ -5,8 +5,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
-      // SPEC-014: read-only legacy engine, used only by src/engine/.
-      "@legacy-engine": path.resolve(import.meta.dirname, "../legacy/src"),
+      // SPEC-034: the POSIX/VFS engine core, used only by src/engine/.
+      "@engine-core": path.resolve(import.meta.dirname, "./src/engine/core"),
     },
   },
   test: {

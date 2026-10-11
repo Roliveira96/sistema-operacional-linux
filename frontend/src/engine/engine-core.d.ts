@@ -1,17 +1,17 @@
-// Typed boundary of the legacy POSIX/VFS engine (SPEC-014). The engine lives
-// in legacy/src and keeps its Portuguese identifiers; these declarations list
+// Typed boundary of the POSIX/VFS engine core (SPEC-014, SPEC-034). The engine lives
+// in src/engine/core and keeps its Portuguese identifiers; these declarations list
 // only what src/engine/ uses, so the frontend type check does not compile the
-// whole legacy code base with the stricter frontend settings.
+// whole engine core with the stricter frontend settings.
 
-declare module "@legacy-engine/linux/Contas" {
+declare module "@engine-core/linux/Contas" {
   export interface Usuario {
     nome: string;
     uid: number;
   }
 }
 
-declare module "@legacy-engine/linux/Sessao" {
-  import type { Usuario } from "@legacy-engine/linux/Contas";
+declare module "@engine-core/linux/Sessao" {
+  import type { Usuario } from "@engine-core/linux/Contas";
   export interface Sessao {
     atual(): { usuario: Usuario; cwd: string };
     caminhoCurto(): string;
@@ -19,9 +19,9 @@ declare module "@legacy-engine/linux/Sessao" {
   }
 }
 
-declare module "@legacy-engine/linux/Maquina" {
-  import type { Usuario } from "@legacy-engine/linux/Contas";
-  import type { Sessao } from "@legacy-engine/linux/Sessao";
+declare module "@engine-core/linux/Maquina" {
+  import type { Usuario } from "@engine-core/linux/Contas";
+  import type { Sessao } from "@engine-core/linux/Sessao";
   export class Maquina {
     hostname: string;
     /** The file system: only what the window needs to know about a folder. */
@@ -34,8 +34,8 @@ declare module "@legacy-engine/linux/Maquina" {
   }
 }
 
-declare module "@legacy-engine/linux/Serializador" {
-  import type { Maquina } from "@legacy-engine/linux/Maquina";
+declare module "@engine-core/linux/Serializador" {
+  import type { Maquina } from "@engine-core/linux/Maquina";
   export class Serializador {
     static paraJson(maquina: Maquina): unknown;
     static deJson(json: unknown): Maquina;
@@ -43,8 +43,8 @@ declare module "@legacy-engine/linux/Serializador" {
 }
 
 // SPEC-016: the terminal window of the prototype and the cheat sheet.
-declare module "@legacy-engine/terminal/JanelaDeTerminais" {
-  import type { Maquina } from "@legacy-engine/linux/Maquina";
+declare module "@engine-core/terminal/JanelaDeTerminais" {
+  import type { Maquina } from "@engine-core/linux/Maquina";
 
   export interface TerminalUbuntu {
     readonly numero: number;
@@ -69,32 +69,32 @@ declare module "@legacy-engine/terminal/JanelaDeTerminais" {
   }
 }
 
-declare module "@legacy-engine/app/ArmazemDeMaquinas" {
-  import type { Maquina } from "@legacy-engine/linux/Maquina";
+declare module "@engine-core/app/ArmazemDeMaquinas" {
+  import type { Maquina } from "@engine-core/linux/Maquina";
   export class ArmazemDeMaquinas {
     static baixar(maquina: Maquina, nome: string): void;
     static importar(): Promise<Maquina>;
   }
 }
 
-declare module "@legacy-engine/conteudo/CatalogoDeTopicos" {
+declare module "@engine-core/conteudo/CatalogoDeTopicos" {
   export class CatalogoDeTopicos {
     listar(): unknown[];
   }
 }
 
-declare module "@legacy-engine/app/ColaDeComandos" {
+declare module "@engine-core/app/ColaDeComandos" {
   export class ColaDeComandos {
     static html(topicos: unknown[]): string;
   }
 }
 
-declare module "@legacy-engine/estilos/terminal.css" {
+declare module "@engine-core/estilos/terminal.css" {
   const stylesheet: string;
   export default stylesheet;
 }
 
-declare module "@legacy-engine/shell/Shell" {
+declare module "@engine-core/shell/Shell" {
   /** The help of a command (SPEC-027), as the tests of the engine read it. */
   export interface AjudaDoComando {
     uso: string;
@@ -119,7 +119,7 @@ declare module "@legacy-engine/shell/Shell" {
   }
 }
 
-declare module "@legacy-engine/shell/Saida" {
+declare module "@engine-core/shell/Saida" {
   /** Where a command prints: the terminal, a file (>) or the next command of a pipe (|). */
   export class SaidaEmTexto {
     texto: string;
@@ -130,7 +130,7 @@ declare module "@legacy-engine/shell/Saida" {
   }
 }
 
-declare module "@legacy-engine/shell/comandos/Processos" {
+declare module "@engine-core/shell/comandos/Processos" {
   /** One line of ps: a system process, a service, an SSH session or a user command. */
   export interface LinhaDeProcesso {
     pid: number;
@@ -148,7 +148,7 @@ declare module "@legacy-engine/shell/comandos/Processos" {
   export function listarProcessos(maquina: unknown): LinhaDeProcesso[];
 }
 
-declare module "@legacy-engine/linux/Pacotes" {
+declare module "@engine-core/linux/Pacotes" {
   /** A package of the simulated apt: `programas` are "bin/name" or "sbin/name". */
   export interface Pacote {
     nome: string;

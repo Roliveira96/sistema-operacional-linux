@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Shell, type ComandoDoSimulador } from "@legacy-engine/shell/Shell";
+import { Shell, type ComandoDoSimulador } from "@engine-core/shell/Shell";
 import { mountTerminalWindow, type TerminalWindow } from "./terminalWindow";
 
 // The first mount loads the whole legacy engine, which is slow when the machine is busy.

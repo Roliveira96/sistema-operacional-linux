@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="legacy/public/utfpr-logo.svg" alt="UTFPR" width="280" />
+<img src="docs/assets/utfpr-logo.svg" alt="UTFPR" width="280" />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<img src="legacy/public/tsi.png" alt="TSI UTFPR" width="130" />
+<img src="docs/assets/tsi.png" alt="TSI UTFPR" width="130" />
 
 <br/>
 
@@ -76,33 +76,15 @@ Diploma emitido com padrão gráfico institucional nas cores oficiais da UTFPR (
 
 ### Execução Local e na Rede
 
-O simulador fica em `legacy/` e todos os comandos abaixo rodam dentro dessa pasta.
+O simulador (o motor POSIX/VFS e o terminal) foi incorporado ao frontend em `frontend/src/engine/` (SPEC-034); a pasta `legacy/` não existe mais e o simulador original continua no histórico do Git, antes do commit que a removeu.
 
 ```bash
-# 0. Entrar no diretório do simulador
-cd legacy
-
-# 1. Instalar dependências
+cd frontend
 npm install
-
-# 2. Iniciar servidor de desenvolvimento (acessível via localhost e IP da rede)
 npm run dev
 ```
 
-Acesse no navegador:
-- Localmente: **http://localhost:5173**
-- Pelo IP da rede local (ex.): **http://192.168.3.111:5173**
-- Modelo de certificado oficial direto: **http://localhost:5173/certificado-exemplo.html**
-
-### Testes Automatizados (752 Testes)
-
-```bash
-# Dentro de legacy/: executa toda a suíte de testes (validações oficiais e formas alternativas)
-npm test
-
-# Executa build de produção com verificação rigorosa de tipos TypeScript
-npm run build
-```
+Testes: `npm test` e, para conferir todos os comandos do terminal, a tela de conformidade em `/app/admin/conformidade` (entra como administrador).
 
 ---
 
@@ -133,7 +115,6 @@ Na branch `projeto-tcc2`, o projeto evolui para uma plataforma cliente-servidor 
 | `specs/` | Governança: instruções para IAs, arquitetura, glossário, template e specs numeradas em `specs/features/` |
 | `backend/` | Serviço em Go (em construção) |
 | `frontend/` | Aplicação Next.js (em construção) |
-| `legacy/` | Simulador client-side original descrito neste README |
 | `docs/` | Arquitetura da transição, monografia e capturas de tela |
 
 Antes de contribuir, leia [`specs/AI_INSTRUCTIONS.md`](specs/AI_INSTRUCTIONS.md).
@@ -177,12 +158,7 @@ set -a && . ../.env && set +a
 go run ./cmd/seed   # idempotente: pode rodar de novo sem duplicar nem sobrescrever edições da docente
 ```
 
-Para regenerar o manifesto a partir do legado (SPEC-005):
-
-```bash
-cd legacy
-npx vitest run --config vitest.extract.config.ts scripts/extract/extract.run.ts
-```
+O gerador do manifesto a partir do simulador original (SPEC-005) saiu junto com `legacy/`; o manifesto já gerado fica no repositório e o gerador está no histórico do Git.
 
 Testes e verificações:
 
@@ -199,7 +175,7 @@ cd frontend && npm test && npm run lint && npm run typecheck
 O projeto foi arquitetado em **TypeScript puro**, sem dependência de emuladores pesados ou WebAssembly, funcionando com alta fidelidade às chamadas POSIX:
 
 ```
-legacy/src/
+frontend/src/engine/core/
 ├── linux/              ← O "Kernel" Virtual
 │   ├── No.ts               Arquivo, Diretorio, ArquivoGerado (/etc/passwd, shadow), Buraco (/dev/null)
 │   ├── SistemaDeArquivos.ts Resolução de caminhos (/, ./, ../, ~) e checagem de permissões rwx

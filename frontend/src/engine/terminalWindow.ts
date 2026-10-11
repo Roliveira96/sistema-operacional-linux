@@ -69,8 +69,8 @@ export interface TerminalWindow {
 /** Cheat sheet of the prototype ("Cola"), as HTML. */
 export async function cheatSheetHtml(): Promise<string> {
   const [{ ColaDeComandos }, { CatalogoDeTopicos }] = await Promise.all([
-    import("@legacy-engine/app/ColaDeComandos"),
-    import("@legacy-engine/conteudo/CatalogoDeTopicos"),
+    import("@engine-core/app/ColaDeComandos"),
+    import("@engine-core/conteudo/CatalogoDeTopicos"),
   ]);
   return ColaDeComandos.html(new CatalogoDeTopicos().listar());
 }
@@ -100,12 +100,12 @@ export async function mountTerminalWindow(
   callbacks: TerminalWindowCallbacks,
 ): Promise<TerminalWindow> {
   const [{ Maquina }, { Serializador }, { JanelaDeTerminais }, { ArmazemDeMaquinas }, { Shell }] = await Promise.all([
-    import("@legacy-engine/linux/Maquina"),
-    import("@legacy-engine/linux/Serializador"),
-    import("@legacy-engine/terminal/JanelaDeTerminais"),
-    import("@legacy-engine/app/ArmazemDeMaquinas"),
-    import("@legacy-engine/shell/Shell"),
-    import("@legacy-engine/estilos/terminal.css"),
+    import("@engine-core/linux/Maquina"),
+    import("@engine-core/linux/Serializador"),
+    import("@engine-core/terminal/JanelaDeTerminais"),
+    import("@engine-core/app/ArmazemDeMaquinas"),
+    import("@engine-core/shell/Shell"),
+    import("@engine-core/estilos/terminal.css"),
   ]);
   // SPEC-028: the commands the engine does not have yet are registered by the adapter, without touching legacy/.
   registerEngineCommands(Shell.obterRegistro() as unknown as CommandRegistry);
