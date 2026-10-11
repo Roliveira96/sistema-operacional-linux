@@ -17,8 +17,9 @@ function fakeWindow(answers: Record<string, Answer> = {}) {
     if (answer === "throw") throw new Error("engine down");
     return answer;
   });
-  const win = { setSpeed: vi.fn(), swapMachine, snapshot: () => ({}), destroy, execute } as unknown as TerminalWindow;
-  return { win, ran, destroy, execute, swapMachine };
+  const setInstant = vi.fn();
+  const win = { setSpeed: vi.fn(), setInstant, swapMachine, snapshot: () => ({}), destroy, execute } as unknown as TerminalWindow;
+  return { win, ran, destroy, execute, swapMachine, setInstant };
 }
 
 const suite = (over: Partial<ConformanceSuite> = {}, cases: ConformanceCase[] = [{ command: "ls" }]): ConformanceSuite => ({ name: "ls", kind: "command", group: "arquivos", cases, ...over });
@@ -170,5 +171,30 @@ describe("runConformance", () => {
     expect(onProgress).toHaveBeenNthCalledWith(2, { done: 1, total: 4, current: "ls" });
     expect(onProgress).toHaveBeenNthCalledWith(3, { done: 2, total: 4, current: "pwd --help" });
     expect(onProgress).toHaveBeenLastCalledWith({ done: 4, total: 4, current: "" });
+  });
+
+  // Covers SPEC-032 CA-02, RN-01: the quick mode is handed to the window before anything runs, and only when asked for.
+  it("turns the quick mode on in the window only when it is asked for", async () => {
+    const quick = run([suite()], {}, { instant: true });
+    await quick.report;
+    expect(quick.fake.setInstant).toHaveBeenCalledWith(true);
+    const slow = run([suite()]);
+    await slow.report;
+    expect(slow.fake.setInstant).toHaveBeenCalledWith(false);
+  });
+
+  // Covers SPEC-030 RN-21: an aborted run stops at the next case, closes its window and rejects, so it does not go on beside the next one.
+  it("stops at the next case when it is aborted and closes the window", async () => {
+    const abort = new AbortController();
+    const fake = fakeWindow({});
+    fake.execute.mockImplementation(async (step: TerminalStep) => {
+      fake.ran.push(step.command);
+      if (step.command === "ls -a") abort.abort();
+      return { status: 0, output: "Uso: " };
+    });
+    const promise = runConformance({ suites: [suite({}, [{ command: "ls -a" }, { command: "ls -l" }])], mount: async () => fake.win, signal: abort.signal });
+    await expect(promise).rejects.toThrow();
+    expect(fake.ran).not.toContain("ls -l");
+    expect(fake.destroy).toHaveBeenCalled();
   });
 });

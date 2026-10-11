@@ -617,6 +617,7 @@ export const messages = {
     onlyFailures: "Só falhas",
     searchLabel: "Buscar por comando ou caso",
     downloadTerminal: "Baixar o terminal (.txt)",
+    quickMode: "Modo rápido (sem animação de digitação)",
     downloadAll: "Baixar todos os comandos (.txt)",
     downloadFailures: "Baixar só as falhas (.txt)",
     copyAll: "Copiar todos os comandos",

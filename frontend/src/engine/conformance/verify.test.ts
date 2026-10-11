@@ -17,6 +17,7 @@ describe("verifyEngine", () => {
       expect(document.body.contains(host)).toBe(true);
       return {
         setSpeed: () => {},
+        setInstant: () => {},
         swapMachine: async () => {},
         snapshot: () => ({}),
         destroy: () => {},
@@ -47,6 +48,7 @@ describe("verifyEngine with a place on the screen", () => {
       element.appendChild(document.createElement("span"));
       return {
         setSpeed: (value: number) => speeds.push(value),
+        setInstant: () => {},
         swapMachine: async () => {},
         snapshot: () => ({}),
         destroy: destroyed,

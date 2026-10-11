@@ -34,6 +34,8 @@ export function EngineConformance({
   // Nothing runs when the screen opens: the administrator chooses to start (CA-03). `run` counts the runs, and zero is none yet.
   const [state, setState] = useState<State>({ phase: "idle" });
   const [run, setRun] = useState(0);
+  // The quick mode (SPEC-032): off by default, fixed while the verification runs.
+  const [quick, setQuick] = useState(false);
   const [onlyFailures, setOnlyFailures] = useState(true);
   const [search, setSearch] = useState("");
   // The terminal is drawn here, in front of the administrator, while the cases run, always at the fastest speed and with the typing animation on (RN-15).
@@ -43,19 +45,27 @@ export function EngineConformance({
   useEffect(() => {
     if (run === 0) return;
     let active = true;
+    // Leaving the screen, or the double run of React in development, aborts the run: two runs at once share the engine and fail each other (RN-21).
+    const abort = new AbortController();
     verify((progress) => active && setState({ phase: "running", progress }), {
       host: terminal.current ?? undefined,
+      instant: quick,
+      signal: abort.signal,
       onWindow: (win) => {
-        opened.current = win;
+        // A run that was aborted while it mounted must not take the place of the current window.
+        if (active) opened.current = win;
       },
     })
       .then((report) => active && setState({ phase: "done", report }))
       .catch((error: unknown) => active && setState({ phase: "error", reason: error instanceof Error ? error.message : String(error) }));
     return () => {
       active = false;
+      abort.abort();
       opened.current?.destroy();
       opened.current = null;
     };
+    // `quick` is read when a run starts; changing it later (the option is locked while running) must not restart the run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verify, run]);
 
   const again = () => {
@@ -72,11 +82,17 @@ export function EngineConformance({
           </h1>
           <p className={styles.subtitle}>{c.subtitle}</p>
         </div>
+        <div className={styles.runBar}>
+          <label className={styles.check}>
+            <input type="checkbox" checked={quick} disabled={state.phase === "running"} onChange={(event) => setQuick(event.target.checked)} />
+            {c.quickMode}
+          </label>
         {state.phase !== "idle" && (
           <Button variant="secondary" onClick={again} disabled={state.phase === "running"}>
             {c.runAgain}
           </Button>
         )}
+        </div>
       </header>
       {state.phase === "idle" && (
         <div className={styles.stack}>

@@ -16,6 +16,10 @@ export interface VerifyOptions {
   host?: HTMLElement;
   /** Gets the window when it opens. With a place on the screen the window stays open after the run, and whoever opened the screen closes it. */
   onWindow?: (win: TerminalWindow) => void;
+  /** The quick mode: no typing animation and no pauses; the results are the same (SPEC-032). */
+  instant?: boolean;
+  /** Aborts the run (SPEC-030 RN-21). */
+  signal?: AbortSignal;
 }
 
 /**
@@ -40,6 +44,8 @@ export async function verifyEngine(onProgress?: (progress: ConformanceProgress) 
         return win;
       },
       keepWindow: !own,
+      instant: options.instant,
+      signal: options.signal,
       onProgress,
     });
   } finally {

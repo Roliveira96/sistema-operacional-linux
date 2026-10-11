@@ -282,6 +282,23 @@ describe("EngineConformance", () => {
     expect(screen.getByText("ls -la")).toBeInTheDocument();
   });
 
+  // Covers SPEC-032 CA-01, CA-04: the quick mode is off by default, goes to the run when chosen, and is locked while it runs.
+  it("offers the quick mode, off by default, and locks it while the verification runs", async () => {
+    let finish: (value: ConformanceReport) => void = () => {};
+    const verify = vi.fn((...args: [unknown?, VerifyOptions?]) => new Promise<ConformanceReport>((resolve) => ((finish = resolve), void args)));
+    render(<EngineConformance verify={verify as never} />);
+    const quick = screen.getByRole("checkbox", { name: "Modo rápido (sem animação de digitação)" });
+    expect(quick).toHaveProperty("checked", false);
+    fireEvent.click(quick);
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar a verificação" }));
+    await waitFor(() => expect(verify).toHaveBeenCalledTimes(1));
+    expect(verify.mock.calls[0]![1]?.instant).toBe(true);
+    expect(quick).toHaveProperty("disabled", true);
+    finish(report([suite("ls", [ok("ls")])]));
+    await screen.findByText("Em conformidade");
+    expect(quick).toHaveProperty("disabled", false);
+  });
+
   it("does not show a late result after it is closed", async () => {
     let finish: (value: ConformanceReport) => void = () => {};
     const { unmount } = view(<EngineConformance verify={() => new Promise((resolve) => (finish = resolve))} />);

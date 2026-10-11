@@ -41,6 +41,8 @@ export interface TerminalWindow {
   /** Like run, and also gives what the command printed, to show the error of a command that failed. */
   execute(step: TerminalStep): Promise<CommandResult>;
   setSpeed(speed: number): void;
+  /** With true, a command is sent at once, without the typing and its pauses; the output, the status and the machine are the same (SPEC-032). */
+  setInstant(on: boolean): void;
   /** Replaces the machine at once and reopens the root terminal. */
   reset(snapshot: unknown): void;
   /** Resets with the formatting and boot animation of the prototype. */
@@ -134,12 +136,19 @@ export async function mountTerminalWindow(
     } | null;
     usuarioAtual(): string | null;
     renderizarEntrada(): void;
+    estado: string;
+    buffer: string;
+    cursor: number;
+    emAutomacao: boolean;
+    respostasAutomaticas: string[];
+    enviarComando(): Promise<void>;
   }
   interface WindowInternals {
     maquina: typeof machine;
     terminais: Array<TerminalInternals | null>;
   }
 
+  let instant = false;
   const execute = async (step: TerminalStep): Promise<CommandResult> => {
       const login = step.login ? { usuario: step.login.user, senha: step.login.password } : undefined;
       const terminal = (await window3.obter(step.terminal ?? 1, login)) as unknown as TerminalInternals & {
@@ -156,7 +165,21 @@ export async function mountTerminalWindow(
         original.call(terminal, text, className);
       };
       try {
-        await terminal.executarAutomatico(step.command, step.answers ?? []);
+        if (instant && terminal.estado === "comando") {
+          // What executarAutomatico does without the typing and the pauses: the line goes to the buffer and is sent (SPEC-032 RN-01).
+          terminal.emAutomacao = true;
+          terminal.respostasAutomaticas = (step.answers ?? []).slice();
+          terminal.buffer = step.command;
+          terminal.cursor = step.command.length;
+          try {
+            await terminal.enviarComando();
+          } finally {
+            terminal.respostasAutomaticas = [];
+            terminal.emAutomacao = false;
+          }
+        } else {
+          await terminal.executarAutomatico(step.command, step.answers ?? []);
+        }
       } finally {
         terminal.escrever = original;
       }
@@ -176,6 +199,10 @@ export async function mountTerminalWindow(
 
     setSpeed(speed) {
       window3.definirVelocidade(speed);
+    },
+
+    setInstant(on) {
+      instant = on;
     },
 
     reset(state) {

@@ -30,9 +30,16 @@ export interface RunOptions {
   /** The speed of the typing, asked before every case. Defaults to the fastest, which is what the screen uses (SPEC-030 RN-15). */
   speed?(): number;
   timeoutMs?: number;
+  /** Sends every line at once, without the typing animation and its pauses (SPEC-032). */
+  instant?: boolean;
+  /** Stops the run at the next case when it is aborted, so a run nobody is watching (the screen was left or opened twice) does not go on sharing the engine with the next one. */
+  signal?: AbortSignal;
 }
 
 class Timeout extends Error {}
+
+/** The run was aborted: the window is closed and the caller drops the result. */
+export class Aborted extends Error {}
 
 async function within<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -58,7 +65,8 @@ type Log = (text: string) => void;
 /** One command in the transcript: the line typed, the whole output and the status. */
 const entry = (command: string, output: string, status: string): string => `$ ${command}\n${output}${output === "" || output.endsWith("\n") ? "" : "\n"}[${status}]\n\n`;
 
-async function runCase(win: TerminalWindow, test: ConformanceCase, timeoutMs: number, speed: () => number, log: Log): Promise<CaseResult> {
+async function runCase(win: TerminalWindow, test: ConformanceCase, timeoutMs: number, speed: () => number, log: Log, signal?: AbortSignal): Promise<CaseResult> {
+  if (signal?.aborted) throw new Aborted();
   const expectedCode = test.code === undefined ? 0 : test.code;
   const expected = [`status ${expectedCode === null ? "none (the terminal closes)" : expectedCode}`, test.expect ? `output has "${test.expect}"` : "", test.reject ? `output has not "${test.reject}"` : ""]
     .filter(Boolean)
@@ -77,14 +85,14 @@ async function runCase(win: TerminalWindow, test: ConformanceCase, timeoutMs: nu
 }
 
 /** A setup step that fails or never ends fails the suite: it is recorded, and the cases that could not run are recorded as failed (RN-06). */
-async function runSuite(win: TerminalWindow, snapshot: unknown, suite: ConformanceSuite, timeoutMs: number, speed: () => number, log: Log, tick: (command: string, index: number) => void): Promise<SuiteResult> {
+async function runSuite(win: TerminalWindow, snapshot: unknown, suite: ConformanceSuite, timeoutMs: number, speed: () => number, log: Log, tick: (command: string, index: number) => void, signal?: AbortSignal): Promise<SuiteResult> {
   // The terminal keeps its screen and history from one suite to the next (RN-16); only the machine underneath is replaced.
   await win.swapMachine(snapshot, mark(suite));
   log(`${mark(suite)}\n\n`);
   const all = casesOf(suite);
   for (const entry of ["cd /tmp/lab", ...(suite.setup ?? [])]) {
     const { command, answers } = typeof entry === "string" ? { command: entry, answers: undefined } : entry;
-    const result = await runCase(win, { command, answers }, timeoutMs, speed, log);
+    const result = await runCase(win, { command, answers }, timeoutMs, speed, log, signal);
     if (!result.passed) {
       const blocked = all.map((test) => ({ command: test.command, passed: false, status: null, output: "", truncated: false, expected: "not run: the setup failed" }));
       return { suite, passed: false, cases: [{ ...result, expected: `setup: ${result.expected}` }, ...blocked] };
@@ -93,7 +101,7 @@ async function runSuite(win: TerminalWindow, snapshot: unknown, suite: Conforman
   const cases: CaseResult[] = [];
   for (const test of all) {
     tick(test.command, cases.length);
-    cases.push(await runCase(win, test, timeoutMs, speed, log));
+    cases.push(await runCase(win, test, timeoutMs, speed, log, signal));
   }
   return { suite, passed: cases.every((result) => result.passed), cases };
 }
@@ -110,6 +118,7 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
   const win = await options.mount();
   let kept = false;
   try {
+    win.setInstant(Boolean(options.instant));
     for (const command of LAB_SETUP) await win.execute({ command });
     const snapshot = win.snapshot();
     const suites: SuiteResult[] = [];
@@ -117,7 +126,7 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
     const log: Log = (text) => transcript.push(text);
     let done = 0;
     for (const suite of options.suites) {
-      suites.push(await runSuite(win, snapshot, suite, timeoutMs, speed, log, (command, index) => options.onProgress?.({ done: done + index, total, current: command })));
+      suites.push(await runSuite(win, snapshot, suite, timeoutMs, speed, log, (command, index) => options.onProgress?.({ done: done + index, total, current: command }), options.signal));
       done += casesOf(suite).length;
     }
     options.onProgress?.({ done, total, current: "" });
