@@ -1,3 +1,4 @@
+import { mostrarAjuda, mostrarManual, type AjudaDoComando } from '../Ajuda';
 import { Comando } from '../Comando';
 import type { Contexto } from '../Contexto';
 import type { RegistroDeComandos } from '../RegistroDeComandos';
@@ -5,6 +6,11 @@ import type { RegistroDeComandos } from '../RegistroDeComandos';
 export class Clear extends Comando {
   public readonly nome: string = 'clear';
   public readonly resumo: string = 'limpa a tela (atalho: Ctrl+L)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'clear',
+    descricao: 'Limpa a tela do terminal. O atalho Ctrl+L faz o mesmo.',
+    exemplos: [['clear', 'limpa a tela']],
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     contexto.interacao.limparTela();
@@ -15,6 +21,16 @@ export class Clear extends Comando {
 export class History extends Comando {
   public readonly nome: string = 'history';
   public readonly resumo: string = 'lista os comandos digitados (setas ↑ ↓ navegam por eles; -c limpa)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'history [-c]',
+    descricao: 'Lista os comandos que você digitou neste terminal, numerados.',
+    opcoes: [['-c', 'apaga o histórico']],
+    exemplos: [
+      ['history', 'lista os comandos digitados'],
+      ['history | grep apt', 'procura no histórico os comandos com apt'],
+      ['history -c', 'apaga o histórico'],
+    ],
+  };
   public readonly embutido: boolean = true;
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -31,6 +47,16 @@ export class History extends Comando {
 export class Hostname extends Comando {
   public readonly nome: string = 'hostname';
   public readonly resumo: string = 'mostra o nome da máquina (-I mostra o IP)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'hostname [-I]',
+    descricao: 'Mostra o nome desta máquina na rede.',
+    opcoes: [['-I', 'mostra o endereço IP em vez do nome']],
+    exemplos: [
+      ['hostname', 'mostra o nome da máquina'],
+      ['hostname -I', 'mostra o endereço IP'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     contexto.linha(args[0] === '-I' ? '192.168.0.10' : contexto.maquina.hostname);
@@ -41,6 +67,11 @@ export class Hostname extends Comando {
 export class Date_ extends Comando {
   public readonly nome: string = 'date';
   public readonly resumo: string = 'mostra data e hora';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'date',
+    descricao: 'Mostra a data e a hora atuais do sistema.',
+    exemplos: [['date', 'mostra a data e a hora de agora']],
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     const agora: Date = new Date();
@@ -56,6 +87,22 @@ export class Date_ extends Comando {
 export class Uname extends Comando {
   public readonly nome: string = 'uname';
   public readonly resumo: string = 'informações do sistema (-a tudo)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'uname [-a] [-s] [-n] [-r] [-m] [-o]',
+    descricao: 'Mostra informações sobre o sistema. Sem opções, mostra só o nome do kernel.',
+    opcoes: [
+      ['-a', 'mostra tudo'],
+      ['-s', 'nome do kernel (Linux)'],
+      ['-n', 'nome da máquina'],
+      ['-r', 'versão do kernel'],
+      ['-m', 'arquitetura do processador'],
+      ['-o', 'nome do sistema operacional'],
+    ],
+    exemplos: [
+      ['uname -a', 'mostra todas as informações'],
+      ['uname -r', 'mostra a versão do kernel'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args.includes('-a')) {
@@ -76,6 +123,11 @@ export class Uname extends Comando {
 export class Who extends Comando {
   public readonly nome: string = 'who';
   public readonly resumo: string = 'mostra quem está logado (cada terminal aberto é uma sessão SSH)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'who',
+    descricao: 'Mostra quem está conectado ao servidor: usuário, terminal, hora da conexão e endereço de origem.',
+    exemplos: [['who', 'lista as sessões abertas']],
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     const agora: Date = new Date();
@@ -93,6 +145,14 @@ export class Ajuda extends Comando {
   public readonly nome: string = 'help';
   public readonly resumo: string = 'lista os comandos disponíveis no simulador';
   public readonly embutido: boolean = true;
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'help [COMANDO]',
+    descricao: 'Sem argumentos, lista os comandos do simulador. Com um COMANDO, mostra a ajuda daquele comando.',
+    exemplos: [
+      ['help', 'lista os comandos disponíveis'],
+      ['help ls', 'mostra a ajuda do ls'],
+    ],
+  };
   private readonly registro: RegistroDeComandos;
 
   constructor(registro: RegistroDeComandos) {
@@ -100,8 +160,18 @@ export class Ajuda extends Comando {
     this.registro = registro;
   }
 
-  public async executar(_args: string[], contexto: Contexto): Promise<number> {
-    contexto.linha('Comandos disponíveis neste simulador (use "man COMANDO" para um resumo):', 'c-info');
+  public async executar(args: string[], contexto: Contexto): Promise<number> {
+    // `help COMANDO` mostra a ajuda daquele comando, a mesma de `COMANDO --help` (SPEC-027 RN-08).
+    if (args.length > 0 && !args[0].startsWith('-')) {
+      const alvo: Comando | undefined = this.registro.obter(args[0]);
+      if (alvo === undefined) {
+        contexto.falhar('bash: help: nenhum tópico de ajuda corresponde a `' + args[0] + "'. Tente `help help' ou `man -k " + args[0] + "' ou `info " + args[0] + "'.");
+        return 1;
+      }
+      mostrarAjuda(alvo, contexto);
+      return 0;
+    }
+    contexto.linha('Comandos disponíveis neste simulador (use "COMANDO --help" ou "man COMANDO" para saber mais):', 'c-info');
     for (const comando of this.registro.listar().sort((a: Comando, b: Comando) => a.nome.localeCompare(b.nome))) {
       contexto.escrever('  ' + comando.nome.padEnd(10), 'c-exe');
       contexto.linha(comando.resumo);
@@ -113,6 +183,14 @@ export class Ajuda extends Comando {
 export class Man extends Comando {
   public readonly nome: string = 'man';
   public readonly resumo: string = 'manual de um comando (no simulador, um resumo)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'man COMANDO',
+    descricao: 'Mostra o manual de um comando. No simulador é um resumo: uso, descrição, opções e exemplos.',
+    exemplos: [
+      ['man ls', 'mostra o manual do ls'],
+      ['man man', 'mostra o manual do próprio man'],
+    ],
+  };
   private readonly registro: RegistroDeComandos;
 
   constructor(registro: RegistroDeComandos) {
@@ -131,12 +209,7 @@ export class Man extends Comando {
       contexto.falhar('Nenhuma entrada de manual para ' + args[0]);
       return 16;
     }
-    contexto.linha(comando.nome.toUpperCase() + '(1)', 'c-negrito');
-    contexto.linha();
-    contexto.linha('NOME', 'c-negrito');
-    contexto.linha('       ' + comando.nome + ' - ' + comando.resumo);
-    contexto.linha();
-    contexto.linha('(Resumo do simulador. No Ubuntu real, o man abre o manual completo: setas rolam, / pesquisa e q sai.)', 'c-info');
+    mostrarManual(comando, contexto);
     return 0;
   }
 }

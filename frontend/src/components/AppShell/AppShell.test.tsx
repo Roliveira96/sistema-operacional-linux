@@ -14,6 +14,10 @@ vi.mock("@/services/studentService", () => ({
   getStudentProfile: vi.fn(),
 }));
 
+vi.mock("@/services/classService", () => ({
+  classService: { myClasses: vi.fn().mockResolvedValue({ items: [], total: 0 }) },
+}));
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -70,7 +74,9 @@ describe("AppShell", () => {
     expect(screen.queryByText(messages.students.title)).toBeNull();
     expect(screen.queryByText(messages.modules.title)).toBeNull();
     expect(screen.getByText("Conteúdo")).toBeDefined();
-    await screen.findByText("RA 1234567");
+    // SPEC-026 CA-01: the bar shows only the name; the RA is no longer in it.
+    expect(await screen.findByRole("button", { name: "Aluno" })).toBeDefined();
+    expect(screen.queryByText(/^RA /)).toBeNull();
   });
 
   // Covers SPEC-015: the bar follows the pattern of the study screen.
@@ -83,11 +89,13 @@ describe("AppShell", () => {
     expect(screen.getByRole("img", { name: messages.public.nav.logoAlt }).getAttribute("src")).toContain("utfpr-logo.svg");
   });
 
-  it("shows an administrator by name with the role under it, since there is no academic ID", () => {
+  it("shows only the name of an administrator in the bar and the role inside the account menu", () => {
     signIn("ADMIN", { name: "Administrador Geral" });
     renderShell();
 
     expect(screen.getByText("Administrador Geral")).toBeDefined();
+    expect(screen.queryByText(messages.home.role.ADMIN!)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Administrador Geral" }));
     expect(screen.getByText(messages.home.role.ADMIN!)).toBeDefined();
     expect(screen.queryByText(/^RA /)).toBeNull();
     expect(getStudentProfile).not.toHaveBeenCalled();
@@ -96,7 +104,7 @@ describe("AppShell", () => {
   it("falls back to the e-mail when the account has no name", () => {
     signIn("TEACHER", { name: undefined, email: "prof@utfpr.edu.br" });
     renderShell();
-    expect(screen.getByText("prof@utfpr.edu.br")).toBeDefined();
+    expect(screen.getByRole("button", { name: "prof@utfpr.edu.br" })).toBeDefined();
   });
 
   it("shows the photo and the academic ID of a student, keeping the name if the profile fails", async () => {
@@ -107,7 +115,15 @@ describe("AppShell", () => {
     await waitFor(() => expect(getStudentProfile).toHaveBeenCalled());
     expect(screen.getByText("Aluno")).toBeDefined();
     expect(screen.queryByText(/^RA /)).toBeNull();
-    expect(screen.getByText(messages.home.role.STUDENT!)).toBeDefined();
+    expect(screen.queryByText(messages.home.role.STUDENT!)).toBeNull();
+  });
+
+  it("replaces the old account block by the account menu, with the way out inside it (SPEC-026)", () => {
+    signIn("TEACHER");
+    renderShell();
+
+    expect(screen.queryByRole("button", { name: messages.auth.logout })).toBeNull();
+    expect(screen.getByRole("button", { name: "Professora" }).getAttribute("aria-expanded")).toBe("false");
   });
 
   it("keeps the security link and ends the session on Sair", () => {
@@ -115,6 +131,7 @@ describe("AppShell", () => {
     renderShell();
 
     expect(screen.getByRole("link", { name: messages.home.security }).getAttribute("href")).toBe("/app/profile/security");
+    fireEvent.click(screen.getByRole("button", { name: "Professora" }));
     fireEvent.click(screen.getByRole("button", { name: messages.auth.logout }));
     expect(logout).toHaveBeenCalledTimes(1);
   });

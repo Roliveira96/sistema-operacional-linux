@@ -11,11 +11,11 @@ describe("test record", () => {
     expect(testStatus("m", "k", emptyCard())).toBe("none");
   });
 
-  it("goes from untested to passed or failed, and to stale when the commands change", () => {
+  it("goes from untested to passed or failed, and back to untested when the commands change", () => {
     expect(testStatus("m", "k", card())).toBe("untested");
     saveTest("m", "k", true, card());
     expect(testStatus("m", "k", card())).toBe("passed");
-    expect(testStatus("m", "k", card("pwd"))).toBe("stale");
+    expect(testStatus("m", "k", card("pwd"))).toBe("untested");
     saveTest("m", "k", false, card());
     expect(testStatus("m", "k", card())).toBe("failed");
     expect(testStatus("m", "other", card())).toBe("untested");

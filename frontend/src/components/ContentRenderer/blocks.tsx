@@ -3,6 +3,7 @@
 import { LsAnatomy } from "@/components/LsAnatomy/LsAnatomy";
 import { PermissionCalculator } from "@/components/PermissionCalculator/PermissionCalculator";
 import { contentMessages as m } from "@/messages/content.pt-BR";
+import { GalleryHtml } from "./GalleryHtml";
 import styles from "./ContentRenderer.module.scss";
 
 type Payload = Record<string, unknown>;
@@ -11,7 +12,7 @@ const text = (v: unknown): string => (typeof v === "string" ? v : "");
 const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
 export function Html({ html, className }: { html: string; className?: string }) {
-  return <div className={`${styles.html} ${className ?? ""}`} dangerouslySetInnerHTML={{ __html: html }} />;
+  return <GalleryHtml html={html} className={`${styles.html} ${className ?? ""}`} />;
 }
 
 export function TextBlock({ payload }: { payload: Payload }) {

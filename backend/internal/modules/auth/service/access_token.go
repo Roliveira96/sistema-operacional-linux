@@ -49,13 +49,22 @@ func (s *Service) CreateAccessToken(ctx context.Context, p authn.Principal, name
 		return domain.AccessToken{}, "", domain.ErrAccessTokenValidity
 	}
 
+	t, raw, err := s.insertAccessToken(ctx, p.UserID, name, validityDays)
+	if err != nil {
+		return domain.AccessToken{}, "", err
+	}
+	return t, raw, nil
+}
+
+// insertAccessToken stores a new token of the user and returns it with the raw value.
+func (s *Service) insertAccessToken(ctx context.Context, userID uuid.UUID, name string, validityDays int) (domain.AccessToken, string, error) {
 	raw, hash, err := newToken()
 	if err != nil {
 		return domain.AccessToken{}, "", err
 	}
 	now := s.Now().UTC()
 	t := domain.AccessToken{
-		UserID:    p.UserID,
+		UserID:    userID,
 		Name:      name,
 		TokenHash: hash,
 		ExpiresAt: now.AddDate(0, 0, validityDays),
@@ -65,7 +74,7 @@ func (s *Service) CreateAccessToken(ctx context.Context, p authn.Principal, name
 		return domain.AccessToken{}, "", fmt.Errorf("create access token: %w", err)
 	}
 	logger.FromContext(ctx, s.Log).Info("access token created",
-		zap.String("user_id", p.UserID.String()), zap.String("access_token_id", t.ID.String()))
+		zap.String("user_id", userID.String()), zap.String("access_token_id", t.ID.String()))
 	return t, raw, nil
 }
 

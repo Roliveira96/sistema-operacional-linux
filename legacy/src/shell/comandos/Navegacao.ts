@@ -1,5 +1,6 @@
 import { Comando, Opcoes, citar } from '../Comando';
 import type { Contexto } from '../Contexto';
+import type { AjudaDoComando } from '../Ajuda';
 import { Diretorio, Link, type No } from '../../linux/No';
 import { Permissoes } from '../../linux/Permissoes';
 import type { Quadro } from '../../linux/Sessao';
@@ -7,6 +8,13 @@ import { classeDoNo, dataDoLs, mensagemDe, nomeParaExibir, saidaEhTerminal } fro
 
 export class Pwd extends Comando {
   public readonly nome: string = 'pwd';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'pwd',
+    descricao: 'mostra o caminho completo do diretório em que você está agora.',
+    exemplos: [
+      ['pwd', 'mostra o diretório atual, por exemplo /home/aluno'],
+    ],
+  };
   public readonly resumo: string = 'mostra o diretório atual (print working directory)';
   public readonly embutido: boolean = true;
 
@@ -18,6 +26,16 @@ export class Pwd extends Comando {
 
 export class Cd extends Comando {
   public readonly nome: string = 'cd';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'cd [DIRETÓRIO]',
+    descricao: 'muda o diretório atual. Sem argumento, vai para a sua pasta pessoal.',
+    exemplos: [
+      ['cd /etc', 'vai para o diretório /etc'],
+      ['cd ..', 'sobe um nível'],
+      ['cd -', 'volta para o diretório em que você estava antes'],
+      ['cd', 'vai para a sua pasta pessoal'],
+    ],
+  };
   public readonly resumo: string = 'entra em um diretório (change directory)';
   public readonly embutido: boolean = true;
 
@@ -55,6 +73,25 @@ export class Cd extends Comando {
 
 export class Ls extends Comando {
   public readonly nome: string = 'ls';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'ls [OPÇÃO]... [ARQUIVO]...',
+    descricao: 'lista o conteúdo de diretórios (ou mostra os arquivos indicados). Sem argumento, lista o diretório atual.',
+    opcoes: [
+      ['-a, --all', 'mostra também os ocultos (que começam com ponto), inclusive . e ..'],
+      ['-A, --almost-all', 'mostra os ocultos, menos . e ..'],
+      ['-l', 'formato longo: permissões, dono, grupo, tamanho e data'],
+      ['-h, --human-readable', 'com -l, mostra os tamanhos em K, M e G'],
+      ['-R, --recursive', 'lista também o conteúdo dos subdiretórios'],
+      ['-d, --directory', 'mostra o próprio diretório, não o que há dentro dele'],
+      ['-1', 'um item por linha'],
+    ],
+    exemplos: [
+      ['ls -la /etc', 'lista tudo de /etc, inclusive os ocultos, em formato longo'],
+      ['ls -lh', 'formato longo com tamanhos legíveis'],
+      ['ls -R /home', 'lista /home e tudo dentro dele'],
+    ],
+    h: 'outra',
+  };
   public readonly resumo: string = 'lista arquivos e diretórios (-l detalhes, -a ocultos, -h tamanhos legíveis, -R recursivo)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -209,6 +246,20 @@ export class Ls extends Comando {
 
 export class Tree extends Comando {
   public readonly nome: string = 'tree';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'tree [OPÇÃO]... [DIRETÓRIO]',
+    descricao: 'desenha a árvore de diretórios e arquivos a partir do diretório indicado (padrão: o atual).',
+    opcoes: [
+      ['-a', 'mostra também os ocultos'],
+      ['-d', 'só os diretórios'],
+      ['-L NÍVEL', 'desce no máximo NÍVEL níveis'],
+    ],
+    exemplos: [
+      ['tree', 'árvore do diretório atual'],
+      ['tree -L 2 /etc', 'árvore de /etc com no máximo 2 níveis'],
+      ['tree -d', 'só os diretórios'],
+    ],
+  };
   public readonly resumo: string = 'desenha a árvore de diretórios (-a ocultos, -d só diretórios, -L nível)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {

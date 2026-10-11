@@ -1,5 +1,6 @@
 import { Comando, Opcoes, citar } from '../Comando';
 import type { Contexto } from '../Contexto';
+import type { AjudaDoComando } from '../Ajuda';
 import { Diretorio, type No } from '../../linux/No';
 import { ErroDeSistema } from '../../linux/ErroDeSistema';
 import { Permissoes } from '../../linux/Permissoes';
@@ -7,6 +8,20 @@ import { exigirOperando, mensagemDe } from './util';
 
 export class Mkdir extends Comando {
   public readonly nome: string = 'mkdir';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'mkdir [OPÇÃO]... DIRETÓRIO...',
+    descricao: 'cria diretórios novos.',
+    opcoes: [
+      ['-p, --parents', 'cria também os pais que faltarem e não reclama se já existir'],
+      ['-v, --verbose', 'mostra cada diretório criado'],
+      ['-m, --mode=MODO', 'define a permissão do diretório novo, em número ou símbolos (755, u=rwx)'],
+    ],
+    exemplos: [
+      ['mkdir projetos', 'cria a pasta projetos'],
+      ['mkdir -p a/b/c', 'cria a, a/b e a/b/c de uma vez'],
+      ['mkdir -m 700 privado', 'cria a pasta só acessível por você'],
+    ],
+  };
   public readonly resumo: string = 'cria diretórios (-p cria os pais que faltarem, -v mostra o que fez, -m define a permissão)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -77,6 +92,18 @@ export class Mkdir extends Comando {
 
 export class Rmdir extends Comando {
   public readonly nome: string = 'rmdir';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'rmdir [OPÇÃO]... DIRETÓRIO...',
+    descricao: 'remove diretórios vazios. Para apagar um com conteúdo, use rm -r.',
+    opcoes: [
+      ['-p, --parents', 'remove também os pais, se ficarem vazios'],
+      ['-v, --verbose', 'mostra cada diretório removido'],
+    ],
+    exemplos: [
+      ['rmdir vazia', 'remove a pasta vazia'],
+      ['rmdir -p a/b/c', 'remove c, depois b e depois a, se todos estiverem vazios'],
+    ],
+  };
   public readonly resumo: string = 'remove diretórios VAZIOS (-p remove também os pais vazios)';
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {

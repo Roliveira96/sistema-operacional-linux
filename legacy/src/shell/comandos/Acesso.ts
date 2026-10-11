@@ -4,6 +4,7 @@ import { Acl, Diretorio, type No } from '../../linux/No';
 import { Permissoes } from '../../linux/Permissoes';
 import type { Grupo, Usuario } from '../../linux/Contas';
 import { mensagemDe } from './util';
+import type { AjudaDoComando } from '../Ajuda';
 
 /** Aplica uma ação no nó e, com -R, em tudo que estiver dentro dele. */
 function percorrer(no: No, caminho: string, recursivo: boolean, acao: (no: No, caminho: string) => boolean): boolean {
@@ -19,6 +20,21 @@ function percorrer(no: No, caminho: string, recursivo: boolean, acao: (no: No, c
 export class Chmod extends Comando {
   public readonly nome: string = 'chmod';
   public readonly resumo: string = 'muda as permissões: chmod 755 arq  |  chmod u+x,g-w arq  |  -R recursivo';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'chmod [OPÇÃO]... MODO ARQUIVO...',
+    descricao: 'Muda as permissões de leitura (r), escrita (w) e execução (x) de arquivos e pastas. O MODO pode ser um número octal (755) ou simbólico (u+x,g-w).',
+    opcoes: [
+      ['-R, --recursive', 'muda também tudo que estiver dentro das pastas'],
+      ['-v, --verbose', 'mostra o que foi feito em cada arquivo'],
+      ['-c', 'mostra só os arquivos que realmente mudaram'],
+      ['-f', 'não mostra mensagem de erro de permissão'],
+    ],
+    exemplos: [
+      ['chmod 755 script.sh', 'dono lê, escreve e executa; os demais leem e executam'],
+      ['chmod u+x script.sh', 'dá permissão de execução só ao dono'],
+      ['chmod -R go-w pasta', 'tira a escrita de grupo e outros em toda a pasta'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const flags: Set<string> = new Set();
@@ -130,6 +146,20 @@ abstract class MudancaDePosse extends Comando {
 export class Chown extends MudancaDePosse {
   public readonly nome: string = 'chown';
   public readonly resumo: string = 'muda o dono (e o grupo): chown maria arq  |  chown maria:dev arq  |  -R recursivo';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'chown [OPÇÃO]... [DONO][:[GRUPO]] ARQUIVO...',
+    descricao: 'Muda o dono e, se informado depois de ":", o grupo de arquivos e pastas. Só o root pode dar um arquivo para outro usuário.',
+    opcoes: [
+      ['-R, --recursive', 'muda também tudo que estiver dentro das pastas'],
+      ['-v, --verbose', 'mostra o que foi feito em cada arquivo'],
+      ['-c, --changes', 'mostra só os arquivos que realmente mudaram'],
+    ],
+    exemplos: [
+      ['chown maria arq.txt', 'maria passa a ser a dona de arq.txt'],
+      ['chown maria:dev arq.txt', 'muda o dono para maria e o grupo para dev'],
+      ['chown -R maria /home/maria', 'muda o dono de tudo dentro da pasta'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { recursive: 'R', verbose: 'v', changes: 'c' });
@@ -169,6 +199,19 @@ export class Chown extends MudancaDePosse {
 export class Chgrp extends MudancaDePosse {
   public readonly nome: string = 'chgrp';
   public readonly resumo: string = 'muda só o grupo: chgrp dev arq  |  -R recursivo';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'chgrp [OPÇÃO]... GRUPO ARQUIVO...',
+    descricao: 'Muda o grupo de arquivos e pastas. O dono só pode escolher um grupo do qual ele mesmo faz parte; o root pode qualquer um.',
+    opcoes: [
+      ['-R, --recursive', 'muda também tudo que estiver dentro das pastas'],
+      ['-v, --verbose', 'mostra o que foi feito em cada arquivo'],
+      ['-c, --changes', 'mostra só os arquivos que realmente mudaram'],
+    ],
+    exemplos: [
+      ['chgrp dev projeto.txt', 'o grupo de projeto.txt passa a ser dev'],
+      ['chgrp -R dev /srv/projeto', 'muda o grupo de tudo dentro da pasta'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { recursive: 'R', verbose: 'v', changes: 'c' });
@@ -191,6 +234,18 @@ export class Umask extends Comando {
   public readonly nome: string = 'umask';
   public readonly resumo: string = 'mostra/define a máscara que tira permissões dos arquivos novos (padrão 0002 ou 0022)';
   public readonly embutido: boolean = true;
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'umask [-S] [MODO]',
+    descricao: 'Mostra ou define a máscara que tira permissões dos arquivos e pastas criados daqui para frente, nesta sessão.',
+    opcoes: [
+      ['-S', 'mostra a máscara em forma simbólica (u=rwx,g=rx,o=rx)'],
+    ],
+    exemplos: [
+      ['umask', 'mostra a máscara atual, como 0022'],
+      ['umask -S', 'mostra o que ela permite, em letras'],
+      ['umask 077', 'arquivos novos só para o dono'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const simbolico: boolean = args.includes('-S');
@@ -223,6 +278,22 @@ function lerPerms(texto: string): number | null {
 export class Setfacl extends Comando {
   public readonly nome: string = 'setfacl';
   public readonly resumo: string = 'permissão para um usuário/grupo específico: setfacl -m u:maria:rw arq | -x u:maria | -b (remove tudo)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'setfacl [-R] {-m|-x} u:USUÁRIO:rwx|g:GRUPO:rwx ARQUIVO... | setfacl -b ARQUIVO...',
+    descricao: 'Dá ou tira permissão para um usuário ou grupo específico em um arquivo (ACL), além do dono, do grupo e dos outros.',
+    opcoes: [
+      ['-m ENTRADA', 'acrescenta ou muda uma entrada, como u:maria:rw'],
+      ['-x ENTRADA', 'remove uma entrada, como u:maria'],
+      ['-b, -k', 'remove toda a ACL do arquivo'],
+      ['-R', 'aplica também a tudo que estiver dentro das pastas'],
+    ],
+    exemplos: [
+      ['setfacl -m u:maria:rw arq.txt', 'maria pode ler e escrever em arq.txt'],
+      ['setfacl -m g:dev:r arq.txt', 'o grupo dev pode só ler'],
+      ['setfacl -x u:maria arq.txt', 'tira a entrada de maria'],
+      ['setfacl -b arq.txt', 'apaga toda a ACL'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     let recursivo: boolean = false;
@@ -317,6 +388,14 @@ export class Setfacl extends Comando {
 export class Getfacl extends Comando {
   public readonly nome: string = 'getfacl';
   public readonly resumo: string = 'mostra as permissões completas, incluindo a ACL (quem mais tem acesso)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'getfacl ARQUIVO...',
+    descricao: 'Mostra o dono, o grupo e todas as permissões de um arquivo, incluindo a ACL (usuários e grupos específicos).',
+    exemplos: [
+      ['getfacl arq.txt', 'mostra as permissões completas de arq.txt'],
+      ['getfacl /srv/projeto', 'mostra as de uma pasta'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     let status: number = 0;

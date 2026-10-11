@@ -394,3 +394,48 @@ describe("SetupEditor, the files of the snapshot are editable", () => {
     expect(last(onChange).files![0]).toMatchObject({ owner: "anamaria", group: "adm" });
   });
 });
+
+// Covers SPEC-029: how an exercise ends includes the processes, so the machine the recording started from carries the ones already running.
+describe("SetupEditor, the processes the recording started with", () => {
+  async function record(win: Record<string, unknown>) {
+    let history: string[] = [];
+    let onCommand: ((snapshot: unknown) => void) | undefined;
+    const base = {
+      execute: vi.fn(async () => ({ status: 0, output: "" })),
+      setSpeed: vi.fn(),
+      history: () => history,
+      snapshot: vi.fn(() => treeOf()),
+      destroy: vi.fn(),
+      ...win,
+    };
+    mount.mockImplementation(async (_c: HTMLElement, _s: unknown, callbacks: { onCommand(s: unknown): void }) => {
+      onCommand = callbacks.onCommand;
+      return base;
+    });
+    const onAdopted = vi.fn();
+    render(<SetupEditor setup={undefined} before={[]} loadBase={vi.fn().mockResolvedValue(null)} onChange={vi.fn()} onAdopted={onAdopted} deriveFrom />);
+    fireEvent.click(screen.getByRole("button", { name: "Gravar no terminal" }));
+    await waitFor(() => expect(mount).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText("Nenhum comando ainda.")).toBeDefined());
+    history = ["sleep 300 &"];
+    onCommand?.({});
+    await waitFor(() => expect((screen.getByRole("button", { name: "Usar estes comandos" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes comandos" }));
+    await waitFor(() => expect(onAdopted).toHaveBeenCalled(), { timeout: 5000 });
+    return onAdopted.mock.calls.at(-1)![1] as { before: Record<string, unknown>; after: Record<string, unknown> } | undefined;
+  }
+
+  it("hands the derivation the processes that were running when the recording started, and the ones already ended", async () => {
+    const running = [{ pid: 2300, uid: 0, comando: "yes", estado: "S", nice: 0 }];
+    const ended = [{ pid: 2200, comando: "top", sinal: 15 }];
+    const machines = await record({ processes: vi.fn(() => ({ processos: running, encerrados: ended })) });
+    expect(machines?.before.processos).toEqual(running);
+    expect(machines?.before.encerrados).toEqual(ended);
+  });
+
+  it("leaves the machine as it is when the terminal does not tell about processes", async () => {
+    const machines = await record({});
+    expect(machines).toBeDefined();
+    expect(machines?.before).not.toHaveProperty("processos");
+  });
+});

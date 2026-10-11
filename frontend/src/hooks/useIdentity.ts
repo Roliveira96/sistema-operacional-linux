@@ -7,6 +7,9 @@ import { getStudentProfile, type StudentProfileResponse } from "@/services/stude
 /** Who is signed in, as the topic screen shows them (SPEC-016, CA-11). */
 export interface Identity {
   name: string;
+  /** From the session; the account menu shows them (SPEC-026). */
+  email?: string;
+  role?: CurrentUser["role"];
   /** Only students have an academic ID and a photo in their profile. */
   academicId?: string;
   avatarUrl?: string;
@@ -34,12 +37,12 @@ export function useIdentity(sources: IdentitySources = defaults): Identity | nul
     (async () => {
       try {
         const user = await sources.me();
-        const base: Identity = { name: user.name || user.email };
+        const base: Identity = { name: user.name || user.email, email: user.email, role: user.role };
         if (active) setIdentity(base);
         if (user.role !== "STUDENT") return;
         const profile = await sources.studentProfile().catch(() => null);
         if (active && profile) {
-          setIdentity({ name: profile.name || base.name, academicId: profile.academicId || undefined, avatarUrl: profile.avatarUrl || undefined });
+          setIdentity({ ...base, name: profile.name || base.name, academicId: profile.academicId || undefined, avatarUrl: profile.avatarUrl || undefined });
         }
       } catch {
         // No session: the page is public, so there is simply nobody to show.

@@ -1,4 +1,5 @@
 import { Comando, Opcoes } from '../Comando';
+import type { AjudaDoComando } from '../Ajuda';
 import type { Contexto } from '../Contexto';
 import { Arquivo, type No } from '../../linux/No';
 import { ErroDeSistema } from '../../linux/ErroDeSistema';
@@ -8,6 +9,17 @@ import { lerEntradas, linhasDe, mensagemDe } from './util';
 export class Tee extends Comando {
   public readonly nome: string = 'tee';
   public readonly resumo: string = 'grava a entrada em arquivo E mostra na tela: comando | tee log.txt (-a acrescenta)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'tee [OPÇÃO]... [ARQUIVO]...',
+    descricao: 'Copia a entrada padrão para a tela e também para os arquivos indicados.',
+    opcoes: [
+      ['-a, --append', 'acrescenta ao fim dos arquivos em vez de sobrescrever'],
+    ],
+    exemplos: [
+      ['ls /etc | tee lista.txt', 'mostra a lista e guarda em lista.txt'],
+      ['echo ola | tee -a log.txt', 'acrescenta ola ao fim de log.txt e mostra na tela'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { append: 'a' });
@@ -29,6 +41,21 @@ export class Tee extends Comando {
 export class Xargs extends Comando {
   public readonly nome: string = 'xargs';
   public readonly resumo: string = 'transforma a entrada em argumentos: find . -name "*.log" | xargs rm  (-I {} para posicionar)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'xargs [OPÇÃO]... [COMANDO [ARGUMENTO]...]',
+    descricao: 'Lê a entrada padrão e a usa como argumentos do COMANDO (por padrão, echo).',
+    opcoes: [
+      ['-I TEXTO', 'roda o comando uma vez por linha, trocando TEXTO (por exemplo {}) pela linha'],
+      ['-n NÚMERO', 'passa no máximo NÚMERO argumentos por execução do comando'],
+      ['-r', 'não roda o comando se a entrada estiver vazia'],
+    ],
+    exemplos: [
+      ['find . -name "*.log" | xargs rm', 'apaga todos os .log encontrados'],
+      ['ls | xargs -n 1 echo', 'mostra um nome por execução do echo'],
+      ['ls | xargs -I {} echo arquivo: {}', 'põe cada nome no lugar de {}'],
+    ],
+    soPrimeiro: true,
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     let substituir: string | null = null;
@@ -64,6 +91,20 @@ export class Xargs extends Comando {
 export class Uniq extends Comando {
   public readonly nome: string = 'uniq';
   public readonly resumo: string = 'junta linhas repetidas SEGUIDAS (use depois do sort): sort | uniq -c conta ocorrências';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'uniq [OPÇÃO]... [ARQUIVO]',
+    descricao: 'Junta linhas repetidas que estão em sequência. Para valer para o arquivo todo, ordene antes com sort.',
+    opcoes: [
+      ['-c, --count', 'põe na frente de cada linha quantas vezes ela apareceu'],
+      ['-d, --repeated', 'mostra só as linhas que se repetem'],
+      ['-u, --unique', 'mostra só as linhas que não se repetem'],
+    ],
+    exemplos: [
+      ['sort nomes.txt | uniq', 'tira os nomes repetidos'],
+      ['sort nomes.txt | uniq -c', 'conta quantas vezes cada nome aparece'],
+      ['sort nomes.txt | uniq -d', 'mostra só os nomes repetidos'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { count: 'c', repeated: 'd', unique: 'u' });
@@ -87,6 +128,19 @@ export class Uniq extends Comando {
 export class Tr extends Comando {
   public readonly nome: string = 'tr';
   public readonly resumo: string = 'troca ou apaga caracteres: tr a-z A-Z (maiúsculas) | tr -d ":" | tr -s " "';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'tr [OPÇÃO]... CONJUNTO1 [CONJUNTO2]',
+    descricao: 'Troca ou apaga caracteres da entrada padrão. Cada caractere de CONJUNTO1 vira o de mesma posição em CONJUNTO2.',
+    opcoes: [
+      ['-d, --delete', 'apaga os caracteres de CONJUNTO1'],
+      ['-s, --squeeze-repeats', 'troca sequências repetidas de um caractere por uma só'],
+    ],
+    exemplos: [
+      ['echo ola | tr a-z A-Z', 'passa para maiúsculas: OLA'],
+      ['echo a:b:c | tr -d :', 'apaga os dois-pontos: abc'],
+      ['echo "a   b" | tr -s " "', 'reduz os espaços repetidos a um só'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { delete: 'd', 'squeeze-repeats': 's' });
@@ -156,6 +210,22 @@ type Endereco = { tipo: 'linha'; n: number | '$'; ate?: number | '$' } | { tipo:
 export class Sed extends Comando {
   public readonly nome: string = 'sed';
   public readonly resumo: string = "edita texto em fluxo: sed 's/velho/novo/g' arq | sed -i (altera o arquivo) | sed '/padrão/d'";
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'sed [OPÇÃO]... SCRIPT [ARQUIVO]...',
+    descricao: 'Edita texto linha a linha. O simulador entende os comandos s (trocar), d (apagar) e p (imprimir), com endereço opcional (número, A,B, $ ou /padrão/).',
+    opcoes: [
+      ['-e, --expression SCRIPT', 'usa SCRIPT como o programa de edição'],
+      ['-n, --quiet', 'não mostra as linhas automaticamente (use com p)'],
+      ['-i, --in-place', 'altera os próprios arquivos em vez de mostrar na tela'],
+      ['-E, -r, --regexp-extended', 'usa expressões regulares estendidas'],
+    ],
+    exemplos: [
+      ["sed 's/velho/novo/g' arq.txt", 'troca todo velho por novo em cada linha'],
+      ["sed '/^#/d' /etc/fstab", 'apaga as linhas que começam com #'],
+      ["sed -n '2,4p' arq.txt", 'mostra só as linhas 2 a 4'],
+      ["sed -i 's/a/b/' arq.txt", 'altera o arquivo, trocando a primeira ocorrência de a por b em cada linha'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'e', { 'in-place': 'i', quiet: 'n', expression: 'e', 'regexp-extended': 'E' });
@@ -271,6 +341,20 @@ export class Sed extends Comando {
 export class Awk extends Comando {
   public readonly nome: string = 'awk';
   public readonly resumo: string = "trabalha com colunas: awk '{print $1}' | awk -F: '{print $1, $7}' /etc/passwd | awk '{s+=$2} END {print s}'";
+  public readonly ajuda: AjudaDoComando = {
+    uso: "awk [-F SEPARADOR] 'PROGRAMA' [ARQUIVO]...",
+    descricao: 'Processa texto por colunas ($1, $2, $NF). O simulador entende uma versão simples do awk: print, condições, BEGIN/END, somas e contagens.',
+    opcoes: [
+      ['-F, --field-separator SEP', 'caractere que separa as colunas (padrão: espaços)'],
+    ],
+    exemplos: [
+      ["awk '{print $1}' arq.txt", 'mostra a primeira coluna de cada linha'],
+      ["awk -F: '{print $1, $7}' /etc/passwd", 'mostra o usuário e o shell dele'],
+      ["awk '{s+=$2} END {print s}' notas.txt", 'soma a segunda coluna'],
+    ],
+    h: 'ajuda',
+    soPrimeiro: true,
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'Fv', { 'field-separator': 'F' });

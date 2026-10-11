@@ -4,12 +4,21 @@ import { Arquivo, Diretorio, type No } from '../../linux/No';
 import { ErroDeSistema } from '../../linux/ErroDeSistema';
 import { GerenciadorDePacotes, Servicos } from '../../linux/Pacotes';
 import type { Credencial } from '../../linux/SistemaDeArquivos';
+import type { AjudaDoComando } from '../Ajuda';
 
 /** Programas que só existem depois do apt install (o shell confere se o binário está no PATH). */
 
 export class Htop extends Comando {
   public readonly nome: string = 'htop';
   public readonly resumo: string = 'monitor de processos interativo (CPU, memória, processos)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'htop',
+    descricao: 'Monitor de processos: mostra CPU, memória e a lista de processos. No simulador é uma foto do momento, sem opções. Precisa ser instalado antes (sudo apt install htop).',
+    exemplos: [
+      ['htop', 'mostra o uso de CPU e memória e os processos'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     const servicos: Servicos = new Servicos(contexto.maquina);
@@ -45,6 +54,14 @@ export class Htop extends Comando {
 export class Neofetch extends Comando {
   public readonly nome: string = 'neofetch';
   public readonly resumo: string = 'mostra o logo da distribuição e um resumo do sistema';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'neofetch',
+    descricao: 'Mostra o logo da distribuição ao lado de um resumo do sistema (sistema, kernel, CPU, memória, disco). Não tem opções no simulador. Precisa ser instalado antes.',
+    exemplos: [
+      ['neofetch', 'mostra o logo e o resumo do sistema'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     const usuario: string = contexto.contas.nomeDoUsuario(contexto.credencial.uid);
@@ -94,6 +111,14 @@ export class Neofetch extends Comando {
 export class Cowsay extends Comando {
   public readonly nome: string = 'cowsay';
   public readonly resumo: string = 'uma vaca que fala o que você escrever (clássico para testar instalação)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'cowsay [TEXTO]...',
+    descricao: 'Desenha uma vaca falando o texto. Sem argumento, usa o que veio pelo pipe ou "Muuu!". Precisa ser instalado antes (sudo apt install cowsay).',
+    exemplos: [
+      ['cowsay Olá', 'a vaca diz Olá'],
+      ['echo bom dia | cowsay', 'a vaca diz o que veio do pipe'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const texto: string = args.join(' ') || (contexto.entrada ?? '').trim() || 'Muuu!';
@@ -112,6 +137,20 @@ export class Cowsay extends Comando {
 export class Git extends Comando {
   public readonly nome: string = 'git';
   public readonly resumo: string = 'controle de versão (no simulador: git --version e git init)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'git --version | git init',
+    descricao: 'Controle de versão. O simulador entende só a versão e o init; o resto do Git você estuda à parte.',
+    opcoes: [
+      ['--version, version', 'mostra a versão do git'],
+      ['init', 'cria um repositório vazio (a pasta .git) no diretório atual'],
+    ],
+    exemplos: [
+      ['git --version', 'mostra a versão instalada'],
+      ['git init', 'cria um repositório no diretório atual'],
+    ],
+    h: 'ajuda',
+    soPrimeiro: true,
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args[0] === '--version' || args[0] === 'version') {
@@ -139,6 +178,19 @@ export class Git extends Comando {
 export class Curl extends Comando {
   public readonly nome: string = 'curl';
   public readonly resumo: string = 'faz requisições web pelo terminal: curl http://localhost (-I só os cabeçalhos)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'curl [-I] URL',
+    descricao: 'Faz uma requisição web pelo terminal. No simulador só alcança o próprio servidor (localhost), e o nginx ou o apache2 precisa estar rodando.',
+    opcoes: [
+      ['-I, --head', 'mostra só os cabeçalhos da resposta'],
+    ],
+    exemplos: [
+      ['curl http://localhost', 'mostra a página servida pelo servidor web'],
+      ['curl -I http://localhost', 'mostra só os cabeçalhos (código 200, 404...)'],
+      ['curl http://localhost/pagina.html', 'pede uma página específica'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, 'o', { head: 'I', silent: 's' });
@@ -223,6 +275,20 @@ export class Curl extends Comando {
 export class Nginx extends Comando {
   public readonly nome: string = 'nginx';
   public readonly resumo: string = 'servidor web: nginx -v (versão) e nginx -t (testa a configuração)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'nginx [-v] [-t]',
+    descricao: 'Servidor web. No simulador ele só mostra a versão e testa a configuração; para iniciar ou parar use o systemctl.',
+    opcoes: [
+      ['-v, -V', 'mostra a versão do nginx'],
+      ['-t', 'testa a configuração (precisa de root)'],
+    ],
+    exemplos: [
+      ['nginx -v', 'mostra a versão'],
+      ['sudo nginx -t', 'testa o arquivo de configuração'],
+      ['sudo systemctl start nginx', 'inicia o servidor'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args.includes('-v') || args.includes('-V')) {
@@ -247,6 +313,17 @@ export class Nginx extends Comando {
 export class Mysql extends Comando {
   public readonly nome: string = 'mysql';
   public readonly resumo: string = 'cliente do banco MySQL (no simulador: mysql --version)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'mysql [--version]',
+    descricao: 'Cliente do banco de dados MySQL. No simulador mostra a versão, ou só confirma a conexão ao servidor (precisa de root e do serviço mysql rodando); o console SQL não existe.',
+    opcoes: [
+      ['-V, --version', 'mostra a versão do cliente'],
+    ],
+    exemplos: [
+      ['mysql --version', 'mostra a versão do cliente'],
+      ['sudo mysql', 'tenta conectar ao servidor local'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (args.includes('--version') || args.includes('-V')) {
@@ -271,6 +348,15 @@ export class Mysql extends Comando {
 export class Python3 extends Comando {
   public readonly nome: string = 'python3';
   public readonly resumo: string = 'interpretador Python (no simulador: python3 --version)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'python3 [--version]',
+    descricao: 'Interpretador da linguagem Python. No simulador ele só mostra a versão, seja qual for o argumento: não executa scripts.',
+    exemplos: [
+      ['python3 --version', 'mostra a versão do Python'],
+    ],
+    h: 'ajuda',
+    soPrimeiro: true,
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     contexto.linha('Python 3.12.3');
@@ -281,6 +367,14 @@ export class Python3 extends Comando {
 export class Openssl extends Comando {
   public readonly nome: string = 'openssl';
   public readonly resumo: string = 'ferramentas de criptografia (openssl version mostra a versão instalada)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'openssl version',
+    descricao: 'Ferramentas de criptografia. No simulador só mostra a versão instalada, seja qual for o argumento.',
+    exemplos: [
+      ['openssl version', 'mostra a versão do OpenSSL'],
+    ],
+    soPrimeiro: true,
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     const versao: string = new GerenciadorDePacotes(contexto.maquina).versaoInstalada('openssl') ?? '3.0.13';
@@ -292,6 +386,13 @@ export class Openssl extends Comando {
 export class NvidiaSmi extends Comando {
   public readonly nome: string = 'nvidia-smi';
   public readonly resumo: string = 'gerenciamento e telemetria de GPUs NVIDIA: nvidia-smi';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'nvidia-smi',
+    descricao: 'Mostra o estado das placas de vídeo NVIDIA: temperatura, memória em uso e processos que as usam. Não tem opções no simulador.',
+    exemplos: [
+      ['nvidia-smi', 'mostra o estado das GPUs e dos processos'],
+    ],
+  };
 
   public async executar(_args: string[], contexto: Contexto): Promise<number> {
     contexto.linha('+-----------------------------------------------------------------------------------------+');
@@ -335,6 +436,16 @@ export class NvidiaSmi extends Comando {
 export class Lspci extends Comando {
   public readonly nome: string = 'lspci';
   public readonly resumo: string = 'lista dispositivos PCI conectados ao barramento do hardware';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'lspci [TEXTO]...',
+    descricao: 'Lista os dispositivos PCI do computador (placas de rede, GPUs, controladores). No simulador, cada argumento vira um filtro de texto sobre a lista.',
+    exemplos: [
+      ['lspci', 'lista todos os dispositivos PCI'],
+      ['lspci nvidia', 'mostra só as linhas que citam NVIDIA'],
+      ['lspci ethernet', 'mostra só a placa de rede'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const dispositivos = [

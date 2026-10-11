@@ -7,7 +7,12 @@ import { NavbarPublic } from "./NavbarPublic";
 const mockPush = vi.fn();
 const mockRefresh = vi.fn();
 
+vi.mock("@/services/classService", () => ({
+  classService: { myClasses: vi.fn().mockResolvedValue({ items: [], total: 0 }) },
+}));
+
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
   useRouter: () => ({
     push: mockPush,
     refresh: mockRefresh,
@@ -65,8 +70,9 @@ describe("NavbarPublic", () => {
   // The student said it: a signed-in student must never be offered to sign in or sign up.
   it("shows the signed-in student, their area and a way out instead of Entrar and Cadastrar", async () => {
     render(<NavbarPublic identity={student()} />);
-    expect(await screen.findByText("RA 2345678")).toBeTruthy();
-    expect(screen.getByText("Ana Souza")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Ana Souza" })).toBeTruthy();
+    expect(screen.queryByText(/^RA /)).toBeNull();
+    expect(screen.queryByRole("button", { name: messages.public.nav.logout })).toBeNull();
     expect(entrar()).toBeNull();
     expect(cadastrar()).toBeNull();
 
@@ -76,7 +82,7 @@ describe("NavbarPublic", () => {
 
   it("shows a teacher by name, without academic ID, and no sign-in buttons", async () => {
     render(<NavbarPublic identity={teacher()} />);
-    expect(await screen.findByText("Profa. Sediane")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Profa. Sediane" })).toBeTruthy();
     expect(screen.queryByText(/^RA /)).toBeNull();
     expect(entrar()).toBeNull();
     expect(cadastrar()).toBeNull();
@@ -94,7 +100,8 @@ describe("NavbarPublic", () => {
   it("ends the session on Sair and goes back to the visitor buttons", async () => {
     const logout = vi.fn().mockResolvedValue(undefined);
     render(<NavbarPublic identity={student()} logout={logout} />);
-    fireEvent.click(await screen.findByRole("button", { name: messages.public.nav.logout }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ana Souza" }));
+    fireEvent.click(screen.getByRole("button", { name: messages.public.nav.logout }));
 
     await waitFor(() => expect(entrar()).toBeTruthy());
     expect(logout).toHaveBeenCalledTimes(1);
@@ -105,7 +112,8 @@ describe("NavbarPublic", () => {
 
   it("leaves locally even when the server cannot end the session", async () => {
     render(<NavbarPublic identity={student()} logout={vi.fn().mockRejectedValue(new Error("down"))} />);
-    fireEvent.click(await screen.findByRole("button", { name: messages.public.nav.logout }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ana Souza" }));
+    fireEvent.click(screen.getByRole("button", { name: messages.public.nav.logout }));
     await waitFor(() => expect(entrar()).toBeTruthy());
   });
 

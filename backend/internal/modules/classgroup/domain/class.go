@@ -21,6 +21,15 @@ const (
 	ClassStatusArchived ClassStatus = "ARCHIVED"
 )
 
+// Relations between a user and a class listed by GET /me/classes (SPEC-026).
+const (
+	RelationTeacher = "TEACHER"
+	RelationStudent = "STUDENT"
+)
+
+// MyClassesLimit is the maximum number of classes returned to the account menu (SPEC-026 RN-08).
+const MyClassesLimit = 20
+
 // ClassGroup is the offering of an academic course in a given semester.
 type ClassGroup struct {
 	database.Model

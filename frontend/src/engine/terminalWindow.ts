@@ -3,6 +3,11 @@
 // container and exposes a small typed API. Like the rest of src/engine/, it is
 // the only place that imports the legacy code, and it loads it on demand.
 
+import { addEngineBinaries, registerEngineCommands } from "./commands";
+import type { CommandRegistry } from "./commands/types";
+import { addProcessBinaries, registerProcessCommands } from "./processes/register";
+import { processSnapshot, watchEnded } from "./processes/snapshot";
+
 /** One command of a script, as stored in the COMMAND content blocks. */
 export interface TerminalStep {
   command: string;
@@ -43,6 +48,8 @@ export interface TerminalWindow {
   /** Loads a scenario under the open terminals, keeping their screen and history (CA-10). */
   loadScenario(snapshot: unknown): Promise<void>;
   snapshot(): unknown;
+  /** The commands running and the ones a signal ended: they also go in the snapshot, and this gives them alone (SPEC-029). */
+  processes(): { processos: unknown[]; encerrados: unknown[] };
   /** The commands typed in terminal 1 on the current session, oldest first (SPEC-020). */
   history(): string[];
   exportJson(name: string): void;
@@ -79,17 +86,25 @@ export async function mountTerminalWindow(
   snapshot: unknown,
   callbacks: TerminalWindowCallbacks,
 ): Promise<TerminalWindow> {
-  const [{ Maquina }, { Serializador }, { JanelaDeTerminais }, { ArmazemDeMaquinas }] = await Promise.all([
+  const [{ Maquina }, { Serializador }, { JanelaDeTerminais }, { ArmazemDeMaquinas }, { Shell }] = await Promise.all([
     import("@legacy-engine/linux/Maquina"),
     import("@legacy-engine/linux/Serializador"),
     import("@legacy-engine/terminal/JanelaDeTerminais"),
     import("@legacy-engine/app/ArmazemDeMaquinas"),
+    import("@legacy-engine/shell/Shell"),
     import("@legacy-engine/estilos/terminal.css"),
   ]);
+  // SPEC-028: the commands the engine does not have yet are registered by the adapter, without touching legacy/.
+  registerEngineCommands(Shell.obterRegistro() as unknown as CommandRegistry);
+  // SPEC-029: the process control (nice, renice, yes, watch...) joins the catalog after those, also without touching legacy/.
+  await registerProcessCommands(Shell.obterRegistro());
 
   const build = (state: unknown) => {
     const machine = state == null ? Maquina.criar() : Serializador.deJson(state);
     machine.atualizarProc();
+    addEngineBinaries(machine as unknown as Parameters<typeof addEngineBinaries>[0]);
+    addProcessBinaries(machine as unknown as Parameters<typeof addProcessBinaries>[0]);
+    watchEnded(machine);
     return machine;
   };
 
@@ -212,8 +227,13 @@ export async function mountTerminalWindow(
       notify();
     },
 
+    processes() {
+      return processSnapshot(machine);
+    },
+
     snapshot() {
-      return Serializador.paraJson(machine);
+      // The machine, and the processes that only go along to be checked (SPEC-029): the engine does not save them.
+      return { ...(Serializador.paraJson(machine) as object), ...processSnapshot(machine) };
     },
 
     history() {

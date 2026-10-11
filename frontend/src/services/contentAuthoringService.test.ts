@@ -17,6 +17,19 @@ describe("contentAuthoringService", () => {
     expect(client.get).toHaveBeenCalledWith("/teacher/modules/m%201/blocks");
   });
 
+  // Covers SPEC-025: the file goes to the server as a multipart form, in the field the server reads.
+  it("sends an image of the content as a form and returns where it was kept", async () => {
+    const saved = { url: "http://bucket/conteudo/abc.avif", width: 1220, height: 686, bytes: 4821 };
+    vi.mocked(client.post).mockResolvedValueOnce(saved);
+    const file = new File(["x"], "foto.png", { type: "image/png" });
+    expect(await service.uploadImage(file)).toEqual(saved);
+    const [path, body] = vi.mocked(client.post).mock.calls[0]!;
+    expect(path).toBe("/teacher/content/images");
+    expect(body).toBeInstanceOf(FormData);
+    expect((body as FormData).get("file")).toBeInstanceOf(File);
+    expect(((body as FormData).get("file") as File).name).toBe("foto.png");
+  });
+
   it("saves a whole card and returns its blocks", async () => {
     vi.mocked(client.put).mockResolvedValueOnce({ blocks: [{ id: "b1" }] });
     const request = { replaceIds: ["b1"], blocks: [{ id: "b1", updatedAt: "2026-10-09T12:00:00Z", type: "TEXT", payload: { html: "x" } }] };

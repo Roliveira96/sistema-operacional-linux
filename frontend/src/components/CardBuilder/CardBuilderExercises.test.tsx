@@ -25,7 +25,7 @@ const block = (id: string, type: string, position: number, payload: Record<strin
 
 let service: { [K in keyof ContentAuthoringService]: ReturnType<typeof vi.fn> };
 beforeEach(() => {
-  service = { list: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn(), versions: vi.fn(), publish: vi.fn(), restore: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn(), registerTestResult: vi.fn() };
+  service = { list: vi.fn(), content: vi.fn(), setModuleSetup: vi.fn(), versions: vi.fn(), publish: vi.fn(), restore: vi.fn(), saveCard: vi.fn(), setCardActive: vi.fn(), reorder: vi.fn(), registerTestResult: vi.fn(), uploadImage: vi.fn() };
 });
 
 const renderBuilder = (props: Partial<React.ComponentProps<typeof CardBuilder>> = {}) =>

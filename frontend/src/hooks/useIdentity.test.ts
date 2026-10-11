@@ -13,33 +13,33 @@ describe("useIdentity", () => {
   it("gives a student the name, the academic ID and the photo of the profile", async () => {
     const { result } = renderHook(() => useIdentity(sources()));
     await waitFor(() => expect(result.current?.academicId).toBe("2345678"));
-    expect(result.current).toEqual({ name: "Ana Maria Souza", academicId: "2345678", avatarUrl: "http://files/ana.png" });
+    expect(result.current).toEqual({ name: "Ana Maria Souza", email: "ana@example.com", role: "STUDENT", academicId: "2345678", avatarUrl: "http://files/ana.png" });
   });
 
   it("shows only the name of a teacher, who has no academic ID or photo, and never asks for a profile", async () => {
     const teacher = sources({ me: vi.fn().mockResolvedValue({ name: "Profa. Sediane", email: "s@utfpr.edu.br", role: "TEACHER" }) });
     const { result } = renderHook(() => useIdentity(teacher));
-    await waitFor(() => expect(result.current).toEqual({ name: "Profa. Sediane" }));
+    await waitFor(() => expect(result.current).toEqual({ name: "Profa. Sediane", email: "s@utfpr.edu.br", role: "TEACHER" }));
     expect(teacher.studentProfile).not.toHaveBeenCalled();
   });
 
   it("falls back to the e-mail when the account has no name", async () => {
     const { result } = renderHook(() => useIdentity(sources({ me: vi.fn().mockResolvedValue({ email: "x@y.z", role: "ADMIN" }) })));
-    await waitFor(() => expect(result.current).toEqual({ name: "x@y.z" }));
+    await waitFor(() => expect(result.current).toEqual({ name: "x@y.z", email: "x@y.z", role: "ADMIN" }));
   });
 
   it("keeps the name of the session when the student profile cannot be read", async () => {
     const failing = sources({ studentProfile: vi.fn().mockRejectedValue(new Error("boom")) });
     const { result } = renderHook(() => useIdentity(failing));
     await waitFor(() => expect(failing.studentProfile).toHaveBeenCalled());
-    expect(result.current).toEqual({ name: "Ana Souza" });
+    expect(result.current).toEqual({ name: "Ana Souza", email: "ana@example.com", role: "STUDENT" });
   });
 
   it("leaves a profile without academic ID or photo without them", async () => {
     const bare = sources({ studentProfile: vi.fn().mockResolvedValue({ name: "", academicId: "", avatarUrl: "" }) });
     const { result } = renderHook(() => useIdentity(bare));
     await waitFor(() => expect(bare.studentProfile).toHaveBeenCalled());
-    await waitFor(() => expect(result.current).toEqual({ name: "Ana Souza", academicId: undefined, avatarUrl: undefined }));
+    await waitFor(() => expect(result.current).toEqual({ name: "Ana Souza", email: "ana@example.com", role: "STUDENT", academicId: undefined, avatarUrl: undefined }));
   });
 
   it("returns nobody for a visitor, without raising", async () => {
@@ -55,6 +55,6 @@ describe("useIdentity", () => {
     const { result } = renderHook(() => useIdentity(slow));
     expect(result.current).toBeUndefined();
     answer({ name: "Profa. Sediane", email: "s@utfpr.edu.br", role: "TEACHER" });
-    await waitFor(() => expect(result.current).toEqual({ name: "Profa. Sediane" }));
+    await waitFor(() => expect(result.current).toEqual({ name: "Profa. Sediane", email: "s@utfpr.edu.br", role: "TEACHER" }));
   });
 });

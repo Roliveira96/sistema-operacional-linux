@@ -21,12 +21,15 @@ import (
 	classgrouphandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/handler"
 	classgrouprepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
 	classgroupservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/service"
+	contentdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	contenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/handler"
 	contentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/repository"
 	contentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/service"
 	coursemodulehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/handler"
 	coursemodulerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
 	coursemoduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/service"
+	mcphandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/mcp/handler"
+	mcpservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/mcp/service"
 	practicehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/handler"
 	practicerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/repository"
 	practiceservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/service"
@@ -38,6 +41,7 @@ import (
 	userrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/repository"
 	userservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/service"
 
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/config"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/health"
@@ -113,6 +117,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	if err := store.EnsureBucket(ctx); err != nil {
 		log.Error("could not ensure storage bucket; starting degraded", zap.Error(err))
 	}
+	// The images of the content are read by the students without a session, so that prefix (and only it) is public (SPEC-025 RN-07).
+	if err := store.AllowPublicRead(ctx, contentdomain.ImagePrefix); err != nil {
+		log.Error("could not open the images of the content for reading", zap.Error(err))
+	}
 
 	smtp := mailer.NewSMTPSender(cfg.Mail)
 	dispatcher := mailer.NewDispatcher(smtp, mailer.DefaultDispatcherOptions(cfg.Mail.Workers), log)
@@ -126,16 +134,18 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		cfg.Auth.Google.RedirectURL,
 	)
 	auth, err := authservice.New(authservice.Deps{
-		Users:       users,
-		Store:       authStore,
-		NotFound:    authrepository.ErrNotFound,
-		Auditor:     auditor,
-		Mailer:      dispatcher,
-		Tx:          db,
-		Hasher:      authservice.Argon2Hasher{},
-		GoogleOAuth: googleOAuth,
-		PublicURL:   cfg.Auth.PublicURL,
-		Log:         log,
+		Users:        users,
+		Store:        authStore,
+		AccessTokens: authStore,
+		OAuth:        authStore,
+		NotFound:     authrepository.ErrNotFound,
+		Auditor:      auditor,
+		Mailer:       dispatcher,
+		Tx:           db,
+		Hasher:       authservice.Argon2Hasher{},
+		GoogleOAuth:  googleOAuth,
+		PublicURL:    cfg.Auth.PublicURL,
+		Log:          log,
 	})
 	if err != nil {
 		return err
@@ -154,6 +164,11 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		ForgotID:      ratelimit.New(3, time.Hour),
 	}, !cfg.IsDevelopment())
 
+	accessTokenHandler := authhandler.NewAccessTokens(auth, auth, ratelimit.New(10, time.Hour))
+	mcpOAuthHandler := authhandler.NewMCPOAuth(auth, auth,
+		authhandler.MCPOAuthURLs{Backend: cfg.Auth.MCPPublicURL, Frontend: cfg.Auth.PublicURL},
+		ratelimit.New(10, time.Hour), ratelimit.New(30, time.Minute))
+
 	classRepo := classgrouprepository.New(db)
 	classService := classgroupservice.New(classRepo)
 	classHandler := classgrouphandler.New(classService, auth)
@@ -164,12 +179,26 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	contentReader := contentservice.NewReader(moduleService, contentrepository.New(db))
 	contentHandler := contenthandler.New(contentReader, auth)
 	contentRepo := contentrepository.New(db)
-	contentAuthorHandler := contenthandler.NewAuthor(
-		contentservice.NewAuthor(contentRepo, log), auth, ratelimit.New(120, time.Minute))
-	contentVersionHandler := contenthandler.NewVersions(
-		contentservice.NewVersions(contentRepo, log), auth, ratelimit.New(120, time.Minute))
-	contentExerciseHandler := contenthandler.NewExercises(
-		contentservice.NewExercises(contentRepo, log), auth, ratelimit.New(120, time.Minute))
+	// A module is born with its version 1 published (SPEC-021 RN-11).
+	moduleService.SetInitialVersioner(contentservice.NewInitialVersions(contentRepo))
+	// The writes of the authoring screens and of the MCP server count together (SPEC-024 RN-10).
+	authoringLimiter := ratelimit.New(120, time.Minute)
+	contentAuthor := contentservice.NewAuthor(contentRepo, log)
+	contentVersions := contentservice.NewVersions(contentRepo, log)
+	contentExercises := contentservice.NewExercises(contentRepo, log)
+	contentAuthorHandler := contenthandler.NewAuthor(contentAuthor, auth, authoringLimiter)
+	contentVersionHandler := contenthandler.NewVersions(contentVersions, auth, ratelimit.New(120, time.Minute))
+	contentImageHandler := contenthandler.NewImages(contentservice.NewImages(store, log, 2), auth, ratelimit.New(30, time.Minute))
+	contentExerciseHandler := contenthandler.NewExercises(contentExercises, auth, ratelimit.New(120, time.Minute))
+	bearer := authn.BearerOptions{ResourceMetadataURL: cfg.Auth.MCPPublicURL + authhandler.ProtectedResourceMetadataPath}
+	if email := cfg.Auth.MCPDevUserEmail; email != "" {
+		// Local development only: config refuses this variable in production (SPEC-024 RN-15).
+		log.Warn("MCP runs without login as a local development user", zap.String("email", email))
+		bearer.DevUser = func(ctx context.Context) (authn.Principal, error) { return auth.DevPrincipal(ctx, email) }
+	}
+	mcpHandler := mcphandler.New(
+		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log),
+		authn.RequiredBearerWith(auth, bearer), log)
 	practiceHandler := practicehandler.New(
 		practiceservice.New(contentReader, practicerepository.New(db)), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
@@ -198,16 +227,21 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	engine := server.NewEngine(log, cfg.TrustedProxies,
 		health.NewHandler(checker, version, log),
 		authHandler,
+		accessTokenHandler,
+		mcpOAuthHandler,
 		classHandler,
 		moduleHandler,
 		contentHandler,
 		contentAuthorHandler,
 		contentVersionHandler,
 		contentExerciseHandler,
+		contentImageHandler,
 		practiceHandler,
 		ttsHandler,
 		studentHandler,
 	)
+	mcpOAuthHandler.RegisterRoot(engine)
+	mcpHandler.Register(engine)
 	srv := server.New(cfg.HTTPAddr, engine, log)
 
 	shutdownCtx, cancel, err := srv.Run(ctx, cfg.ShutdownTimeout)

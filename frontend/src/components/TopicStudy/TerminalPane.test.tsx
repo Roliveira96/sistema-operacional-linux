@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@/test/domMatchers";
 import { TerminalPane } from "./TerminalPane";
@@ -58,5 +58,65 @@ describe("TerminalPane", () => {
     second.unmount();
     finish(late);
     await waitFor(() => expect(late.destroy).toHaveBeenCalled());
+  });
+});
+
+// Covers SPEC-029 entrega B: the button that turns the panel of processes on and off, and remembers it in this browser.
+describe("TerminalPane, the panel of processes", () => {
+  const withProcesses = () => ({
+    destroy: vi.fn(),
+    processes: vi.fn(() => ({
+      processos: [{ pid: 2451, ppid: 2408, uid: 1000, usuario: "ricardo", tty: "pts/1", comando: "sleep 300", estado: "S", nice: 0 }],
+      encerrados: [],
+    })),
+  });
+  const panelButton = () => screen.findByRole("button", { name: /Painel de processos/ });
+
+  afterEach(() => localStorage.clear());
+
+  it("starts off, shows the processes of the terminal when turned on, and hides them when turned off", async () => {
+    mount.mockResolvedValue(withProcesses());
+    render(<TerminalPane snapshot={null} onReady={vi.fn()} onCommand={vi.fn()} />);
+    const button = await panelButton();
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByRole("region", { name: "Processos" })).toBeNull();
+
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    expect(await screen.findByRole("region", { name: "Processos" })).toBeDefined();
+    expect(await screen.findByText("sleep 300")).toBeDefined();
+
+    fireEvent.click(button);
+    expect(screen.queryByRole("region", { name: "Processos" })).toBeNull();
+  });
+
+  it("remembers the choice in this browser, and starts with the panel on when it was left on", async () => {
+    mount.mockResolvedValue(withProcesses());
+    const first = render(<TerminalPane snapshot={null} onReady={vi.fn()} onCommand={vi.fn()} />);
+    fireEvent.click(await panelButton());
+    expect(localStorage.getItem("terminal-process-panel")).toBe("on");
+    first.unmount();
+
+    mount.mockResolvedValue(withProcesses());
+    render(<TerminalPane snapshot={null} onReady={vi.fn()} onCommand={vi.fn()} />);
+    expect(await screen.findByRole("region", { name: "Processos" })).toBeDefined();
+    fireEvent.click(await panelButton());
+    expect(localStorage.getItem("terminal-process-panel")).toBe("off");
+  });
+
+  it("has no button before the terminal is ready, and works when the browser keeps nothing", async () => {
+    mount.mockResolvedValue(withProcesses());
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    render(<TerminalPane snapshot={null} onReady={vi.fn()} onCommand={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Painel de processos/ })).toBeNull();
+    fireEvent.click(await panelButton());
+    expect(await screen.findByRole("region", { name: "Processos" })).toBeDefined();
+    get.mockRestore();
+    set.mockRestore();
   });
 });

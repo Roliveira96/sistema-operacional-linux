@@ -104,6 +104,10 @@ func parseMachine(snapshot json.RawMessage) (*contentdomain.Machine, error) {
 		machine.Format != contentdomain.MachineFormat || machine.Version != contentdomain.MachineVersion {
 		return nil, ErrInvalidSnapshot
 	}
+	// The processes only help to grade (SPEC-029): a snapshot with more than the simulator can have is not one of its machines.
+	if len(machine.Processes) > contentdomain.MaxProcessEntries || len(machine.Ended) > contentdomain.MaxProcessEntries {
+		return nil, ErrInvalidSnapshot
+	}
 	return &machine, nil
 }
 

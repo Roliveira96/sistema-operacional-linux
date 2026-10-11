@@ -116,17 +116,45 @@ type BearerValidator interface {
 // never reads the session cookie. Failures abort with 401 invalid-access-token;
 // a role other than ADMIN or TEACHER aborts with 403 forbidden.
 func RequiredBearer(v BearerValidator) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		scheme, token, ok := strings.Cut(c.GetHeader("Authorization"), " ")
-		token = strings.TrimSpace(token)
-		if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" {
-			abort(c, invalidAccessToken())
-			return
+	return RequiredBearerWith(v, BearerOptions{})
+}
+
+// BearerOptions tunes RequiredBearerWith.
+type BearerOptions struct {
+	// ResourceMetadataURL, when set, is advertised in the WWW-Authenticate header of the 401 so an MCP client
+	// can discover the OAuth login (SPEC-024 RN-14).
+	ResourceMetadataURL string
+	// DevUser, when set, authenticates requests that carry no Authorization header as a fixed local user
+	// (SPEC-024 RN-15). It must only be wired in development.
+	DevUser func(ctx context.Context) (Principal, error)
+}
+
+// RequiredBearerWith is RequiredBearer with the options of BearerOptions.
+func RequiredBearerWith(v BearerValidator, opts BearerOptions) gin.HandlerFunc {
+	deny := func(c *gin.Context) {
+		if opts.ResourceMetadataURL != "" {
+			c.Header("WWW-Authenticate", `Bearer resource_metadata="`+opts.ResourceMetadataURL+`"`)
 		}
-		p, err := v.AuthenticateAccessToken(c.Request.Context(), token)
+		abort(c, invalidAccessToken())
+	}
+	return func(c *gin.Context) {
+		var p Principal
+		var err error
+		header := c.GetHeader("Authorization")
+		if header == "" && opts.DevUser != nil {
+			p, err = opts.DevUser(c.Request.Context())
+		} else {
+			scheme, token, ok := strings.Cut(header, " ")
+			token = strings.TrimSpace(token)
+			if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" {
+				deny(c)
+				return
+			}
+			p, err = v.AuthenticateAccessToken(c.Request.Context(), token)
+		}
 		switch {
 		case errors.Is(err, ErrNotAuthenticated):
-			abort(c, invalidAccessToken())
+			deny(c)
 			return
 		case errors.Is(err, ErrForbidden):
 			abort(c, problem.Forbidden("forbidden", "This action is not allowed for the current user."))

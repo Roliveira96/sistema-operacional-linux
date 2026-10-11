@@ -78,6 +78,8 @@ type Deps struct {
 	// AccessTokens persists personal access tokens (SPEC-024); required only
 	// by the access token use cases.
 	AccessTokens AccessTokenStore
+	// OAuth persists the MCP OAuth login (SPEC-024 RN-14); required only by its use cases.
+	OAuth OAuthStore
 	PublicURL    string
 	Log          *zap.Logger
 	Now          func() time.Time

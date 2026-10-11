@@ -5,7 +5,26 @@
 import { bytesOf, MAX_FILE_BYTES } from "./setup";
 import { flattenTree, type MachineTree } from "./machineDiff";
 
-export type ConditionKind = "DIR_EXISTS" | "FILE_EXISTS" | "PATH_ABSENT" | "FILE_CONTENT" | "MODE" | "OWNER" | "LINK" | "USER_EXISTS" | "GROUP_EXISTS" | "USER_IN_GROUP";
+export type ConditionKind =
+  | "DIR_EXISTS"
+  | "FILE_EXISTS"
+  | "PATH_ABSENT"
+  | "FILE_CONTENT"
+  | "MODE"
+  | "OWNER"
+  | "LINK"
+  | "USER_EXISTS"
+  | "GROUP_EXISTS"
+  | "USER_IN_GROUP"
+  // How a process ended up, by the name of its program (SPEC-029): `name` is the program.
+  | "PROCESS_RUNNING"
+  | "PROCESS_ABSENT"
+  | "PROCESS_STOPPED"
+  | "PROCESS_ENDED_BY"
+  | "PROCESS_NICE";
+
+/** The kinds about processes: they read the processes of the machine, not its files or accounts. */
+export const PROCESS_KINDS: ConditionKind[] = ["PROCESS_RUNNING", "PROCESS_ABSENT", "PROCESS_STOPPED", "PROCESS_ENDED_BY", "PROCESS_NICE"];
 
 export interface ExerciseCondition {
   kind: ConditionKind;
@@ -17,18 +36,44 @@ export interface ExerciseCondition {
   owner?: string;
   group?: string;
   target?: string;
-  /** A user, or a group when the kind is about one. */
+  /** A user, or a group when the kind is about one, or the program of a process. */
   name?: string;
   user?: string;
+  /** For PROCESS_ENDED_BY: the signal that ended it; none means any signal. */
+  signal?: number;
+  /** For PROCESS_NICE: the priority the process has. */
+  nice?: number;
 }
 
 /** The most conditions an exercise keeps (the server's limit). */
 export const MAX_CONDITIONS = 100;
 
+/** A command of the user running on the machine, and one a signal ended (SPEC-029): they go along in the snapshot, only to be checked. */
+export interface MachineProcess {
+  pid: number;
+  uid?: number;
+  comando: string;
+  estado: string;
+  nice: number;
+}
+export interface EndedProcess {
+  pid: number;
+  comando: string;
+  sinal: number;
+}
+
 /** The machine as the engine serializes it, with the accounts this file reads. */
 type Machine = MachineTree & {
   contas: MachineTree["contas"] & { usuarios: { nome: string; uid: number; gid?: number }[]; grupos: { nome: string; gid: number; membros?: string[] }[] };
+  processos?: MachineProcess[];
+  encerrados?: EndedProcess[];
 };
+
+/** The name of the program of a command line, as ps shows it: no arguments, no folder, no login dash. */
+export function programOf(command: string): string {
+  const first = command.trim().replace(/^-/, "").split(/\s/)[0] ?? "";
+  return first.slice(first.lastIndexOf("/") + 1);
+}
 
 const DEFAULT_MODE = { diretorio: "755", arquivo: "644", link: "777" } as const;
 
@@ -84,7 +129,52 @@ export function deriveConditions(before: Machine, after: Machine): ExerciseCondi
       if (user) list.push({ kind: "OWNER", path, owner: user, ...(group ? { group } : {}) });
     }
   }
+  list.push(...deriveProcessConditions(before, after));
   return list.slice(0, MAX_CONDITIONS);
+}
+
+/**
+ * What changed in the processes between `before` and `after` (SPEC-029 RN-08): a program that is running or stopped now and was not, one that
+ * is gone and was there (and the signal that ended it, when one did), and one whose priority changed. Programs, not PIDs: the next run has others.
+ */
+export function deriveProcessConditions(before: Machine, after: Machine): ExerciseCondition[] {
+  const wasThere = new Map((before.processos ?? []).map((p) => [p.pid, p]));
+  const isThere = new Map((after.processos ?? []).map((p) => [p.pid, p]));
+  const list: ExerciseCondition[] = [];
+  const add = (condition: ExerciseCondition) => {
+    if (!list.some((c) => c.kind === condition.kind && c.name === condition.name && c.signal === condition.signal && c.nice === condition.nice)) list.push(condition);
+  };
+
+  for (const process of after.processos ?? []) {
+    const name = programOf(process.comando);
+    if (name === "") continue;
+    const old = wasThere.get(process.pid);
+    const stopped = process.estado.startsWith("T");
+    const kind = stopped ? "PROCESS_STOPPED" : "PROCESS_RUNNING";
+    // Already so at the start (another process of the program, in the same state): nothing changed, so there is nothing to ask.
+    const alreadyBefore = (before.processos ?? []).some((p) => programOf(p.comando) === name && p.estado.startsWith("T") === stopped);
+    if (!old && !alreadyBefore) add({ kind, name });
+    else if (old && old.estado.startsWith("T") !== stopped && !alreadyBefore) add({ kind, name });
+    if ((!old && process.nice !== 0) || (old && old.nice !== process.nice)) add({ kind: "PROCESS_NICE", name, nice: process.nice });
+  }
+  // One that was there and is not now: gone, and by which signal when a signal did it.
+  const endedBefore = new Set((before.encerrados ?? []).map((e) => e.pid));
+  for (const [pid, process] of wasThere) {
+    if (isThere.has(pid)) continue;
+    const name = programOf(process.comando);
+    if (name === "") continue;
+    const stillRunning = (after.processos ?? []).some((p) => programOf(p.comando) === name);
+    if (!stillRunning) add({ kind: "PROCESS_ABSENT", name });
+  }
+  for (const e of after.encerrados ?? []) {
+    if (endedBefore.has(e.pid)) continue;
+    const name = programOf(e.comando);
+    if (name === "") continue;
+    // A program started and ended during the recording was never in the list before: it is gone, and the signal ended it.
+    if (!(after.processos ?? []).some((p) => programOf(p.comando) === name)) add({ kind: "PROCESS_ABSENT", name });
+    add({ kind: "PROCESS_ENDED_BY", name, signal: e.sinal });
+  }
+  return list;
 }
 
 // ---- checking
@@ -100,6 +190,9 @@ function nodeAt(machine: Machine, path: string) {
   }
   return node;
 }
+
+/** The processes of the machine that run a program. A machine with no processes (one that was saved, not one running) has none. */
+const named = (machine: Machine, name: string | undefined) => (machine.processos ?? []).filter((p) => programOf(p.comando) === name);
 
 /** Whether a condition holds in the machine. */
 export function holds(condition: ExerciseCondition, machine: Machine): boolean {
@@ -138,6 +231,16 @@ export function holds(condition: ExerciseCondition, machine: Machine): boolean {
       const user = machine.contas.usuarios.find((u) => u.nome === condition.user);
       return Boolean(group && user && ((group.membros ?? []).includes(user.nome) || user.gid === group.gid));
     }
+    case "PROCESS_RUNNING":
+      return named(machine, condition.name).some((p) => !p.estado.startsWith("T"));
+    case "PROCESS_ABSENT":
+      return named(machine, condition.name).length === 0;
+    case "PROCESS_STOPPED":
+      return named(machine, condition.name).some((p) => p.estado.startsWith("T"));
+    case "PROCESS_ENDED_BY":
+      return (machine.encerrados ?? []).some((e) => programOf(e.comando) === condition.name && (condition.signal === undefined || e.sinal === condition.signal));
+    case "PROCESS_NICE":
+      return named(machine, condition.name).some((p) => p.nice === condition.nice);
     default:
       return false;
   }
@@ -166,6 +269,16 @@ export function describeCondition(c: ExerciseCondition): string {
       return `O grupo ${c.name} existe`;
     case "USER_IN_GROUP":
       return `${c.user} está no grupo ${c.name}`;
+    case "PROCESS_RUNNING":
+      return `O programa ${c.name} está rodando`;
+    case "PROCESS_ABSENT":
+      return `O programa ${c.name} não está mais rodando`;
+    case "PROCESS_STOPPED":
+      return `O programa ${c.name} está parado`;
+    case "PROCESS_ENDED_BY":
+      return c.signal === undefined ? `O programa ${c.name} foi encerrado por um sinal` : `O programa ${c.name} foi encerrado pelo sinal ${c.signal}`;
+    case "PROCESS_NICE":
+      return `O programa ${c.name} tem a prioridade (nice) ${c.nice}`;
     default:
       return "";
   }

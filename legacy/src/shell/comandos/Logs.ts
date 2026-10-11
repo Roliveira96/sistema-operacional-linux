@@ -3,6 +3,7 @@ import type { Contexto } from '../Contexto';
 import { Arquivo, type No } from '../../linux/No';
 import { registrar } from '../../linux/Registro';
 import { linhasDe } from './util';
+import type { AjudaDoComando } from '../Ajuda';
 
 /** Linhas do "journal": o simulador junta syslog, auth.log e kern.log em ordem de horário. */
 function lerJornal(contexto: Contexto): string[] {
@@ -19,6 +20,25 @@ function lerJornal(contexto: Contexto): string[] {
 export class Journalctl extends Comando {
   public readonly nome: string = 'journalctl';
   public readonly resumo: string = 'lê os logs do systemd: journalctl -u nginx | -n 20 | -f (acompanha) | -p err (só erros) | -k (kernel)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'journalctl [-u UNIDADE] [-n NÚMERO] [-f] [-p NÍVEL] [-k] [-r]',
+    descricao: 'Lê o registro (log) do sistema. Só root ou quem está no grupo adm vê as mensagens.',
+    opcoes: [
+      ['-u UNIDADE, --unit=UNIDADE', 'mostra só as mensagens do serviço (ex.: nginx)'],
+      ['-n NÚMERO, --lines=NÚMERO', 'mostra só as últimas NÚMERO linhas'],
+      ['-f, --follow', 'acompanha novas mensagens (Ctrl+C sai)'],
+      ['-p NÍVEL, --priority=NÍVEL', 'só erros e mais graves (ex.: -p err)'],
+      ['-k, --dmesg', 'só mensagens do kernel'],
+      ['-r, --reverse', 'mostra as mais recentes primeiro'],
+      ['-e', 'vai para o fim, mostrando as últimas 20 linhas'],
+    ],
+    exemplos: [
+      ['sudo journalctl -u nginx -n 20', 'últimas 20 linhas do nginx'],
+      ['sudo journalctl -p err', 'só os erros'],
+      ['sudo journalctl -f', 'acompanha o log em tempo real'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     let unidade: string | null = null;
@@ -81,6 +101,19 @@ export class Journalctl extends Comando {
 export class Dmesg extends Comando {
   public readonly nome: string = 'dmesg';
   public readonly resumo: string = 'mensagens do kernel (hardware, discos, drivers). No Ubuntu, só root: sudo dmesg';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'dmesg [-T]',
+    descricao: 'Mostra as mensagens do kernel: hardware detectado, discos, drivers e montagens. Exige root.',
+    opcoes: [
+      ['-T', 'mostra data e hora legíveis em vez de segundos desde o boot'],
+      ['-H', 'o mesmo que -T no simulador'],
+    ],
+    exemplos: [
+      ['sudo dmesg', 'mostra todas as mensagens do kernel'],
+      ['sudo dmesg -T | grep sdb', 'procura mensagens do disco sdb, com data e hora'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     if (!contexto.ehRoot()) {
@@ -124,6 +157,19 @@ export class Dmesg extends Comando {
 export class Logger extends Comando {
   public readonly nome: string = 'logger';
   public readonly resumo: string = 'escreve uma mensagem no log do sistema (syslog): logger "backup concluído"';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'logger [-t ETIQUETA] [-p PRIORIDADE] [MENSAGEM]...',
+    descricao: 'Escreve uma mensagem no log do sistema (/var/log/syslog), que depois pode ser lida com journalctl.',
+    opcoes: [
+      ['-t ETIQUETA', 'nome que identifica a origem da mensagem (padrão: seu usuário)'],
+      ['-p PRIORIDADE', 'aceita a prioridade, mas o simulador a ignora'],
+    ],
+    exemplos: [
+      ['logger "backup concluído"', 'registra a mensagem no syslog'],
+      ['logger -t backup "terminou sem erros"', 'registra com a etiqueta backup'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     let etiqueta: string = contexto.contas.nomeDoUsuario(contexto.credencial.uid);

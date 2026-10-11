@@ -128,3 +128,50 @@ func TestCatalogFromEnd_GradesTheMachine(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, verdict.Passed)
 }
+
+// Covers SPEC-029 CA-09, CA-11: the process kinds of the form the teacher edits become conditions the server grades.
+func TestCatalogFromEnd_Processes(t *testing.T) {
+	signal, nice := 9, 5
+	got := catalogFromEnd([]exerciseCondition{
+		{Kind: "PROCESS_RUNNING", Name: "ping"},
+		{Kind: "PROCESS_ABSENT", Name: "sleep"},
+		{Kind: "PROCESS_STOPPED", Name: "top"},
+		{Kind: "PROCESS_ENDED_BY", Name: "yes", Signal: &signal},
+		{Kind: "PROCESS_ENDED_BY", Name: "yes"},
+		{Kind: "PROCESS_NICE", Name: "nice-me", Nice: &nice},
+	})
+	require.Len(t, got, 6)
+	assert.Equal(t, []ConditionType{CondProcessRunning, CondProcessAbsent, CondProcessStopped, CondProcessEndedBy, CondProcessEndedBy, CondProcessNice},
+		[]ConditionType{got[0].Type, got[1].Type, got[2].Type, got[3].Type, got[4].Type, got[5].Type})
+	assert.Equal(t, "ping", got[0].Process)
+	require.NotNil(t, got[3].Signal)
+	assert.Equal(t, 9, *got[3].Signal)
+	assert.Nil(t, got[4].Signal, "no signal means any")
+	require.NotNil(t, got[5].Nice)
+	assert.Equal(t, 5, *got[5].Nice)
+	require.NoError(t, ValidateConditions(got), "every translated condition is valid for the server")
+}
+
+func TestNormalizeExercise_ProcessConditions(t *testing.T) {
+	san := NewHTMLSanitizer()
+	in := func(conditions string) ExerciseInput {
+		return ExerciseInput{Title: "Encerre o sleep", Difficulty: "EASY", Statement: "<p>x</p>", Conditions: json.RawMessage(conditions)}
+	}
+	out, err := NormalizeExercise(in(`[{"kind":"PROCESS_ABSENT","name":" sleep "},{"kind":"PROCESS_ENDED_BY","name":"yes","signal":15},{"kind":"PROCESS_NICE","name":"ping","nice":10}]`), san)
+	require.NoError(t, err)
+	assert.Len(t, out.Catalog, 3)
+	assert.Equal(t, "sleep", out.Catalog[0].Process, "the name is trimmed")
+
+	for name, conditions := range map[string]string{
+		"no name":      `[{"kind":"PROCESS_RUNNING"}]`,
+		"bad name":     `[{"kind":"PROCESS_RUNNING","name":"a b"}]`,
+		"bad signal":   `[{"kind":"PROCESS_ENDED_BY","name":"yes","signal":99}]`,
+		"zero signal":  `[{"kind":"PROCESS_ENDED_BY","name":"yes","signal":0}]`,
+		"nice missing": `[{"kind":"PROCESS_NICE","name":"yes"}]`,
+		"nice too big": `[{"kind":"PROCESS_NICE","name":"yes","nice":20}]`,
+	} {
+		_, err := NormalizeExercise(in(conditions), san)
+		var invalid *PayloadError
+		require.ErrorAs(t, err, &invalid, name)
+	}
+}

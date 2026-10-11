@@ -3,10 +3,28 @@ import type { Contexto } from '../Contexto';
 import { Contas, type Usuario } from '../../linux/Contas';
 import { SaidaDoScript } from '../Interpretador';
 import { pidDeLog, registrar } from '../../linux/Registro';
+import type { AjudaDoComando } from '../Ajuda';
 
 export class Sudo extends Comando {
   public readonly nome: string = 'sudo';
   public readonly resumo: string = 'executa UM comando como root (pede a SUA senha; só para quem está no grupo sudo)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'sudo [-i | -s] [-u USUÁRIO] [COMANDO [ARGUMENTO]...]',
+    descricao: 'Executa um comando como root (ou como outro usuário). Pede a sua senha e só funciona para quem está no grupo sudo.',
+    opcoes: [
+      ['-u USUÁRIO', 'executa como este usuário em vez de root'],
+      ['-i', 'abre um shell de login do usuário alvo'],
+      ['-s', 'abre um shell do usuário alvo na pasta atual'],
+      ['-k', 'esquece a senha já digitada'],
+    ],
+    exemplos: [
+      ['sudo apt update', 'roda o apt update como root'],
+      ['sudo -u maria whoami', 'roda whoami como maria'],
+      ['sudo -i', 'abre um shell de root'],
+    ],
+    h: 'ajuda',
+    soPrimeiro: true,
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     let i: number = 0;
@@ -93,6 +111,19 @@ export class Sudo extends Comando {
 export class Su extends Comando {
   public readonly nome: string = 'su';
   public readonly resumo: string = 'troca de usuário: su - maria (pede a senha DELA; root não precisa de senha)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'su [-l | -] [USUÁRIO]',
+    descricao: 'Troca para outro usuário (root, se não disser qual). Pede a senha dele, menos quando você já é root. Use exit para voltar.',
+    opcoes: [
+      ['-, -l, --login', 'entra como login: vai para a pasta pessoal do usuário'],
+    ],
+    exemplos: [
+      ['su - maria', 'vira maria, na pasta pessoal dela'],
+      ['su', 'vira root, mantendo a pasta atual'],
+    ],
+    h: 'ajuda',
+    soPrimeiro: true,
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const opcoes: Opcoes = Opcoes.ler(args, '', { login: 'l' });
@@ -140,6 +171,14 @@ export class Exit extends Comando {
   constructor(nome: 'exit' | 'logout') {
     super();
     this.nome = nome;
+    this.ajuda = {
+      uso: nome + ' [CÓDIGO]',
+      descricao: 'Sai do shell atual: volta ao usuário anterior depois de um su ou sudo -i, ou encerra a sessão (ex.: SSH).',
+      exemplos: [
+        [nome, 'sai do shell atual'],
+        [nome + ' 0', 'sai informando o código de saída 0'],
+      ],
+    };
   }
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {

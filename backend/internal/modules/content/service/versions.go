@@ -36,7 +36,13 @@ type VersionSummary struct {
 type VersionStore interface {
 	ModuleTeacher(ctx context.Context, moduleID uuid.UUID) (uuid.UUID, error)
 	ListVersions(ctx context.Context, moduleID uuid.UUID) ([]VersionSummary, bool, error)
-	PublishVersion(ctx context.Context, moduleID, by uuid.UUID, note string) (domain.ModuleVersion, error)
+	// PublishGated stores the draft as the next version, but only when gate accepts the state of the tests read in the
+	// same transaction as the draft (RN-13); the error of gate is returned and nothing is stored.
+	PublishGated(ctx context.Context, moduleID, by uuid.UUID, note string, gate func(domain.TestState) error) (domain.ModuleVersion, error)
+	// TestState reads the latest results and the hashes of the current state of the module.
+	TestState(ctx context.Context, moduleID uuid.UUID) (domain.TestState, error)
+	// SaveTestResult stores a result with the hash of what the kind covers at this moment.
+	SaveTestResult(ctx context.Context, r domain.ModuleTestResult) (domain.ModuleTestResult, error)
 	RestoreVersion(ctx context.Context, moduleID uuid.UUID, number int, now time.Time) error
 	ListBlocks(ctx context.Context, moduleID uuid.UUID) ([]domain.ContentBlock, error)
 	ModuleSetup(ctx context.Context, moduleID uuid.UUID) (json.RawMessage, error)
@@ -69,19 +75,36 @@ func (s *Versions) authorize(ctx context.Context, moduleID uuid.UUID, who Actor)
 	return ErrForbidden
 }
 
+// VersionList is the list of versions with what the screen needs to enable publishing (SPEC-024 5).
+type VersionList struct {
+	Versions              []VersionSummary
+	HasUnpublishedChanges bool
+	// ModuleTestPassed and ExerciseBankTestPassed tell that the latest result of the test passed and is valid for the current
+	// state; the second is also true when the module has no exercises.
+	ModuleTestPassed       bool
+	ExerciseBankTestPassed bool
+}
+
 // List returns the versions, the newest first, with the current one marked, and whether the draft has unpublished changes.
-func (s *Versions) List(ctx context.Context, who Actor, moduleID uuid.UUID) ([]VersionSummary, bool, error) {
+func (s *Versions) List(ctx context.Context, who Actor, moduleID uuid.UUID) (VersionList, error) {
 	if err := s.authorize(ctx, moduleID, who); err != nil {
-		return nil, false, err
+		return VersionList{}, err
 	}
 	list, changed, err := s.store.ListVersions(ctx, moduleID)
+	if err != nil {
+		return VersionList{}, err
+	}
 	if len(list) > 0 {
 		list[0].Current = true
 	}
-	return list, changed, err
+	state, err := s.store.TestState(ctx, moduleID)
+	if err != nil {
+		return VersionList{}, err
+	}
+	return VersionList{Versions: list, HasUnpublishedChanges: changed, ModuleTestPassed: state.ModulePassed(), ExerciseBankTestPassed: state.BankPassed()}, nil
 }
 
-// Publish stores the draft as the next version.
+// Publish stores the draft as the next version, when the tests of the module passed for the current state (SPEC-024 RN-13).
 func (s *Versions) Publish(ctx context.Context, who Actor, moduleID uuid.UUID, note string) (domain.ModuleVersion, error) {
 	if err := s.authorize(ctx, moduleID, who); err != nil {
 		return domain.ModuleVersion{}, err
@@ -90,7 +113,7 @@ func (s *Versions) Publish(ctx context.Context, who Actor, moduleID uuid.UUID, n
 	if utf8.RuneCountInString(note) > domain.MaxVersionNote {
 		return domain.ModuleVersion{}, ErrNoteTooLong
 	}
-	v, err := s.store.PublishVersion(ctx, moduleID, who.UserID, note)
+	v, err := s.store.PublishGated(ctx, moduleID, who.UserID, note, requireTests)
 	if err == nil {
 		s.log.Info("module published", zap.String("userId", who.UserID.String()), zap.String("moduleId", moduleID.String()), zap.Int("version", v.Number))
 	}
@@ -115,4 +138,34 @@ func (s *Versions) Restore(ctx context.Context, who Actor, moduleID uuid.UUID, n
 	}
 	setup, err := s.store.ModuleSetup(ctx, moduleID)
 	return blocks, setup, err
+}
+
+// requireTests is the gate of the publication: it refuses a state whose tests are missing, failed or stale.
+func requireTests(state domain.TestState) error {
+	if missing := state.Missing(); len(missing) > 0 {
+		return &MissingTestsError{Tests: missing}
+	}
+	return nil
+}
+
+// InitialVersionStore publishes the first version without the gate of the tests (SPEC-021 RN-11).
+type InitialVersionStore interface {
+	PublishVersion(ctx context.Context, moduleID, by uuid.UUID, note string) (domain.ModuleVersion, error)
+}
+
+// InitialVersions creates the version 1 of a new module, so a module is never without a published version.
+type InitialVersions struct{ store InitialVersionStore }
+
+// NewInitialVersions creates the service.
+func NewInitialVersions(store InitialVersionStore) *InitialVersions {
+	return &InitialVersions{store: store}
+}
+
+// CreateInitialVersion publishes the draft of a just created module as version 1; a module that already has versions is left alone.
+func (s *InitialVersions) CreateInitialVersion(ctx context.Context, moduleID, by uuid.UUID) error {
+	_, err := s.store.PublishVersion(ctx, moduleID, by, "Initial version")
+	if errors.Is(err, ErrNoChanges) {
+		return nil
+	}
+	return err
 }

@@ -5,6 +5,7 @@ import { ErroDeSistema } from '../../linux/ErroDeSistema';
 import { Permissoes } from '../../linux/Permissoes';
 import { SistemaDeArquivos } from '../../linux/SistemaDeArquivos';
 import { mensagemDe, simOuNao } from './util';
+import type { AjudaDoComando } from '../Ajuda';
 
 /** Um item dentro de um .tar ou .zip. */
 interface Entrada {
@@ -106,6 +107,24 @@ function lerEntradasDoPacote(caminho: string, contexto: Contexto, formatos: Arra
 export class Tar extends Comando {
   public readonly nome: string = 'tar';
   public readonly resumo: string = 'empacota/desempacota: tar -czvf backup.tar.gz pasta | tar -tzvf (lista) | tar -xzvf (extrai) -C destino';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'tar -c|-x|-t [-z] [-v] -f ARQUIVO [-C PASTA] [ARQUIVO]...',
+    descricao: 'Empacota arquivos e pastas num único arquivo .tar (ou .tar.gz com -z), lista o que há dentro ou extrai.',
+    opcoes: [
+      ['-c, --create', 'cria um pacote novo com os arquivos e pastas indicados'],
+      ['-x, --extract', 'extrai o conteúdo do pacote'],
+      ['-t, --list', 'lista o conteúdo do pacote sem extrair'],
+      ['-f ARQUIVO, --file=ARQUIVO', 'nome do pacote (obrigatório)'],
+      ['-z, --gzip', 'usa compressão gzip (pacote .tar.gz)'],
+      ['-v, --verbose', 'mostra os arquivos processados (com -t, lista detalhada)'],
+      ['-C PASTA, --directory=PASTA', 'extrai dentro da pasta indicada'],
+    ],
+    exemplos: [
+      ['tar -czvf backup.tar.gz projeto', 'cria backup.tar.gz com a pasta projeto'],
+      ['tar -tzvf backup.tar.gz', 'lista o que há dentro do pacote'],
+      ['tar -xzvf backup.tar.gz -C /tmp', 'extrai o pacote dentro de /tmp'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const letras: Set<string> = new Set();
@@ -220,6 +239,44 @@ export class Gzip extends Comando {
     this.nome = nome;
     this.resumo = nome === 'gzip' ? 'compacta UM arquivo (vira arquivo.gz e o original some; -k mantém)'
       : nome === 'gunzip' ? 'descompacta um .gz' : 'mostra o conteúdo de um .gz sem descompactar';
+    if (nome === 'gzip') {
+      this.ajuda = {
+        uso: 'gzip [-d] [-k] [-v] ARQUIVO...',
+        descricao: 'Compacta cada arquivo: ele vira ARQUIVO.gz e o original some (use -k para manter). Não compacta pastas; para isso use tar -z.',
+        opcoes: [
+          ['-d', 'descompacta (o mesmo que gunzip)'],
+          ['-k', 'mantém o arquivo original'],
+          ['-v', 'mostra o nome do arquivo gerado e a redução'],
+        ],
+        exemplos: [
+          ['gzip relatorio.txt', 'cria relatorio.txt.gz e remove o original'],
+          ['gzip -k relatorio.txt', 'cria o .gz e mantém o original'],
+          ['gzip -d relatorio.txt.gz', 'descompacta o arquivo'],
+        ],
+      };
+    } else if (nome === 'gunzip') {
+      this.ajuda = {
+        uso: 'gunzip [-k] [-v] ARQUIVO.gz...',
+        descricao: 'Descompacta arquivos .gz: o .gz some e fica o arquivo original (use -k para manter o .gz).',
+        opcoes: [
+          ['-k', 'mantém o arquivo .gz'],
+          ['-v', 'mostra o nome do arquivo gerado'],
+        ],
+        exemplos: [
+          ['gunzip relatorio.txt.gz', 'restaura relatorio.txt e remove o .gz'],
+          ['gunzip -k relatorio.txt.gz', 'restaura o arquivo e mantém o .gz'],
+        ],
+      };
+    } else {
+      this.ajuda = {
+        uso: 'zcat ARQUIVO.gz...',
+        descricao: 'Mostra o conteúdo de arquivos .gz na tela, sem descompactar nem alterar o arquivo.',
+        exemplos: [
+          ['zcat relatorio.txt.gz', 'mostra o texto guardado no .gz'],
+          ['zcat relatorio.txt.gz | grep erro', 'procura "erro" dentro do .gz'],
+        ],
+      };
+    }
   }
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
@@ -292,6 +349,18 @@ export class Gzip extends Comando {
 export class Zip extends Comando {
   public readonly nome: string = 'zip';
   public readonly resumo: string = 'compacta no formato .zip (compatível com Windows): zip -r arquivo.zip pasta';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'zip [-r] ARQUIVO.zip ARQUIVO...',
+    descricao: 'Compacta arquivos e pastas num único arquivo .zip, formato que o Windows também abre.',
+    opcoes: [
+      ['-r', 'inclui o conteúdo das pastas (sem ele, só a pasta vazia entra)'],
+    ],
+    exemplos: [
+      ['zip -r projeto.zip projeto', 'compacta a pasta projeto inteira'],
+      ['zip notas.zip a.txt b.txt', 'compacta dois arquivos'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const recursivo: boolean = args.some((a) => /^-[a-z]*r/.test(a));
@@ -328,6 +397,21 @@ export class Zip extends Comando {
 export class Unzip extends Comando {
   public readonly nome: string = 'unzip';
   public readonly resumo: string = 'extrai um .zip: unzip arquivo.zip [-d pasta] | unzip -l arquivo.zip (lista)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'unzip [-l] [-o] ARQUIVO.zip [-d PASTA]',
+    descricao: 'Extrai um arquivo .zip na pasta atual (ou em outra pasta), ou apenas lista o conteúdo.',
+    opcoes: [
+      ['-l', 'lista o conteúdo sem extrair'],
+      ['-o', 'sobrescreve os arquivos existentes sem perguntar'],
+      ['-d PASTA', 'extrai dentro da pasta indicada'],
+    ],
+    exemplos: [
+      ['unzip projeto.zip', 'extrai na pasta atual'],
+      ['unzip -l projeto.zip', 'lista o que há no zip'],
+      ['unzip projeto.zip -d /tmp', 'extrai dentro de /tmp'],
+    ],
+    h: 'ajuda',
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const listar: boolean = args.includes('-l');
@@ -378,6 +462,21 @@ export class Unzip extends Comando {
 export class Rsync extends Comando {
   public readonly nome: string = 'rsync';
   public readonly resumo: string = 'sincroniza pastas copiando só o que mudou: rsync -av origem/ destino/ (--delete espelha, -n simula)';
+  public readonly ajuda: AjudaDoComando = {
+    uso: 'rsync [-a] [-r] [-v] [-n] [--delete] ORIGEM... DESTINO',
+    descricao: 'Sincroniza pastas copiando só o que falta ou mudou. Funciona só com caminhos locais; origem com "/" no fim copia o conteúdo da pasta.',
+    opcoes: [
+      ['-a', 'modo arquivo: recursivo, preservando permissões, dono e data'],
+      ['-r', 'entra nas pastas (recursivo)'],
+      ['-v', 'mostra os arquivos transferidos e o resumo'],
+      ['-n, --dry-run', 'simula, sem copiar nem apagar nada'],
+      ['--delete', 'apaga no destino o que não existe mais na origem'],
+    ],
+    exemplos: [
+      ['rsync -av /home/aluno/ /mnt/backup/', 'copia o conteúdo da pasta para o backup'],
+      ['rsync -avn --delete origem/ destino/', 'simula o espelhamento, mostrando o que seria apagado'],
+    ],
+  };
 
   public async executar(args: string[], contexto: Contexto): Promise<number> {
     const letras: Set<string> = new Set(args.filter((a) => /^-[a-zA-Z]+$/.test(a)).flatMap((a) => Array.from(a.substring(1))));

@@ -5,8 +5,8 @@ import { Suspense } from "react";
 import { AuthContainer } from "@/components/AuthContainer/AuthContainer";
 
 function LoginContent() {
-  const reason = useSearchParams().get("reason");
-  return <AuthContainer initialMode="LOGIN" reason={reason} />;
+  const params = useSearchParams();
+  return <AuthContainer initialMode="LOGIN" reason={params.get("reason")} next={params.get("next")} />;
 }
 
 export default function LoginPage() {

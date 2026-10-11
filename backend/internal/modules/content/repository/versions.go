@@ -85,8 +85,15 @@ func (r *Repository) ListVersions(ctx context.Context, moduleID uuid.UUID) ([]se
 	return out, latest.ContentHash != hash, nil
 }
 
-// PublishVersion stores the draft as the next version, or returns service.ErrNoChanges.
+// PublishVersion stores the draft as the next version, or returns service.ErrNoChanges. It does not check the tests of
+// the module: it is for the initial load (SPEC-021 RN-08); the teacher publishes through PublishGated.
 func (r *Repository) PublishVersion(ctx context.Context, moduleID, by uuid.UUID, note string) (domain.ModuleVersion, error) {
+	return r.PublishGated(ctx, moduleID, by, note, nil)
+}
+
+// PublishGated is PublishVersion that first asks gate (when not nil) about the tests of the module. The state given to gate
+// is read in the transaction that stores the version, and its draft hash is the one of the stored content.
+func (r *Repository) PublishGated(ctx context.Context, moduleID, by uuid.UUID, note string, gate func(domain.TestState) error) (domain.ModuleVersion, error) {
 	var published domain.ModuleVersion
 	err := r.db.WithinTransaction(ctx, func(ctx context.Context) error {
 		content, hash, err := r.draft(ctx, moduleID)
@@ -103,6 +110,15 @@ func (r *Repository) PublishVersion(ctx context.Context, moduleID, by uuid.UUID,
 			next = latest.Number + 1
 		case !errors.Is(err, service.ErrNotFound):
 			return err
+		}
+		if gate != nil {
+			state, err := r.testState(ctx, moduleID, hash)
+			if err != nil {
+				return err
+			}
+			if err := gate(state); err != nil {
+				return err
+			}
 		}
 		id, err := uuid.NewV7()
 		if err != nil {

@@ -93,3 +93,67 @@ declare module "@legacy-engine/estilos/terminal.css" {
   const stylesheet: string;
   export default stylesheet;
 }
+
+declare module "@legacy-engine/shell/Shell" {
+  /** The help of a command (SPEC-027), as the tests of the engine read it. */
+  export interface AjudaDoComando {
+    uso: string;
+    descricao: string;
+    opcoes?: [string, string][];
+    exemplos?: [string, string][];
+    h?: "ajuda" | "outra";
+    soPrimeiro?: boolean;
+    semOpcaoDeAjuda?: boolean;
+  }
+  export interface ComandoDoSimulador {
+    readonly nome: string;
+    readonly resumo: string;
+    readonly ajuda?: AjudaDoComando;
+  }
+  export class Shell {
+    static obterRegistro(): {
+      listar(): ComandoDoSimulador[];
+      obter(nome: string): ComandoDoSimulador | undefined;
+      registrar(...comandos: ComandoDoSimulador[]): void;
+    };
+  }
+}
+
+declare module "@legacy-engine/shell/Saida" {
+  /** Where a command prints: the terminal, a file (>) or the next command of a pipe (|). */
+  export class SaidaEmTexto {
+    texto: string;
+    escrever(texto: string): void;
+  }
+  export class SaidaParaArquivo {
+    escrever(texto: string): void;
+  }
+}
+
+declare module "@legacy-engine/shell/comandos/Processos" {
+  /** One line of ps: a system process, a service, an SSH session or a user command. */
+  export interface LinhaDeProcesso {
+    pid: number;
+    ppid: number;
+    usuario: string;
+    tty: string;
+    estado: string;
+    comando: string;
+    inicio: Date;
+    cpu: number;
+    mem: number;
+    tipo: "sistema" | "servico" | "sshd" | "shell" | "usuario";
+    processo?: object;
+  }
+  export function listarProcessos(maquina: unknown): LinhaDeProcesso[];
+}
+
+declare module "@legacy-engine/linux/Pacotes" {
+  /** A package of the simulated apt: `programas` are "bin/name" or "sbin/name". */
+  export interface Pacote {
+    nome: string;
+    programas: string[];
+    base?: boolean;
+  }
+  export const CATALOGO: Pacote[];
+}

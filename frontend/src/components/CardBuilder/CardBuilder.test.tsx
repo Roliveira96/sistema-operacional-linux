@@ -80,7 +80,7 @@ beforeEach(() => {
     saveCard: vi.fn(),
     setCardActive: vi.fn(),
     reorder: vi.fn(),
-    registerTestResult: vi.fn(),
+    registerTestResult: vi.fn(), uploadImage: vi.fn(),
   };
 });
 
@@ -216,16 +216,39 @@ describe("CardBuilder, a new card", () => {
     expect(service.saveCard).not.toHaveBeenCalled();
   });
 
-  it("checks the addresses of an image, a video and a link", async () => {
+  // Covers SPEC-025 rev. 2: the pictures sent become one gallery in the stored block, in the order shown, with the captions.
+  it("sends two pictures and stores them as one gallery", async () => {
+    const hash = (c: string) => `http://bucket/linux-lab/conteudo/${c.repeat(64)}.avif`;
+    service.uploadImage
+      .mockResolvedValueOnce({ url: hash("a"), width: 800, height: 600, bytes: 2048 })
+      .mockResolvedValueOnce({ url: hash("b"), width: 800, height: 600, bytes: 2048 });
+    service.saveCard.mockResolvedValue([block("n1", "TEXT", 4, { title: "Fotos", html: "" })]);
+    renderBuilder();
+    fireEvent.change(input("Título principal do card"), { target: { value: "Fotos" } });
+    fireEvent.click(screen.getByRole("button", { name: "Imagens (galeria)" }));
+    const png = (name: string) => new File([new Uint8Array(8)], name, { type: "image/png" });
+    fireEvent.change(input("Adicionar imagens 1"), { target: { files: [png("a.png"), png("b.png")] } });
+    await waitFor(() => expect(screen.getAllByText(/^Pronta:/)).toHaveLength(2));
+    fireEvent.change(input("Legenda da imagem 1"), { target: { value: "Primeira" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
+    await waitFor(() => expect(service.saveCard).toHaveBeenCalled());
+    const request = service.saveCard.mock.calls[0]![1] as { blocks: { payload: { html?: string } }[] };
+    const html = request.blocks.map((b) => b.payload.html ?? "").join("");
+    expect(html).toContain('<div class="md-gallery">');
+    expect(html.indexOf(hash("a"))).toBeLessThan(html.indexOf(hash("b")));
+    expect(html).toContain("<figcaption>Primeira</figcaption>");
+  });
+
+  it("checks the pictures, the address of a video and the one of a link", async () => {
     renderBuilder();
     fireEvent.change(input("Título principal do card"), {
       target: { value: "T" },
     });
-    for (const name of ["Imagem", "Vídeo (embed)", "Link / Referência"])
+    for (const name of ["Imagens (galeria)", "Vídeo (embed)", "Link / Referência"])
       fireEvent.click(screen.getByRole("button", { name }));
-    fireEvent.change(input("Endereço da imagem 1"), {
-      target: { value: "http://x.com/a.png" },
-    });
+    // The element Imagens has no address to type: a card with no picture asks for one (SPEC-025 rev. 2).
+    expect(screen.queryByLabelText(/Endereço da imagem/)).toBeNull();
     fireEvent.change(input("Endereço do vídeo (YouTube, embed) 2"), {
       target: { value: "https://vimeo.com/1" },
     });
@@ -235,7 +258,7 @@ describe("CardBuilder, a new card", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
 
     expect(
-      await screen.findByText("Use um endereço que comece com https://."),
+      await screen.findByText("Adicione pelo menos uma imagem."),
     ).toBeDefined();
     expect(screen.getByText(/incorporação do YouTube/)).toBeDefined();
     expect(

@@ -43,6 +43,13 @@ const (
 	CondContentLineCount   ConditionType = "CONTENT_LINE_COUNT"
 	CondAnyOf              ConditionType = "ANY_OF"
 	CondPackagesAtVersions ConditionType = "PACKAGES_AT_VERSIONS"
+
+	// SPEC-029 additions: how a process ended up, by the name of its program.
+	CondProcessRunning ConditionType = "PROCESS_RUNNING"
+	CondProcessAbsent  ConditionType = "PROCESS_ABSENT"
+	CondProcessStopped ConditionType = "PROCESS_STOPPED"
+	CondProcessEndedBy ConditionType = "PROCESS_ENDED_BY"
+	CondProcessNice    ConditionType = "PROCESS_NICE"
 )
 
 // Comparisons of CONTENT_LINE_COUNT.
@@ -97,7 +104,20 @@ type Condition struct {
 	Count              *int             `json:"count,omitempty"`
 	Conditions         []Condition      `json:"conditions,omitempty"`
 	Packages           []PackageVersion `json:"packages,omitempty"`
+	// Process is the name of a program (SPEC-029); Signal, when given, is the signal that ended it, and Nice its priority.
+	Process string `json:"process,omitempty"`
+	Signal  *int   `json:"signal,omitempty"`
+	Nice    *int   `json:"nice,omitempty"`
 }
+
+// Limits of the process conditions: the signals of Linux and the range of the niceness.
+const (
+	MaxSignal = 64
+	MinNice   = -20
+	MaxNice   = 19
+)
+
+var processName = regexp.MustCompile(`^[A-Za-z0-9._+-]{1,64}$`)
 
 // ErrInvalidConditions is returned for lists that cannot be evaluated.
 var ErrInvalidConditions = errors.New("invalid validation conditions")
@@ -190,6 +210,16 @@ func (c Condition) validate(nested bool) error {
 	case CondPackagesAtVersions:
 		if len(c.Packages) == 0 {
 			return missing("packages")
+		}
+	case CondProcessRunning, CondProcessAbsent, CondProcessStopped, CondProcessEndedBy, CondProcessNice:
+		if !processName.MatchString(c.Process) {
+			return missing("a process name")
+		}
+		if c.Type == CondProcessEndedBy && c.Signal != nil && (*c.Signal < 1 || *c.Signal > MaxSignal) {
+			return fmt.Errorf("%w: signal %d does not exist", ErrInvalidConditions, *c.Signal)
+		}
+		if c.Type == CondProcessNice && (c.Nice == nil || *c.Nice < MinNice || *c.Nice > MaxNice) {
+			return fmt.Errorf("%w: %s requires a nice from %d to %d", ErrInvalidConditions, c.Type, MinNice, MaxNice)
 		}
 	default:
 		return fmt.Errorf("%w: unknown type %q", ErrInvalidConditions, c.Type)
@@ -298,6 +328,36 @@ func (c Condition) Holds(m *Machine) bool {
 	case CondUserPasswordSet:
 		u := m.User(c.User)
 		return u != nil && u.Password != nil && *u.Password != ""
+	case CondProcessRunning:
+		for _, p := range m.ProcessesNamed(c.Process) {
+			if !strings.HasPrefix(p.State, "T") {
+				return true
+			}
+		}
+		return false
+	case CondProcessAbsent:
+		return len(m.ProcessesNamed(c.Process)) == 0
+	case CondProcessStopped:
+		for _, p := range m.ProcessesNamed(c.Process) {
+			if strings.HasPrefix(p.State, "T") {
+				return true
+			}
+		}
+		return false
+	case CondProcessEndedBy:
+		for _, e := range m.EndedNamed(c.Process) {
+			if c.Signal == nil || e.Signal == *c.Signal {
+				return true
+			}
+		}
+		return false
+	case CondProcessNice:
+		for _, p := range m.ProcessesNamed(c.Process) {
+			if p.Nice == *c.Nice {
+				return true
+			}
+		}
+		return false
 	case CondUserLocked:
 		u := m.User(c.User)
 		return u != nil && u.Locked == *c.Locked

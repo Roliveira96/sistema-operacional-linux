@@ -18,7 +18,9 @@ type Sanitizer struct {
 
 var (
 	classTokens  = regexp.MustCompile(`^[A-Za-z0-9_\- ]+$`)
-	httpsImage   = regexp.MustCompile(`^https://`)
+	// An image is https, or one the system itself stored (SPEC-025): <bucket>/conteudo/<sha-256>.avif|gif. The second form is what the
+	// bucket of a development machine serves over http; it is only that exact shape, never any http address.
+	httpsImage   = regexp.MustCompile(`^(https://|https?://[^/\s]+/[A-Za-z0-9._-]+/conteudo/[0-9a-f]{64}\.(avif|gif)$)`)
 	youtubeEmbed = regexp.MustCompile(`^https://(www\.)?(youtube\.com|youtube-nocookie\.com)/embed/`)
 	tags         = regexp.MustCompile(`<[^>]*>`)
 	spaces       = regexp.MustCompile(`\s+`)

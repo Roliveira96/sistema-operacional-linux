@@ -26,6 +26,13 @@ describe("classService", () => {
     expect(fakeClient.get).toHaveBeenCalledWith("/classes?page=2&limit=10&status=ACTIVE&search=Sistemas");
   });
 
+  it("reads the classes of the signed-in user", async () => {
+    const body = { items: [{ id: "1", name: "SO", courseCode: "SO1", semester: "2026/2", relation: "TEACHER" }], total: 1 };
+    vi.mocked(fakeClient.get).mockResolvedValueOnce(body);
+    await expect(service.myClasses()).resolves.toEqual(body);
+    expect(fakeClient.get).toHaveBeenCalledWith("/me/classes");
+  });
+
   it("calls getClass with id", async () => {
     vi.mocked(fakeClient.get).mockResolvedValueOnce({ id: "123", name: "SO" });
 

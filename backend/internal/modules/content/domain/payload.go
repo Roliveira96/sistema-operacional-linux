@@ -143,6 +143,9 @@ type exerciseCondition struct {
 	Target  string `json:"target,omitempty"`
 	Name    string `json:"name,omitempty"`
 	User    string `json:"user,omitempty"`
+	// Signal and Nice are for the process kinds (SPEC-029): the signal that ended the program, and its priority; Name is the program.
+	Signal *int `json:"signal,omitempty"`
+	Nice   *int `json:"nice,omitempty"`
 }
 
 // exercise is one activity of the group: statement, level, tips and the solution the teacher recorded (RN-02, RN-10).
@@ -355,6 +358,17 @@ func (c *checker) conditions(prefix string, list []exerciseCondition) {
 		case "USER_IN_GROUP":
 			cond.User = name("user", cond.User)
 			cond.Name = name("name", cond.Name)
+		case "PROCESS_RUNNING", "PROCESS_ABSENT", "PROCESS_STOPPED", "PROCESS_ENDED_BY", "PROCESS_NICE":
+			cond.Name = strings.TrimSpace(cond.Name)
+			if !processName.MatchString(cond.Name) {
+				c.fail(at("name"), "must be the name of a program")
+			}
+			if cond.Kind == "PROCESS_ENDED_BY" && cond.Signal != nil && (*cond.Signal < 1 || *cond.Signal > MaxSignal) {
+				c.fail(at("signal"), fmt.Sprintf("must be a signal from 1 to %d", MaxSignal))
+			}
+			if cond.Kind == "PROCESS_NICE" && (cond.Nice == nil || *cond.Nice < MinNice || *cond.Nice > MaxNice) {
+				c.fail(at("nice"), fmt.Sprintf("must be from %d to %d", MinNice, MaxNice))
+			}
 		default:
 			c.fail(at("kind"), "unknown condition")
 		}

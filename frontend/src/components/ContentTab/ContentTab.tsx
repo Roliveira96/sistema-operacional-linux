@@ -413,12 +413,16 @@ export function ContentTab({
                     })()}
                   </div>
                   <div className={styles.badgeBar}>
-                    {status !== "none" && (
+                    {status === "none" ? (
+                      <span className={styles.badge} title={m.test.noneTitle}>
+                        {m.test.none}
+                      </span>
+                    ) : (
                       <span
                         className={`${styles.badge} ${status === "passed" ? styles.badgeOk : styles.badgeOff}`}
                         title={m.test.title}
                       >
-                        {m.test[status]}
+                        {m.test[status === "stale" ? "untested" : status]}
                       </span>
                     )}
                     {edited && <span className={styles.badge}>{m.edited}</span>}

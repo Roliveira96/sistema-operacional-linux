@@ -1,3 +1,4 @@
+import type { AjudaDoComando } from './Ajuda';
 import type { Contexto } from './Contexto';
 
 /** Todo comando do simulador: um nome, uma linha de ajuda e o que ele faz. */
@@ -6,6 +7,8 @@ export abstract class Comando {
   public abstract readonly resumo: string;
   /** Comandos embutidos no bash (cd, umask, exit...) não existem para o sudo. */
   public readonly embutido: boolean = false;
+  /** A ajuda de `COMANDO --help`, `help COMANDO` e `man COMANDO` (SPEC-027). Todo comando registrado tem uma. */
+  public ajuda?: AjudaDoComando;
 
   public abstract executar(args: string[], contexto: Contexto): Promise<number>;
 }

@@ -28,6 +28,7 @@ type ClassService interface {
 	JoinByToken(ctx context.Context, studentID uuid.UUID, token string) (service.JoinResult, error)
 	ListMembers(ctx context.Context, teacherID, classID uuid.UUID, status string) ([]repository.EnrollmentWithUser, error)
 	ModerateMember(ctx context.Context, teacherID, classID, enrollmentID uuid.UUID, approve bool, rejectionReason *string) (domain.Enrollment, error)
+	ListMyClasses(ctx context.Context, userID uuid.UUID, role string) (repository.MyClassesResult, error)
 }
 
 // Handler manages class-related HTTP requests.
@@ -57,6 +58,9 @@ func (h *Handler) Register(r gin.IRouter) {
 	// Student join endpoint: any authenticated user
 	authed := r.Group("", authn.Required(h.auth))
 	authed.POST("/classes/join/:token", h.joinByToken)
+
+	// Account menu: classes of the authenticated user (SPEC-026)
+	r.GET("/me/classes", authn.Required(h.auth), authn.PasswordChanged(), h.listMyClasses)
 
 	// Teacher/Admin endpoints
 	teacherGroup := r.Group("/classes", authn.Required(h.auth), authn.Roles(authn.RoleTeacher, authn.RoleAdmin))
@@ -272,6 +276,47 @@ func (h *Handler) listClasses(c *gin.Context) {
 		Page:       res.Page,
 		Limit:      res.Limit,
 	})
+}
+
+type myClassResponse struct {
+	ID               uuid.UUID `json:"id"`
+	Name             string    `json:"name"`
+	CourseCode       string    `json:"courseCode"`
+	Semester         string    `json:"semester"`
+	Relation         string    `json:"relation"`
+	EnrollmentStatus *string   `json:"enrollmentStatus,omitempty"`
+}
+
+type myClassesResponse struct {
+	Items []myClassResponse `json:"items"`
+	Total int64             `json:"total"`
+}
+
+func (h *Handler) listMyClasses(c *gin.Context) {
+	principal, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+
+	res, err := h.svc.ListMyClasses(c.Request.Context(), principal.UserID, principal.Role)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+
+	items := make([]myClassResponse, len(res.Items))
+	for i, it := range res.Items {
+		items[i] = myClassResponse{
+			ID:               it.ID,
+			Name:             it.Name,
+			CourseCode:       it.CourseCode,
+			Semester:         it.Semester,
+			Relation:         it.Relation,
+			EnrollmentStatus: it.EnrollmentStatus,
+		}
+	}
+	c.JSON(http.StatusOK, myClassesResponse{Items: items, Total: res.Total})
 }
 
 func (h *Handler) getClass(c *gin.Context) {
