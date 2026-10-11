@@ -28,3 +28,23 @@ describe("the quick mode on the real engine", () => {
     expect(quick.ms).toBeLessThan(live.ms * 0.5);
   }, 600_000);
 });
+
+// Covers SPEC-030 RN-22: the command after a kill does not see the process the signal ended, even with no pause between them.
+describe("a process ended by a signal", () => {
+  it("is gone for the next command in the quick mode", async () => {
+    const win = await mountMachine();
+    win.setInstant(true);
+    try {
+      await win.execute({ command: "cd /tmp/lab" });
+      await win.execute({ command: "sleep 100 &" });
+      await win.execute({ command: "kill -9 %1" });
+      const after = await win.execute({ command: "pgrep sleep" });
+      expect(after, JSON.stringify(after)).toMatchObject({ status: 1 });
+      await win.execute({ command: "sleep 100 &" });
+      await win.execute({ command: "pkill sleep" });
+      expect((await win.execute({ command: "pgrep sleep" })).status).toBe(1);
+    } finally {
+      win.destroy();
+    }
+  }, 60_000);
+});

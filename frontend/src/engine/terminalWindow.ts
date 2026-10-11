@@ -86,6 +86,11 @@ export function cleanOutput(printed: string, command: string): string {
 
 const PREPARING_MESSAGE = "Preparando máquina…\n";
 const PREPARING_PAUSE_MS = 700;
+const processTable = (machine: unknown) => (machine as { processos: { listar(): Array<{ encerrado: boolean }> } }).processos.listar();
+
+/** The longest wait, and the step, for the processes a signal ended to leave the process table. */
+const SETTLE_MS = 300;
+const SETTLE_STEP_MS = 10;
 const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 /** Mounts the terminal window in container, on the machine of snapshot (null for the default one). */
@@ -183,6 +188,10 @@ export async function mountTerminalWindow(
       } finally {
         terminal.escrever = original;
       }
+
+      // A process that got a signal leaves the table only when its own loop notices it, up to 100 ms later (legacy `dormir`). Waiting for that here keeps the
+      // next command from seeing the dead process, which a person typing never would (SPEC-030 RN-22).
+      for (let waited = 0; waited < SETTLE_MS && processTable(machine).some((process) => process.encerrado); waited += SETTLE_STEP_MS) await pause(SETTLE_STEP_MS);
 
       // The legacy terminal keeps the status of the last command in the scope of the session. When the
       // history did not grow the command never ran (the terminal was busy), so there is no status.
