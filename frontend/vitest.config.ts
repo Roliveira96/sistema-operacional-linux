@@ -17,8 +17,8 @@ export default defineConfig({
     // SPEC-006: services, hooks and components must stay above 80% coverage.
     coverage: {
       provider: "v8",
-      include: ["src/services/**", "src/hooks/**", "src/components/**", "src/lib/**"],
-      exclude: ["**/*.test.{ts,tsx}"],
+      include: ["src/services/**", "src/hooks/**", "src/components/**", "src/lib/**", "src/engine/commands/**"],
+      exclude: ["**/*.test.{ts,tsx}", "src/engine/commands/fixtures/**"],
       thresholds: { lines: 80, branches: 80 },
     },
   },

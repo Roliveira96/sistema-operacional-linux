@@ -3,6 +3,8 @@
 // container and exposes a small typed API. Like the rest of src/engine/, it is
 // the only place that imports the legacy code, and it loads it on demand.
 
+import { addEngineBinaries, registerEngineCommands } from "./commands";
+import type { CommandRegistry } from "./commands/types";
 import { addProcessBinaries, registerProcessCommands } from "./processes/register";
 import { processSnapshot, watchEnded } from "./processes/snapshot";
 
@@ -92,12 +94,15 @@ export async function mountTerminalWindow(
     import("@legacy-engine/shell/Shell"),
     import("@legacy-engine/estilos/terminal.css"),
   ]);
-  // SPEC-029: the process control (nice, renice, yes, watch, kill) joins the catalog of the engine, without touching legacy/.
+  // SPEC-028: the commands the engine does not have yet are registered by the adapter, without touching legacy/.
+  registerEngineCommands(Shell.obterRegistro() as unknown as CommandRegistry);
+  // SPEC-029: the process control (nice, renice, yes, watch...) joins the catalog after those, also without touching legacy/.
   await registerProcessCommands(Shell.obterRegistro());
 
   const build = (state: unknown) => {
     const machine = state == null ? Maquina.criar() : Serializador.deJson(state);
     machine.atualizarProc();
+    addEngineBinaries(machine as unknown as Parameters<typeof addEngineBinaries>[0]);
     addProcessBinaries(machine as unknown as Parameters<typeof addProcessBinaries>[0]);
     watchEnded(machine);
     return machine;

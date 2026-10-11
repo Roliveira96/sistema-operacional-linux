@@ -46,6 +46,9 @@ Regras:
 | :--- | :--- | :--- | :--- | :--- |
 | Sessão de login | `AuthSession` | Sessão autenticada de um usuário (cookie opaco). Não confundir com tentativa de prova (`Attempt`) | `Session` sozinho, `Login` | Proposto |
 | Token de redefinição de senha | `PasswordResetToken` | Token de uso único enviado por e-mail | `ResetCode` | Proposto |
+| Token de acesso pessoal | `AccessToken` | Credencial opaca e revogável de um `ADMIN` ou `TEACHER` para o servidor MCP; só o hash é guardado (SPEC-024) | `ApiKey`, `JWT` | Proposto |
+| Servidor MCP | `MCP server` | Endpoint `/mcp` do backend com as ferramentas de autoria dos módulos de ensino (SPEC-024) | `Agent API` | Proposto |
+| Login OAuth do cliente MCP | `MCP OAuth login` | Fluxo em que o cliente MCP obtém o token de acesso pessoal pelo navegador, com consentimento da docente (SPEC-024 RN-14) | `SSO` | Proposto |
 | Log de auditoria de segurança | `SecurityAuditLog` | Registro append-only de eventos de autenticação. Distinto de `SecurityViolation` (infração durante a prova) | `AuthLog`, `AccessLog` | Proposto |
 
 ## 3. Conteúdo e banco de questões
@@ -92,6 +95,14 @@ Regras:
 | Teste do banco | `BankTest` | Esteira de validação do banco: ambiente consolidado, ordem linear, ordem reversa e rodadas sorteadas, com relatório e sugestões de dependência (SPEC-023 12) | — | Proposto |
 | Condição de finalização | `CompletionCondition` | Algo que precisa valer na máquina ao fim do exercício (pasta existe, arquivo tem o texto, permissão, dono, usuário...), seja qual for a forma como o estudante chegou lá (SPEC-022) | — | Proposto |
 | Trecho de narração | `NarrationChunk` | Parte de até 2000 caracteres de um bloco, com o áudio e as marcas de palavra | `Segment`, `Part` | Proposto |
+
+## 3.3. Conformidade do motor (SPEC-030)
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Verificação de conformidade | `EngineConformance` | Execução, pelo administrador e no navegador, de todos os comandos e programas do motor, para conferir se o simulador está íntegro (SPEC-030) | `HealthCheck` | Proposto |
+| Manifesto de conformidade | `ConformanceManifest` | Lista única com uma verificação (item) por comando e por programa; um teste do repositório falha se divergir do catálogo real | `Checklist` | Proposto |
+| Programa (do motor) | `EngineProgram` | Executável em pasta do `PATH` da máquina padrão que não é comando do catálogo, ou que um pacote do `apt` simulado oferece | — | Proposto |
 
 ## 4. Avaliações e aplicação
 

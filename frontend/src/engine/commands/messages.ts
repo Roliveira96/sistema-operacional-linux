@@ -1,0 +1,91 @@
+// What the new commands print, in Portuguese like the commands of the engine (SPEC-028, RN-06). Identifiers and
+// comments stay in English; the texts that reach the student are all here.
+
+export const msg = {
+  // Common errors, as the commands of Ubuntu write them.
+  unrecognizedOption: (name: string, option: string) => `${name}: opção não reconhecida '${option}'`,
+  invalidOption: (name: string, letter: string) => `${name}: opção inválida -- '${letter}'`,
+  tryHelp: (name: string) => `Tente '${name} --help' para mais informações.`,
+  optionNeedsValue: (name: string, option: string) => `${name}: a opção requer um argumento -- '${option.replace(/^-+/, "")}'`,
+  isDirectory: (name: string, path: string) => `${name}: ${path}: É um diretório`,
+  isDirectoryShort: "É um diretório",
+  noSuchFile: "Arquivo ou diretório inexistente",
+  fileError: (name: string, path: string, reason: string) => `${name}: ${path}: ${reason}`,
+  missingOperand: (name: string) => `${name}: falta operando`,
+  extraOperand: (name: string, operand: string) => `${name}: operando extra '${operand}'`,
+  invalidNumber: (name: string, value: string) => `${name}: número inválido: '${value}'`,
+
+  // Text and files.
+  filesDiffer: (a: string, b: string) => `Os arquivos ${a} e ${b} são diferentes`,
+  invalidStyle: (name: string, style: string) => `${name}: estilo de numeração inválido: '${style}'`,
+  invalidColumns: (name: string, value: string) => `${name}: número de colunas inválido: '${value}'`,
+  invalidWrap: (name: string, value: string) => `${name}: largura de quebra inválida: '${value}'`,
+  invalidInput: (name: string) => `${name}: entrada inválida`,
+  failedCheck: "FALHOU",
+  failedToRead: "FALHOU ao abrir ou ler",
+  unreadableFiles: (name: string, count: number) => `${name}: AVISO: ${count} arquivo(s) listado(s) não puderam ser lidos`,
+  noFileVerified: (name: string) => `${name}: nenhuma linha de soma bem formatada foi encontrada`,
+  odInvalid: (value: string) => `od: formato ou base inválidos: '${value}'`,
+  mismatchedSums: (name: string, count: number) => `${name}: AVISO: ${count} soma(s) de verificação não confere(m)`,
+  invalidFloat: (name: string, value: string) => `${name}: argumento de ponto flutuante inválido: '${value}'`,
+  zeroIncrement: (name: string, value: string) => `${name}: valor do incremento inválido: '${value}'`,
+  invalidRange: (name: string, value: string) => `${name}: intervalo de entrada inválido: '${value}'`,
+  exprSyntax: "expressão sintática incorreta",
+  exprNonInteger: "o argumento não é um valor inteiro",
+  exprDivisionByZero: "divisão por zero",
+  exprMissing: "expr: falta operando",
+  fileUsage: "Uso: file [-b] ARQUIVO...",
+  cannotOpen: (path: string, reason: string) => `cannot open '${path}' (${reason})`,
+
+  // System.
+  invalidMonth: "cal: valor de mês inválido: use 1-12",
+  invalidYear: "cal: valor de ano inválido: use 1-9999",
+  notATty: "não é um tty",
+  unsupportedOperation: (name: string) => `${name}: operação não suportada pelo simulador`,
+  whereisUsage: "Uso: whereis NOME...",
+  whatisUsage: "whatis: o que você quer saber?",
+  nothingAppropriate: (name: string) => `${name}: nada apropriado.`,
+
+  // Network.
+  ipUnknownOption: (option: string) => `Opção "${option}" desconhecida, tente "ip help".`,
+  ipUsage: "Uso: ip [ OPÇÕES ] OBJETO { COMANDO | help }",
+  ipNoDevice: (name: string) => `Dispositivo "${name}" não existe.`,
+  ipUnknownObject: (name: string) => `Objeto "${name}" é desconhecido, tente "ip help".`,
+  ifconfigNoDevice: (name: string) => `${name}: erro ao obter informação de interface: Dispositivo não encontrado`,
+  wgetMissingUrl: "wget: URL ausente\nUso: wget [OPÇÃO]... [URL]...",
+  wgetNoResolve: (host: string) => `wget: não foi possível resolver o endereço do host “${host}”`,
+  wgetRefused: (host: string, ip: string) => `Conectando-se a ${host} (${host})|${ip}|:80... falhou: Conexão recusada.`,
+  sshSimulator: "ssh: o simulador abre as conexões SSH pelas abas do terminal",
+  ufwInactive: "Status: inativo",
+  ufwActive: "Status: ativo",
+  ufwUsage: "Uso: ufw COMANDO\n\nComandos:\n enable|disable\n status [verbose|numbered]\n allow|deny PORTA[/protocolo]\n delete allow|deny PORTA\n default allow|deny [incoming|outgoing]",
+  ufwNeedsRoot: "ERRO: Você precisa ser root para executar este script",
+  ufwEnabled: "O firewall está ativo e habilitado na inicialização do sistema",
+  ufwDisabled: "O firewall está parado e desabilitado na inicialização do sistema",
+  ufwBadRule: (text: string) => `ERRO: regra inválida ou não suportada pelo simulador: '${text}'`,
+  ufwRuleExists: "Pulando a adição de uma regra que já existe",
+  ufwRuleAdded: "Regra adicionada",
+  ufwRuleMissing: "Não foi possível excluir uma regra inexistente",
+  ufwRuleDeleted: "Regra excluída",
+  ufwBadDefault: "ERRO: política inválida. Use: ufw default allow|deny [incoming|outgoing]",
+  ufwDefaultChanged: (direction: string, policy: string) =>
+    `A política ${direction === "incoming" ? "de entrada" : "de saída"} padrão foi alterada para '${policy}'\n(certifique-se de atualizar as suas regras de acordo)`,
+
+  // Disk.
+  ddInvalidOperand: (operand: string) => `dd: operando inválido '${operand}'`,
+  ddInvalidNumber: (name: string, value: string) => `dd: número inválido: '${value}' para ${name}`,
+  ddLimit: (bytes: number, limit: number) => `dd: o simulador limita o arquivo gerado a ${limit} bytes (pedido: ${Number.isFinite(bytes) ? bytes : "sem limite"})`,
+  ddCannotOpen: (path: string, reason: string) => `dd: falha ao abrir '${path}': ${reason}`,
+  ddCannotWrite: (path: string, reason: string) => `dd: falha ao abrir '${path}' para escrita: ${reason}`,
+  duInvalidBlockSize: (value: string) => `du: tamanho de bloco inválido: '${value}'`,
+  duInvalidDepth: (value: string) => `du: profundidade máxima inválida: '${value}'`,
+  duUnreadable: (path: string) => `du: não foi possível ler o diretório '${path}': Permissão negada`,
+  duCannotAccess: (path: string, reason: string) => `du: não foi possível acessar '${path}': ${reason}`,
+
+  curlVersion: [
+    "curl 8.5.0 (x86_64-pc-linux-gnu) libcurl/8.5.0 OpenSSL/3.0.13 zlib/1.3 brotli/1.1.0 zstd/1.5.5",
+    "Release-Date: 2023-12-06",
+    "Protocols: dict file ftp ftps gopher gophers http https imap imaps ldap ldaps mqtt pop3 pop3s rtmp rtsp scp sftp smb smbs smtp smtps telnet tftp",
+    "Features: alt-svc AsynchDNS brotli GSS-API HSTS HTTP2 HTTPS-proxy IDN IPv6 Kerberos Largefile libz NTLM PSL SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd",
+  ],
+};
