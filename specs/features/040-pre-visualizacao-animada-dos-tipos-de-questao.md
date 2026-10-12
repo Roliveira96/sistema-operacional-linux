@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-040 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 12/10/2026 |
-| **Última revisão** | 12/10/2026 |
+| **Última revisão** | 12/10/2026 (aprovada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Frontend |
@@ -127,13 +127,19 @@ Pela SPEC-038 (se aprovada), escritos antes do código.
 
 ## 10. Pendências para aprovação
 
-| ID | Pergunta | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | O exemplo usa os componentes reais de resposta do aluno, num modo de demonstração, ou ilustrações próprias do modal? | Componentes reais: o exemplo fica sempre igual ao que o aluno vê. A exceção é o Comando Linux, que vira uma encenação leve de terminal, sem o motor |
-| P-02 | O exemplo troca só ao selecionar o tipo, ou também ao passar o mouse? | Os dois: selecionar (clique ou teclado) e, na tela grande, passar o mouse |
-| P-03 | A animação roda sozinha em ciclo, ou a docente aperta "Ver exemplo"? | Sozinha, em ciclo de uns 6 segundos com pausa no resultado |
-| P-04 | Precisa do botão "Pausar"? | Sim, por acessibilidade (animação automática com mais de 5 segundos deve poder ser pausada) |
-| P-05 | O exemplo mostra o acerto, ou alterna entre acerto e erro? | Mostrar o acerto: o objetivo é a docente entender o tipo, não o feedback de erro |
+### Decisões do Tech Lead (12/10/2026)
+
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | O exemplo usa os mesmos componentes de resposta do aluno, num modo de demonstração; o Comando Linux é uma encenação leve de terminal, sem o motor (resolve P-01) |
+| D-02 | O exemplo troca ao selecionar o tipo (clique ou teclado) e, na tela grande, ao passar o mouse (resolve P-02) |
+| D-03 | A animação roda sozinha, em ciclo de uns 6 segundos com pausa no resultado (resolve P-03) |
+| D-04 | Há o botão "Pausar" e "Continuar" (resolve P-04) |
+| D-05 | O exemplo mostra o acerto (resolve P-05) |
+
+### Pendências
+
+Nenhuma em aberto. P-01 a P-05 viraram as decisões D-01 a D-05.
 
 ---
 
@@ -142,3 +148,4 @@ Pela SPEC-038 (se aprovada), escritos antes do código.
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 12/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (tipos animados no modal de criação, com um exemplo de como o aluno vê). Pendências P-01 a P-05 |
+| 12/10/2026 | Tech Lead | Aprovada ("Aprovo"), aceitas as recomendações de P-01 a P-05 (D-01 a D-05). Status: `Aprovada` |
