@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-039 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 12/10/2026 |
-| **Última revisão** | 12/10/2026 (decisões D-01 a D-10, aprovada) |
+| **Última revisão** | 12/10/2026 (implementada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -97,7 +97,7 @@ O tipo `DISCURSIVE` já existe no schema (SPEC-011), sem tela nem correção.
   - `get_answer`: devolve a questão, a resposta correta e a resposta do aluno, com um identificador anônimo, sem nome, e-mail nem RA (D-08);
   - `suggest_grade`: grava a sugestão, com nota em 0, 25, 50, 75 ou 100, a justificativa (para a professora) e, se quiser, a anotação para o aluno (D-06).
 
-  A sugestão não vale como nota. Ela fica guardada com o momento e com o token que a gravou.
+  A sugestão não vale como nota. Ela fica guardada com o momento e com o usuário que a gravou pelo MCP (A-01).
 - **RN-05 (nota da professora):** só a professora (ou o administrador) confirma a nota, na tela de correção.
   - A nota é uma das cinco faixas.
   - Ela aceita a sugestão (a nota fica igual à sugerida, com a marca "aceita da IA") ou escolhe outra.
@@ -113,8 +113,8 @@ O tipo `DISCURSIVE` já existe no schema (SPEC-011), sem tela nem correção.
 | :--- | :--- |
 | `questions` (`DISCURSIVE`) | `answer_key` guarda a resposta esperada (`expectedAnswer`, HTML) e o limite de caracteres da resposta (`maxLength`) |
 | `exercise_progress` | `response` guarda a resposta com texto e comandos (`{ "html": ... }`, só parágrafos, quebras de linha, `code` e `pre`); `passed` fica nulo até a nota (ver P-03) |
-| Nova tabela `answer_grades` | Uma linha por resposta descritiva corrigida: `id`, `progress_id` (FK, único), `suggested_score` (0, 25, 50, 75 ou 100, opcional), `suggestion_reason` (texto, para a professora), `suggested_student_note` (texto), `suggested_at`, `suggested_by_token` (FK do token do MCP), `score` (0, 25, 50, 75 ou 100, opcional até confirmar), `source` (`AI_ACCEPTED` ou `TEACHER`), `student_note` (anotação para o aluno), `private_note` (anotação privada), `graded_by` (usuário), `graded_at`, `created_at`, `updated_at` |
-| Nova tabela `answer_grade_events` | Registro que não se apaga: `id`, `grade_id`, `kind` (`SUGGESTED`, `CONFIRMED`, `REVISED`), `score`, `previous_score`, `by_user`, `by_token`, `reason`, `created_at` |
+| Nova tabela `answer_grades` | Uma linha por resposta descritiva corrigida: `id`, `progress_id` (FK, único), `suggested_score` (0, 25, 50, 75 ou 100, opcional), `suggestion_reason` (texto, para a professora), `suggested_student_note` (texto), `suggested_at`, `suggested_by` (usuário que gravou a sugestão pelo MCP, A-01), `score` (0, 25, 50, 75 ou 100, opcional até confirmar), `source` (`AI_ACCEPTED` ou `TEACHER`), `student_note` (anotação para o aluno), `private_note` (anotação privada), `graded_by` (usuário), `graded_at`, `created_at`, `updated_at` |
+| Nova tabela `answer_grade_events` | Registro que não se apaga: `id`, `grade_id`, `kind` (`SUGGESTED`, `CONFIRMED`, `REVISED`), `score`, `previous_score`, `by_user`, `reason`, `created_at` (protegida por gatilho contra alteração e exclusão) |
 
 Uma restrição garante as cinco faixas, tanto na nota quanto na sugestão.
 
@@ -155,17 +155,17 @@ Uma restrição garante as cinco faixas, tanto na nota quanto na sugestão.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente cria uma questão, O SISTEMA DEVE oferecer "Descritiva" com título, nível, descrição com imagens, dicas e resposta esperada.
-- [ ] **CA-02** (estado): ENQUANTO o aluno não enviou a resposta, a resposta correta NÃO DEVE chegar a ele; QUANDO ele envia no exercício, O SISTEMA DEVE mostrá-la, se a professora escreveu (D-03).
-- [ ] **CA-03** (evento): QUANDO o aluno envia a resposta, O SISTEMA DEVE gravá-la, travar o campo e mostrar "Aguardando correção"; uma segunda resposta DEVE receber 409.
-- [ ] **CA-04** (evento): QUANDO um agente chama `suggest_grade` com uma nota fora de 0, 25, 50, 75 e 100, O SISTEMA DEVE recusar; com uma nota válida, DEVE guardar a sugestão sem valer como nota.
-- [ ] **CA-05** (indesejado): SE quem chama as ferramentas de correção não é a docente dona do módulo nem o administrador, ENTÃO O SISTEMA DEVE recusar como nas outras ferramentas.
-- [ ] **CA-06** (evento): QUANDO a docente confirma usando a sugestão, a nota DEVE ser a sugerida, com origem "IA aceita"; QUANDO escolhe outra faixa, DEVE valer a dela, com origem "professora".
-- [ ] **CA-07** (ubíquo): Toda confirmação e revisão de nota DEVE gerar um registro com autor, momento, nota anterior e nova, origem e justificativa.
-- [ ] **CA-08** (evento): QUANDO a nota é confirmada, O SISTEMA DEVE mostrar ao aluno a porcentagem de acerto e a anotação para ele, e NÃO DEVE mostrar a anotação privada nem a sugestão da IA (D-04, D-06).
-- [ ] **CA-10** (evento): QUANDO a IA sugere uma anotação para o aluno, a tela de correção DEVE trazê-la preenchida e editável, e só vale depois que a professora confirma (D-06).
-- [ ] **CA-11** (indesejado): SE a professora revisa uma nota confirmada sem justificativa, ENTÃO O SISTEMA DEVE recusar (D-07).
-- [ ] **CA-09** (ubíquo): A nota e a sugestão DEVEM ser sempre uma das cinco faixas, também no banco de dados.
+- [x] **CA-01** (evento): QUANDO a docente cria uma questão, O SISTEMA DEVE oferecer "Descritiva" com título, nível, descrição com imagens, dicas e resposta esperada.
+- [x] **CA-02** (estado): ENQUANTO o aluno não enviou a resposta, a resposta correta NÃO DEVE chegar a ele; QUANDO ele envia no exercício, O SISTEMA DEVE mostrá-la, se a professora escreveu (D-03).
+- [x] **CA-03** (evento): QUANDO o aluno envia a resposta, O SISTEMA DEVE gravá-la, travar o campo e mostrar "Aguardando correção"; uma segunda resposta DEVE receber 409.
+- [x] **CA-04** (evento): QUANDO um agente chama `suggest_grade` com uma nota fora de 0, 25, 50, 75 e 100, O SISTEMA DEVE recusar; com uma nota válida, DEVE guardar a sugestão sem valer como nota.
+- [x] **CA-05** (indesejado): SE quem chama as ferramentas de correção não é a docente dona do módulo nem o administrador, ENTÃO O SISTEMA DEVE recusar como nas outras ferramentas.
+- [x] **CA-06** (evento): QUANDO a docente confirma usando a sugestão, a nota DEVE ser a sugerida, com origem "IA aceita"; QUANDO escolhe outra faixa, DEVE valer a dela, com origem "professora".
+- [x] **CA-07** (ubíquo): Toda confirmação e revisão de nota DEVE gerar um registro com autor, momento, nota anterior e nova, origem e justificativa.
+- [x] **CA-08** (evento): QUANDO a nota é confirmada, O SISTEMA DEVE mostrar ao aluno a porcentagem de acerto e a anotação para ele, e NÃO DEVE mostrar a anotação privada nem a sugestão da IA (D-04, D-06).
+- [x] **CA-10** (evento): QUANDO a IA sugere uma anotação para o aluno, a tela de correção DEVE trazê-la preenchida e editável, e só vale depois que a professora confirma (D-06).
+- [x] **CA-11** (indesejado): SE a professora revisa uma nota confirmada sem justificativa, ENTÃO O SISTEMA DEVE recusar (D-07).
+- [x] **CA-09** (ubíquo): A nota e a sugestão DEVEM ser sempre uma das cinco faixas, também no banco de dados.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -229,6 +229,20 @@ Pela SPEC-038 (se aprovada), escritos antes do código.
 
 Nenhuma em aberto. P-01 a P-09 viraram as decisões D-02 a D-10.
 
+### Ajustes de implementação (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-01 | A sugestão guarda o **usuário** que a gravou pelo MCP (`suggested_by`, e `by_user` no evento), e não o token: o MCP identifica quem chama pelo usuário do token, sem expor o id do token aos services. Por isso não há `suggested_by_token` nem `by_token` (seção 4) |
+| A-02 | A sugestão também gera um evento (`SUGGESTED`) em `answer_grade_events`, além da confirmação e da revisão; uma nova sugestão substitui a anterior, e o histórico guarda as duas |
+| A-03 | O identificador anônimo das ferramentas (D-08) é o id do progresso da resposta (`answerId`); a resposta vai marcada como texto do aluno, a ser tratada como dado (seção 6) |
+| A-04 | A situação "com sugestão da IA" é só da docente: para o aluno, a resposta segue "aguardando correção" até a nota confirmada (RN-07) |
+| A-05 | O editor da resposta do aluno é o mesmo editor de texto, numa variante só com "Comando", "Bloco de código", desfazer e refazer (D-01); o contador mostra os caracteres de texto e bloqueia o envio acima do tamanho |
+| A-06 | O banco do módulo leva à tela de correção pelo botão "Corrigir respostas descritivas", que aparece quando o banco tem alguma descritiva; a tela fica em `/app/modules/{id}/answers` |
+| A-07 | As ferramentas de exercício do MCP (`create_module_exercise`, `update_module_exercise`) também aceitam `DISCURSIVE` com `expectedAnswer` e `maxLength`, como as outras ferramentas já faziam para os outros tipos (revisão da SPEC-024) |
+| A-08 | A questão pública da descritiva leva as dicas e o tamanho máximo (`maxLength`), nunca a resposta correta antes do envio (RN-09) |
+| A-09 | Os testes de cada camada foram escritos junto ou antes do código, na linha da SPEC-038 (ainda em rascunho) |
+
 ---
 
 ## Histórico de revisões
@@ -239,3 +253,4 @@ Nenhuma em aberto. P-01 a P-09 viraram as decisões D-02 a D-10.
 | 12/10/2026 | Tech Lead | D-01: o aluno responde só com texto e comandos |
 | 12/10/2026 | Tech Lead | Decisões D-02 a D-08 (IA externa pelo MCP; resposta correta mostrada ao aluno no exercício; porcentagem de acerto; tamanho escolhido pela professora; anotação para o aluno e anotação privada, a primeira sugerível pela IA; revisão de nota; IA sem identificar o aluno). Seguem abertas P-07 e P-09 |
 | 12/10/2026 | Tech Lead | Aprovada ("Aprovo"), aceitas as recomendações de P-07 e P-09 (D-09, D-10). Status: `Aprovada` |
+| 12/10/2026 | Implementador (Claude) | Implementada; status `Implementada`. **Backend:** tipo `DISCURSIVE` no contrato de tipos (resposta só com texto e comandos, tamanho escolhido, resposta única pendente), banco do módulo, questão pública com dicas e tamanho, progresso com a situação, a porcentagem e a anotação para o aluno, serviço e rotas de correção (lista, abrir, confirmar e revisar com justificativa), eventos que não se apagam, ferramentas `list_pending_answers`, `get_answer` e `suggest_grade` no MCP e migração 00024. Testes passando, inclusive com PostgreSQL real. Cobertura: `content/domain` 94,8%, `content/service` 86,0%, `content/handler` 83,8%, `practice/domain` 94,6%, `practice/service` 96,2%, `practice/handler` 94,7%, `practice/repository` 85,2%, `mcp/service` 96,9%, `mcp/handler` 90,0%. **Frontend:** tipo "Descritiva" no banco (fora dos cards), formulário com resposta correta e tamanho, resposta do aluno com contador, "Aguardando correção", porcentagem animada e anotação, e a tela de correção; testes das áreas afetadas passando, com 98% das linhas e 92% dos ramos nos arquivos alterados; `tsc` e ESLint limpos e Stylelint limpo nos arquivos novos. A migração 00024 foi aplicada no banco de desenvolvimento. **Manual:** o roteiro da seção 8 (inclusive pedir a sugestão ao Claude pelo MCP) não foi executado e fica para a revisão. **Ajustes:** A-01 a A-09 |
