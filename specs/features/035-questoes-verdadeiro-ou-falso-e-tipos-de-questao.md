@@ -5,7 +5,7 @@
 | **ID** | SPEC-035 |
 | **Status** | Rascunho |
 | **Data de criação** | 11/10/2026 |
-| **Última revisão** | 11/10/2026 (decisões D-01 a D-11) |
+| **Última revisão** | 11/10/2026 (decisões D-01 a D-14, sem pendências) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -69,7 +69,7 @@ O Tech Lead pediu:
 | :--- | :--- |
 | Título | Obrigatório |
 | Nível | Fácil, médio ou difícil |
-| Descrição | `RichTextEditor` com um botão novo de **inserir imagem**, que envia o arquivo pela rota da SPEC-025 e insere a imagem no texto, com texto alternativo |
+| Descrição | `RichTextEditor` com um botão novo de **inserir imagem**, que envia o arquivo pela rota da SPEC-025 e insere a imagem no texto, com texto alternativo (D-12). O botão vale para todo uso do editor nas descrições do banco e do card, nos dois tipos |
 | Dicas | O mesmo editor de dicas das práticas (texto e comando opcional), até 10 |
 | Resposta correta | Duas opções, "Verdadeiro" e "Falso"; nenhuma marcada ao criar |
 | Justificativa | Texto rico opcional, mostrado ao estudante depois que ele responde (D-06) |
@@ -78,7 +78,7 @@ Não aparecem solução gravada, condições de finalização, ambiente nem "dep
 
 **Estudante, aba "Desafios":**
 
-- A questão de verdadeiro ou falso aparece na posição dela na trilha, com o mesmo círculo de status. No lugar de "Iniciar", mostra a descrição e dois botões grandes, **Verdadeiro** e **Falso**, operáveis por teclado.
+- A questão de verdadeiro ou falso aparece na posição dela na trilha, com o mesmo círculo de status: vazio antes de responder, ✓ se acertou e ✗ se errou (D-13). No lugar de "Iniciar", mostra a descrição e dois botões grandes, **Verdadeiro** e **Falso**, operáveis por teclado.
 - Ao clicar, o frontend envia a resposta ao servidor e mostra na hora: acertou ou errou, a resposta correta e a justificativa, quando a docente a escreveu (RN-06, D-06).
 - A resposta do exercício é **única e definitiva** (D-02): depois do clique, os botões ficam travados, com a escolha e o resultado destacados. Não há "Responder de novo", e a questão continua travada ao recarregar a página ou voltar ao módulo, porque o servidor guarda a resposta (RN-08).
 - As dicas abrem sob demanda, como nas práticas.
@@ -89,7 +89,7 @@ Não aparecem solução gravada, condições de finalização, ambiente nem "dep
 
 - Na aba Exercícios do card, "Adicionar exercício" pergunta o tipo (Comando Linux ou Verdadeiro ou falso), como no banco.
 - O exercício de verdadeiro ou falso do card tem título, nível, descrição com imagens, dicas, resposta correta e justificativa; não tem solução gravada nem condições de finalização.
-- Na tela de estudo, ele aparece na ordem do grupo, com os botões Verdadeiro e Falso no lugar de "Verificar meu exercício". O comportamento é o do exercício: resultado na hora, com a resposta correta e a justificativa, e a resposta trava (D-02). Onde a correção e a trava acontecem: ver P-14.
+- Na tela de estudo, ele aparece na ordem do grupo, com os botões Verdadeiro e Falso no lugar de "Verificar meu exercício". O comportamento é o do exercício: resultado na hora, com a resposta correta e a justificativa, e a resposta trava (D-02). A correção e a trava ficam na tela, como o resto do exercício do card (D-14): o gabarito vem no bloco e a trava é guardada no navegador.
 - "Testar comandos" do card e o teste do módulo não rodam nada para ele; só conferem se está completo, como no banco (RN-09).
 
 **Componente de resposta:** um componente único de resposta de verdadeiro ou falso, com dois modos:
@@ -112,11 +112,11 @@ Módulo `content` (banco e correção) e `practice` (progresso), sem módulo nov
 - **RN-05 (vínculos):** a questão de verdadeiro ou falso tem os mesmos vínculos da prática (`practice`, `assessment`, `exclusive`) e entra na trilha da mesma forma. Ela não participa de dependências: não pode ter antecessor nem ser antecessora.
 - **RN-06 (retorno no exercício):** a rota de conferência recebe a resposta do estudante a uma questão de verdadeiro ou falso vinculada à prática e publicada, corrige no servidor e devolve se acertou, a resposta correta e a justificativa. O gabarito só sai **depois** da resposta e só nessa rota.
 - **RN-07 (retorno na avaliação):** em avaliação, nenhuma rota devolve acerto, resposta correta ou justificativa de questão não terminal antes de o estudante finalizar a tentativa (ou de ela ser encerrada). Até lá, o estudante pode trocar a escolha a qualquer momento, e a última escolha gravada substitui as anteriores. A correção acontece no servidor, na finalização. **Esta regra é obrigatória para a spec de avaliação**, que vai implementá-la.
-- **RN-08 (resposta única no exercício):** a primeira resposta de um estudante autenticado a uma questão de verdadeiro ou falso é definitiva. O servidor a grava em `exercise_progress` (escolha, resultado, `attempts` = 1 e `completed_at` conforme P-13) e recusa as seguintes com 409, sem alterar a gravada. A lista de progresso do módulo devolve a escolha e o resultado, para a tela mostrar a questão travada.
+- **RN-08 (resposta única no exercício):** a primeira resposta de um estudante autenticado a uma questão de verdadeiro ou falso é definitiva. O servidor a grava em `exercise_progress` (escolha, resultado em `last_passed`, `attempts` = 1 e `completed_at` = momento da resposta, certa ou errada, D-13) e recusa as seguintes com 409, sem alterar a gravada. A lista de progresso do módulo devolve a escolha e o resultado, para a tela mostrar a questão travada.
 - **RN-09 (teste do banco e do módulo):** as baterias do "Testar Banco de Exercícios" e o "Testar o módulo" rodam só as práticas. A questão de verdadeiro ou falso é conferida apenas quanto a estar completa (RN-04); se não estiver, aparece como falha no relatório.
 - **RN-10 (sem gabarito para o estudante):** a lista de questões do estudante (`/modules/{id}/exercises`) traz o `kind` de cada uma e, para verdadeiro ou falso, nunca traz `answer_key` nem `explanation` (SPEC-012 RN-02).
 - **RN-11 (imagens da descrição):** as imagens são enviadas pela rota da SPEC-025 e entram no HTML da descrição; o sanitizador aceita só `<img>` com o endereço no formato gerado pelo sistema (SPEC-025 A-01) e texto alternativo.
-- **RN-14 (exercício do card):** o item do bloco `EXERCISES` (SPEC-022) ganha o campo `kind`, `PRACTICAL` (padrão; itens antigos sem o campo são práticos) ou `THEORETICAL_BOOLEAN`. O item de verdadeiro ou falso exige `title` e `difficulty`, aceita `description`, `hints`, `correctAnswer` e `explanation` (HTML filtrado, até 50 mil caracteres) e recusa `solution` e `conditions`. Salvar o card exige `correctAnswer` definido nos itens de verdadeiro ou falso.
+- **RN-14 (exercício do card):** o item do bloco `EXERCISES` (SPEC-022) ganha o campo `kind`, `PRACTICAL` (padrão; itens antigos sem o campo são práticos) ou `THEORETICAL_BOOLEAN`. O item de verdadeiro ou falso exige `title` e `difficulty`, aceita `description`, `hints`, `correctAnswer` e `explanation` (HTML filtrado, até 50 mil caracteres) e recusa `solution` e `conditions`. Salvar o card exige `correctAnswer` definido nos itens de verdadeiro ou falso. A leitura do bloco entrega `correctAnswer` e `explanation` ao estudante, e a tela confere a resposta e guarda a trava no navegador, como o progresso do exercício do card (SPEC-022; D-14).
 - **RN-15 (MCP):** as ferramentas `create_module_exercise` e `update_module_exercise` aceitam `kind`, `correctAnswer` e `explanation`, e as ferramentas de blocos aceitam itens de verdadeiro ou falso no bloco `EXERCISES`. Elas não têm regra própria: chamam os mesmos services (SPEC-024 RN-04), e a descrição de cada ferramenta lista os tipos aceitos (SPEC-024 RN-12).
 - **RN-13 (dicas na avaliação):** as dicas da questão ficam disponíveis ao estudante também durante a avaliação (D-03). **Obrigatória para a spec de avaliação.**
 - **RN-12 (autoria):** só a docente dona do módulo e o administrador criam, alteram e removem questões do banco, com registro de quem e quando (SPEC-023 RN-02 e RN-08).
@@ -191,7 +191,7 @@ Os demais erros seguem a SPEC-023.
 | Campo da resposta | Tipo | Sempre presente | Descrição |
 | :--- | :--- | :--- | :--- |
 | `passed` | booleano | Sim | Acertou |
-| `completedAt` | instante ou nulo | Sim | Primeira resposta certa |
+| `completedAt` | instante ou nulo | Sim | Prática: primeira aprovação. Verdadeiro ou falso: momento da resposta, certa ou errada (D-13) |
 | `correctAnswer` | booleano | Só em `THEORETICAL_BOOLEAN` | Resposta correta, revelada depois da resposta |
 | `explanation` | HTML ou nulo | Só em `THEORETICAL_BOOLEAN` | Justificativa |
 
@@ -206,7 +206,7 @@ Os demais erros seguem a SPEC-023.
 
 A conferência em lote da SPEC-016 continua só com as práticas.
 
-**Rotas de card (SPEC-019 e SPEC-022):** o bloco `EXERCISES` aceita os campos novos da seção 4. Erros de validação: 400 com o campo (`items[i].correctAnswer`, `items[i].solution` e assim por diante). A leitura do estudante (`GET /api/v1/modules/{id}/blocks`) segue a P-14.
+**Rotas de card (SPEC-019 e SPEC-022):** o bloco `EXERCISES` aceita os campos novos da seção 4. Erros de validação: 400 com o campo (`items[i].correctAnswer`, `items[i].solution` e assim por diante). A leitura do estudante (`GET /api/v1/modules/{id}/blocks`) entrega o item de verdadeiro ou falso com `correctAnswer` e `explanation`, para a conferência na tela (D-14).
 
 **MCP (SPEC-024):** ver RN-15; erros no formato da SPEC-024 RN-06.
 
@@ -220,6 +220,7 @@ A conferência em lote da SPEC-016 continua só com as práticas.
 | Estudante clica sem querer na opção errada no exercício | Aceito pelo Tech Lead (D-02): a resposta trava, e o exercício não vale nota. Na avaliação, onde há nota, a escolha pode ser trocada até finalizar (RN-07) |
 | Estudante "chuta" e tenta de novo para descobrir o gabarito | A resposta é única, gravada no servidor (RN-08); uma segunda resposta recebe 409 |
 | Estudante descobre a resposta de uma questão de avaliação treinando no exercício | Vínculo `exclusive` já existe (SPEC-023 D-12): questão exclusiva da avaliação nunca vai à prática (404 na conferência) |
+| Gabarito do exercício de verdadeiro ou falso do **card** visível na rede do navegador, e trava desfeita ao limpar o navegador | Aceito pelo Tech Lead (D-14): o exercício do card não vale nota. A questão do banco tem gabarito e trava protegidos no servidor (RN-06, RN-08) |
 | Imagem de questão de avaliação é pública no bucket | O nome é o SHA-256 do arquivo (SPEC-025 D-03), impossível de adivinhar; risco aceito, revisável na spec de avaliação |
 | Código do banco, do teste do banco e da tela de prática supõe que toda questão tem terminal | RN-02 (contrato por tipo) e RN-09; testes que misturam os dois tipos na trilha, no teste do banco e na tela do estudante |
 | `RichTextEditor` sem imagem hoje | Botão novo que reaproveita o envio da SPEC-025; o sanitizador já aceita o formato de endereço do bucket |
@@ -236,7 +237,7 @@ A conferência em lote da SPEC-016 continua só com as práticas.
 - [ ] **CA-07** (estado): ENQUANTO uma questão de verdadeiro ou falso está publicada e vinculada à prática, O SISTEMA DEVE mostrá-la na aba "Desafios" na posição da trilha, com os botões Verdadeiro e Falso.
 - [ ] **CA-08** (ubíquo): A lista de questões do estudante NÃO DEVE conter a resposta correta nem a justificativa das questões de verdadeiro ou falso (RN-10).
 - [ ] **CA-09** (evento): QUANDO o estudante clica numa resposta no exercício, O SISTEMA DEVE corrigir no servidor e mostrar na hora se acertou, a resposta correta e a justificativa (RN-06).
-- [ ] **CA-10** (evento): QUANDO o estudante responde uma questão de verdadeiro ou falso no exercício, O SISTEMA DEVE gravar a escolha e o resultado e travar os botões, inclusive depois de recarregar a página (RN-08).
+- [ ] **CA-10** (evento): QUANDO o estudante responde uma questão de verdadeiro ou falso no exercício, O SISTEMA DEVE gravar a escolha e o resultado, marcar a questão como concluída com ✓ (acerto) ou ✗ (erro) e travar os botões, inclusive depois de recarregar a página (RN-08, D-13).
 - [ ] **CA-17** (indesejado): SE o estudante tenta responder de novo uma questão já respondida, ENTÃO a API DEVE responder 409 e manter a primeira resposta (RN-08).
 - [ ] **CA-11** (estado): ENQUANTO o componente de resposta está no modo avaliação, O SISTEMA DEVE permitir trocar a escolha a qualquer momento, DEVE mostrar as dicas e NÃO DEVE mostrar acerto, resposta correta nem justificativa (RN-07, RN-13).
 - [ ] **CA-12** (indesejado): SE a questão é exclusiva da avaliação, não publicada ou sem vínculo com a prática, ENTÃO a conferência DEVE responder 404.
@@ -245,7 +246,7 @@ A conferência em lote da SPEC-016 continua só com as práticas.
 - [ ] **CA-15** (indesejado): SE um visitante clica numa resposta, ENTÃO a interface DEVE pedir login e a API DEVE responder 401.
 - [ ] **CA-18** (evento): QUANDO a docente adiciona um exercício no card, O SISTEMA DEVE pedir o tipo e, para verdadeiro ou falso, mostrar título, nível, descrição com imagens, dicas, resposta correta e justificativa, sem solução nem condições (RN-14).
 - [ ] **CA-19** (indesejado): SE um item de verdadeiro ou falso do card não tem `correctAnswer` ou traz `solution` ou `conditions`, ENTÃO O SISTEMA DEVE recusar o card com 400 e apontar o campo (RN-14).
-- [ ] **CA-20** (evento): QUANDO o estudante responde um exercício de verdadeiro ou falso do card, O SISTEMA DEVE mostrar na hora se acertou, a resposta correta e a justificativa, e travar a resposta (D-02, P-14).
+- [ ] **CA-20** (evento): QUANDO o estudante responde um exercício de verdadeiro ou falso do card, O SISTEMA DEVE mostrar na hora se acertou, a resposta correta e a justificativa, e travar a resposta no navegador (D-02, D-14).
 - [ ] **CA-21** (evento): QUANDO um agente cria pelo MCP uma questão do banco ou um exercício de card de verdadeiro ou falso, O SISTEMA DEVE gravá-lo com as mesmas validações da tela, e devolver erro estruturado se for inválido (RN-15).
 - [ ] **CA-16** (ubíquo): A escolha da resposta DEVE ser operável só pelo teclado, e as telas DEVEM usar só tokens de `_tokens.scss`.
 
@@ -265,7 +266,16 @@ A conferência em lote da SPEC-016 continua só com as práticas.
 
 1. **Pré-leitura obrigatória:** `specs/AI_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `GLOSSARY.md`, SPEC-011, 012, 014, 016, 019, 022, 023, 024 e 025; no código, `backend/internal/modules/content/domain/entities.go`, `content/service/exercises.go`, `content/service/reader.go`, `practice/service/service.go`, `frontend/src/components/ExerciseForm/`, `ModuleExercises/`, `TopicStudy/ChallengePanel.tsx`, `RichTextEditor/`, `CardBuilder/` (aba Exercícios do card), `backend/internal/modules/mcp/` e `frontend/src/services/contentService.ts` e `practiceService.ts`.
 2. **Ordem de execução:** (1) contrato de tipo no domínio e o tipo verdadeiro ou falso; (2) migração da restrição de `depends_on` e da coluna `exercise_progress.response`; (3) service e handler do banco (5.1); (4) conferência e progresso (5.2); (5) lista pública com `kind`; (6) teste do banco e do módulo; (7) serviços do frontend; (8) seletor de tipo, página da questão e imagem no `RichTextEditor`; (9) componente de resposta e aba "Desafios"; (10) exercício do card (validação do bloco, aba do card, tela de estudo, teste do card); (11) ferramentas do MCP; (12) glossário, revisões da SPEC-022 e da SPEC-024 e esta spec.
-3. **Arquivos e diretórios a criar ou alterar:** a definir na aprovação, depois de resolvidas as pendências.
+3. **Arquivos e diretórios a criar ou alterar:**
+   - `backend/migrations/` (migração nova: restrição de `depends_on` e `exercise_progress.response`);
+   - `backend/internal/modules/content/domain/` (contrato de tipo de questão em arquivo novo, `entities.go`, `exercise.go`, `payload.go`, `sanitize.go` e testes);
+   - `backend/internal/modules/content/service/` (`exercises.go`, `reader.go`, `test_results.go` e testes) e `content/handler/`;
+   - `backend/internal/modules/practice/` (`domain`, `service`, `repository`, `handler` e testes);
+   - `backend/internal/modules/mcp/` (`domain/domain.go`, `service/exercises.go`, descrições das ferramentas e testes);
+   - `frontend/src/components/ExerciseForm/`, `ModuleExercises/`, `TopicStudy/` (`ChallengePanel.tsx`, `TopicStudy.tsx`), `CardBuilder/` (`ExercisesTab.tsx`, `CardTester.tsx`, `parts.tsx`), `ContentRenderer/` (`ExercisesBlock.tsx`, `exerciseContext.ts`), `RichTextEditor/` e o componente novo `TrueFalseAnswer/`;
+   - `frontend/src/services/contentService.ts`, `contentAuthoringService.ts`, `practiceService.ts` e testes;
+   - `frontend/src/messages/`;
+   - `specs/GLOSSARY.md` e as revisões da SPEC-022 e da SPEC-024.
 4. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, glossário atualizado e status `Implementada`.
 
 ## 10. Pendências para aprovação
@@ -285,16 +295,15 @@ A conferência em lote da SPEC-016 continua só com as práticas.
 | D-09 | "Testar Banco de Exercícios", "Testar o módulo" e "Testar comandos" só conferem se a questão de verdadeiro ou falso está completa, sem terminal (resolve P-08) |
 | D-10 | Nome técnico `THEORETICAL_BOOLEAN`, rótulos "Verdadeiro ou falso" e "Comando Linux", e os termos novos do glossário: "Tipo de questão" (`QuestionKind`), "Questão de verdadeiro ou falso" (`THEORETICAL_BOOLEAN`), "Resposta do estudante" (`response`) e "Justificativa" (`explanation`) (resolve P-10) |
 | D-11 | O servidor MCP cria e edita questões e exercícios de card de verdadeiro ou falso (resolve P-12, contra a recomendação) |
+| D-12 | Imagens da descrição pelo envio da SPEC-025, com um botão de imagem no `RichTextEditor`, nas descrições do banco e do card, nos dois tipos (resolve P-09) |
+| D-13 | A questão de verdadeiro ou falso conta como concluída ao ser respondida, certa ou errada: `completed_at` é o momento da resposta, `last_passed` diz se acertou e o círculo mostra ✓ ou ✗ (resolve P-13) |
+| D-14 | O exercício de verdadeiro ou falso do card segue a SPEC-022: o gabarito vem no bloco, a tela confere e a trava fica no navegador (resolve P-14) |
 
 Reforço do Tech Lead sobre D-02: na prova, a escolha nunca trava, porque o estudante pode estar em dúvida; ela pode ser trocada a qualquer momento e só é corrigida quando ele finaliza.
 
 ### Pendências
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-09 | Imagens da descrição | Reaproveitar o envio da SPEC-025 (AVIF, bucket, nome por conteúdo) com um botão de imagem no `RichTextEditor`; vale para as descrições do banco e do card, das questões de Comando Linux e de Verdadeiro ou falso, que usam o mesmo editor |
-| P-13 | Com a resposta travada (D-02), quando a questão conta como **concluída** no progresso do aluno? (a) ao responder, certo ou errado, com a marca de acerto ✓ ou erro ✗; (b) só se acertar, e quem errou nunca a conclui | (a): a questão respondida sai da lista de pendentes, `completed_at` é a data da resposta e `last_passed` diz se acertou; o círculo de status mostra ✓ ou ✗ |
-| P-14 | Exercício de verdadeiro ou falso do **card**: o exercício do card hoje é conferido só na tela e o progresso fica no navegador (SPEC-022), sem identificador no servidor. (a) Seguir a SPEC-022: o gabarito vai no bloco para a tela conferir, e a trava fica guardada no navegador (quem abrir a rede do navegador vê a resposta, e limpar o navegador destrava); (b) conferir no servidor: o gabarito sai da leitura pública, uma rota nova corrige e a trava fica no servidor, o que exige dar identificador a cada item do bloco | (a), pelo mesmo motivo que a SPEC-022 aceitou as dicas no bloco: o exercício do card não vale nota. Quem quiser trava e gabarito protegidos usa a questão do banco, que já é corrigida no servidor (RN-06, RN-08) |
+Nenhuma em aberto. P-01 a P-14 viraram as decisões D-01 a D-14.
 
 ---
 
@@ -305,3 +314,4 @@ Reforço do Tech Lead sobre D-02: na prova, a escolha nunca trava, porque o estu
 | 11/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (retorno das docentes: o banco só aceita comando Linux; criar verdadeiro ou falso, com retorno imediato no exercício e só no fim na avaliação; título, descrição com imagens e dicas; outros tipos virão). Pendências P-01 a P-12 |
 | 11/10/2026 | Tech Lead | Decisões D-01 a D-05 (uma afirmação por questão; resposta travada no exercício e livre na avaliação até finalizar; dicas na prova; parte de prova na spec de avaliação; "Banco de questões" com os dois tipos). Incorporadas em RN-07, RN-08, RN-13, CA-10, CA-11 e CA-17, na coluna `exercise_progress.response` e no erro 409 `already-answered`. Pendência nova P-13 |
 | 11/10/2026 | Tech Lead | Decisões D-06 a D-11 (resposta correta e justificativa depois de responder; questão na aba "Desafios"; verdadeiro ou falso também no exercício do card; testes só conferem se está completa; nomes e glossário; MCP cria o tipo) e reforço de D-02 na prova. Incluídos RN-14, RN-15, CA-18 a CA-21 e o payload novo do bloco `EXERCISES`. P-09 e P-13 seguem abertas; pendência nova P-14 |
+| 11/10/2026 | Tech Lead | Aceitas as recomendações de P-09, P-13 e P-14 (viram D-12 a D-14). Seção 10 sem pendências; lista de arquivos da seção 9 preenchida |
