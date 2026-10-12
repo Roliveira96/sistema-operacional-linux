@@ -5,7 +5,7 @@
 | **ID** | SPEC-036 |
 | **Status** | Rascunho |
 | **Data de criação** | 11/10/2026 |
-| **Última revisão** | 12/10/2026 (decisões D-01 a D-04) |
+| **Última revisão** | 12/10/2026 (decisões D-01 a D-06, sem pendências) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -232,13 +232,14 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 | D-03 | O sistema embaralha a ordem das alternativas para o aluno, para ele não ver sempre a mesma ordem: no exercício, a cada vez que a questão é exibida; na avaliação, também embaralhada, com a ordem por tentativa definida na spec de avaliação (resolve P-03, no lugar da recomendação de manter a ordem da professora no exercício) |
 
 | D-04 | As 30 questões de escolha única da carga inicial são convertidas para o formato novo, com a mesma alternativa correta, e passam a ser editáveis (resolve P-04) |
+| D-05 | A escolha única também vale nos exercícios do card, conferida na tela e travada no navegador, como o verdadeiro ou falso (resolve P-05) |
+| D-06 | Nomes: "Questão de escolha única" (`THEORETICAL_SINGLE`), "Alternativa" (`Choice`, campo `choices`) e "Alternativa correta" (`correctChoice`) (resolve P-06) |
+
+Reforço do Tech Lead: a questão tem **somente uma** alternativa correta; as demais são erradas.
 
 ### Pendências
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-05 | Também nos exercícios do card? | Sim, como o verdadeiro ou falso (SPEC-035 D-08), conferida na tela e travada no navegador |
-| P-06 | Nome no glossário | "Questão de escolha única" (`THEORETICAL_SINGLE`) e "Alternativa" (`Choice`, campo `choices`), com "Alternativa correta" (`correctChoice`) |
+Nenhuma em aberto. P-01 a P-06 viraram as decisões D-01 a D-06.
 
 ---
 
@@ -249,3 +250,4 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 | 11/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (escolha única, de 2 a 7 alternativas com 1 correta, nível, dicas, descrição com imagens, mesmo comportamento e animação do verdadeiro ou falso). Pendências P-01 a P-06 |
 | 12/10/2026 | Tech Lead | P-01: a professora marca a correta e o sistema a guarda pelo identificador (D-01). P-03: as alternativas aparecem embaralhadas para o aluno (D-03). Seguem abertas P-02, P-04, P-05 e P-06 |
 | 12/10/2026 | Tech Lead | P-02: alternativa com o editor de texto (texto, comandos, HTML e imagens) (D-02). P-04: conversão das 30 questões da carga inicial (D-04). Seguem abertas P-05 e P-06 |
+| 12/10/2026 | Tech Lead | P-05 e P-06 aceitas nas recomendações (D-05, D-06), com o reforço de que há somente uma alternativa correta. Seção 10 sem pendências |
