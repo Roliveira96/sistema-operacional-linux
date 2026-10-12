@@ -45,3 +45,17 @@ it("offers the descriptive kind in the bank and only the kinds it is given in a 
   expect(screen.queryByRole("radio", { name: new RegExp(m.label.DISCURSIVE) })).toBeNull();
   expect(screen.getAllByRole("radio")).toHaveLength(CARD_KINDS.length);
 });
+
+// Covers SPEC-040 CA-01, CA-02 and D-02: the example follows the kind selected, and the one under the mouse.
+it("shows the example of the kind selected or under the mouse", () => {
+  render(<KindChooser onChoose={vi.fn()} onClose={vi.fn()} />);
+  const example = (kind: keyof typeof m.label) => screen.queryByRole("figure", { name: m.example.label(m.label[kind]) });
+  expect(example("PRACTICAL")).not.toBeNull();
+  fireEvent.click(screen.getByRole("radio", { name: new RegExp(m.label.THEORETICAL_SINGLE) }));
+  expect(example("THEORETICAL_SINGLE")).not.toBeNull();
+  const matching = screen.getByRole("radio", { name: new RegExp(m.label.THEORETICAL_MATCHING) }).closest("label")!;
+  fireEvent.mouseEnter(matching);
+  expect(example("THEORETICAL_MATCHING")).not.toBeNull();
+  fireEvent.mouseLeave(matching);
+  expect(example("THEORETICAL_SINGLE")).not.toBeNull();
+});
