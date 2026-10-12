@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-039 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 12/10/2026 |
-| **Última revisão** | 12/10/2026 (decisões D-01 a D-08) |
+| **Última revisão** | 12/10/2026 (decisões D-01 a D-10, aprovada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -46,7 +46,7 @@ O tipo `DISCURSIVE` já existe no schema (SPEC-011), sem tela nem correção.
 - A IA chamada pelo próprio servidor (por exemplo, a API da Anthropic com uma chave do sistema): a sugestão vem pelo MCP, de um agente conectado com o acesso da professora (P-01).
 - Nota parcial fora das cinco faixas, ou nota em pontos.
 - Aplicação de provas: a spec de avaliação aplica estas mesmas regras de nota às respostas descritivas da prova.
-- Questão descritiva no exercício do card (ver P-07).
+- Questão descritiva no exercício do card (D-09).
 - Correção automática sem a professora: a nota só vale depois que ela confirma (P-03).
 
 ## 3. Proposta de Solução (Proposed Solution)
@@ -130,7 +130,18 @@ Uma restrição garante as cinco faixas, tanto na nota quanto na sugestão.
   - `PUT /api/v1/teacher/answers/{progressId}/grade` grava `score`, `useSuggestion`, `studentNote`, `privateNote` e, numa revisão, `reason`.
 - **MCP:** `list_pending_answers`, `get_answer` e `suggest_grade` (RN-04), com erros no formato da SPEC-024 RN-06.
 
-Os campos e erros detalhados entram na aprovação, depois das pendências.
+**Tamanho máximo da resposta (D-05):** uma das opções 500, 1.000, 2.000 (padrão), 5.000 ou 10.000 caracteres de texto.
+
+**Erros:**
+
+| Rota | HTTP | `type` | Quando |
+| :--- | :--- | :--- | :--- |
+| Banco | 400 | `validation-error` | Campo de outro tipo, `maxLength` fora da lista, publicar sem descrição |
+| Conferência | 400 | `validation-error` | Resposta vazia ou acima do tamanho máximo |
+| Conferência | 409 | `already-answered` | Segunda resposta |
+| Correção | 400 | `validation-error` | Nota fora das faixas, `useSuggestion` sem sugestão, revisão sem `reason` |
+| Correção | 403 / 404 | `forbidden` / `answer-not-found` | Sem acesso ao módulo, ou resposta que não é descritiva |
+| MCP | — | erros da SPEC-024 RN-06 | Mesmas regras, com os campos `score`, `reason`, `studentNote` |
 
 ## 6. Impacto e Riscos (Impact & Risks)
 
@@ -175,7 +186,26 @@ Pela SPEC-038 (se aprovada), escritos antes do código.
 
 ## 9. Contexto Final da IA (AI Final Context Execution)
 
-Definido na aprovação, depois das pendências.
+1. **Pré-leitura obrigatória:** SPEC-035, 036 e 037 (contrato de tipos e as respostas sem terminal), SPEC-024 (MCP) e SPEC-038 (testes antes); no código, `content/domain/question_type.go`, `practice/service`, `mcp/service` e os componentes de resposta.
+2. **Ordem de execução**, cada passo começando pelos testes:
+   1. tipo no domínio;
+   2. migração (tabelas de nota e eventos);
+   3. resposta do aluno e progresso;
+   4. serviço de correção (lista, sugestão, confirmação, revisão);
+   5. rotas da docente;
+   6. ferramentas do MCP;
+   7. frontend: formulário, resposta do aluno, tela de correção e progresso;
+   8. glossário e spec.
+3. **Arquivos a criar ou alterar:**
+   - `backend/migrations/`;
+   - `backend/internal/modules/content/` (domínio, serviço e handler do banco);
+   - `backend/internal/modules/practice/` (domínio, serviço, repositório e handler da resposta e da correção);
+   - `backend/internal/modules/mcp/` (ferramentas e catálogo);
+   - `backend/cmd/api/main.go` (injeção do serviço de correção);
+   - `frontend/src/lib/`, `frontend/src/services/`, `frontend/src/components/` (formulário, resposta, tela de correção) e `frontend/src/app/app/modules/[id]/answers/`;
+   - `frontend/src/messages/`;
+   - `specs/GLOSSARY.md` e as revisões da SPEC-024.
+4. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, glossário atualizado e status `Implementada`.
 
 ## 10. Pendências para aprovação
 
@@ -192,12 +222,12 @@ Definido na aprovação, depois das pendências.
 | D-07 | A professora pode revisar uma nota confirmada, com justificativa obrigatória, e a revisão fica registrada (resolve P-06) |
 | D-08 | A IA não vê quem é o aluno: as ferramentas usam um identificador anônimo, e o nome aparece só para a professora (resolve P-08) |
 
+| D-09 | A descritiva fica só no banco de questões do módulo (aba "Desafios"), não nos exercícios dos cards, que a tela confere sem passar pelo servidor (resolve P-07) |
+| D-10 | Nomes: tipo `DISCURSIVE` ("Descritiva"); "Resposta correta" (`expectedAnswer`); "Sugestão de nota" (`GradeSuggestion`); "Nota da resposta" (`AnswerGrade`, faixas 0, 25, 50, 75, 100); "Anotação para o aluno" (`studentNote`) e "Anotação privada" (`privateNote`) (resolve P-09) |
+
 ### Pendências
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-07 | Os cards de conteúdo do módulo têm uma aba "Exercícios" com exercícios pequenos, que a tela do aluno confere sozinha, sem passar pelo servidor (é onde também existem o verdadeiro ou falso, a escolha única e o ligar colunas do card). A descritiva também entra ali? | Não: a descritiva precisa ir para o servidor, para a IA sugerir e a professora corrigir, e o exercício do card não passa pelo servidor. Ela fica só no banco de questões do módulo, que já aparece na aba "Desafios" do aluno |
-| P-09 | Nomes técnicos | Tipo `DISCURSIVE` ("Descritiva"); "Resposta correta" (`expectedAnswer`); "Sugestão de nota" (`GradeSuggestion`); "Nota da resposta" (`AnswerGrade`, faixas 0, 25, 50, 75, 100); "Anotação para o aluno" (`studentNote`) e "Anotação privada" (`privateNote`) |
+Nenhuma em aberto. P-01 a P-09 viraram as decisões D-02 a D-10.
 
 ---
 
@@ -208,3 +238,4 @@ Definido na aprovação, depois das pendências.
 | 12/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (descritiva com título, descrição, nível, dicas, nota da professora em 0, 25, 50, 75 ou 100 e sugestão da IA pelo MCP, que a professora aceita ou troca). Pendências P-01 a P-09 |
 | 12/10/2026 | Tech Lead | D-01: o aluno responde só com texto e comandos |
 | 12/10/2026 | Tech Lead | Decisões D-02 a D-08 (IA externa pelo MCP; resposta correta mostrada ao aluno no exercício; porcentagem de acerto; tamanho escolhido pela professora; anotação para o aluno e anotação privada, a primeira sugerível pela IA; revisão de nota; IA sem identificar o aluno). Seguem abertas P-07 e P-09 |
+| 12/10/2026 | Tech Lead | Aprovada ("Aprovo"), aceitas as recomendações de P-07 e P-09 (D-09, D-10). Status: `Aprovada` |
