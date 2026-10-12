@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-036 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 11/10/2026 |
 | **Última revisão** | 12/10/2026 (decisões D-01 a D-06, sem pendências) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -251,3 +251,4 @@ Nenhuma em aberto. P-01 a P-06 viraram as decisões D-01 a D-06.
 | 12/10/2026 | Tech Lead | P-01: a professora marca a correta e o sistema a guarda pelo identificador (D-01). P-03: as alternativas aparecem embaralhadas para o aluno (D-03). Seguem abertas P-02, P-04, P-05 e P-06 |
 | 12/10/2026 | Tech Lead | P-02: alternativa com o editor de texto (texto, comandos, HTML e imagens) (D-02). P-04: conversão das 30 questões da carga inicial (D-04). Seguem abertas P-05 e P-06 |
 | 12/10/2026 | Tech Lead | P-05 e P-06 aceitas nas recomendações (D-05, D-06), com o reforço de que há somente uma alternativa correta. Seção 10 sem pendências |
+| 12/10/2026 | Tech Lead | Aprovada ("eu aprovo"). Status: `Aprovada` |
