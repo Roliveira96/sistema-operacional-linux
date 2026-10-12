@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-038 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 12/10/2026 |
-| **Última revisão** | 12/10/2026 |
+| **Última revisão** | 12/10/2026 (aprovada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -31,7 +31,7 @@ O Tech Lead decidiu que, por regra, os testes automatizados são escritos **ante
 - **Ordem fixa:** toda implementação começa pelos testes dos critérios de aceite da spec. Eles são executados e falham pelo motivo esperado, e só então vem o código que os faz passar (vermelho, verde, refatorar).
 - **Regra no lugar certo:** a ordem fica em `AI_INSTRUCTIONS.md` (fluxo e proibições), em `ARCHITECTURE.md` (seção 5) e no `_TEMPLATE.md` (seção 8 de cada spec), valendo para qualquer agente e para pessoas.
 - **Testes na spec:** a seção 8 de cada spec passa a listar, antes da aprovação, os testes a escrever primeiro, cada um ligado ao seu critério de aceite.
-- **Prova na entrega:** a entrega informa a execução vermelha dos testes antes do código, e a execução verde depois (P-01).
+- **Prova na entrega:** um commit `test(...)` com os testes vermelhos, seguido do commit do código que os faz passar; a entrega cita os dois commits e as duas execuções (D-01).
 
 ### 2.1. Fora de escopo (Non-Goals)
 
@@ -56,10 +56,11 @@ O Tech Lead decidiu que, por regra, os testes automatizados são escritos **ante
 - **RN-01 (ordem):** nenhuma linha de código de produção de uma spec é escrita antes dos testes dos critérios de aceite que ela atende.
 - **RN-02 (vermelho legítimo):** o teste escrito primeiro precisa falhar pela ausência do comportamento. Um teste que já passa antes do código, ou que falha por outro motivo, é corrigido antes de seguir.
 - **RN-03 (testes não se ajustam ao código):** depois do passo 2, um teste só muda se estava errado em relação à spec. A mudança é registrada na entrega com o motivo.
-- **RN-04 (correções):** toda correção de defeito começa por um teste que reproduz o defeito e falha. Depois vem a correção (P-02).
+- **RN-04 (correções):** toda correção de defeito começa por um teste que reproduz o defeito e falha. Depois vem a correção (D-02).
 - **RN-05 (refatoração):** refatorar exige os testes existentes verdes antes e depois. Comportamento novo segue a RN-01.
-- **RN-06 (seção 8 da spec):** a seção 8 lista os testes a escrever primeiro, nomeados e ligados aos critérios de aceite. Uma spec não é aprovada sem isso (P-03).
-- **RN-07 (exceções):** P-04.
+- **RN-06 (seção 8 da spec):** a seção 8 lista os testes a escrever primeiro, nomeados e ligados aos critérios de aceite. Uma spec não é aprovada sem isso (D-03).
+- **RN-07 (exceções):** só o que não tem comportamento a testar: estilos (SCSS), textos de mensagens, configuração e documentação. O comportamento que dependa deles (por exemplo, uma mensagem que aparece num caso) é testado primeiro (D-04).
+- **RN-09 (commits e branches):** cada ajuste vira dois commits na branch de feature: `test(...)`, com os testes vermelhos, e depois `feat(...)`, `fix(...)` ou `refactor(...)`, com o código que os faz passar. Commits com testes vermelhos ficam só nas branches de feature; na `projeto-tcc2` só entra o que está todo verde, pelo PR (D-01).
 - **RN-08 (mudança de requisito no meio):** quando o Tech Lead muda um requisito durante a implementação, a spec é revisada, os testes do requisito novo são escritos e ficam vermelhos, e só então o código muda.
 
 ## 4. Modelo de Dados (Data Model)
@@ -74,10 +75,10 @@ Não se aplica nesta spec: muda só o processo.
 
 | Risco | Mitigação |
 | :--- | :--- |
-| Commits com testes falhando quebram a branch para quem estiver nela | Testes vermelhos só nas branches de feature, nunca na `projeto-tcc2` diretamente (P-01) |
+| Commits com testes falhando quebram a branch para quem estiver nela | Testes vermelhos só nas branches de feature, nunca na `projeto-tcc2` diretamente (D-01, RN-09) |
 | Implementação mais lenta no começo | Os testes já são exigidos hoje; muda a ordem, não o volume |
 | Testes escritos antes, mas frágeis (presos a detalhes de implementação) | A seção 8 descreve o comportamento a verificar pelo critério de aceite; asserções em saídas, estados e erros, como a SPEC-006 já exige |
-| Agentes que não seguem a ordem | A regra fica em `AI_INSTRUCTIONS.md`, que todo agente lê primeiro, e a entrega exige a prova do vermelho (P-01) |
+| Agentes que não seguem a ordem | A regra fica em `AI_INSTRUCTIONS.md`, que todo agente lê primeiro, e a entrega cita o commit dos testes vermelhos e o do código (D-01) |
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
@@ -108,12 +109,18 @@ Não há código. A verificação é manual:
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | Como fica registrado que o teste veio antes? (a) Um commit só com os testes, falhando, seguido do commit do código que os faz passar; (b) tudo num commit, com a saída da execução vermelha colada na entrega e no histórico da spec | (a), nas branches de feature: o histórico mostra a ordem por si só, e a entrega cita os dois commits e as duas execuções. Na `projeto-tcc2` só entram branches com tudo verde, pelo PR. Isso ajusta a regra "um commit por ajuste": cada ajuste vira dois commits, `test(...)` e `feat(...)` ou `fix(...)` |
-| P-02 | Vale também para correções de defeito e refatorações, ou só para specs novas? | Para tudo: correção começa por um teste que reproduz o defeito; refatoração exige os testes verdes antes e depois |
-| P-03 | A seção 8 de cada spec passa a listar os testes nomeados antes da aprovação? | Sim, ligados a cada critério de aceite, para o Tech Lead aprovar também o que será testado |
-| P-04 | Há exceções? | Só o que não tem comportamento a testar: estilos (SCSS), textos de mensagens, configuração e documentação. Mesmo assim, o comportamento que dependa deles (por exemplo, uma mensagem que aparece num caso) é testado primeiro |
+### Decisões do Tech Lead (12/10/2026)
+
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | A ordem fica registrada em dois commits na branch de feature: `test(...)`, só com os testes vermelhos, e depois o commit do código. Na `projeto-tcc2` só entra o que está todo verde, pelo PR. Cada ajuste vira dois commits (resolve P-01) |
+| D-02 | Vale para tudo: correção começa por um teste que reproduz o defeito; refatoração exige os testes verdes antes e depois (resolve P-02) |
+| D-03 | A seção 8 de cada spec lista os testes nomeados, ligados aos critérios de aceite, antes da aprovação (resolve P-03) |
+| D-04 | Exceções só para o que não tem comportamento a testar: estilos, textos de mensagens, configuração e documentação (resolve P-04) |
+
+### Pendências
+
+Nenhuma em aberto. P-01 a P-04 viraram as decisões D-01 a D-04.
 
 ---
 
@@ -122,3 +129,4 @@ Não há código. A verificação é manual:
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 12/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (testes automatizados sempre antes da implementação, por regra). Pendências P-01 a P-04 |
+| 12/10/2026 | Tech Lead | Aprovada ("Aprovo"), aceitas as recomendações de P-01 a P-04 (D-01 a D-04). Status: `Aprovada` |
