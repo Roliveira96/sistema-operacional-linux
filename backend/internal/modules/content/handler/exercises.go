@@ -90,6 +90,10 @@ type exerciseResponse struct {
 	Choices        json.RawMessage `json:"choices,omitempty"`
 	CorrectChoice  *string         `json:"correctChoice,omitempty"`
 	ShuffleChoices *bool           `json:"shuffleChoices,omitempty"`
+	// Left, Right and Pairs are the columns and the correct pairs of a matching question (SPEC-037 5.1).
+	Left  json.RawMessage `json:"left,omitempty"`
+	Right json.RawMessage `json:"right,omitempty"`
+	Pairs json.RawMessage `json:"pairs,omitempty"`
 	// The links of the exercise (SPEC-023 11.1): in the practice (with a place in the trail), in the assessment, and exclusive to it.
 	Practice   bool `json:"practice"`
 	Assessment bool `json:"assessment"`
@@ -128,6 +132,18 @@ func toExerciseResponse(r service.ExerciseRecord) exerciseResponse {
 		}
 		if correct, ok := domain.CorrectChoice(r.AnswerKey); ok {
 			out.CorrectChoice = &correct
+		}
+		shuffle := r.ShuffleChoices
+		out.ShuffleChoices = &shuffle
+		out.Explanation = r.Explanation
+	case domain.KindTheoreticalMatching:
+		out.Left, out.Right, out.Pairs = json.RawMessage("[]"), json.RawMessage("[]"), json.RawMessage("[]")
+		if cols, ok := domain.ReadColumns(r.Choices); ok {
+			out.Left, _ = json.Marshal(cols.Left)
+			out.Right, _ = json.Marshal(cols.Right)
+		}
+		if pairs := domain.ReadPairs(r.AnswerKey); len(pairs) > 0 {
+			out.Pairs, _ = json.Marshal(pairs)
 		}
 		shuffle := r.ShuffleChoices
 		out.ShuffleChoices = &shuffle
@@ -175,6 +191,10 @@ type exerciseRequest struct {
 	Choices        json.RawMessage `json:"choices"`
 	CorrectChoice  *string         `json:"correctChoice"`
 	ShuffleChoices *bool           `json:"shuffleChoices"`
+	// Left, Right and Pairs belong to a matching question (SPEC-037 RN-03).
+	Left  json.RawMessage `json:"left"`
+	Right json.RawMessage `json:"right"`
+	Pairs json.RawMessage `json:"pairs"`
 	// DependsOn is the exercise this one depends on (SPEC-023 D-16).
 	DependsOn *uuid.UUID `json:"dependsOn"`
 	// Links are where a new exercise comes linked, when it is created from a block of the screen.
@@ -187,7 +207,7 @@ func (r exerciseRequest) input() domain.ExerciseInput {
 	return domain.ExerciseInput{
 		Kind: r.Kind, Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: r.Hints, Solution: r.Solution, Conditions: r.Conditions,
 		CorrectAnswer: r.CorrectAnswer, Explanation: r.Explanation, HasDependency: r.DependsOn != nil,
-		Choices: r.Choices, CorrectChoice: r.CorrectChoice, ShuffleChoices: r.ShuffleChoices,
+		Choices: r.Choices, CorrectChoice: r.CorrectChoice, ShuffleChoices: r.ShuffleChoices, Left: r.Left, Right: r.Right, Pairs: r.Pairs,
 	}
 }
 

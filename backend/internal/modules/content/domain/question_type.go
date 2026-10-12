@@ -18,6 +18,8 @@ type ResponseVerdict struct {
 	Passed bool
 	// Correct is the answer key the student may see after answering, in the form of the kind (a boolean for true or false).
 	Correct json.RawMessage
+	// Details is the result of each part of the answer, when the kind has parts (each link of a matching question, SPEC-037 RN-06).
+	Details json.RawMessage
 }
 
 // QuestionType is the contract every kind of question of the bank implements (SPEC-035 RN-02): it validates what the teacher
@@ -39,9 +41,10 @@ type QuestionType interface {
 }
 
 var questionTypes = map[string]QuestionType{
-	KindPractical:          practicalType{},
-	KindTheoreticalBoolean: booleanType{},
-	KindTheoreticalSingle:  singleType{},
+	KindPractical:           practicalType{},
+	KindTheoreticalBoolean:  booleanType{},
+	KindTheoreticalSingle:   singleType{},
+	KindTheoreticalMatching: matchingType{},
 }
 
 // TypeOf returns the contract of a kind the bank accepts (SPEC-035 RN-01).
@@ -203,13 +206,23 @@ func BooleanAnswer(answerKey json.RawMessage) (bool, bool) {
 	return *key.Correct, true
 }
 
-// refuseChoices refuses the fields of a single choice question in a kind that has none.
+// refuseChoices refuses the fields of a single choice question and of a matching question in a kind that has none.
 func refuseChoices(c *checker, in ExerciseInput, reason string) {
 	if hasValue(in.Choices) {
 		c.fail("choices", reason)
 	}
 	if in.CorrectChoice != nil {
 		c.fail("correctChoice", reason)
+	}
+	refuseColumns(c, in, reason)
+}
+
+// refuseColumns refuses the fields of a matching question in a kind that has none.
+func refuseColumns(c *checker, in ExerciseInput, reason string) {
+	for field, raw := range map[string]json.RawMessage{"left": in.Left, "right": in.Right, "pairs": in.Pairs} {
+		if hasValue(raw) {
+			c.fail(field, reason)
+		}
 	}
 }
 

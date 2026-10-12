@@ -12,7 +12,7 @@ func boolPtr(v bool) *bool { return &v }
 
 // Covers SPEC-035 RN-01 and RN-02: the bank knows the practical and the true or false kinds, and nothing else.
 func TestQuestionTypeRegistry(t *testing.T) {
-	assert.Equal(t, []string{KindPractical, KindTheoreticalBoolean, KindTheoreticalSingle}, BankKinds())
+	assert.Equal(t, []string{KindPractical, KindTheoreticalBoolean, KindTheoreticalMatching, KindTheoreticalSingle}, BankKinds())
 	assert.True(t, UsesTerminal(KindPractical))
 	assert.False(t, UsesTerminal(KindTheoreticalBoolean))
 	assert.False(t, UsesTerminal(KindDiscursive))

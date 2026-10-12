@@ -179,6 +179,7 @@ func (singleType) normalize(c *checker, in ExerciseInput, out *NormalizedExercis
 	if in.CorrectAnswer != nil {
 		c.fail("correctAnswer", "only a true or false question has a correct answer; use correctChoice")
 	}
+	refuseColumns(c, in, "a single choice question has no columns")
 	var choices []Choice
 	if err := decodeOptional(in.Choices, &choices); err != nil {
 		c.fail("choices", "must be a list of choices")

@@ -79,7 +79,9 @@ type CheckResult struct {
 	// correctChoice for single choice).
 	Correct      json.RawMessage
 	CorrectField string
-	Explanation  *string
+	// Details is the result of each part of the answer (each link of a matching question, SPEC-037 RN-06).
+	Details     json.RawMessage
+	Explanation *string
 }
 
 // Submission is the body of a check: the state of the machine for a practical exercise, or the response of the student for a
@@ -140,7 +142,7 @@ func (s *Service) respond(ctx context.Context, q contentdomain.Question, userID 
 		return CheckResult{}, err
 	}
 	field, _ := kind.Revealed(q)
-	return CheckResult{Passed: verdict.Passed, CompletedAt: progress.CompletedAt, Correct: verdict.Correct, CorrectField: field, Explanation: q.Explanation}, nil
+	return CheckResult{Passed: verdict.Passed, CompletedAt: progress.CompletedAt, Correct: verdict.Correct, CorrectField: field, Details: verdict.Details, Explanation: q.Explanation}, nil
 }
 
 // Check grades the submitted final state on the server and records the
@@ -179,6 +181,7 @@ type ProgressEntry struct {
 	domain.Progress
 	Correct      json.RawMessage
 	CorrectField string
+	Details      json.RawMessage
 	Explanation  *string
 }
 
@@ -209,6 +212,10 @@ func (s *Service) entries(ctx context.Context, v contentservice.Viewer, rows []d
 		}
 		if kind, ok := contentdomain.TypeOf(q.Kind); ok {
 			out[i].CorrectField, out[i].Correct = kind.Revealed(q)
+			// The result of each part is graded again from the answer kept (each link of a matching question).
+			if verdict, err := kind.Grade(q, p.Response); err == nil {
+				out[i].Details = verdict.Details
+			}
 		}
 		out[i].Explanation = q.Explanation
 	}

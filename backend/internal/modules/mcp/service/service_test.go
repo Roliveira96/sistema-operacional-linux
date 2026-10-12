@@ -770,3 +770,37 @@ func TestSingleChoiceQuestionsThroughTheTools(t *testing.T) {
 	_, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", CorrectChoice: raw(`"zz"`)})
 	assert.Equal(t, "correctChoice", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
 }
+
+// Covers SPEC-037 RN-10 and CA-13: the tools create and edit matching questions with the validations of the screen.
+func TestMatchingQuestionsThroughTheTools(t *testing.T) {
+	e := setup(t, false)
+	ctx := context.Background()
+	mid := e.mid()
+	created, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{
+		ModuleID: mid, Kind: "THEORETICAL_MATCHING", Title: "commands", Difficulty: "EASY", Statement: "<p>Link them.</p>",
+		Left:  raw(`[{"id":"l1","text":"chmod"},{"id":"l2","text":"chown"}]`),
+		Right: raw(`[{"id":"r1","text":"owner"},{"id":"r2","text":"mode"}]`),
+		Pairs: raw(`[{"left":"l1","right":"r2"},{"left":"l2","right":"r1"}]`),
+	})
+	require.Nil(t, terr)
+	assert.Equal(t, "THEORETICAL_MATCHING", created.Exercise.Kind)
+	assert.Len(t, created.Exercise.Left, 2)
+	assert.Len(t, created.Exercise.Right, 2)
+	assert.Len(t, created.Exercise.Pairs, 2)
+	assert.True(t, *created.Exercise.ShuffleChoices)
+
+	id := created.Exercise.ID.String()
+	title := "commands again"
+	up, terr := e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", Title: &title})
+	require.Nil(t, terr)
+	assert.Len(t, up.Exercise.Pairs, 2, "what is not given is kept")
+
+	up, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE",
+		Pairs: raw(`[{"left":"l1","right":"r1"},{"left":"l2","right":"r2"}]`)})
+	require.Nil(t, terr)
+	assert.Equal(t, "r1", up.Exercise.Pairs[0].Right)
+
+	_, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE",
+		Pairs: raw(`[{"left":"l1","right":"r1"},{"left":"l2","right":"r1"}]`)})
+	assert.Equal(t, "pairs[1].right", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
+}

@@ -309,3 +309,27 @@ func TestExerciseHandler_SingleChoice(t *testing.T) {
 	assert.Equal(t, []any{}, body["choices"], "a draft without choices shows an empty list")
 	assert.NotContains(t, body, "correctChoice")
 }
+
+// Covers SPEC-037 5.1: the teacher sends and reads the columns, the pairs and the option to shuffle.
+func TestExerciseHandler_Matching(t *testing.T) {
+	f := newFakeBank()
+	f.record = service.ExerciseRecord{Question: domain.Question{ID: uuid.New(), Kind: domain.KindTheoreticalMatching, Title: "commands", Difficulty: "EASY",
+		Choices:   json.RawMessage(`{"left":[{"id":"l1","text":"chmod"}],"right":[{"id":"r1","text":"mode"}]}`),
+		AnswerKey: json.RawMessage(`{"pairs":[{"left":"l1","right":"r1"}]}`), ShuffleChoices: true}}
+	code, body := bankCall(t, f, teacher, 100, http.MethodPost, exercisesPath(""),
+		`{"kind":"THEORETICAL_MATCHING","title":"commands","difficulty":"EASY","left":[{"id":"l1","text":"chmod"}],"right":[{"id":"r1","text":"mode"}],"pairs":[{"left":"l1","right":"r1"}],"shuffleChoices":true}`)
+	require.Equal(t, http.StatusCreated, code)
+	assert.JSONEq(t, `[{"id":"l1","text":"chmod"}]`, string(f.in.Left))
+	assert.JSONEq(t, `[{"id":"r1","text":"mode"}]`, string(f.in.Right))
+	assert.JSONEq(t, `[{"left":"l1","right":"r1"}]`, string(f.in.Pairs))
+	assert.Equal(t, []any{map[string]any{"id": "l1", "text": "chmod"}}, body["left"])
+	assert.Equal(t, []any{map[string]any{"id": "r1", "text": "mode"}}, body["right"])
+	assert.Equal(t, []any{map[string]any{"left": "l1", "right": "r1"}}, body["pairs"])
+	assert.Equal(t, true, body["shuffleChoices"])
+	assert.NotContains(t, body, "choices")
+
+	f.record.Choices, f.record.AnswerKey = nil, nil
+	_, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("/"+uuid.NewString()), "")
+	assert.Equal(t, []any{}, body["left"])
+	assert.Equal(t, []any{}, body["pairs"])
+}

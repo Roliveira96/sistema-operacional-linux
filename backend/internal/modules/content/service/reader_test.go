@@ -508,3 +508,40 @@ func TestReader_SingleChoiceForTheStudent(t *testing.T) {
 	q.Choices = json.RawMessage(`["legacy"]`)
 	assert.Nil(t, publicChoices(q), "the old format is not sent as choices")
 }
+
+// Covers SPEC-037 RN-05, CA-05 and D-10: the student gets the two columns without the pairs, in the order of the teacher or shuffled.
+func TestReader_MatchingForTheStudent(t *testing.T) {
+	items := func(prefix string) string {
+		var out []string
+		for i := 1; i <= 5; i++ {
+			out = append(out, fmt.Sprintf(`{"id":"%s%d","text":"%s %d"}`, prefix, i, prefix, i))
+		}
+		return "[" + strings.Join(out, ",") + "]"
+	}
+	q := domain.Question{ID: uuid.New(), Kind: domain.KindTheoreticalMatching, Usage: domain.UsageExercise, Status: domain.StatusPublished,
+		Statement: "<p>?</p>", Choices: json.RawMessage(`{"left":` + items("l") + `,"right":` + items("r") + `}`),
+		AnswerKey: json.RawMessage(`{"pairs":[{"left":"l1","right":"r1"}]}`), Explanation: str("<p>because</p>"), Hints: json.RawMessage(`[{"text":"Think"}]`)}
+
+	read := func(q domain.Question) PublicQuestion {
+		qs, err := NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), uuid.New(), domain.UsageExercise, Viewer{})
+		require.NoError(t, err)
+		raw, _ := json.Marshal(qs)
+		assert.NotContains(t, string(raw), "pairs")
+		assert.NotContains(t, string(raw), "because")
+		return qs[0]
+	}
+	kept := read(q)
+	assert.JSONEq(t, items("l"), string(kept.Left))
+	assert.JSONEq(t, items("r"), string(kept.Right), "kept in the order of the teacher")
+	require.NotNil(t, kept.Hint)
+
+	q.ShuffleChoices = true
+	orders := map[string]bool{}
+	for i := 0; i < 20; i++ {
+		orders[string(read(q).Right)+string(read(q).Left)] = true
+	}
+	assert.Greater(t, len(orders), 1, "shuffled for the student")
+
+	q.Choices = json.RawMessage(`["junk"]`)
+	assert.Nil(t, read(q).Left)
+}

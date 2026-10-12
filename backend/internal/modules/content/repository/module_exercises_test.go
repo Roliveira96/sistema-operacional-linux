@@ -391,3 +391,29 @@ func migrationUp(t *testing.T) string {
 	require.True(t, start > 0 && end > start)
 	return text[start:end]
 }
+
+// Covers SPEC-037 RN-01 to RN-04 against PostgreSQL: the new kind is accepted by the database, goes through the bank, and a published
+// matching question keeps its pairs.
+func TestExerciseBankMatching(t *testing.T) {
+	f := newBank(t)
+	svc := service.NewExercises(f.repo, zap.NewNop())
+	who := service.Actor{UserID: f.teacher.ID, Role: "TEACHER"}
+	left := json.RawMessage(`[{"id":"l1","text":"chmod"},{"id":"l2","text":"chown"}]`)
+	right := json.RawMessage(`[{"id":"r1","text":"owner"},{"id":"r2","text":"mode"}]`)
+	draft, err := svc.Create(f.ctx, who, f.module.ID, domain.ExerciseInput{Kind: domain.KindTheoreticalMatching, Title: "commands", Difficulty: "EASY",
+		Statement: "<p>Link them.</p>", Left: left, Right: right}, nil, practice)
+	require.NoError(t, err, "a draft may miss the pairs")
+	_, err = svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	assert.ErrorIs(t, err, service.ErrExerciseIncomplete)
+
+	saved, err := svc.Update(f.ctx, who, f.module.ID, draft.ID, domain.ExerciseInput{Title: "commands", Difficulty: "EASY", Statement: "<p>Link them.</p>",
+		Left: left, Right: right, Pairs: json.RawMessage(`[{"left":"l1","right":"r2"},{"left":"l2","right":"r1"}]`)}, nil, draft.UpdatedAt, false)
+	require.NoError(t, err)
+	assert.Len(t, domain.ReadPairs(saved.AnswerKey), 2)
+	published, err := svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StatusPublished, published.Status)
+
+	err = f.db.Conn(f.ctx).Exec("UPDATE questions SET answer_key = NULL WHERE id = ?", draft.ID).Error
+	assert.Error(t, err, "a published matching question keeps its pairs")
+}

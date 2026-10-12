@@ -351,3 +351,35 @@ func TestExercises_SingleChoice(t *testing.T) {
 	assert.Equal(t, domain.KindTheoreticalSingle, store.updated.Exercise.Kind)
 	assert.False(t, store.updated.Exercise.ShuffleChoices)
 }
+
+// Covers SPEC-037 RN-01 to RN-04, D-09 and D-10: a matching question goes through the bank with its columns, the pairs selected by the
+// teacher and the option to shuffle, and is published only complete.
+func TestExercises_Matching(t *testing.T) {
+	store := &fakeExerciseStore{owner: owner.UserID}
+	svc := exerciseService(store)
+	ctx := context.Background()
+	keep := false
+	in := domain.ExerciseInput{
+		Kind: domain.KindTheoreticalMatching, Title: "commands", Difficulty: "EASY", Statement: "<p>Link them.</p>",
+		Left:  json.RawMessage(`[{"id":"l1","text":"chmod"},{"id":"l2","text":"chown"}]`),
+		Right: json.RawMessage(`[{"id":"r1","text":"owner"},{"id":"r2","text":"mode"}]`),
+		Pairs: json.RawMessage(`[{"left":"l1","right":"r2"},{"left":"l2","right":"r1"}]`), ShuffleChoices: &keep,
+	}
+	_, err := svc.Create(ctx, owner, module, in, nil, ExerciseLinks{Practice: true})
+	require.NoError(t, err)
+	q := store.created
+	assert.Equal(t, domain.KindTheoreticalMatching, q.Kind)
+	assert.JSONEq(t, `{"left":[{"id":"l1","text":"chmod"},{"id":"l2","text":"chown"}],"right":[{"id":"r1","text":"owner"},{"id":"r2","text":"mode"}]}`, string(q.Choices))
+	assert.JSONEq(t, `{"pairs":[{"left":"l1","right":"r2"},{"left":"l2","right":"r1"}]}`, string(q.AnswerKey))
+	assert.False(t, q.ShuffleChoices)
+
+	store.created = nil
+	store.record = ExerciseRecord{Question: domain.Question{Kind: domain.KindTheoreticalMatching, Statement: "<p>?</p>", Choices: q.Choices}}
+	_, err = svc.SetLinks(ctx, owner, module, uuid.New(), ExerciseLinks{Practice: true}, domain.StatusPublished)
+	var incomplete *IncompleteError
+	require.True(t, errors.As(err, &incomplete))
+	assert.Equal(t, []domain.FieldError{{Field: "pairs", Reason: "each item of the left column needs its pair"}}, incomplete.Fields)
+	store.record.AnswerKey = q.AnswerKey
+	_, err = svc.SetLinks(ctx, owner, module, uuid.New(), ExerciseLinks{Practice: true}, domain.StatusPublished)
+	require.NoError(t, err)
+}

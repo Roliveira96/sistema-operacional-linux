@@ -196,3 +196,39 @@ func TestSubmitSingleChoice(t *testing.T) {
 	assert.Equal(t, "correctChoice", rows[0].CorrectField)
 	assert.JSONEq(t, `"a"`, string(rows[0].Correct))
 }
+
+func matching(id uuid.UUID) contentdomain.Question {
+	return contentdomain.Question{
+		ID: id, Kind: contentdomain.KindTheoreticalMatching, Usage: contentdomain.UsageExercise, Status: contentdomain.StatusPublished,
+		Choices:   json.RawMessage(`{"left":[{"id":"l1","text":"chmod"},{"id":"l2","text":"chown"}],"right":[{"id":"r1","text":"owner"},{"id":"r2","text":"mode"}]}`),
+		AnswerKey: json.RawMessage(`{"pairs":[{"left":"l1","right":"r2"},{"left":"l2","right":"r1"}]}`),
+	}
+}
+
+// Covers SPEC-037 RN-06, RN-07 and CA-08, CA-09 (service side): each link graded, the pairs revealed, answered once, and the result of
+// each link kept in the progress.
+func TestSubmitMatching(t *testing.T) {
+	q := uuid.New()
+	svc, _ := newService(fakeContent{questions: map[uuid.UUID]contentdomain.Question{q: matching(q)}})
+	v := student()
+
+	_, err := svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"links":[{"left":"l1","right":"r2"}]}`)})
+	assert.ErrorIs(t, err, contentdomain.ErrInvalidResponse, "every item must be linked")
+
+	r, err := svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"links":[{"left":"l1","right":"r2"},{"left":"l2","right":"r2x"}]}`)})
+	assert.ErrorIs(t, err, contentdomain.ErrInvalidResponse)
+	r, err = svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"links":[{"left":"l1","right":"r2"},{"left":"l2","right":"r1"}]}`)})
+	require.NoError(t, err)
+	assert.True(t, r.Passed)
+	assert.Equal(t, "pairs", r.CorrectField)
+	assert.JSONEq(t, `[{"left":"l1","right":"r2","correct":true},{"left":"l2","right":"r1","correct":true}]`, string(r.Details))
+
+	_, err = svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"links":[{"left":"l1","right":"r1"},{"left":"l2","right":"r2"}]}`)})
+	assert.ErrorIs(t, err, ErrAlreadyAnswered)
+
+	rows, err := svc.ModuleProgress(context.Background(), uuid.New(), v)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "pairs", rows[0].CorrectField)
+	assert.JSONEq(t, `[{"left":"l1","right":"r2","correct":true},{"left":"l2","right":"r1","correct":true}]`, string(rows[0].Details))
+}

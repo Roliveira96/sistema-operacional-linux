@@ -26,6 +26,9 @@ type ExerciseInput struct {
 	CorrectChoice *string
 	// ShuffleChoices is nil when the request does not say, which is to shuffle (SPEC-036 D-07).
 	ShuffleChoices *bool
+	// Left, Right and Pairs belong to the matching question: the two columns in the order of the teacher and the correct pairs she
+	// selected (SPEC-037 D-09).
+	Left, Right, Pairs json.RawMessage
 }
 
 // NormalizedExercise is an exercise ready to be stored: every field filtered and trimmed. A practical exercise has the

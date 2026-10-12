@@ -84,17 +84,34 @@ type checkResponse struct {
 	CompletedAt *time.Time `json:"completedAt"`
 	// CorrectAnswer (true or false) or CorrectChoice (single choice) and Explanation come only for a question without a terminal,
 	// after the answer (SPEC-035 RN-06, SPEC-036 RN-05).
-	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
-	CorrectChoice json.RawMessage `json:"correctChoice,omitempty"`
-	Explanation   *string         `json:"explanation,omitempty"`
+	revealedAnswer
+	Explanation *string `json:"explanation,omitempty"`
 }
 
-// revealed puts the answer key in the field of its kind.
-func revealed(field string, value json.RawMessage) (answer, choice json.RawMessage) {
-	if field == "correctChoice" {
-		return nil, value
+// revealedAnswer is what a question without a terminal shows after the answer, in the field of its kind: the correct answer (true or
+// false), the correct choice (single choice), or the pairs and the result of each link (matching, SPEC-037 5.2).
+type revealedAnswer struct {
+	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
+	CorrectChoice json.RawMessage `json:"correctChoice,omitempty"`
+	Pairs         json.RawMessage `json:"pairs,omitempty"`
+	Results       json.RawMessage `json:"results,omitempty"`
+}
+
+// revealedFields puts the answer key in the field of its kind.
+func revealedFields(field string, value, details json.RawMessage) revealedAnswer {
+	switch field {
+	case "correctChoice":
+		return revealedAnswer{CorrectChoice: value}
+	case "pairs":
+		return revealedAnswer{Pairs: value, Results: details}
 	}
-	return value, nil
+	return revealedAnswer{CorrectAnswer: value}
+}
+
+// revealed puts the answer key of a true or false or single choice question in its field.
+func revealed(field string, value json.RawMessage) (answer, choice json.RawMessage) {
+	out := revealedFields(field, value, nil)
+	return out.CorrectAnswer, out.CorrectChoice
 }
 
 func (h *Handler) check(c *gin.Context) {
@@ -116,8 +133,8 @@ func (h *Handler) check(c *gin.Context) {
 		fail(c, err)
 		return
 	}
-	answer, choice := revealed(result.CorrectField, result.Correct)
-	c.JSON(http.StatusOK, checkResponse{Passed: result.Passed, CompletedAt: result.CompletedAt, CorrectAnswer: answer, CorrectChoice: choice, Explanation: result.Explanation})
+	c.JSON(http.StatusOK, checkResponse{Passed: result.Passed, CompletedAt: result.CompletedAt,
+		revealedAnswer: revealedFields(result.CorrectField, result.Correct, result.Details), Explanation: result.Explanation})
 }
 
 // readBody decodes the body of a check, bounded to 2 MB; which field is required depends on the kind of the question.
@@ -205,11 +222,10 @@ type progressItem struct {
 	Attempts    int        `json:"attempts"`
 	// An answered question without a terminal brings the answer, its result, the correct answer and the justification, so the
 	// screen shows it locked (SPEC-035 5.2).
-	Response      json.RawMessage `json:"response,omitempty"`
-	Passed        *bool           `json:"passed,omitempty"`
-	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
-	CorrectChoice json.RawMessage `json:"correctChoice,omitempty"`
-	Explanation   *string         `json:"explanation,omitempty"`
+	Response json.RawMessage `json:"response,omitempty"`
+	Passed   *bool           `json:"passed,omitempty"`
+	revealedAnswer
+	Explanation *string `json:"explanation,omitempty"`
 }
 
 func (h *Handler) progress(c *gin.Context) {
@@ -233,7 +249,7 @@ func progressItems(rows []service.ProgressEntry) []progressItem {
 		if p.Response != nil {
 			passed := p.LastPassed
 			items[i].Response, items[i].Passed = p.Response, &passed
-			items[i].CorrectAnswer, items[i].CorrectChoice = revealed(p.CorrectField, p.Correct)
+			items[i].revealedAnswer = revealedFields(p.CorrectField, p.Correct, p.Details)
 			items[i].Explanation = p.Explanation
 		}
 	}

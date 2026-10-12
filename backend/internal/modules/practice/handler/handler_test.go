@@ -277,3 +277,16 @@ func TestRevealedField(t *testing.T) {
 	assert.JSONEq(t, "true", string(answer))
 	assert.Nil(t, choice)
 }
+
+// Covers SPEC-037 5.2 at the HTTP level: the pairs and the result of each link of a matching question.
+func TestRevealedPairs(t *testing.T) {
+	out := revealedFields("pairs", json.RawMessage(`[{"left":"l1","right":"r1"}]`), json.RawMessage(`[{"left":"l1","right":"r1","correct":true}]`))
+	assert.JSONEq(t, `[{"left":"l1","right":"r1"}]`, string(out.Pairs))
+	assert.JSONEq(t, `[{"left":"l1","right":"r1","correct":true}]`, string(out.Results))
+	assert.Nil(t, out.CorrectAnswer)
+	assert.Nil(t, out.CorrectChoice)
+	out = revealedFields("correctChoice", json.RawMessage(`"a"`), nil)
+	assert.JSONEq(t, `"a"`, string(out.CorrectChoice))
+	out = revealedFields("correctAnswer", json.RawMessage(`true`), nil)
+	assert.JSONEq(t, "true", string(out.CorrectAnswer))
+}

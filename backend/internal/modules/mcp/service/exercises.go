@@ -30,14 +30,18 @@ type ExerciseView struct {
 	Choices        []contentdomain.Choice `json:"choices,omitempty"`
 	CorrectChoice  *string                `json:"correctChoice,omitempty"`
 	ShuffleChoices *bool                  `json:"shuffleChoices,omitempty"`
-	Practice       bool                   `json:"practice"`
-	Assessment     bool                   `json:"assessment"`
-	Exclusive      bool                   `json:"exclusive"`
-	DependsOn      *uuid.UUID             `json:"dependsOn"`
-	Status         string                 `json:"status"`
-	Position       int                    `json:"position"`
-	Mandatory      bool                   `json:"mandatory"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	// Left, Right and Pairs belong to a matching question (SPEC-037 RN-10).
+	Left       []contentdomain.MatchItem `json:"left,omitempty"`
+	Right      []contentdomain.MatchItem `json:"right,omitempty"`
+	Pairs      []contentdomain.MatchPair `json:"pairs,omitempty"`
+	Practice   bool                      `json:"practice"`
+	Assessment bool                      `json:"assessment"`
+	Exclusive  bool                      `json:"exclusive"`
+	DependsOn  *uuid.UUID                `json:"dependsOn"`
+	Status     string                    `json:"status"`
+	Position   int                       `json:"position"`
+	Mandatory  bool                      `json:"mandatory"`
+	UpdatedAt  time.Time                 `json:"updatedAt"`
 }
 
 func exerciseView(r contentservice.ExerciseRecord) ExerciseView {
@@ -54,8 +58,16 @@ func exerciseView(r contentservice.ExerciseRecord) ExerciseView {
 	if correct, ok := contentdomain.BooleanAnswer(r.AnswerKey); ok && r.Kind == contentdomain.KindTheoreticalBoolean {
 		v.CorrectAnswer = &correct
 	}
-	if r.Kind == contentdomain.KindTheoreticalBoolean || r.Kind == contentdomain.KindTheoreticalSingle {
+	if r.Kind == contentdomain.KindTheoreticalBoolean || r.Kind == contentdomain.KindTheoreticalSingle || r.Kind == contentdomain.KindTheoreticalMatching {
 		v.Explanation = r.Explanation
+	}
+	if r.Kind == contentdomain.KindTheoreticalMatching {
+		if cols, ok := contentdomain.ReadColumns(r.Choices); ok {
+			v.Left, v.Right = cols.Left, cols.Right
+		}
+		v.Pairs = contentdomain.ReadPairs(r.AnswerKey)
+		shuffle := r.ShuffleChoices
+		v.ShuffleChoices = &shuffle
 	}
 	if r.Kind == contentdomain.KindTheoreticalSingle {
 		v.Choices = contentdomain.ReadChoices(r.Choices)
@@ -104,8 +116,12 @@ type CreateModuleExerciseInput struct {
 	Choices        json.RawMessage `json:"choices,omitempty"`
 	CorrectChoice  *string         `json:"correctChoice,omitempty"`
 	ShuffleChoices *bool           `json:"shuffleChoices,omitempty"`
-	DependsOn      *string         `json:"dependsOn,omitempty"`
-	Links          LinksInput      `json:"links"`
+	// Left, Right and Pairs are for a THEORETICAL_MATCHING question (SPEC-037 RN-10).
+	Left      json.RawMessage `json:"left,omitempty"`
+	Right     json.RawMessage `json:"right,omitempty"`
+	Pairs     json.RawMessage `json:"pairs,omitempty"`
+	DependsOn *string         `json:"dependsOn,omitempty"`
+	Links     LinksInput      `json:"links"`
 }
 
 // ExerciseResult is an exercise after a change.
@@ -134,6 +150,7 @@ func (s *Service) CreateModuleExercise(ctx context.Context, c Caller, in CreateM
 		Kind: in.Kind, Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution, Conditions: in.Conditions,
 		CorrectAnswer: in.CorrectAnswer, Explanation: in.Explanation, HasDependency: dependsOn != nil,
 		Choices: in.Choices, CorrectChoice: in.CorrectChoice, ShuffleChoices: in.ShuffleChoices,
+		Left: in.Left, Right: in.Right, Pairs: in.Pairs,
 	}, dependsOn, in.Links.links())
 	if err != nil {
 		return ExerciseResult{}, fail(err, fieldContext{root: rootOf(in)})
@@ -171,10 +188,14 @@ type UpdateModuleExerciseInput struct {
 	Choices        json.RawMessage `json:"choices,omitempty"`
 	CorrectChoice  json.RawMessage `json:"correctChoice,omitempty"`
 	ShuffleChoices *bool           `json:"shuffleChoices,omitempty"`
-	DependsOn      json.RawMessage `json:"dependsOn,omitempty"`
-	Links          *LinksInput     `json:"links,omitempty"`
-	UpdatedAt      *string         `json:"updatedAt,omitempty"`
-	Order          []OrderEntry    `json:"order,omitempty"`
+	// Left, Right and Pairs replace the stored ones of a THEORETICAL_MATCHING question.
+	Left      json.RawMessage `json:"left,omitempty"`
+	Right     json.RawMessage `json:"right,omitempty"`
+	Pairs     json.RawMessage `json:"pairs,omitempty"`
+	DependsOn json.RawMessage `json:"dependsOn,omitempty"`
+	Links     *LinksInput     `json:"links,omitempty"`
+	UpdatedAt *string         `json:"updatedAt,omitempty"`
+	Order     []OrderEntry    `json:"order,omitempty"`
 }
 
 // UpdateModuleExerciseResult is the outcome: the exercise, or the fact it was deleted or the trail reordered.
@@ -244,6 +265,7 @@ func (s *Service) UpdateModuleExercise(ctx context.Context, c Caller, in UpdateM
 			Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution,
 			Conditions: in.Conditions, CorrectAnswer: in.CorrectAnswer, Explanation: in.Explanation, DependsOn: in.DependsOn, UpdatedAt: in.UpdatedAt,
 			Choices: in.Choices, CorrectChoice: in.CorrectChoice, ShuffleChoices: in.ShuffleChoices,
+			Left: in.Left, Right: in.Right, Pairs: in.Pairs,
 		}, fc)
 		if terr != nil {
 			return UpdateModuleExerciseResult{}, terr
@@ -262,6 +284,7 @@ type exercisePatch struct {
 	Explanation                  *string
 	Choices, CorrectChoice       json.RawMessage
 	ShuffleChoices               *bool
+	Left, Right, Pairs           json.RawMessage
 	DependsOn                    json.RawMessage
 	UpdatedAt                    *string
 }
@@ -300,6 +323,25 @@ func (s *Service) patchExercise(ctx context.Context, c Caller, moduleID, exID uu
 		}
 		shuffle := cur.ShuffleChoices
 		input.ShuffleChoices = &shuffle
+	}
+	if cur.Kind == contentdomain.KindTheoreticalMatching {
+		if cols, ok := contentdomain.ReadColumns(cur.Choices); ok {
+			input.Left, _ = json.Marshal(cols.Left)
+			input.Right, _ = json.Marshal(cols.Right)
+		}
+		if pairs := contentdomain.ReadPairs(cur.AnswerKey); len(pairs) > 0 {
+			input.Pairs, _ = json.Marshal(pairs)
+		}
+		shuffle := cur.ShuffleChoices
+		input.ShuffleChoices = &shuffle
+	}
+	for _, f := range []struct {
+		from json.RawMessage
+		to   *json.RawMessage
+	}{{p.Left, &input.Left}, {p.Right, &input.Right}, {p.Pairs, &input.Pairs}} {
+		if len(f.from) > 0 {
+			*f.to = f.from
+		}
 	}
 	if len(p.Choices) > 0 {
 		input.Choices = p.Choices

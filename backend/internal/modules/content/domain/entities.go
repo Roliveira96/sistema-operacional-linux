@@ -41,6 +41,8 @@ const (
 	KindTheoreticalMultiple = "THEORETICAL_MULTIPLE"
 	KindTheoreticalBoolean  = "THEORETICAL_BOOLEAN"
 	KindDiscursive          = "DISCURSIVE"
+	// KindTheoreticalMatching links the items of a left column to the ones of a right column (SPEC-037).
+	KindTheoreticalMatching = "THEORETICAL_MATCHING"
 
 	UsageExercise   = "EXERCISE"
 	UsageAssessment = "ASSESSMENT"

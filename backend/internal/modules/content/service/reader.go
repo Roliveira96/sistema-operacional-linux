@@ -91,6 +91,9 @@ type PublicQuestion struct {
 	// ChainSetups is the recipe of the exercises this one depends on, the oldest first: the solutions (commands and files) the
 	// screen replays to build its machine (SPEC-023 D-16, D-20).
 	ChainSetups json.RawMessage `json:"chainSetups,omitempty"`
+	// Left and Right are the columns of a matching question, without the pairs, in the order of the teacher or shuffled (SPEC-037 RN-05).
+	Left  json.RawMessage `json:"left,omitempty"`
+	Right json.RawMessage `json:"right,omitempty"`
 }
 
 // TeacherQuestion is the full view for the module owner and admins.
@@ -312,11 +315,15 @@ func publicView(q domain.Question, all map[uuid.UUID]domain.Question) PublicQues
 	}
 	// A question of the bank without a terminal shows its tips like an exercise of the editor, and never its answer key nor its
 	// justification, which only come after the student answers (SPEC-035 RN-06, RN-10).
-	if q.Kind == domain.KindTheoreticalBoolean || q.Kind == domain.KindTheoreticalSingle {
+	if q.Kind == domain.KindTheoreticalBoolean || q.Kind == domain.KindTheoreticalSingle || q.Kind == domain.KindTheoreticalMatching {
 		p.Hint = hintsHTML(q.Hints)
 	}
-	if q.Kind == domain.KindTheoreticalSingle {
+	switch q.Kind {
+	case domain.KindTheoreticalSingle:
 		p.Choices = publicChoices(q)
+	case domain.KindTheoreticalMatching:
+		p.Choices = nil
+		p.Left, p.Right = publicColumns(q)
 	}
 	return p
 }
@@ -336,6 +343,25 @@ func publicChoices(q domain.Question) json.RawMessage {
 		return nil
 	}
 	return out
+}
+
+// publicColumns gives the student the two columns of a matching question, never the pairs, shuffled when the teacher asked for it
+// (SPEC-037 RN-05, D-10). Nil when the question has no columns.
+func publicColumns(q domain.Question) (json.RawMessage, json.RawMessage) {
+	cols, ok := domain.ReadColumns(q.Choices)
+	if !ok {
+		return nil, nil
+	}
+	if q.ShuffleChoices {
+		rand.Shuffle(len(cols.Left), func(i, j int) { cols.Left[i], cols.Left[j] = cols.Left[j], cols.Left[i] })
+		rand.Shuffle(len(cols.Right), func(i, j int) { cols.Right[i], cols.Right[j] = cols.Right[j], cols.Right[i] })
+	}
+	left, errLeft := json.Marshal(cols.Left)
+	right, errRight := json.Marshal(cols.Right)
+	if errLeft != nil || errRight != nil {
+		return nil, nil
+	}
+	return left, right
 }
 
 // chainSetups collects the solutions of the exercises `q` depends on, the oldest first, walking the dependencies up; nil when it
