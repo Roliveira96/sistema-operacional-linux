@@ -647,10 +647,11 @@ export const authoringMessages = {
   },
   /** The kinds of question of the bank and of the exercises of a card (SPEC-035). */
   questionKinds: {
-    label: { PRACTICAL: "Comando Linux", THEORETICAL_BOOLEAN: "Verdadeiro ou falso" },
+    label: { PRACTICAL: "Comando Linux", THEORETICAL_BOOLEAN: "Verdadeiro ou falso", THEORETICAL_SINGLE: "Escolha única" },
     help: {
       PRACTICAL: "O aluno resolve no terminal. Você grava a solução e define como o exercício termina.",
       THEORETICAL_BOOLEAN: "Uma afirmação que o aluno marca como verdadeira ou falsa, sem usar o terminal.",
+      THEORETICAL_SINGLE: "De 2 a 7 alternativas, das quais só uma é correta. O aluno escolhe uma, sem usar o terminal.",
     },
     chooseTitle: "Que tipo de questão?",
     chooseHelp: "O tipo é escolhido agora e não muda depois.",
@@ -660,16 +661,43 @@ export const authoringMessages = {
     allKinds: "Todos os tipos",
     correctAnswer: "Resposta correta",
     answerRequired: "Escolha a resposta correta (verdadeiro ou falso).",
+    choiceRequired: "Complete as alternativas (de 2 a 7, sem vazias nem repetidas) e marque a correta.",
     correctAnswerHelp: "Escolha se a afirmação da descrição é verdadeira ou falsa. Sem a resposta, a questão não pode ser publicada.",
     true: "Verdadeiro",
     false: "Falso",
     explanation: "Justificativa (opcional)",
     explanationHelp: "Aparece para o aluno depois que ele responde, junto com a resposta correta. Na prova, só no resultado.",
     noTerminalPage: "Esta questão não usa o terminal: não há solução gravada, condições de término nem dependência.",
+    choices: "Alternativas",
+    choicesHelp: "De 2 a 7 alternativas. Marque a única correta. Cada alternativa pode ter formatação, comandos e imagens.",
+    choice: (n: number) => `Alternativa ${n}`,
+    correct: "Correta",
+    markCorrect: (n: number) => `Marcar a alternativa ${n} como correta`,
+    addChoice: "+ Adicionar alternativa",
+    choiceUp: (n: number) => `Subir a alternativa ${n}`,
+    choiceDown: (n: number) => `Descer a alternativa ${n}`,
+    choiceRemove: (n: number) => `Remover a alternativa ${n}`,
+    shuffle: "Embaralhar as alternativas para o aluno",
+    shuffleHelp: "Ligado, cada aluno vê as alternativas numa ordem diferente a cada vez. Desligado, elas aparecem na ordem desta lista.",
+    choiceCount: (n: number) => `${n} ${n === 1 ? "alternativa" : "alternativas"}`,
+    correctMarked: "correta marcada",
+    correctMissing: "falta marcar a correta",
     test: {
-      complete: "(verdadeiro ou falso: não usa o terminal, está completa)",
-      incomplete: (missing: ("statement" | "correctAnswer")[]) =>
-        `(verdadeiro ou falso incompleta: falta ${missing.map((f) => (f === "statement" ? "a descrição" : "a resposta correta")).join(" e ")})`,
+      complete: "(questão sem terminal: está completa)",
+      incomplete: (missing: ("statement" | "correctAnswer" | "choices" | "choiceEmpty" | "choiceRepeated" | "correctChoice")[]) =>
+        `(questão incompleta: ${missing
+          .map(
+            (f) =>
+              ({
+                statement: "falta a descrição",
+                correctAnswer: "falta a resposta correta",
+                choices: "precisa de 2 a 7 alternativas",
+                choiceEmpty: "há alternativa vazia",
+                choiceRepeated: "há alternativa repetida",
+                correctChoice: "falta marcar a alternativa correta",
+              })[f],
+          )
+          .join(", ")})`,
     },
     tester: { noTerminal: "Não usa o terminal: está completa" },
     bankTest: {

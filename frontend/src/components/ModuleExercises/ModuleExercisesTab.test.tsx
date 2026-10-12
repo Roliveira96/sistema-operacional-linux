@@ -327,3 +327,34 @@ describe("ModuleExercisesTab", () => {
     expect(await screen.findByRole("heading", { name: "Banco de questões do módulo" })).toBeDefined();
   });
 });
+
+// Covers SPEC-036 CA-01 and CA-06 of SPEC-035 for the new kind: the bank shows and filters the single choice questions.
+describe("ModuleExercisesTab with single choice questions", () => {
+  it("shows how many alternatives and whether the correct one is marked, and filters by the kind", async () => {
+    const single = (id: string, title: string, correctChoice: string | null) =>
+      item(id, title, {
+        exercise: {
+          ...item(id, title).exercise,
+          kind: "THEORETICAL_SINGLE",
+          choices: [
+            { id: "a", html: "<p>a</p>" },
+            { id: "b", html: "<p>b</p>" },
+            { id: "c", html: "<p>c</p>" },
+          ],
+          correctChoice,
+          conditions: [],
+          solution: undefined,
+        },
+      });
+    service.bank.mockResolvedValue({ items: [item("p", "Prática"), single("s1", "Escolha", "b"), single("s2", "Sem correta", null)] });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    const rows = within(bankBlock()).getAllByRole("listitem");
+    expect(rows[1]).toHaveTextContent("Escolha única · Fácil · 1 dica · 3 alternativas · correta marcada");
+    expect(rows[2]).toHaveTextContent("3 alternativas · falta marcar a correta");
+    fireEvent.change(within(bankBlock()).getByRole("combobox"), { target: { value: "THEORETICAL_SINGLE" } });
+    expect(within(bankBlock()).getAllByRole("listitem")).toHaveLength(2);
+    fireEvent.click(within(bankBlock()).getByRole("button", { name: "Criar nova questão" }));
+    expect(screen.getByRole("radio", { name: /Escolha única/ })).toBeDefined();
+  });
+});

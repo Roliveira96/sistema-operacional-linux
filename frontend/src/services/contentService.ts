@@ -27,7 +27,8 @@ export interface PublicQuestion {
   title: string;
   statement: string;
   hint?: string;
-  choices?: string[];
+  /** The alternatives of a single choice question, without the correct one, shuffled when the question asks (SPEC-036 RN-07). */
+  choices?: { id: string; html: string }[];
   /** Reference solution of practical exercises (SPEC-016, P-02); never sent on assessments. */
   solution?: { command: string; terminal?: number }[];
   /** An exercise of the module made in the editor (SPEC-023): it has no machine of its own, it starts from the layers. */

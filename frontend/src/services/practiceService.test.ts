@@ -54,3 +54,13 @@ describe("practiceService answer (SPEC-035)", () => {
     expect(fetcher.mock.calls[0]![1].body).toBe(JSON.stringify({ response: { value: false } }));
   });
 });
+
+// Covers SPEC-036 5.2 on the screen: the id of the alternative goes in the body of the check.
+describe("practiceService choose (SPEC-036)", () => {
+  it("sends the alternative of a single choice question", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(json({ passed: true, completedAt: "t", correctChoice: "a" }));
+    const svc = createPracticeService(createHttpClient(fetcher));
+    expect(await svc.choose("q1", "a")).toEqual({ passed: true, completedAt: "t", correctChoice: "a" });
+    expect(fetcher.mock.calls[0]![1].body).toBe(JSON.stringify({ response: { choice: "a" } }));
+  });
+});

@@ -12,7 +12,7 @@ import {
 } from "@/components/ContentTab/ActionMenu";
 import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { KindChooser } from "@/components/KindChooser/KindChooser";
-import { QUESTION_KINDS, usesTerminal, type QuestionKind } from "@/lib/questionKinds";
+import { isSingleChoice, QUESTION_KINDS, usesTerminal, type QuestionKind } from "@/lib/questionKinds";
 import {
   hasSetup,
   invalidFiles,
@@ -308,6 +308,8 @@ export function ModuleExercisesTab({
                 {ex.solution ? level.hasSolution : level.noSolution} ·{" "}
                 {level.conditionCount(ex.conditions.length)}
               </>
+            ) : isSingleChoice(ex.kind) ? (
+              `${kinds.choiceCount(ex.choices?.length ?? 0)} · ${ex.correctChoice ? kinds.correctMarked : kinds.correctMissing}`
             ) : typeof ex.correctAnswer === "boolean" ? (
               `${kinds.correctAnswer}: ${ex.correctAnswer ? kinds.true : kinds.false}`
             ) : (

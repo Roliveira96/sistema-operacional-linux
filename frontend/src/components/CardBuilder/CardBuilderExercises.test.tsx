@@ -144,3 +144,26 @@ describe("CardBuilder, the tab of the exercises", () => {
     await waitFor(() => expect(ran).toEqual(["mod", "own", "base", "ls", "mkdir /srv"]), { timeout: 8000 });
   }, 20000);
 });
+
+// Covers SPEC-035 CA-18 and SPEC-036 CA-01 in the list of the card: what each kind without a terminal shows.
+describe("CardBuilder, exercises without a terminal in the list", () => {
+  it("shows the answer of a true or false exercise and the alternatives of a single choice one", () => {
+    renderBuilder({
+      group: withExercises([
+        { kind: "THEORETICAL_BOOLEAN", title: "Verdade", difficulty: "EASY", correctAnswer: true },
+        { kind: "THEORETICAL_BOOLEAN", title: "Sem resposta", difficulty: "EASY" },
+        { kind: "THEORETICAL_SINGLE", title: "Escolha", difficulty: "MEDIUM", choices: [{ id: "a", html: "a" }, { id: "b", html: "b" }], correctChoice: "a" },
+        { kind: "THEORETICAL_SINGLE", title: "Sem correta", difficulty: "MEDIUM", choices: [{ id: "a", html: "a" }, { id: "b", html: "b" }] },
+        { kind: "THEORETICAL_BOOLEAN", title: "Falso", difficulty: "HARD", correctAnswer: false },
+      ]),
+    });
+    openTab("Exercícios");
+    const list = screen.getByRole("list", { name: "Exercícios" });
+    expect(list).toHaveTextContent("Verdadeiro ou falso · Fácil · 0 dicas · Resposta correta: Verdadeiro");
+    expect(list).toHaveTextContent("Sem resposta");
+    expect(list).toHaveTextContent("incompleta: falta a descrição ou a resposta correta");
+    expect(list).toHaveTextContent("Escolha única · Médio · 0 dicas · 2 alternativas · correta marcada");
+    expect(list).toHaveTextContent("2 alternativas · falta marcar a correta");
+    expect(list).toHaveTextContent("Resposta correta: Falso");
+  });
+});

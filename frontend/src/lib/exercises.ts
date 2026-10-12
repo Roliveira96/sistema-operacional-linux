@@ -2,7 +2,7 @@
 
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import type { ExerciseCondition } from "./exerciseConditions";
-import { hasDescription, parseKind, usesTerminal, type QuestionKind } from "./questionKinds";
+import { hasDescription, isSingleChoice, MAX_CHOICES, MIN_CHOICES, parseKind, plainText, usesTerminal, type QuestionKind } from "./questionKinds";
 import { hasSetup, parseSetup, setupPayload, type Setup, type SetupFile } from "./setup";
 import { newId } from "./newId";
 
@@ -31,8 +31,20 @@ export interface Exercise {
   conditions: ExerciseCondition[];
   /** The correct answer of a true or false question, null while the teacher has not chosen it (SPEC-035 RN-03). */
   correctAnswer?: boolean | null;
-  /** The justification of a true or false question, as html, shown after the student answers. */
+  /** The justification of a question without a terminal, as html, shown after the student answers. */
   explanation?: string;
+  /** The alternatives of a single choice question, each with its stable id and its html (SPEC-036 D-01, D-02). */
+  choices?: Choice[];
+  /** The id of the only correct alternative, null while the teacher has not marked it. */
+  correctChoice?: string | null;
+  /** Shuffle the alternatives for the student (the default) or keep the order of the teacher (SPEC-036 D-07). */
+  shuffleChoices?: boolean;
+}
+
+/** One alternative of a single choice question. */
+export interface Choice {
+  id: string;
+  html: string;
 }
 
 export interface ExerciseGroup {
@@ -53,22 +65,49 @@ export const emptyExercise = (kind: QuestionKind = "PRACTICAL"): Exercise => ({
   description: "",
   hints: [],
   conditions: [],
-  ...(usesTerminal(kind) ? {} : { kind, correctAnswer: null, explanation: "" }),
+  ...(kind === "THEORETICAL_BOOLEAN" ? { kind, correctAnswer: null, explanation: "" } : {}),
+  ...(kind === "THEORETICAL_SINGLE"
+    ? { kind, choices: [{ id: newId(), html: "" }, { id: newId(), html: "" }], correctChoice: null, shuffleChoices: true, explanation: "" }
+    : {}),
 });
 
 /** The fields of a true or false question as read from the server or from a block. */
 export function trueFalseFields(r: Record<string, unknown>): Partial<Exercise> {
   const kind = parseKind(r.kind);
   if (usesTerminal(kind)) return {};
+  if (isSingleChoice(kind)) {
+    const choices = (Array.isArray(r.choices) ? r.choices : [])
+      .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
+      .map((c) => ({ id: str(c.id) || newId(), html: str(c.html) }));
+    return {
+      kind,
+      choices,
+      correctChoice: str(r.correctChoice) || null,
+      shuffleChoices: r.shuffleChoices !== false,
+      explanation: str(r.explanation),
+    };
+  }
   return { kind, correctAnswer: typeof r.correctAnswer === "boolean" ? r.correctAnswer : null, explanation: str(r.explanation) };
 }
 
-/** What a true or false question still needs to be published, or to be part of a test (SPEC-035 RN-04). */
-export function missingAnswer(ex: Exercise): ("statement" | "correctAnswer")[] {
+/** What a question without a terminal can still miss. */
+export type MissingAnswer = "statement" | "correctAnswer" | "choices" | "choiceEmpty" | "choiceRepeated" | "correctChoice";
+
+/** What a question without a terminal still needs to be published, or to be part of a test (SPEC-035 RN-04, SPEC-036 RN-04). */
+export function missingAnswer(ex: Exercise): MissingAnswer[] {
   if (usesTerminal(ex.kind)) return [];
-  const missing: ("statement" | "correctAnswer")[] = [];
+  const missing: MissingAnswer[] = [];
   if (!hasDescription(ex.description)) missing.push("statement");
-  if (typeof ex.correctAnswer !== "boolean") missing.push("correctAnswer");
+  if (!isSingleChoice(ex.kind)) {
+    if (typeof ex.correctAnswer !== "boolean") missing.push("correctAnswer");
+    return missing;
+  }
+  const choices = ex.choices ?? [];
+  if (choices.length < MIN_CHOICES || choices.length > MAX_CHOICES) missing.push("choices");
+  if (choices.some((c) => !hasDescription(c.html))) missing.push("choiceEmpty");
+  const texts = choices.map((c) => plainText(c.html)).filter((t) => t !== "");
+  if (new Set(texts).size !== texts.length) missing.push("choiceRepeated");
+  if (!ex.correctChoice || !choices.some((c) => c.id === ex.correctChoice)) missing.push("correctChoice");
   return missing;
 }
 
@@ -124,6 +163,9 @@ export function exercisesPayload(group: ExerciseGroup): Record<string, unknown> 
           }
         : {
             ...(typeof ex.correctAnswer === "boolean" ? { correctAnswer: ex.correctAnswer } : {}),
+            ...(isSingleChoice(ex.kind)
+              ? { choices: ex.choices ?? [], ...(ex.correctChoice ? { correctChoice: ex.correctChoice } : {}), shuffleChoices: ex.shuffleChoices !== false }
+              : {}),
             ...(ex.explanation?.trim() ? { explanation: ex.explanation } : {}),
           }),
     })),

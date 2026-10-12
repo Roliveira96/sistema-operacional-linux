@@ -4,7 +4,7 @@
 // that stays so the reading progress of the students is not lost.
 
 import type { AuthoredBlock } from "@/services/contentAuthoringService";
-import { exercisesPayload, hasExercises, parseExercises, type ExerciseGroup } from "./exercises";
+import { exercisesPayload, hasExercises, missingAnswer, parseExercises, type ExerciseGroup } from "./exercises";
 import { newId } from "./newId";
 import { hasSetup, invalidFiles, legacySetup, parseSetup, setupPayload, type Setup } from "./setup";
 
@@ -396,6 +396,8 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
     if (ex.hints.some((h) => h.text.trim() === "")) add(ex.id, "hint-required");
     // A true or false exercise of a card is saved only with its correct answer (SPEC-035 RN-14).
     if (ex.kind === "THEORETICAL_BOOLEAN" && typeof ex.correctAnswer !== "boolean") add(ex.id, "answer-required");
+    // A single choice exercise of a card is saved only with its alternatives complete and the correct one marked (SPEC-036 RN-09).
+    if (ex.kind === "THEORETICAL_SINGLE" && missingAnswer(ex).some((m) => m !== "statement")) add(ex.id, "choice-required");
   }
   for (const group of [card.tips, card.realWorld, card.exams]) for (const b of group) if (plain(b.html) === "") add(b.id, "required");
   return errors;

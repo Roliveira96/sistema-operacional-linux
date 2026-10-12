@@ -120,6 +120,7 @@ function defaultPractice() {
     checkModule: vi.fn().mockResolvedValue({ passed: [], progress: [] }),
     progress: vi.fn().mockResolvedValue([]),
     answer: vi.fn(),
+    choose: vi.fn(),
   };
 }
 
@@ -1369,5 +1370,52 @@ describe("TopicStudy true or false questions", () => {
     fake.onCommand!({ formato: "exame-so/maquina" });
     await new Promise((r) => setTimeout(r, CHECK_DELAY_MS + 50));
     expect(practice.checkModule).not.toHaveBeenCalled();
+  });
+});
+
+// Covers SPEC-036 CA-06, CA-07 and CA-08 on the study screen.
+describe("TopicStudy single choice questions", () => {
+  const single = challenge("sc", {
+    kind: "THEORETICAL_SINGLE",
+    title: "chmod",
+    statement: "<p>Which one changes permissions?</p>",
+    solution: undefined,
+    choices: [
+      { id: "b", html: "<p>chown</p>" },
+      { id: "a", html: "<p>chmod</p>" },
+    ],
+  });
+  const open = async (practice = defaultPractice()) => {
+    const content = {
+      content: vi.fn().mockResolvedValue({ blocks, setup: undefined }),
+      questions: vi.fn().mockResolvedValue([single]),
+    };
+    setup({ content, practice });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    return practice;
+  };
+
+  it("shows the alternatives in the order the server sent, answers on the server and locks with the result", async () => {
+    const practice = defaultPractice();
+    practice.choose.mockResolvedValue({ passed: false, completedAt: "t", correctChoice: "a", explanation: "<p>mode</p>" });
+    await open(practice);
+    expect(screen.getAllByRole("button", { name: /ch(own|mod)/ }).map((b) => b.textContent)).toEqual([
+      expect.stringContaining("chown"),
+      expect.stringContaining("chmod"),
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: /chown/ }));
+    expect(practice.choose).toHaveBeenCalledWith("sc", "b");
+    expect(await screen.findByText("Você errou.")).toBeInTheDocument();
+    expect(screen.getByText("mode")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /chmod/ })).toHaveProperty("disabled", true);
+  });
+
+  it("starts locked with the answer the student already gave", async () => {
+    const practice = defaultPractice();
+    practice.progress.mockResolvedValue([{ questionId: "sc", completedAt: "t", attempts: 1, response: { choice: "a" }, passed: true, correctChoice: "a" }]);
+    await open(practice);
+    expect(screen.getByText("Você acertou!")).toBeInTheDocument();
+    expect(practice.choose).not.toHaveBeenCalled();
   });
 });

@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { hasDescription, isTrueFalse, parseKind, QUESTION_KINDS, usesTerminal } from "./questionKinds";
+import { hasDescription, isSingleChoice, isTrueFalse, parseKind, plainText, QUESTION_KINDS, usesTerminal } from "./questionKinds";
 
 // Covers SPEC-035 RN-01 and RN-02 on the screen: the kinds and what each one has.
 describe("questionKinds", () => {
   it("knows the practical and the true or false kinds", () => {
-    expect(QUESTION_KINDS).toEqual(["PRACTICAL", "THEORETICAL_BOOLEAN"]);
+    expect(QUESTION_KINDS).toEqual(["PRACTICAL", "THEORETICAL_BOOLEAN", "THEORETICAL_SINGLE"]);
+    expect(parseKind("THEORETICAL_SINGLE")).toBe("THEORETICAL_SINGLE");
+    expect(isSingleChoice("THEORETICAL_SINGLE")).toBe(true);
+    expect(isSingleChoice("THEORETICAL_BOOLEAN")).toBe(false);
+    expect(usesTerminal("THEORETICAL_SINGLE")).toBe(false);
+    expect(plainText("<p> Chmod&nbsp;  <b>x</b></p>")).toBe("chmod x");
     expect(parseKind("THEORETICAL_BOOLEAN")).toBe("THEORETICAL_BOOLEAN");
     expect(parseKind(undefined)).toBe("PRACTICAL");
     expect(parseKind("DISCURSIVE")).toBe("PRACTICAL");

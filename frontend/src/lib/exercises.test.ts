@@ -102,7 +102,7 @@ describe("true or false exercises of a card", () => {
     const group = parseExercises(block);
     expect(group.items[0]).toMatchObject({ kind: "THEORETICAL_BOOLEAN", correctAnswer: false, explanation: "<p>Why</p>" });
     expect(group.items[1]).toMatchObject({ kind: "THEORETICAL_BOOLEAN", correctAnswer: null, explanation: "" });
-    const payload = exercisesPayload({ items: [{ ...group.items[0]!, solution: { steps: [{ command: "ls" }] }, conditions: [{ kind: "DIR_EXISTS", path: "/a" }] }] });
+    const payload = exercisesPayload({ items: [{ ...group.items[0]!, solution: { summary: "", steps: [{ command: "ls" }] }, conditions: [{ kind: "DIR_EXISTS", path: "/a" }] }] });
     expect(payload.items).toEqual([
       { kind: "THEORETICAL_BOOLEAN", title: "rm -r", difficulty: "EASY", description: "<p>rm -r removes non-empty directories.</p>", correctAnswer: false, explanation: "<p>Why</p>" },
     ]);
@@ -124,6 +124,67 @@ describe("true or false exercises of a card", () => {
     expect(items).toHaveLength(2);
     expect(items[0]).toMatchObject({ noTerminal: true });
     expect(items[1]).toMatchObject({ untestable: "no-answer" });
-    expect(items[1]!.command).toContain("a descrição e a resposta correta");
+    expect(items[1]!.command).toContain("falta a descrição, falta a resposta correta");
+  });
+});
+
+// Covers SPEC-036 RN-02, RN-04, RN-09, D-02 and D-07 on the screen: the single choice item of the exercises of a card.
+describe("single choice exercises of a card", () => {
+  const block = {
+    items: [
+      {
+        kind: "THEORETICAL_SINGLE",
+        title: "chmod",
+        difficulty: "EASY",
+        description: "<p>Which one changes permissions?</p>",
+        choices: [{ id: "a", html: "<p>chmod</p>" }, { id: "b", html: "<p>chown</p>" }],
+        correctChoice: "a",
+        shuffleChoices: false,
+        explanation: "<p>Why</p>",
+      },
+    ],
+  };
+
+  it("reads and writes the alternatives, the correct one and the order", () => {
+    const group = parseExercises(block);
+    expect(group.items[0]).toMatchObject({ kind: "THEORETICAL_SINGLE", correctChoice: "a", shuffleChoices: false, explanation: "<p>Why</p>" });
+    expect(group.items[0]!.choices).toEqual([{ id: "a", html: "<p>chmod</p>" }, { id: "b", html: "<p>chown</p>" }]);
+    expect(exercisesPayload(group).items).toEqual([
+      {
+        kind: "THEORETICAL_SINGLE",
+        title: "chmod",
+        difficulty: "EASY",
+        description: "<p>Which one changes permissions?</p>",
+        choices: [{ id: "a", html: "<p>chmod</p>" }, { id: "b", html: "<p>chown</p>" }],
+        correctChoice: "a",
+        shuffleChoices: false,
+        explanation: "<p>Why</p>",
+      },
+    ]);
+    const bare = parseExercises({ items: [{ kind: "THEORETICAL_SINGLE", title: "x", difficulty: "EASY", choices: [{ html: "a" }, "junk"] }] }).items[0]!;
+    expect(bare.choices).toHaveLength(1);
+    expect(bare.choices![0]!.id).not.toBe("");
+    expect(bare).toMatchObject({ correctChoice: null, shuffleChoices: true });
+  });
+
+  it("starts a new one with two empty alternatives that shuffle", () => {
+    const ex = emptyExercise("THEORETICAL_SINGLE");
+    expect(ex.choices).toHaveLength(2);
+    expect(ex).toMatchObject({ kind: "THEORETICAL_SINGLE", correctChoice: null, shuffleChoices: true });
+    expect(ex).not.toHaveProperty("correctAnswer");
+  });
+
+  // Covers SPEC-036 RN-04 and CA-04, CA-11.
+  it("says what it misses: alternatives, empty or repeated ones, the correct one", () => {
+    const ok = parseExercises(block).items[0]!;
+    expect(missingAnswer(ok)).toEqual([]);
+    expect(missingAnswer({ ...ok, choices: [{ id: "a", html: "<p>x</p>" }] })).toEqual(["choices"]);
+    expect(missingAnswer({ ...ok, choices: [{ id: "a", html: "<p>Chmod</p>" }, { id: "b", html: "<b>chmod</b>" }, { id: "c", html: "<p> </p>" }] })).toEqual(["choiceEmpty", "choiceRepeated"]);
+    expect(missingAnswer({ ...ok, description: "", correctChoice: "zz" })).toEqual(["statement", "correctChoice"]);
+    expect(missingAnswer({ ...ok, choices: [{ id: "a", html: '<img src="https://x/a.avif">' }, { id: "b", html: "<p>b</p>" }] })).toEqual([]);
+    const { items } = exerciseTestItems({ items: [ok, { ...ok, correctChoice: null }] });
+    expect(items[0]).toMatchObject({ noTerminal: true });
+    expect(items[1]).toMatchObject({ untestable: "no-answer" });
+    expect(items[1]!.command).toContain("falta marcar a alternativa correta");
   });
 });

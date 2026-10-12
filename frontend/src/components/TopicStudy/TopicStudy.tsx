@@ -72,8 +72,8 @@ import {
   type PracticeService,
 } from "@/services/practiceService";
 import { speechService, type SpeechService } from "@/services/speechService";
-import type { TrueFalseResult } from "@/components/TrueFalseAnswer/TrueFalseAnswer";
-import { isTrueFalse } from "@/lib/questionKinds";
+import { answerFromCheck, answerFromProgress, type AnswerResponse, type GivenAnswer } from "@/lib/answers";
+import { isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
 import { ChallengePanel } from "./ChallengePanel";
 import { CheatSheetModal } from "./CheatSheetModal";
 import { LessonPanel } from "./LessonPanel";
@@ -94,7 +94,7 @@ export interface TopicStudyProps {
   modules?: Pick<typeof moduleService, "getModuleById">;
   practice?: Pick<
     PracticeService,
-    "scenario" | "topicScenario" | "checkModule" | "progress" | "answer"
+    "scenario" | "topicScenario" | "checkModule" | "progress" | "answer" | "choose"
   >;
   /** Voice of the karaoke reader (SPEC-018). */
   speech?: Pick<SpeechService, "synthesize">;
@@ -118,8 +118,8 @@ interface Loaded {
   storageKey: string;
   initialSnapshot: unknown;
   initialCompleted: string[];
-  /** The answers the student already gave to the true or false questions (SPEC-035 RN-08). */
-  initialAnswers: [string, TrueFalseResult][];
+  /** The answers the student already gave to the questions without a terminal (SPEC-035 RN-08, SPEC-036 RN-06). */
+  initialAnswers: [string, GivenAnswer][];
 }
 
 type State =
@@ -183,7 +183,7 @@ export function TopicStudy({
           module,
           script: buildTopicScript(blocks),
           // The practical exercises and the true or false questions, in the order of the trail (SPEC-035 D-07).
-          challenges: questions.filter((q) => q.kind === "PRACTICAL" || isTrueFalse(q.kind)),
+          challenges: questions.filter((q) => q.kind === "PRACTICAL" || isTrueFalse(q.kind) || isSingleChoice(q.kind)),
           scenario,
           layers,
           // The machine of an exercise of the module: the snapshot of the module, then the one of the bank (SPEC-023 11.2).
@@ -206,21 +206,10 @@ export function TopicStudy({
           initialCompleted: progress
             .filter((p) => p.completedAt)
             .map((p) => p.questionId),
-          initialAnswers: progress.flatMap((p): [string, TrueFalseResult][] =>
-            p.response && typeof p.correctAnswer === "boolean"
-              ? [
-                  [
-                    p.questionId,
-                    {
-                      choice: p.response.value,
-                      passed: p.passed === true,
-                      correctAnswer: p.correctAnswer,
-                      explanation: p.explanation,
-                    },
-                  ],
-                ]
-              : [],
-          ),
+          initialAnswers: progress.flatMap((p): [string, GivenAnswer][] => {
+            const given = answerFromProgress(p);
+            return given ? [[p.questionId, given]] : [];
+          }),
         });
       } catch (error) {
         if (active) setState({ kind: "error", ...describe(error) });
@@ -472,33 +461,33 @@ function TopicScreen({
     [storageKey, hasPractical, check],
   );
 
-  const [answers, setAnswers] = useState<ReadonlyMap<string, TrueFalseResult>>(() => new Map(initialAnswers));
+  const [answers, setAnswers] = useState<ReadonlyMap<string, GivenAnswer>>(() => new Map(initialAnswers));
   const [answering, setAnswering] = useState<string | null>(null);
   const [answerErrors, setAnswerErrors] = useState<ReadonlyMap<string, string>>(new Map());
   const [answerNeedsLogin, setAnswerNeedsLogin] = useState(false);
-  /** Sends the single answer to a true or false question and shows the result at once (SPEC-035 RN-06, D-02). */
-  const answer = async (challenge: PublicQuestion, value: boolean) => {
+  /** Sends the single answer to a question without a terminal and shows the result at once (SPEC-035 RN-06, D-02; SPEC-036 RN-05). */
+  const answer = async (challenge: PublicQuestion, response: AnswerResponse) => {
     setAnswering(challenge.id);
     setAnswerErrors((prev) => {
       const next = new Map(prev);
       next.delete(challenge.id);
       return next;
     });
-    const keep = (result: TrueFalseResult) => {
-      setAnswers((prev) => new Map(prev).set(challenge.id, result));
+    const keep = (given: GivenAnswer | null) => {
+      if (!given) return;
+      setAnswers((prev) => new Map(prev).set(challenge.id, given));
       check.seed([challenge.id]);
     };
     try {
-      const r = await practice.answer(challenge.id, value);
-      keep({ choice: value, passed: r.passed, correctAnswer: r.correctAnswer, explanation: r.explanation });
+      const r = "value" in response ? await practice.answer(challenge.id, response.value) : await practice.choose(challenge.id, response.choice);
+      keep(answerFromCheck(response, r));
     } catch (error) {
       if (error instanceof ApiProblemError && error.status === 401) {
         setAnswerNeedsLogin(true);
       } else if (error instanceof ApiProblemError && error.status === 409) {
         // Already answered (in another tab, say): the answer the server kept is the one that counts.
         const stored = (await practice.progress(moduleId).catch(() => [])).find((p) => p.questionId === challenge.id);
-        if (stored?.response && typeof stored.correctAnswer === "boolean")
-          keep({ choice: stored.response.value, passed: stored.passed === true, correctAnswer: stored.correctAnswer, explanation: stored.explanation });
+        if (stored) keep(answerFromProgress(stored));
       } else {
         setAnswerErrors((prev) => new Map(prev).set(challenge.id, m.trueFalse.failed));
       }
@@ -819,7 +808,7 @@ function TopicScreen({
                   answers={answers}
                   answering={answering}
                   answerErrors={answerErrors}
-                  onAnswer={(challenge, value) => void answer(challenge, value)}
+                  onAnswer={(challenge, response) => void answer(challenge, response)}
                   starting={starting}
                   busy={busy}
                   onStart={(challenge) => void startChallenge(challenge)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useContext, useState } from "react";
+import { SingleChoiceAnswer, type ChoiceOption, type ChoiceResult } from "@/components/SingleChoiceAnswer/SingleChoiceAnswer";
 import { TrueFalseAnswer, type TrueFalseResult } from "@/components/TrueFalseAnswer/TrueFalseAnswer";
 import { describeCondition, type ConditionsResult, type ExerciseCondition } from "@/lib/exerciseConditions";
 import { contentMessages } from "@/messages/content.pt-BR";
@@ -27,6 +28,10 @@ interface Item {
   kind?: string;
   correctAnswer?: boolean;
   explanation?: string;
+  /** A single choice item (SPEC-036 RN-09): its alternatives, the correct one and whether to shuffle them. */
+  choices?: ChoiceOption[];
+  correctChoice?: string;
+  shuffleChoices?: boolean;
 }
 
 /** A short stable key for an exercise, so that "done" is remembered in this browser. */
@@ -102,6 +107,74 @@ function TrueFalseExercise({ item, index, preview }: { item: Item; index: number
         </div>
       )}
       <TrueFalseAnswer mode="exercise" label={item.title} result={result} onAnswer={answer} disabled={typeof item.correctAnswer !== "boolean"} />
+    </article>
+  );
+}
+
+/** The alternatives in a new order each time, as the question asks (SPEC-036 D-03, D-07). */
+function shuffled(choices: ChoiceOption[]): ChoiceOption[] {
+  const out = [...choices];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
+/** A single choice exercise of a card: answered once, checked on the screen and locked in this browser (SPEC-036 RN-09). */
+function SingleChoiceExercise({ item, index, preview }: { item: Item; index: number; preview: boolean }) {
+  const key = `exercise-choice:${keyOf(item, index).slice("exercise-done:".length)}`;
+  const hints = item.hints ?? [];
+  const [shown, setShown] = useState(0);
+  const [choices] = useState(() => (item.shuffleChoices === false ? (item.choices ?? []) : shuffled(item.choices ?? [])));
+  const resultOf = (choice: string | null): ChoiceResult | null =>
+    choice === null || !item.correctChoice
+      ? null
+      : { choice, passed: choice === item.correctChoice, correctChoice: item.correctChoice, explanation: item.explanation };
+  const [result, setResult] = useState<ChoiceResult | null>(() => {
+    if (preview) return null;
+    try {
+      return resultOf(localStorage.getItem(key));
+    } catch {
+      return null;
+    }
+  });
+
+  const answer = (choice: string) => {
+    setResult(resultOf(choice));
+    if (preview) return;
+    try {
+      localStorage.setItem(key, choice);
+    } catch {
+      // Keeping the answer is only a convenience of this browser.
+    }
+  };
+
+  return (
+    <article className={`${styles.exercise} ${result?.passed ? styles.done : ""}`} data-difficulty={item.difficulty}>
+      <header className={styles.head}>
+        <h4 className={styles.title}>{item.title}</h4>
+        <span className={`${styles.level} ${styles[item.difficulty.toLowerCase()] ?? ""}`}>{m.difficulty[item.difficulty]}</span>
+      </header>
+      {item.description && <Html html={item.description} />}
+      {shown > 0 && (
+        <ol className={styles.hints} aria-label={m.hints}>
+          {hints.slice(0, shown).map((hint, i) => (
+            <li key={i}>
+              <span>{hint.text}</span>
+              {hint.command && <code className={styles.command}>{hint.command}</code>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {shown < hints.length && (
+        <div className={styles.actions}>
+          <button type="button" className={styles.button} onClick={() => setShown((n) => n + 1)}>
+            {m.showHint(shown + 1, hints.length)}
+          </button>
+        </div>
+      )}
+      <SingleChoiceAnswer mode="exercise" label={item.title} choices={choices} result={result} onAnswer={answer} disabled={!item.correctChoice} />
     </article>
   );
 }
@@ -214,10 +287,14 @@ function Exercise({ item, index }: { item: Item; index: number }) {
   );
 }
 
-function TrueFalseItem({ item, index }: { item: Item; index: number }) {
+function WithoutTerminalItem({ item, index }: { item: Item; index: number }) {
   // Without a checker the block is the preview of the teacher, not a student.
   const preview = useContext(ExerciseCheckContext) === null;
-  return <TrueFalseExercise item={item} index={index} preview={preview} />;
+  return item.kind === "THEORETICAL_SINGLE" ? (
+    <SingleChoiceExercise item={item} index={index} preview={preview} />
+  ) : (
+    <TrueFalseExercise item={item} index={index} preview={preview} />
+  );
 }
 
 /** The group of exercises of a card: statement, level, tips on demand, how the teacher did it, and a check of how it ended. */
@@ -227,7 +304,13 @@ export function ExercisesBlock({ payload }: { payload: Payload }) {
   return (
     <section className={styles.group} aria-label={m.title}>
       <h3 className={styles.groupTitle}>{m.title}</h3>
-      {items.map((item, i) => (item.kind === "THEORETICAL_BOOLEAN" ? <TrueFalseItem key={i} item={item} index={i} /> : <Exercise key={i} item={item} index={i} />))}
+      {items.map((item, i) =>
+        item.kind === "THEORETICAL_BOOLEAN" || item.kind === "THEORETICAL_SINGLE" ? (
+          <WithoutTerminalItem key={i} item={item} index={i} />
+        ) : (
+          <Exercise key={i} item={item} index={i} />
+        ),
+      )}
     </section>
   );
 }

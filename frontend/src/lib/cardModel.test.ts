@@ -429,3 +429,21 @@ describe("exercises of a card", () => {
     expect(cardCounts(groupCards(stored)[0]!)).toMatchObject({ commands: 1, exercises: 1 });
   });
 });
+
+// Covers SPEC-035 RN-14 and SPEC-036 RN-09: the exercises without a terminal of a card are saved only complete.
+describe("checkCard with exercises without a terminal", () => {
+  it("asks for the answer of a true or false one and for the alternatives of a single choice one", () => {
+    const card = { ...emptyCard(), title: "Card" };
+    card.exercises = {
+      items: [
+        { id: "tf", title: "tf", difficulty: "EASY", description: "", hints: [], conditions: [], kind: "THEORETICAL_BOOLEAN", correctAnswer: null },
+        { id: "sc", title: "sc", difficulty: "EASY", description: "", hints: [], conditions: [], kind: "THEORETICAL_SINGLE", choices: [{ id: "a", html: "<p>a</p>" }, { id: "b", html: "<p>b</p>" }], correctChoice: null },
+        { id: "ok", title: "ok", difficulty: "EASY", description: "", hints: [], conditions: [], kind: "THEORETICAL_SINGLE", choices: [{ id: "a", html: "<p>a</p>" }, { id: "b", html: "<p>b</p>" }], correctChoice: "b" },
+      ],
+    };
+    const errors = checkCard(card, true);
+    expect(errors.tf).toEqual(["answer-required"]);
+    expect(errors.sc).toEqual(["choice-required"]);
+    expect(errors.ok).toBeUndefined();
+  });
+});

@@ -17,7 +17,7 @@ import {
   type ExerciseHint,
 } from "@/lib/exercises";
 import { newId } from "@/lib/newId";
-import { usesTerminal } from "@/lib/questionKinds";
+import { isSingleChoice, MAX_CHOICES, MIN_CHOICES, usesTerminal } from "@/lib/questionKinds";
 import type { SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService } from "@/services/contentAuthoringService";
@@ -109,12 +109,117 @@ export function ExerciseForm({
         onChange={(hints) => onChange({ hints })}
       />
 
-      {usesTerminal(ex.kind) ? (
+      {isSingleChoice(ex.kind) ? (
+        <ChoiceParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
+      ) : usesTerminal(ex.kind) ? (
         <TerminalParts exercise={ex} onChange={onChange} before={before} loadBase={loadBase} number={number} />
       ) : (
         <TrueFalseParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
       )}
     </div>
+  );
+}
+
+/** The alternatives of a single choice question, the only correct one, the order for the student and the justification (SPEC-036). */
+function ChoiceParts({
+  exercise: ex,
+  onChange,
+  number,
+  uploadImage,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  number: number;
+  uploadImage: (file: File) => Promise<{ url: string }>;
+}) {
+  const choices = ex.choices ?? [];
+  const set = (next: typeof choices) => onChange({ choices: next });
+  const name = `correct-choice-${number}`;
+  return (
+    <>
+      <div className={styles.group}>
+        <div className={styles.titleRow}>
+          <h4 className={styles.groupTitle}>{`${k.choices} (${number})`}</h4>
+          <InfoTip topic={k.choices}>{k.choicesHelp}</InfoTip>
+        </div>
+        <ol className={styles.fileList} aria-label={`${k.choices} (${number})`}>
+          {choices.map((choice, i) => (
+            <li key={choice.id} className={styles.exerciseRow}>
+              <span className={styles.exerciseNumber} aria-hidden="true">
+                {String.fromCharCode(65 + i)}
+              </span>
+              <div className={styles.exerciseBody}>
+                <RichTextEditor
+                  label={k.choice(i + 1)}
+                  value={choice.html}
+                  onChange={(html) => set(choices.map((c, j) => (j === i ? { ...c, html } : c)))}
+                  uploadImage={uploadImage}
+                />
+                <label className={styles.check}>
+                  <input
+                    type="radio"
+                    name={name}
+                    checked={ex.correctChoice === choice.id}
+                    onChange={() => onChange({ correctChoice: choice.id })}
+                    aria-label={k.markCorrect(i + 1)}
+                  />
+                  {k.correct}
+                </label>
+              </div>
+              <div className={styles.tools}>
+                <button type="button" className={styles.small} onClick={() => set(move(choices, i, i - 1))} disabled={i === 0} aria-label={k.choiceUp(i + 1)}>
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className={styles.small}
+                  onClick={() => set(move(choices, i, i + 1))}
+                  disabled={i === choices.length - 1}
+                  aria-label={k.choiceDown(i + 1)}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  className={styles.small}
+                  onClick={() =>
+                    onChange({
+                      choices: choices.filter((_, j) => j !== i),
+                      ...(ex.correctChoice === choice.id ? { correctChoice: null } : {}),
+                    })
+                  }
+                  disabled={choices.length <= MIN_CHOICES}
+                  aria-label={k.choiceRemove(i + 1)}
+                >
+                  ✕
+                </button>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <button type="button" className={styles.add} onClick={() => set([...choices, { id: newId(), html: "" }])} disabled={choices.length >= MAX_CHOICES}>
+          {k.addChoice}
+        </button>
+        <label className={styles.check}>
+          <input type="checkbox" checked={ex.shuffleChoices !== false} onChange={(e) => onChange({ shuffleChoices: e.target.checked })} />
+          {k.shuffle}
+          <InfoTip topic={k.shuffle}>{k.shuffleHelp}</InfoTip>
+        </label>
+      </div>
+      <div className={styles.field}>
+        <div className={styles.labelRow}>
+          <span className={styles.label}>{`${k.explanation} (${number})`}</span>
+          <InfoTip topic={k.explanation}>{k.explanationHelp}</InfoTip>
+        </div>
+        <RichTextEditor
+          label={`${k.explanation} (${number})`}
+          value={ex.explanation ?? ""}
+          onChange={(explanation) => onChange({ explanation })}
+          uploadImage={uploadImage}
+        />
+      </div>
+      <p className={styles.hint}>{k.noTerminalPage}</p>
+    </>
   );
 }
 

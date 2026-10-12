@@ -167,3 +167,64 @@ describe("ExercisesBlock with a true or false exercise", () => {
     expect(screen.queryByText("Você acertou!")).toBeNull();
   });
 });
+
+// Covers SPEC-036 CA-10, D-03 and D-07: the single choice exercise of a card, answered once and checked on the screen.
+describe("ExercisesBlock with a single choice exercise", () => {
+  const item = (shuffleChoices: boolean) => ({
+    items: [
+      {
+        kind: "THEORETICAL_SINGLE",
+        title: "chmod",
+        difficulty: "EASY",
+        description: "<p>Which one?</p>",
+        hints: [{ text: "Think of mode" }],
+        choices: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ id: `c${n}`, html: `<p>opção ${n}</p>` })),
+        correctChoice: "c1",
+        shuffleChoices,
+        explanation: "<p>Because.</p>",
+      },
+    ],
+  });
+  const checker: ExerciseChecker = { check: () => null };
+  const show = (payload: Record<string, unknown>, value: ExerciseChecker | null = checker) =>
+    render(
+      <ExerciseCheckContext.Provider value={value}>
+        <ExercisesBlock payload={payload} />
+      </ExerciseCheckContext.Provider>,
+    );
+  const order = () => screen.getAllByRole("button", { name: /opção/ }).map((b) => b.textContent?.match(/opção (\d)/)?.[1]).join("");
+
+  it("keeps the order of the teacher when asked, and shuffles it otherwise", () => {
+    show(item(false));
+    expect(order()).toBe("1234567");
+    cleanup();
+    const seen = new Set<string>();
+    for (let i = 0; i < 10; i++) {
+      show(item(true));
+      seen.add(order());
+      cleanup();
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it("shows the result at once, locks the answer and keeps it in this browser", () => {
+    show(item(false));
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar dica (1 de 1)" }));
+    expect(screen.getByText("Think of mode")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /opção 3/ }));
+    expect(screen.getByText("Você errou.")).toBeDefined();
+    expect(screen.getByText("Because.")).toBeDefined();
+    cleanup();
+    show(item(false));
+    expect(screen.getByText("Você errou."), "locked after reloading").toBeDefined();
+  });
+
+  it("in the preview of the teacher, answers without keeping anything", () => {
+    show(item(false), null);
+    fireEvent.click(screen.getByRole("button", { name: /opção 1/ }));
+    expect(screen.getByText("Você acertou!")).toBeDefined();
+    cleanup();
+    show(item(false), null);
+    expect(screen.queryByText("Você acertou!")).toBeNull();
+  });
+});

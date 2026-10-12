@@ -167,3 +167,24 @@ describe("true or false questions of the bank", () => {
     expect(bankTestKey({ items: [tf] })).not.toBe("");
   });
 });
+
+// Covers SPEC-036 5.1 on the screen: the alternatives, the correct one and the order are read and sent.
+describe("single choice questions of the bank", () => {
+  it("reads and sends a single choice question", () => {
+    const raw = { ...stored, id: "sc", kind: "THEORETICAL_SINGLE", choices: [{ id: "a", html: "x" }, { id: "b", html: "y" }], correctChoice: "b", shuffleChoices: false, explanation: "<p>Why</p>", conditions: [], solution: null, dependsOn: null };
+    const parsed = parseModuleExercise(raw);
+    expect(parsed.exercise).toMatchObject({ kind: "THEORETICAL_SINGLE", correctChoice: "b", shuffleChoices: false });
+    expect(exerciseBody(parsed.exercise)).toEqual({
+      kind: "THEORETICAL_SINGLE",
+      title: "Criar",
+      difficulty: "HARD",
+      statement: "<p>x</p>",
+      hints: [{ text: "dica", command: "mkdir /a" }, { text: "outra" }],
+      choices: [{ id: "a", html: "x" }, { id: "b", html: "y" }],
+      correctChoice: "b",
+      shuffleChoices: false,
+      explanation: "<p>Why</p>",
+    });
+    expect(exerciseBody({ ...emptyExercise("THEORETICAL_SINGLE"), title: "x", choices: undefined, correctChoice: undefined, explanation: undefined })).toMatchObject({ choices: [], correctChoice: null, explanation: "" });
+  });
+});
