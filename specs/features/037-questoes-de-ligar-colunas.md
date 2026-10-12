@@ -5,7 +5,7 @@
 | **ID** | SPEC-037 |
 | **Status** | Rascunho |
 | **Data de criação** | 11/10/2026 |
-| **Última revisão** | 11/10/2026 |
+| **Última revisão** | 12/10/2026 (decisões D-01 a D-08, sem pendências) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -236,16 +236,22 @@ A resposta para a docente traz `pairs` na ordem dela. Erros: 400 `validation-err
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | As duas colunas têm sempre o mesmo número de itens, ou a da direita pode ter itens a mais, sem par (distratores), para a última ligação não sair por eliminação? | Mesmo número nesta spec (de 2 a 5 pares, como pedido). Distratores podem entrar depois sem mudar o formato |
-| P-02 | Como conta o acerto: tudo ou nada, ou parcial (por exemplo, 3 de 4 ligações certas)? | No exercício, mostrar cada ligação certa ou errada; a questão é "acertou" só com todas certas. A nota parcial na prova fica para a spec de avaliação |
-| P-03 | A ordem das colunas para o aluno | Esquerda na ordem da docente e direita embaralhada pelo servidor; sem embaralhar, a resposta seria a própria ordem |
-| P-04 | Como o aluno liga: clicar (ou tocar) num item e depois no outro, ou arrastar uma linha de um ao outro? | Clicar e clicar, com o teclado fazendo o mesmo: funciona no celular e é acessível. Arrastar pode vir depois, como um atalho a mais |
-| P-05 | Quando a resposta do exercício trava, já que são várias ligações? | Só no botão "Conferir minhas ligações", habilitado com tudo ligado; antes disso, o aluno pode refazer as ligações à vontade. Depois de conferir, trava |
-| P-06 | Os itens podem ter formatação ou imagem? | Só texto simples, até 200 caracteres por lado |
-| P-07 | Também nos exercícios do card? | Sim, como os outros tipos sem terminal (SPEC-035 D-08) |
-| P-08 | Nomes | Tipo `THEORETICAL_MATCHING`, "Ligar colunas"; "Par" (`Pair`, campo `pairs`), "Ligação" (`Link`, campo `links` da resposta) |
+### Decisões do Tech Lead (12/10/2026, as recomendações do rascunho)
+
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | As duas colunas têm o mesmo número de itens, de 2 a 5 pares; sem distratores nesta spec (resolve P-01) |
+| D-02 | No exercício, cada ligação aparece certa ou errada, e a questão conta como acertada só com todas certas; a nota parcial na prova fica para a spec de avaliação (resolve P-02) |
+| D-03 | Esquerda na ordem da docente e direita embaralhada pelo servidor (resolve P-03) |
+| D-04 | Liga-se clicando (ou tocando) num item e depois no outro, com o teclado fazendo o mesmo; arrastar pode vir depois (resolve P-04) |
+| D-05 | A resposta do exercício trava só no "Conferir minhas ligações", habilitado com todos os itens ligados; antes disso o aluno refaz à vontade (resolve P-05) |
+| D-06 | Itens só com texto simples, até 200 caracteres por lado (resolve P-06) |
+| D-07 | O tipo também vale nos exercícios do card (resolve P-07) |
+| D-08 | Tipo `THEORETICAL_MATCHING` ("Ligar colunas"); "Par" (`Pair`, campo `pairs`) e "Ligação" (`Link`, campo `links` da resposta) entram no glossário (resolve P-08) |
+
+### Pendências
+
+Nenhuma em aberto. P-01 a P-08 viraram as decisões D-01 a D-08.
 
 ---
 
@@ -254,3 +260,4 @@ A resposta para a docente traz `pairs` na ordem dela. Erros: 400 `validation-err
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 11/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (ligar colunas, de 2 a 5 pares, mesmo comportamento do verdadeiro ou falso no exercício e na avaliação, animado para o aluno). Pendências P-01 a P-08 |
+| 12/10/2026 | Tech Lead | Aceitas as recomendações de P-01 a P-08 (viram D-01 a D-08). Seção 10 sem pendências |
