@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-040 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 12/10/2026 |
-| **Última revisão** | 12/10/2026 (aprovada) |
+| **Última revisão** | 12/10/2026 (implementada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Frontend |
@@ -91,14 +91,14 @@ Não se aplica nesta spec: nenhuma rota nova nem alterada; o modo de demonstraç
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente abre o modal de tipo, O SISTEMA DEVE mostrar o exemplo do tipo selecionado (Comando Linux por padrão).
-- [ ] **CA-02** (evento): QUANDO a docente seleciona outro tipo, O SISTEMA DEVE trocar o exemplo pelo desse tipo.
-- [ ] **CA-03** (estado): ENQUANTO o exemplo está visível, O SISTEMA DEVE animá-lo em ciclo: estado inicial, resposta e resultado, com as animações da aba "Desafios".
-- [ ] **CA-04** (indesejado): SE o exemplo for acionado, ENTÃO O SISTEMA NÃO DEVE enviar nada ao servidor nem gravar resposta.
-- [ ] **CA-05** (estado): ENQUANTO a preferência "reduzir movimento" está ligada, O SISTEMA DEVE mostrar o exemplo parado, com o resultado.
-- [ ] **CA-06** (ubíquo): O exemplo DEVE ter o selo "Exemplo" e ser anunciado como exemplo para leitores de tela.
-- [ ] **CA-07** (evento): QUANDO o modal é aberto no card, O SISTEMA DEVE mostrar só os tipos do card e os seus exemplos.
-- [ ] **CA-08** (ubíquo): O modal DEVE funcionar no celular (lista e exemplo empilhados) e nos temas claro e escuro.
+- [x] **CA-01** (evento): QUANDO a docente abre o modal de tipo, O SISTEMA DEVE mostrar o exemplo do tipo selecionado (Comando Linux por padrão).
+- [x] **CA-02** (evento): QUANDO a docente seleciona outro tipo, O SISTEMA DEVE trocar o exemplo pelo desse tipo.
+- [x] **CA-03** (estado): ENQUANTO o exemplo está visível, O SISTEMA DEVE animá-lo em ciclo: estado inicial, resposta e resultado, com as animações da aba "Desafios".
+- [x] **CA-04** (indesejado): SE o exemplo for acionado, ENTÃO O SISTEMA NÃO DEVE enviar nada ao servidor nem gravar resposta.
+- [x] **CA-05** (estado): ENQUANTO a preferência "reduzir movimento" está ligada, O SISTEMA DEVE mostrar o exemplo parado, com o resultado.
+- [x] **CA-06** (ubíquo): O exemplo DEVE ter o selo "Exemplo" e ser anunciado como exemplo para leitores de tela.
+- [x] **CA-07** (evento): QUANDO o modal é aberto no card, O SISTEMA DEVE mostrar só os tipos do card e os seus exemplos.
+- [x] **CA-08** (ubíquo): O modal DEVE funcionar no celular (lista e exemplo empilhados) e nos temas claro e escuro.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -141,6 +141,14 @@ Pela SPEC-038 (se aprovada), escritos antes do código.
 
 Nenhuma em aberto. P-01 a P-05 viraram as decisões D-01 a D-05.
 
+### Ajustes de implementação (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-01 | O passo "o aluno responde" usa o modo de avaliação dos próprios componentes (a escolha marcada, sem resultado), e o resultado usa o modo de exercício; assim os componentes do aluno não precisaram de um modo novo |
+| A-02 | Na Descritiva, o passo de escrita é uma encenação do texto sendo digitado, sem o editor de texto, para o modal abrir leve |
+| A-03 | O exemplo fica fora do alcance do mouse, do teclado e do leitor de tela (atributo `inert`); o leitor ouve só o nome do painel. O botão de pausar fica fora dessa área |
+
 ---
 
 ## Histórico de revisões
@@ -149,3 +157,4 @@ Nenhuma em aberto. P-01 a P-05 viraram as decisões D-01 a D-05.
 | :--- | :--- | :--- |
 | 12/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (tipos animados no modal de criação, com um exemplo de como o aluno vê). Pendências P-01 a P-05 |
 | 12/10/2026 | Tech Lead | Aprovada ("Aprovo"), aceitas as recomendações de P-01 a P-05 (D-01 a D-05). Status: `Aprovada` |
+| 12/10/2026 | Implementador (Claude) | Implementada; status `Implementada`. Painel "Como o aluno vê" no modal de tipo, com exemplo animado de cada tipo usando os componentes de resposta do aluno, ciclo de 6 segundos, pausa, parado com "reduzir movimento", troca por seleção e por passar o mouse, e só os tipos do card no card. Testes do modal e do exemplo passando; `tsc`, ESLint e Stylelint limpos nos arquivos alterados. **Manual:** a conferência visual no navegador (temas claro e escuro, celular) fica para a revisão. **Ajustes:** A-01 a A-03 |
