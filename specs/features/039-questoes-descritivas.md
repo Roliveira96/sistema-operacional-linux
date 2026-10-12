@@ -63,7 +63,7 @@ O tipo `DISCURSIVE` já existe no schema (SPEC-011), sem tela nem correção.
 
 **Aluno (aba "Desafios"):**
 
-- A questão aparece na ordem da trilha, com um campo de texto e o botão "Enviar resposta".
+- A questão aparece na ordem da trilha, com o campo de resposta e o botão "Enviar resposta". O campo aceita **só texto e comandos** (D-01): parágrafos e trechos marcados como comando, em linha ou em bloco, sem imagens, links nem outra formatação.
 - Depois de enviar, a resposta trava e aparece "Aguardando correção".
 - Quando a professora confirma a nota, o aluno vê a porcentagem (com a mesma animação dos outros tipos) e o comentário dela.
 
@@ -87,8 +87,8 @@ O tipo `DISCURSIVE` já existe no schema (SPEC-011), sem tela nem correção.
   - Aceita descrição, dicas, resposta esperada (`expectedAnswer`, HTML filtrado) e limite de caracteres da resposta.
   - Recusa os campos dos outros tipos.
 - **RN-02 (publicar):** exige descrição não vazia. A resposta esperada é opcional.
-- **RN-03 (resposta do aluno):** a rota de conferência recebe o texto da resposta e grava em `exercise_progress.response`.
-  - O texto é simples, até o limite da questão.
+- **RN-03 (resposta do aluno):** a rota de conferência recebe a resposta e grava em `exercise_progress.response`.
+  - A resposta tem só texto e comandos (D-01): o servidor aceita parágrafos, quebras de linha e comandos (`code` em linha e `pre` em bloco) e descarta qualquer outra marcação; o limite de caracteres conta o texto.
   - A resposta é única, e uma segunda tentativa recebe 409.
   - A questão fica "aguardando correção" e não tem `passed` até haver nota.
 - **RN-04 (sugestão da IA pelo MCP):** ferramentas novas do MCP, para a docente dona do módulo ou o administrador (SPEC-024 RN-02, RN-05):
@@ -110,7 +110,7 @@ O tipo `DISCURSIVE` já existe no schema (SPEC-011), sem tela nem correção.
 | Onde | Alteração |
 | :--- | :--- |
 | `questions` (`DISCURSIVE`) | `answer_key` guarda a resposta esperada (`expectedAnswer`, HTML) e o limite de caracteres da resposta (`maxLength`) |
-| `exercise_progress` | `response` guarda o texto da resposta (`{ "text": ... }`); `passed` fica nulo até a nota (ver P-03) |
+| `exercise_progress` | `response` guarda a resposta com texto e comandos (`{ "html": ... }`, só parágrafos, quebras de linha, `code` e `pre`); `passed` fica nulo até a nota (ver P-03) |
 | Nova tabela `answer_grades` | Uma linha por resposta descritiva corrigida: `id`, `progress_id` (FK, único), `suggested_score` (0, 25, 50, 75 ou 100, opcional), `suggestion_reason` (texto), `suggested_at`, `suggested_by_token` (FK do token do MCP), `score` (0, 25, 50, 75 ou 100, opcional até confirmar), `source` (`AI_ACCEPTED` ou `TEACHER`), `comment`, `graded_by` (usuário), `graded_at`, `created_at`, `updated_at` |
 | Nova tabela `answer_grade_events` | Registro que não se apaga: `id`, `grade_id`, `kind` (`SUGGESTED`, `CONFIRMED`, `REVISED`), `score`, `previous_score`, `by_user`, `by_token`, `reason`, `created_at` |
 
@@ -120,7 +120,7 @@ Uma restrição garante as cinco faixas, tanto na nota quanto na sugestão.
 
 - **Banco** (`/api/v1/teacher/modules/{id}/exercises`): aceita `kind = DISCURSIVE`, `expectedAnswer` e `maxLength`.
 - **Aluno:**
-  - `POST /api/v1/questions/{id}/check` com `response` = { `text` }; responde `status: PENDING`;
+  - `POST /api/v1/questions/{id}/check` com `response` = { `html` }, só texto e comandos; responde `status: PENDING`;
   - `GET /api/v1/modules/{id}/progress` traz a situação da questão, a nota confirmada e o comentário.
 - **Correção** (novas rotas, para a docente):
   - `GET /api/v1/teacher/modules/{id}/answers?status=` lista as respostas;
@@ -175,12 +175,20 @@ Definido na aprovação, depois das pendências.
 
 ## 10. Pendências para aprovação
 
+### Decisões do Tech Lead
+
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | O aluno responde só com texto e comandos (pedido do Tech Lead de 12/10/2026) |
+
+### Pendências
+
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
 | P-01 | Quem é a IA? (a) Um agente externo conectado ao MCP com o acesso da professora (como o Claude Code ou o Claude Desktop dela), que lê e grava a sugestão pelas ferramentas; (b) o próprio servidor chamando uma IA com uma chave do sistema, sozinho, a cada resposta enviada | (a), como você disse ("o MCP irá ler e avaliar"): não precisa de chave de IA no servidor, a professora escolhe quando pedir as sugestões, e a regra do MCP de não ter regra própria continua |
 | P-02 | A professora escreve uma resposta esperada (ou critérios) para orientar a IA e a correção? | Sim, opcional e nunca mostrada ao aluno. Sem ela, a IA corrige só pelo enunciado, e isso fica menos justo |
 | P-03 | A questão descritiva "acerta" ou "erra"? Os outros tipos usam passou ou não passou | Ela tem a porcentagem, não o certo ou errado. No progresso, conta como respondida ao enviar; para o círculo de status, a recomendação é ✓ a partir de 50% e ✗ abaixo, depois da nota confirmada, e "aguardando" antes |
-| P-04 | Como o aluno responde, e quantas vezes? | Texto simples, com limite definido pela professora (padrão 2.000 caracteres, máximo 10.000); envio único no exercício, como os outros tipos |
+| P-04 | Quantas vezes o aluno responde, e qual o tamanho máximo? (o formato já foi decidido na D-01) | Envio único no exercício, como os outros tipos; limite definido pela professora (padrão 2.000 caracteres de texto, máximo 10.000) |
 | P-05 | O que o aluno vê da correção? | A nota confirmada e o comentário da professora; nunca a sugestão nem a justificativa da IA |
 | P-06 | A professora pode mudar uma nota já confirmada? | Sim, com justificativa obrigatória, e a revisão entra no registro de eventos |
 | P-07 | Descritiva também no exercício do card? | Não: o card é conferido na tela, sem servidor, e esta questão precisa da professora e da IA. Só no banco do módulo |
@@ -194,3 +202,4 @@ Definido na aprovação, depois das pendências.
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 12/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (descritiva com título, descrição, nível, dicas, nota da professora em 0, 25, 50, 75 ou 100 e sugestão da IA pelo MCP, que a professora aceita ou troca). Pendências P-01 a P-09 |
+| 12/10/2026 | Tech Lead | D-01: o aluno responde só com texto e comandos |
