@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-036 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 11/10/2026 |
 | **Última revisão** | 12/10/2026 (decisões D-01 a D-06, sem pendências) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -165,22 +165,22 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente cria uma questão, O SISTEMA DEVE oferecer "Escolha única" entre os tipos, no banco e no card.
-- [ ] **CA-02** (ubíquo): A página da questão de escolha única DEVE ter título, nível, descrição com imagens, dicas, de 2 a 7 alternativas com uma marcada como correta e justificativa, sem solução, condições, ambiente nem dependência.
-- [ ] **CA-03** (indesejado): SE a docente tentar ter menos de 2 ou mais de 7 alternativas, ENTÃO a tela NÃO DEVE permitir, e o servidor DEVE recusar com 400.
-- [ ] **CA-16** (opcional): ONDE a questão estiver marcada para manter a ordem, O SISTEMA DEVE mostrar as alternativas na ordem da professora; ONDE estiver marcada para embaralhar (o padrão), DEVE mostrá-las embaralhadas (D-07).
-- [ ] **CA-15** (ubíquo): Cada alternativa DEVE ser escrita no editor de texto, com formatação, comandos e imagens, e o aluno DEVE vê-la com essa formatação (D-02).
-- [ ] **CA-04** (indesejado): SE a docente publicar sem descrição, com alternativa vazia ou repetida, ou sem a correta marcada, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
-- [ ] **CA-05** (evento): QUANDO a docente reordena as alternativas, O SISTEMA DEVE manter a mesma alternativa como correta (RN-02).
-- [ ] **CA-06** (ubíquo): A lista de questões do aluno NÃO DEVE conter a correta nem a justificativa (RN-07).
-- [ ] **CA-07** (evento): QUANDO o aluno escolhe uma alternativa no exercício, O SISTEMA DEVE corrigir no servidor e mostrar na hora, com animação, se acertou, qual era a correta e a justificativa, e travar a resposta, inclusive depois de recarregar (RN-05, RN-06).
-- [ ] **CA-08** (indesejado): SE o aluno tentar responder de novo, ou enviar um identificador que não é de uma alternativa, ENTÃO a API DEVE responder 409 ou 400.
-- [ ] **CA-09** (estado): ENQUANTO o componente está no modo avaliação, O SISTEMA DEVE permitir trocar a escolha a qualquer momento, mostrar as dicas e NÃO DEVE mostrar resultado (RN-08).
-- [ ] **CA-10** (evento): QUANDO o aluno responde um exercício de escolha única do card, O SISTEMA DEVE mostrar o resultado na hora e travar a resposta no navegador (RN-09).
-- [ ] **CA-11** (evento): QUANDO a docente roda os testes do banco, do módulo ou do card, O SISTEMA DEVE conferir só se a questão de escolha única está completa, sem terminal.
-- [ ] **CA-12** (evento): QUANDO um agente cria pelo MCP uma questão ou um exercício de card de escolha única, O SISTEMA DEVE aplicar as mesmas validações da tela (RN-10).
-- [ ] **CA-13** (ubíquo): A escolha DEVE ser operável só pelo teclado, a animação DEVE respeitar a preferência de menos movimento e as telas DEVEM usar só tokens.
-- [ ] **CA-14** (evento): QUANDO as migrações rodarem, as questões de escolha única da carga inicial DEVEM ficar no formato novo com a mesma alternativa correta (D-04).
+- [x] **CA-01** (evento): QUANDO a docente cria uma questão, O SISTEMA DEVE oferecer "Escolha única" entre os tipos, no banco e no card.
+- [x] **CA-02** (ubíquo): A página da questão de escolha única DEVE ter título, nível, descrição com imagens, dicas, de 2 a 7 alternativas com uma marcada como correta e justificativa, sem solução, condições, ambiente nem dependência.
+- [x] **CA-03** (indesejado): SE a docente tentar ter menos de 2 ou mais de 7 alternativas, ENTÃO a tela NÃO DEVE permitir, e o servidor DEVE recusar com 400.
+- [x] **CA-16** (opcional): ONDE a questão estiver marcada para manter a ordem, O SISTEMA DEVE mostrar as alternativas na ordem da professora; ONDE estiver marcada para embaralhar (o padrão), DEVE mostrá-las embaralhadas (D-07).
+- [x] **CA-15** (ubíquo): Cada alternativa DEVE ser escrita no editor de texto, com formatação, comandos e imagens, e o aluno DEVE vê-la com essa formatação (D-02).
+- [x] **CA-04** (indesejado): SE a docente publicar sem descrição, com alternativa vazia ou repetida, ou sem a correta marcada, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
+- [x] **CA-05** (evento): QUANDO a docente reordena as alternativas, O SISTEMA DEVE manter a mesma alternativa como correta (RN-02).
+- [x] **CA-06** (ubíquo): A lista de questões do aluno NÃO DEVE conter a correta nem a justificativa (RN-07).
+- [x] **CA-07** (evento): QUANDO o aluno escolhe uma alternativa no exercício, O SISTEMA DEVE corrigir no servidor e mostrar na hora, com animação, se acertou, qual era a correta e a justificativa, e travar a resposta, inclusive depois de recarregar (RN-05, RN-06).
+- [x] **CA-08** (indesejado): SE o aluno tentar responder de novo, ou enviar um identificador que não é de uma alternativa, ENTÃO a API DEVE responder 409 ou 400.
+- [x] **CA-09** (estado): ENQUANTO o componente está no modo avaliação, O SISTEMA DEVE permitir trocar a escolha a qualquer momento, mostrar as dicas e NÃO DEVE mostrar resultado (RN-08).
+- [x] **CA-10** (evento): QUANDO o aluno responde um exercício de escolha única do card, O SISTEMA DEVE mostrar o resultado na hora e travar a resposta no navegador (RN-09).
+- [x] **CA-11** (evento): QUANDO a docente roda os testes do banco, do módulo ou do card, O SISTEMA DEVE conferir só se a questão de escolha única está completa, sem terminal.
+- [x] **CA-12** (evento): QUANDO um agente cria pelo MCP uma questão ou um exercício de card de escolha única, O SISTEMA DEVE aplicar as mesmas validações da tela (RN-10).
+- [x] **CA-13** (ubíquo): A escolha DEVE ser operável só pelo teclado, a animação DEVE respeitar a preferência de menos movimento e as telas DEVEM usar só tokens.
+- [x] **CA-14** (evento): QUANDO as migrações rodarem, as questões de escolha única da carga inicial DEVEM ficar no formato novo com a mesma alternativa correta (D-04).
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -250,6 +250,16 @@ Reforço do Tech Lead: a questão tem **somente uma** alternativa correta; as de
 
 Nenhuma em aberto. P-01 a P-06 viraram as decisões D-01 a D-06.
 
+### Ajustes de implementação (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-01 | O conteúdo da alternativa é o campo `html` (e não `text`, como a primeira versão da seção 4 dizia), porque a alternativa usa o editor de texto (D-02) |
+| A-02 | O identificador das alternativas convertidas da carga inicial são os 8 primeiros dígitos hexadecimais de `md5('<id da questão>:<posição>')`, iguais na migração 00022 e no comando de carga, para os dois concordarem; as alternativas novas ganham um identificador aleatório de 8 dígitos |
+| A-03 | O texto das alternativas convertidas é o mesmo que a carga já gravava (o filtro de HTML aplicado ao texto); a conversão não muda o que o aluno lia |
+| A-04 | O exercício de escolha única do card só é salvo completo (de 2 a 7 alternativas, sem vazias nem repetidas, com a correta), como o verdadeiro ou falso do card exige a resposta; a descrição continua opcional no card |
+| A-05 | A resposta da conferência traz `correctChoice` para este tipo e `correctAnswer` para o verdadeiro ou falso; o contrato de tipos ganhou o método que diz qual campo revelar |
+
 ---
 
 ## Histórico de revisões
@@ -262,3 +272,4 @@ Nenhuma em aberto. P-01 a P-06 viraram as decisões D-01 a D-06.
 | 12/10/2026 | Tech Lead | P-05 e P-06 aceitas nas recomendações (D-05, D-06), com o reforço de que há somente uma alternativa correta. Seção 10 sem pendências |
 | 12/10/2026 | Tech Lead | Aprovada ("eu aprovo"). Status: `Aprovada` |
 | 12/10/2026 | Tech Lead | Durante a implementação: opção por questão de embaralhar ou manter a ordem das alternativas (D-07, CA-16, RN-12, coluna `shuffle_choices`) |
+| 12/10/2026 | Implementador (Claude) | Implementada; status `Implementada`. **Backend:** tipo `THEORETICAL_SINGLE` no contrato de tipos, banco do módulo, conferência com resposta única, progresso, item do card, MCP, migração 00022 (coluna `shuffle_choices`, restrição de publicação e conversão das 30 questões da carga) e comando de carga no formato novo. Testes passando, inclusive com PostgreSQL real (banco com a escolha única e a conversão da migração). Cobertura: `content/domain` 94,1%, `content/service` 86,2%, `content/handler` 83,4%, `content/repository` 85,1%, `practice/service` 95,8%, `practice/handler` 97,6%, `mcp/service` 97,6%. No banco de desenvolvimento, a migração converteu as 30 questões e todas têm a correta entre as alternativas (a `quiz-fac-1` continua com "Kernel Linux"). **Frontend:** 306 testes dos arquivos da spec passando, com 96,3% das linhas e 89,9% dos ramos nesses arquivos; nenhum arquivo alterado abaixo de 80% de ramos. Três testes do `CardScreen` estouram o tempo só com a suíte em paralelo e com cobertura, e passam sozinhos (8 de 8). `tsc`, ESLint e Stylelint limpos. **Manual:** o roteiro da seção 8 no navegador não foi executado e fica para a revisão. **Ajustes:** A-01 a A-05 e a decisão D-07 (embaralhar ou manter a ordem) |
