@@ -5,7 +5,7 @@
 | **ID** | SPEC-036 |
 | **Status** | Rascunho |
 | **Data de criação** | 11/10/2026 |
-| **Última revisão** | 11/10/2026 |
+| **Última revisão** | 12/10/2026 (decisões D-01 e D-03) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -72,7 +72,7 @@ O pedido do Tech Lead:
   - a correta aparece destacada;
   - a justificativa aparece, se houver.
 - A resposta trava (SPEC-035 D-02) e continua travada ao recarregar a página.
-- A ordem das alternativas segue a P-03.
+- As alternativas aparecem **embaralhadas** para o aluno, numa ordem diferente a cada vez que a questão é exibida, para ele não decorar a posição (D-03). A correta é reconhecida pelo identificador, então embaralhar não muda o resultado nem a resposta travada.
 
 **Componente de resposta:**
 
@@ -102,7 +102,7 @@ O pedido do Tech Lead:
 
   O gabarito só sai depois da resposta.
 - **RN-06 (resposta única):** a primeira resposta é definitiva e gravada em `exercise_progress.response`; a segunda recebe 409. A questão conta como concluída ao ser respondida (SPEC-035 RN-08, D-13).
-- **RN-07 (sem gabarito para o aluno):** a lista de questões do aluno traz as alternativas, com identificador e texto, e nunca a correta nem a justificativa.
+- **RN-07 (sem gabarito para o aluno):** a lista de questões do aluno traz as alternativas, com identificador e texto, **embaralhadas pelo servidor** (D-03), e nunca a correta nem a justificativa.
 - **RN-08 (avaliação):** valem SPEC-035 RN-07 (troca livre até finalizar, correção no servidor ao finalizar) e RN-13 (dicas na prova).
 - **RN-09 (exercício do card):** o item do bloco `EXERCISES` aceita o tipo com os mesmos campos e limites. Como o verdadeiro ou falso do card, é conferido na tela, e a trava fica no navegador (SPEC-035 D-14).
 - **RN-10 (MCP):** as ferramentas aceitam o tipo, com `choices` e `correctChoice` (SPEC-035 RN-15).
@@ -222,11 +222,18 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 
 ## 10. Pendências para aprovação
 
+### Decisões do Tech Lead (12/10/2026)
+
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | A professora marca a alternativa correta, e o sistema a guarda pelo identificador da alternativa, não pela posição (resolve P-01) |
+| D-03 | O sistema embaralha a ordem das alternativas para o aluno, para ele não ver sempre a mesma ordem: no exercício, a cada vez que a questão é exibida; na avaliação, também embaralhada, com a ordem por tentativa definida na spec de avaliação (resolve P-03, no lugar da recomendação de manter a ordem da professora no exercício) |
+
+### Pendências
+
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
-| P-01 | Gabarito por posição (como veio da carga inicial) ou por identificador estável da alternativa | Por identificador: reordenar e embaralhar não mudam a correta, e a resposta gravada continua válida se a docente mudar a ordem |
 | P-02 | A alternativa pode ter formatação ou imagem? | Só texto simples nesta spec, até 500 caracteres; imagens ficam na descrição. Alternativa com imagem pode vir depois sem mudar o formato (o objeto da alternativa ganha campos) |
-| P-03 | A ordem das alternativas para o aluno: a da docente ou embaralhada? | No exercício, a ordem da docente. Na avaliação, embaralhada por aluno (para dificultar cola), decidido na spec de avaliação |
 | P-04 | As 30 questões de escolha única da carga inicial (módulo de simulados), com alternativas como lista de textos e gabarito por posição | Uma migração converte para o formato novo (gera os identificadores e aponta o gabarito para a mesma alternativa), e elas passam a ser editáveis no banco do módulo de simulados |
 | P-05 | Também nos exercícios do card? | Sim, como o verdadeiro ou falso (SPEC-035 D-08), conferida na tela e travada no navegador |
 | P-06 | Nome no glossário | "Questão de escolha única" (`THEORETICAL_SINGLE`) e "Alternativa" (`Choice`, campo `choices`), com "Alternativa correta" (`correctChoice`) |
@@ -238,3 +245,4 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 11/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (escolha única, de 2 a 7 alternativas com 1 correta, nível, dicas, descrição com imagens, mesmo comportamento e animação do verdadeiro ou falso). Pendências P-01 a P-06 |
+| 12/10/2026 | Tech Lead | P-01: a professora marca a correta e o sistema a guarda pelo identificador (D-01). P-03: as alternativas aparecem embaralhadas para o aluno (D-03). Seguem abertas P-02, P-04, P-05 e P-06 |
