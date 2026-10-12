@@ -71,7 +71,7 @@ O pedido do Tech Lead:
   - a correta aparece destacada;
   - a justificativa aparece, se houver.
 - A resposta trava (SPEC-035 D-02) e continua travada ao recarregar a página.
-- As alternativas aparecem **embaralhadas** para o aluno, numa ordem diferente a cada vez que a questão é exibida, para ele não decorar a posição (D-03). A correta é reconhecida pelo identificador, então embaralhar não muda o resultado nem a resposta travada.
+- A professora escolhe, em cada questão, entre **embaralhar as alternativas** (o padrão) ou **manter a ordem** em que as escreveu (D-07). Embaralhadas, elas aparecem numa ordem diferente a cada vez que a questão é exibida, para o aluno não decorar a posição (D-03). A correta é reconhecida pelo identificador, então embaralhar não muda o resultado nem a resposta travada.
 
 **Componente de resposta:**
 
@@ -101,7 +101,8 @@ O pedido do Tech Lead:
 
   O gabarito só sai depois da resposta.
 - **RN-06 (resposta única):** a primeira resposta é definitiva e gravada em `exercise_progress.response`; a segunda recebe 409. A questão conta como concluída ao ser respondida (SPEC-035 RN-08, D-13).
-- **RN-07 (sem gabarito para o aluno):** a lista de questões do aluno traz as alternativas, com identificador e texto, **embaralhadas pelo servidor** (D-03), e nunca a correta nem a justificativa.
+- **RN-07 (sem gabarito para o aluno):** a lista de questões do aluno traz as alternativas, com identificador e conteúdo, embaralhadas pelo servidor quando a questão pede (D-03, D-07) ou na ordem da professora, e nunca a correta nem a justificativa.
+- **RN-12 (ordem das alternativas):** cada questão de escolha única tem a opção `shuffleChoices` (padrão verdadeiro). No card, a tela embaralha ao exibir quando o item pede.
 - **RN-08 (avaliação):** valem SPEC-035 RN-07 (troca livre até finalizar, correção no servidor ao finalizar) e RN-13 (dicas na prova).
 - **RN-09 (exercício do card):** o item do bloco `EXERCISES` aceita o tipo com os mesmos campos e limites. Como o verdadeiro ou falso do card, é conferido na tela, e a trava fica no navegador (SPEC-035 D-14).
 - **RN-10 (MCP):** as ferramentas aceitam o tipo, com `choices` e `correctChoice` (SPEC-035 RN-15).
@@ -120,9 +121,11 @@ Nenhuma tabela nova. Campos de `questions` para `THEORETICAL_SINGLE`:
 
 A restrição `questions_objective_fields` (SPEC-035 A-02) passa a exigir, para `THEORETICAL_SINGLE` publicada, alternativas e gabarito; um rascunho pode não ter gabarito.
 
+`questions` ganha a coluna `shuffle_choices` (booleano, obrigatório, padrão verdadeiro): embaralhar as alternativas para o aluno (D-07). As questões convertidas da carga inicial ficam com o padrão.
+
 `exercise_progress.response` guarda `{ "choice": "<id>" }`.
 
-No bloco `EXERCISES`, o item ganha `choices` e `correctChoice`, só para este tipo.
+No bloco `EXERCISES`, o item ganha `choices`, `correctChoice` e `shuffleChoices` (padrão verdadeiro), só para este tipo.
 
 ## 5. Contrato de API (API Contract)
 
@@ -134,6 +137,7 @@ No bloco `EXERCISES`, o item ganha `choices` e `correctChoice`, só para este ti
 | :--- | :--- | :--- | :--- |
 | `choices` | lista de { `id`, `html` } | Para publicar | De 2 a 7. Uma alternativa sem `id` ganha um no servidor. HTML filtrado, até 5.000 caracteres, com texto ou imagem |
 | `correctChoice` | texto ou nulo | Para publicar | `id` de uma das alternativas |
+| `shuffleChoices` | booleano | Não | Padrão verdadeiro: embaralha as alternativas para o aluno; falso mantém a ordem da professora (D-07) |
 | `explanation` | HTML | Não | Como no verdadeiro ou falso |
 
 A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`choices[2].text`, `correctChoice`...).
@@ -164,6 +168,7 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 - [ ] **CA-01** (evento): QUANDO a docente cria uma questão, O SISTEMA DEVE oferecer "Escolha única" entre os tipos, no banco e no card.
 - [ ] **CA-02** (ubíquo): A página da questão de escolha única DEVE ter título, nível, descrição com imagens, dicas, de 2 a 7 alternativas com uma marcada como correta e justificativa, sem solução, condições, ambiente nem dependência.
 - [ ] **CA-03** (indesejado): SE a docente tentar ter menos de 2 ou mais de 7 alternativas, ENTÃO a tela NÃO DEVE permitir, e o servidor DEVE recusar com 400.
+- [ ] **CA-16** (opcional): ONDE a questão estiver marcada para manter a ordem, O SISTEMA DEVE mostrar as alternativas na ordem da professora; ONDE estiver marcada para embaralhar (o padrão), DEVE mostrá-las embaralhadas (D-07).
 - [ ] **CA-15** (ubíquo): Cada alternativa DEVE ser escrita no editor de texto, com formatação, comandos e imagens, e o aluno DEVE vê-la com essa formatação (D-02).
 - [ ] **CA-04** (indesejado): SE a docente publicar sem descrição, com alternativa vazia ou repetida, ou sem a correta marcada, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
 - [ ] **CA-05** (evento): QUANDO a docente reordena as alternativas, O SISTEMA DEVE manter a mesma alternativa como correta (RN-02).
@@ -237,6 +242,10 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 
 Reforço do Tech Lead: a questão tem **somente uma** alternativa correta; as demais são erradas.
 
+| ID | Decisão |
+| :--- | :--- |
+| D-07 | Pedido do Tech Lead durante a implementação (12/10/2026): a questão tem a opção de embaralhar as alternativas ou manter a ordem da professora. O padrão é embaralhar, como a D-03 |
+
 ### Pendências
 
 Nenhuma em aberto. P-01 a P-06 viraram as decisões D-01 a D-06.
@@ -252,3 +261,4 @@ Nenhuma em aberto. P-01 a P-06 viraram as decisões D-01 a D-06.
 | 12/10/2026 | Tech Lead | P-02: alternativa com o editor de texto (texto, comandos, HTML e imagens) (D-02). P-04: conversão das 30 questões da carga inicial (D-04). Seguem abertas P-05 e P-06 |
 | 12/10/2026 | Tech Lead | P-05 e P-06 aceitas nas recomendações (D-05, D-06), com o reforço de que há somente uma alternativa correta. Seção 10 sem pendências |
 | 12/10/2026 | Tech Lead | Aprovada ("eu aprovo"). Status: `Aprovada` |
+| 12/10/2026 | Tech Lead | Durante a implementação: opção por questão de embaralhar ou manter a ordem das alternativas (D-07, CA-16, RN-12, coluna `shuffle_choices`) |
