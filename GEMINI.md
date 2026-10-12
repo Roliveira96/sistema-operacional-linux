@@ -6,4 +6,4 @@ Este arquivo é apenas um ponteiro. A fonte única de verdade é:
 
 Leia esse arquivo inteiro antes de qualquer ação e siga a ordem de leitura que ele define (`specs/ARCHITECTURE.md`, `specs/GLOSSARY.md` e a spec da tarefa em `specs/features/`). Não acrescente regras aqui: toda regra fica em `specs/`.
 
-> Lembrete: toda entrega de código exige testes automatizados no mesmo commit (regra completa em `specs/AI_INSTRUCTIONS.md`).
+> Lembrete: os testes automatizados vêm **antes** da implementação, num commit `test(...)` com eles vermelhos, e depois o código que os faz passar (regra completa em `specs/AI_INSTRUCTIONS.md`, seção 4.0).
