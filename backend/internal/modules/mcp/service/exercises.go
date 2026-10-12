@@ -16,32 +16,42 @@ import (
 // ExerciseView is an exercise of the bank of a module.
 type ExerciseView struct {
 	ID         uuid.UUID       `json:"id"`
+	Kind       string          `json:"kind"`
 	Title      string          `json:"title"`
 	Difficulty string          `json:"difficulty"`
 	Statement  string          `json:"statement"`
 	Hints      json.RawMessage `json:"hints"`
 	Solution   json.RawMessage `json:"solution"`
 	Conditions json.RawMessage `json:"conditions"`
-	Practice   bool            `json:"practice"`
-	Assessment bool            `json:"assessment"`
-	Exclusive  bool            `json:"exclusive"`
-	DependsOn  *uuid.UUID      `json:"dependsOn"`
-	Status     string          `json:"status"`
-	Position   int             `json:"position"`
-	Mandatory  bool            `json:"mandatory"`
-	UpdatedAt  time.Time       `json:"updatedAt"`
+	// CorrectAnswer and Explanation belong to a true or false question (SPEC-035 RN-15).
+	CorrectAnswer *bool      `json:"correctAnswer,omitempty"`
+	Explanation   *string    `json:"explanation,omitempty"`
+	Practice      bool       `json:"practice"`
+	Assessment    bool       `json:"assessment"`
+	Exclusive     bool       `json:"exclusive"`
+	DependsOn     *uuid.UUID `json:"dependsOn"`
+	Status        string     `json:"status"`
+	Position      int        `json:"position"`
+	Mandatory     bool       `json:"mandatory"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
 }
 
 func exerciseView(r contentservice.ExerciseRecord) ExerciseView {
 	l := r.Links()
 	v := ExerciseView{
-		ID: r.ID, Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: rawOrEmptyList(r.Hints), Conditions: rawOrEmptyList(r.EndConditions),
+		ID: r.ID, Kind: r.Kind, Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: rawOrEmptyList(r.Hints), Conditions: rawOrEmptyList(r.EndConditions),
 		Practice: l.Practice, Assessment: l.Assessment, Exclusive: l.Exclusive, DependsOn: r.DependsOn, Status: r.Status,
 		Position: r.Position, Mandatory: r.Mandatory, UpdatedAt: r.UpdatedAt, Solution: json.RawMessage("null"),
 	}
 	// The solution of what came from the initial load is in another format and is not shown.
 	if len(r.EndConditions) > 0 && len(r.ReferenceSolution) > 0 {
 		v.Solution = r.ReferenceSolution
+	}
+	if correct, ok := contentdomain.BooleanAnswer(r.AnswerKey); ok && r.Kind == contentdomain.KindTheoreticalBoolean {
+		v.CorrectAnswer = &correct
+	}
+	if r.Kind == contentdomain.KindTheoreticalBoolean {
+		v.Explanation = r.Explanation
 	}
 	return v
 }
@@ -68,14 +78,18 @@ func (l LinksInput) links() contentservice.ExerciseLinks {
 // CreateModuleExerciseInput creates an exercise.
 type CreateModuleExerciseInput struct {
 	ModuleID   string          `json:"moduleId"`
+	Kind       string          `json:"kind,omitempty"`
 	Title      string          `json:"title"`
 	Difficulty string          `json:"difficulty"`
 	Statement  string          `json:"statement,omitempty"`
 	Hints      json.RawMessage `json:"hints,omitempty"`
 	Solution   json.RawMessage `json:"solution,omitempty"`
 	Conditions json.RawMessage `json:"conditions,omitempty"`
-	DependsOn  *string         `json:"dependsOn,omitempty"`
-	Links      LinksInput      `json:"links"`
+	// CorrectAnswer and Explanation are for a THEORETICAL_BOOLEAN question (SPEC-035 RN-15).
+	CorrectAnswer *bool      `json:"correctAnswer,omitempty"`
+	Explanation   string     `json:"explanation,omitempty"`
+	DependsOn     *string    `json:"dependsOn,omitempty"`
+	Links         LinksInput `json:"links"`
 }
 
 // ExerciseResult is an exercise after a change.
@@ -101,7 +115,8 @@ func (s *Service) CreateModuleExercise(ctx context.Context, c Caller, in CreateM
 		dependsOn = &d
 	}
 	rec, err := s.exercises.Create(ctx, c.actor(), id, contentdomain.ExerciseInput{
-		Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution, Conditions: in.Conditions,
+		Kind: in.Kind, Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution, Conditions: in.Conditions,
+		CorrectAnswer: in.CorrectAnswer, Explanation: in.Explanation, HasDependency: dependsOn != nil,
 	}, dependsOn, in.Links.links())
 	if err != nil {
 		return ExerciseResult{}, fail(err, fieldContext{root: rootOf(in)})
@@ -132,10 +147,13 @@ type UpdateModuleExerciseInput struct {
 	Hints      json.RawMessage `json:"hints,omitempty"`
 	Solution   json.RawMessage `json:"solution,omitempty"`
 	Conditions json.RawMessage `json:"conditions,omitempty"`
-	DependsOn  json.RawMessage `json:"dependsOn,omitempty"`
-	Links      *LinksInput     `json:"links,omitempty"`
-	UpdatedAt  *string         `json:"updatedAt,omitempty"`
-	Order      []OrderEntry    `json:"order,omitempty"`
+	// CorrectAnswer (null clears it) and Explanation are for a THEORETICAL_BOOLEAN question (SPEC-035 RN-15).
+	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
+	Explanation   *string         `json:"explanation,omitempty"`
+	DependsOn     json.RawMessage `json:"dependsOn,omitempty"`
+	Links         *LinksInput     `json:"links,omitempty"`
+	UpdatedAt     *string         `json:"updatedAt,omitempty"`
+	Order         []OrderEntry    `json:"order,omitempty"`
 }
 
 // UpdateModuleExerciseResult is the outcome: the exercise, or the fact it was deleted or the trail reordered.
@@ -203,7 +221,7 @@ func (s *Service) UpdateModuleExercise(ctx context.Context, c Caller, in UpdateM
 	case OpUpdate:
 		rec, terr := s.patchExercise(ctx, c, id, exID, exercisePatch{
 			Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution,
-			Conditions: in.Conditions, DependsOn: in.DependsOn, UpdatedAt: in.UpdatedAt,
+			Conditions: in.Conditions, CorrectAnswer: in.CorrectAnswer, Explanation: in.Explanation, DependsOn: in.DependsOn, UpdatedAt: in.UpdatedAt,
 		}, fc)
 		if terr != nil {
 			return UpdateModuleExerciseResult{}, terr
@@ -218,6 +236,8 @@ func (s *Service) UpdateModuleExercise(ctx context.Context, c Caller, in UpdateM
 type exercisePatch struct {
 	Title, Difficulty, Statement *string
 	Hints, Solution, Conditions  json.RawMessage
+	CorrectAnswer                json.RawMessage
+	Explanation                  *string
 	DependsOn                    json.RawMessage
 	UpdatedAt                    *string
 }
@@ -229,7 +249,26 @@ func (s *Service) patchExercise(ctx context.Context, c Caller, moduleID, exID uu
 	if err != nil {
 		return contentservice.ExerciseRecord{}, fail(err, fc)
 	}
-	input := contentdomain.ExerciseInput{Title: cur.Title, Difficulty: cur.Difficulty, Statement: cur.Statement, Hints: cur.Hints, Conditions: cur.EndConditions}
+	input := contentdomain.ExerciseInput{Kind: cur.Kind, Title: cur.Title, Difficulty: cur.Difficulty, Statement: cur.Statement, Hints: cur.Hints, Conditions: cur.EndConditions}
+	if correct, ok := contentdomain.BooleanAnswer(cur.AnswerKey); ok {
+		input.CorrectAnswer = &correct
+	}
+	if cur.Explanation != nil {
+		input.Explanation = *cur.Explanation
+	}
+	if len(p.CorrectAnswer) > 0 {
+		input.CorrectAnswer = nil
+		if !isNull(p.CorrectAnswer) {
+			var correct bool
+			if err := json.Unmarshal(p.CorrectAnswer, &correct); err != nil {
+				return contentservice.ExerciseRecord{}, invalid("correctAnswer", string(p.CorrectAnswer), "true, false or null")
+			}
+			input.CorrectAnswer = &correct
+		}
+	}
+	if p.Explanation != nil {
+		input.Explanation = *p.Explanation
+	}
 	// The solution of what came from the initial load is in another format and is not carried over.
 	if len(cur.EndConditions) > 0 {
 		input.Solution = cur.ReferenceSolution
@@ -267,6 +306,7 @@ func (s *Service) patchExercise(ctx context.Context, c Caller, moduleID, exID uu
 			dependsOn = &d
 		}
 	}
+	input.HasDependency = dependsOn != nil
 	var expected time.Time
 	force := p.UpdatedAt == nil
 	if !force {

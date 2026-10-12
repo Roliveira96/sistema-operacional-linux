@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/repository"
@@ -272,4 +273,51 @@ func TestExerciseBankForTheStudent(t *testing.T) {
 		titles[i] = q.Title
 	}
 	assert.Equal(t, []string{"C", "A"}, titles, "published and in the practice, in the order of the trail")
+}
+
+// Covers SPEC-035 RN-01, RN-03, RN-05 and CA-04 against PostgreSQL: a true or false question goes through the bank with the service
+// (created as a draft without an answer, saved with it, linked to the practice and published), and the bank lists it with the
+// practical ones. A dependency on it, or from it, is refused.
+func TestExerciseBankTrueFalse(t *testing.T) {
+	f := newBank(t)
+	practical := f.create(t, "Practical", practice)
+	svc := service.NewExercises(f.repo, zap.NewNop())
+	who := service.Actor{UserID: f.teacher.ID, Role: "TEACHER"}
+
+	draft, err := svc.Create(f.ctx, who, f.module.ID, domain.ExerciseInput{Kind: domain.KindTheoreticalBoolean, Title: "TF", Difficulty: "EASY"}, nil, practice)
+	require.NoError(t, err, "a draft may miss the answer")
+	assert.Equal(t, domain.KindTheoreticalBoolean, draft.Kind)
+	assert.Equal(t, 2, draft.Position, "it enters the trail")
+	assert.Nil(t, draft.AnswerKey)
+	assert.Nil(t, draft.ValidationConditions)
+
+	_, err = svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	assert.ErrorIs(t, err, service.ErrExerciseIncomplete)
+
+	yes := true
+	saved, err := svc.Update(f.ctx, who, f.module.ID, draft.ID, domain.ExerciseInput{
+		Title: "TF", Difficulty: "MEDIUM", Statement: "<p>ls lists files.</p>", CorrectAnswer: &yes, Explanation: "<p>It does.</p>",
+	}, nil, draft.UpdatedAt, false)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"correct":true}`, string(saved.AnswerKey))
+	require.NotNil(t, saved.Explanation)
+	assert.Equal(t, "<p>It does.</p>", *saved.Explanation)
+
+	published, err := svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StatusPublished, published.Status)
+	assert.Equal(t, []string{"Practical", "TF"}, f.titles(t))
+
+	ok, err := f.repo.ValidDependency(f.ctx, f.module.ID, &practical.ID, draft.ID)
+	require.NoError(t, err)
+	assert.False(t, ok, "a true or false question is never a predecessor")
+	err = f.db.Conn(f.ctx).Exec("UPDATE questions SET depends_on = ? WHERE id = ?", practical.ID, draft.ID).Error
+	assert.Error(t, err, "nor does it depend on another one")
+
+	// A draft true or false question cannot be published without its answer even by a direct write.
+	err = f.db.Conn(f.ctx).Exec("UPDATE questions SET answer_key = NULL WHERE id = ?", draft.ID).Error
+	assert.Error(t, err)
+
+	require.NoError(t, svc.Delete(f.ctx, who, f.module.ID, draft.ID))
+	assert.Equal(t, []string{"Practical"}, f.titles(t))
 }

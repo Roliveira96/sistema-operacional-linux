@@ -309,6 +309,11 @@ func publicView(q domain.Question, all map[uuid.UUID]domain.Question) PublicQues
 	if q.Kind != domain.KindPractical && q.Kind != domain.KindDiscursive {
 		p.Choices = q.Choices
 	}
+	// A question of the bank without a terminal shows its tips like an exercise of the editor, and never its answer key nor its
+	// justification, which only come after the student answers (SPEC-035 RN-06, RN-10).
+	if q.Kind == domain.KindTheoreticalBoolean {
+		p.Hint = hintsHTML(q.Hints)
+	}
 	return p
 }
 
@@ -414,6 +419,25 @@ func (r *Reader) PracticeItem(ctx context.Context, questionID uuid.UUID, v Viewe
 		return PracticeItem{}, err
 	}
 	return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Snapshot: scenario.Snapshot, Conditions: conditions}, nil
+}
+
+// ExerciseQuestion returns a published question of the practice of a module, of any kind of the bank, that the viewer can access
+// (SPEC-035 RN-06). It carries the answer key, so it is for grading on the server only.
+func (r *Reader) ExerciseQuestion(ctx context.Context, questionID uuid.UUID, v Viewer) (domain.Question, error) {
+	q, err := r.store.FindQuestion(ctx, questionID)
+	if errors.Is(err, ErrNotFound) {
+		return domain.Question{}, ErrQuestionNotFound
+	}
+	if err != nil {
+		return domain.Question{}, err
+	}
+	if _, ok := domain.TypeOf(q.Kind); !ok || q.Usage != domain.UsageExercise || q.Status != domain.StatusPublished || q.ExclusiveAssessment {
+		return domain.Question{}, ErrQuestionNotFound
+	}
+	if _, err := r.module(ctx, q.ModuleID, v); err != nil {
+		return domain.Question{}, err
+	}
+	return q, nil
 }
 
 // TopicScenario returns the prepared machine of the module topic (SPEC-016

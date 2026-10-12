@@ -409,3 +409,66 @@ func TestReader_ExerciseOfTheModuleForTheStudent(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"steps":[{"command":"mkdir /rascunho"}]}`, string(draft.BankSetup))
 }
+
+func trueFalseQuestion() domain.Question {
+	why := "<p>It is recursive.</p>"
+	return domain.Question{ID: uuid.New(), ModuleID: uuid.New(), Kind: domain.KindTheoreticalBoolean, Usage: domain.UsageExercise,
+		Status: domain.StatusPublished, Title: "rm -r", Statement: "<p>rm -r removes non-empty directories.</p>",
+		Hints: json.RawMessage(`[{"text":"Think of -r","command":"rm -r /a"}]`), AnswerKey: json.RawMessage(`{"correct":true}`), Explanation: &why}
+}
+
+// Covers SPEC-035 RN-10 and CA-08: the student sees the kind and the tips, never the answer key nor the justification.
+func TestReader_TrueFalseForTheStudent(t *testing.T) {
+	store := &fakeReadStore{questions: []domain.Question{trueFalseQuestion()}}
+	qs, err := NewReader(&fakeAccess{}, store).Questions(context.Background(), uuid.New(), domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	require.Len(t, qs, 1)
+	assert.Equal(t, domain.KindTheoreticalBoolean, qs[0].Kind)
+	require.NotNil(t, qs[0].Hint)
+	assert.Contains(t, *qs[0].Hint, "Think of -r")
+	assert.False(t, qs[0].Layered, "no machine for a question without a terminal")
+	raw, err := json.Marshal(qs)
+	require.NoError(t, err)
+	for _, secret := range []string{"correct", "recursive", "answerKey", "explanation"} {
+		assert.NotContains(t, string(raw), secret)
+	}
+}
+
+// Covers SPEC-035 RN-06 and CA-12 (content side): a published question of the practice of any kind of the bank, never one of
+// the assessment, a draft or a kind outside the bank.
+func TestReader_ExerciseQuestion(t *testing.T) {
+	q := trueFalseQuestion()
+	got, err := NewReader(&fakeAccess{}, &fakeReadStore{question: &q}).ExerciseQuestion(context.Background(), q.ID, Viewer{})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"correct":true}`, string(got.AnswerKey), "the key is for grading on the server")
+
+	p := practical()
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{question: &p}).ExerciseQuestion(context.Background(), p.ID, Viewer{})
+	require.NoError(t, err)
+
+	for name, mutate := range map[string]func(*domain.Question){
+		"assessment": func(q *domain.Question) { q.Usage = domain.UsageAssessment },
+		"exclusive":  func(q *domain.Question) { q.ExclusiveAssessment = true },
+		"draft":      func(q *domain.Question) { q.Status = domain.StatusDraft },
+		"other kind": func(q *domain.Question) { q.Kind = domain.KindTheoreticalSingle },
+	} {
+		bad := trueFalseQuestion()
+		mutate(&bad)
+		_, err := NewReader(&fakeAccess{}, &fakeReadStore{question: &bad}).ExerciseQuestion(context.Background(), bad.ID, Viewer{})
+		assert.ErrorIs(t, err, ErrQuestionNotFound, name)
+	}
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{}).ExerciseQuestion(context.Background(), uuid.New(), Viewer{})
+	assert.ErrorIs(t, err, ErrQuestionNotFound)
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{findErr: errors.New("db down")}).ExerciseQuestion(context.Background(), q.ID, Viewer{})
+	assert.EqualError(t, err, "db down")
+	_, err = NewReader(&fakeAccess{err: cmdomain.ErrForbidden}, &fakeReadStore{question: &q}).ExerciseQuestion(context.Background(), q.ID, Viewer{})
+	assert.ErrorIs(t, err, ErrAuthRequired)
+}
+
+// A true or false question is never in the batch check of the machine (SPEC-035 CA-14, server side).
+func TestModulePracticeItemsSkipTrueFalse(t *testing.T) {
+	store := &fakeReadStore{questions: []domain.Question{trueFalseQuestion()}}
+	items, err := NewReader(&fakeAccess{}, store).ModulePracticeItems(context.Background(), uuid.New(), Viewer{})
+	require.NoError(t, err)
+	assert.Empty(t, items)
+}

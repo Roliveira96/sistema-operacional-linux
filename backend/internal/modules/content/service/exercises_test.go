@@ -182,7 +182,7 @@ func TestExercises_UpdateGuard(t *testing.T) {
 // Covers SPEC-023 RN-04, 11.1: links never remove an exercise from the bank, an exclusive one is in the assessment only, and an
 // exercise that nobody could finish cannot be published.
 func TestExercises_Links(t *testing.T) {
-	store := &fakeExerciseStore{owner: owner.UserID, record: ExerciseRecord{Question: domain.Question{ValidationConditions: json.RawMessage(`[]`)}}}
+	store := &fakeExerciseStore{owner: owner.UserID, record: ExerciseRecord{Question: domain.Question{Kind: domain.KindPractical, ValidationConditions: json.RawMessage(`[]`)}}}
 	svc := exerciseService(store)
 	ctx := context.Background()
 	both := ExerciseLinks{Practice: true, Assessment: true}
@@ -226,4 +226,91 @@ func TestExercises_BankSetup(t *testing.T) {
 	require.True(t, errors.As(err, &perr))
 	assert.Equal(t, "bankSetup.steps[0].command", perr.Fields[0].Field)
 	assert.Equal(t, 2, store.saveCalls, "nothing was written for the invalid one")
+}
+
+func trueFalseInput(correct *bool) domain.ExerciseInput {
+	return domain.ExerciseInput{
+		Kind: domain.KindTheoreticalBoolean, Title: "rm -r", Difficulty: "EASY", Statement: "<p>rm -r removes non-empty directories.</p>",
+		Hints: json.RawMessage(`[{"text":"Think of -r"}]`), CorrectAnswer: correct, Explanation: "<p>It is recursive.</p>",
+	}
+}
+
+// Covers SPEC-035 RN-01, RN-03 and CA-02: a true or false question is created in the bank with its answer key and justification,
+// and without anything of the terminal.
+func TestExercises_CreateTrueFalse(t *testing.T) {
+	store := &fakeExerciseStore{owner: owner.UserID}
+	svc := exerciseService(store)
+	yes := true
+	_, err := svc.Create(context.Background(), owner, module, trueFalseInput(&yes), nil, ExerciseLinks{Practice: true})
+	require.NoError(t, err)
+	q := store.created
+	require.NotNil(t, q)
+	assert.Equal(t, domain.KindTheoreticalBoolean, q.Kind)
+	assert.Equal(t, domain.UsageExercise, q.Usage, "it enters the trail like a practical one (RN-05)")
+	assert.JSONEq(t, `{"correct":true}`, string(q.AnswerKey))
+	require.NotNil(t, q.Explanation)
+	assert.Equal(t, "<p>It is recursive.</p>", *q.Explanation)
+	assert.Nil(t, q.ValidationConditions, "no conditions for a question without a terminal")
+	assert.Nil(t, q.EndConditions)
+	assert.Nil(t, q.ReferenceSolution)
+
+	// CA-05: no dependency for a true or false question.
+	store.validDependency = true
+	before := uuid.New()
+	in := trueFalseInput(&yes)
+	in.HasDependency = true
+	_, err = svc.Create(context.Background(), owner, module, in, &before, ExerciseLinks{})
+	var perr *domain.PayloadError
+	require.True(t, errors.As(err, &perr))
+	assert.Equal(t, "dependsOn", perr.Fields[0].Field)
+}
+
+// Covers SPEC-035 5.1: the kind is chosen when the question is created and never changes.
+func TestExercises_UpdateKeepsTheKind(t *testing.T) {
+	store := &fakeExerciseStore{owner: owner.UserID, record: ExerciseRecord{Question: domain.Question{Kind: domain.KindTheoreticalBoolean}}}
+	svc := exerciseService(store)
+	ctx := context.Background()
+	no := false
+
+	in := trueFalseInput(&no)
+	in.Kind = ""
+	_, err := svc.Update(ctx, owner, module, uuid.New(), in, nil, time.Now(), true)
+	require.NoError(t, err, "an empty kind keeps the stored one")
+	assert.Equal(t, domain.KindTheoreticalBoolean, store.updated.Exercise.Kind)
+	assert.JSONEq(t, `{"correct":false}`, string(store.updated.Exercise.AnswerKey))
+	assert.Nil(t, store.updated.Catalog)
+
+	_, err = svc.Update(ctx, owner, module, uuid.New(), goodInput(), nil, time.Now(), true)
+	var perr *domain.PayloadError
+	require.True(t, errors.As(err, &perr), "a practical body on a true or false question is checked as true or false")
+	assert.Equal(t, "conditions", perr.Fields[0].Field)
+
+	in = goodInput()
+	in.Kind = domain.KindPractical
+	_, err = svc.Update(ctx, owner, module, uuid.New(), in, nil, time.Now(), true)
+	assert.ErrorIs(t, err, ErrKindChange)
+}
+
+// Covers SPEC-035 RN-04 and CA-04: a true or false question is published only with a description and a correct answer.
+func TestExercises_PublishTrueFalse(t *testing.T) {
+	store := &fakeExerciseStore{owner: owner.UserID, record: ExerciseRecord{Question: domain.Question{Kind: domain.KindTheoreticalBoolean, Statement: ""}}}
+	svc := exerciseService(store)
+	ctx := context.Background()
+
+	_, err := svc.SetLinks(ctx, owner, module, uuid.New(), ExerciseLinks{Practice: true}, domain.StatusPublished)
+	assert.ErrorIs(t, err, ErrExerciseIncomplete)
+	var incomplete *IncompleteError
+	require.True(t, errors.As(err, &incomplete))
+	assert.ElementsMatch(t, []domain.FieldError{{Field: "statement", Reason: "required"}, {Field: "correctAnswer", Reason: "required"}}, incomplete.Fields)
+	assert.Equal(t, ErrExerciseIncomplete.Error(), err.Error())
+
+	store.record.Statement = "<p>Yes?</p>"
+	store.record.AnswerKey = json.RawMessage(`{"correct":true}`)
+	_, err = svc.SetLinks(ctx, owner, module, uuid.New(), ExerciseLinks{Practice: true}, domain.StatusPublished)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StatusPublished, store.status)
+
+	store.record.Kind = domain.KindDiscursive
+	_, err = svc.SetLinks(ctx, owner, module, uuid.New(), ExerciseLinks{Practice: true}, domain.StatusPublished)
+	assert.ErrorIs(t, err, ErrExerciseNotFound, "a kind outside the bank is not one of its questions")
 }

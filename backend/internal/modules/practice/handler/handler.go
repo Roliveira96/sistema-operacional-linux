@@ -12,8 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	contentdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	contentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/service"
-	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/service"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/problem"
@@ -25,8 +25,8 @@ const MaxSnapshotBytes = 2 << 20
 // Service is the practice use-case port.
 type Service interface {
 	Scenario(ctx context.Context, questionID uuid.UUID, v contentservice.Viewer) (json.RawMessage, error)
-	Check(ctx context.Context, questionID uuid.UUID, v contentservice.Viewer, snapshot json.RawMessage) (service.CheckResult, error)
-	ModuleProgress(ctx context.Context, userID, moduleID uuid.UUID) ([]domain.Progress, error)
+	Submit(ctx context.Context, questionID uuid.UUID, v contentservice.Viewer, sub service.Submission) (service.CheckResult, error)
+	ModuleProgress(ctx context.Context, moduleID uuid.UUID, v contentservice.Viewer) ([]service.ProgressEntry, error)
 	TopicScenario(ctx context.Context, moduleID uuid.UUID, v contentservice.Viewer) (json.RawMessage, error)
 	CheckModule(ctx context.Context, moduleID uuid.UUID, v contentservice.Viewer, snapshot json.RawMessage) (service.ModuleCheckResult, error)
 }
@@ -75,11 +75,16 @@ func (h *Handler) scenario(c *gin.Context) {
 
 type checkRequest struct {
 	Snapshot json.RawMessage `json:"snapshot"`
+	// Response is the answer of the student to a question without a terminal (SPEC-035 5.2).
+	Response json.RawMessage `json:"response"`
 }
 
 type checkResponse struct {
 	Passed      bool       `json:"passed"`
 	CompletedAt *time.Time `json:"completedAt"`
+	// CorrectAnswer and Explanation come only for a question without a terminal, after the answer (SPEC-035 RN-06).
+	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
+	Explanation   *string         `json:"explanation,omitempty"`
 }
 
 func (h *Handler) check(c *gin.Context) {
@@ -92,16 +97,32 @@ func (h *Handler) check(c *gin.Context) {
 		fail(c, problem.TooManyRequests("Too many checks. Try again later.", int(math.Ceil(retry.Seconds()))))
 		return
 	}
-	snapshot, ok := readSnapshot(c)
+	body, ok := readBody(c)
 	if !ok {
 		return
 	}
-	result, err := h.svc.Check(c.Request.Context(), id, v, snapshot)
+	result, err := h.svc.Submit(c.Request.Context(), id, v, service.Submission{Snapshot: body.Snapshot, Response: body.Response})
 	if err != nil {
 		fail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, checkResponse{Passed: result.Passed, CompletedAt: result.CompletedAt})
+	c.JSON(http.StatusOK, checkResponse{Passed: result.Passed, CompletedAt: result.CompletedAt, CorrectAnswer: result.Correct, Explanation: result.Explanation})
+}
+
+// readBody decodes the body of a check, bounded to 2 MB; which field is required depends on the kind of the question.
+func readBody(c *gin.Context) (checkRequest, bool) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, MaxSnapshotBytes)
+	var body checkRequest
+	if err := json.NewDecoder(c.Request.Body).Decode(&body); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			fail(c, problem.PayloadTooLarge("The submitted state exceeds 2 MB."))
+			return checkRequest{}, false
+		}
+		fail(c, problem.Validation("The request body must be a JSON object with a snapshot or a response."))
+		return checkRequest{}, false
+	}
+	return body, true
 }
 
 // readSnapshot decodes the {"snapshot": ...} body, bounded to 2 MB.
@@ -171,6 +192,12 @@ type progressItem struct {
 	QuestionID  uuid.UUID  `json:"questionId"`
 	CompletedAt *time.Time `json:"completedAt"`
 	Attempts    int        `json:"attempts"`
+	// An answered question without a terminal brings the answer, its result, the correct answer and the justification, so the
+	// screen shows it locked (SPEC-035 5.2).
+	Response      json.RawMessage `json:"response,omitempty"`
+	Passed        *bool           `json:"passed,omitempty"`
+	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
+	Explanation   *string         `json:"explanation,omitempty"`
 }
 
 func (h *Handler) progress(c *gin.Context) {
@@ -179,7 +206,7 @@ func (h *Handler) progress(c *gin.Context) {
 		return
 	}
 	v := viewer(c)
-	rows, err := h.svc.ModuleProgress(c.Request.Context(), *v.UserID, moduleID)
+	rows, err := h.svc.ModuleProgress(c.Request.Context(), moduleID, v)
 	if err != nil {
 		fail(c, err)
 		return
@@ -187,10 +214,15 @@ func (h *Handler) progress(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"moduleId": moduleID, "items": progressItems(rows)})
 }
 
-func progressItems(rows []domain.Progress) []progressItem {
+func progressItems(rows []service.ProgressEntry) []progressItem {
 	items := make([]progressItem, len(rows))
 	for i, p := range rows {
 		items[i] = progressItem{QuestionID: p.QuestionID, CompletedAt: p.CompletedAt, Attempts: p.Attempts}
+		if p.Response != nil {
+			passed := p.LastPassed
+			items[i].Response, items[i].Passed = p.Response, &passed
+			items[i].CorrectAnswer, items[i].Explanation = p.Correct, p.Explanation
+		}
 	}
 	return items
 }
@@ -230,6 +262,12 @@ func fail(c *gin.Context, err error) {
 		err = problem.Unauthorized("not-authenticated", "Authentication is required.")
 	case errors.Is(err, contentservice.ErrForbidden):
 		err = problem.Forbidden("forbidden", "Access to this exercise is not allowed.")
+	case errors.Is(err, service.ErrAlreadyAnswered):
+		err = problem.Conflict("already-answered", "This question was already answered.")
+	case errors.Is(err, service.ErrSnapshotRequired):
+		err = problem.Validation("The snapshot is required.", problem.InvalidParam{Name: "snapshot", Reason: "required"})
+	case errors.Is(err, service.ErrResponseRequired), errors.Is(err, contentdomain.ErrInvalidResponse):
+		err = problem.Validation("The response must have a boolean value.", problem.InvalidParam{Name: "response", Reason: "required, with a boolean value"})
 	case errors.Is(err, service.ErrInvalidSnapshot):
 		err = problem.Validation("The snapshot is not a valid serialized machine.",
 			problem.InvalidParam{Name: "snapshot", Reason: "invalid format"})

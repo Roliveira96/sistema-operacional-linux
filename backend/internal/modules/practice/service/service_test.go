@@ -29,6 +29,20 @@ type fakeContent struct {
 	topic    json.RawMessage
 	items    []contentservice.PracticeItem
 	itemsErr error
+	// questions are the questions ExerciseQuestion finds; one missing there is not in the practice.
+	questions   map[uuid.UUID]contentdomain.Question
+	questionErr error
+}
+
+func (f fakeContent) ExerciseQuestion(_ context.Context, id uuid.UUID, _ contentservice.Viewer) (contentdomain.Question, error) {
+	if f.questionErr != nil {
+		return contentdomain.Question{}, f.questionErr
+	}
+	q, ok := f.questions[id]
+	if !ok {
+		return contentdomain.Question{}, contentservice.ErrQuestionNotFound
+	}
+	return q, nil
 }
 
 func (f fakeContent) TopicScenario(context.Context, uuid.UUID, contentservice.Viewer) (json.RawMessage, error) {
@@ -71,6 +85,18 @@ func (f *fakeStore) FindProgress(_ context.Context, user, question uuid.UUID) (d
 func (f *fakeStore) SaveProgress(_ context.Context, p *domain.Progress) error {
 	if f.saveErr != nil {
 		return f.saveErr
+	}
+	f.saves++
+	f.rows[[2]uuid.UUID{p.UserID, p.QuestionID}] = *p
+	return nil
+}
+
+func (f *fakeStore) SaveResponse(_ context.Context, p *domain.Progress) error {
+	if f.saveErr != nil {
+		return f.saveErr
+	}
+	if cur, ok := f.rows[[2]uuid.UUID{p.UserID, p.QuestionID}]; ok && cur.Response != nil {
+		return ErrAlreadyAnswered
 	}
 	f.saves++
 	f.rows[[2]uuid.UUID{p.UserID, p.QuestionID}] = *p
@@ -137,7 +163,7 @@ func TestCheckGradesAndRecordsProgress(t *testing.T) {
 	assert.NotNil(t, r.CompletedAt, "a later failure keeps the completion")
 	assert.Equal(t, 3, store.rows[[2]uuid.UUID{*v.UserID, q}].Attempts)
 
-	rows, err := svc.ModuleProgress(context.Background(), *v.UserID, uuid.New())
+	rows, err := svc.ModuleProgress(context.Background(), uuid.New(), v)
 	require.NoError(t, err)
 	assert.Len(t, rows, 1)
 }

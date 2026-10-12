@@ -38,6 +38,24 @@ func (r *Repository) SaveProgress(ctx context.Context, p *domain.Progress) error
 	return r.db.Conn(ctx).Save(p).Error
 }
 
+// SaveResponse stores the single answer of a question without a terminal (SPEC-035 RN-08). The row is written only while it
+// has no answer, so two requests at the same time keep the first one and the other gets ErrAlreadyAnswered.
+func (r *Repository) SaveResponse(ctx context.Context, p *domain.Progress) error {
+	res := r.db.Conn(ctx).Exec(`INSERT INTO exercise_progress (id, user_id, question_id, attempts, last_passed, completed_at, response, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, NOW(), NOW())
+        ON CONFLICT (user_id, question_id) DO UPDATE SET attempts = EXCLUDED.attempts, last_passed = EXCLUDED.last_passed,
+            completed_at = EXCLUDED.completed_at, response = EXCLUDED.response, updated_at = NOW()
+        WHERE exercise_progress.response IS NULL`,
+		p.ID, p.UserID, p.QuestionID, p.Attempts, p.LastPassed, p.CompletedAt, string(p.Response))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return service.ErrAlreadyAnswered
+	}
+	return nil
+}
+
 // ListModuleProgress returns the user's progress on the questions of a module.
 func (r *Repository) ListModuleProgress(ctx context.Context, userID, moduleID uuid.UUID) ([]domain.Progress, error) {
 	var out []domain.Progress

@@ -157,6 +157,11 @@ type exercise struct {
 	Solution    *setupPayload  `json:"solution,omitempty"`
 	// Conditions say when the exercise is done: how it ends matters, not how the student did it.
 	Conditions []exerciseCondition `json:"conditions,omitempty"`
+	// Kind is PRACTICAL (the default, also for an item without it) or THEORETICAL_BOOLEAN (SPEC-035 RN-14); a true or false item
+	// has its correct answer and justification instead of a solution and conditions.
+	Kind          string `json:"kind,omitempty"`
+	CorrectAnswer *bool  `json:"correctAnswer,omitempty"`
+	Explanation   string `json:"explanation,omitempty"`
 }
 
 // exercisesPayload is the group of exercises of a card, with the snapshot that is its base state (RN-04, RN-05).
@@ -288,10 +293,32 @@ func (c *checker) exercises(p *exercisesPayload) {
 				h.Command = c.text(fmt.Sprintf("items[%d].hints[%d].command", i, j), h.Command, MaxCommandLength, false)
 			}
 		}
-		if ex.Solution != nil {
-			c.setup(at("solution"), ex.Solution)
+		switch ex.Kind {
+		case "", KindPractical:
+			if ex.CorrectAnswer != nil {
+				c.fail(at("correctAnswer"), "only a true or false exercise has a correct answer")
+			}
+			if strings.TrimSpace(ex.Explanation) != "" {
+				c.fail(at("explanation"), "only a true or false exercise has a justification")
+			}
+			if ex.Solution != nil {
+				c.setup(at("solution"), ex.Solution)
+			}
+			c.conditions(fmt.Sprintf("items[%d].conditions", i), ex.Conditions)
+		case KindTheoreticalBoolean:
+			if ex.CorrectAnswer == nil {
+				c.fail(at("correctAnswer"), "required")
+			}
+			if ex.Solution != nil {
+				c.fail(at("solution"), "a true or false exercise has no solution in the terminal")
+			}
+			if len(ex.Conditions) > 0 {
+				c.fail(at("conditions"), "a true or false exercise has no conditions of finalization")
+			}
+			ex.Explanation = c.html(at("explanation"), ex.Explanation, false)
+		default:
+			c.fail(at("kind"), "must be PRACTICAL or THEORETICAL_BOOLEAN")
 		}
-		c.conditions(fmt.Sprintf("items[%d].conditions", i), ex.Conditions)
 	}
 	if p.Setup != nil {
 		c.setup("setup", p.Setup)

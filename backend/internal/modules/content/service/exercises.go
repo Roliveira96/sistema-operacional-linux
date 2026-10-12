@@ -25,9 +25,22 @@ var (
 	ErrInvalidLinks = errors.New("an exclusive exercise must be linked to the assessment and not to the practice")
 	// ErrInvalidStatus means the status is not DRAFT or PUBLISHED.
 	ErrInvalidStatus = errors.New("the status must be DRAFT or PUBLISHED")
+	// ErrKindChange means a save tried to change the kind of an existing question (SPEC-035 5.1).
+	ErrKindChange = errors.New("the kind of a question cannot change")
 	// ErrInvalidDependency means the exercise it depends on does not exist in the module, is itself, or would close a cycle.
 	ErrInvalidDependency = errors.New("an exercise can only depend on another exercise of the module, without cycles")
 )
+
+// IncompleteError lists what a question still needs to be published (SPEC-023 A-03, SPEC-035 RN-04); it is an
+// ErrExerciseIncomplete.
+type IncompleteError struct {
+	Fields []domain.FieldError
+}
+
+func (e *IncompleteError) Error() string { return ErrExerciseIncomplete.Error() }
+
+// Is makes errors.Is(err, ErrExerciseIncomplete) hold.
+func (e *IncompleteError) Is(target error) bool { return target == ErrExerciseIncomplete }
 
 // ExerciseLinks are the places of the module an exercise of the bank is linked to (SPEC-023 11.1): the practice (with a place
 // in the trail), the assessment, and whether it is exclusive to the assessment, which keeps it out of the practice.
@@ -64,7 +77,7 @@ func (r ExerciseRecord) Links() ExerciseLinks {
 // ExerciseUpdate is what saving an exercise writes.
 type ExerciseUpdate struct {
 	Exercise domain.NormalizedExercise
-	// Catalog is Exercise.Catalog as stored, the conditions that grade the student.
+	// Catalog is Exercise.Catalog as stored, the conditions that grade the student; nil for a kind without a terminal.
 	Catalog json.RawMessage
 	// DependsOn is the exercise whose recipe is built before this one (SPEC-023 D-16), nil for none.
 	DependsOn *uuid.UUID
@@ -168,6 +181,9 @@ func (s *Exercises) normalize(in domain.ExerciseInput) (domain.NormalizedExercis
 	if err != nil {
 		return domain.NormalizedExercise{}, nil, err
 	}
+	if !domain.UsesTerminal(clean.Kind) {
+		return clean, nil, nil
+	}
 	catalog, err := json.Marshal(clean.Catalog)
 	if err != nil {
 		return domain.NormalizedExercise{}, nil, err
@@ -209,9 +225,10 @@ func (s *Exercises) Create(ctx context.Context, who Actor, moduleID uuid.UUID, i
 	now := s.now()
 	by := who.UserID
 	q := domain.Question{
-		ID: uuid.New(), ModuleID: moduleID, Kind: domain.KindPractical, Usage: links.Usage(), InAssessment: links.Assessment, ExclusiveAssessment: links.Exclusive,
+		ID: uuid.New(), ModuleID: moduleID, Kind: clean.Kind, Usage: links.Usage(), InAssessment: links.Assessment, ExclusiveAssessment: links.Exclusive,
 		Difficulty: clean.Difficulty, Status: domain.StatusDraft, Title: clean.Title, Statement: clean.Statement, Hints: clean.Hints,
 		ReferenceSolution: clean.Solution, EndConditions: clean.EndConditions, ValidationConditions: catalog, DependsOn: dependsOn,
+		AnswerKey: clean.AnswerKey, Explanation: clean.Explanation,
 		CreatedBy: &by, UpdatedBy: &by, EditedByTeacherAt: &now, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := s.store.CreateExercise(ctx, &q); err != nil {
@@ -225,6 +242,16 @@ func (s *Exercises) Create(ctx context.Context, who Actor, moduleID uuid.UUID, i
 func (s *Exercises) Update(ctx context.Context, who Actor, moduleID, id uuid.UUID, in domain.ExerciseInput, dependsOn *uuid.UUID, expected time.Time, force bool) (ExerciseRecord, error) {
 	if err := s.authorize(ctx, moduleID, who); err != nil {
 		return ExerciseRecord{}, err
+	}
+	// The kind is chosen when the question is created and never changes (SPEC-035 5.1).
+	current, err := s.store.FindExercise(ctx, moduleID, id)
+	if err != nil {
+		return ExerciseRecord{}, err
+	}
+	if in.Kind == "" {
+		in.Kind = current.Kind
+	} else if in.Kind != current.Kind {
+		return ExerciseRecord{}, ErrKindChange
 	}
 	clean, catalog, err := s.normalize(in)
 	if err != nil {
@@ -246,8 +273,8 @@ func (s *Exercises) Update(ctx context.Context, who Actor, moduleID, id uuid.UUI
 }
 
 // SetLinks links an exercise to the practice and to the assessment, or unlinks it, and publishes it or takes it back to draft
-// (RN-03, RN-04). It never removes the exercise from the bank. Publishing needs at least one condition of finalization, or nobody
-// could finish it.
+// (RN-03, RN-04). It never removes the exercise from the bank. Publishing needs what the kind requires (SPEC-035 RN-04): a
+// practical exercise needs at least one condition of finalization, or nobody could finish it.
 func (s *Exercises) SetLinks(ctx context.Context, who Actor, moduleID, id uuid.UUID, links ExerciseLinks, status string) (ExerciseRecord, error) {
 	if status != domain.StatusDraft && status != domain.StatusPublished {
 		return ExerciseRecord{}, ErrInvalidStatus
@@ -263,8 +290,12 @@ func (s *Exercises) SetLinks(ctx context.Context, who Actor, moduleID, id uuid.U
 		if err != nil {
 			return ExerciseRecord{}, err
 		}
-		if len(current.ValidationConditions) == 0 || string(current.ValidationConditions) == "[]" || string(current.ValidationConditions) == "null" {
-			return ExerciseRecord{}, ErrExerciseIncomplete
+		kind, ok := domain.TypeOf(current.Kind)
+		if !ok {
+			return ExerciseRecord{}, ErrExerciseNotFound
+		}
+		if missing := kind.Missing(current.Question); len(missing) > 0 {
+			return ExerciseRecord{}, &IncompleteError{Fields: missing}
 		}
 	}
 	record, err := s.store.SetLinks(ctx, moduleID, id, links, status, s.now())

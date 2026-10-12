@@ -31,7 +31,7 @@ func (r exerciseRow) record() service.ExerciseRecord {
 	return rec
 }
 
-// exerciseQuery reads the practical questions of a module with the names of who created and changed them and their place in
+// exerciseQuery reads the questions of the bank of a module (the kinds of SPEC-035 RN-01) with the names of who created and changed them and their place in
 // the trail (SPEC-023 RN-01).
 func (r *Repository) exerciseQuery(ctx context.Context) *gorm.DB {
 	return r.db.Conn(ctx).Table("questions q").
@@ -40,7 +40,7 @@ func (r *Repository) exerciseQuery(ctx context.Context) *gorm.DB {
 		Joins("LEFT JOIN users cu ON cu.id = q.created_by").
 		Joins("LEFT JOIN users uu ON uu.id = q.updated_by").
 		Joins("LEFT JOIN module_exercise_items i ON i.exercise_id = q.id AND i.module_id = q.module_id").
-		Where("q.kind = ? AND q.deleted_at IS NULL", domain.KindPractical)
+		Where("q.kind IN ? AND q.deleted_at IS NULL", domain.BankKinds())
 }
 
 // ListExercises returns the exercises of the bank: the ones in the practice in the order of the trail, then the others.
@@ -95,7 +95,7 @@ func appendToTrail(conn *gorm.DB, moduleID, id uuid.UUID, now time.Time) error {
 // UpdateExercise writes the fields the teacher edits. expected guards against a concurrent change.
 func (r *Repository) UpdateExercise(ctx context.Context, moduleID, id uuid.UUID, upd service.ExerciseUpdate, expected *time.Time) (service.ExerciseRecord, error) {
 	e := upd.Exercise
-	q := r.db.Conn(ctx).Model(&domain.Question{}).Where("id = ? AND module_id = ? AND kind = ?", id, moduleID, domain.KindPractical)
+	q := r.db.Conn(ctx).Model(&domain.Question{}).Where("id = ? AND module_id = ? AND kind IN ?", id, moduleID, domain.BankKinds())
 	if expected != nil {
 		q = q.Where("updated_at = ?", expected.UTC())
 	}
@@ -105,7 +105,8 @@ func (r *Repository) UpdateExercise(ctx context.Context, moduleID, id uuid.UUID,
 	}
 	fields := map[string]any{
 		"title": e.Title, "difficulty": e.Difficulty, "statement": e.Statement, "hints": jsonOrNil(e.Hints),
-		"reference_solution": jsonOrNil(e.Solution), "end_conditions": jsonOrNil(e.EndConditions), "validation_conditions": string(upd.Catalog),
+		"reference_solution": jsonOrNil(e.Solution), "end_conditions": jsonOrNil(e.EndConditions), "validation_conditions": jsonOrNil(upd.Catalog),
+		"answer_key": jsonOrNil(e.AnswerKey), "explanation": e.Explanation,
 		"depends_on": dependsOn, "edited_by_teacher_at": upd.Now, "updated_at": upd.Now, "updated_by": upd.By,
 	}
 	res := q.Updates(fields)
@@ -148,7 +149,7 @@ func compactTrail(conn *gorm.DB, moduleID uuid.UUID) error {
 func (r *Repository) SetLinks(ctx context.Context, moduleID, id uuid.UUID, links service.ExerciseLinks, status string, now time.Time) (service.ExerciseRecord, error) {
 	err := r.db.WithinTransaction(ctx, func(ctx context.Context) error {
 		conn := r.db.Conn(ctx)
-		res := conn.Model(&domain.Question{}).Where("id = ? AND module_id = ? AND kind = ?", id, moduleID, domain.KindPractical).
+		res := conn.Model(&domain.Question{}).Where("id = ? AND module_id = ? AND kind IN ?", id, moduleID, domain.BankKinds()).
 			Updates(map[string]any{"usage": links.Usage(), "in_assessment": links.Assessment, "exclusive_assessment": links.Exclusive, "status": status, "updated_at": now})
 		if res.Error != nil {
 			return res.Error
@@ -182,7 +183,7 @@ func (r *Repository) SetLinks(ctx context.Context, moduleID, id uuid.UUID, links
 func (r *Repository) DeleteExercise(ctx context.Context, moduleID, id uuid.UUID, now time.Time) error {
 	return r.db.WithinTransaction(ctx, func(ctx context.Context) error {
 		conn := r.db.Conn(ctx)
-		res := conn.Model(&domain.Question{}).Where("id = ? AND module_id = ? AND kind = ?", id, moduleID, domain.KindPractical).Update("deleted_at", now)
+		res := conn.Model(&domain.Question{}).Where("id = ? AND module_id = ? AND kind IN ?", id, moduleID, domain.BankKinds()).Update("deleted_at", now)
 		if res.Error != nil {
 			return res.Error
 		}
