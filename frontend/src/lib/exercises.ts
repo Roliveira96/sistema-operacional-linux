@@ -2,7 +2,7 @@
 
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import type { ExerciseCondition } from "./exerciseConditions";
-import { hasDescription, isMatching, isSingleChoice, MAX_CHOICES, MAX_PAIRS, MIN_CHOICES, MIN_PAIRS, parseKind, plainText, usesTerminal, type QuestionKind } from "./questionKinds";
+import { ANSWER_SIZES, DEFAULT_ANSWER_SIZE, hasDescription, isDiscursive, isMatching, isSingleChoice, MAX_CHOICES, MAX_PAIRS, MIN_CHOICES, MIN_PAIRS, parseKind, plainText, usesTerminal, type QuestionKind } from "./questionKinds";
 import { hasSetup, parseSetup, setupPayload, type Setup, type SetupFile } from "./setup";
 import { newId } from "./newId";
 
@@ -43,6 +43,9 @@ export interface Exercise {
   left?: MatchItem[];
   right?: MatchItem[];
   pairs?: MatchPair[];
+  /** The correct answer of a descriptive question, as html, and the size of the answer of the student (SPEC-039 D-03, D-05). */
+  expectedAnswer?: string;
+  maxLength?: number;
 }
 
 /** One item of a column of a matching question. */
@@ -82,6 +85,7 @@ export const emptyExercise = (kind: QuestionKind = "PRACTICAL"): Exercise => ({
   hints: [],
   conditions: [],
   ...(kind === "THEORETICAL_BOOLEAN" ? { kind, correctAnswer: null, explanation: "" } : {}),
+  ...(kind === "DISCURSIVE" ? { kind, expectedAnswer: "", maxLength: DEFAULT_ANSWER_SIZE } : {}),
   ...(kind === "THEORETICAL_MATCHING"
     ? {
         kind,
@@ -101,6 +105,10 @@ export const emptyExercise = (kind: QuestionKind = "PRACTICAL"): Exercise => ({
 export function trueFalseFields(r: Record<string, unknown>): Partial<Exercise> {
   const kind = parseKind(r.kind);
   if (usesTerminal(kind)) return {};
+  if (isDiscursive(kind)) {
+    const size = ANSWER_SIZES.find((n) => n === r.maxLength) ?? DEFAULT_ANSWER_SIZE;
+    return { kind, expectedAnswer: str(r.expectedAnswer), maxLength: size };
+  }
   if (isMatching(kind)) {
     const column = (raw: unknown): MatchItem[] =>
       (Array.isArray(raw) ? raw : [])
@@ -144,6 +152,8 @@ export function missingAnswer(ex: Exercise): MissingAnswer[] {
   if (usesTerminal(ex.kind)) return [];
   const missing: MissingAnswer[] = [];
   if (!hasDescription(ex.description)) missing.push("statement");
+  // The correct answer of a descriptive question is optional (SPEC-039 RN-02).
+  if (isDiscursive(ex.kind)) return missing;
   if (isMatching(ex.kind)) {
     const left = ex.left ?? [];
     const right = ex.right ?? [];

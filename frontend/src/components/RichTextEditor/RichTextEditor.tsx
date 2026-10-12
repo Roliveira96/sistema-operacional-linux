@@ -20,7 +20,12 @@ interface RichTextEditorProps {
   describedBy?: string;
   /** Sends an image and returns its address (SPEC-025); with it, the toolbar has the button to insert an image (SPEC-035 D-12). */
   uploadImage?: (file: File) => Promise<{ url: string }>;
+  /** "answer" is the editor of the answer of a student: only text and commands, inline or in a block (SPEC-039 D-01). */
+  variant?: "full" | "answer";
 }
+
+/** The tools of the editor of an answer. */
+const ANSWER_TOOLS = new Set(["code", "codeBlock", "undo", "redo"]);
 
 /**
  * Visual editor for formatted text (SPEC-019). Everything is stored as HTML, and the server
@@ -52,7 +57,9 @@ export function RichTextEditor({
   invalid,
   describedBy,
   uploadImage,
+  variant = "full",
 }: RichTextEditorProps) {
+  const answer = variant === "answer";
   const t = authoringMessages.richText;
   const ti = authoringMessages.questionKinds.image;
   const fileId = useId();
@@ -65,11 +72,26 @@ export function RichTextEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [3, 4] },
-        link: { openOnClick: false },
-      }),
-      ImageNode,
+      answer
+        ? StarterKit.configure({
+            bold: false,
+            italic: false,
+            strike: false,
+            underline: false,
+            heading: false,
+            bulletList: false,
+            orderedList: false,
+            listItem: false,
+            listKeymap: false,
+            blockquote: false,
+            horizontalRule: false,
+            link: false,
+          })
+        : StarterKit.configure({
+            heading: { levels: [3, 4] },
+            link: { openOnClick: false },
+          }),
+      ...(answer ? [] : [ImageNode]),
     ],
     content: value,
     immediatelyRender: false,
@@ -111,7 +133,7 @@ export function RichTextEditor({
     editor.commands.focus();
   };
 
-  const buttons: {
+  const tools: {
     key: string;
     label: string;
     title?: string;
@@ -177,7 +199,7 @@ export function RichTextEditor({
         setLinkOpen((open) => !open);
       },
     },
-    ...(uploadImage
+    ...(uploadImage && !answer
       ? [
           {
             key: "image",
@@ -200,6 +222,8 @@ export function RichTextEditor({
       onClick: run(() => editor.chain().redo().run()),
     },
   ];
+
+  const buttons = answer ? tools.filter((b) => ANSWER_TOOLS.has(b.key)) : tools;
 
   const sendImage = async (file: File | undefined) => {
     if (!file || !uploadImage) return;

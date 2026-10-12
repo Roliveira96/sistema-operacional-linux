@@ -17,6 +17,10 @@ export interface AnswerResult {
   pairs?: { left: string; right: string }[];
   results?: { left: string; right: string; correct: boolean }[];
   explanation?: string | null;
+  /** PENDING for a descriptive answer, which the teacher grades later (SPEC-039 5). */
+  status?: "PENDING";
+  /** The correct answer of a descriptive question, after the student answered, when the teacher wrote it (SPEC-039 RN-09). */
+  expectedAnswer?: string;
 }
 
 export interface ModuleCheckResult {
@@ -31,13 +35,18 @@ export interface ProgressItem {
   completedAt: string | null;
   attempts: number;
   /** An answered true or false question: the answer given, whether it was right, the correct answer and the justification. */
-  response?: { value?: boolean; choice?: string; links?: { left: string; right: string }[] };
+  response?: { value?: boolean; choice?: string; links?: { left: string; right: string }[]; html?: string };
   passed?: boolean;
   correctAnswer?: boolean;
   correctChoice?: string;
   pairs?: { left: string; right: string }[];
   results?: { left: string; right: string; correct: boolean }[];
   explanation?: string | null;
+  /** A descriptive answer: waiting for the teacher or graded, the percentage, the note to the student and the correct answer (SPEC-039). */
+  status?: "PENDING" | "GRADED";
+  score?: number;
+  studentNote?: string;
+  expectedAnswer?: string;
 }
 
 /** Practice endpoints of SPEC-014. */
@@ -60,6 +69,9 @@ export function createPracticeService(client: HttpClient = httpClient) {
     topicScenario: async (moduleId: string) =>
       (await client.get<{ snapshot: unknown }>(`/modules/${encodeURIComponent(moduleId)}/scenario`)).snapshot ?? null,
     /** Checks every challenge of the module against the machine state. */
+    /** Sends the single answer of the student to a descriptive question: text and commands, as html (SPEC-039 RN-03). */
+    write: (questionId: string, html: string) =>
+      client.post<AnswerResult>(`/questions/${encodeURIComponent(questionId)}/check`, { response: { html } }),
     checkModule: (moduleId: string, snapshot: unknown) =>
       client.post<ModuleCheckResult>(`/modules/${encodeURIComponent(moduleId)}/check`, { snapshot }),
     progress: async (moduleId: string) =>

@@ -382,3 +382,26 @@ describe("ModuleExercisesTab with matching questions", () => {
     expect(rows[1]).toHaveTextContent("2 pares · falta marcar os pares");
   });
 });
+
+// Covers SPEC-039 CA-01 in the bank: a descriptive question shows its size and whether it has the correct answer, and the bank links to
+// the correction of the answers.
+describe("ModuleExercisesTab with descriptive questions", () => {
+  it("shows the size of the answer and links to the correction", async () => {
+    const descriptive = (id: string, title: string, expectedAnswer: string) =>
+      item(id, title, { exercise: { ...item(id, title).exercise, kind: "DISCURSIVE", expectedAnswer, maxLength: 5000, conditions: [], solution: undefined } });
+    service.bank.mockResolvedValue({ items: [descriptive("d1", "Explique", "<p>rwx</p>"), descriptive("d2", "Sem resposta", "")] });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    const rows = within(bankBlock()).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Descritiva · Fácil · 1 dica · até 5.000 caracteres · com resposta correta");
+    expect(rows[1]).toHaveTextContent("sem resposta correta");
+    expect(screen.getByRole("link", { name: /Corrigir respostas descritivas/ }).getAttribute("href")).toMatch(/\/app\/modules\/.+\/answers$/);
+  });
+
+  it("does not link to the correction without descriptive questions", async () => {
+    service.bank.mockResolvedValue({ items: [item("p1", "Prática")] });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    expect(screen.queryByRole("link", { name: /Corrigir respostas descritivas/ })).toBeNull();
+  });
+});

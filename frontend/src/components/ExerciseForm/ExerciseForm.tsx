@@ -17,7 +17,7 @@ import {
   type ExerciseHint,
 } from "@/lib/exercises";
 import { newId } from "@/lib/newId";
-import { isMatching, isSingleChoice, MAX_CHOICES, MAX_PAIRS, MIN_CHOICES, MIN_PAIRS, usesTerminal } from "@/lib/questionKinds";
+import { ANSWER_SIZES, DEFAULT_ANSWER_SIZE, isDiscursive, isMatching, isSingleChoice, MAX_CHOICES, MAX_PAIRS, MIN_CHOICES, MIN_PAIRS, usesTerminal } from "@/lib/questionKinds";
 import type { SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService } from "@/services/contentAuthoringService";
@@ -109,7 +109,9 @@ export function ExerciseForm({
         onChange={(hints) => onChange({ hints })}
       />
 
-      {isMatching(ex.kind) ? (
+      {isDiscursive(ex.kind) ? (
+        <DiscursiveParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
+      ) : isMatching(ex.kind) ? (
         <MatchingParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
       ) : isSingleChoice(ex.kind) ? (
         <ChoiceParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
@@ -389,6 +391,51 @@ function TrueFalseParts({
           uploadImage={uploadImage}
         />
       </div>
+      <p className={styles.hint}>{k.noTerminalPage}</p>
+    </>
+  );
+}
+
+/** The correct answer that guides the correction and the size of the answer of a descriptive question (SPEC-039 D-03, D-05). */
+function DiscursiveParts({
+  exercise: ex,
+  onChange,
+  number,
+  uploadImage,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  number: number;
+  uploadImage: (file: File) => Promise<{ url: string }>;
+}) {
+  return (
+    <>
+      <div className={styles.field}>
+        <div className={styles.labelRow}>
+          <span className={styles.label}>{`${k.expectedAnswer} (${number})`}</span>
+          <InfoTip topic={k.expectedAnswer}>{k.expectedAnswerHelp}</InfoTip>
+        </div>
+        <RichTextEditor
+          label={`${k.expectedAnswer} (${number})`}
+          value={ex.expectedAnswer ?? ""}
+          onChange={(expectedAnswer) => onChange({ expectedAnswer })}
+          uploadImage={uploadImage}
+        />
+      </div>
+      <Field label={`${k.maxLength} (${number})`} htmlFor={`answer-size-${number}`} info={k.maxLengthHelp}>
+        <select
+          id={`answer-size-${number}`}
+          className={styles.input}
+          value={ex.maxLength ?? DEFAULT_ANSWER_SIZE}
+          onChange={(e) => onChange({ maxLength: Number(e.target.value) })}
+        >
+          {ANSWER_SIZES.map((n) => (
+            <option key={n} value={n}>
+              {n === DEFAULT_ANSWER_SIZE ? k.sizeDefault(n) : k.size(n)}
+            </option>
+          ))}
+        </select>
+      </Field>
       <p className={styles.hint}>{k.noTerminalPage}</p>
     </>
   );

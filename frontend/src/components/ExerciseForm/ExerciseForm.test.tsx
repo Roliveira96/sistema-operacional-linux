@@ -176,3 +176,21 @@ describe("ExerciseForm for a matching question", () => {
     expect(next.pairs, "the pairs of the removed items go away").toEqual([]);
   });
 });
+
+// Covers SPEC-039 CA-01 and D-05: the form of a descriptive question has the correct answer and the size of the answer, and nothing of
+// the other kinds.
+describe("ExerciseForm for a descriptive question", () => {
+  it("edits the correct answer and chooses the size from the list", () => {
+    const onChange = form({ ...emptyExercise("DISCURSIVE"), expectedAnswer: "<p>rwx</p>", maxLength: 2000 });
+    expect(screen.getAllByText("Resposta correta (opcional) (1)").length).toBeGreaterThan(0);
+    const size = screen.getByRole("combobox", { name: /Tamanho máximo da resposta/ }) as HTMLSelectElement;
+    expect(size.value).toBe("2000");
+    expect(Array.from(size.options).map((o) => o.value)).toEqual(["500", "1000", "2000", "5000", "10000"]);
+    expect(screen.getByRole("option", { name: "2.000 caracteres (padrão)" })).toBeTruthy();
+    fireEvent.change(size, { target: { value: "5000" } });
+    expect(onChange).toHaveBeenCalledWith({ maxLength: 5000 });
+    expect(screen.queryByRole("radio", { name: "Verdadeiro" })).toBeNull();
+    expect(screen.queryByText(/Como fazer/)).toBeNull();
+    expect(screen.queryByText(/Justificativa/)).toBeNull();
+  });
+});

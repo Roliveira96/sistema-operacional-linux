@@ -73,7 +73,7 @@ import {
 } from "@/services/practiceService";
 import { speechService, type SpeechService } from "@/services/speechService";
 import { answerFromCheck, answerFromProgress, type AnswerResponse, type GivenAnswer } from "@/lib/answers";
-import { isMatching, isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
+import { isDiscursive, isMatching, isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
 import { ChallengePanel } from "./ChallengePanel";
 import { CheatSheetModal } from "./CheatSheetModal";
 import { LessonPanel } from "./LessonPanel";
@@ -94,7 +94,7 @@ export interface TopicStudyProps {
   modules?: Pick<typeof moduleService, "getModuleById">;
   practice?: Pick<
     PracticeService,
-    "scenario" | "topicScenario" | "checkModule" | "progress" | "answer" | "choose" | "link"
+    "scenario" | "topicScenario" | "checkModule" | "progress" | "answer" | "choose" | "link" | "write"
   >;
   /** Voice of the karaoke reader (SPEC-018). */
   speech?: Pick<SpeechService, "synthesize">;
@@ -183,7 +183,7 @@ export function TopicStudy({
           module,
           script: buildTopicScript(blocks),
           // The practical exercises and the true or false questions, in the order of the trail (SPEC-035 D-07).
-          challenges: questions.filter((q) => q.kind === "PRACTICAL" || isTrueFalse(q.kind) || isSingleChoice(q.kind) || isMatching(q.kind)),
+          challenges: questions.filter((q) => q.kind === "PRACTICAL" || isTrueFalse(q.kind) || isSingleChoice(q.kind) || isMatching(q.kind) || isDiscursive(q.kind)),
           scenario,
           layers,
           // The machine of an exercise of the module: the snapshot of the module, then the one of the bank (SPEC-023 11.2).
@@ -484,7 +484,9 @@ function TopicScreen({
           ? await practice.answer(challenge.id, response.value)
           : "choice" in response
             ? await practice.choose(challenge.id, response.choice)
-            : await practice.link(challenge.id, response.links);
+            : "links" in response
+              ? await practice.link(challenge.id, response.links)
+              : await practice.write(challenge.id, response.html);
       keep(answerFromCheck(response, r));
     } catch (error) {
       if (error instanceof ApiProblemError && error.status === 401) {
@@ -494,7 +496,7 @@ function TopicScreen({
         const stored = (await practice.progress(moduleId).catch(() => [])).find((p) => p.questionId === challenge.id);
         if (stored) keep(answerFromProgress(stored));
       } else {
-        setAnswerErrors((prev) => new Map(prev).set(challenge.id, m.trueFalse.failed));
+        setAnswerErrors((prev) => new Map(prev).set(challenge.id, "html" in response ? m.descriptive.failed : m.trueFalse.failed));
       }
     } finally {
       setAnswering(null);

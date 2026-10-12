@@ -12,7 +12,7 @@ import {
 } from "@/components/ContentTab/ActionMenu";
 import { InfoTip } from "@/components/InfoTip/InfoTip";
 import { KindChooser } from "@/components/KindChooser/KindChooser";
-import { isMatching, isSingleChoice, QUESTION_KINDS, usesTerminal, type QuestionKind } from "@/lib/questionKinds";
+import { isDiscursive, isMatching, isSingleChoice, QUESTION_KINDS, usesTerminal, type QuestionKind } from "@/lib/questionKinds";
 import {
   hasSetup,
   invalidFiles,
@@ -308,6 +308,8 @@ export function ModuleExercisesTab({
                 {ex.solution ? level.hasSolution : level.noSolution} ·{" "}
                 {level.conditionCount(ex.conditions.length)}
               </>
+            ) : isDiscursive(ex.kind) ? (
+              `${kinds.descriptiveMeta(ex.maxLength ?? 2000)} · ${ex.expectedAnswer?.trim() ? kinds.withExpected : kinds.withoutExpected}`
             ) : isMatching(ex.kind) ? (
               `${kinds.pairCount(ex.left?.length ?? 0)} · ${(ex.pairs ?? []).length > 0 && (ex.pairs ?? []).length === (ex.left ?? []).length ? kinds.pairsMarked : kinds.pairsMissing}`
             ) : isSingleChoice(ex.kind) ? (
@@ -488,6 +490,11 @@ export function ModuleExercisesTab({
           </div>
           <p className={styles.hint}>{m.hint}</p>
         </div>
+        {bank.items.some((it) => isDiscursive(it.exercise.kind)) && (
+          <Link href={`/app/modules/${moduleId}/answers`} className={styles.secondary}>
+            <span aria-hidden="true">📝</span> {authoringMessages.grading.open}
+          </Link>
+        )}
         <button type="button" className={styles.secondary} title={authoringMessages.bankTest.buttonTitle} onClick={() => setTesting(true)}>
           <span aria-hidden="true">🧪</span> {authoringMessages.bankTest.button}
         </button>

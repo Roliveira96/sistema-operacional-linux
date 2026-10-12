@@ -15,10 +15,12 @@ interface KindChooserProps {
   onChoose?: (kind: QuestionKind) => void;
   hrefFor?: (kind: QuestionKind) => string;
   onClose: () => void;
+  /** The kinds offered; the bank offers every one, a card fewer (SPEC-039 D-09). */
+  kinds?: QuestionKind[];
 }
 
 /** Asks the kind of a new question before its page opens (SPEC-035 CA-01, CA-18): the kind never changes after. */
-export function KindChooser({ onChoose, hrefFor, onClose }: KindChooserProps) {
+export function KindChooser({ onChoose, hrefFor, onClose, kinds = QUESTION_KINDS }: KindChooserProps) {
   const titleId = useId();
   const [kind, setKind] = useState<QuestionKind>("PRACTICAL");
   useEffect(() => {
@@ -41,7 +43,7 @@ export function KindChooser({ onChoose, hrefFor, onClose }: KindChooserProps) {
         <div className={modal.body}>
           <p className={styles.help}>{m.chooseHelp}</p>
           <div role="radiogroup" aria-labelledby={titleId} className={styles.kinds}>
-            {QUESTION_KINDS.map((k) => (
+            {kinds.map((k) => (
               <label key={k} className={`${styles.kind} ${kind === k ? styles.on : ""}`}>
                 <input type="radio" name={`${titleId}-kind`} checked={kind === k} onChange={() => setKind(k)} />
                 <span className={styles.name}>{m.label[k]}</span>

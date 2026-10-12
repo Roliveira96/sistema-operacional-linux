@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { Html } from "@/components/ContentRenderer/blocks";
+import { DescriptiveAnswer } from "@/components/DescriptiveAnswer/DescriptiveAnswer";
 import { MatchingAnswer } from "@/components/MatchingAnswer/MatchingAnswer";
 import { SingleChoiceAnswer } from "@/components/SingleChoiceAnswer/SingleChoiceAnswer";
 import { TrueFalseAnswer } from "@/components/TrueFalseAnswer/TrueFalseAnswer";
 import type { AnswerResponse, GivenAnswer } from "@/lib/answers";
-import { isMatching, isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
+import { DEFAULT_ANSWER_SIZE, isDiscursive, isMatching, isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
 import { contentMessages } from "@/messages/content.pt-BR";
 import type { PublicQuestion } from "@/services/contentService";
 import styles from "./ChallengePanel.module.scss";
@@ -59,9 +60,53 @@ export function ChallengePanel({
       )}
       <ol className={styles.list}>
         {challenges.map((challenge, i) => {
+          if (isDiscursive(challenge.kind)) {
+            const given = answers.get(challenge.id) ?? null;
+            const result = given?.type === "descriptive" ? given.result : null;
+            const graded = result?.status === "GRADED" && result.score !== null;
+            const error = answerErrors.get(challenge.id);
+            const status = graded ? m.graded(result!.score!) : result ? m.pending : m.todo;
+            return (
+              <li key={challenge.id} className={`${styles.item} ${graded ? styles.scored : result ? styles.waiting : ""}`} data-challenge={challenge.id}>
+                <span className={styles.status} role="img" aria-label={status}>
+                  {graded ? `${result!.score}%` : null}
+                </span>
+                <div className={styles.body}>
+                  <p className={styles.title}>
+                    <b>{i + 1}.</b> {challenge.title}
+                  </p>
+                  <Html html={challenge.statement} />
+                  {!result && <p className={styles.intro}>{m.descriptiveIntro}</p>}
+                  <DescriptiveAnswer
+                    label={challenge.title}
+                    maxLength={challenge.maxLength ?? DEFAULT_ANSWER_SIZE}
+                    result={result}
+                    busy={answering === challenge.id}
+                    disabled={needsLogin || !onAnswer}
+                    message={
+                      needsLogin ? (
+                        <>
+                          {tf.needsLogin} <Link href="/login">{tf.login}</Link>
+                        </>
+                      ) : (
+                        error
+                      )
+                    }
+                    onAnswer={(html) => onAnswer?.(challenge, { html })}
+                  />
+                  {challenge.hint && (
+                    <details className={styles.details}>
+                      <summary>{m.hint}</summary>
+                      <Html html={challenge.hint} />
+                    </details>
+                  )}
+                </div>
+              </li>
+            );
+          }
           if (isTrueFalse(challenge.kind) || isSingleChoice(challenge.kind) || isMatching(challenge.kind)) {
             const given = answers.get(challenge.id) ?? null;
-            const result = given?.result ?? null;
+            const result = given && given.type !== "descriptive" ? given.result : null;
             const error = answerErrors.get(challenge.id);
             const message = needsLogin ? (
               <>

@@ -41,6 +41,22 @@ export const contentMessages = {
     login: "Entrar",
     chosen: "Escolha marcada. Você pode mudar até finalizar a prova.",
   },
+  /** The answer to a descriptive question (SPEC-039). */
+  descriptive: {
+    group: "Sua resposta",
+    send: "Enviar resposta",
+    sending: "Enviando sua resposta…",
+    once: "Escreva com texto e comandos. A resposta é enviada uma vez só e não pode ser mudada.",
+    count: (n: number, max: number) => `${n.toLocaleString("pt-BR")} de ${max.toLocaleString("pt-BR")} caracteres`,
+    tooLong: (max: number) => `A resposta passa de ${max.toLocaleString("pt-BR")} caracteres. Encurte para enviar.`,
+    yourAnswer: "Sua resposta",
+    pending: "Aguardando correção da professora.",
+    score: (n: number) => `Nota: ${n}% de acerto`,
+    scoreLabel: "Porcentagem de acerto",
+    note: "Anotação da professora",
+    expected: "Resposta correta",
+    failed: "Não foi possível enviar sua resposta. Tente de novo.",
+  },
   /** The answer to a matching question (SPEC-037). */
   matching: {
     left: "Coluna da esquerda",
@@ -177,6 +193,9 @@ export const contentMessages = {
       wrong: "Questão respondida, com erro",
       trueFalseIntro: "Verdadeiro ou falso: marque sua resposta. Ela vale na hora e não pode ser mudada.",
       singleChoiceIntro: "Escolha única: escolha uma alternativa. A resposta vale na hora e não pode ser mudada.",
+      descriptiveIntro: "Descritiva: escreva sua resposta com texto e comandos. A professora corrige e você vê a nota aqui.",
+      pending: "Aguardando correção",
+      graded: (score: number) => `Corrigida: ${score}% de acerto`,
       matchingIntro: "Ligar colunas: ligue cada item da esquerda ao seu par na direita e confira. Depois de conferir, não dá para mudar.",
       needsLogin: "Entre na plataforma para o servidor conferir seus desafios e registrar seu progresso.",
       login: "Entrar",

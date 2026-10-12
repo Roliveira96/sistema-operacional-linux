@@ -122,6 +122,7 @@ function defaultPractice() {
     answer: vi.fn(),
     choose: vi.fn(),
     link: vi.fn(),
+    write: vi.fn(),
   };
 }
 
@@ -1475,5 +1476,47 @@ describe("TopicStudy matching questions", () => {
     await open(practice);
     expect(screen.getByText("Você errou.")).toBeInTheDocument();
     expect(screen.getByText("chmod → mode")).toBeInTheDocument();
+  });
+});
+
+// Covers SPEC-039 CA-02, CA-03 and CA-08 on the study screen.
+describe("TopicStudy descriptive questions", () => {
+  const descriptive = challenge("ds", { kind: "DISCURSIVE", title: "permissions", statement: "<p>Explain chmod 750.</p>", solution: undefined, maxLength: 500 });
+  const open = async (practice = defaultPractice()) => {
+    const content = { content: vi.fn().mockResolvedValue({ blocks, setup: undefined }), questions: vi.fn().mockResolvedValue([descriptive]) };
+    const view = setup({ content, practice });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    return { practice, view };
+  };
+
+  it("sends the answer once and shows it waiting for the teacher, with the correct answer", async () => {
+    const practice = defaultPractice();
+    practice.write.mockResolvedValue({ passed: false, completedAt: "t", status: "PENDING", expectedAnswer: "<p>Dono rwx.</p>" });
+    await open(practice);
+    expect(screen.getByText("0 de 500 caracteres")).toBeInTheDocument();
+    const dom = await waitFor(() => {
+      const el = document.querySelector("[data-challenge='ds'] .ProseMirror") as (HTMLElement & { editor: { commands: { setContent: (h: string, o: object) => void } } }) | null;
+      if (!el) throw new Error("editor not ready");
+      return el;
+    });
+    act(() => dom.editor.commands.setContent("<p>dono <code>rwx</code></p>", { emitUpdate: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar resposta" }));
+    expect(practice.write).toHaveBeenCalledWith("ds", expect.stringContaining("<p>dono <code>rwx</code></p>"));
+    expect(await screen.findByText("Aguardando correção da professora.")).toBeInTheDocument();
+    expect(screen.getByText("Dono rwx.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enviar resposta" })).toBeNull();
+    expect(screen.getByRole("img", { name: "Aguardando correção" })).toBeInTheDocument();
+  });
+
+  it("starts with the grade the teacher confirmed, as a percentage", async () => {
+    const practice = defaultPractice();
+    practice.progress.mockResolvedValue([
+      { questionId: "ds", completedAt: "t", attempts: 1, response: { html: "<p>dono rwx</p>" }, status: "GRADED", score: 75, studentNote: "Faltou o grupo." },
+    ]);
+    await open(practice);
+    expect(await screen.findByText("Nota: 75% de acerto")).toBeInTheDocument();
+    expect(screen.getByText("Faltou o grupo.")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Corrigida: 75% de acerto" })).toHaveTextContent("75%");
   });
 });

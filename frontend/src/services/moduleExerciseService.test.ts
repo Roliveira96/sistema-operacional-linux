@@ -211,3 +211,21 @@ describe("matching questions of the bank", () => {
     });
   });
 });
+
+// Covers SPEC-039 5 on the screen: the correct answer and the size of a descriptive question are read and sent.
+describe("descriptive questions of the bank", () => {
+  it("reads and sends a descriptive question", () => {
+    const parsed = parseModuleExercise({ ...stored, id: "d", kind: "DISCURSIVE", expectedAnswer: "<p>rwx</p>", maxLength: 5000, conditions: [], solution: null, dependsOn: null });
+    expect(parsed.exercise).toMatchObject({ kind: "DISCURSIVE", expectedAnswer: "<p>rwx</p>", maxLength: 5000 });
+    expect(exerciseBody(parsed.exercise)).toEqual({
+      kind: "DISCURSIVE",
+      title: "Criar",
+      difficulty: "HARD",
+      statement: "<p>x</p>",
+      hints: [{ text: "dica", command: "mkdir /a" }, { text: "outra" }],
+      expectedAnswer: "<p>rwx</p>",
+      maxLength: 5000,
+    });
+    expect(exerciseBody({ ...emptyExercise("DISCURSIVE"), title: "x", expectedAnswer: undefined, maxLength: undefined })).toMatchObject({ expectedAnswer: "", maxLength: 2000 });
+  });
+});

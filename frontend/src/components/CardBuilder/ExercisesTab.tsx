@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { KindChooser } from "@/components/KindChooser/KindChooser";
-import { isMatching, isSingleChoice, usesTerminal } from "@/lib/questionKinds";
+import { CARD_KINDS, isMatching, isSingleChoice, usesTerminal } from "@/lib/questionKinds";
 import type { CardErrors } from "@/lib/cardModel";
 import { type ExerciseGroup } from "@/lib/exercises";
 import type { Setup, SetupLayer } from "@/lib/setup";
@@ -106,7 +106,7 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
         </ol>
       </Section>
       {choosing && (
-        <KindChooser onClose={() => setChoosing(false)} hrefFor={(kind) => `${base}/new?kind=${kind}`} />
+        <KindChooser kinds={CARD_KINDS} onClose={() => setChoosing(false)} hrefFor={(kind) => `${base}/new?kind=${kind}`} />
       )}
     </>
   );

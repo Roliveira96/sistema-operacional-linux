@@ -7,7 +7,7 @@ import {
   type Exercise,
   type ExerciseHint,
 } from "@/lib/exercises";
-import { isMatching, isSingleChoice, usesTerminal } from "@/lib/questionKinds";
+import { DEFAULT_ANSWER_SIZE, isDiscursive, isMatching, isSingleChoice, usesTerminal } from "@/lib/questionKinds";
 import { withChains } from "@/lib/exerciseChain";
 import { newId } from "@/lib/newId";
 import { hasSetup, parseSetup, setupPayload, type Setup } from "@/lib/setup";
@@ -107,6 +107,8 @@ export function exerciseBody(
     ),
   };
   // A question without a terminal has its answer and justification instead of a solution, conditions and a dependency (SPEC-035).
+  if (isDiscursive(exercise.kind))
+    return { ...shared, expectedAnswer: exercise.expectedAnswer ?? "", maxLength: exercise.maxLength ?? DEFAULT_ANSWER_SIZE };
   if (isMatching(exercise.kind))
     return {
       ...shared,

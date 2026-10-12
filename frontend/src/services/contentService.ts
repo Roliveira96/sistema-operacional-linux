@@ -32,6 +32,8 @@ export interface PublicQuestion {
   /** The columns of a matching question, without the pairs (SPEC-037 RN-05). */
   left?: { id: string; text: string }[];
   right?: { id: string; text: string }[];
+  /** The size of the answer of a descriptive question, in characters of text (SPEC-039 D-05). */
+  maxLength?: number;
   /** Reference solution of practical exercises (SPEC-016, P-02); never sent on assessments. */
   solution?: { command: string; terminal?: number }[];
   /** An exercise of the module made in the editor (SPEC-023): it has no machine of its own, it starts from the layers. */

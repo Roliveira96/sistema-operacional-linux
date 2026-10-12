@@ -192,3 +192,23 @@ describe("RichTextEditor toolbar", () => {
     await waitFor(() => expect(onChange.mock.lastCall![0]).toContain('src="https://cdn.x/a.avif"'));
   });
 });
+
+// Covers SPEC-039 D-01: the answer of a descriptive question has only text and commands.
+describe("RichTextEditor for an answer", () => {
+  it("offers only the command tools and keeps no other formatting", async () => {
+    const onChange = vi.fn();
+    const view = render(<RichTextEditor label="Resposta" variant="answer" value="<p>a <b>b</b></p><ul><li>c</li></ul>" onChange={onChange} />);
+    const dom = await waitFor(() => {
+      const el = view.container.querySelector(".ProseMirror") as Host | null;
+      if (!el) throw new Error("editor not ready");
+      return el;
+    });
+    for (const name of ["Comando", "Bloco de código", "Desfazer", "Refazer"]) expect(screen.getByRole("button", { name })).toBeDefined();
+    for (const name of ["Negrito", "Itálico", "Título", "Lista", "Lista numerada", "Citação", "Link"]) expect(screen.queryByRole("button", { name })).toBeNull();
+    expect(dom.querySelector("b, strong, ul, li")).toBeNull();
+    act(() => {
+      dom.editor.commands.setContent("<p>use <code>ls</code></p><pre><code>ls -l</code></pre>", { emitUpdate: true });
+    });
+    expect(onChange.mock.lastCall?.[0]).toContain("<p>use <code>ls</code></p><pre><code>ls -l</code></pre>");
+  });
+});

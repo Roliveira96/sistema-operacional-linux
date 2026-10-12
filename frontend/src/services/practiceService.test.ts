@@ -75,3 +75,14 @@ describe("practiceService link (SPEC-037)", () => {
     expect(fetcher.mock.calls[0]![1].body).toBe(JSON.stringify({ response: { links } }));
   });
 });
+
+// Covers SPEC-039 5 on the screen: the descriptive answer goes in the body of the check and comes back pending.
+describe("practiceService write (SPEC-039)", () => {
+  it("sends the html of a descriptive answer", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(json({ passed: false, completedAt: "t", status: "PENDING", expectedAnswer: "<p>rwx</p>" }));
+    const svc = createPracticeService(createHttpClient(fetcher));
+    const r = await svc.write("q1", "<p>dono rwx</p>");
+    expect(r).toMatchObject({ status: "PENDING", expectedAnswer: "<p>rwx</p>" });
+    expect(fetcher.mock.calls[0]![1].body).toBe(JSON.stringify({ response: { html: "<p>dono rwx</p>" } }));
+  });
+});

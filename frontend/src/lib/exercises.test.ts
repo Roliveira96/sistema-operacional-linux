@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardTestItems, emptyExercise, exercisesPayload, exerciseTestItems, hasExercises, missingAnswer, parseExercises, type ExerciseGroup } from "./exercises";
+import { cardTestItems, emptyExercise, exercisesPayload, exerciseTestItems, hasExercises, missingAnswer, parseExercises, trueFalseFields, type ExerciseGroup } from "./exercises";
 
 const NL = String.fromCharCode(10);
 
@@ -241,5 +241,23 @@ describe("matching exercises of a card", () => {
     const { items } = exerciseTestItems({ items: [ok, { ...ok, pairs: [] }] });
     expect(items[0]).toMatchObject({ noTerminal: true });
     expect(items[1]!.command).toContain("falta ligar os pares corretos");
+  });
+});
+
+// Covers SPEC-039 RN-01, RN-02 and D-05 on the screen: the descriptive question.
+describe("descriptive questions", () => {
+  it("starts with no correct answer and the default size", () => {
+    expect(emptyExercise("DISCURSIVE")).toMatchObject({ kind: "DISCURSIVE", expectedAnswer: "", maxLength: 2000 });
+  });
+
+  it("reads the correct answer and the size, and a size out of the list is the default", () => {
+    expect(trueFalseFields({ kind: "DISCURSIVE", expectedAnswer: "<p>rwx</p>", maxLength: 5000 })).toEqual({ kind: "DISCURSIVE", expectedAnswer: "<p>rwx</p>", maxLength: 5000 });
+    expect(trueFalseFields({ kind: "DISCURSIVE", maxLength: 1234 })).toEqual({ kind: "DISCURSIVE", expectedAnswer: "", maxLength: 2000 });
+  });
+
+  it("needs only a description to be published", () => {
+    const ex = { ...emptyExercise("DISCURSIVE"), description: "<p>Explain chmod 750.</p>" };
+    expect(missingAnswer(ex)).toEqual([]);
+    expect(missingAnswer({ ...ex, description: "<p> </p>" })).toEqual(["statement"]);
   });
 });

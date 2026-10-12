@@ -51,3 +51,23 @@ describe("answers of a matching question", () => {
     });
   });
 });
+
+// Covers SPEC-039 RN-07, RN-09 and D-04 on the screen: a descriptive answer waits for the teacher, then shows the percentage.
+describe("answers of a descriptive question", () => {
+  it("reads the result of a check: pending, with the correct answer", () => {
+    expect(answerFromCheck({ html: "<p>rwx</p>" }, { passed: false, completedAt: "t", status: "PENDING", expectedAnswer: "<p>Dono rwx</p>" })).toEqual({
+      type: "descriptive",
+      result: { html: "<p>rwx</p>", status: "PENDING", score: null, studentNote: null, expectedAnswer: "<p>Dono rwx</p>" },
+    });
+    expect(answerFromCheck({ html: "<p>rwx</p>" }, { passed: false, completedAt: "t", status: "PENDING" })!.result).toMatchObject({ expectedAnswer: null });
+  });
+
+  it("reads the progress: pending or graded with the percentage and the note", () => {
+    const base = { questionId: "q", completedAt: "t", attempts: 1, response: { html: "<p>rwx</p>" } };
+    expect(answerFromProgress({ ...base, status: "PENDING" })).toMatchObject({ type: "descriptive", result: { status: "PENDING", score: null } });
+    expect(answerFromProgress({ ...base, status: "GRADED", score: 75, studentNote: "Faltou o grupo.", expectedAnswer: "<p>x</p>" })).toEqual({
+      type: "descriptive",
+      result: { html: "<p>rwx</p>", status: "GRADED", score: 75, studentNote: "Faltou o grupo.", expectedAnswer: "<p>x</p>" },
+    });
+  });
+});
