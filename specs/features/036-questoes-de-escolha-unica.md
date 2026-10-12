@@ -5,7 +5,7 @@
 | **ID** | SPEC-036 |
 | **Status** | Rascunho |
 | **Data de criação** | 11/10/2026 |
-| **Última revisão** | 12/10/2026 (decisões D-01 e D-03) |
+| **Última revisão** | 12/10/2026 (decisões D-01 a D-04) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -43,7 +43,6 @@ O pedido do Tech Lead:
 
 - Múltipla seleção (mais de uma correta), dissertativa e ligar colunas (spec própria, na sequência).
 - Aplicação de provas (spec de avaliação), que DEVE seguir as regras SPEC-035 RN-07 e RN-13 também para este tipo.
-- Alternativa com imagem ou formatação: nesta spec a alternativa é texto simples (ver P-02).
 - Pontuação parcial: a escolha única vale tudo ou nada.
 
 ## 3. Proposta de Solução (Proposed Solution)
@@ -84,7 +83,7 @@ O pedido do Tech Lead:
 
 - **RN-01 (tipo aceito):** o banco do módulo e os exercícios do card aceitam `THEORETICAL_SINGLE`, registrado no contrato de tipos da SPEC-035.
 - **RN-02 (alternativas):** de 2 a 7 alternativas.
-  - Cada uma tem um identificador estável e um texto obrigatório, de até 500 caracteres.
+  - Cada uma tem um identificador estável e um conteúdo obrigatório em HTML, escrito no mesmo editor de texto das descrições: texto, formatação, comandos e imagens (D-02). O servidor filtra o HTML como as descrições (SPEC-019, SPEC-025) e aceita até 5.000 caracteres por alternativa.
   - O gabarito aponta para o identificador da alternativa correta, não para a posição. Assim, reordenar e embaralhar não muda a correta (P-01).
 - **RN-03 (campos por tipo):**
   - exige `title` e `difficulty`;
@@ -93,7 +92,7 @@ O pedido do Tech Lead:
 - **RN-04 (publicar):** publicar exige:
   - descrição não vazia;
   - de 2 a 7 alternativas com texto;
-  - nenhuma alternativa repetida, comparando sem diferenciar maiúsculas e espaços nas pontas;
+  - nenhuma alternativa vazia (sem texto nem imagem) ou repetida, comparando o texto sem as marcações, sem diferenciar maiúsculas e espaços nas pontas;
   - a correta marcada entre elas.
 - **RN-05 (correção no exercício):** a rota de conferência (SPEC-035 5.2) recebe o identificador escolhido, corrige no servidor e devolve:
   - se acertou;
@@ -106,7 +105,7 @@ O pedido do Tech Lead:
 - **RN-08 (avaliação):** valem SPEC-035 RN-07 (troca livre até finalizar, correção no servidor ao finalizar) e RN-13 (dicas na prova).
 - **RN-09 (exercício do card):** o item do bloco `EXERCISES` aceita o tipo com os mesmos campos e limites. Como o verdadeiro ou falso do card, é conferido na tela, e a trava fica no navegador (SPEC-035 D-14).
 - **RN-10 (MCP):** as ferramentas aceitam o tipo, com `choices` e `correctChoice` (SPEC-035 RN-15).
-- **RN-11 (questões da carga inicial):** as 30 questões de escolha única da carga seguem a P-04.
+- **RN-11 (questões da carga inicial):** uma migração converte as 30 questões de escolha única da carga inicial para o formato novo: gera o identificador de cada alternativa, guarda o texto como conteúdo da alternativa e aponta o gabarito para a mesma alternativa que era a correta. Depois disso elas são editáveis no banco do módulo de simulados (D-04).
 
 ## 4. Modelo de Dados (Data Model)
 
@@ -114,7 +113,7 @@ Nenhuma tabela nova. Campos de `questions` para `THEORETICAL_SINGLE`:
 
 | Campo | Uso |
 | :--- | :--- |
-| `choices` | Lista de 2 a 7 alternativas, cada uma com `id` (texto curto gerado na criação, estável) e `text` |
+| `choices` | Lista de 2 a 7 alternativas, cada uma com `id` (texto curto gerado na criação, estável) e `html` (o conteúdo, filtrado) |
 | `answer_key` | Objeto com `correct` = `id` da alternativa correta; obrigatório para publicar |
 | `explanation`, `hints`, `statement`, `title`, `difficulty` | Como no verdadeiro ou falso |
 | `scenario_id`, `reference_solution`, `validation_conditions`, `end_conditions`, `depends_on` | Sempre nulos |
@@ -133,7 +132,7 @@ No bloco `EXERCISES`, o item ganha `choices` e `correctChoice`, só para este ti
 
 | Campo | Tipo | Obrigatório | Regra |
 | :--- | :--- | :--- | :--- |
-| `choices` | lista de { `id`, `text` } | Para publicar | De 2 a 7. Uma alternativa sem `id` ganha um no servidor. Texto de 1 a 500 caracteres |
+| `choices` | lista de { `id`, `html` } | Para publicar | De 2 a 7. Uma alternativa sem `id` ganha um no servidor. HTML filtrado, até 5.000 caracteres, com texto ou imagem |
 | `correctChoice` | texto ou nulo | Para publicar | `id` de uma das alternativas |
 | `explanation` | HTML | Não | Como no verdadeiro ou falso |
 
@@ -141,7 +140,7 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 
 ### 5.2. Aluno
 
-- **`GET /api/v1/modules/{id}/questions`:** os itens de escolha única trazem `choices` com `id` e `text`, sem gabarito.
+- **`GET /api/v1/modules/{id}/questions`:** os itens de escolha única trazem `choices` com `id` e `html`, embaralhadas, sem gabarito.
 - **`POST /api/v1/questions/{id}/check`:**
   - corpo: `response` = { `choice`: `<id>` };
   - resposta: `passed`, `completedAt`, `correctChoice` e `explanation`;
@@ -155,7 +154,8 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 | :--- | :--- |
 | Gabarito vazando antes da resposta | RN-07 e teste de que a lista pública nunca traz a correta |
 | Reordenar ou embaralhar mudando a correta | Gabarito por identificador estável (RN-02) |
-| As 30 questões da carga inicial em outro formato | P-04: migração para o formato novo, com teste que confere que a correta continua a mesma |
+| As 30 questões da carga inicial em outro formato | Migração para o formato novo (D-04), com teste que confere que a correta continua a mesma |
+| HTML e imagens dentro das alternativas | Mesmo filtro de HTML das descrições, no servidor; as imagens só pelo envio da SPEC-025 |
 | Gabarito do card visível no navegador | Aceito como no verdadeiro ou falso (SPEC-035 D-14) |
 | Muitos tipos complicando as telas | Componentes por tipo e o contrato da SPEC-035, com testes que misturam os três tipos |
 
@@ -164,6 +164,7 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 - [ ] **CA-01** (evento): QUANDO a docente cria uma questão, O SISTEMA DEVE oferecer "Escolha única" entre os tipos, no banco e no card.
 - [ ] **CA-02** (ubíquo): A página da questão de escolha única DEVE ter título, nível, descrição com imagens, dicas, de 2 a 7 alternativas com uma marcada como correta e justificativa, sem solução, condições, ambiente nem dependência.
 - [ ] **CA-03** (indesejado): SE a docente tentar ter menos de 2 ou mais de 7 alternativas, ENTÃO a tela NÃO DEVE permitir, e o servidor DEVE recusar com 400.
+- [ ] **CA-15** (ubíquo): Cada alternativa DEVE ser escrita no editor de texto, com formatação, comandos e imagens, e o aluno DEVE vê-la com essa formatação (D-02).
 - [ ] **CA-04** (indesejado): SE a docente publicar sem descrição, com alternativa vazia ou repetida, ou sem a correta marcada, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
 - [ ] **CA-05** (evento): QUANDO a docente reordena as alternativas, O SISTEMA DEVE manter a mesma alternativa como correta (RN-02).
 - [ ] **CA-06** (ubíquo): A lista de questões do aluno NÃO DEVE conter a correta nem a justificativa (RN-07).
@@ -174,7 +175,7 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 - [ ] **CA-11** (evento): QUANDO a docente roda os testes do banco, do módulo ou do card, O SISTEMA DEVE conferir só se a questão de escolha única está completa, sem terminal.
 - [ ] **CA-12** (evento): QUANDO um agente cria pelo MCP uma questão ou um exercício de card de escolha única, O SISTEMA DEVE aplicar as mesmas validações da tela (RN-10).
 - [ ] **CA-13** (ubíquo): A escolha DEVE ser operável só pelo teclado, a animação DEVE respeitar a preferência de menos movimento e as telas DEVEM usar só tokens.
-- [ ] **CA-14** (evento): QUANDO as migrações rodarem, as questões de escolha única da carga inicial DEVEM ficar no formato novo com a mesma alternativa correta (P-04).
+- [ ] **CA-14** (evento): QUANDO as migrações rodarem, as questões de escolha única da carga inicial DEVEM ficar no formato novo com a mesma alternativa correta (D-04).
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -183,7 +184,7 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 - **Repository (PostgreSQL real):** gravação do formato novo, restrição de publicação e migração das questões da carga (CA-14).
 - **MCP (Go):** criar e editar pelas ferramentas (CA-12).
 - **Frontend:**
-  - editor de alternativas (adicionar até 7, remover até 2, mover, marcar a correta) (CA-02, CA-03, CA-05);
+  - editor de alternativas (adicionar até 7, remover até 2, mover, marcar a correta, cada uma com o editor de texto e imagem) (CA-02, CA-03, CA-05, CA-15);
   - seletor de tipo (CA-01);
   - componente de resposta nos dois modos, por clique e teclado (CA-07, CA-09, CA-13);
   - aba "Desafios" e card (CA-07, CA-10);
@@ -227,14 +228,15 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 | ID | Decisão |
 | :--- | :--- |
 | D-01 | A professora marca a alternativa correta, e o sistema a guarda pelo identificador da alternativa, não pela posição (resolve P-01) |
+| D-02 | A alternativa usa o editor de texto que já existe: texto, formatação, comandos, HTML e imagens (resolve P-02, no lugar da recomendação de só texto simples) |
 | D-03 | O sistema embaralha a ordem das alternativas para o aluno, para ele não ver sempre a mesma ordem: no exercício, a cada vez que a questão é exibida; na avaliação, também embaralhada, com a ordem por tentativa definida na spec de avaliação (resolve P-03, no lugar da recomendação de manter a ordem da professora no exercício) |
+
+| D-04 | As 30 questões de escolha única da carga inicial são convertidas para o formato novo, com a mesma alternativa correta, e passam a ser editáveis (resolve P-04) |
 
 ### Pendências
 
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
-| P-02 | A alternativa pode ter formatação ou imagem? | Só texto simples nesta spec, até 500 caracteres; imagens ficam na descrição. Alternativa com imagem pode vir depois sem mudar o formato (o objeto da alternativa ganha campos) |
-| P-04 | As 30 questões de escolha única da carga inicial (módulo de simulados), com alternativas como lista de textos e gabarito por posição | Uma migração converte para o formato novo (gera os identificadores e aponta o gabarito para a mesma alternativa), e elas passam a ser editáveis no banco do módulo de simulados |
 | P-05 | Também nos exercícios do card? | Sim, como o verdadeiro ou falso (SPEC-035 D-08), conferida na tela e travada no navegador |
 | P-06 | Nome no glossário | "Questão de escolha única" (`THEORETICAL_SINGLE`) e "Alternativa" (`Choice`, campo `choices`), com "Alternativa correta" (`correctChoice`) |
 
@@ -246,3 +248,4 @@ A resposta traz os mesmos campos. Erros: 400 `validation-error` com o campo (`ch
 | :--- | :--- | :--- |
 | 11/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (escolha única, de 2 a 7 alternativas com 1 correta, nível, dicas, descrição com imagens, mesmo comportamento e animação do verdadeiro ou falso). Pendências P-01 a P-06 |
 | 12/10/2026 | Tech Lead | P-01: a professora marca a correta e o sistema a guarda pelo identificador (D-01). P-03: as alternativas aparecem embaralhadas para o aluno (D-03). Seguem abertas P-02, P-04, P-05 e P-06 |
+| 12/10/2026 | Tech Lead | P-02: alternativa com o editor de texto (texto, comandos, HTML e imagens) (D-02). P-04: conversão das 30 questões da carga inicial (D-04). Seguem abertas P-05 e P-06 |
