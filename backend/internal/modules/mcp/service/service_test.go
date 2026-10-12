@@ -715,7 +715,7 @@ func TestTrueFalseQuestionsThroughTheTools(t *testing.T) {
 		ModuleID: mid, Kind: "THEORETICAL_BOOLEAN", Title: "x", Difficulty: "EASY", Conditions: raw(`[{"kind":"DIR_EXISTS","path":"/a"}]`),
 	})
 	assert.Equal(t, "conditions", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
-	_, terr = e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Kind: "DISCURSIVE", Title: "x", Difficulty: "EASY"})
+	_, terr = e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Kind: "THEORETICAL_MULTIPLE", Title: "x", Difficulty: "EASY"})
 	assert.Equal(t, "kind", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
 
 	// A card gets a true or false exercise through the block tools.

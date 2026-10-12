@@ -86,6 +86,8 @@ type checkResponse struct {
 	// after the answer (SPEC-035 RN-06, SPEC-036 RN-05).
 	revealedAnswer
 	Explanation *string `json:"explanation,omitempty"`
+	// Status is PENDING for a descriptive answer, which the teacher grades later (SPEC-039 5).
+	Status string `json:"status,omitempty"`
 }
 
 // revealedAnswer is what a question without a terminal shows after the answer, in the field of its kind: the correct answer (true or
@@ -95,6 +97,8 @@ type revealedAnswer struct {
 	CorrectChoice json.RawMessage `json:"correctChoice,omitempty"`
 	Pairs         json.RawMessage `json:"pairs,omitempty"`
 	Results       json.RawMessage `json:"results,omitempty"`
+	// ExpectedAnswer is the correct answer of a descriptive question, after the student answered (SPEC-039 RN-09).
+	ExpectedAnswer json.RawMessage `json:"expectedAnswer,omitempty"`
 }
 
 // revealedFields puts the answer key in the field of its kind.
@@ -104,6 +108,8 @@ func revealedFields(field string, value, details json.RawMessage) revealedAnswer
 		return revealedAnswer{CorrectChoice: value}
 	case "pairs":
 		return revealedAnswer{Pairs: value, Results: details}
+	case "expectedAnswer":
+		return revealedAnswer{ExpectedAnswer: value}
 	}
 	return revealedAnswer{CorrectAnswer: value}
 }
@@ -134,7 +140,7 @@ func (h *Handler) check(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, checkResponse{Passed: result.Passed, CompletedAt: result.CompletedAt,
-		revealedAnswer: revealedFields(result.CorrectField, result.Correct, result.Details), Explanation: result.Explanation})
+		revealedAnswer: revealedFields(result.CorrectField, result.Correct, result.Details), Explanation: result.Explanation, Status: pendingStatus(result.Pending)})
 }
 
 // readBody decodes the body of a check, bounded to 2 MB; which field is required depends on the kind of the question.
@@ -226,6 +232,18 @@ type progressItem struct {
 	Passed   *bool           `json:"passed,omitempty"`
 	revealedAnswer
 	Explanation *string `json:"explanation,omitempty"`
+	// Status, Score and StudentNote belong to a descriptive answer (SPEC-039 RN-07, D-04, D-06).
+	Status      string  `json:"status,omitempty"`
+	Score       *int    `json:"score,omitempty"`
+	StudentNote *string `json:"studentNote,omitempty"`
+}
+
+// pendingStatus is the status of a check: PENDING when the teacher grades it later, nothing otherwise.
+func pendingStatus(pending bool) string {
+	if pending {
+		return "PENDING"
+	}
+	return ""
 }
 
 func (h *Handler) progress(c *gin.Context) {
@@ -250,6 +268,10 @@ func progressItems(rows []service.ProgressEntry) []progressItem {
 			passed := p.LastPassed
 			items[i].Response, items[i].Passed = p.Response, &passed
 			items[i].revealedAnswer = revealedFields(p.CorrectField, p.Correct, p.Details)
+			if p.AnswerStatus != "" {
+				// A descriptive answer has a grade, not right or wrong.
+				items[i].Passed, items[i].Status, items[i].Score, items[i].StudentNote = nil, p.AnswerStatus, p.Score, p.StudentNote
+			}
 			items[i].Explanation = p.Explanation
 		}
 	}

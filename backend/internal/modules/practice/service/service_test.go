@@ -64,7 +64,10 @@ func (f fakeContent) PracticeItem(_ context.Context, id uuid.UUID, _ contentserv
 }
 
 type fakeStore struct {
-	rows    map[[2]uuid.UUID]domain.Progress
+	// grades are the corrections of the descriptive answers, by progress (SPEC-039).
+	grades    map[uuid.UUID]domain.AnswerGrade
+	gradesErr error
+	rows      map[[2]uuid.UUID]domain.Progress
 	findErr error
 	saveErr error
 	listErr error
@@ -101,6 +104,10 @@ func (f *fakeStore) SaveResponse(_ context.Context, p *domain.Progress) error {
 	f.saves++
 	f.rows[[2]uuid.UUID{p.UserID, p.QuestionID}] = *p
 	return nil
+}
+
+func (f *fakeStore) GradesOf(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]domain.AnswerGrade, error) {
+	return f.grades, f.gradesErr
 }
 
 func (f *fakeStore) ListModuleProgress(_ context.Context, user, _ uuid.UUID) ([]domain.Progress, error) {

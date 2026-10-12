@@ -20,6 +20,10 @@ type ResponseVerdict struct {
 	Correct json.RawMessage
 	// Details is the result of each part of the answer, when the kind has parts (each link of a matching question, SPEC-037 RN-06).
 	Details json.RawMessage
+	// Pending means nothing grades the answer on its own: the teacher does (a descriptive question, SPEC-039 RN-03).
+	Pending bool
+	// Stored is the answer to keep, when the kind cleans it (the filtered html of a descriptive answer); nil keeps it as sent.
+	Stored json.RawMessage
 }
 
 // QuestionType is the contract every kind of question of the bank implements (SPEC-035 RN-02): it validates what the teacher
@@ -45,6 +49,7 @@ var questionTypes = map[string]QuestionType{
 	KindTheoreticalBoolean:  booleanType{},
 	KindTheoreticalSingle:   singleType{},
 	KindTheoreticalMatching: matchingType{},
+	KindDiscursive:          discursiveType{},
 }
 
 // TypeOf returns the contract of a kind the bank accepts (SPEC-035 RN-01).
@@ -215,6 +220,17 @@ func refuseChoices(c *checker, in ExerciseInput, reason string) {
 		c.fail("correctChoice", reason)
 	}
 	refuseColumns(c, in, reason)
+	refuseDiscursive(c, in, reason)
+}
+
+// refuseDiscursive refuses the fields of a descriptive question in a kind that has none.
+func refuseDiscursive(c *checker, in ExerciseInput, reason string) {
+	if strings.TrimSpace(in.ExpectedAnswer) != "" {
+		c.fail("expectedAnswer", reason)
+	}
+	if in.MaxLength != nil {
+		c.fail("maxLength", reason)
+	}
 }
 
 // refuseColumns refuses the fields of a matching question in a kind that has none.

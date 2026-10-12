@@ -138,6 +138,15 @@ func (s *Exercises) authorize(ctx context.Context, moduleID uuid.UUID, who Actor
 	return ErrForbidden
 }
 
+// ModuleOwner returns the teacher who owns the module, for the modules that authorize against it (the correction of SPEC-039).
+func (s *Exercises) ModuleOwner(ctx context.Context, moduleID uuid.UUID) (uuid.UUID, error) {
+	owner, err := s.store.ModuleTeacher(ctx, moduleID)
+	if errors.Is(err, ErrNotFound) {
+		return uuid.Nil, ErrModuleNotFound
+	}
+	return owner, err
+}
+
 func (s *Exercises) audit(action string, who Actor, moduleID uuid.UUID, exerciseID *uuid.UUID) {
 	fields := []zap.Field{zap.String("action", action), zap.String("userId", who.UserID.String()), zap.String("moduleId", moduleID.String())}
 	if exerciseID != nil {

@@ -453,7 +453,7 @@ func TestReader_ExerciseQuestion(t *testing.T) {
 		"assessment": func(q *domain.Question) { q.Usage = domain.UsageAssessment },
 		"exclusive":  func(q *domain.Question) { q.ExclusiveAssessment = true },
 		"draft":      func(q *domain.Question) { q.Status = domain.StatusDraft },
-		"other kind": func(q *domain.Question) { q.Kind = domain.KindDiscursive },
+		"other kind": func(q *domain.Question) { q.Kind = domain.KindTheoreticalMultiple },
 	} {
 		bad := trueFalseQuestion()
 		mutate(&bad)
@@ -544,4 +544,23 @@ func TestReader_MatchingForTheStudent(t *testing.T) {
 
 	q.Choices = json.RawMessage(`["junk"]`)
 	assert.Nil(t, read(q).Left)
+}
+
+// Covers SPEC-039 RN-01, D-03 and D-05 (content side): the student gets the tips and the size of the answer of a descriptive question,
+// never its correct answer.
+func TestReader_DiscursiveForTheStudent(t *testing.T) {
+	q := domain.Question{ID: uuid.New(), Kind: domain.KindDiscursive, Usage: domain.UsageExercise, Status: domain.StatusPublished,
+		Statement: "<p>Explain.</p>", AnswerKey: json.RawMessage(`{"expectedAnswer":"<p>secret rwx</p>","maxLength":5000}`), Hints: json.RawMessage(`[{"text":"Think"}]`)}
+	qs, err := NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), uuid.New(), domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	raw, _ := json.Marshal(qs)
+	assert.NotContains(t, string(raw), "secret")
+	require.NotNil(t, qs[0].MaxLength)
+	assert.Equal(t, 5000, *qs[0].MaxLength)
+	require.NotNil(t, qs[0].Hint)
+
+	q.AnswerKey = nil
+	qs, err = NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), uuid.New(), domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	assert.Equal(t, 2000, *qs[0].MaxLength, "the default size")
 }

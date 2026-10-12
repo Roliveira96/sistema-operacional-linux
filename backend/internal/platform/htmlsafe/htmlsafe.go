@@ -46,6 +46,14 @@ func New() *Sanitizer {
 }
 
 // Sanitize returns the filtered HTML.
+// NewAnswer builds the policy of the answer of a student to a descriptive question (SPEC-039 D-01): only text and commands, that
+// is paragraphs, line breaks, inline code and code blocks. Everything else is dropped, keeping its text.
+func NewAnswer() *Sanitizer {
+	p := bluemonday.NewPolicy()
+	p.AllowElements("p", "br", "code", "pre")
+	return &Sanitizer{policy: p}
+}
+
 func (s *Sanitizer) Sanitize(markup string) string {
 	return s.policy.Sanitize(markup)
 }

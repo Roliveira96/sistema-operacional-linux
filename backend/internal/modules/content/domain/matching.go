@@ -196,6 +196,7 @@ func (matchingType) normalize(c *checker, in ExerciseInput, out *NormalizedExerc
 			c.fail("correctChoice", "a matching question has pairs, not a correct choice")
 		}
 	}
+	refuseDiscursive(c, in, "only a descriptive question has an expected answer and a size")
 	var cols Columns
 	var pairs []MatchPair
 	for field, target := range map[string]any{"left": &cols.Left, "right": &cols.Right, "pairs": &pairs} {

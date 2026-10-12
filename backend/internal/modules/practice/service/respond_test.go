@@ -232,3 +232,63 @@ func TestSubmitMatching(t *testing.T) {
 	assert.Equal(t, "pairs", rows[0].CorrectField)
 	assert.JSONEq(t, `[{"left":"l1","right":"r2","correct":true},{"left":"l2","right":"r1","correct":true}]`, string(rows[0].Details))
 }
+
+func discursive(id uuid.UUID) contentdomain.Question {
+	return contentdomain.Question{
+		ID: id, Kind: contentdomain.KindDiscursive, Usage: contentdomain.UsageExercise, Status: contentdomain.StatusPublished,
+		Statement: "<p>Explain chmod 750.</p>", AnswerKey: json.RawMessage(`{"expectedAnswer":"<p>rwx r-x ---</p>","maxLength":500}`),
+	}
+}
+
+// Covers SPEC-039 RN-03, RN-09 and CA-02, CA-03 (service side): the answer is kept clean, once, waiting for the teacher, and the
+// correct answer comes after it.
+func TestSubmitDiscursive(t *testing.T) {
+	q := uuid.New()
+	svc, store := newService(fakeContent{questions: map[uuid.UUID]contentdomain.Question{q: discursive(q)}})
+	v := student()
+
+	r, err := svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"html":"<p>Owner <b>rwx</b>: <code>chmod 750 f</code></p>"}`)})
+	require.NoError(t, err)
+	assert.True(t, r.Pending)
+	assert.False(t, r.Passed)
+	assert.Equal(t, "expectedAnswer", r.CorrectField)
+	assert.JSONEq(t, `"<p>rwx r-x ---</p>"`, string(r.Correct))
+	require.NotNil(t, r.CompletedAt, "answered counts as done (SPEC-035 D-13)")
+	assert.JSONEq(t, `{"html":"<p>Owner rwx: <code>chmod 750 f</code></p>"}`, string(store.rows[[2]uuid.UUID{*v.UserID, q}].Response))
+
+	_, err = svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"html":"<p>again</p>"}`)})
+	assert.ErrorIs(t, err, ErrAlreadyAnswered)
+	_, err = svc.Submit(context.Background(), q, student(), Submission{Response: json.RawMessage(`{"html":"<p></p>"}`)})
+	assert.ErrorIs(t, err, contentdomain.ErrInvalidResponse)
+}
+
+// Covers SPEC-039 RN-07, D-04 and D-06 (service side): the progress shows the confirmed grade and the note to the student, never the
+// suggestion nor the private note, and "pending" before the teacher confirms.
+func TestModuleProgressOfDiscursive(t *testing.T) {
+	q := uuid.New()
+	svc, store := newService(fakeContent{questions: map[uuid.UUID]contentdomain.Question{q: discursive(q)}})
+	v := student()
+	_, err := svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"html":"<p>rwx</p>"}`)})
+	require.NoError(t, err)
+
+	rows, err := svc.ModuleProgress(context.Background(), uuid.New(), v)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, domain.StatusPending, rows[0].AnswerStatus)
+	assert.Nil(t, rows[0].Score)
+	assert.Equal(t, "expectedAnswer", rows[0].CorrectField)
+
+	score, note, private := 75, "Almost.", "secret"
+	suggested := 100
+	progressID := store.rows[[2]uuid.UUID{*v.UserID, q}].ID
+	store.grades = map[uuid.UUID]domain.AnswerGrade{progressID: {ProgressID: progressID, Score: &score, StudentNote: &note, PrivateNote: &private, SuggestedScore: &suggested}}
+	rows, err = svc.ModuleProgress(context.Background(), uuid.New(), v)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StatusGraded, rows[0].AnswerStatus)
+	assert.Equal(t, 75, *rows[0].Score)
+	assert.Equal(t, "Almost.", *rows[0].StudentNote)
+
+	store.gradesErr = errors.New("db down")
+	_, err = svc.ModuleProgress(context.Background(), uuid.New(), v)
+	assert.Error(t, err)
+}

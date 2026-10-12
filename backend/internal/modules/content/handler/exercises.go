@@ -94,6 +94,9 @@ type exerciseResponse struct {
 	Left  json.RawMessage `json:"left,omitempty"`
 	Right json.RawMessage `json:"right,omitempty"`
 	Pairs json.RawMessage `json:"pairs,omitempty"`
+	// ExpectedAnswer and MaxLength are the correct answer and the size of the answer of a descriptive question (SPEC-039 5).
+	ExpectedAnswer *string `json:"expectedAnswer,omitempty"`
+	MaxLength      *int    `json:"maxLength,omitempty"`
 	// The links of the exercise (SPEC-023 11.1): in the practice (with a place in the trail), in the assessment, and exclusive to it.
 	Practice   bool `json:"practice"`
 	Assessment bool `json:"assessment"`
@@ -148,6 +151,9 @@ func toExerciseResponse(r service.ExerciseRecord) exerciseResponse {
 		shuffle := r.ShuffleChoices
 		out.ShuffleChoices = &shuffle
 		out.Explanation = r.Explanation
+	case domain.KindDiscursive:
+		expected, size := domain.ReadDiscursiveKey(r.AnswerKey)
+		out.ExpectedAnswer, out.MaxLength = &expected, &size
 	}
 	out.Conditions = rawOrEmptyList(r.EndConditions)
 	// The solution of what came from the initial load is in another format; it is only the teacher's when they recorded it here.
@@ -195,6 +201,9 @@ type exerciseRequest struct {
 	Left  json.RawMessage `json:"left"`
 	Right json.RawMessage `json:"right"`
 	Pairs json.RawMessage `json:"pairs"`
+	// ExpectedAnswer and MaxLength belong to a descriptive question (SPEC-039 RN-01).
+	ExpectedAnswer string `json:"expectedAnswer"`
+	MaxLength      *int   `json:"maxLength"`
 	// DependsOn is the exercise this one depends on (SPEC-023 D-16).
 	DependsOn *uuid.UUID `json:"dependsOn"`
 	// Links are where a new exercise comes linked, when it is created from a block of the screen.
@@ -208,6 +217,7 @@ func (r exerciseRequest) input() domain.ExerciseInput {
 		Kind: r.Kind, Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: r.Hints, Solution: r.Solution, Conditions: r.Conditions,
 		CorrectAnswer: r.CorrectAnswer, Explanation: r.Explanation, HasDependency: r.DependsOn != nil,
 		Choices: r.Choices, CorrectChoice: r.CorrectChoice, ShuffleChoices: r.ShuffleChoices, Left: r.Left, Right: r.Right, Pairs: r.Pairs,
+		ExpectedAnswer: r.ExpectedAnswer, MaxLength: r.MaxLength,
 	}
 }
 

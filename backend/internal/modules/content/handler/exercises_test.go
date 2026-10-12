@@ -250,7 +250,7 @@ func TestExerciseHandler_TrueFalse(t *testing.T) {
 	code, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("?kind=PRACTICAL"), "")
 	require.Equal(t, http.StatusOK, code)
 	require.Len(t, body["items"].([]any), 1)
-	code, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("?kind=DISCURSIVE"), "")
+	code, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("?kind=THEORETICAL_MULTIPLE"), "")
 	assert.Equal(t, http.StatusBadRequest, code)
 	assert.Equal(t, "validation-error", body["type"])
 
@@ -332,4 +332,25 @@ func TestExerciseHandler_Matching(t *testing.T) {
 	_, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("/"+uuid.NewString()), "")
 	assert.Equal(t, []any{}, body["left"])
 	assert.Equal(t, []any{}, body["pairs"])
+}
+
+// Covers SPEC-039 5 (bank): the teacher sends and reads the correct answer and the size of a descriptive question.
+func TestExerciseHandler_Discursive(t *testing.T) {
+	f := newFakeBank()
+	f.record = service.ExerciseRecord{Question: domain.Question{ID: uuid.New(), Kind: domain.KindDiscursive, Title: "permissions", Difficulty: "MEDIUM",
+		AnswerKey: json.RawMessage(`{"expectedAnswer":"<p>rwx</p>","maxLength":5000}`)}}
+	code, body := bankCall(t, f, teacher, 100, http.MethodPost, exercisesPath(""),
+		`{"kind":"DISCURSIVE","title":"permissions","difficulty":"MEDIUM","expectedAnswer":"<p>rwx</p>","maxLength":5000}`)
+	require.Equal(t, http.StatusCreated, code)
+	assert.Equal(t, "<p>rwx</p>", f.in.ExpectedAnswer)
+	require.NotNil(t, f.in.MaxLength)
+	assert.Equal(t, 5000, *f.in.MaxLength)
+	assert.Equal(t, "<p>rwx</p>", body["expectedAnswer"])
+	assert.Equal(t, float64(5000), body["maxLength"])
+	assert.NotContains(t, body, "choices")
+
+	f.record.AnswerKey = nil
+	_, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("/"+uuid.NewString()), "")
+	assert.Equal(t, "", body["expectedAnswer"])
+	assert.Equal(t, float64(2000), body["maxLength"], "a draft shows the default size")
 }

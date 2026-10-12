@@ -45,6 +45,8 @@ type Store interface {
 	FindProgress(ctx context.Context, userID, questionID uuid.UUID) (domain.Progress, error)
 	SaveProgress(ctx context.Context, p *domain.Progress) error
 	ListModuleProgress(ctx context.Context, userID, moduleID uuid.UUID) ([]domain.Progress, error)
+	// GradesOf returns the corrections of the descriptive answers among the given progress, by progress (SPEC-039).
+	GradesOf(ctx context.Context, progressIDs []uuid.UUID) (map[uuid.UUID]domain.AnswerGrade, error)
 	// SaveResponse stores the single answer of a question without a terminal; ErrAlreadyAnswered when one is already stored.
 	SaveResponse(ctx context.Context, p *domain.Progress) error
 }
@@ -82,6 +84,8 @@ type CheckResult struct {
 	// Details is the result of each part of the answer (each link of a matching question, SPEC-037 RN-06).
 	Details     json.RawMessage
 	Explanation *string
+	// Pending means the answer waits for the teacher (a descriptive question, SPEC-039 RN-03).
+	Pending bool
 }
 
 // Submission is the body of a check: the state of the machine for a practical exercise, or the response of the student for a
@@ -133,16 +137,23 @@ func (s *Service) respond(ctx context.Context, q contentdomain.Question, userID 
 	if err != nil {
 		return CheckResult{}, err
 	}
-	stored, err := json.Marshal(json.RawMessage(response))
-	if err != nil {
-		return CheckResult{}, contentdomain.ErrInvalidResponse
+	stored := verdict.Stored
+	if stored == nil {
+		if stored, err = json.Marshal(json.RawMessage(response)); err != nil {
+			return CheckResult{}, contentdomain.ErrInvalidResponse
+		}
 	}
 	progress.Answer(stored, verdict.Passed, s.now().UTC())
 	if err := s.store.SaveResponse(ctx, &progress); err != nil {
 		return CheckResult{}, err
 	}
-	field, _ := kind.Revealed(q)
-	return CheckResult{Passed: verdict.Passed, CompletedAt: progress.CompletedAt, Correct: verdict.Correct, CorrectField: field, Details: verdict.Details, Explanation: q.Explanation}, nil
+	// What the student may now see: the answer key of the verdict, or what the kind reveals (the correct answer of a descriptive one).
+	field, revealed := kind.Revealed(q)
+	correct := verdict.Correct
+	if correct == nil {
+		correct = revealed
+	}
+	return CheckResult{Passed: verdict.Passed, CompletedAt: progress.CompletedAt, Correct: correct, CorrectField: field, Details: verdict.Details, Explanation: q.Explanation, Pending: verdict.Pending}, nil
 }
 
 // Check grades the submitted final state on the server and records the
@@ -183,6 +194,11 @@ type ProgressEntry struct {
 	CorrectField string
 	Details      json.RawMessage
 	Explanation  *string
+	// AnswerStatus, Score and StudentNote belong to a descriptive answer: pending until the teacher confirms, then the grade and the
+	// note to the student. The suggestion of the AI and the private note never come here (SPEC-039 RN-07, D-06).
+	AnswerStatus string
+	Score        *int
+	StudentNote  *string
 }
 
 // ModuleProgress lists the student's progress in a module.
@@ -198,6 +214,19 @@ func (s *Service) ModuleProgress(ctx context.Context, moduleID uuid.UUID, v cont
 // progress without them.
 func (s *Service) entries(ctx context.Context, v contentservice.Viewer, rows []domain.Progress) ([]ProgressEntry, error) {
 	out := make([]ProgressEntry, len(rows))
+	var answered []uuid.UUID
+	for _, p := range rows {
+		if p.Response != nil {
+			answered = append(answered, p.ID)
+		}
+	}
+	grades := map[uuid.UUID]domain.AnswerGrade{}
+	if len(answered) > 0 {
+		var err error
+		if grades, err = s.store.GradesOf(ctx, answered); err != nil {
+			return nil, err
+		}
+	}
 	for i, p := range rows {
 		out[i] = ProgressEntry{Progress: p}
 		if p.Response == nil {
@@ -209,6 +238,12 @@ func (s *Service) entries(ctx context.Context, v contentservice.Viewer, rows []d
 		}
 		if err != nil {
 			return nil, err
+		}
+		if q.Kind == contentdomain.KindDiscursive {
+			out[i].AnswerStatus = domain.StatusPending
+			if g, ok := grades[p.ID]; ok && g.Score != nil {
+				out[i].AnswerStatus, out[i].Score, out[i].StudentNote = domain.StatusGraded, g.Score, g.StudentNote
+			}
 		}
 		if kind, ok := contentdomain.TypeOf(q.Kind); ok {
 			out[i].CorrectField, out[i].Correct = kind.Revealed(q)

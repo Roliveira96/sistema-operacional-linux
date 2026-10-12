@@ -290,3 +290,10 @@ func TestRevealedPairs(t *testing.T) {
 	out = revealedFields("correctAnswer", json.RawMessage(`true`), nil)
 	assert.JSONEq(t, "true", string(out.CorrectAnswer))
 }
+
+// Covers SPEC-039 RN-09 at the HTTP level: the correct answer of a descriptive question comes in its own field.
+func TestRevealedExpectedAnswer(t *testing.T) {
+	out := revealedFields("expectedAnswer", json.RawMessage(`"<p>rwx</p>"`), nil)
+	assert.JSONEq(t, `"<p>rwx</p>"`, string(out.ExpectedAnswer))
+	assert.Nil(t, out.CorrectAnswer)
+}

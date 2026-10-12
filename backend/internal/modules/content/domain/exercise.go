@@ -26,6 +26,10 @@ type ExerciseInput struct {
 	CorrectChoice *string
 	// ShuffleChoices is nil when the request does not say, which is to shuffle (SPEC-036 D-07).
 	ShuffleChoices *bool
+	// ExpectedAnswer and MaxLength belong to the descriptive question: the correct answer the teacher writes and the size of the
+	// answer of the student (SPEC-039 D-03, D-05).
+	ExpectedAnswer string
+	MaxLength      *int
 	// Left, Right and Pairs belong to the matching question: the two columns in the order of the teacher and the correct pairs she
 	// selected (SPEC-037 D-09).
 	Left, Right, Pairs json.RawMessage

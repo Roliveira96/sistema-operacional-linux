@@ -33,6 +33,10 @@ const (
 	ToolSetExerciseSetup     = "set_exercise_setup"
 	ToolValidateModule       = "validate_module"
 	ToolListModuleVersions   = "list_module_versions"
+	// The correction of descriptive answers (SPEC-039 RN-04): the agent suggests, the teacher confirms in the web app.
+	ToolListPendingAnswers = "list_pending_answers"
+	ToolGetAnswer          = "get_answer"
+	ToolSuggestGrade       = "suggest_grade"
 )
 
 // Error types (the same slugs the REST layer uses in its RFC 7807 problems).
@@ -41,6 +45,7 @@ const (
 	TypeModuleNotFound     = "module-not-found"
 	TypeBlockNotFound      = "block-not-found"
 	TypeExerciseNotFound   = "exercise-not-found"
+	TypeAnswerNotFound     = "answer-not-found"
 	TypeBlockConflict      = "block-conflict"
 	TypeForbidden          = "forbidden"
 	TypeRateLimited        = "rate-limited"

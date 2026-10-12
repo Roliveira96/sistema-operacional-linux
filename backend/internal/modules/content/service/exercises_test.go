@@ -310,7 +310,7 @@ func TestExercises_PublishTrueFalse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.StatusPublished, store.status)
 
-	store.record.Kind = domain.KindDiscursive
+	store.record.Kind = domain.KindTheoreticalMultiple
 	_, err = svc.SetLinks(ctx, owner, module, uuid.New(), ExerciseLinks{Practice: true}, domain.StatusPublished)
 	assert.ErrorIs(t, err, ErrExerciseNotFound, "a kind outside the bank is not one of its questions")
 }

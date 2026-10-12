@@ -94,6 +94,8 @@ type PublicQuestion struct {
 	// Left and Right are the columns of a matching question, without the pairs, in the order of the teacher or shuffled (SPEC-037 RN-05).
 	Left  json.RawMessage `json:"left,omitempty"`
 	Right json.RawMessage `json:"right,omitempty"`
+	// MaxLength is the size of the answer of a descriptive question, in characters of text (SPEC-039 D-05).
+	MaxLength *int `json:"maxLength,omitempty"`
 }
 
 // TeacherQuestion is the full view for the module owner and admins.
@@ -315,10 +317,13 @@ func publicView(q domain.Question, all map[uuid.UUID]domain.Question) PublicQues
 	}
 	// A question of the bank without a terminal shows its tips like an exercise of the editor, and never its answer key nor its
 	// justification, which only come after the student answers (SPEC-035 RN-06, RN-10).
-	if q.Kind == domain.KindTheoreticalBoolean || q.Kind == domain.KindTheoreticalSingle || q.Kind == domain.KindTheoreticalMatching {
+	if q.Kind == domain.KindTheoreticalBoolean || q.Kind == domain.KindTheoreticalSingle || q.Kind == domain.KindTheoreticalMatching || q.Kind == domain.KindDiscursive {
 		p.Hint = hintsHTML(q.Hints)
 	}
 	switch q.Kind {
+	case domain.KindDiscursive:
+		_, size := domain.ReadDiscursiveKey(q.AnswerKey)
+		p.MaxLength = &size
 	case domain.KindTheoreticalSingle:
 		p.Choices = publicChoices(q)
 	case domain.KindTheoreticalMatching:
