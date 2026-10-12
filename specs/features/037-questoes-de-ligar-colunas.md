@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-037 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 11/10/2026 |
-| **Última revisão** | 12/10/2026 (decisões D-01 a D-08, sem pendências) |
+| **Última revisão** | 12/10/2026 (decisões D-01 a D-10, aprovada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -62,18 +62,19 @@ Esse tipo não existe no schema: `questions.kind` só aceita `PRACTICAL`, `THEOR
 
 - O seletor de tipo oferece "Ligar colunas", com uma linha de explicação.
 - A página da questão tem título, nível, descrição com imagens, dicas, **pares** e justificativa.
-- **Pares:**
-  - nasce com 2 pares vazios;
-  - "+ Adicionar par" vai até 5;
-  - cada par mostra o item da esquerda e o da direita lado a lado, com os botões subir, descer e remover;
-  - remover fica bloqueado quando restam 2.
-- **Prévia:** mostra a questão como o aluno vê, com a coluna da direita embaralhada (P-03).
+- **Colunas e ligações corretas (D-09):**
+  - a docente monta a **coluna da esquerda** e a **coluna da direita** como duas listas, cada uma na ordem que quiser, com o mesmo número de itens, de 2 a 5;
+  - cada lista tem "+ Adicionar item", que acrescenta um item nas duas colunas para manter o mesmo tamanho, e os botões subir, descer e remover;
+  - remover fica bloqueado quando restam 2 itens em cada coluna;
+  - para cada item da esquerda, a docente **seleciona no sistema** qual item da direita é o seu par correto. Cada item da direita é par de um único item da esquerda;
+  - a opção **"Embaralhar a ordem para o aluno"** (ligada por padrão) sorteia a ordem a cada vez. Desligada, o aluno vê as duas colunas exatamente na ordem que a docente montou (D-10).
+- **Prévia:** mostra a questão como o aluno vê, na ordem que a opção pede.
 - **Banco e card:** "Ligar colunas" entra na etiqueta, no filtro por tipo e no resumo da lista ("3 pares").
 - **Testes do banco, do módulo e do card:** só conferem se a questão está completa (SPEC-035 RN-09).
 
 **Aluno (aba "Desafios" e exercício do card):**
 
-- Duas colunas. A da esquerda fica na ordem da docente e a da direita vem embaralhada (P-03).
+- Duas colunas, na ordem que a questão pede (D-10): sorteada a cada vez, ou exatamente a ordem que a docente montou. Como a docente monta a direita numa ordem própria, manter a ordem não entrega os pares.
 - **Ligar:**
   - clicar ou tocar num item da esquerda e depois num da direita; pelo teclado, Enter num e Enter no outro (P-04);
   - a linha entre os dois se desenha com animação;
@@ -99,19 +100,20 @@ Esse tipo não existe no schema: `questions.kind` só aceita `PRACTICAL`, `THEOR
 ### 3.2. Backend (Go — Camada de Módulo/Service)
 
 - **RN-01 (tipo novo):** `THEORETICAL_MATCHING` entra no enum de `questions.kind` por migração, no glossário e no contrato de tipos da SPEC-035, aceito no banco do módulo e nos exercícios do card.
-- **RN-02 (pares):**
+- **RN-02 (colunas e pares):**
+  - a docente envia a coluna da esquerda e a da direita, cada uma na sua ordem, e os pares corretos ligando cada item da esquerda a um da direita (D-09);
   - de 2 a 5 pares;
   - cada lado tem um texto obrigatório, de até 200 caracteres;
   - os itens de um mesmo lado não se repetem (comparando sem diferenciar maiúsculas e espaços nas pontas);
   - cada item, da esquerda e da direita, tem um identificador próprio e opaco, que não revela qual é o seu par.
 - **RN-03 (campos por tipo):**
   - exige `title` e `difficulty`;
-  - aceita `statement`, `hints`, `pairs` e `explanation`;
+  - aceita `statement`, `hints`, `left`, `right`, `pairs`, `shuffleChoices` e `explanation`;
   - recusa `solution`, `conditions`, `dependsOn`, `correctAnswer` e `correctChoice`.
 - **RN-04 (publicar):** publicar exige descrição não vazia e de 2 a 5 pares completos, sem repetição.
 - **RN-05 (entrega ao aluno):**
   - a lista de questões traz os itens da esquerda e os da direita como duas listas separadas, cada item com identificador e texto;
-  - a direita vem embaralhada pelo servidor;
+  - as duas colunas vêm na ordem da docente ou sorteadas pelo servidor, conforme `shuffleChoices` (D-10);
   - nunca traz quais itens formam par, nem a justificativa.
 - **RN-06 (correção no exercício):**
   - a rota de conferência recebe as ligações: uma para cada item da esquerda, cada item da direita usado uma única vez;
@@ -130,14 +132,15 @@ Esse tipo não existe no schema: `questions.kind` só aceita `PRACTICAL`, `THEOR
 
 | Campo de `questions` | Uso em `THEORETICAL_MATCHING` |
 | :--- | :--- |
-| `choices` | Os itens: `left` e `right`, duas listas de { `id`, `text` }, a esquerda na ordem da docente |
+| `choices` | As colunas: `left` e `right`, duas listas de { `id`, `text` }, cada uma na ordem que a docente montou (D-09) |
+| `shuffle_choices` | Sorteia a ordem das colunas para o aluno (padrão) ou mantém a da docente (D-10); a mesma coluna da SPEC-036 |
 | `answer_key` | Os pares: lista de { `left`: id, `right`: id } |
 | `explanation`, `hints`, `statement`, `title`, `difficulty` | Como nos outros tipos sem terminal |
 | `scenario_id`, `reference_solution`, `validation_conditions`, `end_conditions`, `depends_on` | Sempre nulos |
 
 `exercise_progress.response` guarda as ligações do aluno: lista de { `left`, `right` }.
 
-**No bloco `EXERCISES`:** o item guarda `pairs`, uma lista de { `left`, `right` } com os textos, porque o card é conferido na tela.
+**No bloco `EXERCISES`:** o item guarda `left` e `right` (listas de { `id`, `text` }), `pairs` (os pares corretos, por identificador) e `shuffleChoices`, porque o card é conferido na tela.
 
 ## 5. Contrato de API (API Contract)
 
@@ -147,14 +150,17 @@ Esse tipo não existe no schema: `questions.kind` só aceita `PRACTICAL`, `THEOR
 
 | Campo | Tipo | Obrigatório | Regra |
 | :--- | :--- | :--- | :--- |
-| `pairs` | lista de { `left`, `right` } (textos) | Para publicar | De 2 a 5, de 1 a 200 caracteres cada lado, sem repetição no mesmo lado. O servidor gera os identificadores |
+| `left` | lista de { `id`, `text` } | Para publicar | A coluna da esquerda, na ordem da docente: de 2 a 5 itens, texto de 1 a 200 caracteres, sem repetição. O `id` vem da tela (letras, dígitos, `-` e `_`) |
+| `right` | lista de { `id`, `text` } | Para publicar | A coluna da direita, na ordem da docente, com o mesmo número de itens da esquerda e as mesmas regras |
+| `pairs` | lista de { `left`, `right` } (ids) | Para publicar | Um par para cada item da esquerda, cada item da direita usado uma única vez |
+| `shuffleChoices` | booleano | Não | Padrão verdadeiro: sorteia a ordem para o aluno; falso mantém a da docente (D-10) |
 | `explanation` | HTML | Não | Como nos outros tipos |
 
-A resposta para a docente traz `pairs` na ordem dela. Erros: 400 `validation-error` com o campo (`pairs[1].right`...).
+A resposta para a docente traz `left`, `right`, `pairs` e `shuffleChoices` como ela montou. Erros: 400 `validation-error` com o campo (`pairs[1].right`...).
 
 ### 5.2. Aluno
 
-- **`GET /api/v1/modules/{id}/questions`:** os itens deste tipo trazem `left` e `right` (listas de { `id`, `text` }, a direita embaralhada), sem os pares.
+- **`GET /api/v1/modules/{id}/questions`:** os itens deste tipo trazem `left` e `right` (listas de { `id`, `text` }), na ordem da docente ou sorteadas, sem os pares.
 - **`POST /api/v1/questions/{id}/check`:**
   - corpo: `response` = { `links`: [ { `left`, `right` } ] };
   - resposta: `passed`, `completedAt`, `results` (cada ligação com `correct`), `pairs` (os pares corretos, por identificador) e `explanation`;
@@ -178,7 +184,9 @@ A resposta para a docente traz `pairs` na ordem dela. Erros: 400 `validation-err
 - [ ] **CA-02** (ubíquo): A página da questão DEVE ter título, nível, descrição com imagens, dicas, de 2 a 5 pares e justificativa, sem solução, condições, ambiente nem dependência.
 - [ ] **CA-03** (indesejado): SE a docente tentar ter menos de 2 ou mais de 5 pares, ENTÃO a tela NÃO DEVE permitir, e o servidor DEVE recusar com 400.
 - [ ] **CA-04** (indesejado): SE a docente publicar sem descrição, com um lado vazio ou com itens repetidos no mesmo lado, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
-- [ ] **CA-05** (ubíquo): A lista de questões do aluno NÃO DEVE conter os pares nem a justificativa, e a coluna da direita DEVE vir embaralhada (RN-05).
+- [ ] **CA-05** (ubíquo): A lista de questões do aluno NÃO DEVE conter os pares nem a justificativa (RN-05).
+- [ ] **CA-15** (evento): QUANDO a docente monta as colunas, O SISTEMA DEVE deixá-la ordenar cada coluna e selecionar, para cada item da esquerda, o seu par correto na direita, sem repetir um item da direita (D-09).
+- [ ] **CA-16** (opcional): ONDE a questão estiver marcada para manter a ordem, O SISTEMA DEVE mostrar as duas colunas exatamente na ordem da docente; ONDE estiver marcada para sortear (o padrão), DEVE mostrá-las numa ordem sorteada a cada vez (D-10).
 - [ ] **CA-06** (evento): QUANDO o aluno escolhe um item de cada coluna, O SISTEMA DEVE desenhar a ligação com animação e marcar os dois com o mesmo número e cor; escolher de novo um item ligado DEVE desfazer a ligação antiga.
 - [ ] **CA-07** (estado): ENQUANTO houver item sem ligação no exercício, O SISTEMA NÃO DEVE habilitar a conferência (P-05).
 - [ ] **CA-08** (evento): QUANDO o aluno confere no exercício, O SISTEMA DEVE corrigir no servidor e mostrar na hora, com animação, as ligações certas e erradas, os pares corretos e a justificativa, e travar a resposta, inclusive depois de recarregar (RN-06, RN-07).
@@ -242,11 +250,13 @@ A resposta para a docente traz `pairs` na ordem dela. Erros: 400 `validation-err
 | :--- | :--- |
 | D-01 | As duas colunas têm o mesmo número de itens, de 2 a 5 pares; sem distratores nesta spec (resolve P-01) |
 | D-02 | No exercício, cada ligação aparece certa ou errada, e a questão conta como acertada só com todas certas; a nota parcial na prova fica para a spec de avaliação (resolve P-02) |
-| D-03 | Esquerda na ordem da docente e direita embaralhada pelo servidor (resolve P-03) |
+| D-03 | ~~Esquerda na ordem da docente e direita embaralhada pelo servidor (resolve P-03)~~ Substituída pela D-10 |
 | D-04 | Liga-se clicando (ou tocando) num item e depois no outro, com o teclado fazendo o mesmo; arrastar pode vir depois (resolve P-04) |
 | D-05 | A resposta do exercício trava só no "Conferir minhas ligações", habilitado com todos os itens ligados; antes disso o aluno refaz à vontade (resolve P-05) |
 | D-06 | Itens só com texto simples, até 200 caracteres por lado (resolve P-06) |
 | D-07 | O tipo também vale nos exercícios do card (resolve P-07) |
+| D-09 | Pedido do Tech Lead na aprovação: a docente monta as duas colunas, cada uma na sua ordem, e seleciona no sistema qual item da direita é o par correto de cada item da esquerda (substitui escrever os pares lado a lado) |
+| D-10 | Pedido do Tech Lead na aprovação: a docente escolhe entre sortear a ordem para o aluno (padrão) ou manter a ordem que montou, como na SPEC-036 D-07 (substitui a D-03, que sempre embaralhava a direita) |
 | D-08 | Tipo `THEORETICAL_MATCHING` ("Ligar colunas"); "Par" (`Pair`, campo `pairs`) e "Ligação" (`Link`, campo `links` da resposta) entram no glossário (resolve P-08) |
 
 ### Pendências
@@ -261,3 +271,4 @@ Nenhuma em aberto. P-01 a P-08 viraram as decisões D-01 a D-08.
 | :--- | :--- | :--- |
 | 11/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (ligar colunas, de 2 a 5 pares, mesmo comportamento do verdadeiro ou falso no exercício e na avaliação, animado para o aluno). Pendências P-01 a P-08 |
 | 12/10/2026 | Tech Lead | Aceitas as recomendações de P-01 a P-08 (viram D-01 a D-08). Seção 10 sem pendências |
+| 12/10/2026 | Tech Lead | Aprovada, com duas mudanças: a docente monta as colunas e seleciona os pares corretos no sistema (D-09) e escolhe sortear ou manter a ordem (D-10, no lugar da D-03). Status: `Aprovada` |
