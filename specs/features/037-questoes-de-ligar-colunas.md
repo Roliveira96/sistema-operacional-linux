@@ -1,0 +1,256 @@
+# SPEC-037: Questões de Ligar Colunas
+
+| Campo | Valor |
+| :--- | :--- |
+| **ID** | SPEC-037 |
+| **Status** | Rascunho |
+| **Data de criação** | 11/10/2026 |
+| **Última revisão** | 11/10/2026 |
+| **Autor** | Implementador (Claude), a pedido do Tech Lead |
+| **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
+| **Escopo** | Ambos |
+| **Módulo** | `content` (questões, banco do módulo, bloco `EXERCISES`, correção), `practice` (progresso) e `mcp` (ferramentas de autoria) |
+| **Contexto de tela** | `/app/modules/[id]/edit?tab=exercises`, página da questão do banco, aba Exercícios do card, aba "Desafios" e exercícios do card na tela de estudo |
+| **Prioridade** | Alta |
+| **Depende de** | SPEC-022, SPEC-023, SPEC-024, SPEC-025, SPEC-035 |
+| **Substitui** | Nenhuma. Amplia a lista de tipos aceitos pelo banco (SPEC-035 RN-01) |
+| **Fontes canônicas** | Pedido do Tech Lead de 11/10/2026; SPEC-035 (contrato de tipo de questão, comportamento no exercício e na avaliação, animação) |
+
+---
+
+## 1. Contexto e Problema (Context & Problem Statement)
+
+Depois do verdadeiro ou falso (SPEC-035) e da escolha única (SPEC-036), o Tech Lead pediu a questão de **ligar colunas**. Ela tem uma coluna de itens à esquerda e uma à direita, e o aluno liga cada item da esquerda ao seu par da direita. Exemplo: ligar `chmod`, `chown` e `ls` às suas descrições.
+
+O pedido:
+
+- de **2 a 5 pares** (mínimo de duas ligações, máximo de cinco);
+- nível de dificuldade, dicas, descrição com imagens e justificativa, como os demais tipos;
+- o mesmo comportamento do verdadeiro ou falso:
+  - no **exercício**, o resultado aparece na hora e a resposta trava;
+  - na **avaliação**, o aluno muda as ligações até finalizar, e a correção só acontece ao finalizar;
+- a ligação é **animada** para o aluno.
+
+Esse tipo não existe no schema: `questions.kind` só aceita `PRACTICAL`, `THEORETICAL_SINGLE`, `THEORETICAL_MULTIPLE`, `THEORETICAL_BOOLEAN` e `DISCURSIVE` (SPEC-011).
+
+## 2. Objetivos (Goals)
+
+- Um tipo novo, **Ligar colunas** (`THEORETICAL_MATCHING`), no banco de questões do módulo e nos exercícios do card, pelo contrato da SPEC-035.
+- A docente escreve de 2 a 5 pares, cada um com o item da esquerda e o seu par da direita.
+- O aluno liga os itens com o mouse, o toque ou o teclado. Cada ligação aparece como uma linha animada entre os dois itens.
+- No exercício, depois de ligar tudo e confirmar, o aluno vê na hora:
+  - quais ligações acertou e quais errou, com animação;
+  - os pares corretos;
+  - a justificativa.
+
+  A resposta trava.
+- Na avaliação, as ligações mudam livremente e nada diz se estão certas.
+
+### 2.1. Fora de escopo (Non-Goals)
+
+- Itens extras sem par (distratores) e colunas de tamanhos diferentes: ver P-01.
+- Um item ligado a mais de um par.
+- Imagem ou formatação dentro dos itens: só texto simples (P-06).
+- Arrastar e soltar como forma principal de ligar: ver P-04.
+- Aplicação de provas (spec de avaliação), que DEVE seguir SPEC-035 RN-07 e RN-13 também para este tipo, e a regra de nota da P-02.
+
+## 3. Proposta de Solução (Proposed Solution)
+
+### 3.1. Frontend (Next.js & SCSS Modules)
+
+**Autoria (banco e card):**
+
+- O seletor de tipo oferece "Ligar colunas", com uma linha de explicação.
+- A página da questão tem título, nível, descrição com imagens, dicas, **pares** e justificativa.
+- **Pares:**
+  - nasce com 2 pares vazios;
+  - "+ Adicionar par" vai até 5;
+  - cada par mostra o item da esquerda e o da direita lado a lado, com os botões subir, descer e remover;
+  - remover fica bloqueado quando restam 2.
+- **Prévia:** mostra a questão como o aluno vê, com a coluna da direita embaralhada (P-03).
+- **Banco e card:** "Ligar colunas" entra na etiqueta, no filtro por tipo e no resumo da lista ("3 pares").
+- **Testes do banco, do módulo e do card:** só conferem se a questão está completa (SPEC-035 RN-09).
+
+**Aluno (aba "Desafios" e exercício do card):**
+
+- Duas colunas. A da esquerda fica na ordem da docente e a da direita vem embaralhada (P-03).
+- **Ligar:**
+  - clicar ou tocar num item da esquerda e depois num da direita; pelo teclado, Enter num e Enter no outro (P-04);
+  - a linha entre os dois se desenha com animação;
+  - escolher de novo um item já ligado desfaz a ligação antiga;
+  - cada par ligado ganha a mesma cor e o mesmo número nos dois lados, para quem não enxerga bem a linha.
+- **No exercício:** o botão "Conferir minhas ligações" só se habilita com todos os itens ligados (P-05). Ao conferir:
+  - as linhas certas ficam verdes, com um pulso;
+  - as erradas ficam vermelhas, com uma tremida curta;
+  - os pares corretos aparecem;
+  - a justificativa aparece, se houver.
+
+  A resposta trava, inclusive depois de recarregar.
+- **No modo avaliação:** liga e desliga à vontade, sem conferir e sem resultado.
+- **Movimento reduzido:** quem pede ao sistema menos movimento vê as linhas sem animação.
+- **Telas estreitas:** as colunas ficam uma embaixo da outra, e as ligações aparecem pelo número e pela cor, sem linha.
+
+**Componente de resposta:**
+
+- Componente de ligar colunas com os dois modos da SPEC-035: exercício e avaliação.
+- As linhas são desenhadas em SVG com as cores dos tokens.
+- Os textos ficam nos arquivos de mensagens.
+
+### 3.2. Backend (Go — Camada de Módulo/Service)
+
+- **RN-01 (tipo novo):** `THEORETICAL_MATCHING` entra no enum de `questions.kind` por migração, no glossário e no contrato de tipos da SPEC-035, aceito no banco do módulo e nos exercícios do card.
+- **RN-02 (pares):**
+  - de 2 a 5 pares;
+  - cada lado tem um texto obrigatório, de até 200 caracteres;
+  - os itens de um mesmo lado não se repetem (comparando sem diferenciar maiúsculas e espaços nas pontas);
+  - cada item, da esquerda e da direita, tem um identificador próprio e opaco, que não revela qual é o seu par.
+- **RN-03 (campos por tipo):**
+  - exige `title` e `difficulty`;
+  - aceita `statement`, `hints`, `pairs` e `explanation`;
+  - recusa `solution`, `conditions`, `dependsOn`, `correctAnswer` e `correctChoice`.
+- **RN-04 (publicar):** publicar exige descrição não vazia e de 2 a 5 pares completos, sem repetição.
+- **RN-05 (entrega ao aluno):**
+  - a lista de questões traz os itens da esquerda e os da direita como duas listas separadas, cada item com identificador e texto;
+  - a direita vem embaralhada pelo servidor;
+  - nunca traz quais itens formam par, nem a justificativa.
+- **RN-06 (correção no exercício):**
+  - a rota de conferência recebe as ligações: uma para cada item da esquerda, cada item da direita usado uma única vez;
+  - ela corrige no servidor e devolve se acertou tudo, o resultado de cada ligação, os pares corretos e a justificativa.
+- **RN-07 (resposta única):**
+  - a primeira resposta é definitiva, gravada em `exercise_progress.response`, e a segunda recebe 409;
+  - a questão conta como concluída ao ser respondida (SPEC-035 RN-08 e D-13);
+  - `passed` é verdadeiro só com todas as ligações certas (P-02).
+- **RN-08 (avaliação):** valem SPEC-035 RN-07 (troca livre até finalizar, correção no servidor) e RN-13 (dicas na prova).
+- **RN-09 (exercício do card):** o item do bloco `EXERCISES` aceita o tipo com os mesmos campos e limites. Ele é conferido na tela e travado no navegador, como os outros tipos sem terminal do card (SPEC-035 D-14).
+- **RN-10 (MCP):** as ferramentas aceitam o tipo e os pares, com as mesmas validações.
+
+## 4. Modelo de Dados (Data Model)
+
+**Migração:** acrescenta `THEORETICAL_MATCHING` ao `CHECK` de `questions.kind`. A restrição `questions_objective_fields` passa a exigir, para `THEORETICAL_MATCHING` publicada, os pares e o gabarito.
+
+| Campo de `questions` | Uso em `THEORETICAL_MATCHING` |
+| :--- | :--- |
+| `choices` | Os itens: `left` e `right`, duas listas de { `id`, `text` }, a esquerda na ordem da docente |
+| `answer_key` | Os pares: lista de { `left`: id, `right`: id } |
+| `explanation`, `hints`, `statement`, `title`, `difficulty` | Como nos outros tipos sem terminal |
+| `scenario_id`, `reference_solution`, `validation_conditions`, `end_conditions`, `depends_on` | Sempre nulos |
+
+`exercise_progress.response` guarda as ligações do aluno: lista de { `left`, `right` }.
+
+**No bloco `EXERCISES`:** o item guarda `pairs`, uma lista de { `left`, `right` } com os textos, porque o card é conferido na tela.
+
+## 5. Contrato de API (API Contract)
+
+### 5.1. Banco do módulo
+
+**`POST` e `PUT /api/v1/teacher/modules/{id}/exercises[/{exerciseId}]`**: aceitam `kind = THEORETICAL_MATCHING` e os campos abaixo.
+
+| Campo | Tipo | Obrigatório | Regra |
+| :--- | :--- | :--- | :--- |
+| `pairs` | lista de { `left`, `right` } (textos) | Para publicar | De 2 a 5, de 1 a 200 caracteres cada lado, sem repetição no mesmo lado. O servidor gera os identificadores |
+| `explanation` | HTML | Não | Como nos outros tipos |
+
+A resposta para a docente traz `pairs` na ordem dela. Erros: 400 `validation-error` com o campo (`pairs[1].right`...).
+
+### 5.2. Aluno
+
+- **`GET /api/v1/modules/{id}/questions`:** os itens deste tipo trazem `left` e `right` (listas de { `id`, `text` }, a direita embaralhada), sem os pares.
+- **`POST /api/v1/questions/{id}/check`:**
+  - corpo: `response` = { `links`: [ { `left`, `right` } ] };
+  - resposta: `passed`, `completedAt`, `results` (cada ligação com `correct`), `pairs` (os pares corretos, por identificador) e `explanation`;
+  - 400 se as ligações não cobrirem todos os itens uma única vez;
+  - 409 `already-answered` na segunda resposta.
+- **`GET /api/v1/modules/{id}/progress`:** as respondidas trazem as ligações dadas, `passed`, `results`, `pairs` e `explanation`.
+
+## 6. Impacto e Riscos (Impact & Risks)
+
+| Risco | Mitigação |
+| :--- | :--- |
+| Os identificadores revelando os pares | Identificadores opacos e independentes por lado; a direita embaralhada (RN-02, RN-05); teste de que a lista pública não permite deduzir os pares |
+| Linhas difíceis de ver ou de seguir | Número e cor iguais nos dois lados de cada par; em tela estreita, só número e cor; navegação por teclado |
+| Animação incomodando | Respeita a preferência de menos movimento |
+| Valor novo no enum de `kind` | Migração com volta; o banco, o glossário e o contrato mudam juntos |
+| Gabarito do card visível no navegador | Aceito como nos outros tipos do card (SPEC-035 D-14) |
+
+## 7. Critérios de Aceite (Acceptance Criteria)
+
+- [ ] **CA-01** (evento): QUANDO a docente cria uma questão, O SISTEMA DEVE oferecer "Ligar colunas" entre os tipos, no banco e no card.
+- [ ] **CA-02** (ubíquo): A página da questão DEVE ter título, nível, descrição com imagens, dicas, de 2 a 5 pares e justificativa, sem solução, condições, ambiente nem dependência.
+- [ ] **CA-03** (indesejado): SE a docente tentar ter menos de 2 ou mais de 5 pares, ENTÃO a tela NÃO DEVE permitir, e o servidor DEVE recusar com 400.
+- [ ] **CA-04** (indesejado): SE a docente publicar sem descrição, com um lado vazio ou com itens repetidos no mesmo lado, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
+- [ ] **CA-05** (ubíquo): A lista de questões do aluno NÃO DEVE conter os pares nem a justificativa, e a coluna da direita DEVE vir embaralhada (RN-05).
+- [ ] **CA-06** (evento): QUANDO o aluno escolhe um item de cada coluna, O SISTEMA DEVE desenhar a ligação com animação e marcar os dois com o mesmo número e cor; escolher de novo um item ligado DEVE desfazer a ligação antiga.
+- [ ] **CA-07** (estado): ENQUANTO houver item sem ligação no exercício, O SISTEMA NÃO DEVE habilitar a conferência (P-05).
+- [ ] **CA-08** (evento): QUANDO o aluno confere no exercício, O SISTEMA DEVE corrigir no servidor e mostrar na hora, com animação, as ligações certas e erradas, os pares corretos e a justificativa, e travar a resposta, inclusive depois de recarregar (RN-06, RN-07).
+- [ ] **CA-09** (indesejado): SE as ligações enviadas não cobrirem cada item uma única vez, ou se o aluno responder de novo, ENTÃO a API DEVE responder 400 ou 409.
+- [ ] **CA-10** (estado): ENQUANTO o componente está no modo avaliação, O SISTEMA DEVE permitir ligar e desligar a qualquer momento, mostrar as dicas e NÃO DEVE mostrar resultado (RN-08).
+- [ ] **CA-11** (evento): QUANDO o aluno responde um exercício de ligar colunas do card, O SISTEMA DEVE mostrar o resultado na hora e travar a resposta no navegador (RN-09).
+- [ ] **CA-12** (evento): QUANDO a docente roda os testes do banco, do módulo ou do card, O SISTEMA DEVE conferir só se a questão está completa.
+- [ ] **CA-13** (evento): QUANDO um agente cria pelo MCP uma questão ou um exercício de card de ligar colunas, O SISTEMA DEVE aplicar as mesmas validações da tela (RN-10).
+- [ ] **CA-14** (ubíquo): Ligar DEVE ser possível só pelo teclado, a animação DEVE respeitar a preferência de menos movimento, a tela estreita DEVE funcionar sem as linhas, e as telas DEVEM usar só tokens.
+
+## 8. Plano de Testes (Test Plan)
+
+- **Domínio (Go):** contrato do tipo (de 2 a 5 pares, textos, repetição, campos proibidos, identificadores gerados e opacos) e correção (tudo certo, parte certa, ligações que não cobrem os itens) (CA-03, CA-04, CA-09).
+- **Service e handler (Go):** criar, salvar, publicar; lista pública sem pares e com a direita embaralhada; conferência com resposta única; progresso (CA-05, CA-08, CA-09).
+- **Repository (PostgreSQL real):** migração do enum e da restrição; gravação e leitura.
+- **MCP (Go):** criar e editar pelas ferramentas (CA-13).
+- **Frontend:**
+  - editor de pares (adicionar até 5, remover até 2, mover) (CA-02, CA-03);
+  - componente de ligar nos dois modos:
+    - ligar e desfazer por clique e por teclado, número e cor dos pares, conferência só com tudo ligado (CA-06, CA-07, CA-10, CA-14);
+    - resultado animado e travado (CA-08);
+  - aba "Desafios" e card (CA-08, CA-11);
+  - testes do banco e do card (CA-12).
+- **Manual:**
+  - criar uma questão com 4 pares e imagem na descrição;
+  - ligar com o mouse e com o teclado, conferir e recarregar;
+  - ver numa tela estreita;
+  - rodar o "Testar Banco".
+- **Cobertura:** acima de 80% no escopo da spec.
+
+## 9. Contexto Final da IA (AI Final Context Execution)
+
+1. **Pré-leitura obrigatória:**
+   - `specs/AI_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `GLOSSARY.md`;
+   - SPEC-035 inteira;
+   - a SPEC-036, se já implementada;
+   - SPEC-022, 023, 024 e 025;
+   - no código, `content/domain/question_type.go` e os componentes `TrueFalseAnswer`, `KindChooser` e `ExerciseForm`.
+2. **Ordem de execução:**
+   1. migração e domínio;
+   2. banco, conferência e progresso;
+   3. bloco do card;
+   4. MCP;
+   5. serviços do frontend;
+   6. editor de pares;
+   7. componente de ligar com as linhas em SVG;
+   8. aba "Desafios" e card;
+   9. testes do banco;
+   10. glossário e spec.
+3. **Arquivos e diretórios a criar ou alterar:** os mesmos da SPEC-035 seção 9, mais:
+   - a migração do enum;
+   - o componente de ligar colunas;
+   - o editor de pares.
+4. **Definição de pronto:** todos os CA marcados, testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, glossário atualizado e status `Implementada`.
+
+## 10. Pendências para aprovação
+
+| ID | Pendência | Recomendação |
+| :--- | :--- | :--- |
+| P-01 | As duas colunas têm sempre o mesmo número de itens, ou a da direita pode ter itens a mais, sem par (distratores), para a última ligação não sair por eliminação? | Mesmo número nesta spec (de 2 a 5 pares, como pedido). Distratores podem entrar depois sem mudar o formato |
+| P-02 | Como conta o acerto: tudo ou nada, ou parcial (por exemplo, 3 de 4 ligações certas)? | No exercício, mostrar cada ligação certa ou errada; a questão é "acertou" só com todas certas. A nota parcial na prova fica para a spec de avaliação |
+| P-03 | A ordem das colunas para o aluno | Esquerda na ordem da docente e direita embaralhada pelo servidor; sem embaralhar, a resposta seria a própria ordem |
+| P-04 | Como o aluno liga: clicar (ou tocar) num item e depois no outro, ou arrastar uma linha de um ao outro? | Clicar e clicar, com o teclado fazendo o mesmo: funciona no celular e é acessível. Arrastar pode vir depois, como um atalho a mais |
+| P-05 | Quando a resposta do exercício trava, já que são várias ligações? | Só no botão "Conferir minhas ligações", habilitado com tudo ligado; antes disso, o aluno pode refazer as ligações à vontade. Depois de conferir, trava |
+| P-06 | Os itens podem ter formatação ou imagem? | Só texto simples, até 200 caracteres por lado |
+| P-07 | Também nos exercícios do card? | Sim, como os outros tipos sem terminal (SPEC-035 D-08) |
+| P-08 | Nomes | Tipo `THEORETICAL_MATCHING`, "Ligar colunas"; "Par" (`Pair`, campo `pairs`), "Ligação" (`Link`, campo `links` da resposta) |
+
+---
+
+## Histórico de revisões
+
+| Data | Autor | Alteração |
+| :--- | :--- | :--- |
+| 11/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (ligar colunas, de 2 a 5 pares, mesmo comportamento do verdadeiro ou falso no exercício e na avaliação, animado para o aluno). Pendências P-01 a P-08 |
