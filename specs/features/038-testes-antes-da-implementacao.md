@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-038 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 12/10/2026 |
-| **Última revisão** | 12/10/2026 (aprovada) |
+| **Última revisão** | 12/10/2026 (implementada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -82,18 +82,18 @@ Não se aplica nesta spec: muda só o processo.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): `specs/AI_INSTRUCTIONS.md` DEVE trazer o fluxo de testes antes da implementação (seção 4), a proibição de escrever código de produção antes dos testes (seção 5) e a prova do vermelho e do verde na entrega (seção 8).
-- [ ] **CA-02** (ubíquo): `specs/ARCHITECTURE.md`, seção 5, DEVE trazer a regra de testes antes da implementação, com as RN-01 a RN-05.
-- [ ] **CA-03** (ubíquo): `specs/_TEMPLATE.md`, seção 8, DEVE pedir os testes a escrever primeiro, nomeados e ligados aos critérios de aceite.
-- [ ] **CA-04** (ubíquo): os ponteiros `CLAUDE.md`, `AGENTS.md` e `GEMINI.md` DEVEM lembrar que os testes vêm antes da implementação.
-- [ ] **CA-05** (ubíquo): a SPEC-006 DEVE registrar no histórico a revisão por esta spec.
+- [x] **CA-01** (ubíquo): `specs/AI_INSTRUCTIONS.md` DEVE trazer o fluxo de testes antes da implementação (seção 4), a proibição de escrever código de produção antes dos testes (seção 5) e a prova do vermelho e do verde na entrega (seção 8).
+- [x] **CA-02** (ubíquo): `specs/ARCHITECTURE.md`, seção 5, DEVE trazer a regra de testes antes da implementação, com as RN-01 a RN-05.
+- [x] **CA-03** (ubíquo): `specs/_TEMPLATE.md`, seção 8, DEVE pedir os testes a escrever primeiro, nomeados e ligados aos critérios de aceite.
+- [x] **CA-04** (ubíquo): os ponteiros `CLAUDE.md`, `AGENTS.md` e `GEMINI.md` DEVEM lembrar que os testes vêm antes da implementação.
+- [x] **CA-05** (ubíquo): a SPEC-006 DEVE registrar no histórico a revisão por esta spec.
 
 ## 8. Plano de Testes (Test Plan)
 
 Não há código. A verificação é manual:
 
 - conferir os textos dos CA-01 a CA-05;
-- na próxima spec implementada (a SPEC-037, de ligar colunas), conferir que a entrega traz a execução vermelha antes do código e a verde depois.
+- na próxima spec com código, conferir que a entrega traz a execução vermelha antes do código e a verde depois.
 
 ## 9. Contexto Final da IA (AI Final Context Execution)
 
@@ -130,3 +130,4 @@ Nenhuma em aberto. P-01 a P-04 viraram as decisões D-01 a D-04.
 | :--- | :--- | :--- |
 | 12/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (testes automatizados sempre antes da implementação, por regra). Pendências P-01 a P-04 |
 | 12/10/2026 | Tech Lead | Aprovada ("Aprovo"), aceitas as recomendações de P-01 a P-04 (D-01 a D-04). Status: `Aprovada` |
+| 12/10/2026 | Implementador (Claude) | Implementada; status `Implementada`. Regra aplicada em `AI_INSTRUCTIONS.md` (seção 4.0, proibições e entrega), `ARCHITECTURE.md` (seção 5, RN-01 a RN-05), `_TEMPLATE.md` (seção 8), nos ponteiros `CLAUDE.md`, `AGENTS.md` e `GEMINI.md` e no histórico da SPEC-006. A proibição de trabalhar fora da `projeto-tcc2` passa a aceitar branches de feature criadas a partir dela, como a D-01 pede |
