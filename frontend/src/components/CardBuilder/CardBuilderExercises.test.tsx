@@ -167,3 +167,22 @@ describe("CardBuilder, exercises without a terminal in the list", () => {
     expect(list).toHaveTextContent("Resposta correta: Falso");
   });
 });
+
+// Covers SPEC-037 CA-01 in the list of the card: what a matching exercise shows.
+describe("CardBuilder, matching exercises in the list", () => {
+  it("shows how many pairs and whether they are marked", () => {
+    const columns = { left: [{ id: "l1", text: "a" }, { id: "l2", text: "b" }], right: [{ id: "r1", text: "c" }, { id: "r2", text: "d" }] };
+    renderBuilder({
+      group: withExercises([
+        { kind: "THEORETICAL_MATCHING", title: "Ligar", difficulty: "EASY", ...columns, pairs: [{ left: "l1", right: "r1" }, { left: "l2", right: "r2" }] },
+        { kind: "THEORETICAL_MATCHING", title: "Sem pares", difficulty: "EASY", ...columns },
+        { kind: "THEORETICAL_MATCHING", title: "Vazio", difficulty: "EASY" },
+      ]),
+    });
+    openTab("Exercícios");
+    const list = screen.getByRole("list", { name: "Exercícios" });
+    expect(list).toHaveTextContent("Ligar colunas · Fácil · 0 dicas · 2 pares · pares marcados");
+    expect(list).toHaveTextContent("2 pares · falta marcar os pares");
+    expect(list).toHaveTextContent("0 pares · falta marcar os pares");
+  });
+});

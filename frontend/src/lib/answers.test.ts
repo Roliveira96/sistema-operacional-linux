@@ -28,3 +28,26 @@ describe("answers", () => {
     expect(answerFromProgress({ questionId: "q", completedAt: "t", attempts: 1, response: {} })).toBeNull();
   });
 });
+
+// Covers SPEC-037 RN-06 on the screen: the graded links of a matching question.
+describe("answers of a matching question", () => {
+  const links = [
+    { left: "l1", right: "r2" },
+    { left: "l2", right: "r1" },
+  ];
+  it("reads the result of a check and the progress", () => {
+    const results = [
+      { left: "l1", right: "r2", correct: true },
+      { left: "l2", right: "r1", correct: false },
+    ];
+    expect(answerFromCheck({ links }, { passed: false, completedAt: "t", pairs: links, results })).toEqual({
+      type: "matching",
+      result: { links, passed: false, pairs: links, results, explanation: undefined },
+    });
+    expect(answerFromCheck({ links }, { passed: false, completedAt: "t" })).toBeNull();
+    expect(answerFromProgress({ questionId: "q", completedAt: "t", attempts: 1, response: { links }, passed: true, pairs: links, results })).toMatchObject({
+      type: "matching",
+      result: { passed: true },
+    });
+  });
+});

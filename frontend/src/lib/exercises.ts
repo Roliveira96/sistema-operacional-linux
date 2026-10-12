@@ -2,7 +2,7 @@
 
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import type { ExerciseCondition } from "./exerciseConditions";
-import { hasDescription, isSingleChoice, MAX_CHOICES, MIN_CHOICES, parseKind, plainText, usesTerminal, type QuestionKind } from "./questionKinds";
+import { hasDescription, isMatching, isSingleChoice, MAX_CHOICES, MAX_PAIRS, MIN_CHOICES, MIN_PAIRS, parseKind, plainText, usesTerminal, type QuestionKind } from "./questionKinds";
 import { hasSetup, parseSetup, setupPayload, type Setup, type SetupFile } from "./setup";
 import { newId } from "./newId";
 
@@ -37,8 +37,24 @@ export interface Exercise {
   choices?: Choice[];
   /** The id of the only correct alternative, null while the teacher has not marked it. */
   correctChoice?: string | null;
-  /** Shuffle the alternatives for the student (the default) or keep the order of the teacher (SPEC-036 D-07). */
+  /** Shuffle the alternatives (or the columns) for the student, the default, or keep the order of the teacher (SPEC-036 D-07, SPEC-037 D-10). */
   shuffleChoices?: boolean;
+  /** The columns of a matching question, each in the order of the teacher, and the correct pairs she selected (SPEC-037 D-09). */
+  left?: MatchItem[];
+  right?: MatchItem[];
+  pairs?: MatchPair[];
+}
+
+/** One item of a column of a matching question. */
+export interface MatchItem {
+  id: string;
+  text: string;
+}
+
+/** A link between an item of the left column and one of the right column, by their ids. */
+export interface MatchPair {
+  left: string;
+  right: string;
 }
 
 /** One alternative of a single choice question. */
@@ -66,6 +82,16 @@ export const emptyExercise = (kind: QuestionKind = "PRACTICAL"): Exercise => ({
   hints: [],
   conditions: [],
   ...(kind === "THEORETICAL_BOOLEAN" ? { kind, correctAnswer: null, explanation: "" } : {}),
+  ...(kind === "THEORETICAL_MATCHING"
+    ? {
+        kind,
+        left: [{ id: newId(), text: "" }, { id: newId(), text: "" }],
+        right: [{ id: newId(), text: "" }, { id: newId(), text: "" }],
+        pairs: [],
+        shuffleChoices: true,
+        explanation: "",
+      }
+    : {}),
   ...(kind === "THEORETICAL_SINGLE"
     ? { kind, choices: [{ id: newId(), html: "" }, { id: newId(), html: "" }], correctChoice: null, shuffleChoices: true, explanation: "" }
     : {}),
@@ -75,6 +101,16 @@ export const emptyExercise = (kind: QuestionKind = "PRACTICAL"): Exercise => ({
 export function trueFalseFields(r: Record<string, unknown>): Partial<Exercise> {
   const kind = parseKind(r.kind);
   if (usesTerminal(kind)) return {};
+  if (isMatching(kind)) {
+    const column = (raw: unknown): MatchItem[] =>
+      (Array.isArray(raw) ? raw : [])
+        .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
+        .map((c) => ({ id: str(c.id) || newId(), text: str(c.text) }));
+    const pairs = (Array.isArray(r.pairs) ? r.pairs : [])
+      .filter((p): p is Record<string, unknown> => typeof p === "object" && p !== null && str(p.left) !== "" && str(p.right) !== "")
+      .map((p) => ({ left: str(p.left), right: str(p.right) }));
+    return { kind, left: column(r.left), right: column(r.right), pairs, shuffleChoices: r.shuffleChoices !== false, explanation: str(r.explanation) };
+  }
   if (isSingleChoice(kind)) {
     const choices = (Array.isArray(r.choices) ? r.choices : [])
       .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
@@ -91,13 +127,38 @@ export function trueFalseFields(r: Record<string, unknown>): Partial<Exercise> {
 }
 
 /** What a question without a terminal can still miss. */
-export type MissingAnswer = "statement" | "correctAnswer" | "choices" | "choiceEmpty" | "choiceRepeated" | "correctChoice";
+export type MissingAnswer =
+  | "statement"
+  | "correctAnswer"
+  | "choices"
+  | "choiceEmpty"
+  | "choiceRepeated"
+  | "correctChoice"
+  | "columns"
+  | "itemEmpty"
+  | "itemRepeated"
+  | "pairs";
 
 /** What a question without a terminal still needs to be published, or to be part of a test (SPEC-035 RN-04, SPEC-036 RN-04). */
 export function missingAnswer(ex: Exercise): MissingAnswer[] {
   if (usesTerminal(ex.kind)) return [];
   const missing: MissingAnswer[] = [];
   if (!hasDescription(ex.description)) missing.push("statement");
+  if (isMatching(ex.kind)) {
+    const left = ex.left ?? [];
+    const right = ex.right ?? [];
+    if (left.length < MIN_PAIRS || left.length > MAX_PAIRS || right.length !== left.length) missing.push("columns");
+    if ([...left, ...right].some((it) => it.text.trim() === "")) missing.push("itemEmpty");
+    const repeated = (items: MatchItem[]) => {
+      const texts = items.map((it) => plainText(it.text)).filter((t) => t !== "");
+      return new Set(texts).size !== texts.length;
+    };
+    if (repeated(left) || repeated(right)) missing.push("itemRepeated");
+    const pairs = ex.pairs ?? [];
+    const paired = new Set(pairs.map((p) => p.left));
+    if (pairs.length !== left.length || left.some((it) => !paired.has(it.id))) missing.push("pairs");
+    return missing;
+  }
   if (!isSingleChoice(ex.kind)) {
     if (typeof ex.correctAnswer !== "boolean") missing.push("correctAnswer");
     return missing;
@@ -163,6 +224,7 @@ export function exercisesPayload(group: ExerciseGroup): Record<string, unknown> 
           }
         : {
             ...(typeof ex.correctAnswer === "boolean" ? { correctAnswer: ex.correctAnswer } : {}),
+            ...(isMatching(ex.kind) ? { left: ex.left ?? [], right: ex.right ?? [], pairs: ex.pairs ?? [], shuffleChoices: ex.shuffleChoices !== false } : {}),
             ...(isSingleChoice(ex.kind)
               ? { choices: ex.choices ?? [], ...(ex.correctChoice ? { correctChoice: ex.correctChoice } : {}), shuffleChoices: ex.shuffleChoices !== false }
               : {}),

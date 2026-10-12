@@ -1,0 +1,161 @@
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3) var(--space-12);
+}
+
+.lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+// The line draws itself from one item to the other (SPEC-037: animated for the student).
+.line {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 400ms var(--easing-standard) forwards;
+}
+
+.right {
+  stroke: var(--color-success);
+}
+
+.wrong {
+  stroke: var(--color-danger);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  font-weight: var(--font-weight-regular);
+  text-align: left;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.picked {
+  border-color: var(--color-focus-ring);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+.badge {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--pair-color);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  animation: pop 250ms var(--easing-standard);
+}
+
+.verdict {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+// The same color on both sides of a pair, for whoever does not follow the line well.
+@each $n, $token in (1: --color-accent, 2: --color-info, 3: --color-brand-gold, 4: --color-success, 5: --color-warning) {
+  .pair#{$n} {
+    --pair-color: var(#{$token});
+
+    border-color: var(#{$token});
+  }
+
+  .stroke#{$n} {
+    stroke: var(#{$token});
+  }
+}
+
+.check {
+  align-self: flex-start;
+  min-height: 2.5rem;
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.pairs {
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--color-text-body);
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.4);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+// Narrow screens: the columns stack and the links show by number and color, without lines.
+@media (width <= 640px) {
+  .board {
+    grid-template-columns: 1fr;
+  }
+
+  .lines {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+
+  .badge {
+    animation: none;
+  }
+}

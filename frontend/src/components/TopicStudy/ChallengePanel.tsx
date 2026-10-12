@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { Html } from "@/components/ContentRenderer/blocks";
+import { MatchingAnswer } from "@/components/MatchingAnswer/MatchingAnswer";
 import { SingleChoiceAnswer } from "@/components/SingleChoiceAnswer/SingleChoiceAnswer";
 import { TrueFalseAnswer } from "@/components/TrueFalseAnswer/TrueFalseAnswer";
 import type { AnswerResponse, GivenAnswer } from "@/lib/answers";
-import { isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
+import { isMatching, isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
 import { contentMessages } from "@/messages/content.pt-BR";
 import type { PublicQuestion } from "@/services/contentService";
 import styles from "./ChallengePanel.module.scss";
@@ -58,7 +59,7 @@ export function ChallengePanel({
       )}
       <ol className={styles.list}>
         {challenges.map((challenge, i) => {
-          if (isTrueFalse(challenge.kind) || isSingleChoice(challenge.kind)) {
+          if (isTrueFalse(challenge.kind) || isSingleChoice(challenge.kind) || isMatching(challenge.kind)) {
             const given = answers.get(challenge.id) ?? null;
             const result = given?.result ?? null;
             const error = answerErrors.get(challenge.id);
@@ -78,8 +79,22 @@ export function ChallengePanel({
                     <b>{i + 1}.</b> {challenge.title}
                   </p>
                   <Html html={challenge.statement} />
-                  {!result && <p className={styles.intro}>{isSingleChoice(challenge.kind) ? m.singleChoiceIntro : m.trueFalseIntro}</p>}
-                  {isSingleChoice(challenge.kind) ? (
+                  {!result && (
+                    <p className={styles.intro}>{isMatching(challenge.kind) ? m.matchingIntro : isSingleChoice(challenge.kind) ? m.singleChoiceIntro : m.trueFalseIntro}</p>
+                  )}
+                  {isMatching(challenge.kind) ? (
+                    <MatchingAnswer
+                      mode="exercise"
+                      label={challenge.title}
+                      left={challenge.left ?? []}
+                      right={challenge.right ?? []}
+                      result={given?.type === "matching" ? given.result : null}
+                      busy={answering === challenge.id}
+                      disabled={needsLogin || !onAnswer}
+                      message={message}
+                      onAnswer={(links) => onAnswer?.(challenge, { links })}
+                    />
+                  ) : isSingleChoice(challenge.kind) ? (
                     <SingleChoiceAnswer
                       mode="exercise"
                       label={challenge.title}

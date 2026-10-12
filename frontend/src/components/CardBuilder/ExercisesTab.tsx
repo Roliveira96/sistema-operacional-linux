@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { KindChooser } from "@/components/KindChooser/KindChooser";
-import { isSingleChoice, usesTerminal } from "@/lib/questionKinds";
+import { isMatching, isSingleChoice, usesTerminal } from "@/lib/questionKinds";
 import type { CardErrors } from "@/lib/cardModel";
 import { type ExerciseGroup } from "@/lib/exercises";
 import type { Setup, SetupLayer } from "@/lib/setup";
@@ -82,7 +82,9 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
                   {kinds.label[ex.kind ?? "PRACTICAL"]} · {m.difficulty[ex.difficulty]} · {m.hintCount(ex.hints.length)} ·{" "}
                   {usesTerminal(ex.kind)
                     ? `${ex.solution ? m.hasSolution : m.noSolution} · ${m.conditionCount(ex.conditions.length)}`
-                    : isSingleChoice(ex.kind)
+                    : isMatching(ex.kind)
+                      ? `${kinds.pairCount(ex.left?.length ?? 0)} · ${(ex.pairs ?? []).length > 0 && (ex.pairs ?? []).length === (ex.left ?? []).length ? kinds.pairsMarked : kinds.pairsMissing}`
+                      : isSingleChoice(ex.kind)
                       ? `${kinds.choiceCount(ex.choices?.length ?? 0)} · ${ex.correctChoice ? kinds.correctMarked : kinds.correctMissing}`
                       : typeof ex.correctAnswer === "boolean"
                       ? `${kinds.correctAnswer}: ${ex.correctAnswer ? kinds.true : kinds.false}`

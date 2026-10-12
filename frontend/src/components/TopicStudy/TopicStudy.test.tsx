@@ -121,6 +121,7 @@ function defaultPractice() {
     progress: vi.fn().mockResolvedValue([]),
     answer: vi.fn(),
     choose: vi.fn(),
+    link: vi.fn(),
   };
 }
 
@@ -1417,5 +1418,62 @@ describe("TopicStudy single choice questions", () => {
     await open(practice);
     expect(screen.getByText("Você acertou!")).toBeInTheDocument();
     expect(practice.choose).not.toHaveBeenCalled();
+  });
+});
+
+// Covers SPEC-037 CA-06 to CA-09 on the study screen.
+describe("TopicStudy matching questions", () => {
+  const matching = challenge("mt", {
+    kind: "THEORETICAL_MATCHING",
+    title: "commands",
+    statement: "<p>Link each command.</p>",
+    solution: undefined,
+    left: [
+      { id: "l1", text: "chmod" },
+      { id: "l2", text: "chown" },
+    ],
+    right: [
+      { id: "r1", text: "owner" },
+      { id: "r2", text: "mode" },
+    ],
+  });
+  const open = async (practice = defaultPractice()) => {
+    const content = { content: vi.fn().mockResolvedValue({ blocks, setup: undefined }), questions: vi.fn().mockResolvedValue([matching]) };
+    setup({ content, practice });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    return practice;
+  };
+
+  it("links the columns, checks on the server and locks with the result of each link", async () => {
+    const practice = defaultPractice();
+    const links = [
+      { left: "l1", right: "r2" },
+      { left: "l2", right: "r1" },
+    ];
+    practice.link.mockResolvedValue({ passed: true, completedAt: "t", pairs: links, results: links.map((l) => ({ ...l, correct: true })) });
+    await open(practice);
+    fireEvent.click(screen.getByRole("button", { name: /^chmod/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^mode/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^chown/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^owner/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Conferir minhas ligações" }));
+    expect(practice.link).toHaveBeenCalledWith("mt", links);
+    expect(await screen.findByText("Você acertou!")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^chmod/ })).toHaveProperty("disabled", true);
+  });
+
+  it("starts locked with the links the student already checked", async () => {
+    const practice = defaultPractice();
+    const links = [
+      { left: "l1", right: "r1" },
+      { left: "l2", right: "r2" },
+    ];
+    practice.progress.mockResolvedValue([
+      { questionId: "mt", completedAt: "t", attempts: 1, response: { links }, passed: false, pairs: [{ left: "l1", right: "r2" }, { left: "l2", right: "r1" }], results: links.map((l) => ({ ...l, correct: false })) },
+    ]);
+    await open(practice);
+    expect(screen.getByText("Você errou.")).toBeInTheDocument();
+    expect(screen.getByText("chmod → mode")).toBeInTheDocument();
   });
 });

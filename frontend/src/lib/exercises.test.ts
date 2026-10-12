@@ -188,3 +188,58 @@ describe("single choice exercises of a card", () => {
     expect(items[1]!.command).toContain("falta marcar a alternativa correta");
   });
 });
+
+// Covers SPEC-037 RN-02, RN-04, RN-09, D-09 and D-10 on the screen: the matching item of the exercises of a card.
+describe("matching exercises of a card", () => {
+  const block = {
+    items: [
+      {
+        kind: "THEORETICAL_MATCHING",
+        title: "commands",
+        difficulty: "EASY",
+        description: "<p>Link them.</p>",
+        left: [{ id: "l1", text: "chmod" }, { id: "l2", text: "chown" }],
+        right: [{ id: "r1", text: "owner" }, { id: "r2", text: "mode" }],
+        pairs: [{ left: "l1", right: "r2" }, { left: "l2", right: "r1" }],
+        shuffleChoices: false,
+      },
+    ],
+  };
+
+  it("reads and writes the columns, the pairs and the order", () => {
+    const group = parseExercises(block);
+    expect(group.items[0]).toMatchObject({ kind: "THEORETICAL_MATCHING", shuffleChoices: false, pairs: block.items[0]!.pairs });
+    expect(group.items[0]!.left).toEqual(block.items[0]!.left);
+    expect(exercisesPayload(group).items).toEqual([
+      { kind: "THEORETICAL_MATCHING", title: "commands", difficulty: "EASY", description: "<p>Link them.</p>", left: block.items[0]!.left, right: block.items[0]!.right, pairs: block.items[0]!.pairs, shuffleChoices: false },
+    ]);
+    const bare = parseExercises({ items: [{ kind: "THEORETICAL_MATCHING", title: "x", difficulty: "EASY", left: [{ text: "a" }, 3], pairs: [{ left: "x" }] }] }).items[0]!;
+    expect(bare.left).toHaveLength(1);
+    expect(bare.left![0]!.id).not.toBe("");
+    expect(bare.right).toEqual([]);
+    expect(bare.pairs).toEqual([]);
+    expect(bare.shuffleChoices).toBe(true);
+  });
+
+  it("starts a new one with two empty items in each column", () => {
+    const ex = emptyExercise("THEORETICAL_MATCHING");
+    expect(ex.left).toHaveLength(2);
+    expect(ex.right).toHaveLength(2);
+    expect(ex).toMatchObject({ kind: "THEORETICAL_MATCHING", pairs: [], shuffleChoices: true });
+  });
+
+  // Covers SPEC-037 RN-04, CA-04 and CA-12.
+  it("says what it misses: items, empty or repeated ones, and the pairs", () => {
+    const ok = parseExercises(block).items[0]!;
+    expect(missingAnswer(ok)).toEqual([]);
+    expect(missingAnswer({ ...ok, left: [{ id: "l1", text: "Chmod" }, { id: "l2", text: "chmod " }], right: [{ id: "r1", text: "" }, { id: "r2", text: "mode" }] })).toEqual([
+      "itemEmpty",
+      "itemRepeated",
+    ]);
+    expect(missingAnswer({ ...ok, right: [{ id: "r1", text: "x" }], pairs: [] })).toEqual(["columns", "pairs"]);
+    expect(missingAnswer({ ...ok, description: "", pairs: [{ left: "l1", right: "r2" }] })).toEqual(["statement", "pairs"]);
+    const { items } = exerciseTestItems({ items: [ok, { ...ok, pairs: [] }] });
+    expect(items[0]).toMatchObject({ noTerminal: true });
+    expect(items[1]!.command).toContain("falta ligar os pares corretos");
+  });
+});

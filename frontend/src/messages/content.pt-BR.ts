@@ -41,6 +41,20 @@ export const contentMessages = {
     login: "Entrar",
     chosen: "Escolha marcada. Você pode mudar até finalizar a prova.",
   },
+  /** The answer to a matching question (SPEC-037). */
+  matching: {
+    left: "Coluna da esquerda",
+    right: "Coluna da direita",
+    how: "Clique (ou tecle Enter) num item de cada coluna para ligá-los. Clique de novo num item ligado para mudar a ligação.",
+    linked: (done: number, total: number) => `${done} de ${total} ligações feitas.`,
+    check: "Conferir minhas ligações",
+    rightLink: "ligação certa",
+    wrongLink: "ligação errada",
+    correctPairs: "Pares corretos",
+    pairLine: (left: string, right: string) => `${left} → ${right}`,
+    locked: "A resposta do exercício é única e não pode ser mudada.",
+    pairBadge: (n: number) => `par ${n}`,
+  },
   /** The answer to a single choice question (SPEC-036). */
   singleChoice: {
     group: "Alternativas",
@@ -163,6 +177,7 @@ export const contentMessages = {
       wrong: "Questão respondida, com erro",
       trueFalseIntro: "Verdadeiro ou falso: marque sua resposta. Ela vale na hora e não pode ser mudada.",
       singleChoiceIntro: "Escolha única: escolha uma alternativa. A resposta vale na hora e não pode ser mudada.",
+      matchingIntro: "Ligar colunas: ligue cada item da esquerda ao seu par na direita e confira. Depois de conferir, não dá para mudar.",
       needsLogin: "Entre na plataforma para o servidor conferir seus desafios e registrar seu progresso.",
       login: "Entrar",
     },

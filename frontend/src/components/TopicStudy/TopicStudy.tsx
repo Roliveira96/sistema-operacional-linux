@@ -73,7 +73,7 @@ import {
 } from "@/services/practiceService";
 import { speechService, type SpeechService } from "@/services/speechService";
 import { answerFromCheck, answerFromProgress, type AnswerResponse, type GivenAnswer } from "@/lib/answers";
-import { isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
+import { isMatching, isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
 import { ChallengePanel } from "./ChallengePanel";
 import { CheatSheetModal } from "./CheatSheetModal";
 import { LessonPanel } from "./LessonPanel";
@@ -94,7 +94,7 @@ export interface TopicStudyProps {
   modules?: Pick<typeof moduleService, "getModuleById">;
   practice?: Pick<
     PracticeService,
-    "scenario" | "topicScenario" | "checkModule" | "progress" | "answer" | "choose"
+    "scenario" | "topicScenario" | "checkModule" | "progress" | "answer" | "choose" | "link"
   >;
   /** Voice of the karaoke reader (SPEC-018). */
   speech?: Pick<SpeechService, "synthesize">;
@@ -183,7 +183,7 @@ export function TopicStudy({
           module,
           script: buildTopicScript(blocks),
           // The practical exercises and the true or false questions, in the order of the trail (SPEC-035 D-07).
-          challenges: questions.filter((q) => q.kind === "PRACTICAL" || isTrueFalse(q.kind) || isSingleChoice(q.kind)),
+          challenges: questions.filter((q) => q.kind === "PRACTICAL" || isTrueFalse(q.kind) || isSingleChoice(q.kind) || isMatching(q.kind)),
           scenario,
           layers,
           // The machine of an exercise of the module: the snapshot of the module, then the one of the bank (SPEC-023 11.2).
@@ -479,7 +479,12 @@ function TopicScreen({
       check.seed([challenge.id]);
     };
     try {
-      const r = "value" in response ? await practice.answer(challenge.id, response.value) : await practice.choose(challenge.id, response.choice);
+      const r =
+        "value" in response
+          ? await practice.answer(challenge.id, response.value)
+          : "choice" in response
+            ? await practice.choose(challenge.id, response.choice)
+            : await practice.link(challenge.id, response.links);
       keep(answerFromCheck(response, r));
     } catch (error) {
       if (error instanceof ApiProblemError && error.status === 401) {

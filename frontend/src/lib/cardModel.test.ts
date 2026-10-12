@@ -447,3 +447,15 @@ describe("checkCard with exercises without a terminal", () => {
     expect(errors.ok).toBeUndefined();
   });
 });
+
+// Covers SPEC-037 RN-09: the matching exercise of a card is saved only with its columns complete and the pairs linked.
+describe("checkCard with a matching exercise", () => {
+  it("asks for the pairs", () => {
+    const card = { ...emptyCard(), title: "Card" };
+    const base = { title: "m", difficulty: "EASY" as const, description: "", hints: [], conditions: [], kind: "THEORETICAL_MATCHING" as const, left: [{ id: "l1", text: "a" }, { id: "l2", text: "b" }], right: [{ id: "r1", text: "c" }, { id: "r2", text: "d" }] };
+    card.exercises = { items: [{ ...base, id: "no", pairs: [] }, { ...base, id: "ok", pairs: [{ left: "l1", right: "r1" }, { left: "l2", right: "r2" }] }] };
+    const errors = checkCard(card, true);
+    expect(errors.no).toEqual(["pairs-required"]);
+    expect(errors.ok).toBeUndefined();
+  });
+});

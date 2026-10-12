@@ -647,11 +647,12 @@ export const authoringMessages = {
   },
   /** The kinds of question of the bank and of the exercises of a card (SPEC-035). */
   questionKinds: {
-    label: { PRACTICAL: "Comando Linux", THEORETICAL_BOOLEAN: "Verdadeiro ou falso", THEORETICAL_SINGLE: "Escolha única" },
+    label: { PRACTICAL: "Comando Linux", THEORETICAL_BOOLEAN: "Verdadeiro ou falso", THEORETICAL_SINGLE: "Escolha única", THEORETICAL_MATCHING: "Ligar colunas" },
     help: {
       PRACTICAL: "O aluno resolve no terminal. Você grava a solução e define como o exercício termina.",
       THEORETICAL_BOOLEAN: "Uma afirmação que o aluno marca como verdadeira ou falsa, sem usar o terminal.",
       THEORETICAL_SINGLE: "De 2 a 7 alternativas, das quais só uma é correta. O aluno escolhe uma, sem usar o terminal.",
+      THEORETICAL_MATCHING: "Duas colunas, de 2 a 5 itens cada. Você marca os pares corretos e o aluno liga cada item da esquerda ao da direita.",
     },
     chooseTitle: "Que tipo de questão?",
     chooseHelp: "O tipo é escolhido agora e não muda depois.",
@@ -662,6 +663,7 @@ export const authoringMessages = {
     correctAnswer: "Resposta correta",
     answerRequired: "Escolha a resposta correta (verdadeiro ou falso).",
     choiceRequired: "Complete as alternativas (de 2 a 7, sem vazias nem repetidas) e marque a correta.",
+    pairsRequired: "Complete as colunas (de 2 a 5 itens, do mesmo tamanho, sem vazios nem repetidos) e ligue os pares corretos.",
     correctAnswerHelp: "Escolha se a afirmação da descrição é verdadeira ou falsa. Sem a resposta, a questão não pode ser publicada.",
     true: "Verdadeiro",
     false: "Falso",
@@ -682,9 +684,30 @@ export const authoringMessages = {
     choiceCount: (n: number) => `${n} ${n === 1 ? "alternativa" : "alternativas"}`,
     correctMarked: "correta marcada",
     correctMissing: "falta marcar a correta",
+    columnsTitle: "Colunas e pares corretos",
+    columnsHelp: "Monte as duas colunas na ordem que quiser e escolha, para cada item da esquerda, o seu par na direita. Cada item da direita é par de um só item.",
+    leftColumn: "Coluna da esquerda",
+    rightColumn: "Coluna da direita",
+    leftItem: (n: number) => `Item ${n} da esquerda`,
+    rightItem: (n: number) => `Item ${n} da direita`,
+    pairOf: (n: number) => `Par correto do item ${n} da esquerda`,
+    choosePair: "Escolha o par",
+    addPair: "+ Adicionar item em cada coluna",
+    itemUp: (side: string, n: number) => `Subir o item ${n} da ${side}`,
+    itemDown: (side: string, n: number) => `Descer o item ${n} da ${side}`,
+    itemRemove: (n: number) => `Remover o item ${n} das duas colunas`,
+    left: "esquerda",
+    right: "direita",
+    shuffleColumns: "Sortear a ordem das colunas para o aluno",
+    shuffleColumnsHelp: "Ligado, cada aluno vê as colunas numa ordem sorteada a cada vez. Desligado, ele vê as duas colunas exatamente na ordem que você montou.",
+    pairCount: (n: number) => `${n} ${n === 1 ? "par" : "pares"}`,
+    pairsMarked: "pares marcados",
+    pairsMissing: "falta marcar os pares",
     test: {
       complete: "(questão sem terminal: está completa)",
-      incomplete: (missing: ("statement" | "correctAnswer" | "choices" | "choiceEmpty" | "choiceRepeated" | "correctChoice")[]) =>
+      incomplete: (
+        missing: ("statement" | "correctAnswer" | "choices" | "choiceEmpty" | "choiceRepeated" | "correctChoice" | "columns" | "itemEmpty" | "itemRepeated" | "pairs")[],
+      ) =>
         `(questão incompleta: ${missing
           .map(
             (f) =>
@@ -695,6 +718,10 @@ export const authoringMessages = {
                 choiceEmpty: "há alternativa vazia",
                 choiceRepeated: "há alternativa repetida",
                 correctChoice: "falta marcar a alternativa correta",
+                columns: "as colunas precisam de 2 a 5 itens, do mesmo tamanho",
+                itemEmpty: "há item vazio",
+                itemRepeated: "há item repetido na mesma coluna",
+                pairs: "falta ligar os pares corretos",
               })[f],
           )
           .join(", ")})`,

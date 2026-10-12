@@ -64,3 +64,14 @@ describe("practiceService choose (SPEC-036)", () => {
     expect(fetcher.mock.calls[0]![1].body).toBe(JSON.stringify({ response: { choice: "a" } }));
   });
 });
+
+// Covers SPEC-037 5.2 on the screen: the links go in the body of the check.
+describe("practiceService link (SPEC-037)", () => {
+  it("sends the links of a matching question", async () => {
+    const links = [{ left: "l1", right: "r2" }];
+    const fetcher = vi.fn().mockResolvedValueOnce(json({ passed: true, completedAt: "t", pairs: links, results: [{ ...links[0], correct: true }] }));
+    const svc = createPracticeService(createHttpClient(fetcher));
+    expect((await svc.link("q1", links)).pairs).toEqual(links);
+    expect(fetcher.mock.calls[0]![1].body).toBe(JSON.stringify({ response: { links } }));
+  });
+});

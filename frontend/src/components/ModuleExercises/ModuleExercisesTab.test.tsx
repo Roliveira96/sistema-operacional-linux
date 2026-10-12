@@ -358,3 +358,27 @@ describe("ModuleExercisesTab with single choice questions", () => {
     expect(screen.getByRole("radio", { name: /Escolha única/ })).toBeDefined();
   });
 });
+
+// Covers SPEC-037 CA-01 in the bank: the matching questions show how many pairs and whether they are marked.
+describe("ModuleExercisesTab with matching questions", () => {
+  it("shows the pairs of a matching question", async () => {
+    const matching = (id: string, title: string, pairs: { left: string; right: string }[]) =>
+      item(id, title, {
+        exercise: {
+          ...item(id, title).exercise,
+          kind: "THEORETICAL_MATCHING",
+          left: [{ id: "l1", text: "a" }, { id: "l2", text: "b" }],
+          right: [{ id: "r1", text: "c" }, { id: "r2", text: "d" }],
+          pairs,
+          conditions: [],
+          solution: undefined,
+        },
+      });
+    service.bank.mockResolvedValue({ items: [matching("m1", "Ligar", [{ left: "l1", right: "r1" }, { left: "l2", right: "r2" }]), matching("m2", "Sem pares", [])] });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    const rows = within(bankBlock()).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Ligar colunas · Fácil · 1 dica · 2 pares · pares marcados");
+    expect(rows[1]).toHaveTextContent("2 pares · falta marcar os pares");
+  });
+});

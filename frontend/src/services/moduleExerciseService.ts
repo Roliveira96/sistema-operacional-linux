@@ -7,7 +7,7 @@ import {
   type Exercise,
   type ExerciseHint,
 } from "@/lib/exercises";
-import { isSingleChoice, usesTerminal } from "@/lib/questionKinds";
+import { isMatching, isSingleChoice, usesTerminal } from "@/lib/questionKinds";
 import { withChains } from "@/lib/exerciseChain";
 import { newId } from "@/lib/newId";
 import { hasSetup, parseSetup, setupPayload, type Setup } from "@/lib/setup";
@@ -107,6 +107,15 @@ export function exerciseBody(
     ),
   };
   // A question without a terminal has its answer and justification instead of a solution, conditions and a dependency (SPEC-035).
+  if (isMatching(exercise.kind))
+    return {
+      ...shared,
+      left: exercise.left ?? [],
+      right: exercise.right ?? [],
+      pairs: exercise.pairs ?? [],
+      shuffleChoices: exercise.shuffleChoices !== false,
+      explanation: exercise.explanation ?? "",
+    };
   if (isSingleChoice(exercise.kind))
     return {
       ...shared,

@@ -398,6 +398,8 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
     if (ex.kind === "THEORETICAL_BOOLEAN" && typeof ex.correctAnswer !== "boolean") add(ex.id, "answer-required");
     // A single choice exercise of a card is saved only with its alternatives complete and the correct one marked (SPEC-036 RN-09).
     if (ex.kind === "THEORETICAL_SINGLE" && missingAnswer(ex).some((m) => m !== "statement")) add(ex.id, "choice-required");
+    // A matching exercise of a card is saved only with its columns complete and the pairs linked (SPEC-037 RN-09).
+    if (ex.kind === "THEORETICAL_MATCHING" && missingAnswer(ex).some((m) => m !== "statement")) add(ex.id, "pairs-required");
   }
   for (const group of [card.tips, card.realWorld, card.exams]) for (const b of group) if (plain(b.html) === "") add(b.id, "required");
   return errors;

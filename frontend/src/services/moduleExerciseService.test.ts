@@ -188,3 +188,26 @@ describe("single choice questions of the bank", () => {
     expect(exerciseBody({ ...emptyExercise("THEORETICAL_SINGLE"), title: "x", choices: undefined, correctChoice: undefined, explanation: undefined })).toMatchObject({ choices: [], correctChoice: null, explanation: "" });
   });
 });
+
+// Covers SPEC-037 5.1 on the screen: the columns, the pairs and the order are read and sent.
+describe("matching questions of the bank", () => {
+  it("reads and sends a matching question", () => {
+    const left = [{ id: "l1", text: "chmod" }, { id: "l2", text: "chown" }];
+    const right = [{ id: "r1", text: "owner" }, { id: "r2", text: "mode" }];
+    const pairs = [{ left: "l1", right: "r2" }];
+    const parsed = parseModuleExercise({ ...stored, id: "m", kind: "THEORETICAL_MATCHING", left, right, pairs, shuffleChoices: true, explanation: "", conditions: [], solution: null, dependsOn: null });
+    expect(parsed.exercise).toMatchObject({ kind: "THEORETICAL_MATCHING", left, right, pairs, shuffleChoices: true });
+    expect(exerciseBody(parsed.exercise)).toEqual({
+      kind: "THEORETICAL_MATCHING",
+      title: "Criar",
+      difficulty: "HARD",
+      statement: "<p>x</p>",
+      hints: [{ text: "dica", command: "mkdir /a" }, { text: "outra" }],
+      left,
+      right,
+      pairs,
+      shuffleChoices: true,
+      explanation: "",
+    });
+  });
+});

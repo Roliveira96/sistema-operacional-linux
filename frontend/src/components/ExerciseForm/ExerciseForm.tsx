@@ -17,7 +17,7 @@ import {
   type ExerciseHint,
 } from "@/lib/exercises";
 import { newId } from "@/lib/newId";
-import { isSingleChoice, MAX_CHOICES, MIN_CHOICES, usesTerminal } from "@/lib/questionKinds";
+import { isMatching, isSingleChoice, MAX_CHOICES, MAX_PAIRS, MIN_CHOICES, MIN_PAIRS, usesTerminal } from "@/lib/questionKinds";
 import type { SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService } from "@/services/contentAuthoringService";
@@ -109,7 +109,9 @@ export function ExerciseForm({
         onChange={(hints) => onChange({ hints })}
       />
 
-      {isSingleChoice(ex.kind) ? (
+      {isMatching(ex.kind) ? (
+        <MatchingParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
+      ) : isSingleChoice(ex.kind) ? (
         <ChoiceParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
       ) : usesTerminal(ex.kind) ? (
         <TerminalParts exercise={ex} onChange={onChange} before={before} loadBase={loadBase} number={number} />
@@ -117,6 +119,131 @@ export function ExerciseForm({
         <TrueFalseParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
       )}
     </div>
+  );
+}
+
+/** The two columns of a matching question, each in its own order, the pair the teacher selects for each item of the left column, and the
+ * order for the student (SPEC-037 D-09, D-10). */
+function MatchingParts({
+  exercise: ex,
+  onChange,
+  number,
+  uploadImage,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  number: number;
+  uploadImage: (file: File) => Promise<{ url: string }>;
+}) {
+  const left = ex.left ?? [];
+  const right = ex.right ?? [];
+  const pairs = ex.pairs ?? [];
+  const pairOf = (leftId: string) => pairs.find((p) => p.left === leftId)?.right ?? "";
+  const setPair = (leftId: string, rightId: string) =>
+    onChange({ pairs: [...pairs.filter((p) => p.left !== leftId), ...(rightId ? [{ left: leftId, right: rightId }] : [])] });
+  const column = (side: "left" | "right") => {
+    const items = side === "left" ? left : right;
+    const set = (next: typeof items) => onChange(side === "left" ? { left: next } : { right: next });
+    const sideName = side === "left" ? k.left : k.right;
+    return (
+      <ol className={styles.fileList} aria-label={`${side === "left" ? k.leftColumn : k.rightColumn} (${number})`}>
+        {items.map((it, i) => (
+          <li key={it.id} className={styles.exerciseRow}>
+            <div className={styles.exerciseBody}>
+              <input
+                className={styles.input}
+                aria-label={side === "left" ? k.leftItem(i + 1) : k.rightItem(i + 1)}
+                value={it.text}
+                maxLength={200}
+                onChange={(e) => set(items.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
+              />
+              {side === "left" && (
+                <select className={styles.input} aria-label={k.pairOf(i + 1)} value={pairOf(it.id)} onChange={(e) => setPair(it.id, e.target.value)}>
+                  <option value="">{k.choosePair}</option>
+                  {right
+                    .filter((r) => r.id === pairOf(it.id) || !pairs.some((p) => p.right === r.id))
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.text.trim() || k.rightItem(right.indexOf(r) + 1)}
+                      </option>
+                    ))}
+                </select>
+              )}
+            </div>
+            <div className={styles.tools}>
+              <button type="button" className={styles.small} onClick={() => set(move(items, i, i - 1))} disabled={i === 0} aria-label={k.itemUp(sideName, i + 1)}>
+                ↑
+              </button>
+              <button type="button" className={styles.small} onClick={() => set(move(items, i, i + 1))} disabled={i === items.length - 1} aria-label={k.itemDown(sideName, i + 1)}>
+                ↓
+              </button>
+            </div>
+          </li>
+        ))}
+      </ol>
+    );
+  };
+  const removeLast = (index: number) => {
+    const gone = { left: left[index]?.id, right: right[index]?.id };
+    onChange({
+      left: left.filter((_, j) => j !== index),
+      right: right.filter((_, j) => j !== index),
+      pairs: pairs.filter((p) => p.left !== gone.left && p.right !== gone.right),
+    });
+  };
+  return (
+    <>
+      <div className={styles.group}>
+        <div className={styles.titleRow}>
+          <h4 className={styles.groupTitle}>{`${k.columnsTitle} (${number})`}</h4>
+          <InfoTip topic={k.columnsTitle}>{k.columnsHelp}</InfoTip>
+        </div>
+        <div className={styles.columns}>
+          {column("left")}
+          {column("right")}
+        </div>
+        <div className={styles.tools}>
+          {left.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              className={styles.small}
+              onClick={() => removeLast(i)}
+              disabled={left.length <= MIN_PAIRS}
+              aria-label={k.itemRemove(i + 1)}
+            >
+              ✕ {i + 1}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={styles.add}
+          onClick={() => onChange({ left: [...left, { id: newId(), text: "" }], right: [...right, { id: newId(), text: "" }] })}
+          disabled={left.length >= MAX_PAIRS}
+        >
+          {k.addPair}
+        </button>
+        <label className={styles.check}>
+          <input type="checkbox" checked={ex.shuffleChoices !== false} onChange={(e) => onChange({ shuffleChoices: e.target.checked })} />
+          {k.shuffleColumns}
+          <InfoTip topic={k.shuffleColumns}>{k.shuffleColumnsHelp}</InfoTip>
+        </label>
+      </div>
+      <div className={styles.field}>
+        <div className={styles.labelRow}>
+          <span className={styles.label}>{`${k.explanation} (${number})`}</span>
+          <InfoTip topic={k.explanation}>{k.explanationHelp}</InfoTip>
+        </div>
+        <RichTextEditor
+          label={`${k.explanation} (${number})`}
+          value={ex.explanation ?? ""}
+          onChange={(explanation) => onChange({ explanation })}
+          uploadImage={uploadImage}
+        />
+      </div>
+      <p className={styles.hint}>{k.noTerminalPage}</p>
+    </>
   );
 }
 

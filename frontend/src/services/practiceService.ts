@@ -13,6 +13,9 @@ export interface AnswerResult {
   correctAnswer?: boolean;
   /** The id of the correct alternative of a single choice question (SPEC-036 RN-05). */
   correctChoice?: string;
+  /** The correct pairs of a matching question and the result of each link (SPEC-037 RN-06). */
+  pairs?: { left: string; right: string }[];
+  results?: { left: string; right: string; correct: boolean }[];
   explanation?: string | null;
 }
 
@@ -28,10 +31,12 @@ export interface ProgressItem {
   completedAt: string | null;
   attempts: number;
   /** An answered true or false question: the answer given, whether it was right, the correct answer and the justification. */
-  response?: { value?: boolean; choice?: string };
+  response?: { value?: boolean; choice?: string; links?: { left: string; right: string }[] };
   passed?: boolean;
   correctAnswer?: boolean;
   correctChoice?: string;
+  pairs?: { left: string; right: string }[];
+  results?: { left: string; right: string; correct: boolean }[];
   explanation?: string | null;
 }
 
@@ -48,6 +53,9 @@ export function createPracticeService(client: HttpClient = httpClient) {
     /** Sends the single answer of the student to a single choice question: the id of the alternative chosen (SPEC-036 RN-06). */
     choose: (questionId: string, choice: string) =>
       client.post<AnswerResult>(`/questions/${encodeURIComponent(questionId)}/check`, { response: { choice } }),
+    /** Sends the single answer of the student to a matching question: a link for each item of the left column (SPEC-037 RN-07). */
+    link: (questionId: string, links: { left: string; right: string }[]) =>
+      client.post<AnswerResult>(`/questions/${encodeURIComponent(questionId)}/check`, { response: { links } }),
     /** Machine of the module topic (SPEC-016); null means the default machine. */
     topicScenario: async (moduleId: string) =>
       (await client.get<{ snapshot: unknown }>(`/modules/${encodeURIComponent(moduleId)}/scenario`)).snapshot ?? null,

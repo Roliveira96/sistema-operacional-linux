@@ -109,3 +109,70 @@ describe("ExerciseForm editors and tips", () => {
     expect(onChange).toHaveBeenCalledWith({ explanation: "<p>recursive</p>" });
   });
 });
+
+// Covers SPEC-037 CA-02, CA-03, CA-15 and D-10: the form of a matching question.
+describe("ExerciseForm for a matching question", () => {
+  const ex = (): Exercise => ({
+    ...emptyExercise("THEORETICAL_MATCHING"),
+    left: [
+      { id: "l1", text: "chmod" },
+      { id: "l2", text: "chown" },
+    ],
+    right: [
+      { id: "r1", text: "owner" },
+      { id: "r2", text: "mode" },
+    ],
+    pairs: [{ left: "l1", right: "r2" }],
+    shuffleChoices: true,
+  });
+
+  it("edits the two columns, selects the pairs and the order", () => {
+    const current = ex();
+    const onChange = form(current);
+    fireEvent.change(screen.getByLabelText("Item 1 da esquerda"), { target: { value: "ls" } });
+    expect(onChange).toHaveBeenLastCalledWith({ left: [{ id: "l1", text: "ls" }, current.left![1]] });
+    fireEvent.change(screen.getByLabelText("Item 2 da direita"), { target: { value: "lists" } });
+    expect(onChange).toHaveBeenLastCalledWith({ right: [current.right![0], { id: "r2", text: "lists" }] });
+
+    // The pair of an item only offers the right items no other item took.
+    const second = screen.getByLabelText("Par correto do item 2 da esquerda") as HTMLSelectElement;
+    expect([...second.options].map((o) => o.value)).toEqual(["", "r1"]);
+    fireEvent.change(second, { target: { value: "r1" } });
+    expect(onChange).toHaveBeenLastCalledWith({ pairs: [{ left: "l1", right: "r2" }, { left: "l2", right: "r1" }] });
+    fireEvent.change(screen.getByLabelText("Par correto do item 1 da esquerda"), { target: { value: "" } });
+    expect(onChange).toHaveBeenLastCalledWith({ pairs: [] });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Sortear a ordem/ }));
+    expect(onChange).toHaveBeenLastCalledWith({ shuffleChoices: false });
+  });
+
+  it("adds and removes items in both columns within 2 and 5, and moves each column apart", () => {
+    const current = ex();
+    const onChange = form(current);
+    expect((screen.getByRole("button", { name: "Remover o item 1 das duas colunas" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "+ Adicionar item em cada coluna" }));
+    const added = onChange.mock.lastCall![0];
+    expect(added.left).toHaveLength(3);
+    expect(added.right).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: "Descer o item 1 da direita" }));
+    expect(onChange).toHaveBeenLastCalledWith({ right: [current.right![1], current.right![0]] });
+    fireEvent.click(screen.getByRole("button", { name: "Subir o item 2 da esquerda" }));
+    expect(onChange).toHaveBeenLastCalledWith({ left: [current.left![1], current.left![0]] });
+  });
+
+  it("removes the last item of each column with its pairs, and stops at 5", () => {
+    const full: Exercise = {
+      ...ex(),
+      left: [1, 2, 3, 4, 5].map((n) => ({ id: `l${n}`, text: `${n}` })),
+      right: [1, 2, 3, 4, 5].map((n) => ({ id: `r${n}`, text: `${n}` })),
+      pairs: [{ left: "l5", right: "r1" }, { left: "l1", right: "r5" }],
+    };
+    const onChange = form(full);
+    expect((screen.getByRole("button", { name: "+ Adicionar item em cada coluna" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Remover o item 5 das duas colunas" }));
+    const next = onChange.mock.lastCall![0];
+    expect(next.left).toHaveLength(4);
+    expect(next.right).toHaveLength(4);
+    expect(next.pairs, "the pairs of the removed items go away").toEqual([]);
+  });
+});
