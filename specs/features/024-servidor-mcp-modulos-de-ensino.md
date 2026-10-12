@@ -304,3 +304,4 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | 10/10/2026 | Tech Lead | Revisão 4 aprovada (login OAuth e modo local sem login) |
 | 11/10/2026 | Implementador (Claude) | Revisada pela SPEC-035 (RN-15, D-11): `create_module_exercise` e `update_module_exercise` aceitam `kind`, `correctAnswer` e `explanation`, e as ferramentas de blocos documentam o bloco `EXERCISES` com o item de verdadeiro ou falso |
 | 12/10/2026 | Implementador (Claude) | Revisada pela SPEC-036 (RN-10): as ferramentas de exercício aceitam `THEORETICAL_SINGLE` com `choices`, `correctChoice` e `shuffleChoices`, e a documentação do bloco `EXERCISES` inclui o item de escolha única |
+| 12/10/2026 | Implementador (Claude) | Revisada pela SPEC-037 (RN-10): as ferramentas de exercício aceitam `THEORETICAL_MATCHING` com `left`, `right`, `pairs` e `shuffleChoices`, e a documentação do bloco `EXERCISES` inclui o item de ligar colunas |
