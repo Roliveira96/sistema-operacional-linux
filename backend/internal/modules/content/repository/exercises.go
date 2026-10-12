@@ -106,7 +106,7 @@ func (r *Repository) UpdateExercise(ctx context.Context, moduleID, id uuid.UUID,
 	fields := map[string]any{
 		"title": e.Title, "difficulty": e.Difficulty, "statement": e.Statement, "hints": jsonOrNil(e.Hints),
 		"reference_solution": jsonOrNil(e.Solution), "end_conditions": jsonOrNil(e.EndConditions), "validation_conditions": jsonOrNil(upd.Catalog),
-		"answer_key": jsonOrNil(e.AnswerKey), "explanation": e.Explanation,
+		"answer_key": jsonOrNil(e.AnswerKey), "explanation": e.Explanation, "choices": jsonOrNil(e.Choices), "shuffle_choices": e.ShuffleChoices,
 		"depends_on": dependsOn, "edited_by_teacher_at": upd.Now, "updated_at": upd.Now, "updated_by": upd.By,
 	}
 	res := q.Updates(fields)

@@ -305,7 +305,8 @@ func (s *Seeder) upsertQuestion(ctx context.Context, q ManifestQuestion, modules
 			return uuid.Nil, "", err
 		}
 		key := q.SourceKey
-		existing = domain.Question{ID: id, SourceKey: &key}
+		// A new question shuffles its alternatives, the default of SPEC-036 D-07.
+		existing = domain.Question{ID: id, SourceKey: &key, ShuffleChoices: true}
 		outcome = cmservice.SeedInserted
 	case err != nil:
 		return uuid.Nil, "", err
@@ -349,7 +350,14 @@ func (s *Seeder) upsertQuestion(ctx context.Context, q ManifestQuestion, modules
 		}
 	}
 	existing.Choices = nil
-	if len(q.Choices) > 0 {
+	existing.AnswerKey = rawOrNil(q.AnswerKey)
+	switch {
+	case q.Kind == domain.KindTheoreticalSingle && len(q.Choices) > 0:
+		// The single choice questions are kept in the format of SPEC-036, with the same correct alternative (D-04).
+		if existing.Choices, existing.AnswerKey, err = domain.LegacySingleChoice(existing.ID.String(), q.Choices, q.AnswerKey, s.sanitizer); err != nil {
+			return uuid.Nil, "", fmt.Errorf("question %s: %w", q.SourceKey, err)
+		}
+	case len(q.Choices) > 0:
 		choices := make([]string, len(q.Choices))
 		for i, c := range q.Choices {
 			choices[i] = s.sanitizer.Sanitize(c)
@@ -358,7 +366,6 @@ func (s *Seeder) upsertQuestion(ctx context.Context, q ManifestQuestion, modules
 			return uuid.Nil, "", err
 		}
 	}
-	existing.AnswerKey = rawOrNil(q.AnswerKey)
 	existing.Tags = nil
 	if len(q.Tags) > 0 {
 		if existing.Tags, err = json.Marshal(q.Tags); err != nil {

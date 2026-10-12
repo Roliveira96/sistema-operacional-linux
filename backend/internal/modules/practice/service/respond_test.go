@@ -161,3 +161,38 @@ func TestModuleProgressRevealsTheAnswerOfAnsweredQuestions(t *testing.T) {
 func rowsWithResponse(user, question uuid.UUID) domain.Progress {
 	return domain.Progress{ID: uuid.New(), UserID: user, QuestionID: question, Attempts: 1, Response: json.RawMessage(`{"value":true}`)}
 }
+
+func singleChoice(id uuid.UUID) contentdomain.Question {
+	why := "<p>chmod changes the mode.</p>"
+	return contentdomain.Question{
+		ID: id, Kind: contentdomain.KindTheoreticalSingle, Usage: contentdomain.UsageExercise, Status: contentdomain.StatusPublished,
+		Choices: json.RawMessage(`[{"id":"a","html":"chmod"},{"id":"b","html":"chown"}]`), AnswerKey: json.RawMessage(`{"correct":"a"}`), Explanation: &why,
+	}
+}
+
+// Covers SPEC-036 RN-05, RN-06 and CA-07, CA-08 (service side): graded by id, revealed as correctChoice, and answered once.
+func TestSubmitSingleChoice(t *testing.T) {
+	q := uuid.New()
+	svc, store := newService(fakeContent{questions: map[uuid.UUID]contentdomain.Question{q: singleChoice(q)}})
+	v := student()
+
+	_, err := svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"choice":"zz"}`)})
+	assert.ErrorIs(t, err, contentdomain.ErrInvalidResponse, "an id that is not of a choice")
+
+	r, err := svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"choice":"b"}`)})
+	require.NoError(t, err)
+	assert.False(t, r.Passed)
+	assert.Equal(t, "correctChoice", r.CorrectField)
+	assert.JSONEq(t, `"a"`, string(r.Correct))
+	require.NotNil(t, r.CompletedAt)
+	assert.JSONEq(t, `{"choice":"b"}`, string(store.rows[[2]uuid.UUID{*v.UserID, q}].Response))
+
+	_, err = svc.Submit(context.Background(), q, v, Submission{Response: json.RawMessage(`{"choice":"a"}`)})
+	assert.ErrorIs(t, err, ErrAlreadyAnswered)
+
+	rows, err := svc.ModuleProgress(context.Background(), uuid.New(), v)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "correctChoice", rows[0].CorrectField)
+	assert.JSONEq(t, `"a"`, string(rows[0].Correct))
+}

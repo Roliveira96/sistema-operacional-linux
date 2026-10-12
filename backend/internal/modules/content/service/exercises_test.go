@@ -314,3 +314,40 @@ func TestExercises_PublishTrueFalse(t *testing.T) {
 	_, err = svc.SetLinks(ctx, owner, module, uuid.New(), ExerciseLinks{Practice: true}, domain.StatusPublished)
 	assert.ErrorIs(t, err, ErrExerciseNotFound, "a kind outside the bank is not one of its questions")
 }
+
+// Covers SPEC-036 RN-01 to RN-04 and D-07: a single choice question goes through the bank with its alternatives, the correct one and the
+// option to shuffle, and is published only complete.
+func TestExercises_SingleChoice(t *testing.T) {
+	store := &fakeExerciseStore{owner: owner.UserID}
+	svc := exerciseService(store)
+	ctx := context.Background()
+	correct, keep := "a", false
+	in := domain.ExerciseInput{
+		Kind: domain.KindTheoreticalSingle, Title: "chmod", Difficulty: "EASY", Statement: "<p>Which one?</p>",
+		Choices: json.RawMessage(`[{"id":"a","html":"chmod"},{"id":"b","html":"chown"}]`), CorrectChoice: &correct, ShuffleChoices: &keep,
+	}
+	_, err := svc.Create(ctx, owner, module, in, nil, ExerciseLinks{Practice: true})
+	require.NoError(t, err)
+	q := store.created
+	assert.Equal(t, domain.KindTheoreticalSingle, q.Kind)
+	assert.JSONEq(t, `[{"id":"a","html":"chmod"},{"id":"b","html":"chown"}]`, string(q.Choices))
+	assert.JSONEq(t, `{"correct":"a"}`, string(q.AnswerKey))
+	assert.False(t, q.ShuffleChoices)
+	assert.Nil(t, q.ValidationConditions)
+
+	store.created = nil
+	store.record = ExerciseRecord{Question: domain.Question{Kind: domain.KindTheoreticalSingle, Statement: "<p>?</p>", Choices: q.Choices}}
+	_, err = svc.SetLinks(ctx, owner, module, uuid.New(), ExerciseLinks{Practice: true}, domain.StatusPublished)
+	var incomplete *IncompleteError
+	require.True(t, errors.As(err, &incomplete))
+	assert.Equal(t, []domain.FieldError{{Field: "correctChoice", Reason: "required"}}, incomplete.Fields)
+	store.record.AnswerKey = json.RawMessage(`{"correct":"b"}`)
+	_, err = svc.SetLinks(ctx, owner, module, uuid.New(), ExerciseLinks{Practice: true}, domain.StatusPublished)
+	require.NoError(t, err)
+
+	in.Kind = ""
+	_, err = svc.Update(ctx, owner, module, uuid.New(), in, nil, time.Now(), true)
+	require.NoError(t, err)
+	assert.Equal(t, domain.KindTheoreticalSingle, store.updated.Exercise.Kind)
+	assert.False(t, store.updated.Exercise.ShuffleChoices)
+}

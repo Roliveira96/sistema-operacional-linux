@@ -12,7 +12,7 @@ func boolPtr(v bool) *bool { return &v }
 
 // Covers SPEC-035 RN-01 and RN-02: the bank knows the practical and the true or false kinds, and nothing else.
 func TestQuestionTypeRegistry(t *testing.T) {
-	assert.Equal(t, []string{KindPractical, KindTheoreticalBoolean}, BankKinds())
+	assert.Equal(t, []string{KindPractical, KindTheoreticalBoolean, KindTheoreticalSingle}, BankKinds())
 	assert.True(t, UsesTerminal(KindPractical))
 	assert.False(t, UsesTerminal(KindTheoreticalBoolean))
 	assert.False(t, UsesTerminal(KindDiscursive))
@@ -21,7 +21,7 @@ func TestQuestionTypeRegistry(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, kind, typ.Kind())
 	}
-	_, ok := TypeOf(KindTheoreticalSingle)
+	_, ok := TypeOf(KindTheoreticalMultiple)
 	assert.False(t, ok, "the other kinds wait for their own spec")
 
 	_, err := NormalizeExercise(ExerciseInput{Kind: KindDiscursive, Title: "x", Difficulty: "EASY"}, NewHTMLSanitizer())
@@ -35,7 +35,7 @@ func TestNormalizeTrueFalse(t *testing.T) {
 		Statement:     `<p>rm -r removes non-empty directories.</p><script>x()</script>`,
 		Hints:         json.RawMessage(`[{"text":"Think of -r"}]`),
 		CorrectAnswer: boolPtr(true), Explanation: `<p>It is <b>recursive</b>.</p><img src="javascript:x">`,
-		Conditions:    json.RawMessage(`[]`), Solution: json.RawMessage(`null`),
+		Conditions: json.RawMessage(`[]`), Solution: json.RawMessage(`null`),
 	}, NewHTMLSanitizer())
 	require.NoError(t, err)
 	assert.Equal(t, KindTheoreticalBoolean, out.Kind)

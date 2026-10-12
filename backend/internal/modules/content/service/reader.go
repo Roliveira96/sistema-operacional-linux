@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"math/rand/v2"
 	"strings"
 	"time"
 
@@ -311,10 +312,30 @@ func publicView(q domain.Question, all map[uuid.UUID]domain.Question) PublicQues
 	}
 	// A question of the bank without a terminal shows its tips like an exercise of the editor, and never its answer key nor its
 	// justification, which only come after the student answers (SPEC-035 RN-06, RN-10).
-	if q.Kind == domain.KindTheoreticalBoolean {
+	if q.Kind == domain.KindTheoreticalBoolean || q.Kind == domain.KindTheoreticalSingle {
 		p.Hint = hintsHTML(q.Hints)
 	}
+	if q.Kind == domain.KindTheoreticalSingle {
+		p.Choices = publicChoices(q)
+	}
 	return p
+}
+
+// publicChoices gives the student the alternatives of a single choice question, with their ids and html and never the correct one,
+// shuffled when the teacher asked for it (SPEC-036 RN-07, D-07). Nil when the question has none in the format of SPEC-036.
+func publicChoices(q domain.Question) json.RawMessage {
+	choices := domain.ReadChoices(q.Choices)
+	if choices == nil {
+		return nil
+	}
+	if q.ShuffleChoices {
+		rand.Shuffle(len(choices), func(i, j int) { choices[i], choices[j] = choices[j], choices[i] })
+	}
+	out, err := json.Marshal(choices)
+	if err != nil {
+		return nil
+	}
+	return out
 }
 
 // chainSetups collects the solutions of the exercises `q` depends on, the oldest first, walking the dependencies up; nil when it

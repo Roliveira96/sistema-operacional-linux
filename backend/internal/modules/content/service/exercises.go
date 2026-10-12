@@ -228,7 +228,7 @@ func (s *Exercises) Create(ctx context.Context, who Actor, moduleID uuid.UUID, i
 		ID: uuid.New(), ModuleID: moduleID, Kind: clean.Kind, Usage: links.Usage(), InAssessment: links.Assessment, ExclusiveAssessment: links.Exclusive,
 		Difficulty: clean.Difficulty, Status: domain.StatusDraft, Title: clean.Title, Statement: clean.Statement, Hints: clean.Hints,
 		ReferenceSolution: clean.Solution, EndConditions: clean.EndConditions, ValidationConditions: catalog, DependsOn: dependsOn,
-		AnswerKey: clean.AnswerKey, Explanation: clean.Explanation,
+		AnswerKey: clean.AnswerKey, Explanation: clean.Explanation, Choices: clean.Choices, ShuffleChoices: clean.ShuffleChoices,
 		CreatedBy: &by, UpdatedBy: &by, EditedByTeacherAt: &now, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := s.store.CreateExercise(ctx, &q); err != nil {

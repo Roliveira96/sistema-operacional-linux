@@ -82,9 +82,19 @@ type checkRequest struct {
 type checkResponse struct {
 	Passed      bool       `json:"passed"`
 	CompletedAt *time.Time `json:"completedAt"`
-	// CorrectAnswer and Explanation come only for a question without a terminal, after the answer (SPEC-035 RN-06).
+	// CorrectAnswer (true or false) or CorrectChoice (single choice) and Explanation come only for a question without a terminal,
+	// after the answer (SPEC-035 RN-06, SPEC-036 RN-05).
 	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
+	CorrectChoice json.RawMessage `json:"correctChoice,omitempty"`
 	Explanation   *string         `json:"explanation,omitempty"`
+}
+
+// revealed puts the answer key in the field of its kind.
+func revealed(field string, value json.RawMessage) (answer, choice json.RawMessage) {
+	if field == "correctChoice" {
+		return nil, value
+	}
+	return value, nil
 }
 
 func (h *Handler) check(c *gin.Context) {
@@ -106,7 +116,8 @@ func (h *Handler) check(c *gin.Context) {
 		fail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, checkResponse{Passed: result.Passed, CompletedAt: result.CompletedAt, CorrectAnswer: result.Correct, Explanation: result.Explanation})
+	answer, choice := revealed(result.CorrectField, result.Correct)
+	c.JSON(http.StatusOK, checkResponse{Passed: result.Passed, CompletedAt: result.CompletedAt, CorrectAnswer: answer, CorrectChoice: choice, Explanation: result.Explanation})
 }
 
 // readBody decodes the body of a check, bounded to 2 MB; which field is required depends on the kind of the question.
@@ -197,6 +208,7 @@ type progressItem struct {
 	Response      json.RawMessage `json:"response,omitempty"`
 	Passed        *bool           `json:"passed,omitempty"`
 	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
+	CorrectChoice json.RawMessage `json:"correctChoice,omitempty"`
 	Explanation   *string         `json:"explanation,omitempty"`
 }
 
@@ -221,7 +233,8 @@ func progressItems(rows []service.ProgressEntry) []progressItem {
 		if p.Response != nil {
 			passed := p.LastPassed
 			items[i].Response, items[i].Passed = p.Response, &passed
-			items[i].CorrectAnswer, items[i].Explanation = p.Correct, p.Explanation
+			items[i].CorrectAnswer, items[i].CorrectChoice = revealed(p.CorrectField, p.Correct)
+			items[i].Explanation = p.Explanation
 		}
 	}
 	return items
@@ -267,7 +280,7 @@ func fail(c *gin.Context, err error) {
 	case errors.Is(err, service.ErrSnapshotRequired):
 		err = problem.Validation("The snapshot is required.", problem.InvalidParam{Name: "snapshot", Reason: "required"})
 	case errors.Is(err, service.ErrResponseRequired), errors.Is(err, contentdomain.ErrInvalidResponse):
-		err = problem.Validation("The response must have a boolean value.", problem.InvalidParam{Name: "response", Reason: "required, with a boolean value"})
+		err = problem.Validation("The response does not fit this question.", problem.InvalidParam{Name: "response", Reason: "required: a boolean value, or the id of one of the choices"})
 	case errors.Is(err, service.ErrInvalidSnapshot):
 		err = problem.Validation("The snapshot is not a valid serialized machine.",
 			problem.InvalidParam{Name: "snapshot", Reason: "invalid format"})

@@ -162,6 +162,11 @@ type exercise struct {
 	Kind          string `json:"kind,omitempty"`
 	CorrectAnswer *bool  `json:"correctAnswer,omitempty"`
 	Explanation   string `json:"explanation,omitempty"`
+	// Choices and CorrectChoice belong to a single choice item (SPEC-036 RN-09).
+	Choices       []Choice `json:"choices,omitempty"`
+	CorrectChoice *string  `json:"correctChoice,omitempty"`
+	// ShuffleChoices false keeps the order of the teacher on the screen; missing is to shuffle (SPEC-036 D-07).
+	ShuffleChoices *bool `json:"shuffleChoices,omitempty"`
 }
 
 // exercisesPayload is the group of exercises of a card, with the snapshot that is its base state (RN-04, RN-05).
@@ -293,6 +298,9 @@ func (c *checker) exercises(p *exercisesPayload) {
 				h.Command = c.text(fmt.Sprintf("items[%d].hints[%d].command", i, j), h.Command, MaxCommandLength, false)
 			}
 		}
+		if ex.Kind != KindTheoreticalSingle && (len(ex.Choices) > 0 || ex.CorrectChoice != nil || ex.ShuffleChoices != nil) {
+			c.fail(at("choices"), "only a single choice exercise has choices")
+		}
 		switch ex.Kind {
 		case "", KindPractical:
 			if ex.CorrectAnswer != nil {
@@ -316,8 +324,30 @@ func (c *checker) exercises(p *exercisesPayload) {
 				c.fail(at("conditions"), "a true or false exercise has no conditions of finalization")
 			}
 			ex.Explanation = c.html(at("explanation"), ex.Explanation, false)
+		case KindTheoreticalSingle:
+			if ex.Solution != nil {
+				c.fail(at("solution"), "a single choice exercise has no solution in the terminal")
+			}
+			if len(ex.Conditions) > 0 {
+				c.fail(at("conditions"), "a single choice exercise has no conditions of finalization")
+			}
+			if ex.CorrectAnswer != nil {
+				c.fail(at("correctAnswer"), "only a true or false exercise has a correct answer; use correctChoice")
+			}
+			prefix := fmt.Sprintf("items[%d].", i)
+			ex.Choices = checkChoices(c, prefix, ex.Choices, ex.CorrectChoice)
+			// The card is checked on the screen, so it is saved only complete (SPEC-036 RN-09).
+			correct := ""
+			if ex.CorrectChoice != nil {
+				correct = strings.TrimSpace(*ex.CorrectChoice)
+				ex.CorrectChoice = &correct
+			}
+			for _, p := range choiceProblems(prefix, ex.Choices, correct) {
+				c.fail(p.Field, p.Reason)
+			}
+			ex.Explanation = c.html(at("explanation"), ex.Explanation, false)
 		default:
-			c.fail(at("kind"), "must be PRACTICAL or THEORETICAL_BOOLEAN")
+			c.fail(at("kind"), "must be PRACTICAL, THEORETICAL_BOOLEAN or THEORETICAL_SINGLE")
 		}
 	}
 	if p.Setup != nil {

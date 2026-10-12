@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	userrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/repository"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database/dbtest"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/migrations"
 )
 
 type bankFixture struct {
@@ -320,4 +322,72 @@ func TestExerciseBankTrueFalse(t *testing.T) {
 
 	require.NoError(t, svc.Delete(f.ctx, who, f.module.ID, draft.ID))
 	assert.Equal(t, []string{"Practical"}, f.titles(t))
+}
+
+// Covers SPEC-036 RN-01 to RN-04 and D-07 against PostgreSQL: a single choice question through the bank, and the database refusing
+// to publish it without the answer key.
+func TestExerciseBankSingleChoice(t *testing.T) {
+	f := newBank(t)
+	svc := service.NewExercises(f.repo, zap.NewNop())
+	who := service.Actor{UserID: f.teacher.ID, Role: "TEACHER"}
+	keep := false
+	draft, err := svc.Create(f.ctx, who, f.module.ID, domain.ExerciseInput{Kind: domain.KindTheoreticalSingle, Title: "chmod", Difficulty: "EASY",
+		Choices: json.RawMessage(`[{"id":"a","html":"chmod"},{"id":"b","html":"chown"}]`), ShuffleChoices: &keep}, nil, practice)
+	require.NoError(t, err, "a draft may miss the correct choice")
+	assert.False(t, draft.ShuffleChoices)
+	assert.Len(t, domain.ReadChoices(draft.Choices), 2)
+
+	_, err = svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	assert.ErrorIs(t, err, service.ErrExerciseIncomplete)
+
+	correct := "b"
+	saved, err := svc.Update(f.ctx, who, f.module.ID, draft.ID, domain.ExerciseInput{Title: "chmod", Difficulty: "EASY", Statement: "<p>Which one?</p>",
+		Choices: json.RawMessage(`[{"id":"b","html":"chown"},{"id":"a","html":"chmod"}]`), CorrectChoice: &correct}, nil, draft.UpdatedAt, false)
+	require.NoError(t, err)
+	assert.True(t, saved.ShuffleChoices, "without the option it shuffles")
+	got, _ := domain.CorrectChoice(saved.AnswerKey)
+	assert.Equal(t, "b", got, "reordering keeps the correct one (CA-05)")
+	_, err = svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	require.NoError(t, err)
+
+	err = f.db.Conn(f.ctx).Exec("UPDATE questions SET answer_key = NULL WHERE id = ?", draft.ID).Error
+	assert.Error(t, err, "a published single choice question keeps its answer key")
+}
+
+// Covers SPEC-036 D-04 and CA-14: migration 00022 converts the single choice questions of the old format with the same correct one,
+// and with the ids the initial load also uses.
+func TestMigrationConvertsTheLegacySingleChoice(t *testing.T) {
+	f := newBank(t)
+	conn := f.db.Conn(f.ctx)
+	id := uuid.New()
+	require.NoError(t, conn.Exec(`INSERT INTO questions (id, module_id, kind, usage, difficulty, status, title, statement, choices, answer_key, created_at, updated_at)
+        VALUES (?, ?, 'THEORETICAL_SINGLE', 'ASSESSMENT', 'EASY', 'PUBLISHED', 'Kernel', 'Which one?', '["Bash","Kernel"]', '{"correct":1}', NOW(), NOW())`, id, f.module.ID).Error)
+	// The table already went through 00022; going back to 00021 and up again runs the conversion on the old format.
+	require.NoError(t, conn.Exec(`UPDATE questions SET choices = '["Bash","Kernel"]', answer_key = '{"correct":1}' WHERE id = ?`, id).Error)
+	sqlUp := migrationUp(t)
+	require.NoError(t, conn.Exec(sqlUp).Error)
+	var row struct {
+		Choices   []byte
+		AnswerKey []byte
+	}
+	require.NoError(t, conn.Raw("SELECT choices, answer_key FROM questions WHERE id = ?", id).Scan(&row).Error)
+	choices := domain.ReadChoices(row.Choices)
+	require.Len(t, choices, 2)
+	assert.Equal(t, domain.LegacyChoiceID(id.String(), 0), choices[0].ID)
+	assert.Equal(t, "Kernel", choices[1].HTML)
+	correct, ok := domain.CorrectChoice(row.AnswerKey)
+	require.True(t, ok)
+	assert.Equal(t, domain.LegacyChoiceID(id.String(), 1), correct)
+}
+
+// migrationUp is the conversion statement of migration 00022, run again over rows written in the old format.
+func migrationUp(t *testing.T) string {
+	t.Helper()
+	raw, err := migrations.FS.ReadFile("00022_single_choice_questions.sql")
+	require.NoError(t, err)
+	text := string(raw)
+	start := strings.Index(text, "UPDATE questions q SET")
+	end := strings.Index(text, "-- +goose Down")
+	require.True(t, start > 0 && end > start)
+	return text[start:end]
 }

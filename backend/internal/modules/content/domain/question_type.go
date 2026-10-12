@@ -33,11 +33,15 @@ type QuestionType interface {
 	Missing(q Question) []FieldError
 	// Grade checks the response of a student against the answer key.
 	Grade(q Question, response json.RawMessage) (ResponseVerdict, error)
+	// Revealed is the answer key the student may see after answering, and the name of the field it goes in; empty for a kind that
+	// reveals nothing (SPEC-035 RN-06, SPEC-036 RN-05).
+	Revealed(q Question) (field string, value json.RawMessage)
 }
 
 var questionTypes = map[string]QuestionType{
 	KindPractical:          practicalType{},
 	KindTheoreticalBoolean: booleanType{},
+	KindTheoreticalSingle:  singleType{},
 }
 
 // TypeOf returns the contract of a kind the bank accepts (SPEC-035 RN-01).
@@ -72,8 +76,9 @@ func (practicalType) normalize(c *checker, in ExerciseInput, out *NormalizedExer
 	if in.CorrectAnswer != nil {
 		c.fail("correctAnswer", "only a true or false question has a correct answer")
 	}
+	refuseChoices(c, in, "a Linux command question has no choices")
 	if strings.TrimSpace(in.Explanation) != "" {
-		c.fail("explanation", "only a true or false question has a justification")
+		c.fail("explanation", "only a question without a terminal has a justification")
 	}
 	var solution *setupPayload
 	if err := decodeOptional(in.Solution, &solution); err != nil {
@@ -111,6 +116,8 @@ func (practicalType) Grade(Question, json.RawMessage) (ResponseVerdict, error) {
 	return ResponseVerdict{}, ErrNotGradedByResponse
 }
 
+func (practicalType) Revealed(Question) (string, json.RawMessage) { return "", nil }
+
 // booleanType is the true or false question (SPEC-035): one statement, answered true or false, without a terminal.
 type booleanType struct{}
 
@@ -127,6 +134,7 @@ func (booleanType) normalize(c *checker, in ExerciseInput, out *NormalizedExerci
 	if in.HasDependency {
 		c.fail("dependsOn", "a true or false question does not depend on another exercise")
 	}
+	refuseChoices(c, in, "a true or false question has no choices")
 	explanation := c.html("explanation", in.Explanation, false)
 	if len(c.errs) > 0 {
 		return
@@ -139,9 +147,14 @@ func (booleanType) normalize(c *checker, in ExerciseInput, out *NormalizedExerci
 	}
 }
 
+// hasContent tells whether html shows something: text, or at least an image.
+func hasContent(html string) bool {
+	return strings.TrimSpace(tags.ReplaceAllString(html, "")) != "" || strings.Contains(html, "<img")
+}
+
 func (booleanType) Missing(q Question) []FieldError {
 	var missing []FieldError
-	if strings.TrimSpace(tags.ReplaceAllString(q.Statement, "")) == "" && !strings.Contains(q.Statement, "<img") {
+	if !hasContent(q.Statement) {
 		missing = append(missing, FieldError{"statement", "required"})
 	}
 	if _, ok := BooleanAnswer(q.AnswerKey); !ok {
@@ -165,6 +178,15 @@ func (booleanType) Grade(q Question, response json.RawMessage) (ResponseVerdict,
 	return ResponseVerdict{Passed: *r.Value == correct, Correct: key}, nil
 }
 
+func (booleanType) Revealed(q Question) (string, json.RawMessage) {
+	correct, ok := BooleanAnswer(q.AnswerKey)
+	if !ok {
+		return "", nil
+	}
+	value, _ := json.Marshal(correct)
+	return "correctAnswer", value
+}
+
 // booleanKey is the answer key of a true or false question as answer_key stores it.
 type booleanKey struct {
 	Correct bool `json:"correct"`
@@ -179,6 +201,16 @@ func BooleanAnswer(answerKey json.RawMessage) (bool, bool) {
 		return false, false
 	}
 	return *key.Correct, true
+}
+
+// refuseChoices refuses the fields of a single choice question in a kind that has none.
+func refuseChoices(c *checker, in ExerciseInput, reason string) {
+	if hasValue(in.Choices) {
+		c.fail("choices", reason)
+	}
+	if in.CorrectChoice != nil {
+		c.fail("correctChoice", reason)
+	}
 }
 
 // hasValue tells whether an optional JSON field came with something: missing, null and an empty list are nothing.

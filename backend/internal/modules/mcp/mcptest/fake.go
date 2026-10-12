@@ -378,7 +378,7 @@ func (f *Fake) ExCreate(_ context.Context, who contentservice.Actor, moduleID uu
 		ID: uuid.New(), ModuleID: moduleID, Kind: clean.Kind, Usage: links.Usage(), InAssessment: links.Assessment,
 		ExclusiveAssessment: links.Exclusive, Difficulty: clean.Difficulty, Status: contentdomain.StatusDraft, Title: clean.Title,
 		Statement: clean.Statement, Hints: clean.Hints, ReferenceSolution: clean.Solution, EndConditions: clean.EndConditions, DependsOn: dependsOn, UpdatedAt: time.Now(),
-		AnswerKey: clean.AnswerKey, Explanation: clean.Explanation,
+		AnswerKey: clean.AnswerKey, Explanation: clean.Explanation, Choices: clean.Choices, ShuffleChoices: clean.ShuffleChoices,
 	}}
 	f.Exercises[moduleID] = append(f.Exercises[moduleID], rec)
 	return rec, nil
@@ -407,6 +407,7 @@ func (f *Fake) ExUpdate(_ context.Context, who contentservice.Actor, moduleID, i
 	rec.Title, rec.Difficulty, rec.Statement, rec.Hints = clean.Title, clean.Difficulty, clean.Statement, clean.Hints
 	rec.ReferenceSolution, rec.EndConditions, rec.DependsOn = clean.Solution, clean.EndConditions, dependsOn
 	rec.AnswerKey, rec.Explanation = clean.AnswerKey, clean.Explanation
+	rec.Choices, rec.ShuffleChoices = clean.Choices, clean.ShuffleChoices
 	f.Exercises[moduleID][i] = rec
 	return rec, nil
 }

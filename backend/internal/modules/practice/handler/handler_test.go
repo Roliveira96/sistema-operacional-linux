@@ -267,3 +267,13 @@ func TestProgressOfAnsweredQuestions(t *testing.T) {
 	assert.Equal(t, true, answered["correctAnswer"])
 	assert.Equal(t, "<p>Because.</p>", answered["explanation"])
 }
+
+// Covers SPEC-036 5.2 at the HTTP level: the answer key of a single choice question comes as correctChoice.
+func TestRevealedField(t *testing.T) {
+	answer, choice := revealed("correctChoice", json.RawMessage(`"a"`))
+	assert.Nil(t, answer)
+	assert.JSONEq(t, `"a"`, string(choice))
+	answer, choice = revealed("correctAnswer", json.RawMessage(`true`))
+	assert.JSONEq(t, "true", string(answer))
+	assert.Nil(t, choice)
+}

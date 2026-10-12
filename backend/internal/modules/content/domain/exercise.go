@@ -21,6 +21,11 @@ type ExerciseInput struct {
 	Explanation   string
 	// HasDependency tells whether the request says the exercise depends on another one.
 	HasDependency bool
+	// Choices and CorrectChoice belong to the single choice question (SPEC-036 RN-02, RN-03).
+	Choices       json.RawMessage
+	CorrectChoice *string
+	// ShuffleChoices is nil when the request does not say, which is to shuffle (SPEC-036 D-07).
+	ShuffleChoices *bool
 }
 
 // NormalizedExercise is an exercise ready to be stored: every field filtered and trimmed. A practical exercise has the
@@ -38,6 +43,10 @@ type NormalizedExercise struct {
 	Catalog       []Condition
 	AnswerKey     json.RawMessage
 	Explanation   *string
+	// Choices are the alternatives of a single choice question, each with its stable id and its filtered html (SPEC-036).
+	Choices json.RawMessage
+	// ShuffleChoices shuffles the alternatives for the student (SPEC-036 D-07); true unless the teacher keeps her order.
+	ShuffleChoices bool
 }
 
 // decodeOptional reads a list or object that may be missing or null.
@@ -59,7 +68,7 @@ func NormalizeExercise(in ExerciseInput, s *HTMLSanitizer) (NormalizedExercise, 
 	if !ok {
 		return NormalizedExercise{}, &PayloadError{Fields: []FieldError{{"kind", "must be one of " + strings.Join(BankKinds(), ", ")}}}
 	}
-	out := NormalizedExercise{Kind: in.Kind}
+	out := NormalizedExercise{Kind: in.Kind, ShuffleChoices: in.ShuffleChoices == nil || *in.ShuffleChoices}
 	out.Title = c.text("title", in.Title, MaxTitleLength, true)
 	if in.Difficulty != "EASY" && in.Difficulty != "MEDIUM" && in.Difficulty != "HARD" {
 		c.fail("difficulty", "must be EASY, MEDIUM or HARD")

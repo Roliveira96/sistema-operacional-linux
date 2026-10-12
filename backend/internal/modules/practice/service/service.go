@@ -75,8 +75,11 @@ func (s *Service) Scenario(ctx context.Context, questionID uuid.UUID, v contents
 type CheckResult struct {
 	Passed      bool
 	CompletedAt *time.Time
-	Correct     json.RawMessage
-	Explanation *string
+	// Correct is the answer key revealed after the answer, and CorrectField the name of its field (correctAnswer for true or false,
+	// correctChoice for single choice).
+	Correct      json.RawMessage
+	CorrectField string
+	Explanation  *string
 }
 
 // Submission is the body of a check: the state of the machine for a practical exercise, or the response of the student for a
@@ -136,7 +139,8 @@ func (s *Service) respond(ctx context.Context, q contentdomain.Question, userID 
 	if err := s.store.SaveResponse(ctx, &progress); err != nil {
 		return CheckResult{}, err
 	}
-	return CheckResult{Passed: verdict.Passed, CompletedAt: progress.CompletedAt, Correct: verdict.Correct, Explanation: q.Explanation}, nil
+	field, _ := kind.Revealed(q)
+	return CheckResult{Passed: verdict.Passed, CompletedAt: progress.CompletedAt, Correct: verdict.Correct, CorrectField: field, Explanation: q.Explanation}, nil
 }
 
 // Check grades the submitted final state on the server and records the
@@ -173,8 +177,9 @@ func (s *Service) Check(ctx context.Context, questionID uuid.UUID, v contentserv
 // answer and the justification, so the screen shows it locked with its result (SPEC-035 5.2).
 type ProgressEntry struct {
 	domain.Progress
-	Correct     json.RawMessage
-	Explanation *string
+	Correct      json.RawMessage
+	CorrectField string
+	Explanation  *string
 }
 
 // ModuleProgress lists the student's progress in a module.
@@ -202,8 +207,8 @@ func (s *Service) entries(ctx context.Context, v contentservice.Viewer, rows []d
 		if err != nil {
 			return nil, err
 		}
-		if correct, ok := contentdomain.BooleanAnswer(q.AnswerKey); ok {
-			out[i].Correct, _ = json.Marshal(correct)
+		if kind, ok := contentdomain.TypeOf(q.Kind); ok {
+			out[i].CorrectField, out[i].Correct = kind.Revealed(q)
 		}
 		out[i].Explanation = q.Explanation
 	}

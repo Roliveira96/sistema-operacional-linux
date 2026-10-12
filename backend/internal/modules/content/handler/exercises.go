@@ -86,6 +86,10 @@ type exerciseResponse struct {
 	// CorrectAnswer and Explanation are the answer key and the justification of a true or false question (SPEC-035 5.1).
 	CorrectAnswer *bool   `json:"correctAnswer,omitempty"`
 	Explanation   *string `json:"explanation,omitempty"`
+	// Choices and CorrectChoice are the alternatives and the correct one of a single choice question (SPEC-036 5.1).
+	Choices        json.RawMessage `json:"choices,omitempty"`
+	CorrectChoice  *string         `json:"correctChoice,omitempty"`
+	ShuffleChoices *bool           `json:"shuffleChoices,omitempty"`
 	// The links of the exercise (SPEC-023 11.1): in the practice (with a place in the trail), in the assessment, and exclusive to it.
 	Practice   bool `json:"practice"`
 	Assessment bool `json:"assessment"`
@@ -111,10 +115,22 @@ func toExerciseResponse(r service.ExerciseRecord) exerciseResponse {
 		Status: r.Status, Position: r.Position, Mandatory: r.Mandatory, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 		CreatedBy: r.CreatedByName, UpdatedBy: r.UpdatedByName, Legacy: domain.UsesTerminal(r.Kind) && len(r.EndConditions) == 0,
 	}
-	if r.Kind == domain.KindTheoreticalBoolean {
+	switch r.Kind {
+	case domain.KindTheoreticalBoolean:
 		if correct, ok := domain.BooleanAnswer(r.AnswerKey); ok {
 			out.CorrectAnswer = &correct
 		}
+		out.Explanation = r.Explanation
+	case domain.KindTheoreticalSingle:
+		out.Choices = json.RawMessage("[]")
+		if domain.ReadChoices(r.Choices) != nil {
+			out.Choices = r.Choices
+		}
+		if correct, ok := domain.CorrectChoice(r.AnswerKey); ok {
+			out.CorrectChoice = &correct
+		}
+		shuffle := r.ShuffleChoices
+		out.ShuffleChoices = &shuffle
 		out.Explanation = r.Explanation
 	}
 	out.Conditions = rawOrEmptyList(r.EndConditions)
@@ -155,6 +171,10 @@ type exerciseRequest struct {
 	// CorrectAnswer and Explanation belong to a true or false question (SPEC-035 RN-03).
 	CorrectAnswer *bool  `json:"correctAnswer"`
 	Explanation   string `json:"explanation"`
+	// Choices and CorrectChoice belong to a single choice question (SPEC-036 RN-03).
+	Choices        json.RawMessage `json:"choices"`
+	CorrectChoice  *string         `json:"correctChoice"`
+	ShuffleChoices *bool           `json:"shuffleChoices"`
 	// DependsOn is the exercise this one depends on (SPEC-023 D-16).
 	DependsOn *uuid.UUID `json:"dependsOn"`
 	// Links are where a new exercise comes linked, when it is created from a block of the screen.
@@ -167,6 +187,7 @@ func (r exerciseRequest) input() domain.ExerciseInput {
 	return domain.ExerciseInput{
 		Kind: r.Kind, Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: r.Hints, Solution: r.Solution, Conditions: r.Conditions,
 		CorrectAnswer: r.CorrectAnswer, Explanation: r.Explanation, HasDependency: r.DependsOn != nil,
+		Choices: r.Choices, CorrectChoice: r.CorrectChoice, ShuffleChoices: r.ShuffleChoices,
 	}
 }
 

@@ -24,16 +24,20 @@ type ExerciseView struct {
 	Solution   json.RawMessage `json:"solution"`
 	Conditions json.RawMessage `json:"conditions"`
 	// CorrectAnswer and Explanation belong to a true or false question (SPEC-035 RN-15).
-	CorrectAnswer *bool      `json:"correctAnswer,omitempty"`
-	Explanation   *string    `json:"explanation,omitempty"`
-	Practice      bool       `json:"practice"`
-	Assessment    bool       `json:"assessment"`
-	Exclusive     bool       `json:"exclusive"`
-	DependsOn     *uuid.UUID `json:"dependsOn"`
-	Status        string     `json:"status"`
-	Position      int        `json:"position"`
-	Mandatory     bool       `json:"mandatory"`
-	UpdatedAt     time.Time  `json:"updatedAt"`
+	CorrectAnswer *bool   `json:"correctAnswer,omitempty"`
+	Explanation   *string `json:"explanation,omitempty"`
+	// Choices, CorrectChoice and ShuffleChoices belong to a single choice question (SPEC-036 RN-10).
+	Choices        []contentdomain.Choice `json:"choices,omitempty"`
+	CorrectChoice  *string                `json:"correctChoice,omitempty"`
+	ShuffleChoices *bool                  `json:"shuffleChoices,omitempty"`
+	Practice       bool                   `json:"practice"`
+	Assessment     bool                   `json:"assessment"`
+	Exclusive      bool                   `json:"exclusive"`
+	DependsOn      *uuid.UUID             `json:"dependsOn"`
+	Status         string                 `json:"status"`
+	Position       int                    `json:"position"`
+	Mandatory      bool                   `json:"mandatory"`
+	UpdatedAt      time.Time              `json:"updatedAt"`
 }
 
 func exerciseView(r contentservice.ExerciseRecord) ExerciseView {
@@ -50,8 +54,16 @@ func exerciseView(r contentservice.ExerciseRecord) ExerciseView {
 	if correct, ok := contentdomain.BooleanAnswer(r.AnswerKey); ok && r.Kind == contentdomain.KindTheoreticalBoolean {
 		v.CorrectAnswer = &correct
 	}
-	if r.Kind == contentdomain.KindTheoreticalBoolean {
+	if r.Kind == contentdomain.KindTheoreticalBoolean || r.Kind == contentdomain.KindTheoreticalSingle {
 		v.Explanation = r.Explanation
+	}
+	if r.Kind == contentdomain.KindTheoreticalSingle {
+		v.Choices = contentdomain.ReadChoices(r.Choices)
+		if correct, ok := contentdomain.CorrectChoice(r.AnswerKey); ok {
+			v.CorrectChoice = &correct
+		}
+		shuffle := r.ShuffleChoices
+		v.ShuffleChoices = &shuffle
 	}
 	return v
 }
@@ -86,10 +98,14 @@ type CreateModuleExerciseInput struct {
 	Solution   json.RawMessage `json:"solution,omitempty"`
 	Conditions json.RawMessage `json:"conditions,omitempty"`
 	// CorrectAnswer and Explanation are for a THEORETICAL_BOOLEAN question (SPEC-035 RN-15).
-	CorrectAnswer *bool      `json:"correctAnswer,omitempty"`
-	Explanation   string     `json:"explanation,omitempty"`
-	DependsOn     *string    `json:"dependsOn,omitempty"`
-	Links         LinksInput `json:"links"`
+	CorrectAnswer *bool  `json:"correctAnswer,omitempty"`
+	Explanation   string `json:"explanation,omitempty"`
+	// Choices, CorrectChoice and ShuffleChoices are for a THEORETICAL_SINGLE question (SPEC-036 RN-10).
+	Choices        json.RawMessage `json:"choices,omitempty"`
+	CorrectChoice  *string         `json:"correctChoice,omitempty"`
+	ShuffleChoices *bool           `json:"shuffleChoices,omitempty"`
+	DependsOn      *string         `json:"dependsOn,omitempty"`
+	Links          LinksInput      `json:"links"`
 }
 
 // ExerciseResult is an exercise after a change.
@@ -117,6 +133,7 @@ func (s *Service) CreateModuleExercise(ctx context.Context, c Caller, in CreateM
 	rec, err := s.exercises.Create(ctx, c.actor(), id, contentdomain.ExerciseInput{
 		Kind: in.Kind, Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution, Conditions: in.Conditions,
 		CorrectAnswer: in.CorrectAnswer, Explanation: in.Explanation, HasDependency: dependsOn != nil,
+		Choices: in.Choices, CorrectChoice: in.CorrectChoice, ShuffleChoices: in.ShuffleChoices,
 	}, dependsOn, in.Links.links())
 	if err != nil {
 		return ExerciseResult{}, fail(err, fieldContext{root: rootOf(in)})
@@ -150,10 +167,14 @@ type UpdateModuleExerciseInput struct {
 	// CorrectAnswer (null clears it) and Explanation are for a THEORETICAL_BOOLEAN question (SPEC-035 RN-15).
 	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
 	Explanation   *string         `json:"explanation,omitempty"`
-	DependsOn     json.RawMessage `json:"dependsOn,omitempty"`
-	Links         *LinksInput     `json:"links,omitempty"`
-	UpdatedAt     *string         `json:"updatedAt,omitempty"`
-	Order         []OrderEntry    `json:"order,omitempty"`
+	// Choices replaces the alternatives, CorrectChoice (null clears it) and ShuffleChoices are for a THEORETICAL_SINGLE question.
+	Choices        json.RawMessage `json:"choices,omitempty"`
+	CorrectChoice  json.RawMessage `json:"correctChoice,omitempty"`
+	ShuffleChoices *bool           `json:"shuffleChoices,omitempty"`
+	DependsOn      json.RawMessage `json:"dependsOn,omitempty"`
+	Links          *LinksInput     `json:"links,omitempty"`
+	UpdatedAt      *string         `json:"updatedAt,omitempty"`
+	Order          []OrderEntry    `json:"order,omitempty"`
 }
 
 // UpdateModuleExerciseResult is the outcome: the exercise, or the fact it was deleted or the trail reordered.
@@ -222,6 +243,7 @@ func (s *Service) UpdateModuleExercise(ctx context.Context, c Caller, in UpdateM
 		rec, terr := s.patchExercise(ctx, c, id, exID, exercisePatch{
 			Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution,
 			Conditions: in.Conditions, CorrectAnswer: in.CorrectAnswer, Explanation: in.Explanation, DependsOn: in.DependsOn, UpdatedAt: in.UpdatedAt,
+			Choices: in.Choices, CorrectChoice: in.CorrectChoice, ShuffleChoices: in.ShuffleChoices,
 		}, fc)
 		if terr != nil {
 			return UpdateModuleExerciseResult{}, terr
@@ -238,6 +260,8 @@ type exercisePatch struct {
 	Hints, Solution, Conditions  json.RawMessage
 	CorrectAnswer                json.RawMessage
 	Explanation                  *string
+	Choices, CorrectChoice       json.RawMessage
+	ShuffleChoices               *bool
 	DependsOn                    json.RawMessage
 	UpdatedAt                    *string
 }
@@ -268,6 +292,30 @@ func (s *Service) patchExercise(ctx context.Context, c Caller, moduleID, exID uu
 	}
 	if p.Explanation != nil {
 		input.Explanation = *p.Explanation
+	}
+	if cur.Kind == contentdomain.KindTheoreticalSingle {
+		input.Choices = cur.Choices
+		if correct, ok := contentdomain.CorrectChoice(cur.AnswerKey); ok {
+			input.CorrectChoice = &correct
+		}
+		shuffle := cur.ShuffleChoices
+		input.ShuffleChoices = &shuffle
+	}
+	if len(p.Choices) > 0 {
+		input.Choices = p.Choices
+	}
+	if len(p.CorrectChoice) > 0 {
+		input.CorrectChoice = nil
+		if !isNull(p.CorrectChoice) {
+			var correct string
+			if err := json.Unmarshal(p.CorrectChoice, &correct); err != nil {
+				return contentservice.ExerciseRecord{}, invalid("correctChoice", string(p.CorrectChoice), "the id of one of the choices, or null")
+			}
+			input.CorrectChoice = &correct
+		}
+	}
+	if p.ShuffleChoices != nil {
+		input.ShuffleChoices = p.ShuffleChoices
 	}
 	// The solution of what came from the initial load is in another format and is not carried over.
 	if len(cur.EndConditions) > 0 {

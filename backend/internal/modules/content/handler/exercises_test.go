@@ -282,3 +282,30 @@ func TestExerciseHandler_TrueFalseErrors(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, code)
 	assert.Equal(t, "kind", body["invalidParams"].([]any)[0].(map[string]any)["name"])
 }
+
+// Covers SPEC-036 5.1: the teacher sends and reads the alternatives, the correct one and the option to shuffle.
+func TestExerciseHandler_SingleChoice(t *testing.T) {
+	f := newFakeBank()
+	f.record = service.ExerciseRecord{Question: domain.Question{ID: uuid.New(), Kind: domain.KindTheoreticalSingle, Title: "chmod", Difficulty: "EASY",
+		Choices: json.RawMessage(`[{"id":"a","html":"chmod"},{"id":"b","html":"chown"}]`), AnswerKey: json.RawMessage(`{"correct":"a"}`)}}
+	code, body := bankCall(t, f, teacher, 100, http.MethodPost, exercisesPath(""),
+		`{"kind":"THEORETICAL_SINGLE","title":"chmod","difficulty":"EASY","choices":[{"id":"a","html":"chmod"},{"html":"chown"}],"correctChoice":"a","shuffleChoices":false}`)
+	require.Equal(t, http.StatusCreated, code)
+	assert.Equal(t, domain.KindTheoreticalSingle, f.in.Kind)
+	assert.JSONEq(t, `[{"id":"a","html":"chmod"},{"html":"chown"}]`, string(f.in.Choices))
+	require.NotNil(t, f.in.CorrectChoice)
+	assert.Equal(t, "a", *f.in.CorrectChoice)
+	require.NotNil(t, f.in.ShuffleChoices)
+	assert.False(t, *f.in.ShuffleChoices)
+
+	assert.Equal(t, "a", body["correctChoice"])
+	assert.Equal(t, false, body["shuffleChoices"])
+	assert.Len(t, body["choices"], 2)
+	assert.NotContains(t, body, "correctAnswer")
+
+	f.record.Choices, f.record.AnswerKey = nil, nil
+	code, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("/"+uuid.NewString()), "")
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, []any{}, body["choices"], "a draft without choices shows an empty list")
+	assert.NotContains(t, body, "correctChoice")
+}
