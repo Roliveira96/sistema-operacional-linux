@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-035 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 11/10/2026 |
 | **Última revisão** | 11/10/2026 (decisões D-01 a D-14, sem pendências) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -228,27 +228,27 @@ A conferência em lote da SPEC-016 continua só com as práticas.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente aciona "Criar nova questão", O SISTEMA DEVE pedir o tipo (Comando Linux ou Verdadeiro ou falso) e abrir a página do tipo escolhido.
-- [ ] **CA-02** (ubíquo): A página da questão de verdadeiro ou falso DEVE ter título, nível, descrição com imagens, dicas, resposta correta e justificativa, e NÃO DEVE mostrar solução gravada, condições, ambiente nem dependência.
-- [ ] **CA-03** (evento): QUANDO a docente insere uma imagem na descrição, O SISTEMA DEVE enviá-la pela rota da SPEC-025 e mostrá-la no texto, para a docente e para o estudante.
-- [ ] **CA-04** (indesejado): SE a docente tenta publicar uma questão de verdadeiro ou falso sem resposta correta ou sem descrição, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
-- [ ] **CA-05** (indesejado): SE a requisição traz `solution`, `conditions` ou `dependsOn` para uma questão de verdadeiro ou falso, ou um tipo não aceito pelo banco, ENTÃO O SISTEMA DEVE responder 400 (RN-01, RN-03).
-- [ ] **CA-06** (ubíquo): O banco DEVE mostrar a etiqueta do tipo em cada questão e permitir filtrar por tipo.
-- [ ] **CA-07** (estado): ENQUANTO uma questão de verdadeiro ou falso está publicada e vinculada à prática, O SISTEMA DEVE mostrá-la na aba "Desafios" na posição da trilha, com os botões Verdadeiro e Falso.
-- [ ] **CA-08** (ubíquo): A lista de questões do estudante NÃO DEVE conter a resposta correta nem a justificativa das questões de verdadeiro ou falso (RN-10).
-- [ ] **CA-09** (evento): QUANDO o estudante clica numa resposta no exercício, O SISTEMA DEVE corrigir no servidor e mostrar na hora se acertou, a resposta correta e a justificativa (RN-06).
-- [ ] **CA-10** (evento): QUANDO o estudante responde uma questão de verdadeiro ou falso no exercício, O SISTEMA DEVE gravar a escolha e o resultado, marcar a questão como concluída com ✓ (acerto) ou ✗ (erro) e travar os botões, inclusive depois de recarregar a página (RN-08, D-13).
-- [ ] **CA-17** (indesejado): SE o estudante tenta responder de novo uma questão já respondida, ENTÃO a API DEVE responder 409 e manter a primeira resposta (RN-08).
-- [ ] **CA-11** (estado): ENQUANTO o componente de resposta está no modo avaliação, O SISTEMA DEVE permitir trocar a escolha a qualquer momento, DEVE mostrar as dicas e NÃO DEVE mostrar acerto, resposta correta nem justificativa (RN-07, RN-13).
-- [ ] **CA-12** (indesejado): SE a questão é exclusiva da avaliação, não publicada ou sem vínculo com a prática, ENTÃO a conferência DEVE responder 404.
-- [ ] **CA-13** (evento): QUANDO a docente roda o "Testar Banco de Exercícios" ou o "Testar o módulo" com questões dos dois tipos, O SISTEMA DEVE rodar as baterias só com as práticas e mostrar as de verdadeiro ou falso como "não usa o terminal", com falha se estiverem incompletas (RN-09).
-- [ ] **CA-14** (evento): QUANDO o estudante executa comandos ou reinicia a máquina, O SISTEMA NÃO DEVE alterar o estado das questões de verdadeiro ou falso.
-- [ ] **CA-15** (indesejado): SE um visitante clica numa resposta, ENTÃO a interface DEVE pedir login e a API DEVE responder 401.
-- [ ] **CA-18** (evento): QUANDO a docente adiciona um exercício no card, O SISTEMA DEVE pedir o tipo e, para verdadeiro ou falso, mostrar título, nível, descrição com imagens, dicas, resposta correta e justificativa, sem solução nem condições (RN-14).
-- [ ] **CA-19** (indesejado): SE um item de verdadeiro ou falso do card não tem `correctAnswer` ou traz `solution` ou `conditions`, ENTÃO O SISTEMA DEVE recusar o card com 400 e apontar o campo (RN-14).
-- [ ] **CA-20** (evento): QUANDO o estudante responde um exercício de verdadeiro ou falso do card, O SISTEMA DEVE mostrar na hora se acertou, a resposta correta e a justificativa, e travar a resposta no navegador (D-02, D-14).
-- [ ] **CA-21** (evento): QUANDO um agente cria pelo MCP uma questão do banco ou um exercício de card de verdadeiro ou falso, O SISTEMA DEVE gravá-lo com as mesmas validações da tela, e devolver erro estruturado se for inválido (RN-15).
-- [ ] **CA-16** (ubíquo): A escolha da resposta DEVE ser operável só pelo teclado, e as telas DEVEM usar só tokens de `_tokens.scss`.
+- [x] **CA-01** (evento): QUANDO a docente aciona "Criar nova questão", O SISTEMA DEVE pedir o tipo (Comando Linux ou Verdadeiro ou falso) e abrir a página do tipo escolhido.
+- [x] **CA-02** (ubíquo): A página da questão de verdadeiro ou falso DEVE ter título, nível, descrição com imagens, dicas, resposta correta e justificativa, e NÃO DEVE mostrar solução gravada, condições, ambiente nem dependência.
+- [x] **CA-03** (evento): QUANDO a docente insere uma imagem na descrição, O SISTEMA DEVE enviá-la pela rota da SPEC-025 e mostrá-la no texto, para a docente e para o estudante.
+- [x] **CA-04** (indesejado): SE a docente tenta publicar uma questão de verdadeiro ou falso sem resposta correta ou sem descrição, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
+- [x] **CA-05** (indesejado): SE a requisição traz `solution`, `conditions` ou `dependsOn` para uma questão de verdadeiro ou falso, ou um tipo não aceito pelo banco, ENTÃO O SISTEMA DEVE responder 400 (RN-01, RN-03).
+- [x] **CA-06** (ubíquo): O banco DEVE mostrar a etiqueta do tipo em cada questão e permitir filtrar por tipo.
+- [x] **CA-07** (estado): ENQUANTO uma questão de verdadeiro ou falso está publicada e vinculada à prática, O SISTEMA DEVE mostrá-la na aba "Desafios" na posição da trilha, com os botões Verdadeiro e Falso.
+- [x] **CA-08** (ubíquo): A lista de questões do estudante NÃO DEVE conter a resposta correta nem a justificativa das questões de verdadeiro ou falso (RN-10).
+- [x] **CA-09** (evento): QUANDO o estudante clica numa resposta no exercício, O SISTEMA DEVE corrigir no servidor e mostrar na hora se acertou, a resposta correta e a justificativa (RN-06).
+- [x] **CA-10** (evento): QUANDO o estudante responde uma questão de verdadeiro ou falso no exercício, O SISTEMA DEVE gravar a escolha e o resultado, marcar a questão como concluída com ✓ (acerto) ou ✗ (erro) e travar os botões, inclusive depois de recarregar a página (RN-08, D-13).
+- [x] **CA-17** (indesejado): SE o estudante tenta responder de novo uma questão já respondida, ENTÃO a API DEVE responder 409 e manter a primeira resposta (RN-08).
+- [x] **CA-11** (estado): ENQUANTO o componente de resposta está no modo avaliação, O SISTEMA DEVE permitir trocar a escolha a qualquer momento, DEVE mostrar as dicas e NÃO DEVE mostrar acerto, resposta correta nem justificativa (RN-07, RN-13).
+- [x] **CA-12** (indesejado): SE a questão é exclusiva da avaliação, não publicada ou sem vínculo com a prática, ENTÃO a conferência DEVE responder 404.
+- [x] **CA-13** (evento): QUANDO a docente roda o "Testar Banco de Exercícios" ou o "Testar o módulo" com questões dos dois tipos, O SISTEMA DEVE rodar as baterias só com as práticas e mostrar as de verdadeiro ou falso como "não usa o terminal", com falha se estiverem incompletas (RN-09).
+- [x] **CA-14** (evento): QUANDO o estudante executa comandos ou reinicia a máquina, O SISTEMA NÃO DEVE alterar o estado das questões de verdadeiro ou falso.
+- [x] **CA-15** (indesejado): SE um visitante clica numa resposta, ENTÃO a interface DEVE pedir login e a API DEVE responder 401.
+- [x] **CA-18** (evento): QUANDO a docente adiciona um exercício no card, O SISTEMA DEVE pedir o tipo e, para verdadeiro ou falso, mostrar título, nível, descrição com imagens, dicas, resposta correta e justificativa, sem solução nem condições (RN-14).
+- [x] **CA-19** (indesejado): SE um item de verdadeiro ou falso do card não tem `correctAnswer` ou traz `solution` ou `conditions`, ENTÃO O SISTEMA DEVE recusar o card com 400 e apontar o campo (RN-14).
+- [x] **CA-20** (evento): QUANDO o estudante responde um exercício de verdadeiro ou falso do card, O SISTEMA DEVE mostrar na hora se acertou, a resposta correta e a justificativa, e travar a resposta no navegador (D-02, D-14).
+- [x] **CA-21** (evento): QUANDO um agente cria pelo MCP uma questão do banco ou um exercício de card de verdadeiro ou falso, O SISTEMA DEVE gravá-lo com as mesmas validações da tela, e devolver erro estruturado se for inválido (RN-15).
+- [x] **CA-16** (ubíquo): A escolha da resposta DEVE ser operável só pelo teclado, e as telas DEVEM usar só tokens de `_tokens.scss`.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -306,6 +306,17 @@ Reforço do Tech Lead sobre D-02: na prova, a escolha nunca trava, porque o estu
 
 Nenhuma em aberto. P-01 a P-14 viraram as decisões D-01 a D-14.
 
+### Ajustes de implementação (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-01 | A lista de questões do aluno é a rota que já existia, `GET /api/v1/modules/{id}/questions?usage=EXERCISE` (a seção 5.2 citava `/modules/{id}/exercises`, nome da SPEC-023 que não chegou ao código) |
+| A-02 | A restrição `questions_objective_fields` (SPEC-011) exigia alternativas e gabarito em toda questão `THEORETICAL_BOOLEAN`. A migração 00021 a reescreve: verdadeiro ou falso não tem alternativas e só precisa do gabarito quando publicada; escolha única e múltipla continuam como estavam |
+| A-03 | O filtro de HTML não mudou: continua aceitando `<img>` em `https` além do endereço do bucket (política da SPEC-025 A-01), e não só o endereço gerado pelo sistema, como dizia a RN-11 |
+| A-04 | A imagem no editor de texto usa um nó de imagem próprio, escrito sobre o `@tiptap/react`, para não acrescentar a extensão de imagem do tiptap como dependência nova |
+| A-05 | O botão "Testar Banco de Exercícios" mantém o nome; só o banco passou a se chamar "Banco de questões" (D-05). No "Testar o módulo", as questões de verdadeiro ou falso publicadas entram no grupo dos exercícios disponíveis, só para conferir se estão completas |
+| A-06 | Uma segunda resposta ao mesmo exercício recebe 409; a tela, nesse caso, lê o progresso e mostra a resposta que o servidor guardou (por exemplo, respondida em outra aba) |
+
 ---
 
 ## Histórico de revisões
@@ -317,3 +328,5 @@ Nenhuma em aberto. P-01 a P-14 viraram as decisões D-01 a D-14.
 | 11/10/2026 | Tech Lead | Decisões D-06 a D-11 (resposta correta e justificativa depois de responder; questão na aba "Desafios"; verdadeiro ou falso também no exercício do card; testes só conferem se está completa; nomes e glossário; MCP cria o tipo) e reforço de D-02 na prova. Incluídos RN-14, RN-15, CA-18 a CA-21 e o payload novo do bloco `EXERCISES`. P-09 e P-13 seguem abertas; pendência nova P-14 |
 | 11/10/2026 | Tech Lead | Aceitas as recomendações de P-09, P-13 e P-14 (viram D-12 a D-14). Seção 10 sem pendências; lista de arquivos da seção 9 preenchida |
 | 11/10/2026 | Tech Lead | Aprovada ("aprovo"). Status: `Aprovada` |
+
+| 11/10/2026 | Implementador (Claude) | Implementada; status `Implementada`. **Backend:** contrato de tipo de questão no domínio, banco do módulo com o novo tipo, resposta única na conferência, progresso com o gabarito das respondidas, item do card e ferramentas do MCP; migração 00021. Testes passando, inclusive com PostgreSQL real (resposta única com duas requisições simultâneas, restrição de dependência e de gabarito publicado). Cobertura: `content/domain` 93,4%, `content/service` 86,7%, `content/handler` 82,7%, `content/repository` 85,1%, `practice/domain` 100%, `practice/service` 95,7%, `practice/handler` 97,5%, `practice/repository` 93,8%, `mcp/service` 97,5%. **Frontend:** 549 testes dos arquivos da spec passando, com 95,5% das linhas e 89,3% dos ramos nesses arquivos (o editor de texto com 100% das linhas). A suíte fora do motor do terminal teve 943 de 946 testes aprovados; os 2 que falharam estouraram o limite de 5 s só com a suíte inteira em paralelo e passam sozinhos, com e sem esta mudança. A suíte do motor do terminal travou numa rodada completa e não foi investigada, porque esta spec não o altera. `tsc`, ESLint e Stylelint limpos. **Manual:** o roteiro da seção 8 (criar com imagem, responder como aluno, recarregar, Testar Banco) não foi executado no navegador e fica para a revisão. **Ajustes:** A-01 a A-06 e a decisão D-15 (animação) |

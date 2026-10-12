@@ -133,3 +133,62 @@ describe("RichTextEditor images", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 });
+
+describe("RichTextEditor toolbar", () => {
+  it("applies every format button and undoes and redoes", async () => {
+    const onChange = vi.fn();
+    const view = render(<RichTextEditor label="Texto" value="<p>ls -la</p>" onChange={onChange} />);
+    const dom = await waitFor(() => {
+      const el = view.container.querySelector(".ProseMirror") as Host | null;
+      if (!el) throw new Error("editor not ready");
+      return el;
+    });
+    act(() => {
+      dom.editor.commands.selectAll();
+    });
+    for (const name of ["Negrito", "Itálico", "Bloco de código", "Lista numerada", "Citação"]) {
+      fireEvent.click(screen.getByRole("button", { name }));
+    }
+    expect(onChange).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refazer" }));
+    expect(onChange.mock.calls.length).toBeGreaterThan(5);
+  });
+
+  it("sets a link with Enter and removes it, and inserts an image with Enter", async () => {
+    const onChange = vi.fn();
+    const uploadImage = vi.fn().mockResolvedValue({ url: "https://cdn.x/a.avif" });
+    const view = render(<RichTextEditor label="Texto" value="<p>site</p>" onChange={onChange} uploadImage={uploadImage} />);
+    const dom = await waitFor(() => {
+      const el = view.container.querySelector(".ProseMirror") as Host | null;
+      if (!el) throw new Error("editor not ready");
+      return el;
+    });
+    act(() => {
+      dom.editor.commands.selectAll();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Link" }));
+    const url = screen.getByRole("textbox", { name: "Endereço do link" });
+    fireEvent.change(url, { target: { value: "https://x.com" } });
+    fireEvent.keyDown(url, { key: "Enter" });
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.stringContaining('href="https://x.com"')));
+    act(() => {
+      dom.editor.commands.selectAll();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remover link" }));
+    await waitFor(() => expect(onChange.mock.lastCall![0]).not.toContain("href"));
+    fireEvent.click(screen.getByRole("button", { name: "Link" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Endereço do link" }), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+
+    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    fireEvent.click(screen.getByRole("button", { name: "Inserir imagem" }));
+    expect(click).toHaveBeenCalled();
+    click.mockRestore();
+    fireEvent.change(view.container.querySelector('input[type="file"]')!, { target: { files: [new File(["x"], "a.png", { type: "image/png" })] } });
+    const alt = await screen.findByRole("textbox", { name: "Texto alternativo da imagem (o que ela mostra)" });
+    fireEvent.keyDown(alt, { key: "Enter" });
+    await waitFor(() => expect(onChange.mock.lastCall![0]).toContain('src="https://cdn.x/a.avif"'));
+  });
+});
