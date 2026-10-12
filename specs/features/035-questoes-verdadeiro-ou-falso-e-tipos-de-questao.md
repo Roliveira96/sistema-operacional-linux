@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-035 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 11/10/2026 |
 | **Última revisão** | 11/10/2026 (decisões D-01 a D-14, sem pendências) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -315,3 +315,4 @@ Nenhuma em aberto. P-01 a P-14 viraram as decisões D-01 a D-14.
 | 11/10/2026 | Tech Lead | Decisões D-01 a D-05 (uma afirmação por questão; resposta travada no exercício e livre na avaliação até finalizar; dicas na prova; parte de prova na spec de avaliação; "Banco de questões" com os dois tipos). Incorporadas em RN-07, RN-08, RN-13, CA-10, CA-11 e CA-17, na coluna `exercise_progress.response` e no erro 409 `already-answered`. Pendência nova P-13 |
 | 11/10/2026 | Tech Lead | Decisões D-06 a D-11 (resposta correta e justificativa depois de responder; questão na aba "Desafios"; verdadeiro ou falso também no exercício do card; testes só conferem se está completa; nomes e glossário; MCP cria o tipo) e reforço de D-02 na prova. Incluídos RN-14, RN-15, CA-18 a CA-21 e o payload novo do bloco `EXERCISES`. P-09 e P-13 seguem abertas; pendência nova P-14 |
 | 11/10/2026 | Tech Lead | Aceitas as recomendações de P-09, P-13 e P-14 (viram D-12 a D-14). Seção 10 sem pendências; lista de arquivos da seção 9 preenchida |
+| 11/10/2026 | Tech Lead | Aprovada ("aprovo"). Status: `Aprovada` |
