@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-037 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 11/10/2026 |
 | **Última revisão** | 12/10/2026 (decisões D-01 a D-10, aprovada) |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -180,22 +180,22 @@ A resposta para a docente traz `left`, `right`, `pairs` e `shuffleChoices` como 
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente cria uma questão, O SISTEMA DEVE oferecer "Ligar colunas" entre os tipos, no banco e no card.
-- [ ] **CA-02** (ubíquo): A página da questão DEVE ter título, nível, descrição com imagens, dicas, de 2 a 5 pares e justificativa, sem solução, condições, ambiente nem dependência.
-- [ ] **CA-03** (indesejado): SE a docente tentar ter menos de 2 ou mais de 5 pares, ENTÃO a tela NÃO DEVE permitir, e o servidor DEVE recusar com 400.
-- [ ] **CA-04** (indesejado): SE a docente publicar sem descrição, com um lado vazio ou com itens repetidos no mesmo lado, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
-- [ ] **CA-05** (ubíquo): A lista de questões do aluno NÃO DEVE conter os pares nem a justificativa (RN-05).
-- [ ] **CA-15** (evento): QUANDO a docente monta as colunas, O SISTEMA DEVE deixá-la ordenar cada coluna e selecionar, para cada item da esquerda, o seu par correto na direita, sem repetir um item da direita (D-09).
-- [ ] **CA-16** (opcional): ONDE a questão estiver marcada para manter a ordem, O SISTEMA DEVE mostrar as duas colunas exatamente na ordem da docente; ONDE estiver marcada para sortear (o padrão), DEVE mostrá-las numa ordem sorteada a cada vez (D-10).
-- [ ] **CA-06** (evento): QUANDO o aluno escolhe um item de cada coluna, O SISTEMA DEVE desenhar a ligação com animação e marcar os dois com o mesmo número e cor; escolher de novo um item ligado DEVE desfazer a ligação antiga.
-- [ ] **CA-07** (estado): ENQUANTO houver item sem ligação no exercício, O SISTEMA NÃO DEVE habilitar a conferência (P-05).
-- [ ] **CA-08** (evento): QUANDO o aluno confere no exercício, O SISTEMA DEVE corrigir no servidor e mostrar na hora, com animação, as ligações certas e erradas, os pares corretos e a justificativa, e travar a resposta, inclusive depois de recarregar (RN-06, RN-07).
-- [ ] **CA-09** (indesejado): SE as ligações enviadas não cobrirem cada item uma única vez, ou se o aluno responder de novo, ENTÃO a API DEVE responder 400 ou 409.
-- [ ] **CA-10** (estado): ENQUANTO o componente está no modo avaliação, O SISTEMA DEVE permitir ligar e desligar a qualquer momento, mostrar as dicas e NÃO DEVE mostrar resultado (RN-08).
-- [ ] **CA-11** (evento): QUANDO o aluno responde um exercício de ligar colunas do card, O SISTEMA DEVE mostrar o resultado na hora e travar a resposta no navegador (RN-09).
-- [ ] **CA-12** (evento): QUANDO a docente roda os testes do banco, do módulo ou do card, O SISTEMA DEVE conferir só se a questão está completa.
-- [ ] **CA-13** (evento): QUANDO um agente cria pelo MCP uma questão ou um exercício de card de ligar colunas, O SISTEMA DEVE aplicar as mesmas validações da tela (RN-10).
-- [ ] **CA-14** (ubíquo): Ligar DEVE ser possível só pelo teclado, a animação DEVE respeitar a preferência de menos movimento, a tela estreita DEVE funcionar sem as linhas, e as telas DEVEM usar só tokens.
+- [x] **CA-01** (evento): QUANDO a docente cria uma questão, O SISTEMA DEVE oferecer "Ligar colunas" entre os tipos, no banco e no card.
+- [x] **CA-02** (ubíquo): A página da questão DEVE ter título, nível, descrição com imagens, dicas, de 2 a 5 pares e justificativa, sem solução, condições, ambiente nem dependência.
+- [x] **CA-03** (indesejado): SE a docente tentar ter menos de 2 ou mais de 5 pares, ENTÃO a tela NÃO DEVE permitir, e o servidor DEVE recusar com 400.
+- [x] **CA-04** (indesejado): SE a docente publicar sem descrição, com um lado vazio ou com itens repetidos no mesmo lado, ENTÃO O SISTEMA DEVE recusar com o motivo (RN-04).
+- [x] **CA-05** (ubíquo): A lista de questões do aluno NÃO DEVE conter os pares nem a justificativa (RN-05).
+- [x] **CA-15** (evento): QUANDO a docente monta as colunas, O SISTEMA DEVE deixá-la ordenar cada coluna e selecionar, para cada item da esquerda, o seu par correto na direita, sem repetir um item da direita (D-09).
+- [x] **CA-16** (opcional): ONDE a questão estiver marcada para manter a ordem, O SISTEMA DEVE mostrar as duas colunas exatamente na ordem da docente; ONDE estiver marcada para sortear (o padrão), DEVE mostrá-las numa ordem sorteada a cada vez (D-10).
+- [x] **CA-06** (evento): QUANDO o aluno escolhe um item de cada coluna, O SISTEMA DEVE desenhar a ligação com animação e marcar os dois com o mesmo número e cor; escolher de novo um item ligado DEVE desfazer a ligação antiga.
+- [x] **CA-07** (estado): ENQUANTO houver item sem ligação no exercício, O SISTEMA NÃO DEVE habilitar a conferência (P-05).
+- [x] **CA-08** (evento): QUANDO o aluno confere no exercício, O SISTEMA DEVE corrigir no servidor e mostrar na hora, com animação, as ligações certas e erradas, os pares corretos e a justificativa, e travar a resposta, inclusive depois de recarregar (RN-06, RN-07).
+- [x] **CA-09** (indesejado): SE as ligações enviadas não cobrirem cada item uma única vez, ou se o aluno responder de novo, ENTÃO a API DEVE responder 400 ou 409.
+- [x] **CA-10** (estado): ENQUANTO o componente está no modo avaliação, O SISTEMA DEVE permitir ligar e desligar a qualquer momento, mostrar as dicas e NÃO DEVE mostrar resultado (RN-08).
+- [x] **CA-11** (evento): QUANDO o aluno responde um exercício de ligar colunas do card, O SISTEMA DEVE mostrar o resultado na hora e travar a resposta no navegador (RN-09).
+- [x] **CA-12** (evento): QUANDO a docente roda os testes do banco, do módulo ou do card, O SISTEMA DEVE conferir só se a questão está completa.
+- [x] **CA-13** (evento): QUANDO um agente cria pelo MCP uma questão ou um exercício de card de ligar colunas, O SISTEMA DEVE aplicar as mesmas validações da tela (RN-10).
+- [x] **CA-14** (ubíquo): Ligar DEVE ser possível só pelo teclado, a animação DEVE respeitar a preferência de menos movimento, a tela estreita DEVE funcionar sem as linhas, e as telas DEVEM usar só tokens.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -263,6 +263,16 @@ A resposta para a docente traz `left`, `right`, `pairs` e `shuffleChoices` como 
 
 Nenhuma em aberto. P-01 a P-08 viraram as decisões D-01 a D-08.
 
+### Ajustes de implementação (sem desvio de escopo)
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-01 | Os identificadores dos itens vêm da tela (a docente monta as colunas e os pares na mesma página), e o servidor só confere o formato e a repetição, em vez de gerá-los |
+| A-02 | A opção de sortear vale para as duas colunas, na mesma coluna `shuffle_choices` da SPEC-036; mantida a ordem, as duas aparecem como a docente montou (D-10) |
+| A-03 | O resultado de cada ligação (`results`) é corrigido de novo a partir da resposta guardada quando o progresso é lido, sem uma coluna nova |
+| A-04 | A marca "ligação certa/errada" aparece uma vez por ligação, no item da esquerda; o item da direita mostra a cor do resultado |
+| A-05 | Os testes de cada camada foram escritos antes do código, executados vermelhos e depois verdes, já na linha da SPEC-038 (ainda em rascunho) |
+
 ---
 
 ## Histórico de revisões
@@ -272,3 +282,4 @@ Nenhuma em aberto. P-01 a P-08 viraram as decisões D-01 a D-08.
 | 11/10/2026 | Implementador (Claude) | Criação do rascunho a partir do pedido do Tech Lead (ligar colunas, de 2 a 5 pares, mesmo comportamento do verdadeiro ou falso no exercício e na avaliação, animado para o aluno). Pendências P-01 a P-08 |
 | 12/10/2026 | Tech Lead | Aceitas as recomendações de P-01 a P-08 (viram D-01 a D-08). Seção 10 sem pendências |
 | 12/10/2026 | Tech Lead | Aprovada, com duas mudanças: a docente monta as colunas e seleciona os pares corretos no sistema (D-09) e escolhe sortear ou manter a ordem (D-10, no lugar da D-03). Status: `Aprovada` |
+| 12/10/2026 | Implementador (Claude) | Implementada; status `Implementada`. **Backend:** tipo `THEORETICAL_MATCHING` no contrato de tipos (colunas na ordem da docente, pares que ela seleciona, correção por ligação), banco do módulo, conferência com resposta única, progresso com o resultado de cada ligação, item do card, MCP e migração 00023. Testes passando, inclusive com PostgreSQL real. Cobertura: `content/domain` 94,5%, `content/service` 86,3%, `content/handler` 83,7%, `content/repository` 85,1%, `practice/service` 95,9%, `practice/handler` 97,6%, `mcp/service` 97,7%. **Frontend:** 355 testes das áreas afetadas passando, com 97% das linhas e 88,3% dos ramos nos arquivos alterados, nenhum abaixo de 80% de ramos; `tsc`, ESLint e Stylelint limpos. A migração 00023 foi aplicada no banco de desenvolvimento. **Manual:** o roteiro da seção 8 no navegador não foi executado e fica para a revisão. **Ajustes:** A-01 a A-05 |
