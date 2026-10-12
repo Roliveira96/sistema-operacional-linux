@@ -119,3 +119,51 @@ describe("ExercisesBlock", () => {
     expect(container.textContent).toBe("");
   });
 });
+
+// Covers SPEC-035 CA-20 and D-14: the true or false exercise of a card, answered once and checked on the screen.
+describe("ExercisesBlock with a true or false exercise", () => {
+  const trueFalse = {
+    items: [
+      {
+        kind: "THEORETICAL_BOOLEAN",
+        title: "rm -r",
+        difficulty: "MEDIUM",
+        description: "<p>rm -r removes non-empty directories.</p>",
+        hints: [{ text: "Think of -r" }],
+        correctAnswer: true,
+        explanation: "<p>It is recursive.</p>",
+      },
+    ],
+  };
+  const checker: ExerciseChecker = { check: () => null };
+  const show = (value: ExerciseChecker | null) =>
+    render(
+      <ExerciseCheckContext.Provider value={value}>
+        <ExercisesBlock payload={trueFalse} />
+      </ExerciseCheckContext.Provider>,
+    );
+
+  it("shows the result at once, locks the answer and keeps it in this browser", () => {
+    show(checker);
+    expect(screen.queryByRole("button", { name: "Verificar meu exercício" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar dica (1 de 1)" }));
+    expect(screen.getByText("Think of -r")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Falso" }));
+    expect(screen.getByText("Você errou.")).toBeDefined();
+    expect(screen.getByText("It is recursive.")).toBeDefined();
+    expect((screen.getByRole("button", { name: "Verdadeiro" }) as HTMLButtonElement).disabled).toBe(true);
+
+    cleanup();
+    show(checker);
+    expect(screen.getByText("Você errou."), "the answer stays locked after reloading").toBeDefined();
+  });
+
+  it("in the preview of the teacher, answers without keeping anything", () => {
+    show(null);
+    fireEvent.click(screen.getByRole("button", { name: "Verdadeiro" }));
+    expect(screen.getByText("Você acertou!")).toBeDefined();
+    cleanup();
+    show(null);
+    expect(screen.queryByText("Você acertou!")).toBeNull();
+  });
+});

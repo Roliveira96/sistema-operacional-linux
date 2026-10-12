@@ -123,6 +123,13 @@
   @include mixins.focusable;
 }
 
+.imageNote {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
 .content {
   min-height: 9rem;
   padding: var(--space-3);
@@ -131,6 +138,14 @@
 
   p {
     margin: 0 0 var(--space-2);
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: var(--space-2) 0;
+    border-radius: var(--radius-sm);
   }
 
   h3,

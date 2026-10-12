@@ -119,6 +119,7 @@ function defaultPractice() {
       .mockResolvedValue({ formato: "exame-so/maquina", cenario: "topico" }),
     checkModule: vi.fn().mockResolvedValue({ passed: [], progress: [] }),
     progress: vi.fn().mockResolvedValue([]),
+    answer: vi.fn(),
   };
 }
 
@@ -1277,5 +1278,96 @@ describe("TopicStudy exercises", () => {
     fake.window.snapshot.mockReturnValue({
       formato: "exame-so/maquina",
     } as never);
+  });
+});
+
+// Covers SPEC-035 CA-07, CA-09, CA-10, CA-14 and CA-15 on the study screen.
+describe("TopicStudy true or false questions", () => {
+  const trueFalse = challenge("tf", {
+    kind: "THEORETICAL_BOOLEAN",
+    title: "rm -r",
+    statement: "<p>rm -r removes non-empty directories.</p>",
+    hint: "<ol><li>Think of -r</li></ol>",
+    solution: undefined,
+  });
+  const withTrueFalse = (practice = defaultPractice()) => {
+    const content = {
+      content: vi.fn().mockResolvedValue({ blocks, setup: undefined }),
+      questions: vi.fn().mockResolvedValue([challenge("q1"), trueFalse]),
+    };
+    return setup({ content, practice });
+  };
+  const open = async (practice = defaultPractice()) => {
+    withTrueFalse(practice);
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    return practice;
+  };
+
+  it("shows it in the trail, answers it on the server and locks it with the result", async () => {
+    const practice = defaultPractice();
+    practice.answer.mockResolvedValue({ passed: false, completedAt: "t", correctAnswer: true, explanation: "<p>It is recursive.</p>" });
+    await open(practice);
+    expect(screen.getByText(/Enunciado q1/)).toBeInTheDocument();
+    expect(screen.getByText("rm -r removes non-empty directories.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "▶ Iniciar" })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Falso" }));
+    expect(practice.answer).toHaveBeenCalledWith("tf", false);
+    expect(await screen.findByText("Você errou.")).toBeInTheDocument();
+    expect(screen.getByText("It is recursive.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Verdadeiro" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("img", { name: contentMessages.topic.challenges.wrong })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Desafios/ })).toHaveTextContent("1/2");
+  });
+
+  it("starts locked with the answer the student already gave", async () => {
+    const practice = defaultPractice();
+    practice.progress.mockResolvedValue([
+      { questionId: "tf", completedAt: "t", attempts: 1, response: { value: true }, passed: true, correctAnswer: true, explanation: null },
+    ]);
+    await open(practice);
+    expect(screen.getByText("Você acertou!")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Falso" })).toHaveProperty("disabled", true);
+    expect(practice.answer).not.toHaveBeenCalled();
+  });
+
+  it("asks a visitor to sign in, and keeps the answer the server already had", async () => {
+    const practice = defaultPractice();
+    practice.answer.mockRejectedValueOnce(new ApiProblemError({ type: "not-authenticated", title: "x", status: 401 }, 401));
+    await open(practice);
+    fireEvent.click(screen.getByRole("button", { name: "Verdadeiro" }));
+    expect(await screen.findByText(contentMessages.trueFalse.needsLogin)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Verdadeiro" })).toHaveProperty("disabled", true);
+  });
+
+  it("shows the answer the server kept when it was already answered, and a failure otherwise", async () => {
+    const practice = defaultPractice();
+    practice.answer
+      .mockRejectedValueOnce(new ApiProblemError({ type: "x", title: "x", status: 500 }, 500))
+      .mockRejectedValueOnce(new ApiProblemError({ type: "already-answered", title: "x", status: 409 }, 409));
+    await open(practice);
+    fireEvent.click(screen.getByRole("button", { name: "Verdadeiro" }));
+    expect(await screen.findByText(contentMessages.trueFalse.failed)).toBeInTheDocument();
+    practice.progress.mockResolvedValue([
+      { questionId: "tf", completedAt: "t", attempts: 1, response: { value: false }, passed: false, correctAnswer: true },
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Verdadeiro" }));
+    expect(await screen.findByText("Você errou.")).toBeInTheDocument();
+  });
+
+  it("is not part of the check of the machine", async () => {
+    const practice = defaultPractice();
+    const content = {
+      content: vi.fn().mockResolvedValue({ blocks, setup: undefined }),
+      questions: vi.fn().mockResolvedValue([trueFalse]),
+    };
+    setup({ content, practice });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    await waitFor(() => expect(fake.window.setSpeed).toHaveBeenCalled());
+    expect(fake.onCommand).toBeDefined();
+    fake.onCommand!({ formato: "exame-so/maquina" });
+    await new Promise((r) => setTimeout(r, CHECK_DELAY_MS + 50));
+    expect(practice.checkModule).not.toHaveBeenCalled();
   });
 });

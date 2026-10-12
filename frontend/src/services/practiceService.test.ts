@@ -43,3 +43,14 @@ describe("practiceService topic endpoints (SPEC-016)", () => {
     expect(fetcher.mock.calls[2]![1].body).toBe(JSON.stringify({ snapshot: { b: 2 } }));
   });
 });
+
+// Covers SPEC-035 5.2 on the screen: the single answer goes in the body of the check.
+describe("practiceService answer (SPEC-035)", () => {
+  it("sends the response of a true or false question", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(json({ passed: false, completedAt: "t", correctAnswer: true, explanation: "<p>x</p>" }));
+    const svc = createPracticeService(createHttpClient(fetcher));
+    expect(await svc.answer("q 1", false)).toEqual({ passed: false, completedAt: "t", correctAnswer: true, explanation: "<p>x</p>" });
+    expect(fetcher.mock.calls[0]![0]).toBe("/api/v1/questions/q%201/check");
+    expect(fetcher.mock.calls[0]![1].body).toBe(JSON.stringify({ response: { value: false } }));
+  });
+});

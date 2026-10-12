@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardTestItems, emptyExercise, exercisesPayload, exerciseTestItems, hasExercises, parseExercises, type ExerciseGroup } from "./exercises";
+import { cardTestItems, emptyExercise, exercisesPayload, exerciseTestItems, hasExercises, missingAnswer, parseExercises, type ExerciseGroup } from "./exercises";
 
 const NL = String.fromCharCode(10);
 
@@ -86,5 +86,44 @@ describe("exerciseTestItems", () => {
     expect(items).toHaveLength(5);
     expect(exerciseSections).toEqual({ 1: "Exercício: Criar a pasta", 4: "Exercício: Sem solução" });
     expect(cardTestItems({ commands, exercises: undefined })).toEqual({ items: commands, exerciseSections: {} });
+  });
+});
+
+// Covers SPEC-035 RN-14, CA-18 and CA-19 on the screen: the true or false item of the exercises of a card.
+describe("true or false exercises of a card", () => {
+  const block = {
+    items: [
+      { kind: "THEORETICAL_BOOLEAN", title: "rm -r", difficulty: "EASY", description: "<p>rm -r removes non-empty directories.</p>", correctAnswer: false, explanation: "<p>Why</p>" },
+      { kind: "THEORETICAL_BOOLEAN", title: "draft", difficulty: "HARD" },
+    ],
+  };
+
+  it("reads and writes the answer and the justification, without solution nor conditions", () => {
+    const group = parseExercises(block);
+    expect(group.items[0]).toMatchObject({ kind: "THEORETICAL_BOOLEAN", correctAnswer: false, explanation: "<p>Why</p>" });
+    expect(group.items[1]).toMatchObject({ kind: "THEORETICAL_BOOLEAN", correctAnswer: null, explanation: "" });
+    const payload = exercisesPayload({ items: [{ ...group.items[0]!, solution: { steps: [{ command: "ls" }] }, conditions: [{ kind: "DIR_EXISTS", path: "/a" }] }] });
+    expect(payload.items).toEqual([
+      { kind: "THEORETICAL_BOOLEAN", title: "rm -r", difficulty: "EASY", description: "<p>rm -r removes non-empty directories.</p>", correctAnswer: false, explanation: "<p>Why</p>" },
+    ]);
+    expect((exercisesPayload({ items: [group.items[1]!] }).items as unknown[])[0]).not.toHaveProperty("correctAnswer");
+  });
+
+  it("starts a new exercise of the chosen kind", () => {
+    expect(emptyExercise("THEORETICAL_BOOLEAN")).toMatchObject({ kind: "THEORETICAL_BOOLEAN", correctAnswer: null, explanation: "" });
+    expect(emptyExercise()).not.toHaveProperty("kind");
+  });
+
+  // Covers SPEC-035 RN-09 and CA-13 for the test of the card: nothing runs, and an incomplete one fails.
+  it("is checked only for being complete in the test of the card", () => {
+    const group = parseExercises(block);
+    expect(missingAnswer(group.items[0]!)).toEqual([]);
+    expect(missingAnswer(group.items[1]!)).toEqual(["statement", "correctAnswer"]);
+    expect(missingAnswer(emptyExercise())).toEqual([]);
+    const { items } = exerciseTestItems(group);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({ noTerminal: true });
+    expect(items[1]).toMatchObject({ untestable: "no-answer" });
+    expect(items[1]!.command).toContain("a descrição e a resposta correta");
   });
 });

@@ -1,6 +1,8 @@
 // The group of exercises of a card (SPEC-022): the editable model, its block, and what the test of the card runs.
 
+import { authoringMessages } from "@/messages/authoring.pt-BR";
 import type { ExerciseCondition } from "./exerciseConditions";
+import { hasDescription, parseKind, usesTerminal, type QuestionKind } from "./questionKinds";
 import { hasSetup, parseSetup, setupPayload, type Setup, type SetupFile } from "./setup";
 import { newId } from "./newId";
 
@@ -16,6 +18,8 @@ export interface ExerciseHint {
 
 export interface Exercise {
   id: string;
+  /** The kind of question (SPEC-035); missing is a practical one, solved in the terminal. */
+  kind?: QuestionKind;
   title: string;
   difficulty: Difficulty;
   /** The statement, as html. */
@@ -25,6 +29,10 @@ export interface Exercise {
   solution?: Setup;
   /** How it must end, whatever the way. */
   conditions: ExerciseCondition[];
+  /** The correct answer of a true or false question, null while the teacher has not chosen it (SPEC-035 RN-03). */
+  correctAnswer?: boolean | null;
+  /** The justification of a true or false question, as html, shown after the student answers. */
+  explanation?: string;
 }
 
 export interface ExerciseGroup {
@@ -38,7 +46,31 @@ export interface ExerciseGroup {
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
-export const emptyExercise = (): Exercise => ({ id: newId(), title: "", difficulty: "MEDIUM", description: "", hints: [], conditions: [] });
+export const emptyExercise = (kind: QuestionKind = "PRACTICAL"): Exercise => ({
+  id: newId(),
+  title: "",
+  difficulty: "MEDIUM",
+  description: "",
+  hints: [],
+  conditions: [],
+  ...(usesTerminal(kind) ? {} : { kind, correctAnswer: null, explanation: "" }),
+});
+
+/** The fields of a true or false question as read from the server or from a block. */
+export function trueFalseFields(r: Record<string, unknown>): Partial<Exercise> {
+  const kind = parseKind(r.kind);
+  if (usesTerminal(kind)) return {};
+  return { kind, correctAnswer: typeof r.correctAnswer === "boolean" ? r.correctAnswer : null, explanation: str(r.explanation) };
+}
+
+/** What a true or false question still needs to be published, or to be part of a test (SPEC-035 RN-04). */
+export function missingAnswer(ex: Exercise): ("statement" | "correctAnswer")[] {
+  if (usesTerminal(ex.kind)) return [];
+  const missing: ("statement" | "correctAnswer")[] = [];
+  if (!hasDescription(ex.description)) missing.push("statement");
+  if (typeof ex.correctAnswer !== "boolean") missing.push("correctAnswer");
+  return missing;
+}
 
 export function parseCondition(raw: unknown): ExerciseCondition | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
@@ -70,6 +102,7 @@ export function parseExercises(payload: Record<string, unknown>, blockId?: strin
         hints: hints.map((h): ExerciseHint => ({ id: newId(), text: str((h as Record<string, unknown>)?.text), command: str((h as Record<string, unknown>)?.command) })),
         solution: parseSetup(r.solution),
         conditions: (Array.isArray(r.conditions) ? r.conditions : []).map(parseCondition).filter((c): c is ExerciseCondition => c !== undefined),
+        ...trueFalseFields(r),
       };
     }),
   };
@@ -79,12 +112,20 @@ export function parseExercises(payload: Record<string, unknown>, blockId?: strin
 export function exercisesPayload(group: ExerciseGroup): Record<string, unknown> {
   return {
     items: group.items.map((ex) => ({
+      ...(usesTerminal(ex.kind) ? {} : { kind: ex.kind }),
       title: ex.title.trim(),
       difficulty: ex.difficulty,
       ...(ex.description.trim() ? { description: ex.description } : {}),
       ...(ex.hints.length > 0 ? { hints: ex.hints.map((h) => ({ text: h.text.trim(), ...(h.command.trim() ? { command: h.command.trim() } : {}) })) } : {}),
-      ...(hasSetup(ex.solution) ? { solution: setupPayload(ex.solution) } : {}),
-      ...(ex.conditions.length > 0 ? { conditions: ex.conditions } : {}),
+      ...(usesTerminal(ex.kind)
+        ? {
+            ...(hasSetup(ex.solution) ? { solution: setupPayload(ex.solution) } : {}),
+            ...(ex.conditions.length > 0 ? { conditions: ex.conditions } : {}),
+          }
+        : {
+            ...(typeof ex.correctAnswer === "boolean" ? { correctAnswer: ex.correctAnswer } : {}),
+            ...(ex.explanation?.trim() ? { explanation: ex.explanation } : {}),
+          }),
     })),
     ...(hasSetup(group.setup) ? { setup: setupPayload(group.setup) } : {}),
   };
@@ -105,8 +146,11 @@ export interface TestItem {
   answers: string[];
   files?: SetupFile[];
   check?: ExerciseCondition[];
-  /** Why this exercise cannot be tested (it has no recorded solution, or no condition that says how it ends); the test fails on it. */
-  untestable?: "no-solution" | "no-conditions";
+  /** Why this exercise cannot be tested (it has no recorded solution, or no condition that says how it ends, or a true or false
+   * question misses its answer); the test fails on it. */
+  untestable?: "no-solution" | "no-conditions" | "no-answer";
+  /** A question without a terminal that is complete: nothing runs and it passes (SPEC-035 RN-09). */
+  noTerminal?: boolean;
 }
 
 /**
@@ -120,6 +164,16 @@ export function exerciseTestItems(group: ExerciseGroup | undefined): { items: Te
   const sections: Record<number, string> = {};
   for (const ex of group?.items ?? []) {
     sections[items.length] = `Exercício: ${ex.title.trim() || "sem título"}`;
+    if (!usesTerminal(ex.kind)) {
+      // A question without a terminal is only checked for being complete (SPEC-035 RN-09).
+      const missing = missingAnswer(ex);
+      items.push(
+        missing.length === 0
+          ? { id: newId(), terminal: 1, command: noTerminal.complete, expectError: false, answers: [], noTerminal: true }
+          : { id: newId(), terminal: 1, command: noTerminal.incomplete(missing), expectError: false, answers: [], untestable: "no-answer" },
+      );
+      continue;
+    }
     if (!hasSetup(ex.solution)) {
       items.push({ id: newId(), terminal: 1, command: "(sem solução gravada: grave como fazer o exercício no terminal para poder testá-lo)", expectError: false, answers: [], untestable: "no-solution" });
       continue;
@@ -139,6 +193,8 @@ export function exerciseTestItems(group: ExerciseGroup | undefined): { items: Te
   }
   return { items, sections };
 }
+
+const noTerminal = authoringMessages.questionKinds.test;
 
 /** Everything the test of a card runs after the snapshots: its commands, then the solutions of its exercises and how they end. */
 export function cardTestItems(card: { commands: TestItem[]; exercises?: ExerciseGroup }): { items: TestItem[]; exerciseSections: Record<number, string> } {

@@ -4,7 +4,11 @@ import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useId, useState } from "react";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
+import { ImageNode } from "./imageNode";
 import styles from "./RichTextEditor.module.scss";
+
+/** The largest image the server takes (SPEC-025 RN-02). */
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 interface RichTextEditorProps {
   label: string;
@@ -14,6 +18,8 @@ interface RichTextEditorProps {
   placeholder?: string;
   invalid?: boolean;
   describedBy?: string;
+  /** Sends an image and returns its address (SPEC-025); with it, the toolbar has the button to insert an image (SPEC-035 D-12). */
+  uploadImage?: (file: File) => Promise<{ url: string }>;
 }
 
 /**
@@ -32,6 +38,7 @@ const GLYPHS: Record<string, string> = {
   orderedList: "1.",
   blockquote: "❝",
   link: "🔗",
+  image: "🖼",
   undo: "↶",
   redo: "↷",
 };
@@ -44,8 +51,14 @@ export function RichTextEditor({
   placeholder,
   invalid,
   describedBy,
+  uploadImage,
 }: RichTextEditorProps) {
   const t = authoringMessages.richText;
+  const ti = authoringMessages.questionKinds.image;
+  const fileId = useId();
+  /** The image sent and waiting for its alternative text before it goes into the text. */
+  const [pending, setPending] = useState<{ url: string; alt: string } | null>(null);
+  const [imageState, setImageState] = useState<"idle" | "uploading" | "failed" | "tooBig">("idle");
   const labelId = useId();
   const [linkOpen, setLinkOpen] = useState(false);
   const [url, setUrl] = useState("");
@@ -56,6 +69,7 @@ export function RichTextEditor({
         heading: { levels: [3, 4] },
         link: { openOnClick: false },
       }),
+      ImageNode,
     ],
     content: value,
     immediatelyRender: false,
@@ -163,6 +177,16 @@ export function RichTextEditor({
         setLinkOpen((open) => !open);
       },
     },
+    ...(uploadImage
+      ? [
+          {
+            key: "image",
+            label: ti.button,
+            disabled: imageState === "uploading",
+            onClick: () => (document.getElementById(fileId) as HTMLInputElement | null)?.click(),
+          },
+        ]
+      : []),
     {
       key: "undo",
       label: t.undo,
@@ -176,6 +200,25 @@ export function RichTextEditor({
       onClick: run(() => editor.chain().redo().run()),
     },
   ];
+
+  const sendImage = async (file: File | undefined) => {
+    if (!file || !uploadImage) return;
+    if (file.size > MAX_IMAGE_BYTES) return setImageState("tooBig");
+    setImageState("uploading");
+    try {
+      const { url: src } = await uploadImage(file);
+      setPending({ url: src, alt: file.name.replace(/\.[^.]+$/, "") });
+      setImageState("idle");
+    } catch {
+      setImageState("failed");
+    }
+  };
+
+  const insertImage = () => {
+    if (!pending) return;
+    editor.chain().focus().insertContent({ type: "image", attrs: { src: pending.url, alt: pending.alt.trim() } }).run();
+    setPending(null);
+  };
 
   const applyLink = () => {
     const href = url.trim();
@@ -242,6 +285,48 @@ export function RichTextEditor({
               {t.linkRemove}
             </button>
           )}
+        </div>
+      )}
+      {uploadImage && (
+        <input
+          id={fileId}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+          className={styles.srLabel}
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(e) => {
+            void sendImage(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+      )}
+      {imageState !== "idle" && (
+        <p className={styles.imageNote} role={imageState === "uploading" ? "status" : "alert"}>
+          {imageState === "uploading" ? ti.uploading : imageState === "tooBig" ? ti.tooBig : ti.failed}
+        </p>
+      )}
+      {pending && (
+        <div className={styles.linkRow}>
+          <input
+            className={styles.linkInput}
+            value={pending.alt}
+            onChange={(e) => setPending({ ...pending, alt: e.target.value })}
+            aria-label={ti.alt}
+            placeholder={ti.alt}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                insertImage();
+              }
+            }}
+          />
+          <button type="button" className={styles.tool} onClick={insertImage}>
+            {ti.insert}
+          </button>
+          <button type="button" className={styles.tool} onClick={() => setPending(null)}>
+            {ti.cancel}
+          </button>
         </div>
       )}
       <EditorContent editor={editor} />

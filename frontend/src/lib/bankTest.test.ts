@@ -128,3 +128,25 @@ describe("testBank", () => {
     expect(steps).toEqual(["linear", "reverse"]);
   });
 });
+
+// Covers SPEC-035 RN-09 and CA-13: a question without a terminal never runs; a complete one passes and an incomplete one fails.
+describe("testBank with true or false questions", () => {
+  const trueFalse = (id: string, complete: boolean): BankItem => ({ id, title: id, dependsOn: null, conditions: [], terminal: false, complete });
+
+  it("lists the complete ones apart and keeps them out of every round", async () => {
+    const { sandbox } = machine();
+    const report = await testBank([item("a", "/a"), trueFalse("tf", true)], sandbox, { seed: 3 });
+    expect(report.status).toBe("ok");
+    expect(report.noTerminal).toEqual(["tf"]);
+    expect(report.untestable).toEqual([]);
+    expect(report.rounds.flatMap((r) => r.order)).not.toContain("tf");
+  });
+
+  it("fails the test for an incomplete one, without running it", async () => {
+    const { sandbox } = machine();
+    const report = await testBank([item("a", "/a"), trueFalse("tf", false)], sandbox, { seed: 3 });
+    expect(report.status).toBe("failed");
+    expect(report.untestable).toEqual(["tf"]);
+    expect(report.noTerminal).toEqual([]);
+  });
+});

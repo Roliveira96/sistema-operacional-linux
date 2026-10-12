@@ -45,6 +45,10 @@
     border-color: var(--color-success-line);
     background: var(--color-success-faint);
   }
+
+  &.wrong {
+    border-color: var(--color-danger);
+  }
 }
 
 .status {
@@ -68,6 +72,27 @@
       content: "✓";
     }
   }
+
+  // A true or false question answered wrong is done too, with a cross (SPEC-035 D-13).
+  .wrong > & {
+    display: grid;
+    place-items: center;
+    border-color: var(--color-danger);
+    background: var(--color-danger);
+    color: var(--color-surface-sunken);
+    font-size: 13px;
+    font-weight: var(--font-weight-black);
+
+    &::after {
+      content: "✗";
+    }
+  }
+}
+
+.title {
+  margin: 0 0 6px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
 }
 
 .body {

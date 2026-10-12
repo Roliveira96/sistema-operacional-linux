@@ -17,10 +17,13 @@ import {
   type ExerciseHint,
 } from "@/lib/exercises";
 import { newId } from "@/lib/newId";
+import { usesTerminal } from "@/lib/questionKinds";
 import type { SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
+import { contentAuthoringService } from "@/services/contentAuthoringService";
 
 const m = authoringMessages.builder.exercises;
+const k = authoringMessages.questionKinds;
 
 interface ExerciseFormProps {
   exercise: Exercise;
@@ -32,6 +35,8 @@ interface ExerciseFormProps {
   errors: CardErrors;
   /** Shown in the labels, so two forms on a screen can be told apart. */
   number?: number;
+  /** Sends an image of the description or of the justification (SPEC-025, SPEC-035 D-12). */
+  uploadImage?: (file: File) => Promise<{ url: string }>;
 }
 
 /**
@@ -45,6 +50,7 @@ export function ExerciseForm({
   loadBase,
   errors,
   number = 1,
+  uploadImage = contentAuthoringService.uploadImage,
 }: ExerciseFormProps) {
   return (
     <div className={styles.form}>
@@ -93,6 +99,7 @@ export function ExerciseForm({
           label={`${m.description} (${number})`}
           value={ex.description}
           onChange={(description) => onChange({ description })}
+          uploadImage={uploadImage}
         />
       </div>
 
@@ -102,6 +109,75 @@ export function ExerciseForm({
         onChange={(hints) => onChange({ hints })}
       />
 
+      {usesTerminal(ex.kind) ? (
+        <TerminalParts exercise={ex} onChange={onChange} before={before} loadBase={loadBase} number={number} />
+      ) : (
+        <TrueFalseParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
+      )}
+    </div>
+  );
+}
+
+/** The answer of a true or false question and its justification (SPEC-035 RN-03); no terminal, solution nor conditions. */
+function TrueFalseParts({
+  exercise: ex,
+  onChange,
+  number,
+  uploadImage,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  number: number;
+  uploadImage: (file: File) => Promise<{ url: string }>;
+}) {
+  const name = `correct-answer-${number}`;
+  return (
+    <>
+      <fieldset className={styles.group}>
+        <legend className={styles.titleRow}>
+          <span className={styles.groupTitle}>{`${k.correctAnswer} (${number})`}</span>
+          <InfoTip topic={k.correctAnswer}>{k.correctAnswerHelp}</InfoTip>
+        </legend>
+        {[true, false].map((value) => (
+          <label key={String(value)} className={styles.check}>
+            <input type="radio" name={name} checked={ex.correctAnswer === value} onChange={() => onChange({ correctAnswer: value })} />
+            {value ? k.true : k.false}
+          </label>
+        ))}
+      </fieldset>
+      <div className={styles.field}>
+        <div className={styles.labelRow}>
+          <span className={styles.label}>{`${k.explanation} (${number})`}</span>
+          <InfoTip topic={k.explanation}>{k.explanationHelp}</InfoTip>
+        </div>
+        <RichTextEditor
+          label={`${k.explanation} (${number})`}
+          value={ex.explanation ?? ""}
+          onChange={(explanation) => onChange({ explanation })}
+          uploadImage={uploadImage}
+        />
+      </div>
+      <p className={styles.hint}>{k.noTerminalPage}</p>
+    </>
+  );
+}
+
+/** The solution done in the terminal and the conditions that say how a practical exercise ends (SPEC-022). */
+function TerminalParts({
+  exercise: ex,
+  onChange,
+  before,
+  loadBase,
+  number,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  before: SetupLayer[];
+  loadBase: () => Promise<unknown>;
+  number: number;
+}) {
+  return (
+    <>
       <div className={styles.group}>
         <div className={styles.titleRow}>
           <h4 className={styles.groupTitle}>{m.solutionTitle}</h4>
@@ -137,7 +213,7 @@ export function ExerciseForm({
         index={number - 1}
         onChange={(conditions) => onChange({ conditions })}
       />
-    </div>
+    </>
   );
 }
 

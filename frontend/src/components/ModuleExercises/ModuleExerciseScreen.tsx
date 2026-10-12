@@ -16,6 +16,7 @@ import {
   type Exercise,
 } from "@/lib/exercises";
 import { ancestors, chainLayers, type ChainLink } from "@/lib/exerciseChain";
+import { parseKind, usesTerminal } from "@/lib/questionKinds";
 import { hasSetup, type Setup, type SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import {
@@ -122,7 +123,9 @@ export function ModuleExerciseScreen({
               : []),
           ],
         });
-        const first = stored?.exercise ?? emptyExercise();
+        // A new question comes with the kind chosen in the bank (?kind=), which never changes after (SPEC-035 5.1).
+        const kind = parseKind(new URLSearchParams(window.location.search).get("kind"));
+        const first = stored?.exercise ?? emptyExercise(kind);
         setExercise(first);
         setDependsOn(stored?.dependsOn ?? null);
         setBaseline(JSON.stringify([first, stored?.dependsOn ?? null], withoutIds));
@@ -237,6 +240,8 @@ export function ModuleExerciseScreen({
   };
 
   const tested = exerciseTestItems({ items: [exercise] });
+  // A question without a terminal has no machine, no dependency and nothing to run (SPEC-035 CA-02).
+  const terminal = usesTerminal(exercise.kind);
   const startTest = () => {
     setTestRun((n) => n + 1);
     window.setTimeout(
@@ -259,25 +264,31 @@ export function ModuleExerciseScreen({
         <p className={styles.subtitle}>{m.subtitle}</p>
       </header>
 
+      <p className={cardStyles.hint}>{authoringMessages.questionKinds.label[exercise.kind ?? "PRACTICAL"]}</p>
+
       {state.stored?.legacy && (
         <p className={cardStyles.callout} role="status">
           <span aria-hidden="true">⚠️</span> {m.legacy}
         </p>
       )}
 
-      <div className={cardStyles.check}>
-        <label htmlFor="depends-on">{m.dependsOn}</label>
-        <select id="depends-on" value={dependsOn ?? ""} onChange={(e) => setDependsOn(e.target.value || null)}>
-          <option value="">{m.dependsOnNone}</option>
-          {choices.map((it) => (
-            <option key={it.exercise.id} value={it.exercise.id}>
-              {it.exercise.title.trim() || m.untitled}
-            </option>
-          ))}
-        </select>
-        <InfoTip topic={m.dependsOn}>{authoringMessages.info.exerciseChain}</InfoTip>
-      </div>
-      <p className={cardStyles.hint}>{m.dependsOnHelp}</p>
+      {terminal && (
+        <>
+          <div className={cardStyles.check}>
+            <label htmlFor="depends-on">{m.dependsOn}</label>
+            <select id="depends-on" value={dependsOn ?? ""} onChange={(e) => setDependsOn(e.target.value || null)}>
+              <option value="">{m.dependsOnNone}</option>
+              {choices.map((it) => (
+                <option key={it.exercise.id} value={it.exercise.id}>
+                  {it.exercise.title.trim() || m.untitled}
+                </option>
+              ))}
+            </select>
+            <InfoTip topic={m.dependsOn}>{authoringMessages.info.exerciseChain}</InfoTip>
+          </div>
+          <p className={cardStyles.hint}>{m.dependsOnHelp}</p>
+        </>
+      )}
 
       <div className={cardStyles.columns}>
         <ExerciseForm
@@ -344,15 +355,17 @@ export function ModuleExerciseScreen({
         >
           {m.back2}
         </button>
-        <button
-          type="button"
-          className={cardStyles.secondary}
-          title={m.testTitle}
-          onClick={startTest}
-          disabled={tested.items.length === 0}
-        >
-          {m.test}
-        </button>
+        {terminal && (
+          <button
+            type="button"
+            className={cardStyles.secondary}
+            title={m.testTitle}
+            onClick={startTest}
+            disabled={tested.items.length === 0}
+          >
+            {m.test}
+          </button>
+        )}
         <button
           type="button"
           className={cardStyles.primary}

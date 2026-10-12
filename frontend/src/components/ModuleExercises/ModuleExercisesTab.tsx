@@ -11,6 +11,8 @@ import {
   type MenuAction,
 } from "@/components/ContentTab/ActionMenu";
 import { InfoTip } from "@/components/InfoTip/InfoTip";
+import { KindChooser } from "@/components/KindChooser/KindChooser";
+import { QUESTION_KINDS, usesTerminal, type QuestionKind } from "@/lib/questionKinds";
 import {
   hasSetup,
   invalidFiles,
@@ -40,6 +42,7 @@ import styles from "./ModuleExercisesTab.module.scss";
 
 const m = authoringMessages.moduleExercises;
 const level = authoringMessages.builder.exercises;
+const kinds = authoringMessages.questionKinds;
 
 interface ModuleExercisesTabProps {
   moduleId: string;
@@ -132,6 +135,10 @@ export function ModuleExercisesTab({
   const [moduleSetup, setModuleSetup] = useState<Setup | undefined>();
   const [bankSetup, setBankSetup] = useState<Setup | undefined>();
   const [filter, setFilter] = useState<Filter>("all");
+  /** The kind of question the bank shows (SPEC-035 CA-06), or every kind. */
+  const [kindFilter, setKindFilter] = useState<QuestionKind | "all">("all");
+  /** A new question waiting for its kind: from the bank itself or from a block, which links it on saving. */
+  const [creating, setCreating] = useState<{ link?: Block } | null>(null);
   const [picking, setPicking] = useState<Block | null>(null);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<{
@@ -294,10 +301,18 @@ export function ModuleExercisesTab({
             {title}
           </Link>
           <span className={styles.meta}>
-            {level.difficulty[ex.difficulty]} ·{" "}
+            {kinds.label[ex.kind ?? "PRACTICAL"]} · {level.difficulty[ex.difficulty]} ·{" "}
             {level.hintCount(ex.hints.length)} ·{" "}
-            {ex.solution ? level.hasSolution : level.noSolution} ·{" "}
-            {level.conditionCount(ex.conditions.length)}
+            {usesTerminal(ex.kind) ? (
+              <>
+                {ex.solution ? level.hasSolution : level.noSolution} ·{" "}
+                {level.conditionCount(ex.conditions.length)}
+              </>
+            ) : typeof ex.correctAnswer === "boolean" ? (
+              `${kinds.correctAnswer}: ${ex.correctAnswer ? kinds.true : kinds.false}`
+            ) : (
+              kinds.bankTest.incomplete
+            )}
           </span>
           {it.legacy && <span className={styles.legacy}>{m.legacy}</span>}
           <span className={styles.audit}>
@@ -437,9 +452,9 @@ export function ModuleExercisesTab({
             <button type="button" className={styles.secondary} onClick={() => setPicking(kind)}>
               {m.addFromBank}
             </button>
-            <Link href={`/app/modules/${moduleId}/exercises/new?link=${kind}`} className={styles.primary}>
+            <button type="button" className={styles.primary} onClick={() => setCreating({ link: kind })}>
               {m.createNew}
-            </Link>
+            </button>
           </div>
         </header>
         {list.length === 0 ? (
@@ -451,7 +466,7 @@ export function ModuleExercisesTab({
     );
   };
 
-  const bankItems = bank.items.filter((it) => inFilter(it, filter));
+  const bankItems = bank.items.filter((it) => inFilter(it, filter) && (kindFilter === "all" || (it.exercise.kind ?? "PRACTICAL") === kindFilter));
   const pickable = bank.items.filter((it) => (picking === "practice" ? !it.practice && !it.exclusive : !it.assessment));
 
   return (
@@ -493,9 +508,9 @@ export function ModuleExercisesTab({
             <p className={styles.hint}>{m.bank.hint}</p>
           </div>
           <div className={styles.setActions}>
-            <Link href={`/app/modules/${moduleId}/exercises/new`} className={styles.primary}>
+            <button type="button" className={styles.primary} onClick={() => setCreating({})}>
               {m.createNew}
-            </Link>
+            </button>
           </div>
         </header>
         <div className={styles.filters} role="group" aria-label={m.bank.filterLabel}>
@@ -504,6 +519,17 @@ export function ModuleExercisesTab({
               {m.bank.filters[f]}
             </button>
           ))}
+          <label className={styles.kindFilter}>
+            {kinds.filter}{" "}
+            <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as QuestionKind | "all")}>
+              <option value="all">{kinds.allKinds}</option>
+              {QUESTION_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {kinds.label[k]}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         {bankItems.length === 0 ? (
           <p className={styles.empty}>{m.bank.empty}</p>
@@ -541,6 +567,17 @@ export function ModuleExercisesTab({
           service={service}
           onClose={() => setTesting(false)}
           onChanged={() => void refresh()}
+        />
+      )}
+
+      {creating && (
+        <KindChooser
+          onClose={() => setCreating(null)}
+          onChoose={(kind) => {
+            const query = new URLSearchParams({ ...(creating.link ? { link: creating.link } : {}), kind });
+            setCreating(null);
+            router.push(`/app/modules/${moduleId}/exercises/new?${query.toString()}`);
+          }}
         />
       )}
 

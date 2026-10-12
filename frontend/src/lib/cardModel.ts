@@ -394,6 +394,8 @@ export function checkCard(card: CardModel, requireTitle: boolean): CardErrors {
   for (const ex of card.exercises?.items ?? []) {
     if (ex.title.trim() === "") add(ex.id, "required");
     if (ex.hints.some((h) => h.text.trim() === "")) add(ex.id, "hint-required");
+    // A true or false exercise of a card is saved only with its correct answer (SPEC-035 RN-14).
+    if (ex.kind === "THEORETICAL_BOOLEAN" && typeof ex.correctAnswer !== "boolean") add(ex.id, "answer-required");
   }
   for (const group of [card.tips, card.realWorld, card.exams]) for (const b of group) if (plain(b.html) === "") add(b.id, "required");
   return errors;

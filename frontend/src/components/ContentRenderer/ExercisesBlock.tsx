@@ -1,6 +1,7 @@
 "use client";
 
 import { useContext, useState } from "react";
+import { TrueFalseAnswer, type TrueFalseResult } from "@/components/TrueFalseAnswer/TrueFalseAnswer";
 import { describeCondition, type ConditionsResult, type ExerciseCondition } from "@/lib/exerciseConditions";
 import { contentMessages } from "@/messages/content.pt-BR";
 import { Html } from "./blocks";
@@ -22,6 +23,10 @@ interface Item {
   hints?: Hint[];
   solution?: { steps?: { command: string }[]; files?: { path: string }[] };
   conditions?: ExerciseCondition[];
+  /** A true or false item (SPEC-035 RN-14): its answer and justification come in the block and the screen checks it (D-14). */
+  kind?: string;
+  correctAnswer?: boolean;
+  explanation?: string;
 }
 
 /** A short stable key for an exercise, so that "done" is remembered in this browser. */
@@ -39,6 +44,67 @@ const wasDone = (key: string) => {
     return false;
   }
 };
+
+/** The answer given to a true or false item in this browser, so it stays locked (D-14); null when there is none. */
+function answered(key: string): boolean | null {
+  try {
+    const value = localStorage.getItem(key);
+    return value === "true" ? true : value === "false" ? false : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A true or false exercise of a card: answered once, checked on the screen, and locked in this browser (SPEC-035 D-02, D-14). */
+function TrueFalseExercise({ item, index, preview }: { item: Item; index: number; preview: boolean }) {
+  const key = `exercise-answer:${keyOf(item, index).slice("exercise-done:".length)}`;
+  const hints = item.hints ?? [];
+  const [shown, setShown] = useState(0);
+  const resultOf = (choice: boolean | null): TrueFalseResult | null =>
+    choice === null || typeof item.correctAnswer !== "boolean"
+      ? null
+      : { choice, passed: choice === item.correctAnswer, correctAnswer: item.correctAnswer, explanation: item.explanation };
+  // The preview of the teacher answers without keeping anything, so the teacher can try it again.
+  const [result, setResult] = useState<TrueFalseResult | null>(() => (preview ? null : resultOf(answered(key))));
+
+  const answer = (value: boolean) => {
+    setResult(resultOf(value));
+    if (preview) return;
+    try {
+      localStorage.setItem(key, String(value));
+    } catch {
+      // Keeping the answer is only a convenience of this browser.
+    }
+  };
+
+  return (
+    <article className={`${styles.exercise} ${result?.passed ? styles.done : ""}`} data-difficulty={item.difficulty}>
+      <header className={styles.head}>
+        <h4 className={styles.title}>{item.title}</h4>
+        <span className={`${styles.level} ${styles[item.difficulty.toLowerCase()] ?? ""}`}>{m.difficulty[item.difficulty]}</span>
+      </header>
+      {item.description && <Html html={item.description} />}
+      {shown > 0 && (
+        <ol className={styles.hints} aria-label={m.hints}>
+          {hints.slice(0, shown).map((hint, i) => (
+            <li key={i}>
+              <span>{hint.text}</span>
+              {hint.command && <code className={styles.command}>{hint.command}</code>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {shown < hints.length && (
+        <div className={styles.actions}>
+          <button type="button" className={styles.button} onClick={() => setShown((n) => n + 1)}>
+            {m.showHint(shown + 1, hints.length)}
+          </button>
+        </div>
+      )}
+      <TrueFalseAnswer mode="exercise" label={item.title} result={result} onAnswer={answer} disabled={typeof item.correctAnswer !== "boolean"} />
+    </article>
+  );
+}
 
 function Exercise({ item, index }: { item: Item; index: number }) {
   const checker = useContext(ExerciseCheckContext);
@@ -148,6 +214,12 @@ function Exercise({ item, index }: { item: Item; index: number }) {
   );
 }
 
+function TrueFalseItem({ item, index }: { item: Item; index: number }) {
+  // Without a checker the block is the preview of the teacher, not a student.
+  const preview = useContext(ExerciseCheckContext) === null;
+  return <TrueFalseExercise item={item} index={index} preview={preview} />;
+}
+
 /** The group of exercises of a card: statement, level, tips on demand, how the teacher did it, and a check of how it ended. */
 export function ExercisesBlock({ payload }: { payload: Payload }) {
   const items = Array.isArray(payload.items) ? (payload.items as Item[]) : [];
@@ -155,9 +227,7 @@ export function ExercisesBlock({ payload }: { payload: Payload }) {
   return (
     <section className={styles.group} aria-label={m.title}>
       <h3 className={styles.groupTitle}>{m.title}</h3>
-      {items.map((item, i) => (
-        <Exercise key={i} item={item} index={i} />
-      ))}
+      {items.map((item, i) => (item.kind === "THEORETICAL_BOOLEAN" ? <TrueFalseItem key={i} item={item} index={i} /> : <Exercise key={i} item={item} index={i} />))}
     </section>
   );
 }

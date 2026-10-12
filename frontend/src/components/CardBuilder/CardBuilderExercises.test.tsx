@@ -55,7 +55,7 @@ describe("CardBuilder, the tab of the exercises", () => {
     renderBuilder();
     openTab("Exercícios");
     expect(screen.getByText(/Salve o card uma vez para criar os exercícios/)).toBeDefined();
-    expect(screen.queryByRole("link", { name: "+ Adicionar exercício" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "+ Adicionar exercício" })).toBeNull();
   });
 
   it("lists the exercises with their level and what they have, and opens each on its page", () => {
@@ -65,10 +65,13 @@ describe("CardBuilder, the tab of the exercises", () => {
     expect(list).toHaveTextContent("Criar a pasta");
     expect(list).toHaveTextContent("Crie a pasta financeiro.");
     expect(list).toHaveTextContent("Fácil · 2 dicas · com solução · 1 condição");
-    expect(list).toHaveTextContent("Difícil · 0 dicas · sem solução · 0 condições");
+    expect(list).toHaveTextContent("Comando Linux · Difícil · 0 dicas · sem solução · 0 condições");
     expect(screen.getByRole("link", { name: "Abrir o exercício Criar a pasta" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h/exercises/0");
     expect(screen.getByRole("link", { name: "Abrir o exercício Listar" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h/exercises/1");
-    expect(screen.getByRole("link", { name: "+ Adicionar exercício" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h/exercises/new");
+    // The kind is asked first (SPEC-035 CA-18).
+    fireEvent.click(screen.getByRole("button", { name: "+ Adicionar exercício" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Verdadeiro ou falso/ }));
+    expect(screen.getByRole("link", { name: "Escolher" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h/exercises/new?kind=THEORETICAL_BOOLEAN");
   });
 
   it("does not open a page while the card has changes that are not saved, because the page would not see them", () => {
@@ -77,7 +80,7 @@ describe("CardBuilder, the tab of the exercises", () => {
     openTab("Exercícios");
     expect(screen.getByText(/Salve o card para abrir a página de um exercício/)).toBeDefined();
     expect(screen.queryByRole("link", { name: /Abrir o exercício/ })).toBeNull();
-    expect(screen.queryByRole("link", { name: "+ Adicionar exercício" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "+ Adicionar exercício" })).toBeNull();
   });
 
   it("moves and removes exercises in the list, and saves the order with the card", async () => {

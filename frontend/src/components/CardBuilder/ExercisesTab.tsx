@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { KindChooser } from "@/components/KindChooser/KindChooser";
+import { usesTerminal } from "@/lib/questionKinds";
 import type { CardErrors } from "@/lib/cardModel";
 import { type ExerciseGroup } from "@/lib/exercises";
 import type { Setup, SetupLayer } from "@/lib/setup";
@@ -10,6 +13,7 @@ import { Errors, move, Section, Tools } from "./parts";
 import { SetupEditor } from "./SetupEditor";
 
 const m = authoringMessages.builder.exercises;
+const kinds = authoringMessages.questionKinds;
 
 /** The text of the statement, without the markup, to show a summary of it on the list. */
 const textOf = (html?: string) => new DOMParser().parseFromString(html ?? "", "text/html").body.textContent?.trim() ?? "";
@@ -38,6 +42,8 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
   const update = (change: Partial<ExerciseGroup>) => onChange({ ...current, ...change });
   const base = `/app/modules/${moduleId}/cards/${cardKey}/exercises`;
   const canOpen = Boolean(cardKey) && !dirty;
+  /** The choice of the kind of a new exercise is open (SPEC-035 CA-18). */
+  const [choosing, setChoosing] = useState(false);
 
   return (
     <>
@@ -52,9 +58,9 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
         info={authoringMessages.info.exercises}
         action={
           canOpen ? (
-            <Link href={`${base}/new`} className={styles.add}>
+            <button type="button" className={styles.add} onClick={() => setChoosing(true)}>
               {m.add}
-            </Link>
+            </button>
           ) : (
             <span className={styles.add} aria-disabled="true">
               {m.add}
@@ -73,7 +79,12 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
               <div className={styles.exerciseBody}>
                 <span className={styles.exerciseTitle}>{ex.title.trim() || m.untitled(i + 1)}</span>
                 <span className={styles.exerciseMeta}>
-                  {m.difficulty[ex.difficulty]} · {m.hintCount(ex.hints.length)} · {ex.solution ? m.hasSolution : m.noSolution} · {m.conditionCount(ex.conditions.length)}
+                  {kinds.label[ex.kind ?? "PRACTICAL"]} · {m.difficulty[ex.difficulty]} · {m.hintCount(ex.hints.length)} ·{" "}
+                  {usesTerminal(ex.kind)
+                    ? `${ex.solution ? m.hasSolution : m.noSolution} · ${m.conditionCount(ex.conditions.length)}`
+                    : typeof ex.correctAnswer === "boolean"
+                      ? `${kinds.correctAnswer}: ${ex.correctAnswer ? kinds.true : kinds.false}`
+                      : kinds.bankTest.incomplete}
                 </span>
                 {textOf(ex.description) && <p className={styles.exerciseDescription}>{textOf(ex.description)}</p>}
                 <Errors id={ex.id} errors={errors} />
@@ -90,6 +101,9 @@ export function ExercisesTab({ moduleId, cardKey, group, onChange, before, loadB
           ))}
         </ol>
       </Section>
+      {choosing && (
+        <KindChooser onClose={() => setChoosing(false)} hrefFor={(kind) => `${base}/new?kind=${kind}`} />
+      )}
     </>
   );
 }

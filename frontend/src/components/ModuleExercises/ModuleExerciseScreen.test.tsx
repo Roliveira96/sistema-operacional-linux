@@ -391,3 +391,37 @@ describe("ModuleExerciseScreen", () => {
     ).toBeDefined();
   });
 });
+
+// Covers SPEC-035 CA-01, CA-02 and CA-03: the page of a true or false question of the bank.
+describe("ModuleExerciseScreen for a true or false question", () => {
+  it("creates one of the kind chosen, with the answer and the justification and nothing of the terminal", async () => {
+    window.history.pushState({}, "", "/app/modules/mod-1/exercises/new?link=practice&kind=THEORETICAL_BOOLEAN");
+    service.create.mockResolvedValue(stored({ exercise: { ...stored().exercise, id: "tf", kind: "THEORETICAL_BOOLEAN", correctAnswer: true } }));
+    renderScreen("new");
+    await screen.findByLabelText("Título do exercício (1)");
+    expect(screen.getByText("Verdadeiro ou falso", { selector: "p" })).toBeDefined();
+    expect(screen.queryByLabelText(/Continua de/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Testar/ })).toBeNull();
+    expect(screen.queryByText(/Como fazer/)).toBeNull();
+    expect(screen.getByText(/Esta questão não usa o terminal/)).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText("Título do exercício (1)"), { target: { value: "rm -r" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Verdadeiro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salvar exercício" }));
+    await waitFor(() => expect(service.create).toHaveBeenCalled());
+    expect(service.create.mock.calls[0]![1]).toMatchObject({ kind: "THEORETICAL_BOOLEAN", title: "rm -r", correctAnswer: true });
+    expect(service.create.mock.calls[0]!.slice(2)).toEqual([null, { practice: true }]);
+    // The preview shows it as the student does: two buttons.
+    expect(screen.getByRole("complementary", { name: "Como o aluno vê" })).toHaveTextContent("Verdadeiro");
+    window.history.pushState({}, "", "/");
+  });
+
+  it("opens a stored one with its answer", async () => {
+    service.bank.mockResolvedValue({
+      items: [stored({ exercise: { ...stored().exercise, kind: "THEORETICAL_BOOLEAN", correctAnswer: false, explanation: "", conditions: [], solution: undefined } })],
+    });
+    renderScreen("q1");
+    await screen.findByLabelText("Título do exercício (1)");
+    expect((screen.getByRole("radio", { name: "Falso" }) as HTMLInputElement).checked).toBe(true);
+  });
+});

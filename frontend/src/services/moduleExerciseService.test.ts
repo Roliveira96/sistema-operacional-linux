@@ -50,7 +50,7 @@ describe("moduleExerciseService", () => {
 
   it("sends the exercise trimmed, with the solution only when it has one", () => {
     const ex = { ...emptyExercise(), title: " Criar ", description: "<p>x</p>", hints: [{ id: "h", text: " d ", command: " ls " }, { id: "h2", text: "e", command: "" }], conditions: [{ kind: "DIR_EXISTS" as const, path: "/a" }] };
-    expect(exerciseBody(ex)).toEqual({ title: "Criar", difficulty: "MEDIUM", statement: "<p>x</p>", hints: [{ text: "d", command: "ls" }, { text: "e" }], conditions: [{ kind: "DIR_EXISTS", path: "/a" }], dependsOn: null });
+    expect(exerciseBody(ex)).toEqual({ kind: "PRACTICAL", title: "Criar", difficulty: "MEDIUM", statement: "<p>x</p>", hints: [{ text: "d", command: "ls" }, { text: "e" }], conditions: [{ kind: "DIR_EXISTS", path: "/a" }], dependsOn: null });
     expect(exerciseBody(ex, "q0")).toHaveProperty("dependsOn", "q0");
     expect(exerciseBody({ ...ex, solution: { summary: "", steps: [{ command: " mkdir /a " }] } })).toHaveProperty("solution", { steps: [{ command: "mkdir /a" }] });
   });
@@ -130,5 +130,40 @@ describe("moduleExerciseService", () => {
       expect(bankTestKey({ items: [] })).toBe("");
       expect(bankTestKey({ items: [], bankSetup: { summary: "", steps: [{ command: "ls" }] } })).not.toBe("");
     });
+  });
+});
+
+// Covers SPEC-035 5.1 on the screen: the kind, the answer and the justification are read and sent; the terminal parts are not.
+describe("true or false questions of the bank", () => {
+  const trueFalse = { ...stored, id: "tf", kind: "THEORETICAL_BOOLEAN", correctAnswer: true, explanation: "<p>Why</p>", conditions: [], solution: null, dependsOn: null };
+
+  it("reads and sends a true or false question", () => {
+    const parsed = parseModuleExercise(trueFalse);
+    expect(parsed.exercise).toMatchObject({ kind: "THEORETICAL_BOOLEAN", correctAnswer: true, explanation: "<p>Why</p>" });
+    expect(exerciseBody(parsed.exercise, "q0")).toEqual({
+      kind: "THEORETICAL_BOOLEAN",
+      title: "Criar",
+      difficulty: "HARD",
+      statement: "<p>x</p>",
+      hints: [{ text: "dica", command: "mkdir /a" }, { text: "outra" }],
+      correctAnswer: true,
+      explanation: "<p>Why</p>",
+    });
+    expect(exerciseBody({ ...emptyExercise("THEORETICAL_BOOLEAN"), title: "x" })).toMatchObject({ correctAnswer: null, explanation: "" });
+    expect(exerciseBody(parseModuleExercise(stored).exercise)).toMatchObject({ kind: "PRACTICAL" });
+  });
+
+  // Covers SPEC-035 RN-09: the test never runs a question without a terminal, and a change in it makes the result stale.
+  it("keeps the questions without a terminal out of the runs, but in the key of the test", () => {
+    const practical = parseModuleExercise({ ...stored, practice: true, assessment: false });
+    const tf = parseModuleExercise({ ...trueFalse, practice: true });
+    const bank: ExerciseBank = { items: [practical, tf] };
+    const toTest = bankToTest(bank);
+    expect(toTest.practice.map((e) => e.id)).toEqual(["q1"]);
+    expect(toTest.withoutTerminal.map((e) => e.id)).toEqual(["tf"]);
+    const before = bankTestKey(bank);
+    const changed = bankTestKey({ items: [practical, { ...tf, exercise: { ...tf.exercise, correctAnswer: null } }] });
+    expect(changed).not.toBe(before);
+    expect(bankTestKey({ items: [tf] })).not.toBe("");
   });
 });
