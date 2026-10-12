@@ -298,6 +298,7 @@ A conferência em lote da SPEC-016 continua só com as práticas.
 | D-12 | Imagens da descrição pelo envio da SPEC-025, com um botão de imagem no `RichTextEditor`, nas descrições do banco e do card, nos dois tipos (resolve P-09) |
 | D-13 | A questão de verdadeiro ou falso conta como concluída ao ser respondida, certa ou errada: `completed_at` é o momento da resposta, `last_passed` diz se acertou e o círculo mostra ✓ ou ✗ (resolve P-13) |
 | D-14 | O exercício de verdadeiro ou falso do card segue a SPEC-022: o gabarito vem no bloco, a tela confere e a trava fica no navegador (resolve P-14) |
+| D-15 | A resposta é animada para o aluno (pedido do Tech Lead de 11/10/2026, durante a implementação): os botões reagem ao toque, o resultado entra com movimento, com um pulso no acerto e uma tremida curta no erro, e nada se move para quem pede ao sistema menos movimento |
 
 Reforço do Tech Lead sobre D-02: na prova, a escolha nunca trava, porque o estudante pode estar em dúvida; ela pode ser trocada a qualquer momento e só é corrigida quando ele finaliza.
 

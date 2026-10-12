@@ -89,11 +89,15 @@ Regras:
 | Grupo de exercícios | `ExerciseGroup` | Lista ordenada de exercícios de um card, guardada num bloco `EXERCISES`, com um snapshot opcional que é o estado base da máquina antes deles (SPEC-022) | — | Proposto |
 | Exercício do card | `CardExercise` | Atividade do grupo, com título, dificuldade (`EASY`, `MEDIUM`, `HARD`), descrição, dicas, a solução gravada pela docente e as condições de finalização. Não é uma `Question` e não vale nota | Exercício | Proposto |
 | Exercício do módulo | `ModuleExercise` | Exercício do banco do módulo: uma `Question` prática, com enunciado, nível, dicas, solução gravada pela docente e condições de finalização (SPEC-023) | Exercício | Proposto |
-| Banco de exercícios do módulo | `ModuleExerciseBank` | Conjunto dos exercícios de um módulo, nos dois conjuntos abaixo; é o `QuestionBank` restrito ao módulo (SPEC-023) | Pool | Proposto |
+| Banco de exercícios do módulo (na interface, "Banco de questões do módulo") | `ModuleExerciseBank` | Conjunto das questões de um módulo, de qualquer tipo aceito (SPEC-035 D-05), nos dois conjuntos abaixo; é o `QuestionBank` restrito ao módulo (SPEC-023) | Pool | Proposto |
 | Vínculo do exercício | `ExerciseLinks` | Onde um exercício do banco está ligado: à prática do módulo (`practice`, na trilha), à avaliação (`assessment`) ou aos dois; `exclusive` o reserva só à avaliação. O banco é único e o snapshot é um só (`bank_setup`) (SPEC-023) | Conjunto, lista | Proposto |
 | Dependência entre exercícios | `ExerciseDependency` | Um exercício (`depends_on`) cuja solução gravada é montada antes de outro; forma uma cadeia. O sistema só sugere, a docente confirma (SPEC-023 12.3) | Continua do anterior | Proposto |
 | Teste do banco | `BankTest` | Esteira de validação do banco: ambiente consolidado, ordem linear, ordem reversa e rodadas sorteadas, com relatório e sugestões de dependência (SPEC-023 12) | — | Proposto |
 | Condição de finalização | `CompletionCondition` | Algo que precisa valer na máquina ao fim do exercício (pasta existe, arquivo tem o texto, permissão, dono, usuário...), seja qual for a forma como o estudante chegou lá (SPEC-022) | — | Proposto |
+| Tipo de questão | `QuestionKind` (coluna `kind`) | O que a questão é e como o aluno responde. No banco do módulo e nos exercícios do card: `PRACTICAL` ("Comando Linux") e `THEORETICAL_BOOLEAN` ("Verdadeiro ou falso"); os demais valores esperam spec própria (SPEC-035) | Tipo de exercício | Decidido |
+| Questão de verdadeiro ou falso | `THEORETICAL_BOOLEAN` | Uma afirmação que o aluno marca como verdadeira ou falsa, sem terminal; no exercício a resposta é única e travada, na avaliação pode mudar até finalizar (SPEC-035) | Booleana, V/F | Decidido |
+| Resposta do estudante | `response` | A escolha do aluno numa questão sem terminal (para verdadeiro ou falso, `value` booleano); no exercício, gravada uma única vez em `exercise_progress.response` (SPEC-035 RN-08) | `answer` (reservado ao gabarito) | Decidido |
+| Justificativa | `explanation` | Texto da docente que explica a resposta correta, mostrado ao aluno depois de responder (no exercício) ou no resultado (na avaliação) (SPEC-035) | — | Decidido |
 | Trecho de narração | `NarrationChunk` | Parte de até 2000 caracteres de um bloco, com o áudio e as marcas de palavra | `Segment`, `Part` | Proposto |
 
 ## 3.3. Conformidade do motor (SPEC-030)
