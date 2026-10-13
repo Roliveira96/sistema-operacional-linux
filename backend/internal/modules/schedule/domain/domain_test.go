@@ -51,13 +51,16 @@ func TestWeeklyMeeting_Validate(t *testing.T) {
 	require.NoError(t, online.Validate())
 
 	cases := map[string]func(m *domain.WeeklyMeeting){
-		"weekday":       func(m *domain.WeeklyMeeting) { m.Weekday = 7 },
-		"endTime":       func(m *domain.WeeklyMeeting) { m.EndTime = m.StartTime },
-		"lessonCount":   func(m *domain.WeeklyMeeting) { m.LessonCount = 9 },
-		"mode":          func(m *domain.WeeklyMeeting) { m.Mode = "REMOTE" },
-		"room":          func(m *domain.WeeklyMeeting) { m.Room = ptr(string(make([]byte, 61))) },
-		"onlineUrl":     func(m *domain.WeeklyMeeting) { m.Mode = domain.ModeOnline },
-		"onlineUrlHttp": func(m *domain.WeeklyMeeting) { m.Mode = domain.ModeOnline; m.OnlineURL = ptr("http://meet.example.com") },
+		"weekday":     func(m *domain.WeeklyMeeting) { m.Weekday = 7 },
+		"endTime":     func(m *domain.WeeklyMeeting) { m.EndTime = m.StartTime },
+		"lessonCount": func(m *domain.WeeklyMeeting) { m.LessonCount = 9 },
+		"mode":        func(m *domain.WeeklyMeeting) { m.Mode = "REMOTE" },
+		"room":        func(m *domain.WeeklyMeeting) { m.Room = ptr(string(make([]byte, 61))) },
+		"onlineUrl":   func(m *domain.WeeklyMeeting) { m.Mode = domain.ModeOnline },
+		"onlineUrlHttp": func(m *domain.WeeklyMeeting) {
+			m.Mode = domain.ModeOnline
+			m.OnlineURL = ptr("http://meet.example.com")
+		},
 	}
 	for name, change := range cases {
 		m := ok
@@ -180,4 +183,76 @@ func TestClassEvent_Validate(t *testing.T) {
 	require.NoError(t, bad.Validate())
 	bad.OnlineURL = ptr("ftp://x")
 	require.ErrorIs(t, bad.Validate(), domain.ErrInvalidEvent)
+}
+
+func TestClock_DatabaseRoundTrip(t *testing.T) {
+	c := clock(t, "13:50")
+	v, err := c.Value()
+	require.NoError(t, err)
+	assert.Equal(t, "13:50:00", v)
+
+	var got domain.Clock
+	require.NoError(t, got.Scan("08:20:00"))
+	assert.Equal(t, clock(t, "08:20"), got)
+	require.NoError(t, got.Scan([]byte("10:00:00")))
+	assert.Equal(t, clock(t, "10:00"), got)
+	require.NoError(t, got.Scan(time.Date(0, 1, 1, 7, 30, 0, 0, time.UTC)))
+	assert.Equal(t, clock(t, "07:30"), got)
+	require.Error(t, got.Scan(42))
+	assert.Equal(t, time.Date(2026, 10, 19, 13, 50, 0, 0, domain.Location()), c.At(date(2026, 10, 19)))
+}
+
+// Covers SPEC-042 RN-04 and RN-05.
+func TestClassSession_Validate(t *testing.T) {
+	m := meeting(t, 1, "08:20", "10:00")
+	s := domain.FromMeeting([16]byte{1}, m, time.Date(2026, 10, 19, 15, 0, 0, 0, time.UTC))
+	assert.Equal(t, "2026-10-19", s.Date.Format("2006-01-02"))
+	assert.Equal(t, domain.OriginWeekly, s.Origin)
+	assert.Equal(t, domain.SessionScheduled, s.Status)
+	require.NoError(t, s.Validate())
+
+	bad := s
+	bad.EndTime = bad.StartTime
+	require.ErrorIs(t, bad.Validate(), domain.ErrInvalidSession)
+	bad = s
+	bad.LessonCount = 0
+	require.ErrorIs(t, bad.Validate(), domain.ErrInvalidSession)
+	bad = s
+	bad.Mode = domain.ModeOnline
+	require.ErrorIs(t, bad.Validate(), domain.ErrInvalidSession)
+	bad = s
+	bad.Status = domain.SessionCanceled
+	require.ErrorIs(t, bad.Validate(), domain.ErrReasonRequired)
+	bad.ChangeReason = ptr(string(make([]rune, 301)))
+	require.ErrorIs(t, bad.Validate(), domain.ErrInvalidSession)
+	bad.ChangeReason = ptr("Feriado")
+	require.NoError(t, bad.Validate())
+}
+
+func TestHoliday_Validate(t *testing.T) {
+	h := domain.Holiday{Date: date(2026, 11, 3), Name: "Recesso", Scope: domain.HolidayRecess, Active: true}
+	require.NoError(t, h.Validate())
+	bad := h
+	bad.Name = " "
+	require.ErrorIs(t, bad.Validate(), domain.ErrInvalidHoliday)
+	bad = h
+	bad.Scope = "STATE"
+	require.ErrorIs(t, bad.Validate(), domain.ErrInvalidHoliday)
+}
+
+func TestEventAndPeriod_MoreRules(t *testing.T) {
+	e := domain.ClassEvent{Title: "Visita", Date: date(2026, 10, 21), AllDay: true, Description: string(make([]rune, 1001))}
+	require.ErrorIs(t, e.Validate(), domain.ErrInvalidEvent)
+	e.Description = ""
+	e.Location = ptr(string(make([]rune, 121)))
+	require.ErrorIs(t, e.Validate(), domain.ErrInvalidEvent)
+
+	p := domain.SpecialPeriod{FirstDay: date(2026, 10, 19), LastDay: date(2026, 10, 19), Action: "OTHER", Label: "x"}
+	require.ErrorIs(t, p.Validate(), domain.ErrInvalidPeriod)
+	p.Action = domain.PeriodOnline
+	p.OnlineURL = ptr("https://meet.google.com/x")
+	require.NoError(t, p.Validate())
+	var fe *domain.FieldError
+	require.True(t, errors.As(domain.SpecialPeriod{Action: domain.PeriodNoClasses}.Validate(), &fe))
+	assert.Contains(t, fe.Error(), "label")
 }
