@@ -33,6 +33,9 @@ import (
 	practicehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/handler"
 	practicerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/repository"
 	practiceservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/service"
+	schedulehandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/handler"
+	schedulerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/repository"
+	scheduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/service"
 	studenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/handler"
 	studentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/repository"
 	studentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/student/service"
@@ -48,6 +51,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/logger"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/mailer"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/ratelimit"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/scheduler"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/server"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/speech"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/storage"
@@ -169,9 +173,17 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		authhandler.MCPOAuthURLs{Backend: cfg.Auth.MCPPublicURL, Frontend: cfg.Auth.PublicURL},
 		ratelimit.New(10, time.Hour), ratelimit.New(30, time.Minute))
 
+	// The schedule of the classes (SPEC-042): its e-mails wait in the outbox and the scheduler delivers them.
+	scheduleService := scheduleservice.New(schedulerepository.New(db), time.Now, cfg.Auth.PublicURL)
+	scheduleHandler := schedulehandler.New(scheduleService, auth)
+
 	classRepo := classgrouprepository.New(db)
-	classService := classgroupservice.New(classRepo)
+	classService := classgroupservice.New(classRepo).WithScheduleHook(scheduleService)
 	classHandler := classgrouphandler.New(classService, auth)
+
+	if err := startScheduler(ctx, db, smtp, scheduleService, log); err != nil {
+		return err
+	}
 
 	moduleRepo := coursemodulerepository.New(db)
 	moduleService := coursemoduleservice.New(moduleRepo)
@@ -244,6 +256,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		gradingHandler,
 		ttsHandler,
 		studentHandler,
+		scheduleHandler,
 	)
 	mcpOAuthHandler.RegisterRoot(engine)
 	mcpHandler.Register(engine)
@@ -263,4 +276,24 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		err = errors.Join(err, fmt.Errorf("drain mail queue: %w", derr))
 	}
 	return err
+}
+
+// startScheduler registers the periodic jobs of the schedule (SPEC-042) and runs them in the background until ctx ends.
+func startScheduler(ctx context.Context, db *database.DB, sender mailer.Sender, schedule *scheduleservice.Service, log *zap.Logger) error {
+	sqlDB, err := db.SQL()
+	if err != nil {
+		return err
+	}
+	jobs := scheduler.New(scheduler.NewPostgresLocker(sqlDB), time.Now, log)
+	outbox := mailer.NewOutboxStore(db)
+	opts := mailer.DefaultOutboxOptions()
+	jobs.Add(scheduler.Task{Name: "email-outbox", Every: time.Minute, Run: func(ctx context.Context, now time.Time) error {
+		return mailer.DeliverDue(ctx, outbox, sender, now, opts)
+	}})
+	jobs.Add(scheduler.Task{Name: "session-reminders", Every: 5 * time.Minute, Run: schedule.SendReminders})
+	jobs.Add(scheduler.Task{Name: "enrollment-agendas", Every: 5 * time.Minute, Run: schedule.SendEnrollmentAgendas})
+	jobs.Add(scheduler.Task{Name: "weekly-digest", Every: 15 * time.Minute, Run: schedule.SendWeeklyDigest})
+	jobs.Add(scheduler.Task{Name: "national-holidays", Every: 24 * time.Hour, Run: schedule.RefreshNationalHolidays})
+	go jobs.Start(ctx, 30*time.Second)
+	return nil
 }

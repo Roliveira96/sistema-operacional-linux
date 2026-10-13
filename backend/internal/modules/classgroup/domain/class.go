@@ -40,6 +40,7 @@ type ClassGroup struct {
 	CourseCode               string
 	Semester                 string
 	Summary                  string
+	Color                    string `gorm:"default:orange"`
 	Syllabus                 string
 	InstitutionalGuidelines  string
 	StartDate                time.Time
@@ -113,6 +114,26 @@ func GenerateInviteToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+// ClassColors are the palette keys of a class (SPEC-042 RN-12); the colors themselves are frontend tokens.
+var ClassColors = []string{"orange", "blue", "green", "purple", "pink", "teal", "yellow", "red"}
+
+// DefaultClassColor is the color of a class created without one.
+const DefaultClassColor = "orange"
+
+// NormalizeColor returns the color, the default one when empty, or ErrInvalidColor (SPEC-042 RN-12).
+func NormalizeColor(color string) (string, error) {
+	color = strings.TrimSpace(color)
+	if color == "" {
+		return DefaultClassColor, nil
+	}
+	for _, c := range ClassColors {
+		if c == color {
+			return color, nil
+		}
+	}
+	return "", ErrInvalidColor
+}
+
 // SummaryMaxLength is the largest summary of a class, in characters (SPEC-041 RN-01, D-09).
 const SummaryMaxLength = 300
 
@@ -140,6 +161,7 @@ func (e *ContentTooLongError) Is(target error) bool { return target == ErrConten
 
 // Domain errors.
 var (
+	ErrInvalidColor              = errors.New("color must be one of the palette keys")
 	ErrSummaryTooLong            = errors.New("summary must have at most 300 characters")
 	ErrContentTooLong            = errors.New("formatted content must have at most 20000 characters")
 	ErrClassArchived             = errors.New("an archived class does not take new enrollments")

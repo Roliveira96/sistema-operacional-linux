@@ -160,3 +160,29 @@ func TestNormalizeSummary(t *testing.T) {
 		t.Fatalf("expected ErrSummaryTooLong, got %v", err)
 	}
 }
+
+// Covers SPEC-042 RN-12.
+func TestNormalizeColor(t *testing.T) {
+	for _, c := range domain.ClassColors {
+		if got, err := domain.NormalizeColor(" " + c + " "); err != nil || got != c {
+			t.Fatalf("expected %q to be valid, got %q, %v", c, got, err)
+		}
+	}
+	if got, err := domain.NormalizeColor(""); err != nil || got != domain.DefaultClassColor {
+		t.Fatalf("expected the default color, got %q, %v", got, err)
+	}
+	if _, err := domain.NormalizeColor("black"); !errors.Is(err, domain.ErrInvalidColor) {
+		t.Fatalf("expected ErrInvalidColor, got %v", err)
+	}
+}
+
+// Covers SPEC-041 RN-02: the error of a long formatted field tells which field and matches ErrContentTooLong.
+func TestContentTooLongError(t *testing.T) {
+	err := error(&domain.ContentTooLongError{Field: "syllabus"})
+	if !errors.Is(err, domain.ErrContentTooLong) || !strings.HasPrefix(err.Error(), "syllabus: ") {
+		t.Fatalf("unexpected error %v", err)
+	}
+	if errors.Is(err, domain.ErrSummaryTooLong) {
+		t.Fatal("it must not match another error")
+	}
+}

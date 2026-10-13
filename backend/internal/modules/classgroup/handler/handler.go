@@ -83,6 +83,7 @@ type createClassRequest struct {
 	CourseCode              string      `json:"courseCode"`
 	Semester                string      `json:"semester"`
 	Summary                 string      `json:"summary"`
+	Color                   string      `json:"color"`
 	Syllabus                string      `json:"syllabus"`
 	InstitutionalGuidelines string      `json:"institutionalGuidelines"`
 	StartDate               string      `json:"startDate"`
@@ -102,6 +103,7 @@ type classResponse struct {
 	CourseCode              string     `json:"courseCode"`
 	Semester                string     `json:"semester"`
 	Summary                 string     `json:"summary"`
+	Color                   string     `json:"color"`
 	Syllabus                string     `json:"syllabus"`
 	InstitutionalGuidelines string     `json:"institutionalGuidelines"`
 	StartDate               time.Time  `json:"startDate"`
@@ -140,6 +142,7 @@ func (h *Handler) toClassResponse(c domain.ClassGroup) classResponse {
 		CourseCode:              c.CourseCode,
 		Semester:                c.Semester,
 		Summary:                 c.Summary,
+		Color:                   c.Color,
 		Syllabus:                c.Syllabus,
 		InstitutionalGuidelines: c.InstitutionalGuidelines,
 		StartDate:               c.StartDate,
@@ -226,6 +229,7 @@ func (h *Handler) createClass(c *gin.Context) {
 		CourseCode:              req.CourseCode,
 		Semester:                req.Semester,
 		Summary:                 req.Summary,
+		Color:                   req.Color,
 		Syllabus:                req.Syllabus,
 		InstitutionalGuidelines: req.InstitutionalGuidelines,
 		StartDate:               start,
@@ -354,6 +358,7 @@ func (h *Handler) getClass(c *gin.Context) {
 type updateClassRequest struct {
 	Name                    *string `json:"name"`
 	Summary                 *string `json:"summary"`
+	Color                   *string `json:"color"`
 	Syllabus                *string `json:"syllabus"`
 	InstitutionalGuidelines *string `json:"institutionalGuidelines"`
 	StartDate               *string `json:"startDate"`
@@ -387,6 +392,7 @@ func (h *Handler) updateClass(c *gin.Context) {
 	input := service.UpdateClassInput{
 		Name:                    req.Name,
 		Summary:                 req.Summary,
+		Color:                   req.Color,
 		Syllabus:                req.Syllabus,
 		InstitutionalGuidelines: req.InstitutionalGuidelines,
 		ScheduleDescription:     req.ScheduleDescription,
@@ -709,6 +715,8 @@ func (h *Handler) getMyClass(c *gin.Context) {
 func toProblem(err error) *problem.Problem {
 	var tooLong *domain.ContentTooLongError
 	switch {
+	case errors.Is(err, domain.ErrInvalidColor):
+		return problem.BadRequest("invalid-color", err.Error()).WithExtension("field", "color")
 	case errors.Is(err, domain.ErrSummaryTooLong):
 		return problem.BadRequest("invalid-summary", err.Error()).WithExtension("field", "summary")
 	case errors.As(err, &tooLong):

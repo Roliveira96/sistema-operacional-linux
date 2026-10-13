@@ -44,6 +44,7 @@ type CreateClassInput struct {
 	CourseCode              string
 	Semester                string
 	Summary                 string
+	Color                   string
 	Syllabus                string
 	InstitutionalGuidelines string
 	StartDate               time.Time
@@ -61,6 +62,7 @@ type CreateClassInput struct {
 type UpdateClassInput struct {
 	Name                    *string
 	Summary                 *string
+	Color                   *string
 	Syllabus                *string
 	InstitutionalGuidelines *string
 	StartDate               *time.Time
@@ -98,11 +100,23 @@ type StudentClassView struct {
 	TeacherName *string
 }
 
+// ScheduleHook rebuilds the sessions of a class when its validity changes (SPEC-042 CA-03).
+type ScheduleHook interface {
+	Regenerate(ctx context.Context, classID uuid.UUID) error
+}
+
 // Service coordinates class management and moderation operations.
 type Service struct {
 	repo     ClassRepository
 	richText *htmlsafe.Sanitizer
 	now      func() time.Time
+	schedule ScheduleHook
+}
+
+// WithScheduleHook makes a change of validity regenerate the sessions of the class.
+func (s *Service) WithScheduleHook(h ScheduleHook) *Service {
+	s.schedule = h
+	return s
 }
 
 // New creates a new classgroup service.
@@ -142,6 +156,10 @@ func (s *Service) CreateClass(ctx context.Context, teacherID uuid.UUID, input Cr
 	if err != nil {
 		return domain.ClassGroup{}, err
 	}
+	color, err := domain.NormalizeColor(input.Color)
+	if err != nil {
+		return domain.ClassGroup{}, err
+	}
 	syllabus, err := s.richTextField("syllabus", input.Syllabus)
 	if err != nil {
 		return domain.ClassGroup{}, err
@@ -172,6 +190,7 @@ func (s *Service) CreateClass(ctx context.Context, teacherID uuid.UUID, input Cr
 		CourseCode:              strings.TrimSpace(input.CourseCode),
 		Semester:                strings.TrimSpace(input.Semester),
 		Summary:                 summary,
+		Color:                   color,
 		Syllabus:                syllabus,
 		InstitutionalGuidelines: guidelines,
 		StartDate:               input.StartDate,
@@ -282,6 +301,13 @@ func (s *Service) UpdateClass(ctx context.Context, teacherID, classID uuid.UUID,
 	if input.Name != nil {
 		class.Name = strings.TrimSpace(*input.Name)
 	}
+	if input.Color != nil {
+		color, err := domain.NormalizeColor(*input.Color)
+		if err != nil {
+			return domain.ClassGroup{}, err
+		}
+		class.Color = color
+	}
 	if input.Summary != nil {
 		summary, err := domain.NormalizeSummary(*input.Summary)
 		if err != nil {
@@ -303,8 +329,6 @@ func (s *Service) UpdateClass(ctx context.Context, teacherID, classID uuid.UUID,
 		}
 		class.InstitutionalGuidelines = guidelines
 	}
-	class.StartDate = startDate
-	class.EndDate = endDate
 	if input.ScheduleDescription != nil {
 		class.ScheduleDescription = strings.TrimSpace(*input.ScheduleDescription)
 	}
@@ -315,8 +339,16 @@ func (s *Service) UpdateClass(ctx context.Context, teacherID, classID uuid.UUID,
 	class.InviteLinkStart = inviteStart
 	class.InviteLinkEnd = inviteEnd
 
+	validityChanged := !class.StartDate.Equal(startDate) || !class.EndDate.Equal(endDate)
+	class.StartDate = startDate
+	class.EndDate = endDate
 	if err := s.repo.UpdateClass(ctx, &class); err != nil {
 		return domain.ClassGroup{}, err
+	}
+	if validityChanged && s.schedule != nil {
+		if err := s.schedule.Regenerate(ctx, class.ID); err != nil {
+			return domain.ClassGroup{}, err
+		}
 	}
 	return class, nil
 }
