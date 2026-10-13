@@ -566,3 +566,45 @@ func TestHandler_ErrorBranches(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 }
+
+// Reproduces the defect found with SPEC-041: the list of students came with the Go field names ("ID", "AcademicID"),
+// so the students page and the dialog to add students read empty fields. The keys follow the frontend contract.
+func TestHandler_ListStudentsUsesCamelCaseKeys(t *testing.T) {
+	whatsapp := "42999999999"
+	avatar := "https://cdn.example.com/a.avif"
+	created := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
+	svc := &fakeStudentService{
+		listStudentsFn: func(ctx context.Context, page, perPage int, search string) (service.ListStudentsResponse, error) {
+			return service.ListStudentsResponse{
+				Items: []domain.StudentSummary{{
+					ID: uuid.New(), AcademicID: "1234567", Email: "ana@alunos.utfpr.edu.br", Name: "Ana Lima",
+					Whatsapp: &whatsapp, AvatarURL: &avatar, TotalClassesEnrolled: 2, CreatedAt: created,
+				}},
+				TotalCount: 1, Page: 1, PerPage: 20,
+			}, nil
+		},
+	}
+	router := setupTestRouter(svc, &fakeValidator{principal: authn.Principal{UserID: uuid.New(), Role: authn.RoleTeacher}})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/students", nil)
+	req.AddCookie(&http.Cookie{Name: authn.CookieName, Value: "test-token"})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var body struct {
+		Items []map[string]any `json:"items"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Len(t, body.Items, 1)
+	item := body.Items[0]
+	assert.Equal(t, "1234567", item["academicId"])
+	assert.Equal(t, "ana@alunos.utfpr.edu.br", item["email"])
+	assert.Equal(t, "Ana Lima", item["name"])
+	assert.Equal(t, whatsapp, item["whatsapp"])
+	assert.Equal(t, avatar, item["avatarUrl"])
+	assert.Equal(t, float64(2), item["totalClassesEnrolled"])
+	assert.Equal(t, "2026-10-13T12:00:00Z", item["createdAt"])
+	assert.NotEmpty(t, item["id"])
+	assert.NotContains(t, item, "discord", "an empty optional field is left out")
+}
