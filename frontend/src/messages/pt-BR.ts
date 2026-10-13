@@ -617,6 +617,10 @@ export const messages = {
       conflictEmail: "Já existe um usuário cadastrado com este e-mail.",
       conflictAcademicId: "Já existe um usuário cadastrado com este RA.",
       validationError: "Verifique os campos obrigatórios.",
+      identityGroup: "Acesso à plataforma",
+      contactGroup: "Perfil e contato",
+      academicIdPlaceholder: "a1234567",
+      enrollIn: (className: string) => `Será matriculado em ${className}`,
     },
     importModal: {
       title: "Importar Estudantes via CSV",
