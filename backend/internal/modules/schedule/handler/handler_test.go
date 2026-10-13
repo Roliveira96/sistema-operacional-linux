@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -31,19 +32,19 @@ func (f *fakeValidator) Authenticate(ctx context.Context, token string) (authn.P
 
 // fakeService records the last call and returns err when set.
 type fakeService struct {
-	err       error
-	actor     service.Actor
-	classID   uuid.UUID
-	meetings  []domain.WeeklyMeeting
-	change    service.SessionChange
-	session   domain.ClassSession
-	event     domain.ClassEvent
-	period    domain.SpecialPeriod
-	holiday   domain.Holiday
-	from, to  time.Time
-	prefs     service.Preferences
-	year      int
-	calendar  service.Calendar
+	err      error
+	actor    service.Actor
+	classID  uuid.UUID
+	meetings []domain.WeeklyMeeting
+	change   service.SessionChange
+	session  domain.ClassSession
+	event    domain.ClassEvent
+	period   domain.SpecialPeriod
+	holiday  domain.Holiday
+	from, to time.Time
+	prefs    service.Preferences
+	year     int
+	calendar service.Calendar
 }
 
 func (f *fakeService) Meetings(ctx context.Context, a service.Actor, classID uuid.UUID) ([]domain.WeeklyMeeting, error) {
@@ -460,4 +461,72 @@ func TestNotificationPreferencesRoute(t *testing.T) {
 	svc.err = domain.ErrForbidden
 	status, _ = call(t, srv, http.MethodPatch, "/api/v1/students/me/notifications", map[string]any{})
 	assert.Equal(t, http.StatusForbidden, status)
+}
+
+// Covers SPEC-042 section 5: malformed ids, dates, times and bodies are refused before reaching the service.
+func TestRoutes_RefuseMalformedInput(t *testing.T) {
+	srv, _, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id := uuid.New().String(), uuid.New().String()
+	cases := []struct {
+		method, path string
+		body         any
+		want         string
+	}{
+		{http.MethodPatch, "/api/v1/classes/" + classID + "/sessions/x", map[string]any{}, "invalid-uuid"},
+		{http.MethodPatch, "/api/v1/classes/" + classID + "/sessions/" + id, map[string]any{"startTime": "x"}, "invalid-time-format"},
+		{http.MethodPatch, "/api/v1/classes/" + classID + "/sessions/" + id, map[string]any{"startTime": "08:00", "endTime": "y"}, "invalid-time-format"},
+		{http.MethodPatch, "/api/v1/classes/" + classID + "/sessions/" + id, "{", "malformed-request"},
+		{http.MethodPost, "/api/v1/classes/" + classID + "/sessions", map[string]any{"date": "2026-10-24", "startTime": "x"}, "invalid-time-format"},
+		{http.MethodPost, "/api/v1/classes/" + classID + "/sessions", map[string]any{"date": "2026-10-24", "startTime": "08:00", "endTime": "x"}, "invalid-time-format"},
+		{http.MethodDelete, "/api/v1/classes/x/sessions/" + id, nil, "invalid-uuid"},
+		{http.MethodDelete, "/api/v1/classes/" + classID + "/sessions/x/override", nil, "invalid-uuid"},
+		{http.MethodPost, "/api/v1/classes/" + classID + "/events", map[string]any{"date": "x"}, "invalid-date-format"},
+		{http.MethodPost, "/api/v1/classes/" + classID + "/events", map[string]any{"date": "2026-10-22", "startTime": "x"}, "invalid-time-format"},
+		{http.MethodPost, "/api/v1/classes/" + classID + "/events", map[string]any{"date": "2026-10-22", "endTime": "x"}, "invalid-time-format"},
+		{http.MethodPatch, "/api/v1/classes/" + classID + "/events/x", map[string]any{}, "invalid-uuid"},
+		{http.MethodPatch, "/api/v1/classes/" + classID + "/events/" + id, map[string]any{"date": "x"}, "invalid-date-format"},
+		{http.MethodDelete, "/api/v1/classes/" + classID + "/events/x", nil, "invalid-uuid"},
+		{http.MethodPost, "/api/v1/classes/" + classID + "/periods", map[string]any{"firstDay": "x"}, "invalid-date-format"},
+		{http.MethodPost, "/api/v1/classes/" + classID + "/periods", map[string]any{"firstDay": "2026-10-19", "lastDay": "x"}, "invalid-date-format"},
+		{http.MethodDelete, "/api/v1/classes/" + classID + "/periods/x", nil, "invalid-uuid"},
+		{http.MethodGet, "/api/v1/me/calendar?from=x&to=y", nil, "invalid-date-format"},
+		{http.MethodPost, "/api/v1/holidays", map[string]any{"date": "x"}, "invalid-date-format"},
+		{http.MethodPatch, "/api/v1/holidays/x", map[string]any{}, "invalid-uuid"},
+		{http.MethodPatch, "/api/v1/holidays/" + id, map[string]any{"date": "x"}, "invalid-date-format"},
+		{http.MethodDelete, "/api/v1/holidays/x", nil, "invalid-uuid"},
+		{http.MethodPatch, "/api/v1/students/me/notifications", "{", "malformed-request"},
+		{http.MethodPut, "/api/v1/classes/" + classID + "/meetings", map[string]any{"meetings": []map[string]any{{"startTime": "08:00", "endTime": "x"}}}, "invalid-time-format"},
+	}
+	for _, tc := range cases {
+		status, body := call(t, srv, tc.method, tc.path, tc.body)
+		assert.Equal(t, http.StatusBadRequest, status, tc.method+" "+tc.path)
+		assert.Equal(t, tc.want, body["type"], tc.method+" "+tc.path)
+	}
+}
+
+func TestRoutes_ServiceErrors(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id := uuid.New().String(), uuid.New().String()
+	svc.err = domain.ErrForbidden
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodGet, "/api/v1/classes/" + classID + "/meetings"},
+		{http.MethodGet, "/api/v1/me/calendar?from=2026-10-01&to=2026-10-31"},
+		{http.MethodGet, "/api/v1/holidays"},
+		{http.MethodPatch, "/api/v1/holidays/" + id},
+		{http.MethodGet, "/api/v1/students/me/notifications"},
+		{http.MethodPatch, "/api/v1/classes/" + classID + "/events/" + id},
+	} {
+		var body any
+		if tc.method == http.MethodPatch {
+			body = map[string]any{"date": "2026-10-22", "name": "x", "allDay": true}
+		}
+		status, _ := call(t, srv, tc.method, tc.path, body)
+		assert.Equal(t, http.StatusForbidden, status, tc.path)
+	}
+	svc.err = errors.New("database down")
+	status, body := call(t, srv, http.MethodGet, "/api/v1/classes/"+classID+"/meetings", nil)
+	assert.Equal(t, http.StatusInternalServerError, status)
+	assert.NotEmpty(t, body["type"])
 }
