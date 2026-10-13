@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-041 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 13/10/2026 |
-| **Última revisão** | 13/10/2026 |
+| **Última revisão** | 13/10/2026 (aprovada) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -482,17 +482,17 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | D-02 | O estudante com matrícula ativa lê o resumo, a ementa e as diretrizes na página da turma; só a docente edita |
 | D-03 | O seletor de estudantes já cadastrados fica só na página da turma, não no formulário de criação (revisa a SPEC-009) |
 | D-04 | Ementa e diretrizes usam editor de texto formatado |
+| D-05 | O editor da ementa e das diretrizes não aceita imagens (era P-01) |
+| D-06 | Turmas em rascunho (`DRAFT`) aceitam matrícula; turma arquivada recusa (era P-02) |
+| D-07 | As rotas `/members` e `/students` redirecionam para a página da turma (era P-04) |
+| D-08 | O defeito de `initialStudentIds` com id repetido é corrigido nesta spec, a partir de um teste que o reproduz (era P-05) |
+| D-09 | O resumo da disciplina tem no máximo 300 caracteres (era P-03) |
+| D-10 | O lote reativa matrículas `REJECTED` e `UNENROLLED`; `TRANSFERRED` é recusada (era P-06) |
 
 ### Pendências
 
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
-| P-01 (D-05) | O editor da ementa e das diretrizes aceita imagens? | **Não.** Texto, listas, negrito, itálico, código e links bastam para ementa e regras, e evita gerir arquivos da turma nesta spec |
-| P-02 (D-06) | Matricular estudantes numa turma em rascunho (`DRAFT`) é permitido? | **Sim**, para a docente montar a turma antes do início; turma arquivada recusa |
-| P-03 | Limite do resumo | **300 caracteres**, o suficiente para 2 ou 3 frases no card |
-| P-04 (D-07) | As rotas `/members` e `/students` são apagadas ou redirecionadas? | **Redirecionadas**, para não quebrar links salvos |
-| P-05 (D-08) | Corrigir nesta spec o defeito de `initialStudentIds` (transação abortada com id repetido)? | **Sim**, porque o lote usa a mesma gravação; o teste que reproduz o defeito vem primeiro (SPEC-038, RN-04) |
-| P-06 | Matrícula `REJECTED` ou `UNENROLLED` volta a `ACTIVE` pelo lote? | **Sim**: a decisão explícita da docente vale mais que a recusa anterior; `TRANSFERRED` é recusada para não desfazer um remanejamento |
 
 ---
 
@@ -501,3 +501,4 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 13/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | Criação do rascunho a partir do relato dos professores e da análise de usabilidade de `/app/classes/new`. Decisões D-01 a D-04; pendências P-01 a P-06 com recomendação |
+| 13/10/2026 | Tech Lead | Aprovada ("eu aprovo"), aceitas as recomendações de P-01 a P-06 (D-05 a D-10). Status: `Aprovada` |
