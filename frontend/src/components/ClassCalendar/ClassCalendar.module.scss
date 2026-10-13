@@ -1,0 +1,452 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.monthHeading {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.navButtons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.navBtn,
+.actionBtn {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+
+  &:hover {
+    background-color: var(--color-surface-raised);
+    border-color: var(--color-border-strong);
+  }
+}
+
+.actionBtnActive {
+  color: var(--color-accent-contrast);
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+
+  &:hover {
+    background-color: var(--color-accent-hover);
+  }
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  select {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+}
+
+.selectionPrompt {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-brand-badge-text);
+  background-color: var(--color-brand-badge-bg);
+  border-radius: var(--radius-md);
+}
+
+.indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  list-style: none;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin: 0;
+}
+
+.indicatorItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.indicatorLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.indicatorValue {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.gridWrapper {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-color: var(--color-surface);
+}
+
+.weekdaysHeader {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background-color: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.weekdayCol {
+  padding: var(--space-2);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background-color: var(--color-border);
+}
+
+.dayCell {
+  min-height: 5.5rem;
+  padding: var(--space-2);
+  background-color: var(--color-surface);
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--duration-fast);
+
+  &:hover {
+    background-color: var(--color-surface-raised);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    z-index: 2;
+  }
+
+  &[aria-current="date"] {
+    background-color: var(--color-surface-raised);
+
+    .dayNumber {
+      color: var(--color-accent-contrast);
+      background-color: var(--color-accent);
+      border-radius: var(--radius-full);
+      width: 1.5rem;
+      height: 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+}
+
+.otherMonth {
+  opacity: 0.45;
+}
+
+.dayNumber {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.badges {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.badge {
+  font-size: var(--font-size-xs);
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.badgeHoliday {
+  color: var(--color-warning);
+  background-color: var(--color-warning-subtle);
+}
+
+.badgeMilestone {
+  color: var(--color-success);
+  background-color: var(--color-success-subtle);
+}
+
+.badgeEvent {
+  color: var(--color-info-text);
+  background-color: var(--color-info-subtle);
+}
+
+.badgePeriod {
+  color: var(--color-accent);
+  background-color: var(--color-accent-subtle);
+}
+
+.sessionItem {
+  font-size: var(--font-size-xs);
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-sunken);
+  border-left: 3px solid var(--color-accent);
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &[data-color="orange"] {
+    border-left-color: var(--color-class-orange);
+  }
+
+  &[data-color="blue"] {
+    border-left-color: var(--color-class-blue);
+  }
+
+  &[data-color="green"] {
+    border-left-color: var(--color-class-green);
+  }
+
+  &[data-color="purple"] {
+    border-left-color: var(--color-class-purple);
+  }
+
+  &[data-color="pink"] {
+    border-left-color: var(--color-class-pink);
+  }
+
+  &[data-color="teal"] {
+    border-left-color: var(--color-class-teal);
+  }
+
+  &[data-color="yellow"] {
+    border-left-color: var(--color-class-yellow);
+  }
+
+  &[data-color="red"] {
+    border-left-color: var(--color-class-red);
+  }
+
+  &[data-status="CANCELED"] {
+    text-decoration: line-through;
+    opacity: 0.6;
+  }
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  list-style: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin: 0;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.dayPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.dayPanelHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.dayPanelTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  text-transform: capitalize;
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.itemsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.itemCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  gap: var(--space-2);
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.itemTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.itemMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.tag {
+  padding: 1px 6px;
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+}
+
+.tagCanceled {
+  color: var(--color-danger);
+  background-color: var(--color-danger-subtle);
+}
+
+.tagOnline {
+  color: var(--color-info-text);
+  background-color: var(--color-info-subtle);
+}
+
+.tagExtra {
+  color: var(--color-accent);
+  background-color: var(--color-accent-subtle);
+}
+
+.tagOverridden {
+  color: var(--color-warning);
+  background-color: var(--color-warning-subtle);
+}
+
+.tagHoliday {
+  color: var(--color-brand-badge-text);
+  background-color: var(--color-brand-badge-bg);
+}
+
+.emptyState,
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  gap: var(--space-3);
+  text-align: center;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.emptyText,
+.errorText {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+}
+
+.linkBtn {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent-contrast);
+  background-color: var(--color-accent);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+
+  &:hover {
+    background-color: var(--color-accent-hover);
+  }
+}

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
+import { MeetingsEditor, validateMeetingDrafts, type MeetingDraft } from "@/components/MeetingsEditor/MeetingsEditor";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import { messages } from "@/messages/pt-BR";
 import type { ClassGroup, CreateClassPayload } from "@/services/classService";
 import { ApiProblemError } from "@/services/httpClient";
+import type { Meeting } from "@/services/scheduleService";
 import styles from "./ClassForm.module.scss";
 
 const m = messages.classes.form;
@@ -15,7 +17,8 @@ export const SUMMARY_MAX_LENGTH = 300;
 
 export interface ClassFormProps {
   initialData?: Partial<ClassGroup>;
-  onSubmit: (data: CreateClassPayload) => Promise<void>;
+  initialMeetings?: MeetingDraft[];
+  onSubmit: (data: CreateClassPayload, meetings?: Meeting[]) => Promise<void>;
   isSubmitting?: boolean;
   submitLabel?: string;
   /** Label of the main button while the form is sent (SPEC-041 CA-16). */
@@ -123,6 +126,7 @@ function messageOfProblem(err: ApiProblemError): string {
 /** Form to create or edit a class (SPEC-009), grouped and validated next to each field (SPEC-041, section 3.1.4). */
 export function ClassForm({
   initialData,
+  initialMeetings,
   onSubmit,
   isSubmitting = false,
   submitLabel,
@@ -138,6 +142,9 @@ export function ClassForm({
   const [startDate, setStartDate] = useState(toDateInput(initialData?.startDate));
   const [endDate, setEndDate] = useState(toDateInput(initialData?.endDate));
   const [schedule, setSchedule] = useState(initialData?.scheduleDescription ?? "");
+  const [color, setColor] = useState(initialData?.color ?? "orange");
+  const [meetings, setMeetings] = useState<MeetingDraft[]>(initialMeetings ?? []);
+  const [meetingErrors, setMeetingErrors] = useState<Record<string, string>>({});
   const [enableVirtual, setEnableVirtual] = useState(initialData?.enableVirtualClassroom ?? false);
   const [enableInvite, setEnableInvite] = useState(initialData?.enableInviteLink ?? false);
   const [inviteStart, setInviteStart] = useState(toDateTimeInput(initialData?.inviteLinkStart));
@@ -177,7 +184,17 @@ export function ClassForm({
       showErrors(found);
       return;
     }
+
+    if (meetings.length > 0) {
+      const mErrors = validateMeetingDrafts(meetings);
+      if (Object.keys(mErrors).length > 0) {
+        setMeetingErrors(mErrors);
+        return;
+      }
+    }
+
     setErrors({});
+    setMeetingErrors({});
 
     const payload: CreateClassPayload = {
       name: name.trim(),
@@ -189,14 +206,28 @@ export function ClassForm({
       startDate: fromDateInput(startDate).toISOString(),
       endDate: fromDateInput(endDate, 23, 59, 59).toISOString(),
       scheduleDescription: schedule || undefined,
+      color,
       enableVirtualClassroom: enableVirtual,
       enableInviteLink: enableInvite,
       inviteLinkStart: enableInvite && inviteStart ? new Date(inviteStart).toISOString() : undefined,
       inviteLinkEnd: enableInvite && inviteEnd ? new Date(inviteEnd).toISOString() : undefined,
     };
 
+    const meetingsToSend =
+      meetings.length > 0
+        ? meetings.map((m) => ({
+            weekday: m.weekday,
+            startTime: m.startTime,
+            endTime: m.endTime,
+            lessonCount: m.lessonCount,
+            mode: m.mode,
+            room: m.room || undefined,
+            onlineUrl: m.onlineUrl || undefined,
+          }))
+        : undefined;
+
     try {
-      await onSubmit(payload);
+      await onSubmit(payload, meetingsToSend);
     } catch (err: unknown) {
       if (err instanceof ApiProblemError) {
         const field = fieldOfProblem(err);
@@ -357,18 +388,55 @@ export function ClassForm({
           </div>
 
           <div className={`${styles.field} ${styles.fullWidth}`}>
-            <label htmlFor="schedule" className={styles.label}>
-              {m.scheduleLabel}
-            </label>
-            <input
-              id="schedule"
-              type="text"
-              className={styles.input}
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-              placeholder={m.schedulePlaceholder}
+            <span className={styles.label}>{messages.schedule.colorLabel}</span>
+            <div
+              role="radiogroup"
+              aria-label={messages.schedule.colorLabel}
+              className={styles.colorRadiogroup}
+            >
+              {Object.entries(messages.schedule.colors).map(([cKey, cLabel]) => (
+                <label key={cKey} className={styles.colorRadioLabel}>
+                  <input
+                    type="radio"
+                    role="radio"
+                    name="classColor"
+                    value={cKey}
+                    checked={color === cKey}
+                    onChange={() => setColor(cKey)}
+                  />
+                  <span>{cLabel}</span>
+                </label>
+              ))}
+            </div>
+            <span className={styles.help}>{messages.schedule.colorHelp}</span>
+          </div>
+
+          <div className={`${styles.field} ${styles.fullWidth}`}>
+            <MeetingsEditor
+              value={meetings}
+              errors={meetingErrors}
+              onChange={(next) => {
+                setMeetings(next);
+                setMeetingErrors(validateMeetingDrafts(next));
+              }}
             />
           </div>
+
+          {meetings.length === 0 && (
+            <div className={`${styles.field} ${styles.fullWidth}`}>
+              <label htmlFor="schedule" className={styles.label}>
+                {m.scheduleLabel}
+              </label>
+              <input
+                id="schedule"
+                type="text"
+                className={styles.input}
+                value={schedule}
+                onChange={(e) => setSchedule(e.target.value)}
+                placeholder={m.schedulePlaceholder}
+              />
+            </div>
+          )}
 
           <div className={`${styles.field} ${styles.fullWidth}`}>
             <label className={styles.checkboxGroup}>

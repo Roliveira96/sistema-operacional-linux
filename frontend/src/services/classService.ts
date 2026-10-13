@@ -15,6 +15,7 @@ export interface ClassGroup {
   startDate: string;
   endDate: string;
   scheduleDescription?: string;
+  color?: string;
   enableVirtualClassroom: boolean;
   enableInviteLink: boolean;
   inviteLinkToken?: string;
@@ -49,6 +50,7 @@ export interface CreateClassPayload {
   startDate: string;
   endDate: string;
   scheduleDescription?: string;
+  color?: string;
   enableVirtualClassroom?: boolean;
   enableInviteLink?: boolean;
   inviteLinkStart?: string;
@@ -64,6 +66,7 @@ export interface UpdateClassPayload {
   startDate?: string;
   endDate?: string;
   scheduleDescription?: string;
+  color?: string;
   enableVirtualClassroom?: boolean;
   enableInviteLink?: boolean;
   inviteLinkStart?: string;

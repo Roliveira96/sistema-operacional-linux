@@ -49,21 +49,25 @@ export interface ClassEvent {
   onlineUrl?: string;
 }
 
+export type PeriodAction = "NO_CLASSES" | "ONLINE";
+
 export interface SpecialPeriod {
   id: string;
   classId: string;
   firstDay: string;
   lastDay: string;
-  action: "NO_CLASSES" | "ONLINE";
+  action: PeriodAction;
   label: string;
   onlineUrl?: string;
 }
+
+export type HolidayScope = "NATIONAL" | "LOCAL" | "RECESS";
 
 export interface Holiday {
   id: string;
   date: string;
   name: string;
-  scope: "NATIONAL" | "LOCAL" | "RECESS";
+  scope: HolidayScope;
   active: boolean;
 }
 

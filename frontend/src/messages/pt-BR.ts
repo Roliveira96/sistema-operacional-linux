@@ -494,7 +494,7 @@ export const messages = {
       canceled: (n: number) => `${n} ${n === 1 ? "aula cancelada" : "aulas canceladas"}`,
       online: "online",
       event: (title: string) => `evento: ${title}`,
-      today: "hoje",
+      todayBadge: "hoje",
       dayPanelEmpty: "Nenhuma aula ou evento neste dia.",
       editSession: "Alterar esta aula",
       addSession: "Incluir aula avulsa",

@@ -2,15 +2,29 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { AddStudentsDialog } from "@/components/AddStudentsDialog/AddStudentsDialog";
+import { ClassCalendar } from "@/components/ClassCalendar/ClassCalendar";
 import { ClassMembersTable } from "@/components/ClassMembersTable/ClassMembersTable";
+import { EventForm } from "@/components/EventForm/EventForm";
 import { InviteLinkCard } from "@/components/InviteLinkCard/InviteLinkCard";
+import { PeriodForm } from "@/components/PeriodForm/PeriodForm";
+import { SessionForm } from "@/components/SessionForm/SessionForm";
 import { StudentFormModal } from "@/components/StudentFormModal/StudentFormModal";
 import { StudentImportCsvModal } from "@/components/StudentImportCsvModal/StudentImportCsvModal";
 import { useAuth } from "@/hooks/useAuth";
 import { messages } from "@/messages/pt-BR";
 import { classService, type ClassGroup, type ClassMember, type StudentClass } from "@/services/classService";
+import {
+  type CalendarData,
+  type ClassEvent,
+  type EventInput,
+  type PeriodInput,
+  scheduleService,
+  type Session,
+  type SessionInput,
+  type SpecialPeriod,
+} from "@/services/scheduleService";
 import { ApiProblemError } from "@/services/httpClient";
 import {
   IconBook,
@@ -36,7 +50,7 @@ import styles from "./page.module.scss";
 const m = messages.classes.page;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-type Tab = "overview" | "students";
+type Tab = "overview" | "schedule" | "students";
 type LoadState = "loading" | "ready" | "notFound" | "error";
 /** The fields of a class shown on its overview, read by the teacher or by an enrolled student. */
 type Presentation = Pick<
@@ -199,7 +213,13 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
   const router = useRouter();
   const searchParams = useSearchParams();
   const isStudent = user.role === "STUDENT";
-  const tab: Tab = !isStudent && searchParams.get("tab") === "students" ? "students" : "overview";
+  const paramTab = searchParams.get("tab");
+  const tab: Tab =
+    paramTab === "schedule"
+      ? "schedule"
+      : !isStudent && paramTab === "students"
+        ? "students"
+        : "overview";
   const justCreated = searchParams.get("created") === "1";
 
   const [id, setId] = useState<string | null>(null);
@@ -208,12 +228,88 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
   const [members, setMembers] = useState<ClassMember[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [reload, setReload] = useState(0);
+  const [calendarReload, setCalendarReload] = useState(0);
+  const [cachedCalendar, setCachedCalendar] = useState<CalendarData | null>(null);
+  const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [extraSessionDate, setExtraSessionDate] = useState<string | null>(null);
+  const [editingEvent, setEditingEvent] = useState<ClassEvent | null>(null);
+  const [eventDate, setEventDate] = useState<string | null>(null);
+  const [selectedPeriodRange, setSelectedPeriodRange] = useState<{ first: string; last: string } | null>(null);
   const [membersTab, setMembersTab] = useState<"ACTIVE" | "PENDING_MODERATION">("ACTIVE");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newStudentOpen, setNewStudentOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const addButtonRef = useRef<HTMLButtonElement>(null);
+
+  const loadCalendar = useCallback(
+    async (from: string, to: string) => {
+      if (!id) return { classes: [], sessions: [], events: [], periods: [], holidays: [], meetings: [] };
+      const res = await scheduleService.classCalendar(id, from, to);
+      setCachedCalendar(res);
+      return res;
+    },
+    [id],
+  );
+
+  const handleUpdateSession = async (payload: SessionInput) => {
+    if (!id || !editingSession) return;
+    await scheduleService.updateSession(id, editingSession.id, payload);
+    setCalendarReload((n) => n + 1);
+  };
+
+  const handleRevertSession = async () => {
+    if (!id || !editingSession) return;
+    await scheduleService.revertSession(id, editingSession.id);
+    setCalendarReload((n) => n + 1);
+  };
+
+  const handleDeleteSession = async () => {
+    if (!id || !editingSession) return;
+    await scheduleService.deleteSession(id, editingSession.id);
+    setCalendarReload((n) => n + 1);
+  };
+
+  const handleCreateExtraSession = async (payload: SessionInput) => {
+    if (!id) return;
+    await scheduleService.createSession(id, payload);
+    setCalendarReload((n) => n + 1);
+  };
+
+  const handleSaveEvent = async (payload: EventInput) => {
+    if (!id) return;
+    if (editingEvent) {
+      await scheduleService.updateEvent(id, editingEvent.id, payload);
+    } else {
+      await scheduleService.createEvent(id, payload);
+    }
+    setCalendarReload((n) => n + 1);
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!id || !editingEvent) return;
+    await scheduleService.deleteEvent(id, editingEvent.id);
+    setCalendarReload((n) => n + 1);
+  };
+
+  const handleApplyPeriod = async (payload: PeriodInput) => {
+    if (!id) return;
+    await scheduleService.applyPeriod(id, payload);
+    setCalendarReload((n) => n + 1);
+  };
+
+  const handleDeletePeriod = async (period: SpecialPeriod) => {
+    if (!id) return;
+    await scheduleService.deletePeriod(id, period.id);
+    setCalendarReload((n) => n + 1);
+  };
+
+  const countAffected = (first: string, last: string) => {
+    if (!cachedCalendar) return 0;
+    return cachedCalendar.sessions.filter(
+      (s) => s.origin === "WEEKLY" && !s.overridden && s.date >= first && s.date <= last,
+    ).length;
+  };
 
   useEffect(() => {
     let active = true;
@@ -394,104 +490,174 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
         </div>
       )}
 
-      {isStudent ? (
-        <Overview data={data} />
-      ) : (
+      <div className={styles.tabs} role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "overview"}
+          className={`${styles.tab} ${tab === "overview" ? styles.tabActive : ""}`}
+          onClick={() => changeTab("overview")}
+        >
+          <IconLayout />
+          {m.overviewTab}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "schedule"}
+          className={`${styles.tab} ${tab === "schedule" ? styles.tabActive : ""}`}
+          onClick={() => changeTab("schedule")}
+        >
+          <IconCalendar />
+          {messages.schedule.tab}
+        </button>
+        {!isStudent && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "students"}
+            className={`${styles.tab} ${tab === "students" ? styles.tabActive : ""}`}
+            onClick={() => changeTab("students")}
+          >
+            <IconUsers size={16} />
+            {m.studentsTab}
+            <span className={styles.tabCount} aria-hidden="true">
+              {active.length + pending.length}
+            </span>
+          </button>
+        )}
+      </div>
+
+      <div role="tabpanel" className={styles.tabPanel}>
+        {tab === "overview" ? (
+          <Overview data={data} />
+        ) : tab === "schedule" ? (
+          <ClassCalendar
+            load={loadCalendar}
+            editable={!isStudent}
+            settingsHref={!isStudent ? `/app/classes/${id}/settings` : undefined}
+            reloadKey={calendarReload}
+            onEditSession={(s) => setEditingSession(s)}
+            onAddSession={(d) => setExtraSessionDate(d)}
+            onAddEvent={(d) => setEventDate(d)}
+            onEditEvent={(e) => setEditingEvent(e)}
+            onDeletePeriod={handleDeletePeriod}
+            onSelectPeriod={(first, last) => setSelectedPeriodRange({ first, last })}
+          />
+        ) : members.length === 0 ? (
+          <section className={styles.onboarding} aria-labelledby="empty-title">
+            <span className={styles.onboardingIcon}>
+              <IconUserPlus size={28} />
+            </span>
+            <h2 id="empty-title" className={styles.onboardingTitle}>
+              {m.emptyTitle}
+            </h2>
+            <p className={styles.onboardingText}>{m.emptyDescription}</p>
+
+            <div className={styles.paths}>
+              <PathCard
+                icon={<IconSearch />}
+                title={m.emptySelect}
+                help={m.emptySelectHelp}
+                helpId="path-select-help"
+                onClick={() => setDialogOpen(true)}
+                recommended
+              />
+              <PathCard
+                icon={<IconUserPlus />}
+                title={m.emptyNew}
+                help={m.emptyNewHelp}
+                helpId="path-new-help"
+                onClick={() => setNewStudentOpen(true)}
+              />
+              <PathCard
+                icon={<IconFileUp />}
+                title={m.emptyCsv}
+                help={m.emptyCsvHelp}
+                helpId="path-csv-help"
+                onClick={() => setCsvOpen(true)}
+              />
+            </div>
+
+            <div className={styles.divider}>
+              <span>{m.emptyInvite}</span>
+            </div>
+            {classData && <InviteLinkCard classGroup={classData} />}
+          </section>
+        ) : (
+          <div className={styles.students}>
+            <div className={styles.studentsBar}>
+              <p className={styles.studentsCount}>{m.studentsSummary(active.length, pending.length)}</p>
+              <button
+                ref={addButtonRef}
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => setDialogOpen(true)}
+              >
+                <IconPlus />
+                {m.addStudents}
+              </button>
+            </div>
+            {classData && <InviteLinkCard classGroup={classData} />}
+            <ClassMembersTable
+              members={members}
+              activeTab={membersTab}
+              onTabChange={setMembersTab}
+              onApprove={(memberId) => moderate(memberId, true)}
+              onReject={(memberId, reason) => moderate(memberId, false, reason)}
+            />
+          </div>
+        )}
+      </div>
+
+      {!isStudent && (
         <>
-          <div className={styles.tabs} role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "overview"}
-              className={`${styles.tab} ${tab === "overview" ? styles.tabActive : ""}`}
-              onClick={() => changeTab("overview")}
-            >
-              <IconLayout />
-              {m.overviewTab}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "students"}
-              className={`${styles.tab} ${tab === "students" ? styles.tabActive : ""}`}
-              onClick={() => changeTab("students")}
-            >
-              <IconUsers size={16} />
-              {m.studentsTab}
-              <span className={styles.tabCount} aria-hidden="true">
-                {active.length + pending.length}
-              </span>
-            </button>
-          </div>
+          {editingSession && (
+            <SessionForm
+              mode="edit"
+              session={editingSession}
+              studentCount={active.length}
+              onSubmit={handleUpdateSession}
+              onRevert={handleRevertSession}
+              onDelete={editingSession.origin === "EXTRA" ? handleDeleteSession : undefined}
+              onClose={() => setEditingSession(null)}
+            />
+          )}
 
-          <div role="tabpanel" className={styles.tabPanel}>
-            {tab === "overview" ? (
-              <Overview data={data} />
-            ) : members.length === 0 ? (
-              <section className={styles.onboarding} aria-labelledby="empty-title">
-                <span className={styles.onboardingIcon}>
-                  <IconUserPlus size={28} />
-                </span>
-                <h2 id="empty-title" className={styles.onboardingTitle}>
-                  {m.emptyTitle}
-                </h2>
-                <p className={styles.onboardingText}>{m.emptyDescription}</p>
+          {extraSessionDate && (
+            <SessionForm
+              mode="extra"
+              date={extraSessionDate}
+              studentCount={active.length}
+              onSubmit={handleCreateExtraSession}
+              onClose={() => setExtraSessionDate(null)}
+            />
+          )}
 
-                <div className={styles.paths}>
-                  <PathCard
-                    icon={<IconSearch />}
-                    title={m.emptySelect}
-                    help={m.emptySelectHelp}
-                    helpId="path-select-help"
-                    onClick={() => setDialogOpen(true)}
-                    recommended
-                  />
-                  <PathCard
-                    icon={<IconUserPlus />}
-                    title={m.emptyNew}
-                    help={m.emptyNewHelp}
-                    helpId="path-new-help"
-                    onClick={() => setNewStudentOpen(true)}
-                  />
-                  <PathCard
-                    icon={<IconFileUp />}
-                    title={m.emptyCsv}
-                    help={m.emptyCsvHelp}
-                    helpId="path-csv-help"
-                    onClick={() => setCsvOpen(true)}
-                  />
-                </div>
+          {(eventDate || editingEvent) && (
+            <EventForm
+              event={editingEvent ?? undefined}
+              date={eventDate ?? undefined}
+              studentCount={active.length}
+              onSubmit={handleSaveEvent}
+              onDelete={editingEvent ? handleDeleteEvent : undefined}
+              onClose={() => {
+                setEventDate(null);
+                setEditingEvent(null);
+              }}
+            />
+          )}
 
-                <div className={styles.divider}>
-                  <span>{m.emptyInvite}</span>
-                </div>
-                {classData && <InviteLinkCard classGroup={classData} />}
-              </section>
-            ) : (
-              <div className={styles.students}>
-                <div className={styles.studentsBar}>
-                  <p className={styles.studentsCount}>{m.studentsSummary(active.length, pending.length)}</p>
-                  <button
-                    ref={addButtonRef}
-                    type="button"
-                    className={styles.primaryButton}
-                    onClick={() => setDialogOpen(true)}
-                  >
-                    <IconPlus />
-                    {m.addStudents}
-                  </button>
-                </div>
-                {classData && <InviteLinkCard classGroup={classData} />}
-                <ClassMembersTable
-                  members={members}
-                  activeTab={membersTab}
-                  onTabChange={setMembersTab}
-                  onApprove={(memberId) => moderate(memberId, true)}
-                  onReject={(memberId, reason) => moderate(memberId, false, reason)}
-                />
-              </div>
-            )}
-          </div>
+          {selectedPeriodRange && (
+            <PeriodForm
+              firstDay={selectedPeriodRange.first}
+              lastDay={selectedPeriodRange.last}
+              countAffected={countAffected}
+              studentCount={active.length}
+              onSubmit={handleApplyPeriod}
+              onClose={() => setSelectedPeriodRange(null)}
+            />
+          )}
 
           <AddStudentsDialog
             isOpen={dialogOpen}

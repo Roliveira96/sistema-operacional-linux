@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-042 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 13/10/2026 |
-| **Última revisão** | 13/10/2026 (aprovada) |
+| **Última revisão** | 13/10/2026 (implementada) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -314,26 +314,26 @@ Resumo; os campos seguem a seção 4 em `camelCase`. Erros RFC 7807 com os slugs
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente salva os encontros semanais, O SISTEMA DEVE gerar uma aula para cada data da vigência no dia da semana de cada encontro.
-- [ ] **CA-02** (indesejado): SE dois encontros do mesmo dia se sobrepõem, ou um encontro online não tem link https, ENTÃO O SISTEMA DEVE recusar com o erro junto do encontro.
-- [ ] **CA-03** (evento): QUANDO os encontros ou a vigência mudam, O SISTEMA DEVE regenerar só as aulas futuras não alteradas e não avulsas.
-- [ ] **CA-04** (estado): ENQUANTO uma aula cair num feriado ativo, O SISTEMA DEVE sinalizá-la à docente sem cancelá-la.
-- [ ] **CA-05** (evento): QUANDO a docente altera ou cancela uma aula, O SISTEMA DEVE gravar o motivo, mostrar a aula alterada no calendário e enfileirar um e-mail aos estudantes ativos.
-- [ ] **CA-06** (indesejado): SE a docente cancela uma aula sem motivo, ENTÃO O SISTEMA DEVE recusar com `reason-required`.
-- [ ] **CA-07** (evento): QUANDO a docente inclui uma aula avulsa ou um evento, O SISTEMA DEVE mostrá-lo no calendário da turma e dos estudantes e enfileirar um e-mail.
-- [ ] **CA-08** (evento): QUANDO a docente aplica "Suspender aulas" ou "Passar para online" a um intervalo, O SISTEMA DEVE alterar todas as aulas do intervalo numa transação, mostrar o período como faixa e enfileirar um único e-mail.
-- [ ] **CA-09** (evento): QUANDO a docente desfaz um período, O SISTEMA DEVE devolver as aulas que ele alterou ao estado anterior.
-- [ ] **CA-10** (ubíquo): O calendário DEVE mostrar mês, navegação, "Hoje", legenda, marcos de início e término, feriados, aulas na cor da turma (canceladas e online com texto ou ícone), eventos e períodos, e abrir o painel do dia ao clicar.
-- [ ] **CA-11** (ubíquo): O calendário DEVE mostrar aulas no mês, feriados no mês e horas-aula por semana.
-- [ ] **CA-12** (estado): ENQUANTO o usuário for estudante, o calendário DEVE ser só leitura e mostrar só as turmas com matrícula ativa.
-- [ ] **CA-13** (evento): QUANDO uma matrícula passa a `ACTIVE`, O SISTEMA DEVE enfileirar o e-mail com a agenda da turma.
-- [ ] **CA-14** (evento): QUANDO chega a hora do lembrete de uma aula não cancelada, O SISTEMA DEVE enfileirar um lembrete por estudante que não o desligou, uma única vez por aula.
-- [ ] **CA-15** (evento): QUANDO chega a hora do resumo semanal, O SISTEMA DEVE enviar a cada estudante que não o desligou as aulas da semana seguinte, se houver.
-- [ ] **CA-16** (indesejado): SE o envio de um e-mail falhar, ENTÃO O SISTEMA DEVE tentar de novo até 3 vezes e marcá-lo `FAILED`, sem travar a fila.
-- [ ] **CA-17** (ubíquo): O SISTEMA DEVE calcular Carnaval, Sexta-feira Santa e Corpus Christi a partir da Páscoa e listar os feriados nacionais do ano atual e do seguinte.
-- [ ] **CA-18** (indesejado): SE o administrador tentar apagar um feriado nacional, ENTÃO O SISTEMA DEVE recusar com `national-holiday-locked`.
-- [ ] **CA-19** (indesejado): SE alguém que não é a dona da turma nem admin tentar escrever na agenda, ENTÃO O SISTEMA DEVE responder 403 `forbidden`.
-- [ ] **CA-20** (ubíquo): Textos em `messages/pt-BR`, cores só por tokens (a cor da turma por chave da paleta), Stylelint limpo, contraste AA e calendário operável só por teclado.
+- [x] **CA-01** (evento): QUANDO a docente salva os encontros semanais, O SISTEMA DEVE gerar uma aula para cada data da vigência no dia da semana de cada encontro.
+- [x] **CA-02** (indesejado): SE dois encontros do mesmo dia se sobrepõem, ou um encontro online não tem link https, ENTÃO O SISTEMA DEVE recusar com o erro junto do encontro.
+- [x] **CA-03** (evento): QUANDO os encontros ou a vigência mudam, O SISTEMA DEVE regenerar só as aulas futuras não alteradas e não avulsas.
+- [x] **CA-04** (estado): ENQUANTO uma aula cair num feriado ativo, O SISTEMA DEVE sinalizá-la à docente sem cancelá-la.
+- [x] **CA-05** (evento): QUANDO a docente altera ou cancela uma aula, O SISTEMA DEVE gravar o motivo, mostrar a aula alterada no calendário e enfileirar um e-mail aos estudantes ativos.
+- [x] **CA-06** (indesejado): SE a docente cancela uma aula sem motivo, ENTÃO O SISTEMA DEVE recusar com `reason-required`.
+- [x] **CA-07** (evento): QUANDO a docente inclui uma aula avulsa ou um evento, O SISTEMA DEVE mostrá-lo no calendário da turma e dos estudantes e enfileirar um e-mail.
+- [x] **CA-08** (evento): QUANDO a docente aplica "Suspender aulas" ou "Passar para online" a um intervalo, O SISTEMA DEVE alterar todas as aulas do intervalo numa transação, mostrar o período como faixa e enfileirar um único e-mail.
+- [x] **CA-09** (evento): QUANDO a docente desfaz um período, O SISTEMA DEVE devolver as aulas que ele alterou ao estado anterior.
+- [x] **CA-10** (ubíquo): O calendário DEVE mostrar mês, navegação, "Hoje", legenda, marcos de início e término, feriados, aulas na cor da turma (canceladas e online com texto ou ícone), eventos e períodos, e abrir o painel do dia ao clicar.
+- [x] **CA-11** (ubíquo): O calendário DEVE mostrar aulas no mês, feriados no mês e horas-aula por semana.
+- [x] **CA-12** (estado): ENQUANTO o usuário for estudante, o calendário DEVE ser só leitura e mostrar só as turmas com matrícula ativa.
+- [x] **CA-13** (evento): QUANDO uma matrícula passa a `ACTIVE`, O SISTEMA DEVE enfileirar o e-mail com a agenda da turma.
+- [x] **CA-14** (evento): QUANDO chega a hora do lembrete de uma aula não cancelada, O SISTEMA DEVE enfileirar um lembrete por estudante que não o desligou, uma única vez por aula.
+- [x] **CA-15** (evento): QUANDO chega a hora do resumo semanal, O SISTEMA DEVE enviar a cada estudante que não o desligou as aulas da semana seguinte, se houver.
+- [x] **CA-16** (indesejado): SE o envio de um e-mail falhar, ENTÃO O SISTEMA DEVE tentar de novo até 3 vezes e marcá-lo `FAILED`, sem travar a fila.
+- [x] **CA-17** (ubíquo): O SISTEMA DEVE calcular Carnaval, Sexta-feira Santa e Corpus Christi a partir da Páscoa e listar os feriados nacionais do ano atual e do seguinte.
+- [x] **CA-18** (indesejado): SE o administrador tentar apagar um feriado nacional, ENTÃO O SISTEMA DEVE recusar com `national-holiday-locked`.
+- [x] **CA-19** (indesejado): SE alguém que não é a dona da turma nem admin tentar escrever na agenda, ENTÃO O SISTEMA DEVE responder 403 `forbidden`.
+- [x] **CA-20** (ubíquo): Textos em `messages/pt-BR`, cores só por tokens (a cor da turma por chave da paleta), Stylelint limpo, contraste AA e calendário operável só por teclado.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -490,3 +490,4 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | :--- | :--- | :--- |
 | 13/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | Criação do rascunho a partir do pedido da professora, do protótipo dela e dos pedidos do Tech Lead (aula ou evento avulso; edição em massa de um intervalo). Decisões D-01 a D-07; pendências P-01 a P-11 com recomendação |
 | 13/10/2026 | Tech Lead | Aprovada ("Aprovo 42"), aceitas as recomendações de P-01 a P-11 (D-08 a D-18). Seção 8 com a lista nominal dos testes. Status: `Aprovada` |
+| 13/10/2026 | Implementador | Implementação do frontend (componentes de encontros, calendário, formulários de aula/evento/período, preferências de notificação, páginas de calendário e feriados) e verificação de todos os critérios de aceite CA-01 a CA-20 com 90 testes verdes. Status: `Implementada` |
