@@ -142,6 +142,14 @@ func (f *fakeRepo) ListSessions(ctx context.Context, classIDs []uuid.UUID, from,
 	return out, nil
 }
 
+func (f *fakeRepo) ListAllSessions(ctx context.Context, from, to time.Time) ([]domain.ClassSession, error) {
+	var ids []uuid.UUID
+	for id := range f.classes {
+		ids = append(ids, id)
+	}
+	return f.ListSessions(ctx, ids, from, to)
+}
+
 func (f *fakeRepo) FindSession(ctx context.Context, id uuid.UUID) (domain.ClassSession, error) {
 	s, ok := f.sessions[id]
 	if !ok {
