@@ -343,6 +343,8 @@ func TestCalendar_StudentReadsOnlyActiveClasses(t *testing.T) {
 	assert.Len(t, cal.Sessions, 5)
 	assert.Len(t, cal.Holidays, 1)
 	require.Len(t, cal.Classes, 1)
+	require.Len(t, cal.Meetings, 2, "the weekly meetings feed the lessons-per-week indicator (CA-11)")
+	assert.Equal(t, f.class.ID, cal.Meetings[0].ClassID)
 
 	_, err = f.svc.ClassCalendar(context.Background(), student, other.ID, day(2026, 10, 1), day(2026, 10, 31))
 	require.ErrorIs(t, err, domain.ErrClassNotFound, "the class of another enrollment is not revealed")

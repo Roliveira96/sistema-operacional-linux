@@ -249,6 +249,7 @@ func TestCalendarRoute_RangeAndRoles(t *testing.T) {
 		Events:   []domain.ClassEvent{{ClassID: classID, Title: "Palestra", Date: day(2026, 10, 22), AllDay: true}},
 		Periods:  []domain.SpecialPeriod{{ClassID: classID, FirstDay: day(2026, 10, 19), LastDay: day(2026, 10, 23), Action: domain.PeriodNoClasses, Label: "Semana"}},
 		Holidays: []domain.Holiday{{Date: day(2026, 10, 12), Name: "Nossa Senhora Aparecida", Scope: domain.HolidayNational, Active: true}},
+		Meetings: []domain.WeeklyMeeting{{ClassID: classID, Weekday: 1, StartTime: clk("08:20"), EndTime: clk("10:00"), LessonCount: 2, Mode: domain.ModeInPerson}},
 	}
 	status, body := call(t, srv, http.MethodGet, "/api/v1/classes/"+classID.String()+"/calendar?from=2026-10-01&to=2026-10-31", nil)
 	require.Equal(t, http.StatusOK, status, body)
@@ -266,6 +267,9 @@ func TestCalendarRoute_RangeAndRoles(t *testing.T) {
 	assert.Equal(t, true, body["events"].([]any)[0].(map[string]any)["allDay"])
 	assert.Equal(t, "2026-10-23", body["periods"].([]any)[0].(map[string]any)["lastDay"])
 	assert.Equal(t, "NATIONAL", body["holidays"].([]any)[0].(map[string]any)["scope"])
+	meeting := body["meetings"].([]any)[0].(map[string]any)
+	assert.Equal(t, classID.String(), meeting["classId"])
+	assert.Equal(t, float64(2), meeting["lessonCount"])
 
 	status, body = call(t, srv, http.MethodGet, "/api/v1/classes/"+classID.String()+"/calendar?from=2026-10-01", nil)
 	assert.Equal(t, http.StatusBadRequest, status)
