@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-041 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 13/10/2026 |
-| **Última revisão** | 13/10/2026 (aprovada) |
+| **Última revisão** | 13/10/2026 (implementada) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -494,6 +494,21 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
 
+### Ajustes de implementação
+
+| ID | Ajuste |
+| :--- | :--- |
+| A-01 | A política sem imagens da RN-02 virou `htmlsafe.NewRichText` em `backend/internal/platform/htmlsafe/htmlsafe.go`, arquivo fora da seção 9, para não duplicar a lista de elementos permitidos |
+| A-02 | A transação do lote fica no repository (`SaveEnrollments`), como no resto do módulo `classgroup`; o service decide cada matrícula e chama uma gravação só |
+| A-03 | O teste `TestGetMyClass_HidesTeacherOnlyFields` virou `TestMyClassRoute_HidesTeacherOnlyFields`, no handler, onde os campos da resposta são montados |
+| A-04 | No diálogo, as abas "Novo estudante" e "Importar CSV" fecham o diálogo e abrem os modais existentes com a turma fixada, em vez de repetir os formulários dentro dele |
+| A-05 | Com a turma vazia, a ação principal é o cartão recomendado do estado vazio; o botão "Adicionar estudantes" aparece quando já há membros, para haver uma ação principal por tela |
+| A-06 | Visual revisto pelo Tech Lead com a skill *ui-ux-pro-max*: caminho "Gestão de Turmas / turma" no lugar do link "Voltar para Turmas", contagens como indicadores no cabeçalho (nas duas abas), vigência com barra de progresso, cartões dos caminhos e o modal "Cadastrar Estudante" redesenhado |
+| A-07 | Defeito anterior, fora da seção 9, autorizado pelo Tech Lead: `StudentSummary` (`backend/internal/modules/student/domain/student.go`) não tinha tags JSON, e a lista de estudantes chegava vazia ao diálogo (CA-03) e à tela Estudantes. Corrigido a partir de um teste vermelho |
+| A-08 | Testes alterados depois do vermelho: no estado vazio, a busca por "link de convite" foi restrita ao texto do estado vazio, porque o cartão do convite, que a spec também manda mostrar, repete o termo; três ajustes só de tipagem (`lastCall` e o objeto `StudentClass` completo) |
+| A-09 | Os testes de cobertura acharam um caso sem tratamento: um erro do servidor sobre as datas do convite com o convite desligado sumia; agora vai para o resumo do topo |
+| A-10 | Ícones da página em `frontend/src/app/app/classes/[id]/icons.tsx`; a página de configurações passou a usar "Salvando…" e a cancelar para a página da turma |
+
 ---
 
 ## Histórico de revisões
@@ -502,3 +517,4 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | :--- | :--- | :--- |
 | 13/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | Criação do rascunho a partir do relato dos professores e da análise de usabilidade de `/app/classes/new`. Decisões D-01 a D-04; pendências P-01 a P-06 com recomendação |
 | 13/10/2026 | Tech Lead | Aprovada ("eu aprovo"), aceitas as recomendações de P-01 a P-06 (D-05 a D-10). Status: `Aprovada` |
+| 13/10/2026 | Implementador (Claude) | Implementada; status `Implementada`. **Backend:** migração 00025 (resumo e conversão do texto antigo, aplicada no banco de desenvolvimento), `NewRichText`, `POST /classes/:id/enrollments`, `GET /me/classes/:id`, resumo e ementa filtrados, correção de `initialStudentIds` repetidos. Testes passando, inclusive repository com PostgreSQL real; cobertura `classgroup/domain` 82,4%, `service` 90,9%, `handler` 85,4%. **Frontend:** página da turma, diálogo de adicionar estudantes, cartão do convite, formulário revisto, card, modais com a turma fixada e redirecionamentos; nos arquivos alterados, 95% das linhas e 88% dos ramos, todos acima de 80%; `tsc`, ESLint e Stylelint limpos. **Manual:** executados no navegador a validação do formulário, o estado vazio, a visão geral e a matrícula de um estudante cadastrado pelo diálogo; ficam para a revisão o cadastro de estudante novo, a importação CSV, a cópia do link de convite, a visão do estudante e a navegação só por teclado. Fora do escopo: o teste `CardBuilder` (CA-26) estoura 5 s nesta máquina também sem estas mudanças. **Ajustes:** A-01 a A-10 |
