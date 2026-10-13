@@ -1,6 +1,8 @@
 package domain_test
 
 import (
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -139,5 +141,22 @@ func TestGenerateInviteToken(t *testing.T) {
 	}
 	if tok1 == tok2 {
 		t.Fatalf("tokens should be unique, got duplicate: %s", tok1)
+	}
+}
+
+// Covers SPEC-041 RN-01: the summary is trimmed and holds up to 300 characters, counted in runes.
+func TestNormalizeSummary(t *testing.T) {
+	got, err := domain.NormalizeSummary("  Disciplina prática de Linux.  ")
+	if err != nil || got != "Disciplina prática de Linux." {
+		t.Fatalf("expected trimmed summary, got %q, %v", got, err)
+	}
+	if got, err := domain.NormalizeSummary(""); err != nil || got != "" {
+		t.Fatalf("expected empty summary to be valid, got %q, %v", got, err)
+	}
+	if _, err := domain.NormalizeSummary(strings.Repeat("ç", domain.SummaryMaxLength)); err != nil {
+		t.Fatalf("expected 300 runes to be valid, got %v", err)
+	}
+	if _, err := domain.NormalizeSummary(strings.Repeat("a", domain.SummaryMaxLength+1)); !errors.Is(err, domain.ErrSummaryTooLong) {
+		t.Fatalf("expected ErrSummaryTooLong, got %v", err)
 	}
 }

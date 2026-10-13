@@ -22,6 +22,10 @@ type fakeClassRepo struct {
 	studentMenu repository.MyClassesResult
 	menuErr     error
 	menuCalls   []string // "teacher:<id>:<limit>" / "student:<id>:<limit>"
+
+	userRoles map[uuid.UUID]string  // users that exist, by role (SPEC-041)
+	userNames map[uuid.UUID]*string // display names of users
+	saveCalls int
 }
 
 func (f *fakeClassRepo) ListTeacherClassesForMenu(ctx context.Context, teacherID uuid.UUID, limit int) (repository.MyClassesResult, error) {
@@ -38,6 +42,8 @@ func newFakeRepo() *fakeClassRepo {
 	return &fakeClassRepo{
 		classes:     make(map[uuid.UUID]domain.ClassGroup),
 		enrollments: make(map[uuid.UUID]domain.Enrollment),
+		userRoles:   make(map[uuid.UUID]string),
+		userNames:   make(map[uuid.UUID]*string),
 	}
 }
 

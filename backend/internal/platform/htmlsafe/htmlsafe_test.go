@@ -62,3 +62,15 @@ func TestPlainText(t *testing.T) {
 	assert.Equal(t, "texto simples", PlainText("  texto   simples "))
 	assert.Equal(t, "", PlainText("<p> </p><br>"))
 }
+
+// Covers SPEC-041 RN-02 and D-05: the syllabus and the guidelines of a class keep formatted text and links, without images or videos.
+func TestRichTextDropsMediaAndKeepsText(t *testing.T) {
+	s := NewRichText()
+	assert.Equal(t, `<p><strong>Unidade 1</strong></p><ul><li>Processos</li></ul>`,
+		s.Sanitize(`<p><strong>Unidade 1</strong></p><ul><li>Processos</li></ul><script>alert(1)</script>`))
+	assert.NotContains(t, s.Sanitize(`<img src="https://x.com/a.png" alt="a">`), "img")
+	assert.NotContains(t, s.Sanitize(`<iframe src="https://www.youtube.com/embed/abc"></iframe>`), "iframe")
+	assert.NotContains(t, s.Sanitize(`<p onclick="x()">a</p>`), "onclick")
+	assert.NotContains(t, s.Sanitize(`<a href="javascript:x()">a</a>`), "javascript")
+	assert.Contains(t, s.Sanitize(`<a href="https://utfpr.edu.br">site</a>`), `href="https://utfpr.edu.br"`)
+}
