@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
 import { messages } from "@/messages/pt-BR";
@@ -153,5 +153,70 @@ describe("AppShell", () => {
     renderShell();
     expect(screen.getByRole("link", { name: "Calendário" }).getAttribute("href")).toBe("/app/calendar");
     expect(screen.queryByRole("link", { name: "Feriados" }) !== null).toBe(holidays);
+  });
+
+  // SPEC-043: Mobile navigation menu
+  describe("Mobile navigation (SPEC-043)", () => {
+    it("has a mobile menu toggle button with accessibility attributes", () => {
+      signIn("TEACHER");
+      renderShell();
+      const toggleBtn = screen.getByRole("button", { name: messages.shell.openMenu });
+      expect(toggleBtn).toBeDefined();
+      expect(toggleBtn.getAttribute("aria-expanded")).toBe("false");
+      expect(toggleBtn.getAttribute("aria-controls")).toBe("app-mobile-nav");
+    });
+
+    it("opens the mobile drawer with links matching the teacher role and closes with Escape", () => {
+      signIn("TEACHER");
+      renderShell();
+      const toggleBtn = screen.getByRole("button", { name: messages.shell.openMenu });
+      fireEvent.click(toggleBtn);
+      expect(toggleBtn.getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByRole("button", { name: messages.shell.closeMenu })).toBeDefined();
+
+      const mobileNav = screen.getByRole("navigation", { name: messages.shell.mobileNavAriaLabel });
+      expect(within(mobileNav).getByRole("link", { name: messages.classes.title })).toBeDefined();
+      expect(within(mobileNav).getByRole("link", { name: messages.students.title })).toBeDefined();
+      expect(within(mobileNav).getByRole("link", { name: messages.modules.title })).toBeDefined();
+      expect(within(mobileNav).getByRole("link", { name: messages.schedule.page.nav })).toBeDefined();
+      expect(within(mobileNav).getByRole("link", { name: messages.home.security })).toBeDefined();
+      expect(within(mobileNav).queryByRole("link", { name: messages.conformance.nav })).toBeNull();
+      expect(within(mobileNav).queryByRole("link", { name: messages.schedule.holidays.nav })).toBeNull();
+
+      fireEvent.keyDown(window, { key: "Escape" });
+      expect(screen.queryByRole("navigation", { name: messages.shell.mobileNavAriaLabel })).toBeNull();
+      expect(screen.getByRole("button", { name: messages.shell.openMenu }).getAttribute("aria-expanded")).toBe("false");
+    });
+
+    it("shows admin-specific links in the mobile menu for administrators", () => {
+      signIn("ADMIN");
+      renderShell();
+      fireEvent.click(screen.getByRole("button", { name: messages.shell.openMenu }));
+      const mobileNav = screen.getByRole("navigation", { name: messages.shell.mobileNavAriaLabel });
+      expect(within(mobileNav).getByRole("link", { name: messages.conformance.nav })).toBeDefined();
+      expect(within(mobileNav).getByRole("link", { name: messages.schedule.holidays.nav })).toBeDefined();
+    });
+
+    it("shows only calendar and security for students in the mobile menu", async () => {
+      signIn("STUDENT");
+      vi.mocked(getStudentProfile).mockResolvedValue({ id: "1", name: "Aluno", academicId: "1234567", email: "a@b.c", createdAt: "" });
+      renderShell();
+      fireEvent.click(screen.getByRole("button", { name: messages.shell.openMenu }));
+      const mobileNav = screen.getByRole("navigation", { name: messages.shell.mobileNavAriaLabel });
+      expect(within(mobileNav).queryByRole("link", { name: messages.classes.title })).toBeNull();
+      expect(within(mobileNav).queryByRole("link", { name: messages.students.title })).toBeNull();
+      expect(within(mobileNav).getByRole("link", { name: messages.schedule.page.nav })).toBeDefined();
+      expect(within(mobileNav).getByRole("link", { name: messages.home.security })).toBeDefined();
+    });
+
+    it("closes the mobile menu when a mobile nav link is clicked", () => {
+      signIn("TEACHER");
+      renderShell();
+      fireEvent.click(screen.getByRole("button", { name: messages.shell.openMenu }));
+      const mobileNav = screen.getByRole("navigation", { name: messages.shell.mobileNavAriaLabel });
+      const classesLink = within(mobileNav).getByRole("link", { name: messages.classes.title });
+      fireEvent.click(classesLink);
+      expect(screen.queryByRole("navigation", { name: messages.shell.mobileNavAriaLabel })).toBeNull();
+    });
   });
 });

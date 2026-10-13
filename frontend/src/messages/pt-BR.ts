@@ -153,6 +153,12 @@ export const messages = {
     networkError: "Não foi possível contatar o servidor. Verifique sua conexão.",
     unexpectedError: "Ocorreu um erro inesperado.",
   },
+  shell: {
+    navAriaLabel: "Navegação principal",
+    mobileNavAriaLabel: "Navegação móvel",
+    openMenu: "Abrir menu de navegação",
+    closeMenu: "Fechar menu de navegação",
+  },
   public: {
     nav: {
       brand: "Linux na Prática",
@@ -166,6 +172,9 @@ export const messages = {
       logout: "Sair",
       logoAlt: "UTFPR",
       ariaLabel: "Navegação principal",
+      openMenu: "Abrir menu de navegação",
+      closeMenu: "Fechar menu de navegação",
+      mobileAriaLabel: "Navegação móvel pública",
     },
     hero: {
       badge: "UTFPR Campus Guarapuava • TSI",
