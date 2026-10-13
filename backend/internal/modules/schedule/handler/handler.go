@@ -79,6 +79,7 @@ const dateLayout = "2006-01-02"
 
 type meetingJSON struct {
 	ID          *uuid.UUID `json:"id,omitempty"`
+	ClassID     *uuid.UUID `json:"classId,omitempty"`
 	Weekday     int        `json:"weekday"`
 	StartTime   string     `json:"startTime"`
 	EndTime     string     `json:"endTime"`
@@ -153,6 +154,7 @@ type calendarJSON struct {
 	Events   []eventJSON   `json:"events"`
 	Periods  []periodJSON  `json:"periods"`
 	Holidays []holidayJSON `json:"holidays"`
+	Meetings []meetingJSON `json:"meetings"`
 }
 
 func formatDate(t time.Time) string { return domain.Day(t).Format(dateLayout) }
@@ -167,7 +169,12 @@ func clockPtr(c *domain.Clock) *string {
 
 func toMeetingJSON(m domain.WeeklyMeeting) meetingJSON {
 	id := m.ID
-	return meetingJSON{ID: &id, Weekday: m.Weekday, StartTime: m.StartTime.String(), EndTime: m.EndTime.String(),
+	var classID *uuid.UUID
+	if m.ClassID != uuid.Nil {
+		c := m.ClassID
+		classID = &c
+	}
+	return meetingJSON{ID: &id, ClassID: classID, Weekday: m.Weekday, StartTime: m.StartTime.String(), EndTime: m.EndTime.String(),
 		LessonCount: m.LessonCount, Mode: string(m.Mode), Room: m.Room, OnlineURL: m.OnlineURL}
 }
 
@@ -193,7 +200,7 @@ func toHolidayJSON(h domain.Holiday) holidayJSON {
 }
 
 func toCalendarJSON(c service.Calendar) calendarJSON {
-	out := calendarJSON{Classes: []classJSON{}, Sessions: []sessionJSON{}, Events: []eventJSON{}, Periods: []periodJSON{}, Holidays: []holidayJSON{}}
+	out := calendarJSON{Classes: []classJSON{}, Sessions: []sessionJSON{}, Events: []eventJSON{}, Periods: []periodJSON{}, Holidays: []holidayJSON{}, Meetings: []meetingJSON{}}
 	for _, x := range c.Classes {
 		out.Classes = append(out.Classes, classJSON{ID: x.ID, Name: x.Name, CourseCode: x.CourseCode, Color: x.Color,
 			StartDate: formatDate(x.StartDate), EndDate: formatDate(x.EndDate)})
@@ -209,6 +216,9 @@ func toCalendarJSON(c service.Calendar) calendarJSON {
 	}
 	for _, x := range c.Holidays {
 		out.Holidays = append(out.Holidays, toHolidayJSON(x))
+	}
+	for _, x := range c.Meetings {
+		out.Meetings = append(out.Meetings, toMeetingJSON(x))
 	}
 	return out
 }

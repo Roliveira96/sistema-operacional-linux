@@ -101,6 +101,7 @@ type Calendar struct {
 	Events   []domain.ClassEvent
 	Periods  []domain.SpecialPeriod
 	Holidays []domain.Holiday
+	Meetings []domain.WeeklyMeeting
 }
 
 // Repository is the persistence the service needs.
@@ -597,6 +598,14 @@ func (s *Service) calendar(ctx context.Context, classIDs []uuid.UUID, from, to t
 	}
 	if cal.Periods, err = s.repo.ListPeriods(ctx, classIDs, from, to); err != nil {
 		return Calendar{}, err
+	}
+	cal.Meetings = []domain.WeeklyMeeting{}
+	for _, id := range classIDs {
+		meetings, err := s.repo.ListMeetings(ctx, id)
+		if err != nil {
+			return Calendar{}, err
+		}
+		cal.Meetings = append(cal.Meetings, meetings...)
 	}
 	holidays, err := s.repo.ListHolidays(ctx, from, to)
 	if err != nil {
