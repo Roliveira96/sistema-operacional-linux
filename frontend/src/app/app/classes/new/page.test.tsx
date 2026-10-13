@@ -53,11 +53,12 @@ describe("NewClassPage", () => {
       target: { value: "2026-12-01" },
     });
 
-    fireEvent.click(screen.getByText("Criar Turma"));
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
 
     await waitFor(() => {
       expect(createSpy).toHaveBeenCalled();
-      expect(pushMock).toHaveBeenCalledWith("/app/classes");
+      // SPEC-041 CA-01: after creating, the teacher goes to the students tab of the new class.
+      expect(pushMock).toHaveBeenCalledWith("/app/classes/c-1?tab=students&created=1");
     });
   });
 });
