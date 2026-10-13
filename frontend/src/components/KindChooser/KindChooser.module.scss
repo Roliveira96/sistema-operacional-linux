@@ -1,0 +1,83 @@
+.dialog {
+  width: min(60rem, 100%);
+}
+
+// The kinds and the example side by side on a large screen, one under the other on a small one (SPEC-040).
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  align-items: start;
+
+  @media (width >= 48rem) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+}
+
+.help {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.kinds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.kind {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  cursor: pointer;
+
+  &:focus-within {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.on {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.name {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.text {
+  grid-column: 2;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+
+.primary {
+  min-height: 2.5rem;
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}

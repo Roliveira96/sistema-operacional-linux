@@ -119,6 +119,9 @@ func (h *Handler) addTools(s *mcp.Server, svc *service.Service) {
 		domain.ToolSetExerciseSetup:     bind(h, domain.ToolSetExerciseSetup, svc.SetExerciseSetup),
 		domain.ToolValidateModule:       bind(h, domain.ToolValidateModule, svc.ValidateModule),
 		domain.ToolListModuleVersions:   bind(h, domain.ToolListModuleVersions, svc.ListModuleVersions),
+		domain.ToolListPendingAnswers:   bind(h, domain.ToolListPendingAnswers, svc.ListPendingAnswers),
+		domain.ToolGetAnswer:            bind(h, domain.ToolGetAnswer, svc.GetAnswer),
+		domain.ToolSuggestGrade:         bind(h, domain.ToolSuggestGrade, svc.SuggestGrade),
 	}
 	for _, spec := range domain.Catalog() {
 		fn, ok := handlers[spec.Name]

@@ -24,6 +24,7 @@ export type Verdict =
   | { kind: "finished" }
   | { kind: "notFinished" }
   | { kind: "untestable" }
+  | { kind: "noTerminal" }
   | { kind: "unexpectedError"; code: number }
   | { kind: "expectedErrorMissing" }
   | { kind: "notRun" }
@@ -50,7 +51,7 @@ type Result =
 type EnvState = "pending" | "running" | "ok" | "failed";
 
 const isGood = (v: Verdict) =>
-  v.kind === "ok" || v.kind === "okError" || v.kind === "finished";
+  v.kind === "ok" || v.kind === "okError" || v.kind === "finished" || v.kind === "noTerminal";
 
 /** Compares the exit status of a command with what the author expects of it. */
 export function judge(status: number | null, expectError: boolean): Verdict {
@@ -74,6 +75,8 @@ function verdictText(v: Verdict): string {
       return m.notFinished;
     case "untestable":
       return m.untestable;
+    case "noTerminal":
+      return authoringMessages.questionKinds.tester.noTerminal;
     case "unexpectedError":
       return m.unexpectedError(v.code);
     case "expectedErrorMissing":
@@ -224,6 +227,13 @@ export function CardTester({
           text: verdictText(verdict),
           output,
         });
+        if (step.noTerminal) {
+          // A complete question without a terminal: nothing runs, and it does not fail the test (SPEC-035 RN-09).
+          set(i, { state: "done", verdict: { kind: "noTerminal" } });
+          rows[i] = row({ kind: "noTerminal" });
+          good[i] = true;
+          continue;
+        }
         if (step.untestable) {
           // An exercise that cannot be tested fails the test: it is not run, and it is not left out.
           set(i, { state: "done", verdict: { kind: "untestable" } });

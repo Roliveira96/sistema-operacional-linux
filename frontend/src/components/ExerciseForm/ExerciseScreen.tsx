@@ -8,6 +8,7 @@ import cardStyles from "@/components/CardBuilder/CardBuilder.module.scss";
 import { ExercisesBlock } from "@/components/ContentRenderer/ExercisesBlock";
 import { buildBlocks, checkCard, groupCards, parseCard, placeServerErrors, type CardErrors, type CardGroup, type CardModel } from "@/lib/cardModel";
 import { emptyExercise, exercisesPayload, exerciseTestItems, type Exercise } from "@/lib/exercises";
+import { parseKind, usesTerminal } from "@/lib/questionKinds";
 import { allLayers, hasSetup, type Setup, type SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type ContentAuthoringService } from "@/services/contentAuthoringService";
@@ -64,7 +65,8 @@ export function ExerciseScreen({ moduleId, cardKey, index, service = contentAuth
         const card = parseCard(group);
         const items = card.exercises?.items ?? [];
         const position = isNew ? items.length : Number(index);
-        const found = isNew ? emptyExercise() : items[position];
+        // A new exercise comes with the kind chosen in the list (?kind=), which never changes after (SPEC-035 RN-14).
+        const found = isNew ? emptyExercise(parseKind(new URLSearchParams(window.location.search).get("kind"))) : items[position];
         if (!found) return setState({ status: "missing" });
         // The snapshots before this card: the module, the cards above, and the card's own.
         const above = allLayers(setup as Setup | undefined, groups.slice(0, at).flatMap((g) => g.blocks));
@@ -206,7 +208,7 @@ export function ExerciseScreen({ moduleId, cardKey, index, service = contentAuth
         <button type="button" className={cardStyles.secondary} onClick={() => router.push(back)}>
           {m.cancel}
         </button>
-        <button type="button" className={cardStyles.secondary} title={m.testTitle} onClick={startTest} disabled={tested.items.length === 0}>
+        <button type="button" className={cardStyles.secondary} title={m.testTitle} onClick={startTest} disabled={tested.items.length === 0} hidden={!usesTerminal(exercise.kind)}>
           {m.test}
         </button>
         <button type="button" className={cardStyles.primary} onClick={() => void save()} disabled={saving || (!isNew && !dirty)}>

@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import modal from "@/components/ContentTab/CardModal.module.scss";
 import { testBank, type BankItem, type BankReport, type Dependency } from "@/lib/bankTest";
 import { createEngineSandbox } from "@/lib/bankTestEngine";
+import { missingAnswer } from "@/lib/exercises";
+import { usesTerminal } from "@/lib/questionKinds";
 import { hasSetup, type Setup, type SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { contentAuthoringService, type ContentAuthoringService } from "@/services/contentAuthoringService";
@@ -44,6 +46,8 @@ export function bankItems(bank: ExerciseBank): BankItem[] {
     dependsOn: it.dependsOn,
     solution: it.exercise.solution,
     conditions: it.exercise.conditions,
+    terminal: usesTerminal(it.exercise.kind),
+    complete: missingAnswer(it.exercise).length === 0,
   }));
 }
 
@@ -107,6 +111,7 @@ export function BankTest({ moduleId, bank, moduleSetup, loadBase, service, resul
                 conflicts: report.conflicts,
                 isolated: report.isolated,
                 untestable: report.untestable,
+                noTerminal: report.noTerminal,
                 suggestedDependencies: report.suggested.length,
               },
             }),
@@ -208,6 +213,12 @@ export function BankTest({ moduleId, bank, moduleSetup, loadBase, service, resul
                 <section aria-label={m.untestable}>
                   <h4>{m.untestable}</h4>
                   {list(report.untestable)}
+                </section>
+              )}
+              {report.noTerminal.length > 0 && (
+                <section aria-label={authoringMessages.questionKinds.bankTest.noTerminal}>
+                  <h4>{authoringMessages.questionKinds.bankTest.noTerminal}</h4>
+                  {list(report.noTerminal)}
                 </section>
               )}
               {report.conflicts.length > 0 && (

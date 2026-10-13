@@ -1,0 +1,163 @@
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+}
+
+.head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+}
+
+.badge {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+}
+
+.pause {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin-left: auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-body);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+// The screen of the student, shown smaller, never clickable.
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 15rem;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+  user-select: none;
+}
+
+.statement {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.step {
+  animation: enter 350ms var(--easing-standard);
+}
+
+.writing {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text-body);
+}
+
+// The text comes in as if typed.
+.typed {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  animation: typing 1.6s steps(var(--chars)) both;
+}
+
+.terminal {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--gradient-terminal);
+  font-family: var(--font-terminal);
+  color: var(--color-terminal-text);
+}
+
+.line,
+.done {
+  margin: 0;
+}
+
+.prompt {
+  color: var(--color-success);
+}
+
+.cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  vertical-align: text-bottom;
+  background: currentcolor;
+  animation: blink 1s steps(2) infinite;
+}
+
+.done {
+  margin-top: var(--space-2);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-success);
+  animation: enter 350ms var(--easing-standard);
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes typing {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step,
+  .typed,
+  .cursor,
+  .done {
+    animation: none;
+  }
+}

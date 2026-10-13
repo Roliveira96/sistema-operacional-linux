@@ -72,6 +72,8 @@ import {
   type PracticeService,
 } from "@/services/practiceService";
 import { speechService, type SpeechService } from "@/services/speechService";
+import { answerFromCheck, answerFromProgress, type AnswerResponse, type GivenAnswer } from "@/lib/answers";
+import { isDiscursive, isMatching, isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
 import { ChallengePanel } from "./ChallengePanel";
 import { CheatSheetModal } from "./CheatSheetModal";
 import { LessonPanel } from "./LessonPanel";
@@ -92,7 +94,7 @@ export interface TopicStudyProps {
   modules?: Pick<typeof moduleService, "getModuleById">;
   practice?: Pick<
     PracticeService,
-    "scenario" | "topicScenario" | "checkModule" | "progress"
+    "scenario" | "topicScenario" | "checkModule" | "progress" | "answer" | "choose" | "link" | "write"
   >;
   /** Voice of the karaoke reader (SPEC-018). */
   speech?: Pick<SpeechService, "synthesize">;
@@ -116,6 +118,8 @@ interface Loaded {
   storageKey: string;
   initialSnapshot: unknown;
   initialCompleted: string[];
+  /** The answers the student already gave to the questions without a terminal (SPEC-035 RN-08, SPEC-036 RN-06). */
+  initialAnswers: [string, GivenAnswer][];
 }
 
 type State =
@@ -178,7 +182,8 @@ export function TopicStudy({
           kind: "loaded",
           module,
           script: buildTopicScript(blocks),
-          challenges: questions.filter((q) => q.kind === "PRACTICAL"),
+          // The practical exercises and the true or false questions, in the order of the trail (SPEC-035 D-07).
+          challenges: questions.filter((q) => q.kind === "PRACTICAL" || isTrueFalse(q.kind) || isSingleChoice(q.kind) || isMatching(q.kind) || isDiscursive(q.kind)),
           scenario,
           layers,
           // The machine of an exercise of the module: the snapshot of the module, then the one of the bank (SPEC-023 11.2).
@@ -201,6 +206,10 @@ export function TopicStudy({
           initialCompleted: progress
             .filter((p) => p.completedAt)
             .map((p) => p.questionId),
+          initialAnswers: progress.flatMap((p): [string, GivenAnswer][] => {
+            const given = answerFromProgress(p);
+            return given ? [[p.questionId, given]] : [];
+          }),
         });
       } catch (error) {
         if (active) setState({ kind: "error", ...describe(error) });
@@ -264,6 +273,7 @@ function TopicScreen({
   storageKey,
   initialSnapshot,
   initialCompleted,
+  initialAnswers,
   moduleId,
   backHref,
   practice,
@@ -441,13 +451,57 @@ function TopicScreen({
     [speed, needsSetup],
   );
 
+  // Only the practical exercises are checked on the machine; a true or false question does not depend on it (SPEC-035 CA-14).
+  const hasPractical = challenges.some((c) => c.kind === "PRACTICAL");
   const onCommand = useCallback(
     (snapshot: unknown) => {
       saveMachine(storageKey, snapshot);
-      if (challenges.length > 0) check.submit(snapshot);
+      if (hasPractical) check.submit(snapshot);
     },
-    [storageKey, challenges.length, check],
+    [storageKey, hasPractical, check],
   );
+
+  const [answers, setAnswers] = useState<ReadonlyMap<string, GivenAnswer>>(() => new Map(initialAnswers));
+  const [answering, setAnswering] = useState<string | null>(null);
+  const [answerErrors, setAnswerErrors] = useState<ReadonlyMap<string, string>>(new Map());
+  const [answerNeedsLogin, setAnswerNeedsLogin] = useState(false);
+  /** Sends the single answer to a question without a terminal and shows the result at once (SPEC-035 RN-06, D-02; SPEC-036 RN-05). */
+  const answer = async (challenge: PublicQuestion, response: AnswerResponse) => {
+    setAnswering(challenge.id);
+    setAnswerErrors((prev) => {
+      const next = new Map(prev);
+      next.delete(challenge.id);
+      return next;
+    });
+    const keep = (given: GivenAnswer | null) => {
+      if (!given) return;
+      setAnswers((prev) => new Map(prev).set(challenge.id, given));
+      check.seed([challenge.id]);
+    };
+    try {
+      const r =
+        "value" in response
+          ? await practice.answer(challenge.id, response.value)
+          : "choice" in response
+            ? await practice.choose(challenge.id, response.choice)
+            : "links" in response
+              ? await practice.link(challenge.id, response.links)
+              : await practice.write(challenge.id, response.html);
+      keep(answerFromCheck(response, r));
+    } catch (error) {
+      if (error instanceof ApiProblemError && error.status === 401) {
+        setAnswerNeedsLogin(true);
+      } else if (error instanceof ApiProblemError && error.status === 409) {
+        // Already answered (in another tab, say): the answer the server kept is the one that counts.
+        const stored = (await practice.progress(moduleId).catch(() => [])).find((p) => p.questionId === challenge.id);
+        if (stored) keep(answerFromProgress(stored));
+      } else {
+        setAnswerErrors((prev) => new Map(prev).set(challenge.id, "html" in response ? m.descriptive.failed : m.trueFalse.failed));
+      }
+    } finally {
+      setAnswering(null);
+    }
+  };
 
   // Keyboard shortcuts of the prototype, off while typing in the terminal or a field.
   const { next, back, toggleAll } = player;
@@ -757,7 +811,11 @@ function TopicScreen({
                 <ChallengePanel
                   challenges={challenges}
                   completed={check.completed}
-                  needsLogin={check.needsLogin}
+                  needsLogin={check.needsLogin || answerNeedsLogin}
+                  answers={answers}
+                  answering={answering}
+                  answerErrors={answerErrors}
+                  onAnswer={(challenge, response) => void answer(challenge, response)}
                   starting={starting}
                   busy={busy}
                   onStart={(challenge) => void startChallenge(challenge)}

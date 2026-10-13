@@ -75,3 +75,140 @@ describe("RichTextEditor", () => {
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.stringContaining("<h3>")));
   });
 });
+
+// Covers SPEC-035 CA-03 and D-12: an image of the description is sent to the server and goes into the text with its alternative text.
+describe("RichTextEditor images", () => {
+  const openWith = async (uploadImage?: (file: File) => Promise<{ url: string }>, value = "<p>x</p>") => {
+    const onChange = vi.fn();
+    const view = render(<RichTextEditor label="Texto" value={value} onChange={onChange} uploadImage={uploadImage} />);
+    await waitFor(() => {
+      if (!view.container.querySelector(".ProseMirror")) throw new Error("editor not ready");
+    });
+    return { ...view, onChange };
+  };
+  const pick = (container: HTMLElement, file: File) =>
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+
+  it("has no image button without a way to send images", async () => {
+    await openWith();
+    expect(screen.queryByRole("button", { name: "Inserir imagem" })).toBeNull();
+  });
+
+  it("sends the image, asks for its alternative text and inserts it", async () => {
+    const hash = "a".repeat(64);
+    const uploadImage = vi.fn().mockResolvedValue({ url: `https://cdn.x/lab/conteudo/${hash}.avif` });
+    const { container, onChange } = await openWith(uploadImage);
+    expect(screen.getByRole("button", { name: "Inserir imagem" })).toBeDefined();
+    pick(container, new File(["x"], "diagrama.png", { type: "image/png" }));
+    const alt = (await screen.findByRole("textbox", { name: "Texto alternativo da imagem (o que ela mostra)" })) as HTMLInputElement;
+    expect(uploadImage).toHaveBeenCalled();
+    expect(alt.value).toBe("diagrama");
+    fireEvent.change(alt, { target: { value: "Árvore de diretórios" } });
+    fireEvent.click(screen.getByRole("button", { name: "Inserir" }));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.stringContaining(`src="https://cdn.x/lab/conteudo/${hash}.avif"`)));
+    expect(onChange.mock.lastCall![0]).toContain('alt="Árvore de diretórios"');
+    expect(container.querySelector(".ProseMirror img")).not.toBeNull();
+  });
+
+  it("shows a stored image, refuses a file too big and says when sending fails", async () => {
+    const uploadImage = vi.fn().mockRejectedValue(new Error("down"));
+    const { container } = await openWith(uploadImage, '<p>x</p><img src="https://cdn.x/a.avif" alt="a">');
+    expect(container.querySelector(".ProseMirror img")?.getAttribute("alt")).toBe("a");
+    const big = new File(["x"], "big.png", { type: "image/png" });
+    Object.defineProperty(big, "size", { value: 11 * 1024 * 1024 });
+    pick(container, big);
+    expect(await screen.findByText("A imagem passa de 10 MB, o limite.")).toBeDefined();
+    expect(uploadImage).not.toHaveBeenCalled();
+    pick(container, new File(["x"], "a.png", { type: "image/png" }));
+    expect(await screen.findByText("Não foi possível enviar a imagem.")).toBeDefined();
+  });
+
+  it("can give up an image before inserting it", async () => {
+    const uploadImage = vi.fn().mockResolvedValue({ url: "https://cdn.x/a.avif" });
+    const { container, onChange } = await openWith(uploadImage);
+    pick(container, new File(["x"], "a.png", { type: "image/png" }));
+    await screen.findByRole("textbox", { name: "Texto alternativo da imagem (o que ela mostra)" });
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("textbox", { name: "Texto alternativo da imagem (o que ela mostra)" })).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("RichTextEditor toolbar", () => {
+  it("applies every format button and undoes and redoes", async () => {
+    const onChange = vi.fn();
+    const view = render(<RichTextEditor label="Texto" value="<p>ls -la</p>" onChange={onChange} />);
+    const dom = await waitFor(() => {
+      const el = view.container.querySelector(".ProseMirror") as Host | null;
+      if (!el) throw new Error("editor not ready");
+      return el;
+    });
+    act(() => {
+      dom.editor.commands.selectAll();
+    });
+    for (const name of ["Negrito", "Itálico", "Bloco de código", "Lista numerada", "Citação"]) {
+      fireEvent.click(screen.getByRole("button", { name }));
+    }
+    expect(onChange).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refazer" }));
+    expect(onChange.mock.calls.length).toBeGreaterThan(5);
+  });
+
+  it("sets a link with Enter and removes it, and inserts an image with Enter", async () => {
+    const onChange = vi.fn();
+    const uploadImage = vi.fn().mockResolvedValue({ url: "https://cdn.x/a.avif" });
+    const view = render(<RichTextEditor label="Texto" value="<p>site</p>" onChange={onChange} uploadImage={uploadImage} />);
+    const dom = await waitFor(() => {
+      const el = view.container.querySelector(".ProseMirror") as Host | null;
+      if (!el) throw new Error("editor not ready");
+      return el;
+    });
+    act(() => {
+      dom.editor.commands.selectAll();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Link" }));
+    const url = screen.getByRole("textbox", { name: "Endereço do link" });
+    fireEvent.change(url, { target: { value: "https://x.com" } });
+    fireEvent.keyDown(url, { key: "Enter" });
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.stringContaining('href="https://x.com"')));
+    act(() => {
+      dom.editor.commands.selectAll();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remover link" }));
+    await waitFor(() => expect(onChange.mock.lastCall![0]).not.toContain("href"));
+    fireEvent.click(screen.getByRole("button", { name: "Link" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Endereço do link" }), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+
+    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    fireEvent.click(screen.getByRole("button", { name: "Inserir imagem" }));
+    expect(click).toHaveBeenCalled();
+    click.mockRestore();
+    fireEvent.change(view.container.querySelector('input[type="file"]')!, { target: { files: [new File(["x"], "a.png", { type: "image/png" })] } });
+    const alt = await screen.findByRole("textbox", { name: "Texto alternativo da imagem (o que ela mostra)" });
+    fireEvent.keyDown(alt, { key: "Enter" });
+    await waitFor(() => expect(onChange.mock.lastCall![0]).toContain('src="https://cdn.x/a.avif"'));
+  });
+});
+
+// Covers SPEC-039 D-01: the answer of a descriptive question has only text and commands.
+describe("RichTextEditor for an answer", () => {
+  it("offers only the command tools and keeps no other formatting", async () => {
+    const onChange = vi.fn();
+    const view = render(<RichTextEditor label="Resposta" variant="answer" value="<p>a <b>b</b></p><ul><li>c</li></ul>" onChange={onChange} />);
+    const dom = await waitFor(() => {
+      const el = view.container.querySelector(".ProseMirror") as Host | null;
+      if (!el) throw new Error("editor not ready");
+      return el;
+    });
+    for (const name of ["Comando", "Bloco de código", "Desfazer", "Refazer"]) expect(screen.getByRole("button", { name })).toBeDefined();
+    for (const name of ["Negrito", "Itálico", "Título", "Lista", "Lista numerada", "Citação", "Link"]) expect(screen.queryByRole("button", { name })).toBeNull();
+    expect(dom.querySelector("b, strong, ul, li")).toBeNull();
+    act(() => {
+      dom.editor.commands.setContent("<p>use <code>ls</code></p><pre><code>ls -l</code></pre>", { emitUpdate: true });
+    });
+    expect(onChange.mock.lastCall?.[0]).toContain("<p>use <code>ls</code></p><pre><code>ls -l</code></pre>");
+  });
+});

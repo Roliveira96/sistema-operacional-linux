@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -33,4 +34,17 @@ func TestCompleteNeverCountsAttempts(t *testing.T) {
 	assert.Equal(t, 2, p.Attempts)
 	assert.True(t, p.LastPassed)
 	assert.Equal(t, t0, *p.CompletedAt)
+}
+
+// Covers SPEC-035 RN-08 and D-13: the single answer completes the question, right or wrong.
+func TestAnswerRecordsTheSingleResponse(t *testing.T) {
+	at := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	var p Progress
+	p.Answer(json.RawMessage(`{"value":false}`), false, at)
+	assert.Equal(t, 1, p.Attempts)
+	assert.False(t, p.LastPassed)
+	assert.JSONEq(t, `{"value":false}`, string(p.Response))
+	if assert.NotNil(t, p.CompletedAt) {
+		assert.True(t, p.CompletedAt.Equal(at))
+	}
 }

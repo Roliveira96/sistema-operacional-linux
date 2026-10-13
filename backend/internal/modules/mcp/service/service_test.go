@@ -670,3 +670,137 @@ func TestWritesAreLoggedWithoutContent(t *testing.T) {
 	_, _ = e.svc.GetModule(context.Background(), e.teacher, service.ModuleInput{ModuleID: e.mid()})
 	assert.Len(t, e.logs.FilterMessage("mcp write").All(), 1)
 }
+
+// Covers SPEC-035 RN-15 and CA-21: the tools create and edit true or false questions with the validations of the screen, and the
+// errors name the field.
+func TestTrueFalseQuestionsThroughTheTools(t *testing.T) {
+	e := setup(t, false)
+	ctx := context.Background()
+	mid := e.mid()
+	yes := true
+	created, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{
+		ModuleID: mid, Kind: "THEORETICAL_BOOLEAN", Title: "rm -r", Difficulty: "EASY", Statement: "<p>rm -r removes non-empty directories.</p>",
+		Hints: raw(`[{"text":"Think of -r"}]`), CorrectAnswer: &yes, Explanation: "<p>It is recursive.</p>", Links: service.LinksInput{Practice: true},
+	})
+	require.Nil(t, terr)
+	assert.Equal(t, "THEORETICAL_BOOLEAN", created.Exercise.Kind)
+	require.NotNil(t, created.Exercise.CorrectAnswer)
+	assert.True(t, *created.Exercise.CorrectAnswer)
+	require.NotNil(t, created.Exercise.Explanation)
+	assert.Equal(t, "DRAFT", created.Exercise.Status)
+
+	// UPDATE keeps the kind, the answer and the justification that are not given; null clears the answer.
+	id := created.Exercise.ID.String()
+	title := "rm -r again"
+	up, terr := e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", Title: &title})
+	require.Nil(t, terr)
+	assert.Equal(t, "THEORETICAL_BOOLEAN", up.Exercise.Kind)
+	require.NotNil(t, up.Exercise.CorrectAnswer)
+	assert.True(t, *up.Exercise.CorrectAnswer)
+	assert.Equal(t, "<p>It is recursive.</p>", *up.Exercise.Explanation)
+
+	why := "<p>Changed.</p>"
+	up, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", CorrectAnswer: raw(`false`), Explanation: &why})
+	require.Nil(t, terr)
+	assert.False(t, *up.Exercise.CorrectAnswer)
+	assert.Equal(t, why, *up.Exercise.Explanation)
+	up, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", CorrectAnswer: raw(`null`)})
+	require.Nil(t, terr)
+	assert.Nil(t, up.Exercise.CorrectAnswer)
+	_, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", CorrectAnswer: raw(`"yes"`)})
+	assert.Equal(t, "correctAnswer", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
+
+	// What belongs to the terminal is refused, with the field.
+	_, terr = e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{
+		ModuleID: mid, Kind: "THEORETICAL_BOOLEAN", Title: "x", Difficulty: "EASY", Conditions: raw(`[{"kind":"DIR_EXISTS","path":"/a"}]`),
+	})
+	assert.Equal(t, "conditions", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
+	_, terr = e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Kind: "THEORETICAL_MULTIPLE", Title: "x", Difficulty: "EASY"})
+	assert.Equal(t, "kind", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
+
+	// A card gets a true or false exercise through the block tools.
+	_, terr = e.svc.AppendContentBlocks(ctx, e.teacher, service.AppendContentBlocksInput{ModuleID: mid, Blocks: []service.BlockInput{
+		block("TEXT", `{"title":"Card","html":"<p>x</p>"}`),
+		block("EXERCISES", `{"items":[{"kind":"THEORETICAL_BOOLEAN","title":"tf","difficulty":"EASY","correctAnswer":true,"explanation":"<p>why</p>"}]}`),
+	}})
+	require.Nil(t, terr)
+	_, terr = e.svc.AppendContentBlocks(ctx, e.teacher, service.AppendContentBlocksInput{ModuleID: mid, Blocks: []service.BlockInput{
+		block("EXERCISES", `{"items":[{"kind":"THEORETICAL_BOOLEAN","title":"tf","difficulty":"EASY"}]}`),
+	}})
+	te := requireErr(t, terr, domain.TypeValidation)
+	assert.Contains(t, te.Fields[0].Field, "items[0].correctAnswer")
+}
+
+// Covers SPEC-036 RN-10 and CA-12: the tools create and edit single choice questions with the validations of the screen.
+func TestSingleChoiceQuestionsThroughTheTools(t *testing.T) {
+	e := setup(t, false)
+	ctx := context.Background()
+	mid := e.mid()
+	correct, keep := "a", false
+	created, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{
+		ModuleID: mid, Kind: "THEORETICAL_SINGLE", Title: "chmod", Difficulty: "EASY", Statement: "<p>Which one?</p>",
+		Choices: raw(`[{"id":"a","html":"chmod"},{"id":"b","html":"chown"}]`), CorrectChoice: &correct, ShuffleChoices: &keep,
+	})
+	require.Nil(t, terr)
+	assert.Equal(t, "THEORETICAL_SINGLE", created.Exercise.Kind)
+	require.Len(t, created.Exercise.Choices, 2)
+	assert.Equal(t, "a", *created.Exercise.CorrectChoice)
+	assert.False(t, *created.Exercise.ShuffleChoices)
+
+	id := created.Exercise.ID.String()
+	title := "chmod again"
+	up, terr := e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", Title: &title})
+	require.Nil(t, terr)
+	assert.Equal(t, "a", *up.Exercise.CorrectChoice, "what is not given is kept")
+	assert.Len(t, up.Exercise.Choices, 2)
+	assert.False(t, *up.Exercise.ShuffleChoices)
+
+	shuffle := true
+	up, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE",
+		Choices: raw(`[{"id":"a","html":"chmod"},{"id":"b","html":"chown"},{"id":"c","html":"ls"}]`), CorrectChoice: raw(`"c"`), ShuffleChoices: &shuffle})
+	require.Nil(t, terr)
+	assert.Equal(t, "c", *up.Exercise.CorrectChoice)
+	assert.Len(t, up.Exercise.Choices, 3)
+	assert.True(t, *up.Exercise.ShuffleChoices)
+	up, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", CorrectChoice: raw(`null`)})
+	require.Nil(t, terr)
+	assert.Nil(t, up.Exercise.CorrectChoice)
+	_, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", CorrectChoice: raw(`5`)})
+	assert.Equal(t, "correctChoice", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
+	_, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", CorrectChoice: raw(`"zz"`)})
+	assert.Equal(t, "correctChoice", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
+}
+
+// Covers SPEC-037 RN-10 and CA-13: the tools create and edit matching questions with the validations of the screen.
+func TestMatchingQuestionsThroughTheTools(t *testing.T) {
+	e := setup(t, false)
+	ctx := context.Background()
+	mid := e.mid()
+	created, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{
+		ModuleID: mid, Kind: "THEORETICAL_MATCHING", Title: "commands", Difficulty: "EASY", Statement: "<p>Link them.</p>",
+		Left:  raw(`[{"id":"l1","text":"chmod"},{"id":"l2","text":"chown"}]`),
+		Right: raw(`[{"id":"r1","text":"owner"},{"id":"r2","text":"mode"}]`),
+		Pairs: raw(`[{"left":"l1","right":"r2"},{"left":"l2","right":"r1"}]`),
+	})
+	require.Nil(t, terr)
+	assert.Equal(t, "THEORETICAL_MATCHING", created.Exercise.Kind)
+	assert.Len(t, created.Exercise.Left, 2)
+	assert.Len(t, created.Exercise.Right, 2)
+	assert.Len(t, created.Exercise.Pairs, 2)
+	assert.True(t, *created.Exercise.ShuffleChoices)
+
+	id := created.Exercise.ID.String()
+	title := "commands again"
+	up, terr := e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE", Title: &title})
+	require.Nil(t, terr)
+	assert.Len(t, up.Exercise.Pairs, 2, "what is not given is kept")
+
+	up, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE",
+		Pairs: raw(`[{"left":"l1","right":"r1"},{"left":"l2","right":"r2"}]`)})
+	require.Nil(t, terr)
+	assert.Equal(t, "r1", up.Exercise.Pairs[0].Right)
+
+	_, terr = e.svc.UpdateModuleExercise(ctx, e.teacher, service.UpdateModuleExerciseInput{ModuleID: mid, ExerciseID: id, Operation: "UPDATE",
+		Pairs: raw(`[{"left":"l1","right":"r1"},{"left":"l2","right":"r1"}]`)})
+	assert.Equal(t, "pairs[1].right", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
+}

@@ -119,6 +119,10 @@ function defaultPractice() {
       .mockResolvedValue({ formato: "exame-so/maquina", cenario: "topico" }),
     checkModule: vi.fn().mockResolvedValue({ passed: [], progress: [] }),
     progress: vi.fn().mockResolvedValue([]),
+    answer: vi.fn(),
+    choose: vi.fn(),
+    link: vi.fn(),
+    write: vi.fn(),
   };
 }
 
@@ -1277,5 +1281,242 @@ describe("TopicStudy exercises", () => {
     fake.window.snapshot.mockReturnValue({
       formato: "exame-so/maquina",
     } as never);
+  });
+});
+
+// Covers SPEC-035 CA-07, CA-09, CA-10, CA-14 and CA-15 on the study screen.
+describe("TopicStudy true or false questions", () => {
+  const trueFalse = challenge("tf", {
+    kind: "THEORETICAL_BOOLEAN",
+    title: "rm -r",
+    statement: "<p>rm -r removes non-empty directories.</p>",
+    hint: "<ol><li>Think of -r</li></ol>",
+    solution: undefined,
+  });
+  const withTrueFalse = (practice = defaultPractice()) => {
+    const content = {
+      content: vi.fn().mockResolvedValue({ blocks, setup: undefined }),
+      questions: vi.fn().mockResolvedValue([challenge("q1"), trueFalse]),
+    };
+    return setup({ content, practice });
+  };
+  const open = async (practice = defaultPractice()) => {
+    withTrueFalse(practice);
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    return practice;
+  };
+
+  it("shows it in the trail, answers it on the server and locks it with the result", async () => {
+    const practice = defaultPractice();
+    practice.answer.mockResolvedValue({ passed: false, completedAt: "t", correctAnswer: true, explanation: "<p>It is recursive.</p>" });
+    await open(practice);
+    expect(screen.getByText(/Enunciado q1/)).toBeInTheDocument();
+    expect(screen.getByText("rm -r removes non-empty directories.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "▶ Iniciar" })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Falso" }));
+    expect(practice.answer).toHaveBeenCalledWith("tf", false);
+    expect(await screen.findByText("Você errou.")).toBeInTheDocument();
+    expect(screen.getByText("It is recursive.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Verdadeiro" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("img", { name: contentMessages.topic.challenges.wrong })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Desafios/ })).toHaveTextContent("1/2");
+  });
+
+  it("starts locked with the answer the student already gave", async () => {
+    const practice = defaultPractice();
+    practice.progress.mockResolvedValue([
+      { questionId: "tf", completedAt: "t", attempts: 1, response: { value: true }, passed: true, correctAnswer: true, explanation: null },
+    ]);
+    await open(practice);
+    expect(screen.getByText("Você acertou!")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Falso" })).toHaveProperty("disabled", true);
+    expect(practice.answer).not.toHaveBeenCalled();
+  });
+
+  it("asks a visitor to sign in, and keeps the answer the server already had", async () => {
+    const practice = defaultPractice();
+    practice.answer.mockRejectedValueOnce(new ApiProblemError({ type: "not-authenticated", title: "x", status: 401 }, 401));
+    await open(practice);
+    fireEvent.click(screen.getByRole("button", { name: "Verdadeiro" }));
+    expect(await screen.findByText(contentMessages.trueFalse.needsLogin)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Verdadeiro" })).toHaveProperty("disabled", true);
+  });
+
+  it("shows the answer the server kept when it was already answered, and a failure otherwise", async () => {
+    const practice = defaultPractice();
+    practice.answer
+      .mockRejectedValueOnce(new ApiProblemError({ type: "x", title: "x", status: 500 }, 500))
+      .mockRejectedValueOnce(new ApiProblemError({ type: "already-answered", title: "x", status: 409 }, 409));
+    await open(practice);
+    fireEvent.click(screen.getByRole("button", { name: "Verdadeiro" }));
+    expect(await screen.findByText(contentMessages.trueFalse.failed)).toBeInTheDocument();
+    practice.progress.mockResolvedValue([
+      { questionId: "tf", completedAt: "t", attempts: 1, response: { value: false }, passed: false, correctAnswer: true },
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Verdadeiro" }));
+    expect(await screen.findByText("Você errou.")).toBeInTheDocument();
+  });
+
+  it("is not part of the check of the machine", async () => {
+    const practice = defaultPractice();
+    const content = {
+      content: vi.fn().mockResolvedValue({ blocks, setup: undefined }),
+      questions: vi.fn().mockResolvedValue([trueFalse]),
+    };
+    setup({ content, practice });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    await waitFor(() => expect(fake.window.setSpeed).toHaveBeenCalled());
+    expect(fake.onCommand).toBeDefined();
+    fake.onCommand!({ formato: "exame-so/maquina" });
+    await new Promise((r) => setTimeout(r, CHECK_DELAY_MS + 50));
+    expect(practice.checkModule).not.toHaveBeenCalled();
+  });
+});
+
+// Covers SPEC-036 CA-06, CA-07 and CA-08 on the study screen.
+describe("TopicStudy single choice questions", () => {
+  const single = challenge("sc", {
+    kind: "THEORETICAL_SINGLE",
+    title: "chmod",
+    statement: "<p>Which one changes permissions?</p>",
+    solution: undefined,
+    choices: [
+      { id: "b", html: "<p>chown</p>" },
+      { id: "a", html: "<p>chmod</p>" },
+    ],
+  });
+  const open = async (practice = defaultPractice()) => {
+    const content = {
+      content: vi.fn().mockResolvedValue({ blocks, setup: undefined }),
+      questions: vi.fn().mockResolvedValue([single]),
+    };
+    setup({ content, practice });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    return practice;
+  };
+
+  it("shows the alternatives in the order the server sent, answers on the server and locks with the result", async () => {
+    const practice = defaultPractice();
+    practice.choose.mockResolvedValue({ passed: false, completedAt: "t", correctChoice: "a", explanation: "<p>mode</p>" });
+    await open(practice);
+    expect(screen.getAllByRole("button", { name: /ch(own|mod)/ }).map((b) => b.textContent)).toEqual([
+      expect.stringContaining("chown"),
+      expect.stringContaining("chmod"),
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: /chown/ }));
+    expect(practice.choose).toHaveBeenCalledWith("sc", "b");
+    expect(await screen.findByText("Você errou.")).toBeInTheDocument();
+    expect(screen.getByText("mode")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /chmod/ })).toHaveProperty("disabled", true);
+  });
+
+  it("starts locked with the answer the student already gave", async () => {
+    const practice = defaultPractice();
+    practice.progress.mockResolvedValue([{ questionId: "sc", completedAt: "t", attempts: 1, response: { choice: "a" }, passed: true, correctChoice: "a" }]);
+    await open(practice);
+    expect(screen.getByText("Você acertou!")).toBeInTheDocument();
+    expect(practice.choose).not.toHaveBeenCalled();
+  });
+});
+
+// Covers SPEC-037 CA-06 to CA-09 on the study screen.
+describe("TopicStudy matching questions", () => {
+  const matching = challenge("mt", {
+    kind: "THEORETICAL_MATCHING",
+    title: "commands",
+    statement: "<p>Link each command.</p>",
+    solution: undefined,
+    left: [
+      { id: "l1", text: "chmod" },
+      { id: "l2", text: "chown" },
+    ],
+    right: [
+      { id: "r1", text: "owner" },
+      { id: "r2", text: "mode" },
+    ],
+  });
+  const open = async (practice = defaultPractice()) => {
+    const content = { content: vi.fn().mockResolvedValue({ blocks, setup: undefined }), questions: vi.fn().mockResolvedValue([matching]) };
+    setup({ content, practice });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    return practice;
+  };
+
+  it("links the columns, checks on the server and locks with the result of each link", async () => {
+    const practice = defaultPractice();
+    const links = [
+      { left: "l1", right: "r2" },
+      { left: "l2", right: "r1" },
+    ];
+    practice.link.mockResolvedValue({ passed: true, completedAt: "t", pairs: links, results: links.map((l) => ({ ...l, correct: true })) });
+    await open(practice);
+    fireEvent.click(screen.getByRole("button", { name: /^chmod/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^mode/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^chown/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^owner/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Conferir minhas ligações" }));
+    expect(practice.link).toHaveBeenCalledWith("mt", links);
+    expect(await screen.findByText("Você acertou!")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^chmod/ })).toHaveProperty("disabled", true);
+  });
+
+  it("starts locked with the links the student already checked", async () => {
+    const practice = defaultPractice();
+    const links = [
+      { left: "l1", right: "r1" },
+      { left: "l2", right: "r2" },
+    ];
+    practice.progress.mockResolvedValue([
+      { questionId: "mt", completedAt: "t", attempts: 1, response: { links }, passed: false, pairs: [{ left: "l1", right: "r2" }, { left: "l2", right: "r1" }], results: links.map((l) => ({ ...l, correct: false })) },
+    ]);
+    await open(practice);
+    expect(screen.getByText("Você errou.")).toBeInTheDocument();
+    expect(screen.getByText("chmod → mode")).toBeInTheDocument();
+  });
+});
+
+// Covers SPEC-039 CA-02, CA-03 and CA-08 on the study screen.
+describe("TopicStudy descriptive questions", () => {
+  const descriptive = challenge("ds", { kind: "DISCURSIVE", title: "permissions", statement: "<p>Explain chmod 750.</p>", solution: undefined, maxLength: 500 });
+  const open = async (practice = defaultPractice()) => {
+    const content = { content: vi.fn().mockResolvedValue({ blocks, setup: undefined }), questions: vi.fn().mockResolvedValue([descriptive]) };
+    const view = setup({ content, practice });
+    await screen.findByRole("heading", { name: "História do Linux" });
+    fireEvent.click(screen.getByRole("tab", { name: /Desafios/ }));
+    return { practice, view };
+  };
+
+  it("sends the answer once and shows it waiting for the teacher, with the correct answer", async () => {
+    const practice = defaultPractice();
+    practice.write.mockResolvedValue({ passed: false, completedAt: "t", status: "PENDING", expectedAnswer: "<p>Dono rwx.</p>" });
+    await open(practice);
+    expect(screen.getByText("0 de 500 caracteres")).toBeInTheDocument();
+    const dom = await waitFor(() => {
+      const el = document.querySelector("[data-challenge='ds'] .ProseMirror") as (HTMLElement & { editor: { commands: { setContent: (h: string, o: object) => void } } }) | null;
+      if (!el) throw new Error("editor not ready");
+      return el;
+    });
+    act(() => dom.editor.commands.setContent("<p>dono <code>rwx</code></p>", { emitUpdate: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar resposta" }));
+    expect(practice.write).toHaveBeenCalledWith("ds", expect.stringContaining("<p>dono <code>rwx</code></p>"));
+    expect(await screen.findByText("Aguardando correção da professora.")).toBeInTheDocument();
+    expect(screen.getByText("Dono rwx.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enviar resposta" })).toBeNull();
+    expect(screen.getByRole("img", { name: "Aguardando correção" })).toBeInTheDocument();
+  });
+
+  it("starts with the grade the teacher confirmed, as a percentage", async () => {
+    const practice = defaultPractice();
+    practice.progress.mockResolvedValue([
+      { questionId: "ds", completedAt: "t", attempts: 1, response: { html: "<p>dono rwx</p>" }, status: "GRADED", score: 75, studentNote: "Faltou o grupo." },
+    ]);
+    await open(practice);
+    expect(await screen.findByText("Nota: 75% de acerto")).toBeInTheDocument();
+    expect(screen.getByText("Faltou o grupo.")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Corrigida: 75% de acerto" })).toHaveTextContent("75%");
   });
 });

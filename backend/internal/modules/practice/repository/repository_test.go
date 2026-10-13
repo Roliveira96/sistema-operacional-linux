@@ -5,8 +5,10 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +20,7 @@ import (
 	contentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/service"
 	cmrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
 	cmservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/service"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/repository"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/service"
 	userdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/domain"
@@ -102,10 +105,56 @@ func TestPracticeEndToEnd(t *testing.T) {
 
 	var moduleID string
 	require.NoError(t, db.Conn(ctx).Table("questions").Select("module_id").Where("id = ?", question).Scan(&moduleID).Error)
-	progress, err := svc.ModuleProgress(ctx, sid, uuid.MustParse(moduleID))
+	progress, err := svc.ModuleProgress(ctx, uuid.MustParse(moduleID), viewer)
 	require.NoError(t, err)
 	require.Len(t, progress, 1)
 	assert.Equal(t, 3, progress[0].Attempts)
+
+	// SPEC-035: a true or false question of the practice of the same module, answered once (CA-09, CA-10, CA-17).
+	trueFalse := uuid.New()
+	require.NoError(t, db.Conn(ctx).Exec(`INSERT INTO questions (id, module_id, kind, usage, difficulty, status, title, statement, answer_key, explanation, created_at, updated_at)
+        VALUES (?, ?, 'THEORETICAL_BOOLEAN', 'EXERCISE', 'EASY', 'PUBLISHED', 'rm -r', '<p>rm -r removes non-empty directories.</p>', '{"correct":true}', '<p>It is recursive.</p>', NOW(), NOW())`,
+		trueFalse, moduleID).Error)
+	r, err = svc.Submit(ctx, trueFalse, viewer, service.Submission{Response: json.RawMessage(`{"value":false}`)})
+	require.NoError(t, err)
+	assert.False(t, r.Passed)
+	assert.JSONEq(t, "true", string(r.Correct))
+	require.NotNil(t, r.CompletedAt, "D-13: answered is done, right or wrong")
+	_, err = svc.Submit(ctx, trueFalse, viewer, service.Submission{Response: json.RawMessage(`{"value":true}`)})
+	assert.ErrorIs(t, err, service.ErrAlreadyAnswered, "CA-17: the first answer stays")
+
+	progress, err = svc.ModuleProgress(ctx, uuid.MustParse(moduleID), viewer)
+	require.NoError(t, err)
+	require.Len(t, progress, 2)
+	for _, p := range progress {
+		if p.QuestionID == trueFalse {
+			assert.JSONEq(t, `{"value":false}`, string(p.Response))
+			assert.False(t, p.LastPassed)
+			assert.Equal(t, 1, p.Attempts)
+			assert.JSONEq(t, "true", string(p.Correct))
+		}
+	}
+
+	// Two answers at the same time: only one is stored, the other is refused.
+	raced := uuid.New()
+	require.NoError(t, db.Conn(ctx).Exec(`INSERT INTO questions (id, module_id, kind, usage, difficulty, status, title, statement, answer_key, created_at, updated_at)
+        VALUES (?, ?, 'THEORETICAL_BOOLEAN', 'EXERCISE', 'EASY', 'PUBLISHED', 'race', '<p>x</p>', '{"correct":false}', NOW(), NOW())`, raced, moduleID).Error)
+	errs := make(chan error, 2)
+	for _, value := range []bool{true, false} {
+		go func(value bool) {
+			p := domain.Progress{ID: uuid.New(), UserID: sid, QuestionID: raced}
+			raw, _ := json.Marshal(map[string]bool{"value": value})
+			p.Answer(raw, !value, time.Now())
+			errs <- repo.SaveResponse(ctx, &p)
+		}(value)
+	}
+	first, second := <-errs, <-errs
+	assert.True(t, (first == nil) != (second == nil), "exactly one answer is stored: %v, %v", first, second)
+	assert.True(t, errors.Is(first, service.ErrAlreadyAnswered) || errors.Is(second, service.ErrAlreadyAnswered))
+
+	// SPEC-035: a dependency is only between practical questions.
+	err = db.Conn(ctx).Exec("UPDATE questions SET depends_on = ? WHERE id = ?", question, trueFalse).Error
+	assert.Error(t, err, "a true or false question cannot depend on another one")
 
 	// CA-06: assessment questions are not served for practice.
 	_, err = svc.Scenario(ctx, id("bas-fac-1"), viewer)

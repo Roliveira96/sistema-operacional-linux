@@ -85,7 +85,7 @@ const renderTab = () =>
       practice={{ topicScenario: vi.fn().mockResolvedValue(null) }}
     />,
   );
-const bankBlock = () => screen.getByRole("region", { name: "Banco de exercícios" });
+const bankBlock = () => screen.getByRole("region", { name: "Banco de questões" });
 const available = () => screen.getByRole("region", { name: "Disponíveis no módulo" });
 const reserved = () => screen.getByRole("region", { name: "Reservados para avaliação" });
 const choose = (block: HTMLElement, title: string, action: string) => {
@@ -97,7 +97,7 @@ const choose = (block: HTMLElement, title: string, action: string) => {
 describe("ModuleExercisesTab", () => {
   it("lists the exercises of the practice in the order of the trail and the reserved ones apart, with marks and who wrote them (CA-01, CA-09)", async () => {
     renderTab();
-    expect(await screen.findByRole("heading", { name: "Banco de exercícios do módulo" })).toBeDefined();
+    expect(await screen.findByRole("heading", { name: "Banco de questões do módulo" })).toBeDefined();
     const list = within(available()).getAllByRole("listitem");
     expect(list).toHaveLength(2);
     expect(list[0]).toHaveTextContent("Primeiro");
@@ -118,14 +118,20 @@ describe("ModuleExercisesTab", () => {
 
   it("creates a question in the bank from each block, already linked to it (CA-17)", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
-    expect(within(available()).getByRole("link", { name: "Criar nova questão" }).getAttribute("href")).toBe("/app/modules/mod-1/exercises/new?link=practice");
-    expect(within(reserved()).getByRole("link", { name: "Criar nova questão" }).getAttribute("href")).toBe("/app/modules/mod-1/exercises/new?link=assessment");
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    // The kind is asked first (SPEC-035 CA-01), then the page opens linked to the block it came from.
+    fireEvent.click(within(available()).getByRole("button", { name: "Criar nova questão" }));
+    fireEvent.click(screen.getByRole("button", { name: "Escolher" }));
+    expect(push).toHaveBeenLastCalledWith("/app/modules/mod-1/exercises/new?link=practice&kind=PRACTICAL");
+    fireEvent.click(within(reserved()).getByRole("button", { name: "Criar nova questão" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Verdadeiro ou falso/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Escolher" }));
+    expect(push).toHaveBeenLastCalledWith("/app/modules/mod-1/exercises/new?link=assessment&kind=THEORETICAL_BOOLEAN");
   });
 
   it("shows every exercise of the bank with where it is linked, and filters them (CA-18)", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     const titles = () => within(bankBlock()).getAllByRole("listitem").map((li) => li.querySelector("a")?.textContent);
     expect(titles()).toEqual(["Primeiro", "Segundo", "Da prova", "Solto"]);
     const rows = within(bankBlock()).getAllByRole("listitem");
@@ -158,7 +164,7 @@ describe("ModuleExercisesTab", () => {
 
   it("moves an exercise in the trail and sends the whole order, then reads the bank again (CA-03)", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     expect((screen.getByRole("button", { name: "Subir Primeiro" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Descer Segundo" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Descer Primeiro" }));
@@ -174,7 +180,7 @@ describe("ModuleExercisesTab", () => {
 
   it("makes an exercise mandatory or optional", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     fireEvent.click(screen.getByRole("checkbox", { name: "Obrigatório: Segundo" }));
     await waitFor(() =>
       expect(service.order).toHaveBeenCalledWith("mod-1", [
@@ -186,7 +192,7 @@ describe("ModuleExercisesTab", () => {
 
   it("adds an exercise of the bank to a block, without it already being there (CA-17)", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     fireEvent.click(within(available()).getByRole("button", { name: "Adicionar do Banco" }));
     const dialog = screen.getByRole("dialog", { name: "Adicionar ao bloco: Disponíveis no módulo" });
     // Already in the practice, or exclusive of the assessment: neither is offered.
@@ -208,7 +214,7 @@ describe("ModuleExercisesTab", () => {
 
   it("closes the window of the bank with the button and with Escape", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     fireEvent.click(within(available()).getByRole("button", { name: "Adicionar do Banco" }));
     fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -219,7 +225,7 @@ describe("ModuleExercisesTab", () => {
 
   it("removes an exercise from a block without deleting it from the bank (CA-17)", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     choose(available(), "Primeiro", "Remover do bloco");
     await waitFor(() => expect(service.links).toHaveBeenCalledWith("mod-1", "a", { practice: false, assessment: false, exclusive: false }, "PUBLISHED"));
     expect(service.remove).not.toHaveBeenCalled();
@@ -230,7 +236,7 @@ describe("ModuleExercisesTab", () => {
 
   it("makes an exercise of the assessment exclusive, and takes it out of the practice, or undoes it (CA-18)", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     expect((screen.getByRole("checkbox", { name: "Exclusivo da avaliação: Da prova" }) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByRole("checkbox", { name: "Exclusivo da avaliação: Segundo" }));
     await waitFor(() => expect(service.links).toHaveBeenCalledWith("mod-1", "b", { practice: false, assessment: true, exclusive: true }, "DRAFT"));
@@ -240,7 +246,7 @@ describe("ModuleExercisesTab", () => {
 
   it("publishes, takes back to draft and opens from the menu of each exercise (CA-03)", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     choose(bankBlock(), "Segundo", "Publicar");
     await waitFor(() => expect(service.links).toHaveBeenCalledWith("mod-1", "b", { practice: true, assessment: true, exclusive: false }, "PUBLISHED"));
     choose(bankBlock(), "Primeiro", "Voltar a rascunho");
@@ -252,14 +258,14 @@ describe("ModuleExercisesTab", () => {
   it("shows the reason when the server refuses (an exercise without conditions cannot be published)", async () => {
     service.links.mockRejectedValueOnce(Object.assign(new Error("x"), { name: "ApiProblemError" }));
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     choose(bankBlock(), "Segundo", "Publicar");
     expect(await screen.findByText("Não foi possível concluir a ação.")).toBeDefined();
   });
 
   it("asks before deleting an exercise from the bank, and warns that the progress of the students goes too (CA-10)", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     choose(bankBlock(), "Solto", "Remover");
     const dialog = screen.getByRole("alertdialog", { name: "Remover" });
     expect(dialog).toHaveTextContent("O progresso dos alunos nele também é apagado");
@@ -273,7 +279,7 @@ describe("ModuleExercisesTab", () => {
 
   it("keeps a single environment for the whole bank and saves it (CA-04)", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     const save = screen.getByRole("button", { name: "Salvar ambiente" }) as HTMLButtonElement;
     expect(save.disabled).toBe(true);
     expect(screen.getByDisplayValue("mkdir /treino")).toBeDefined();
@@ -291,7 +297,7 @@ describe("ModuleExercisesTab", () => {
   it("opens the test of the bank with the snapshot of the module and the one of the bank", async () => {
     sandbox.create.mockResolvedValue({ sandbox: null, conflicts: [{ layer: { label: "Módulo" }, step: { command: "mkdir /x" } }], destroy: vi.fn() });
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
     fireEvent.click(screen.getByRole("button", { name: /Testar Banco de Exercícios/ }));
     expect(await screen.findByRole("dialog", { name: "Teste do banco de exercícios" })).toBeDefined();
     await waitFor(() => expect(sandbox.create).toHaveBeenCalled());
@@ -303,8 +309,14 @@ describe("ModuleExercisesTab", () => {
 
   it("creates a question in the bank with no block from the bank list", async () => {
     renderTab();
-    await screen.findByRole("heading", { name: "Banco de exercícios do módulo" });
-    expect(within(bankBlock()).getByRole("link", { name: "Criar nova questão" }).getAttribute("href")).toBe("/app/modules/mod-1/exercises/new");
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    fireEvent.click(within(bankBlock()).getByRole("button", { name: "Criar nova questão" }));
+    expect(screen.getByRole("dialog", { name: "Que tipo de questão?" })).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("dialog", { name: "Que tipo de questão?" })).toBeNull();
+    fireEvent.click(within(bankBlock()).getByRole("button", { name: "Criar nova questão" }));
+    fireEvent.click(screen.getByRole("button", { name: "Escolher" }));
+    expect(push).toHaveBeenLastCalledWith("/app/modules/mod-1/exercises/new?kind=PRACTICAL");
   });
 
   it("says so when the bank cannot be loaded, and tries again", async () => {
@@ -312,6 +324,84 @@ describe("ModuleExercisesTab", () => {
     renderTab();
     expect(await screen.findByText("Não foi possível carregar os exercícios do módulo.")).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
-    expect(await screen.findByRole("heading", { name: "Banco de exercícios do módulo" })).toBeDefined();
+    expect(await screen.findByRole("heading", { name: "Banco de questões do módulo" })).toBeDefined();
+  });
+});
+
+// Covers SPEC-036 CA-01 and CA-06 of SPEC-035 for the new kind: the bank shows and filters the single choice questions.
+describe("ModuleExercisesTab with single choice questions", () => {
+  it("shows how many alternatives and whether the correct one is marked, and filters by the kind", async () => {
+    const single = (id: string, title: string, correctChoice: string | null) =>
+      item(id, title, {
+        exercise: {
+          ...item(id, title).exercise,
+          kind: "THEORETICAL_SINGLE",
+          choices: [
+            { id: "a", html: "<p>a</p>" },
+            { id: "b", html: "<p>b</p>" },
+            { id: "c", html: "<p>c</p>" },
+          ],
+          correctChoice,
+          conditions: [],
+          solution: undefined,
+        },
+      });
+    service.bank.mockResolvedValue({ items: [item("p", "Prática"), single("s1", "Escolha", "b"), single("s2", "Sem correta", null)] });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    const rows = within(bankBlock()).getAllByRole("listitem");
+    expect(rows[1]).toHaveTextContent("Escolha única · Fácil · 1 dica · 3 alternativas · correta marcada");
+    expect(rows[2]).toHaveTextContent("3 alternativas · falta marcar a correta");
+    fireEvent.change(within(bankBlock()).getByRole("combobox"), { target: { value: "THEORETICAL_SINGLE" } });
+    expect(within(bankBlock()).getAllByRole("listitem")).toHaveLength(2);
+    fireEvent.click(within(bankBlock()).getByRole("button", { name: "Criar nova questão" }));
+    expect(screen.getByRole("radio", { name: /Escolha única/ })).toBeDefined();
+  });
+});
+
+// Covers SPEC-037 CA-01 in the bank: the matching questions show how many pairs and whether they are marked.
+describe("ModuleExercisesTab with matching questions", () => {
+  it("shows the pairs of a matching question", async () => {
+    const matching = (id: string, title: string, pairs: { left: string; right: string }[]) =>
+      item(id, title, {
+        exercise: {
+          ...item(id, title).exercise,
+          kind: "THEORETICAL_MATCHING",
+          left: [{ id: "l1", text: "a" }, { id: "l2", text: "b" }],
+          right: [{ id: "r1", text: "c" }, { id: "r2", text: "d" }],
+          pairs,
+          conditions: [],
+          solution: undefined,
+        },
+      });
+    service.bank.mockResolvedValue({ items: [matching("m1", "Ligar", [{ left: "l1", right: "r1" }, { left: "l2", right: "r2" }]), matching("m2", "Sem pares", [])] });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    const rows = within(bankBlock()).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Ligar colunas · Fácil · 1 dica · 2 pares · pares marcados");
+    expect(rows[1]).toHaveTextContent("2 pares · falta marcar os pares");
+  });
+});
+
+// Covers SPEC-039 CA-01 in the bank: a descriptive question shows its size and whether it has the correct answer, and the bank links to
+// the correction of the answers.
+describe("ModuleExercisesTab with descriptive questions", () => {
+  it("shows the size of the answer and links to the correction", async () => {
+    const descriptive = (id: string, title: string, expectedAnswer: string) =>
+      item(id, title, { exercise: { ...item(id, title).exercise, kind: "DISCURSIVE", expectedAnswer, maxLength: 5000, conditions: [], solution: undefined } });
+    service.bank.mockResolvedValue({ items: [descriptive("d1", "Explique", "<p>rwx</p>"), descriptive("d2", "Sem resposta", "")] });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    const rows = within(bankBlock()).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Descritiva · Fácil · 1 dica · até 5.000 caracteres · com resposta correta");
+    expect(rows[1]).toHaveTextContent("sem resposta correta");
+    expect(screen.getByRole("link", { name: /Corrigir respostas descritivas/ }).getAttribute("href")).toMatch(/\/app\/modules\/.+\/answers$/);
+  });
+
+  it("does not link to the correction without descriptive questions", async () => {
+    service.bank.mockResolvedValue({ items: [item("p1", "Prática")] });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    expect(screen.queryByRole("link", { name: /Corrigir respostas descritivas/ })).toBeNull();
   });
 });

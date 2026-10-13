@@ -3,12 +3,14 @@ package repository_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/repository"
@@ -19,6 +21,7 @@ import (
 	userrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/user/repository"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database/dbtest"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/migrations"
 )
 
 type bankFixture struct {
@@ -272,4 +275,145 @@ func TestExerciseBankForTheStudent(t *testing.T) {
 		titles[i] = q.Title
 	}
 	assert.Equal(t, []string{"C", "A"}, titles, "published and in the practice, in the order of the trail")
+}
+
+// Covers SPEC-035 RN-01, RN-03, RN-05 and CA-04 against PostgreSQL: a true or false question goes through the bank with the service
+// (created as a draft without an answer, saved with it, linked to the practice and published), and the bank lists it with the
+// practical ones. A dependency on it, or from it, is refused.
+func TestExerciseBankTrueFalse(t *testing.T) {
+	f := newBank(t)
+	practical := f.create(t, "Practical", practice)
+	svc := service.NewExercises(f.repo, zap.NewNop())
+	who := service.Actor{UserID: f.teacher.ID, Role: "TEACHER"}
+
+	draft, err := svc.Create(f.ctx, who, f.module.ID, domain.ExerciseInput{Kind: domain.KindTheoreticalBoolean, Title: "TF", Difficulty: "EASY"}, nil, practice)
+	require.NoError(t, err, "a draft may miss the answer")
+	assert.Equal(t, domain.KindTheoreticalBoolean, draft.Kind)
+	assert.Equal(t, 2, draft.Position, "it enters the trail")
+	assert.Nil(t, draft.AnswerKey)
+	assert.Nil(t, draft.ValidationConditions)
+
+	_, err = svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	assert.ErrorIs(t, err, service.ErrExerciseIncomplete)
+
+	yes := true
+	saved, err := svc.Update(f.ctx, who, f.module.ID, draft.ID, domain.ExerciseInput{
+		Title: "TF", Difficulty: "MEDIUM", Statement: "<p>ls lists files.</p>", CorrectAnswer: &yes, Explanation: "<p>It does.</p>",
+	}, nil, draft.UpdatedAt, false)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"correct":true}`, string(saved.AnswerKey))
+	require.NotNil(t, saved.Explanation)
+	assert.Equal(t, "<p>It does.</p>", *saved.Explanation)
+
+	published, err := svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StatusPublished, published.Status)
+	assert.Equal(t, []string{"Practical", "TF"}, f.titles(t))
+
+	ok, err := f.repo.ValidDependency(f.ctx, f.module.ID, &practical.ID, draft.ID)
+	require.NoError(t, err)
+	assert.False(t, ok, "a true or false question is never a predecessor")
+	err = f.db.Conn(f.ctx).Exec("UPDATE questions SET depends_on = ? WHERE id = ?", practical.ID, draft.ID).Error
+	assert.Error(t, err, "nor does it depend on another one")
+
+	// A draft true or false question cannot be published without its answer even by a direct write.
+	err = f.db.Conn(f.ctx).Exec("UPDATE questions SET answer_key = NULL WHERE id = ?", draft.ID).Error
+	assert.Error(t, err)
+
+	require.NoError(t, svc.Delete(f.ctx, who, f.module.ID, draft.ID))
+	assert.Equal(t, []string{"Practical"}, f.titles(t))
+}
+
+// Covers SPEC-036 RN-01 to RN-04 and D-07 against PostgreSQL: a single choice question through the bank, and the database refusing
+// to publish it without the answer key.
+func TestExerciseBankSingleChoice(t *testing.T) {
+	f := newBank(t)
+	svc := service.NewExercises(f.repo, zap.NewNop())
+	who := service.Actor{UserID: f.teacher.ID, Role: "TEACHER"}
+	keep := false
+	draft, err := svc.Create(f.ctx, who, f.module.ID, domain.ExerciseInput{Kind: domain.KindTheoreticalSingle, Title: "chmod", Difficulty: "EASY",
+		Choices: json.RawMessage(`[{"id":"a","html":"chmod"},{"id":"b","html":"chown"}]`), ShuffleChoices: &keep}, nil, practice)
+	require.NoError(t, err, "a draft may miss the correct choice")
+	assert.False(t, draft.ShuffleChoices)
+	assert.Len(t, domain.ReadChoices(draft.Choices), 2)
+
+	_, err = svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	assert.ErrorIs(t, err, service.ErrExerciseIncomplete)
+
+	correct := "b"
+	saved, err := svc.Update(f.ctx, who, f.module.ID, draft.ID, domain.ExerciseInput{Title: "chmod", Difficulty: "EASY", Statement: "<p>Which one?</p>",
+		Choices: json.RawMessage(`[{"id":"b","html":"chown"},{"id":"a","html":"chmod"}]`), CorrectChoice: &correct}, nil, draft.UpdatedAt, false)
+	require.NoError(t, err)
+	assert.True(t, saved.ShuffleChoices, "without the option it shuffles")
+	got, _ := domain.CorrectChoice(saved.AnswerKey)
+	assert.Equal(t, "b", got, "reordering keeps the correct one (CA-05)")
+	_, err = svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	require.NoError(t, err)
+
+	err = f.db.Conn(f.ctx).Exec("UPDATE questions SET answer_key = NULL WHERE id = ?", draft.ID).Error
+	assert.Error(t, err, "a published single choice question keeps its answer key")
+}
+
+// Covers SPEC-036 D-04 and CA-14: migration 00022 converts the single choice questions of the old format with the same correct one,
+// and with the ids the initial load also uses.
+func TestMigrationConvertsTheLegacySingleChoice(t *testing.T) {
+	f := newBank(t)
+	conn := f.db.Conn(f.ctx)
+	id := uuid.New()
+	require.NoError(t, conn.Exec(`INSERT INTO questions (id, module_id, kind, usage, difficulty, status, title, statement, choices, answer_key, created_at, updated_at)
+        VALUES (?, ?, 'THEORETICAL_SINGLE', 'ASSESSMENT', 'EASY', 'PUBLISHED', 'Kernel', 'Which one?', '["Bash","Kernel"]', '{"correct":1}', NOW(), NOW())`, id, f.module.ID).Error)
+	// The table already went through 00022; going back to 00021 and up again runs the conversion on the old format.
+	require.NoError(t, conn.Exec(`UPDATE questions SET choices = '["Bash","Kernel"]', answer_key = '{"correct":1}' WHERE id = ?`, id).Error)
+	sqlUp := migrationUp(t)
+	require.NoError(t, conn.Exec(sqlUp).Error)
+	var row struct {
+		Choices   []byte
+		AnswerKey []byte
+	}
+	require.NoError(t, conn.Raw("SELECT choices, answer_key FROM questions WHERE id = ?", id).Scan(&row).Error)
+	choices := domain.ReadChoices(row.Choices)
+	require.Len(t, choices, 2)
+	assert.Equal(t, domain.LegacyChoiceID(id.String(), 0), choices[0].ID)
+	assert.Equal(t, "Kernel", choices[1].HTML)
+	correct, ok := domain.CorrectChoice(row.AnswerKey)
+	require.True(t, ok)
+	assert.Equal(t, domain.LegacyChoiceID(id.String(), 1), correct)
+}
+
+// migrationUp is the conversion statement of migration 00022, run again over rows written in the old format.
+func migrationUp(t *testing.T) string {
+	t.Helper()
+	raw, err := migrations.FS.ReadFile("00022_single_choice_questions.sql")
+	require.NoError(t, err)
+	text := string(raw)
+	start := strings.Index(text, "UPDATE questions q SET")
+	end := strings.Index(text, "-- +goose Down")
+	require.True(t, start > 0 && end > start)
+	return text[start:end]
+}
+
+// Covers SPEC-037 RN-01 to RN-04 against PostgreSQL: the new kind is accepted by the database, goes through the bank, and a published
+// matching question keeps its pairs.
+func TestExerciseBankMatching(t *testing.T) {
+	f := newBank(t)
+	svc := service.NewExercises(f.repo, zap.NewNop())
+	who := service.Actor{UserID: f.teacher.ID, Role: "TEACHER"}
+	left := json.RawMessage(`[{"id":"l1","text":"chmod"},{"id":"l2","text":"chown"}]`)
+	right := json.RawMessage(`[{"id":"r1","text":"owner"},{"id":"r2","text":"mode"}]`)
+	draft, err := svc.Create(f.ctx, who, f.module.ID, domain.ExerciseInput{Kind: domain.KindTheoreticalMatching, Title: "commands", Difficulty: "EASY",
+		Statement: "<p>Link them.</p>", Left: left, Right: right}, nil, practice)
+	require.NoError(t, err, "a draft may miss the pairs")
+	_, err = svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	assert.ErrorIs(t, err, service.ErrExerciseIncomplete)
+
+	saved, err := svc.Update(f.ctx, who, f.module.ID, draft.ID, domain.ExerciseInput{Title: "commands", Difficulty: "EASY", Statement: "<p>Link them.</p>",
+		Left: left, Right: right, Pairs: json.RawMessage(`[{"left":"l1","right":"r2"},{"left":"l2","right":"r1"}]`)}, nil, draft.UpdatedAt, false)
+	require.NoError(t, err)
+	assert.Len(t, domain.ReadPairs(saved.AnswerKey), 2)
+	published, err := svc.SetLinks(f.ctx, who, f.module.ID, draft.ID, practice, domain.StatusPublished)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StatusPublished, published.Status)
+
+	err = f.db.Conn(f.ctx).Exec("UPDATE questions SET answer_key = NULL WHERE id = ?", draft.ID).Error
+	assert.Error(t, err, "a published matching question keeps its pairs")
 }

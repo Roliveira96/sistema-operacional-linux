@@ -5,6 +5,24 @@ export interface CheckResult {
   completedAt: string | null;
 }
 
+/** The single answer to a true or false question (SPEC-035 RN-06): the result, the correct answer and the justification. */
+export interface AnswerResult {
+  passed: boolean;
+  completedAt: string | null;
+  /** The correct answer of a true or false question. */
+  correctAnswer?: boolean;
+  /** The id of the correct alternative of a single choice question (SPEC-036 RN-05). */
+  correctChoice?: string;
+  /** The correct pairs of a matching question and the result of each link (SPEC-037 RN-06). */
+  pairs?: { left: string; right: string }[];
+  results?: { left: string; right: string; correct: boolean }[];
+  explanation?: string | null;
+  /** PENDING for a descriptive answer, which the teacher grades later (SPEC-039 5). */
+  status?: "PENDING";
+  /** The correct answer of a descriptive question, after the student answered, when the teacher wrote it (SPEC-039 RN-09). */
+  expectedAnswer?: string;
+}
+
 export interface ModuleCheckResult {
   /** Questions met by the machine state. */
   passed: string[];
@@ -16,6 +34,19 @@ export interface ProgressItem {
   questionId: string;
   completedAt: string | null;
   attempts: number;
+  /** An answered true or false question: the answer given, whether it was right, the correct answer and the justification. */
+  response?: { value?: boolean; choice?: string; links?: { left: string; right: string }[]; html?: string };
+  passed?: boolean;
+  correctAnswer?: boolean;
+  correctChoice?: string;
+  pairs?: { left: string; right: string }[];
+  results?: { left: string; right: string; correct: boolean }[];
+  explanation?: string | null;
+  /** A descriptive answer: waiting for the teacher or graded, the percentage, the note to the student and the correct answer (SPEC-039). */
+  status?: "PENDING" | "GRADED";
+  score?: number;
+  studentNote?: string;
+  expectedAnswer?: string;
 }
 
 /** Practice endpoints of SPEC-014. */
@@ -25,10 +56,22 @@ export function createPracticeService(client: HttpClient = httpClient) {
       (await client.get<{ snapshot: unknown }>(`/questions/${encodeURIComponent(questionId)}/scenario`)).snapshot,
     check: (questionId: string, snapshot: unknown) =>
       client.post<CheckResult>(`/questions/${encodeURIComponent(questionId)}/check`, { snapshot }),
+    /** Sends the single answer of the student to a true or false question; a second one is refused with 409 (SPEC-035 RN-08). */
+    answer: (questionId: string, value: boolean) =>
+      client.post<AnswerResult>(`/questions/${encodeURIComponent(questionId)}/check`, { response: { value } }),
+    /** Sends the single answer of the student to a single choice question: the id of the alternative chosen (SPEC-036 RN-06). */
+    choose: (questionId: string, choice: string) =>
+      client.post<AnswerResult>(`/questions/${encodeURIComponent(questionId)}/check`, { response: { choice } }),
+    /** Sends the single answer of the student to a matching question: a link for each item of the left column (SPEC-037 RN-07). */
+    link: (questionId: string, links: { left: string; right: string }[]) =>
+      client.post<AnswerResult>(`/questions/${encodeURIComponent(questionId)}/check`, { response: { links } }),
     /** Machine of the module topic (SPEC-016); null means the default machine. */
     topicScenario: async (moduleId: string) =>
       (await client.get<{ snapshot: unknown }>(`/modules/${encodeURIComponent(moduleId)}/scenario`)).snapshot ?? null,
     /** Checks every challenge of the module against the machine state. */
+    /** Sends the single answer of the student to a descriptive question: text and commands, as html (SPEC-039 RN-03). */
+    write: (questionId: string, html: string) =>
+      client.post<AnswerResult>(`/questions/${encodeURIComponent(questionId)}/check`, { response: { html } }),
     checkModule: (moduleId: string, snapshot: unknown) =>
       client.post<ModuleCheckResult>(`/modules/${encodeURIComponent(moduleId)}/check`, { snapshot }),
     progress: async (moduleId: string) =>

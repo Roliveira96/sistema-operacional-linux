@@ -17,10 +17,13 @@ import {
   type ExerciseHint,
 } from "@/lib/exercises";
 import { newId } from "@/lib/newId";
+import { ANSWER_SIZES, DEFAULT_ANSWER_SIZE, isDiscursive, isMatching, isSingleChoice, MAX_CHOICES, MAX_PAIRS, MIN_CHOICES, MIN_PAIRS, usesTerminal } from "@/lib/questionKinds";
 import type { SetupLayer } from "@/lib/setup";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
+import { contentAuthoringService } from "@/services/contentAuthoringService";
 
 const m = authoringMessages.builder.exercises;
+const k = authoringMessages.questionKinds;
 
 interface ExerciseFormProps {
   exercise: Exercise;
@@ -32,6 +35,8 @@ interface ExerciseFormProps {
   errors: CardErrors;
   /** Shown in the labels, so two forms on a screen can be told apart. */
   number?: number;
+  /** Sends an image of the description or of the justification (SPEC-025, SPEC-035 D-12). */
+  uploadImage?: (file: File) => Promise<{ url: string }>;
 }
 
 /**
@@ -45,6 +50,7 @@ export function ExerciseForm({
   loadBase,
   errors,
   number = 1,
+  uploadImage = contentAuthoringService.uploadImage,
 }: ExerciseFormProps) {
   return (
     <div className={styles.form}>
@@ -93,6 +99,7 @@ export function ExerciseForm({
           label={`${m.description} (${number})`}
           value={ex.description}
           onChange={(description) => onChange({ description })}
+          uploadImage={uploadImage}
         />
       </div>
 
@@ -102,6 +109,354 @@ export function ExerciseForm({
         onChange={(hints) => onChange({ hints })}
       />
 
+      {isDiscursive(ex.kind) ? (
+        <DiscursiveParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
+      ) : isMatching(ex.kind) ? (
+        <MatchingParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
+      ) : isSingleChoice(ex.kind) ? (
+        <ChoiceParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
+      ) : usesTerminal(ex.kind) ? (
+        <TerminalParts exercise={ex} onChange={onChange} before={before} loadBase={loadBase} number={number} />
+      ) : (
+        <TrueFalseParts exercise={ex} onChange={onChange} number={number} uploadImage={uploadImage} />
+      )}
+    </div>
+  );
+}
+
+/** The two columns of a matching question, each in its own order, the pair the teacher selects for each item of the left column, and the
+ * order for the student (SPEC-037 D-09, D-10). */
+function MatchingParts({
+  exercise: ex,
+  onChange,
+  number,
+  uploadImage,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  number: number;
+  uploadImage: (file: File) => Promise<{ url: string }>;
+}) {
+  const left = ex.left ?? [];
+  const right = ex.right ?? [];
+  const pairs = ex.pairs ?? [];
+  const pairOf = (leftId: string) => pairs.find((p) => p.left === leftId)?.right ?? "";
+  const setPair = (leftId: string, rightId: string) =>
+    onChange({ pairs: [...pairs.filter((p) => p.left !== leftId), ...(rightId ? [{ left: leftId, right: rightId }] : [])] });
+  const column = (side: "left" | "right") => {
+    const items = side === "left" ? left : right;
+    const set = (next: typeof items) => onChange(side === "left" ? { left: next } : { right: next });
+    const sideName = side === "left" ? k.left : k.right;
+    return (
+      <ol className={styles.fileList} aria-label={`${side === "left" ? k.leftColumn : k.rightColumn} (${number})`}>
+        {items.map((it, i) => (
+          <li key={it.id} className={styles.exerciseRow}>
+            <div className={styles.exerciseBody}>
+              <input
+                className={styles.input}
+                aria-label={side === "left" ? k.leftItem(i + 1) : k.rightItem(i + 1)}
+                value={it.text}
+                maxLength={200}
+                onChange={(e) => set(items.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
+              />
+              {side === "left" && (
+                <select className={styles.input} aria-label={k.pairOf(i + 1)} value={pairOf(it.id)} onChange={(e) => setPair(it.id, e.target.value)}>
+                  <option value="">{k.choosePair}</option>
+                  {right
+                    .filter((r) => r.id === pairOf(it.id) || !pairs.some((p) => p.right === r.id))
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.text.trim() || k.rightItem(right.indexOf(r) + 1)}
+                      </option>
+                    ))}
+                </select>
+              )}
+            </div>
+            <div className={styles.tools}>
+              <button type="button" className={styles.small} onClick={() => set(move(items, i, i - 1))} disabled={i === 0} aria-label={k.itemUp(sideName, i + 1)}>
+                ↑
+              </button>
+              <button type="button" className={styles.small} onClick={() => set(move(items, i, i + 1))} disabled={i === items.length - 1} aria-label={k.itemDown(sideName, i + 1)}>
+                ↓
+              </button>
+            </div>
+          </li>
+        ))}
+      </ol>
+    );
+  };
+  const removeLast = (index: number) => {
+    const gone = { left: left[index]?.id, right: right[index]?.id };
+    onChange({
+      left: left.filter((_, j) => j !== index),
+      right: right.filter((_, j) => j !== index),
+      pairs: pairs.filter((p) => p.left !== gone.left && p.right !== gone.right),
+    });
+  };
+  return (
+    <>
+      <div className={styles.group}>
+        <div className={styles.titleRow}>
+          <h4 className={styles.groupTitle}>{`${k.columnsTitle} (${number})`}</h4>
+          <InfoTip topic={k.columnsTitle}>{k.columnsHelp}</InfoTip>
+        </div>
+        <div className={styles.columns}>
+          {column("left")}
+          {column("right")}
+        </div>
+        <div className={styles.tools}>
+          {left.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              className={styles.small}
+              onClick={() => removeLast(i)}
+              disabled={left.length <= MIN_PAIRS}
+              aria-label={k.itemRemove(i + 1)}
+            >
+              ✕ {i + 1}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={styles.add}
+          onClick={() => onChange({ left: [...left, { id: newId(), text: "" }], right: [...right, { id: newId(), text: "" }] })}
+          disabled={left.length >= MAX_PAIRS}
+        >
+          {k.addPair}
+        </button>
+        <label className={styles.check}>
+          <input type="checkbox" checked={ex.shuffleChoices !== false} onChange={(e) => onChange({ shuffleChoices: e.target.checked })} />
+          {k.shuffleColumns}
+          <InfoTip topic={k.shuffleColumns}>{k.shuffleColumnsHelp}</InfoTip>
+        </label>
+      </div>
+      <div className={styles.field}>
+        <div className={styles.labelRow}>
+          <span className={styles.label}>{`${k.explanation} (${number})`}</span>
+          <InfoTip topic={k.explanation}>{k.explanationHelp}</InfoTip>
+        </div>
+        <RichTextEditor
+          label={`${k.explanation} (${number})`}
+          value={ex.explanation ?? ""}
+          onChange={(explanation) => onChange({ explanation })}
+          uploadImage={uploadImage}
+        />
+      </div>
+      <p className={styles.hint}>{k.noTerminalPage}</p>
+    </>
+  );
+}
+
+/** The alternatives of a single choice question, the only correct one, the order for the student and the justification (SPEC-036). */
+function ChoiceParts({
+  exercise: ex,
+  onChange,
+  number,
+  uploadImage,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  number: number;
+  uploadImage: (file: File) => Promise<{ url: string }>;
+}) {
+  const choices = ex.choices ?? [];
+  const set = (next: typeof choices) => onChange({ choices: next });
+  const name = `correct-choice-${number}`;
+  return (
+    <>
+      <div className={styles.group}>
+        <div className={styles.titleRow}>
+          <h4 className={styles.groupTitle}>{`${k.choices} (${number})`}</h4>
+          <InfoTip topic={k.choices}>{k.choicesHelp}</InfoTip>
+        </div>
+        <ol className={styles.fileList} aria-label={`${k.choices} (${number})`}>
+          {choices.map((choice, i) => (
+            <li key={choice.id} className={styles.exerciseRow}>
+              <span className={styles.exerciseNumber} aria-hidden="true">
+                {String.fromCharCode(65 + i)}
+              </span>
+              <div className={styles.exerciseBody}>
+                <RichTextEditor
+                  label={k.choice(i + 1)}
+                  value={choice.html}
+                  onChange={(html) => set(choices.map((c, j) => (j === i ? { ...c, html } : c)))}
+                  uploadImage={uploadImage}
+                />
+                <label className={styles.check}>
+                  <input
+                    type="radio"
+                    name={name}
+                    checked={ex.correctChoice === choice.id}
+                    onChange={() => onChange({ correctChoice: choice.id })}
+                    aria-label={k.markCorrect(i + 1)}
+                  />
+                  {k.correct}
+                </label>
+              </div>
+              <div className={styles.tools}>
+                <button type="button" className={styles.small} onClick={() => set(move(choices, i, i - 1))} disabled={i === 0} aria-label={k.choiceUp(i + 1)}>
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className={styles.small}
+                  onClick={() => set(move(choices, i, i + 1))}
+                  disabled={i === choices.length - 1}
+                  aria-label={k.choiceDown(i + 1)}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  className={styles.small}
+                  onClick={() =>
+                    onChange({
+                      choices: choices.filter((_, j) => j !== i),
+                      ...(ex.correctChoice === choice.id ? { correctChoice: null } : {}),
+                    })
+                  }
+                  disabled={choices.length <= MIN_CHOICES}
+                  aria-label={k.choiceRemove(i + 1)}
+                >
+                  ✕
+                </button>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <button type="button" className={styles.add} onClick={() => set([...choices, { id: newId(), html: "" }])} disabled={choices.length >= MAX_CHOICES}>
+          {k.addChoice}
+        </button>
+        <label className={styles.check}>
+          <input type="checkbox" checked={ex.shuffleChoices !== false} onChange={(e) => onChange({ shuffleChoices: e.target.checked })} />
+          {k.shuffle}
+          <InfoTip topic={k.shuffle}>{k.shuffleHelp}</InfoTip>
+        </label>
+      </div>
+      <div className={styles.field}>
+        <div className={styles.labelRow}>
+          <span className={styles.label}>{`${k.explanation} (${number})`}</span>
+          <InfoTip topic={k.explanation}>{k.explanationHelp}</InfoTip>
+        </div>
+        <RichTextEditor
+          label={`${k.explanation} (${number})`}
+          value={ex.explanation ?? ""}
+          onChange={(explanation) => onChange({ explanation })}
+          uploadImage={uploadImage}
+        />
+      </div>
+      <p className={styles.hint}>{k.noTerminalPage}</p>
+    </>
+  );
+}
+
+/** The answer of a true or false question and its justification (SPEC-035 RN-03); no terminal, solution nor conditions. */
+function TrueFalseParts({
+  exercise: ex,
+  onChange,
+  number,
+  uploadImage,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  number: number;
+  uploadImage: (file: File) => Promise<{ url: string }>;
+}) {
+  const name = `correct-answer-${number}`;
+  return (
+    <>
+      <fieldset className={styles.group}>
+        <legend className={styles.titleRow}>
+          <span className={styles.groupTitle}>{`${k.correctAnswer} (${number})`}</span>
+          <InfoTip topic={k.correctAnswer}>{k.correctAnswerHelp}</InfoTip>
+        </legend>
+        {[true, false].map((value) => (
+          <label key={String(value)} className={styles.check}>
+            <input type="radio" name={name} checked={ex.correctAnswer === value} onChange={() => onChange({ correctAnswer: value })} />
+            {value ? k.true : k.false}
+          </label>
+        ))}
+      </fieldset>
+      <div className={styles.field}>
+        <div className={styles.labelRow}>
+          <span className={styles.label}>{`${k.explanation} (${number})`}</span>
+          <InfoTip topic={k.explanation}>{k.explanationHelp}</InfoTip>
+        </div>
+        <RichTextEditor
+          label={`${k.explanation} (${number})`}
+          value={ex.explanation ?? ""}
+          onChange={(explanation) => onChange({ explanation })}
+          uploadImage={uploadImage}
+        />
+      </div>
+      <p className={styles.hint}>{k.noTerminalPage}</p>
+    </>
+  );
+}
+
+/** The correct answer that guides the correction and the size of the answer of a descriptive question (SPEC-039 D-03, D-05). */
+function DiscursiveParts({
+  exercise: ex,
+  onChange,
+  number,
+  uploadImage,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  number: number;
+  uploadImage: (file: File) => Promise<{ url: string }>;
+}) {
+  return (
+    <>
+      <div className={styles.field}>
+        <div className={styles.labelRow}>
+          <span className={styles.label}>{`${k.expectedAnswer} (${number})`}</span>
+          <InfoTip topic={k.expectedAnswer}>{k.expectedAnswerHelp}</InfoTip>
+        </div>
+        <RichTextEditor
+          label={`${k.expectedAnswer} (${number})`}
+          value={ex.expectedAnswer ?? ""}
+          onChange={(expectedAnswer) => onChange({ expectedAnswer })}
+          uploadImage={uploadImage}
+        />
+      </div>
+      <Field label={`${k.maxLength} (${number})`} htmlFor={`answer-size-${number}`} info={k.maxLengthHelp}>
+        <select
+          id={`answer-size-${number}`}
+          className={styles.input}
+          value={ex.maxLength ?? DEFAULT_ANSWER_SIZE}
+          onChange={(e) => onChange({ maxLength: Number(e.target.value) })}
+        >
+          {ANSWER_SIZES.map((n) => (
+            <option key={n} value={n}>
+              {n === DEFAULT_ANSWER_SIZE ? k.sizeDefault(n) : k.size(n)}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <p className={styles.hint}>{k.noTerminalPage}</p>
+    </>
+  );
+}
+
+/** The solution done in the terminal and the conditions that say how a practical exercise ends (SPEC-022). */
+function TerminalParts({
+  exercise: ex,
+  onChange,
+  before,
+  loadBase,
+  number,
+}: {
+  exercise: Exercise;
+  onChange: (change: Partial<Exercise>) => void;
+  before: SetupLayer[];
+  loadBase: () => Promise<unknown>;
+  number: number;
+}) {
+  return (
+    <>
       <div className={styles.group}>
         <div className={styles.titleRow}>
           <h4 className={styles.groupTitle}>{m.solutionTitle}</h4>
@@ -137,7 +492,7 @@ export function ExerciseForm({
         index={number - 1}
         onChange={(conditions) => onChange({ conditions })}
       />
-    </div>
+    </>
   );
 }
 

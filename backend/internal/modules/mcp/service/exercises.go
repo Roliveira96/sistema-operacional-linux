@@ -16,32 +16,73 @@ import (
 // ExerciseView is an exercise of the bank of a module.
 type ExerciseView struct {
 	ID         uuid.UUID       `json:"id"`
+	Kind       string          `json:"kind"`
 	Title      string          `json:"title"`
 	Difficulty string          `json:"difficulty"`
 	Statement  string          `json:"statement"`
 	Hints      json.RawMessage `json:"hints"`
 	Solution   json.RawMessage `json:"solution"`
 	Conditions json.RawMessage `json:"conditions"`
-	Practice   bool            `json:"practice"`
-	Assessment bool            `json:"assessment"`
-	Exclusive  bool            `json:"exclusive"`
-	DependsOn  *uuid.UUID      `json:"dependsOn"`
-	Status     string          `json:"status"`
-	Position   int             `json:"position"`
-	Mandatory  bool            `json:"mandatory"`
-	UpdatedAt  time.Time       `json:"updatedAt"`
+	// CorrectAnswer and Explanation belong to a true or false question (SPEC-035 RN-15).
+	CorrectAnswer *bool   `json:"correctAnswer,omitempty"`
+	Explanation   *string `json:"explanation,omitempty"`
+	// Choices, CorrectChoice and ShuffleChoices belong to a single choice question (SPEC-036 RN-10).
+	Choices        []contentdomain.Choice `json:"choices,omitempty"`
+	CorrectChoice  *string                `json:"correctChoice,omitempty"`
+	ShuffleChoices *bool                  `json:"shuffleChoices,omitempty"`
+	// Left, Right and Pairs belong to a matching question (SPEC-037 RN-10).
+	Left  []contentdomain.MatchItem `json:"left,omitempty"`
+	Right []contentdomain.MatchItem `json:"right,omitempty"`
+	Pairs []contentdomain.MatchPair `json:"pairs,omitempty"`
+	// ExpectedAnswer and MaxLength belong to a descriptive question (SPEC-039 RN-01).
+	ExpectedAnswer *string    `json:"expectedAnswer,omitempty"`
+	MaxLength      *int       `json:"maxLength,omitempty"`
+	Practice       bool       `json:"practice"`
+	Assessment     bool       `json:"assessment"`
+	Exclusive      bool       `json:"exclusive"`
+	DependsOn      *uuid.UUID `json:"dependsOn"`
+	Status         string     `json:"status"`
+	Position       int        `json:"position"`
+	Mandatory      bool       `json:"mandatory"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
 }
 
 func exerciseView(r contentservice.ExerciseRecord) ExerciseView {
 	l := r.Links()
 	v := ExerciseView{
-		ID: r.ID, Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: rawOrEmptyList(r.Hints), Conditions: rawOrEmptyList(r.EndConditions),
+		ID: r.ID, Kind: r.Kind, Title: r.Title, Difficulty: r.Difficulty, Statement: r.Statement, Hints: rawOrEmptyList(r.Hints), Conditions: rawOrEmptyList(r.EndConditions),
 		Practice: l.Practice, Assessment: l.Assessment, Exclusive: l.Exclusive, DependsOn: r.DependsOn, Status: r.Status,
 		Position: r.Position, Mandatory: r.Mandatory, UpdatedAt: r.UpdatedAt, Solution: json.RawMessage("null"),
 	}
 	// The solution of what came from the initial load is in another format and is not shown.
 	if len(r.EndConditions) > 0 && len(r.ReferenceSolution) > 0 {
 		v.Solution = r.ReferenceSolution
+	}
+	if correct, ok := contentdomain.BooleanAnswer(r.AnswerKey); ok && r.Kind == contentdomain.KindTheoreticalBoolean {
+		v.CorrectAnswer = &correct
+	}
+	if r.Kind == contentdomain.KindTheoreticalBoolean || r.Kind == contentdomain.KindTheoreticalSingle || r.Kind == contentdomain.KindTheoreticalMatching {
+		v.Explanation = r.Explanation
+	}
+	if r.Kind == contentdomain.KindTheoreticalMatching {
+		if cols, ok := contentdomain.ReadColumns(r.Choices); ok {
+			v.Left, v.Right = cols.Left, cols.Right
+		}
+		v.Pairs = contentdomain.ReadPairs(r.AnswerKey)
+		shuffle := r.ShuffleChoices
+		v.ShuffleChoices = &shuffle
+	}
+	if r.Kind == contentdomain.KindDiscursive {
+		expected, size := contentdomain.ReadDiscursiveKey(r.AnswerKey)
+		v.ExpectedAnswer, v.MaxLength = &expected, &size
+	}
+	if r.Kind == contentdomain.KindTheoreticalSingle {
+		v.Choices = contentdomain.ReadChoices(r.Choices)
+		if correct, ok := contentdomain.CorrectChoice(r.AnswerKey); ok {
+			v.CorrectChoice = &correct
+		}
+		shuffle := r.ShuffleChoices
+		v.ShuffleChoices = &shuffle
 	}
 	return v
 }
@@ -68,14 +109,29 @@ func (l LinksInput) links() contentservice.ExerciseLinks {
 // CreateModuleExerciseInput creates an exercise.
 type CreateModuleExerciseInput struct {
 	ModuleID   string          `json:"moduleId"`
+	Kind       string          `json:"kind,omitempty"`
 	Title      string          `json:"title"`
 	Difficulty string          `json:"difficulty"`
 	Statement  string          `json:"statement,omitempty"`
 	Hints      json.RawMessage `json:"hints,omitempty"`
 	Solution   json.RawMessage `json:"solution,omitempty"`
 	Conditions json.RawMessage `json:"conditions,omitempty"`
-	DependsOn  *string         `json:"dependsOn,omitempty"`
-	Links      LinksInput      `json:"links"`
+	// CorrectAnswer and Explanation are for a THEORETICAL_BOOLEAN question (SPEC-035 RN-15).
+	CorrectAnswer *bool  `json:"correctAnswer,omitempty"`
+	Explanation   string `json:"explanation,omitempty"`
+	// Choices, CorrectChoice and ShuffleChoices are for a THEORETICAL_SINGLE question (SPEC-036 RN-10).
+	Choices        json.RawMessage `json:"choices,omitempty"`
+	CorrectChoice  *string         `json:"correctChoice,omitempty"`
+	ShuffleChoices *bool           `json:"shuffleChoices,omitempty"`
+	// Left, Right and Pairs are for a THEORETICAL_MATCHING question (SPEC-037 RN-10).
+	Left  json.RawMessage `json:"left,omitempty"`
+	Right json.RawMessage `json:"right,omitempty"`
+	Pairs json.RawMessage `json:"pairs,omitempty"`
+	// ExpectedAnswer and MaxLength are for a DISCURSIVE question (SPEC-039 RN-01).
+	ExpectedAnswer string     `json:"expectedAnswer,omitempty"`
+	MaxLength      *int       `json:"maxLength,omitempty"`
+	DependsOn      *string    `json:"dependsOn,omitempty"`
+	Links          LinksInput `json:"links"`
 }
 
 // ExerciseResult is an exercise after a change.
@@ -101,7 +157,10 @@ func (s *Service) CreateModuleExercise(ctx context.Context, c Caller, in CreateM
 		dependsOn = &d
 	}
 	rec, err := s.exercises.Create(ctx, c.actor(), id, contentdomain.ExerciseInput{
-		Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution, Conditions: in.Conditions,
+		Kind: in.Kind, Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution, Conditions: in.Conditions,
+		CorrectAnswer: in.CorrectAnswer, Explanation: in.Explanation, HasDependency: dependsOn != nil,
+		Choices: in.Choices, CorrectChoice: in.CorrectChoice, ShuffleChoices: in.ShuffleChoices,
+		Left: in.Left, Right: in.Right, Pairs: in.Pairs, ExpectedAnswer: in.ExpectedAnswer, MaxLength: in.MaxLength,
 	}, dependsOn, in.Links.links())
 	if err != nil {
 		return ExerciseResult{}, fail(err, fieldContext{root: rootOf(in)})
@@ -132,10 +191,24 @@ type UpdateModuleExerciseInput struct {
 	Hints      json.RawMessage `json:"hints,omitempty"`
 	Solution   json.RawMessage `json:"solution,omitempty"`
 	Conditions json.RawMessage `json:"conditions,omitempty"`
-	DependsOn  json.RawMessage `json:"dependsOn,omitempty"`
-	Links      *LinksInput     `json:"links,omitempty"`
-	UpdatedAt  *string         `json:"updatedAt,omitempty"`
-	Order      []OrderEntry    `json:"order,omitempty"`
+	// CorrectAnswer (null clears it) and Explanation are for a THEORETICAL_BOOLEAN question (SPEC-035 RN-15).
+	CorrectAnswer json.RawMessage `json:"correctAnswer,omitempty"`
+	Explanation   *string         `json:"explanation,omitempty"`
+	// Choices replaces the alternatives, CorrectChoice (null clears it) and ShuffleChoices are for a THEORETICAL_SINGLE question.
+	Choices        json.RawMessage `json:"choices,omitempty"`
+	CorrectChoice  json.RawMessage `json:"correctChoice,omitempty"`
+	ShuffleChoices *bool           `json:"shuffleChoices,omitempty"`
+	// Left, Right and Pairs replace the stored ones of a THEORETICAL_MATCHING question.
+	Left  json.RawMessage `json:"left,omitempty"`
+	Right json.RawMessage `json:"right,omitempty"`
+	Pairs json.RawMessage `json:"pairs,omitempty"`
+	// ExpectedAnswer (an empty string clears it) and MaxLength replace the stored ones of a DISCURSIVE question.
+	ExpectedAnswer *string         `json:"expectedAnswer,omitempty"`
+	MaxLength      *int            `json:"maxLength,omitempty"`
+	DependsOn      json.RawMessage `json:"dependsOn,omitempty"`
+	Links          *LinksInput     `json:"links,omitempty"`
+	UpdatedAt      *string         `json:"updatedAt,omitempty"`
+	Order          []OrderEntry    `json:"order,omitempty"`
 }
 
 // UpdateModuleExerciseResult is the outcome: the exercise, or the fact it was deleted or the trail reordered.
@@ -203,7 +276,9 @@ func (s *Service) UpdateModuleExercise(ctx context.Context, c Caller, in UpdateM
 	case OpUpdate:
 		rec, terr := s.patchExercise(ctx, c, id, exID, exercisePatch{
 			Title: in.Title, Difficulty: in.Difficulty, Statement: in.Statement, Hints: in.Hints, Solution: in.Solution,
-			Conditions: in.Conditions, DependsOn: in.DependsOn, UpdatedAt: in.UpdatedAt,
+			Conditions: in.Conditions, CorrectAnswer: in.CorrectAnswer, Explanation: in.Explanation, DependsOn: in.DependsOn, UpdatedAt: in.UpdatedAt,
+			Choices: in.Choices, CorrectChoice: in.CorrectChoice, ShuffleChoices: in.ShuffleChoices,
+			Left: in.Left, Right: in.Right, Pairs: in.Pairs, ExpectedAnswer: in.ExpectedAnswer, MaxLength: in.MaxLength,
 		}, fc)
 		if terr != nil {
 			return UpdateModuleExerciseResult{}, terr
@@ -218,6 +293,13 @@ func (s *Service) UpdateModuleExercise(ctx context.Context, c Caller, in UpdateM
 type exercisePatch struct {
 	Title, Difficulty, Statement *string
 	Hints, Solution, Conditions  json.RawMessage
+	CorrectAnswer                json.RawMessage
+	Explanation                  *string
+	Choices, CorrectChoice       json.RawMessage
+	ShuffleChoices               *bool
+	Left, Right, Pairs           json.RawMessage
+	ExpectedAnswer               *string
+	MaxLength                    *int
 	DependsOn                    json.RawMessage
 	UpdatedAt                    *string
 }
@@ -229,7 +311,79 @@ func (s *Service) patchExercise(ctx context.Context, c Caller, moduleID, exID uu
 	if err != nil {
 		return contentservice.ExerciseRecord{}, fail(err, fc)
 	}
-	input := contentdomain.ExerciseInput{Title: cur.Title, Difficulty: cur.Difficulty, Statement: cur.Statement, Hints: cur.Hints, Conditions: cur.EndConditions}
+	input := contentdomain.ExerciseInput{Kind: cur.Kind, Title: cur.Title, Difficulty: cur.Difficulty, Statement: cur.Statement, Hints: cur.Hints, Conditions: cur.EndConditions}
+	if correct, ok := contentdomain.BooleanAnswer(cur.AnswerKey); ok {
+		input.CorrectAnswer = &correct
+	}
+	if cur.Explanation != nil {
+		input.Explanation = *cur.Explanation
+	}
+	if len(p.CorrectAnswer) > 0 {
+		input.CorrectAnswer = nil
+		if !isNull(p.CorrectAnswer) {
+			var correct bool
+			if err := json.Unmarshal(p.CorrectAnswer, &correct); err != nil {
+				return contentservice.ExerciseRecord{}, invalid("correctAnswer", string(p.CorrectAnswer), "true, false or null")
+			}
+			input.CorrectAnswer = &correct
+		}
+	}
+	if p.Explanation != nil {
+		input.Explanation = *p.Explanation
+	}
+	if cur.Kind == contentdomain.KindTheoreticalSingle {
+		input.Choices = cur.Choices
+		if correct, ok := contentdomain.CorrectChoice(cur.AnswerKey); ok {
+			input.CorrectChoice = &correct
+		}
+		shuffle := cur.ShuffleChoices
+		input.ShuffleChoices = &shuffle
+	}
+	if cur.Kind == contentdomain.KindTheoreticalMatching {
+		if cols, ok := contentdomain.ReadColumns(cur.Choices); ok {
+			input.Left, _ = json.Marshal(cols.Left)
+			input.Right, _ = json.Marshal(cols.Right)
+		}
+		if pairs := contentdomain.ReadPairs(cur.AnswerKey); len(pairs) > 0 {
+			input.Pairs, _ = json.Marshal(pairs)
+		}
+		shuffle := cur.ShuffleChoices
+		input.ShuffleChoices = &shuffle
+	}
+	if cur.Kind == contentdomain.KindDiscursive {
+		expected, size := contentdomain.ReadDiscursiveKey(cur.AnswerKey)
+		input.ExpectedAnswer, input.MaxLength = expected, &size
+	}
+	if p.ExpectedAnswer != nil {
+		input.ExpectedAnswer = *p.ExpectedAnswer
+	}
+	if p.MaxLength != nil {
+		input.MaxLength = p.MaxLength
+	}
+	for _, f := range []struct {
+		from json.RawMessage
+		to   *json.RawMessage
+	}{{p.Left, &input.Left}, {p.Right, &input.Right}, {p.Pairs, &input.Pairs}} {
+		if len(f.from) > 0 {
+			*f.to = f.from
+		}
+	}
+	if len(p.Choices) > 0 {
+		input.Choices = p.Choices
+	}
+	if len(p.CorrectChoice) > 0 {
+		input.CorrectChoice = nil
+		if !isNull(p.CorrectChoice) {
+			var correct string
+			if err := json.Unmarshal(p.CorrectChoice, &correct); err != nil {
+				return contentservice.ExerciseRecord{}, invalid("correctChoice", string(p.CorrectChoice), "the id of one of the choices, or null")
+			}
+			input.CorrectChoice = &correct
+		}
+	}
+	if p.ShuffleChoices != nil {
+		input.ShuffleChoices = p.ShuffleChoices
+	}
 	// The solution of what came from the initial load is in another format and is not carried over.
 	if len(cur.EndConditions) > 0 {
 		input.Solution = cur.ReferenceSolution
@@ -267,6 +421,7 @@ func (s *Service) patchExercise(ctx context.Context, c Caller, moduleID, exID uu
 			dependsOn = &d
 		}
 	}
+	input.HasDependency = dependsOn != nil
 	var expected time.Time
 	force := p.UpdatedAt == nil
 	if !force {

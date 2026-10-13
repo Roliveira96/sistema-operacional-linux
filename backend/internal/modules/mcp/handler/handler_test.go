@@ -26,6 +26,7 @@ import (
 
 type env struct {
 	f      *mcptest.Fake
+	g      *mcptest.Grading
 	srv    *httptest.Server
 	logs   *observer.ObservedLogs
 	people map[string]authn.Principal
@@ -57,7 +58,8 @@ func start(t *testing.T, withAuth bool) *env {
 		}
 		c.Request = c.Request.WithContext(authn.WithPrincipal(c.Request.Context(), p))
 	}
-	svc := service.New(f, f, mcptest.Exercises{F: f}, mcptest.Versions{F: f}, f, log)
+	e.g = mcptest.NewGrading(f)
+	svc := service.New(f, f, mcptest.Exercises{F: f}, mcptest.Versions{F: f}, f, log).WithGrading(e.g)
 	r := gin.New()
 	handler.New(svc, authenticate, log).Register(r)
 	e.srv = httptest.NewServer(r)
@@ -128,7 +130,7 @@ func TestListsExactlyTheToolsOfTheSpec(t *testing.T) { // CA-01, CA-12, CA-20
 	}
 	want := []string{"list_modules", "get_module", "create_module", "update_module_metadata", "archive_module", "append_content_blocks",
 		"update_content_block", "replace_content_blocks", "set_module_setup", "create_module_exercise", "update_module_exercise",
-		"set_exercise_setup", "validate_module", "list_module_versions"}
+		"set_exercise_setup", "validate_module", "list_module_versions", "list_pending_answers", "get_answer", "suggest_grade"}
 	assert.Len(t, got, len(want))
 	for _, name := range want {
 		require.Contains(t, got, name)
@@ -404,4 +406,30 @@ func TestToolsServeDescriptionOfThePublishRule(t *testing.T) {
 func jsonOf(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+// SPEC-039 RN-04: the agent lists, reads and suggests the grade of a descriptive answer through the server, without the name of the
+// student; another teacher does not see it.
+func TestCorrectionThroughTheTools(t *testing.T) {
+	e := start(t, true)
+	mid := e.f.AddModule(e.people["teacher"].UserID, "m")
+	answer := e.g.AddAnswer(mid, "Permissions", "<p>rwx</p>", "Ana Souza").String()
+	teacher, other := e.connect(t, "teacher"), e.connect(t, "other")
+
+	list := mustOK(t, teacher, "list_pending_answers", obj{"moduleId": mid.String()})
+	require.Len(t, list["items"], 1)
+	assert.Equal(t, answer, list["items"].([]any)[0].(map[string]any)["answerId"])
+
+	got := mustOK(t, teacher, "get_answer", obj{"answerId": answer})
+	assert.Equal(t, "<p>rwx</p>", got["studentAnswer"].(map[string]any)["html"])
+	assert.NotContains(t, jsonOf(got), "Ana")
+
+	mustFail(t, teacher, "suggest_grade", obj{"answerId": answer, "score": 60, "reason": "x"}, "validation-error")
+	out := mustOK(t, teacher, "suggest_grade", obj{"answerId": answer, "score": 75, "reason": "misses the others", "studentNote": "Look at the others."})
+	assert.Equal(t, "SUGGESTED", out["status"])
+	assert.Nil(t, e.g.Answers[uuid.MustParse(answer)].Grade.Score, "a suggestion is never a grade")
+
+	mustFail(t, other, "get_answer", obj{"answerId": answer}, "answer-not-found")
+	mustFail(t, other, "suggest_grade", obj{"answerId": answer, "score": 100, "reason": "x"}, "answer-not-found")
+	mustFail(t, other, "list_pending_answers", obj{"moduleId": mid.String()}, "module-not-found")
 }

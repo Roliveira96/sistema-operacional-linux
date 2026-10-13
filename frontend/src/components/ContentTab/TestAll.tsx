@@ -244,8 +244,10 @@ export function TestAll({
         const bankLayer: SetupLayer[] = hasSetup(bankData.bankSetup)
           ? [{ id: "bank", kind: "card", label: m.bankSnapshot, setup: bankData.bankSetup }]
           : [];
+        // The questions without a terminal run nothing: they are only checked for being complete (SPEC-035 RN-09).
+        const available = [...toTest.practice, ...toTest.withoutTerminal];
         for (const [key, title, exercises, layer] of [
-          ["bank-available", m.bankAvailable, toTest.practice, bankLayer],
+          ["bank-available", m.bankAvailable, available, bankLayer],
           ["bank-assessment", m.bankAssessment, toTest.assessment, bankLayer],
         ] as const) {
           const ran = exerciseTestItems({ items: exercises });

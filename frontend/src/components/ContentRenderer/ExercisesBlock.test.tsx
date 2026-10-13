@@ -119,3 +119,179 @@ describe("ExercisesBlock", () => {
     expect(container.textContent).toBe("");
   });
 });
+
+// Covers SPEC-035 CA-20 and D-14: the true or false exercise of a card, answered once and checked on the screen.
+describe("ExercisesBlock with a true or false exercise", () => {
+  const trueFalse = {
+    items: [
+      {
+        kind: "THEORETICAL_BOOLEAN",
+        title: "rm -r",
+        difficulty: "MEDIUM",
+        description: "<p>rm -r removes non-empty directories.</p>",
+        hints: [{ text: "Think of -r" }],
+        correctAnswer: true,
+        explanation: "<p>It is recursive.</p>",
+      },
+    ],
+  };
+  const checker: ExerciseChecker = { check: () => null };
+  const show = (value: ExerciseChecker | null) =>
+    render(
+      <ExerciseCheckContext.Provider value={value}>
+        <ExercisesBlock payload={trueFalse} />
+      </ExerciseCheckContext.Provider>,
+    );
+
+  it("shows the result at once, locks the answer and keeps it in this browser", () => {
+    show(checker);
+    expect(screen.queryByRole("button", { name: "Verificar meu exercício" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar dica (1 de 1)" }));
+    expect(screen.getByText("Think of -r")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Falso" }));
+    expect(screen.getByText("Você errou.")).toBeDefined();
+    expect(screen.getByText("It is recursive.")).toBeDefined();
+    expect((screen.getByRole("button", { name: "Verdadeiro" }) as HTMLButtonElement).disabled).toBe(true);
+
+    cleanup();
+    show(checker);
+    expect(screen.getByText("Você errou."), "the answer stays locked after reloading").toBeDefined();
+  });
+
+  it("in the preview of the teacher, answers without keeping anything", () => {
+    show(null);
+    fireEvent.click(screen.getByRole("button", { name: "Verdadeiro" }));
+    expect(screen.getByText("Você acertou!")).toBeDefined();
+    cleanup();
+    show(null);
+    expect(screen.queryByText("Você acertou!")).toBeNull();
+  });
+});
+
+// Covers SPEC-036 CA-10, D-03 and D-07: the single choice exercise of a card, answered once and checked on the screen.
+describe("ExercisesBlock with a single choice exercise", () => {
+  const item = (shuffleChoices: boolean) => ({
+    items: [
+      {
+        kind: "THEORETICAL_SINGLE",
+        title: "chmod",
+        difficulty: "EASY",
+        description: "<p>Which one?</p>",
+        hints: [{ text: "Think of mode" }],
+        choices: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ id: `c${n}`, html: `<p>opção ${n}</p>` })),
+        correctChoice: "c1",
+        shuffleChoices,
+        explanation: "<p>Because.</p>",
+      },
+    ],
+  });
+  const checker: ExerciseChecker = { check: () => null };
+  const show = (payload: Record<string, unknown>, value: ExerciseChecker | null = checker) =>
+    render(
+      <ExerciseCheckContext.Provider value={value}>
+        <ExercisesBlock payload={payload} />
+      </ExerciseCheckContext.Provider>,
+    );
+  const order = () => screen.getAllByRole("button", { name: /opção/ }).map((b) => b.textContent?.match(/opção (\d)/)?.[1]).join("");
+
+  it("keeps the order of the teacher when asked, and shuffles it otherwise", () => {
+    show(item(false));
+    expect(order()).toBe("1234567");
+    cleanup();
+    const seen = new Set<string>();
+    for (let i = 0; i < 10; i++) {
+      show(item(true));
+      seen.add(order());
+      cleanup();
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it("shows the result at once, locks the answer and keeps it in this browser", () => {
+    show(item(false));
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar dica (1 de 1)" }));
+    expect(screen.getByText("Think of mode")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /opção 3/ }));
+    expect(screen.getByText("Você errou.")).toBeDefined();
+    expect(screen.getByText("Because.")).toBeDefined();
+    cleanup();
+    show(item(false));
+    expect(screen.getByText("Você errou."), "locked after reloading").toBeDefined();
+  });
+
+  it("in the preview of the teacher, answers without keeping anything", () => {
+    show(item(false), null);
+    fireEvent.click(screen.getByRole("button", { name: /opção 1/ }));
+    expect(screen.getByText("Você acertou!")).toBeDefined();
+    cleanup();
+    show(item(false), null);
+    expect(screen.queryByText("Você acertou!")).toBeNull();
+  });
+});
+
+// Covers SPEC-037 CA-11 and D-10: the matching exercise of a card, checked on the screen and locked in this browser.
+describe("ExercisesBlock with a matching exercise", () => {
+  const payload = (shuffleChoices: boolean) => ({
+    items: [
+      {
+        kind: "THEORETICAL_MATCHING",
+        title: "commands",
+        difficulty: "EASY",
+        left: [1, 2, 3, 4, 5].map((n) => ({ id: `l${n}`, text: `cmd ${n}` })),
+        right: [1, 2, 3, 4, 5].map((n) => ({ id: `r${n}`, text: `what ${n}` })),
+        pairs: [1, 2, 3, 4, 5].map((n) => ({ left: `l${n}`, right: `r${n}` })),
+        shuffleChoices,
+        hints: [{ text: "Think" }],
+      },
+    ],
+  });
+  const checker: ExerciseChecker = { check: () => null };
+  const show = (p: Record<string, unknown>, value: ExerciseChecker | null = checker) =>
+    render(
+      <ExerciseCheckContext.Provider value={value}>
+        <ExercisesBlock payload={p} />
+      </ExerciseCheckContext.Provider>,
+    );
+  const order = () => screen.getAllByRole("button", { name: /^what/ }).map((b) => b.textContent?.match(/what (\d)/)?.[1]).join("");
+
+  it("keeps the order of the teacher when asked, and shuffles it otherwise", () => {
+    show(payload(false));
+    expect(order()).toBe("12345");
+    cleanup();
+    const seen = new Set<string>();
+    for (let i = 0; i < 10; i++) {
+      show(payload(true));
+      seen.add(order());
+      cleanup();
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it("checks the links on the screen and keeps the answer locked", () => {
+    show(payload(false));
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar dica (1 de 1)" }));
+    for (let n = 1; n <= 5; n++) {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^cmd ${n}`) }));
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^what ${n === 1 ? 2 : n === 2 ? 1 : n}`) }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Conferir minhas ligações" }));
+    expect(screen.getByText("Você errou.")).toBeDefined();
+    expect(screen.getAllByText("ligação errada")).toHaveLength(2);
+    cleanup();
+    show(payload(false));
+    expect(screen.getByText("Você errou."), "locked after reloading").toBeDefined();
+  });
+
+  it("in the preview of the teacher, checks without keeping anything", () => {
+    show(payload(false), null);
+    for (let n = 1; n <= 5; n++) {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^cmd ${n}`) }));
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^what ${n}`) }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Conferir minhas ligações" }));
+    expect(screen.getByText("Você acertou!")).toBeDefined();
+    cleanup();
+    show(payload(false), null);
+    expect(screen.queryByText("Você acertou!")).toBeNull();
+  });
+});

@@ -6,7 +6,7 @@ import styles from "./CardBuilder.module.scss";
 const m = authoringMessages.builder;
 
 const reasonText = (reason: string) => {
-  const known: Record<string, string> = { required: m.required, https: m.https, image: m.description.image.required, "image-pending": m.description.image.pending, "image-limit": m.description.image.limit, youtube: m.youtube, url: m.url, "needs-title": m.setup.needsTitleError, "hint-required": m.exercises.hintRequired, "files-invalid": m.setup.filesInvalid };
+  const known: Record<string, string> = { required: m.required, https: m.https, image: m.description.image.required, "image-pending": m.description.image.pending, "image-limit": m.description.image.limit, youtube: m.youtube, url: m.url, "needs-title": m.setup.needsTitleError, "hint-required": m.exercises.hintRequired, "answer-required": authoringMessages.questionKinds.answerRequired, "choice-required": authoringMessages.questionKinds.choiceRequired, "pairs-required": authoringMessages.questionKinds.pairsRequired, "files-invalid": m.setup.filesInvalid };
   return known[reason] ?? reason;
 };
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"math/rand/v2"
 	"strings"
 	"time"
 
@@ -90,6 +91,11 @@ type PublicQuestion struct {
 	// ChainSetups is the recipe of the exercises this one depends on, the oldest first: the solutions (commands and files) the
 	// screen replays to build its machine (SPEC-023 D-16, D-20).
 	ChainSetups json.RawMessage `json:"chainSetups,omitempty"`
+	// Left and Right are the columns of a matching question, without the pairs, in the order of the teacher or shuffled (SPEC-037 RN-05).
+	Left  json.RawMessage `json:"left,omitempty"`
+	Right json.RawMessage `json:"right,omitempty"`
+	// MaxLength is the size of the answer of a descriptive question, in characters of text (SPEC-039 D-05).
+	MaxLength *int `json:"maxLength,omitempty"`
 }
 
 // TeacherQuestion is the full view for the module owner and admins.
@@ -309,7 +315,58 @@ func publicView(q domain.Question, all map[uuid.UUID]domain.Question) PublicQues
 	if q.Kind != domain.KindPractical && q.Kind != domain.KindDiscursive {
 		p.Choices = q.Choices
 	}
+	// A question of the bank without a terminal shows its tips like an exercise of the editor, and never its answer key nor its
+	// justification, which only come after the student answers (SPEC-035 RN-06, RN-10).
+	if q.Kind == domain.KindTheoreticalBoolean || q.Kind == domain.KindTheoreticalSingle || q.Kind == domain.KindTheoreticalMatching || q.Kind == domain.KindDiscursive {
+		p.Hint = hintsHTML(q.Hints)
+	}
+	switch q.Kind {
+	case domain.KindDiscursive:
+		_, size := domain.ReadDiscursiveKey(q.AnswerKey)
+		p.MaxLength = &size
+	case domain.KindTheoreticalSingle:
+		p.Choices = publicChoices(q)
+	case domain.KindTheoreticalMatching:
+		p.Choices = nil
+		p.Left, p.Right = publicColumns(q)
+	}
 	return p
+}
+
+// publicChoices gives the student the alternatives of a single choice question, with their ids and html and never the correct one,
+// shuffled when the teacher asked for it (SPEC-036 RN-07, D-07). Nil when the question has none in the format of SPEC-036.
+func publicChoices(q domain.Question) json.RawMessage {
+	choices := domain.ReadChoices(q.Choices)
+	if choices == nil {
+		return nil
+	}
+	if q.ShuffleChoices {
+		rand.Shuffle(len(choices), func(i, j int) { choices[i], choices[j] = choices[j], choices[i] })
+	}
+	out, err := json.Marshal(choices)
+	if err != nil {
+		return nil
+	}
+	return out
+}
+
+// publicColumns gives the student the two columns of a matching question, never the pairs, shuffled when the teacher asked for it
+// (SPEC-037 RN-05, D-10). Nil when the question has no columns.
+func publicColumns(q domain.Question) (json.RawMessage, json.RawMessage) {
+	cols, ok := domain.ReadColumns(q.Choices)
+	if !ok {
+		return nil, nil
+	}
+	if q.ShuffleChoices {
+		rand.Shuffle(len(cols.Left), func(i, j int) { cols.Left[i], cols.Left[j] = cols.Left[j], cols.Left[i] })
+		rand.Shuffle(len(cols.Right), func(i, j int) { cols.Right[i], cols.Right[j] = cols.Right[j], cols.Right[i] })
+	}
+	left, errLeft := json.Marshal(cols.Left)
+	right, errRight := json.Marshal(cols.Right)
+	if errLeft != nil || errRight != nil {
+		return nil, nil
+	}
+	return left, right
 }
 
 // chainSetups collects the solutions of the exercises `q` depends on, the oldest first, walking the dependencies up; nil when it
@@ -414,6 +471,25 @@ func (r *Reader) PracticeItem(ctx context.Context, questionID uuid.UUID, v Viewe
 		return PracticeItem{}, err
 	}
 	return PracticeItem{QuestionID: q.ID, ModuleID: q.ModuleID, Snapshot: scenario.Snapshot, Conditions: conditions}, nil
+}
+
+// ExerciseQuestion returns a published question of the practice of a module, of any kind of the bank, that the viewer can access
+// (SPEC-035 RN-06). It carries the answer key, so it is for grading on the server only.
+func (r *Reader) ExerciseQuestion(ctx context.Context, questionID uuid.UUID, v Viewer) (domain.Question, error) {
+	q, err := r.store.FindQuestion(ctx, questionID)
+	if errors.Is(err, ErrNotFound) {
+		return domain.Question{}, ErrQuestionNotFound
+	}
+	if err != nil {
+		return domain.Question{}, err
+	}
+	if _, ok := domain.TypeOf(q.Kind); !ok || q.Usage != domain.UsageExercise || q.Status != domain.StatusPublished || q.ExclusiveAssessment {
+		return domain.Question{}, ErrQuestionNotFound
+	}
+	if _, err := r.module(ctx, q.ModuleID, v); err != nil {
+		return domain.Question{}, err
+	}
+	return q, nil
 }
 
 // TopicScenario returns the prepared machine of the module topic (SPEC-016

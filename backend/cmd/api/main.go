@@ -196,11 +196,15 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		log.Warn("MCP runs without login as a local development user", zap.String("email", email))
 		bearer.DevUser = func(ctx context.Context) (authn.Principal, error) { return auth.DevPrincipal(ctx, email) }
 	}
+	practiceRepo := practicerepository.New(db)
+	// The correction of descriptive answers (SPEC-039): the teacher confirms on the web, the agent suggests through the MCP.
+	grading := practiceservice.NewGrading(practiceRepo, contentExercises)
+	gradingHandler := practicehandler.NewGrading(grading, auth)
 	mcpHandler := mcphandler.New(
-		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log),
+		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log).WithGrading(grading),
 		authn.RequiredBearerWith(auth, bearer), log)
 	practiceHandler := practicehandler.New(
-		practiceservice.New(contentReader, practicerepository.New(db)), auth,
+		practiceservice.New(contentReader, practiceRepo), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
 
 	ttsHandler := ttshandler.New(
@@ -237,6 +241,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		contentExerciseHandler,
 		contentImageHandler,
 		practiceHandler,
+		gradingHandler,
 		ttsHandler,
 		studentHandler,
 	)

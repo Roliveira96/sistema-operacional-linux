@@ -38,7 +38,7 @@ type fakeBank struct {
 
 func newFakeBank() *fakeBank {
 	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
-	q := domain.Question{ID: uuid.New(), Title: "Criar", Difficulty: "EASY", Usage: domain.UsageExercise, InAssessment: true, Status: domain.StatusPublished, UpdatedAt: now, CreatedAt: now,
+	q := domain.Question{ID: uuid.New(), Kind: domain.KindPractical, Title: "Criar", Difficulty: "EASY", Usage: domain.UsageExercise, InAssessment: true, Status: domain.StatusPublished, UpdatedAt: now, CreatedAt: now,
 		CreatedByName: "Ana", UpdatedByName: "Ana", Hints: json.RawMessage(`[{"text":"dica"}]`),
 		EndConditions: json.RawMessage(`[{"kind":"DIR_EXISTS","path":"/a"}]`), ReferenceSolution: json.RawMessage(`{"steps":[{"command":"mkdir /a"}]}`)}
 	return &fakeBank{record: service.ExerciseRecord{Question: q, Position: 1, Mandatory: true}}
@@ -46,7 +46,7 @@ func newFakeBank() *fakeBank {
 
 func (f *fakeBank) List(_ context.Context, who service.Actor, _ uuid.UUID) (service.ExerciseBank, error) {
 	f.who = who
-	legacy := service.ExerciseRecord{Question: domain.Question{ID: uuid.New(), Title: "Antigo", ReferenceSolution: json.RawMessage(`[{"command":"ls"}]`), Usage: domain.UsageAssessment}}
+	legacy := service.ExerciseRecord{Question: domain.Question{ID: uuid.New(), Kind: domain.KindPractical, Title: "Antigo", ReferenceSolution: json.RawMessage(`[{"command":"ls"}]`), Usage: domain.UsageAssessment}}
 	return service.ExerciseBank{Items: []service.ExerciseRecord{f.record, legacy}, BankSetup: json.RawMessage(`{"steps":[]}`)}, f.err
 }
 
@@ -221,4 +221,136 @@ func TestExerciseHandler_Errors(t *testing.T) {
 		code, _ = bankCall(t, f, student, 100, http.MethodGet, path, "")
 		assert.Equal(t, http.StatusForbidden, code)
 	})
+}
+
+func trueFalseRecord() service.ExerciseRecord {
+	why := "<p>It is recursive.</p>"
+	return service.ExerciseRecord{Question: domain.Question{ID: uuid.New(), Kind: domain.KindTheoreticalBoolean, Title: "rm -r", Difficulty: "EASY",
+		Statement: "<p>Yes?</p>", AnswerKey: json.RawMessage(`{"correct":false}`), Explanation: &why, Usage: domain.UsageExercise}}
+}
+
+// Covers SPEC-035 5.1, CA-02 and CA-06: the teacher sees the kind, the answer key and the justification, and filters the bank by kind.
+func TestExerciseHandler_TrueFalse(t *testing.T) {
+	f := newFakeBank()
+	f.record = trueFalseRecord()
+	code, body := bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath(""), "")
+	require.Equal(t, http.StatusOK, code)
+	items := body["items"].([]any)
+	require.Len(t, items, 2)
+	tf := items[0].(map[string]any)
+	assert.Equal(t, "THEORETICAL_BOOLEAN", tf["kind"])
+	assert.Equal(t, false, tf["correctAnswer"])
+	assert.Equal(t, "<p>It is recursive.</p>", tf["explanation"])
+	assert.Equal(t, false, tf["legacy"], "a question without a terminal is never a legacy exercise")
+	assert.NotContains(t, items[1].(map[string]any), "correctAnswer")
+
+	code, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("?kind=THEORETICAL_BOOLEAN"), "")
+	require.Equal(t, http.StatusOK, code)
+	require.Len(t, body["items"].([]any), 1)
+	code, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("?kind=PRACTICAL"), "")
+	require.Equal(t, http.StatusOK, code)
+	require.Len(t, body["items"].([]any), 1)
+	code, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("?kind=THEORETICAL_MULTIPLE"), "")
+	assert.Equal(t, http.StatusBadRequest, code)
+	assert.Equal(t, "validation-error", body["type"])
+
+	dep := uuid.NewString()
+	code, _ = bankCall(t, f, teacher, 100, http.MethodPost, exercisesPath(""),
+		`{"kind":"THEORETICAL_BOOLEAN","title":"rm -r","difficulty":"EASY","correctAnswer":true,"explanation":"<p>x</p>","dependsOn":"`+dep+`"}`)
+	require.Equal(t, http.StatusCreated, code)
+	assert.Equal(t, domain.KindTheoreticalBoolean, f.in.Kind)
+	require.NotNil(t, f.in.CorrectAnswer)
+	assert.True(t, *f.in.CorrectAnswer)
+	assert.Equal(t, "<p>x</p>", f.in.Explanation)
+	assert.True(t, f.in.HasDependency)
+}
+
+// Covers SPEC-035 CA-04 and 5.1: what is missing to publish and the change of kind come back as validation errors with the fields.
+func TestExerciseHandler_TrueFalseErrors(t *testing.T) {
+	f := newFakeBank()
+	f.err = &service.IncompleteError{Fields: []domain.FieldError{{Field: "statement", Reason: "required"}, {Field: "correctAnswer", Reason: "required"}}}
+	code, body := bankCall(t, f, teacher, 100, http.MethodPut, exercisesPath("/"+uuid.NewString()+"/links"), `{"practice":true,"status":"PUBLISHED"}`)
+	require.Equal(t, http.StatusBadRequest, code)
+	assert.Equal(t, "validation-error", body["type"])
+	params := body["invalidParams"].([]any)
+	require.Len(t, params, 2)
+	assert.Equal(t, "statement", params[0].(map[string]any)["name"])
+	assert.Equal(t, "correctAnswer", params[1].(map[string]any)["name"])
+
+	f.err = service.ErrKindChange
+	code, body = bankCall(t, f, teacher, 100, http.MethodPut, exercisesPath("/"+uuid.NewString()), `{"kind":"PRACTICAL","title":"x","difficulty":"EASY","force":true}`)
+	require.Equal(t, http.StatusBadRequest, code)
+	assert.Equal(t, "kind", body["invalidParams"].([]any)[0].(map[string]any)["name"])
+}
+
+// Covers SPEC-036 5.1: the teacher sends and reads the alternatives, the correct one and the option to shuffle.
+func TestExerciseHandler_SingleChoice(t *testing.T) {
+	f := newFakeBank()
+	f.record = service.ExerciseRecord{Question: domain.Question{ID: uuid.New(), Kind: domain.KindTheoreticalSingle, Title: "chmod", Difficulty: "EASY",
+		Choices: json.RawMessage(`[{"id":"a","html":"chmod"},{"id":"b","html":"chown"}]`), AnswerKey: json.RawMessage(`{"correct":"a"}`)}}
+	code, body := bankCall(t, f, teacher, 100, http.MethodPost, exercisesPath(""),
+		`{"kind":"THEORETICAL_SINGLE","title":"chmod","difficulty":"EASY","choices":[{"id":"a","html":"chmod"},{"html":"chown"}],"correctChoice":"a","shuffleChoices":false}`)
+	require.Equal(t, http.StatusCreated, code)
+	assert.Equal(t, domain.KindTheoreticalSingle, f.in.Kind)
+	assert.JSONEq(t, `[{"id":"a","html":"chmod"},{"html":"chown"}]`, string(f.in.Choices))
+	require.NotNil(t, f.in.CorrectChoice)
+	assert.Equal(t, "a", *f.in.CorrectChoice)
+	require.NotNil(t, f.in.ShuffleChoices)
+	assert.False(t, *f.in.ShuffleChoices)
+
+	assert.Equal(t, "a", body["correctChoice"])
+	assert.Equal(t, false, body["shuffleChoices"])
+	assert.Len(t, body["choices"], 2)
+	assert.NotContains(t, body, "correctAnswer")
+
+	f.record.Choices, f.record.AnswerKey = nil, nil
+	code, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("/"+uuid.NewString()), "")
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, []any{}, body["choices"], "a draft without choices shows an empty list")
+	assert.NotContains(t, body, "correctChoice")
+}
+
+// Covers SPEC-037 5.1: the teacher sends and reads the columns, the pairs and the option to shuffle.
+func TestExerciseHandler_Matching(t *testing.T) {
+	f := newFakeBank()
+	f.record = service.ExerciseRecord{Question: domain.Question{ID: uuid.New(), Kind: domain.KindTheoreticalMatching, Title: "commands", Difficulty: "EASY",
+		Choices:   json.RawMessage(`{"left":[{"id":"l1","text":"chmod"}],"right":[{"id":"r1","text":"mode"}]}`),
+		AnswerKey: json.RawMessage(`{"pairs":[{"left":"l1","right":"r1"}]}`), ShuffleChoices: true}}
+	code, body := bankCall(t, f, teacher, 100, http.MethodPost, exercisesPath(""),
+		`{"kind":"THEORETICAL_MATCHING","title":"commands","difficulty":"EASY","left":[{"id":"l1","text":"chmod"}],"right":[{"id":"r1","text":"mode"}],"pairs":[{"left":"l1","right":"r1"}],"shuffleChoices":true}`)
+	require.Equal(t, http.StatusCreated, code)
+	assert.JSONEq(t, `[{"id":"l1","text":"chmod"}]`, string(f.in.Left))
+	assert.JSONEq(t, `[{"id":"r1","text":"mode"}]`, string(f.in.Right))
+	assert.JSONEq(t, `[{"left":"l1","right":"r1"}]`, string(f.in.Pairs))
+	assert.Equal(t, []any{map[string]any{"id": "l1", "text": "chmod"}}, body["left"])
+	assert.Equal(t, []any{map[string]any{"id": "r1", "text": "mode"}}, body["right"])
+	assert.Equal(t, []any{map[string]any{"left": "l1", "right": "r1"}}, body["pairs"])
+	assert.Equal(t, true, body["shuffleChoices"])
+	assert.NotContains(t, body, "choices")
+
+	f.record.Choices, f.record.AnswerKey = nil, nil
+	_, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("/"+uuid.NewString()), "")
+	assert.Equal(t, []any{}, body["left"])
+	assert.Equal(t, []any{}, body["pairs"])
+}
+
+// Covers SPEC-039 5 (bank): the teacher sends and reads the correct answer and the size of a descriptive question.
+func TestExerciseHandler_Discursive(t *testing.T) {
+	f := newFakeBank()
+	f.record = service.ExerciseRecord{Question: domain.Question{ID: uuid.New(), Kind: domain.KindDiscursive, Title: "permissions", Difficulty: "MEDIUM",
+		AnswerKey: json.RawMessage(`{"expectedAnswer":"<p>rwx</p>","maxLength":5000}`)}}
+	code, body := bankCall(t, f, teacher, 100, http.MethodPost, exercisesPath(""),
+		`{"kind":"DISCURSIVE","title":"permissions","difficulty":"MEDIUM","expectedAnswer":"<p>rwx</p>","maxLength":5000}`)
+	require.Equal(t, http.StatusCreated, code)
+	assert.Equal(t, "<p>rwx</p>", f.in.ExpectedAnswer)
+	require.NotNil(t, f.in.MaxLength)
+	assert.Equal(t, 5000, *f.in.MaxLength)
+	assert.Equal(t, "<p>rwx</p>", body["expectedAnswer"])
+	assert.Equal(t, float64(5000), body["maxLength"])
+	assert.NotContains(t, body, "choices")
+
+	f.record.AnswerKey = nil
+	_, body = bankCall(t, f, teacher, 100, http.MethodGet, exercisesPath("/"+uuid.NewString()), "")
+	assert.Equal(t, "", body["expectedAnswer"])
+	assert.Equal(t, float64(2000), body["maxLength"], "a draft shows the default size")
 }

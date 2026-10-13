@@ -41,6 +41,8 @@ const (
 	KindTheoreticalMultiple = "THEORETICAL_MULTIPLE"
 	KindTheoreticalBoolean  = "THEORETICAL_BOOLEAN"
 	KindDiscursive          = "DISCURSIVE"
+	// KindTheoreticalMatching links the items of a left column to the ones of a right column (SPEC-037).
+	KindTheoreticalMatching = "THEORETICAL_MATCHING"
 
 	UsageExercise   = "EXERCISE"
 	UsageAssessment = "ASSESSMENT"
@@ -121,6 +123,9 @@ type Question struct {
 	InAssessment        bool
 	ExclusiveAssessment bool
 	DependsOn           *uuid.UUID `gorm:"type:uuid"`
+	// ShuffleChoices shuffles the alternatives of a single choice question for the student; false keeps the order of the teacher
+	// (SPEC-036 D-07).
+	ShuffleChoices bool
 	// CreatedBy and UpdatedBy are the teachers who created and last changed it (nil for the initial load).
 	CreatedBy *uuid.UUID `gorm:"type:uuid"`
 	UpdatedBy *uuid.UUID `gorm:"type:uuid"`

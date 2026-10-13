@@ -7,20 +7,40 @@ import (
 )
 
 // ExerciseInput is what the teacher sends for an exercise of the module (SPEC-023 5): the fields come as written and
-// are checked and trimmed by NormalizeExercise.
+// are checked and trimmed by NormalizeExercise. Kind says which contract applies (SPEC-035 RN-02); empty is PRACTICAL.
 type ExerciseInput struct {
+	Kind       string
 	Title      string
 	Difficulty string
 	Statement  string
 	Hints      json.RawMessage
 	Solution   json.RawMessage
 	Conditions json.RawMessage
+	// CorrectAnswer and Explanation belong to the true or false question (SPEC-035 RN-03).
+	CorrectAnswer *bool
+	Explanation   string
+	// HasDependency tells whether the request says the exercise depends on another one.
+	HasDependency bool
+	// Choices and CorrectChoice belong to the single choice question (SPEC-036 RN-02, RN-03).
+	Choices       json.RawMessage
+	CorrectChoice *string
+	// ShuffleChoices is nil when the request does not say, which is to shuffle (SPEC-036 D-07).
+	ShuffleChoices *bool
+	// ExpectedAnswer and MaxLength belong to the descriptive question: the correct answer the teacher writes and the size of the
+	// answer of the student (SPEC-039 D-03, D-05).
+	ExpectedAnswer string
+	MaxLength      *int
+	// Left, Right and Pairs belong to the matching question: the two columns in the order of the teacher and the correct pairs she
+	// selected (SPEC-037 D-09).
+	Left, Right, Pairs json.RawMessage
 }
 
-// NormalizedExercise is an exercise ready to be stored: every field filtered and trimmed, and the conditions in the two
-// forms the system needs. EndConditions is the form the teacher edits (SPEC-022); Catalog is the same conditions in the
-// catalog of the server (SPEC-011 and 013), which is what grades the student (SPEC-023 D-05).
+// NormalizedExercise is an exercise ready to be stored: every field filtered and trimmed. A practical exercise has the
+// conditions in the two forms the system needs: EndConditions is the form the teacher edits (SPEC-022); Catalog is the same
+// conditions in the catalog of the server (SPEC-011 and 013), which is what grades the student (SPEC-023 D-05). A true or false
+// question has its answer key and justification instead (SPEC-035).
 type NormalizedExercise struct {
+	Kind          string
 	Title         string
 	Difficulty    string
 	Statement     string
@@ -28,6 +48,12 @@ type NormalizedExercise struct {
 	Solution      json.RawMessage
 	EndConditions json.RawMessage
 	Catalog       []Condition
+	AnswerKey     json.RawMessage
+	Explanation   *string
+	// Choices are the alternatives of a single choice question, each with its stable id and its filtered html (SPEC-036).
+	Choices json.RawMessage
+	// ShuffleChoices shuffles the alternatives for the student (SPEC-036 D-07); true unless the teacher keeps her order.
+	ShuffleChoices bool
 }
 
 // decodeOptional reads a list or object that may be missing or null.
@@ -38,11 +64,18 @@ func decodeOptional(raw json.RawMessage, into any) error {
 	return decode(raw, into)
 }
 
-// NormalizeExercise checks an exercise of the module with the same rules as an exercise of a card (SPEC-022 RN-02 to RN-12)
-// and translates how it ends to the catalog of the server. A *PayloadError lists the invalid fields.
+// NormalizeExercise checks an exercise of the module: the fields every kind shares with the same rules as an exercise of a
+// card (SPEC-022 RN-02 and RN-03), then the fields of its kind (SPEC-035 RN-02). A *PayloadError lists the invalid fields.
 func NormalizeExercise(in ExerciseInput, s *HTMLSanitizer) (NormalizedExercise, error) {
 	c := &checker{s: s}
-	out := NormalizedExercise{}
+	if in.Kind == "" {
+		in.Kind = KindPractical
+	}
+	kind, ok := TypeOf(in.Kind)
+	if !ok {
+		return NormalizedExercise{}, &PayloadError{Fields: []FieldError{{"kind", "must be one of " + strings.Join(BankKinds(), ", ")}}}
+	}
+	out := NormalizedExercise{Kind: in.Kind, ShuffleChoices: in.ShuffleChoices == nil || *in.ShuffleChoices}
 	out.Title = c.text("title", in.Title, MaxTitleLength, true)
 	if in.Difficulty != "EASY" && in.Difficulty != "MEDIUM" && in.Difficulty != "HARD" {
 		c.fail("difficulty", "must be EASY, MEDIUM or HARD")
@@ -65,39 +98,14 @@ func NormalizeExercise(in ExerciseInput, s *HTMLSanitizer) (NormalizedExercise, 
 		hints = []exerciseHint{}
 	}
 
-	var solution *setupPayload
-	if err := decodeOptional(in.Solution, &solution); err != nil {
-		c.fail("solution", "must be a snapshot")
-	} else if solution != nil {
-		c.setup("solution", solution)
-	}
-
-	var conditions []exerciseCondition
-	if err := decodeOptional(in.Conditions, &conditions); err != nil {
-		c.fail("conditions", "must be a list of conditions")
-	}
-	c.conditions("conditions", conditions)
-	if conditions == nil {
-		conditions = []exerciseCondition{}
-	}
-
+	kind.normalize(c, in, &out)
 	if len(c.errs) > 0 {
 		return NormalizedExercise{}, &PayloadError{Fields: c.errs}
 	}
-
 	var err error
 	if out.Hints, err = marshalNoEscape(hints); err != nil {
 		return NormalizedExercise{}, err
 	}
-	if solution != nil {
-		if out.Solution, err = marshalNoEscape(solution); err != nil {
-			return NormalizedExercise{}, err
-		}
-	}
-	if out.EndConditions, err = marshalNoEscape(conditions); err != nil {
-		return NormalizedExercise{}, err
-	}
-	out.Catalog = catalogFromEnd(conditions)
 	return out, nil
 }
 

@@ -1,10 +1,13 @@
 import type { ExerciseCondition } from "@/lib/exerciseConditions";
 import {
+  missingAnswer,
   parseCondition,
+  trueFalseFields,
   type Difficulty,
   type Exercise,
   type ExerciseHint,
 } from "@/lib/exercises";
+import { DEFAULT_ANSWER_SIZE, isDiscursive, isMatching, isSingleChoice, usesTerminal } from "@/lib/questionKinds";
 import { withChains } from "@/lib/exerciseChain";
 import { newId } from "@/lib/newId";
 import { hasSetup, parseSetup, setupPayload, type Setup } from "@/lib/setup";
@@ -70,6 +73,7 @@ export function parseModuleExercise(
       conditions: conditions
         .map(parseCondition)
         .filter((c): c is ExerciseCondition => c !== undefined),
+      ...trueFalseFields(raw),
     },
     practice: raw.practice === true,
     assessment: raw.assessment === true,
@@ -91,7 +95,8 @@ export function exerciseBody(
   exercise: Exercise,
   dependsOn: string | null = null,
 ): Record<string, unknown> {
-  return {
+  const shared = {
+    kind: exercise.kind ?? "PRACTICAL",
     title: exercise.title.trim(),
     difficulty: exercise.difficulty,
     statement: exercise.description,
@@ -100,6 +105,35 @@ export function exerciseBody(
         ? { text: h.text.trim(), command: h.command.trim() }
         : { text: h.text.trim() },
     ),
+  };
+  // A question without a terminal has its answer and justification instead of a solution, conditions and a dependency (SPEC-035).
+  if (isDiscursive(exercise.kind))
+    return { ...shared, expectedAnswer: exercise.expectedAnswer ?? "", maxLength: exercise.maxLength ?? DEFAULT_ANSWER_SIZE };
+  if (isMatching(exercise.kind))
+    return {
+      ...shared,
+      left: exercise.left ?? [],
+      right: exercise.right ?? [],
+      pairs: exercise.pairs ?? [],
+      shuffleChoices: exercise.shuffleChoices !== false,
+      explanation: exercise.explanation ?? "",
+    };
+  if (isSingleChoice(exercise.kind))
+    return {
+      ...shared,
+      choices: exercise.choices ?? [],
+      correctChoice: exercise.correctChoice ?? null,
+      shuffleChoices: exercise.shuffleChoices !== false,
+      explanation: exercise.explanation ?? "",
+    };
+  if (!usesTerminal(exercise.kind))
+    return {
+      ...shared,
+      correctAnswer: typeof exercise.correctAnswer === "boolean" ? exercise.correctAnswer : null,
+      explanation: exercise.explanation ?? "",
+    };
+  return {
+    ...shared,
     ...(hasSetup(exercise.solution)
       ? { solution: setupPayload(exercise.solution) }
       : {}),
@@ -108,10 +142,13 @@ export function exerciseBody(
   };
 }
 
-/** The exercises that run in a test, by the sets they are linked to; a draft is still being written, so it is counted but not run. */
+/** The exercises that run in a test, by the sets they are linked to; a draft is still being written, so it is counted but not run.
+ * A question without a terminal never runs: the test only checks that it is complete (SPEC-035 RN-09). */
 export function bankToTest(bank: ExerciseBank): {
   practice: Exercise[];
   assessment: Exercise[];
+  /** The published questions without a terminal, of any link: the test only checks they are complete. */
+  withoutTerminal: Exercise[];
   drafts: number;
 } {
   const links = bank.items.map((it) => ({ id: it.exercise.id, title: it.exercise.title, dependsOn: it.dependsOn }));
@@ -120,7 +157,7 @@ export function bankToTest(bank: ExerciseBank): {
   const published = (set: "practice" | "assessment") =>
     withChains(
       bank.items
-        .filter((it) => it[set] && it.status === "PUBLISHED")
+        .filter((it) => it[set] && it.status === "PUBLISHED" && usesTerminal(it.exercise.kind))
         .sort((a, b) => a.position - b.position)
         .map((it) => it.exercise.id),
       links,
@@ -131,6 +168,10 @@ export function bankToTest(bank: ExerciseBank): {
   return {
     practice: published("practice"),
     assessment: published("assessment"),
+    withoutTerminal: bank.items
+      .filter((it) => it.status === "PUBLISHED" && !usesTerminal(it.exercise.kind))
+      .sort((a, b) => a.position - b.position)
+      .map((it) => it.exercise),
     drafts: bank.items.filter((it) => it.status === "DRAFT").length,
   };
 }
@@ -138,7 +179,11 @@ export function bankToTest(bank: ExerciseBank): {
 /** What the result of the test of the module depends on in the bank, so a change makes the result stale; empty when the bank is. */
 export function bankTestKey(bank: ExerciseBank): string {
   const { practice, assessment } = bankToTest(bank);
-  if (practice.length === 0 && assessment.length === 0 && !hasSetup(bank.bankSetup)) return "";
+  // The questions without a terminal count for being complete, so a change in them also makes the result stale.
+  const withoutTerminal = bank.items
+    .filter((it) => it.status === "PUBLISHED" && !usesTerminal(it.exercise.kind))
+    .map((it) => [it.exercise.id, missingAnswer(it.exercise)]);
+  if (practice.length === 0 && assessment.length === 0 && withoutTerminal.length === 0 && !hasSetup(bank.bankSetup)) return "";
   const ex = (e: Exercise) => [
     e.id,
     hasSetup(e.solution) ? setupPayload(e.solution) : null,
@@ -149,6 +194,7 @@ export function bankTestKey(bank: ExerciseBank): string {
     p: practice.map(ex),
     a: assessment.map(ex),
     s: hasSetup(bank.bankSetup) ? setupPayload(bank.bankSetup) : null,
+    ...(withoutTerminal.length > 0 ? { t: withoutTerminal } : {}),
   });
 }
 

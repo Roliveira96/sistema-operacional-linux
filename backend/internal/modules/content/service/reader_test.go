@@ -1,6 +1,9 @@
 package service
 
 import (
+	"fmt"
+	"strings"
+
 	"context"
 	"encoding/json"
 	"errors"
@@ -127,7 +130,7 @@ func secretQuestions() []domain.Question {
 		{Kind: domain.KindPractical, Title: "P", Statement: "s", Status: domain.StatusPublished,
 			ValidationConditions: json.RawMessage(`[{"type":"FILE_EXISTS","path":"/a"}]`), ReferenceSolution: json.RawMessage(`[]`)},
 		{Kind: domain.KindTheoreticalSingle, Title: "T", Statement: "s", Status: domain.StatusDraft,
-			Choices: json.RawMessage(`["a","b"]`), AnswerKey: json.RawMessage(`{"correct":1}`), Explanation: str("why")},
+			Choices: json.RawMessage(`[{"id":"a1","html":"a"},{"id":"b2","html":"b"}]`), AnswerKey: json.RawMessage(`{"correct":"b2"}`), Explanation: str("why")},
 	}
 }
 
@@ -148,7 +151,7 @@ func TestQuestionsNeverExposeAnswers(t *testing.T) {
 		assert.NotContains(t, string(raw), secret)
 	}
 	assert.Nil(t, qs[0].Choices, "practical questions have no choices")
-	assert.JSONEq(t, `["a","b"]`, string(qs[1].Choices))
+	assert.JSONEq(t, `[{"id":"a1","html":"a"},{"id":"b2","html":"b"}]`, string(qs[1].Choices), "kept in order when the question does not shuffle")
 }
 
 // Covers SPEC-012 CA-06.
@@ -161,7 +164,7 @@ func TestTeacherQuestionsAreForOwnersAndAdmins(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, store.includeDrafts)
 	assert.Equal(t, domain.StatusDraft, qs[1].Status)
-	assert.JSONEq(t, `{"correct":1}`, string(qs[1].AnswerKey))
+	assert.JSONEq(t, `{"correct":"b2"}`, string(qs[1].AnswerKey))
 
 	_, err = r.TeacherQuestions(context.Background(), uuid.New(), Viewer{UserID: ptr(uuid.New()), Role: "ADMIN"})
 	require.NoError(t, err)
@@ -408,4 +411,156 @@ func TestReader_ExerciseOfTheModuleForTheStudent(t *testing.T) {
 	draft, err := NewReader(&fakeAccess{}, &fakeReadStore{bankSetup: json.RawMessage(`{"steps":[{"command":"mkdir /rascunho"}]}`)}).draft(context.Background(), uuid.New())
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"steps":[{"command":"mkdir /rascunho"}]}`, string(draft.BankSetup))
+}
+
+func trueFalseQuestion() domain.Question {
+	why := "<p>It is recursive.</p>"
+	return domain.Question{ID: uuid.New(), ModuleID: uuid.New(), Kind: domain.KindTheoreticalBoolean, Usage: domain.UsageExercise,
+		Status: domain.StatusPublished, Title: "rm -r", Statement: "<p>rm -r removes non-empty directories.</p>",
+		Hints: json.RawMessage(`[{"text":"Think of -r","command":"rm -r /a"}]`), AnswerKey: json.RawMessage(`{"correct":true}`), Explanation: &why}
+}
+
+// Covers SPEC-035 RN-10 and CA-08: the student sees the kind and the tips, never the answer key nor the justification.
+func TestReader_TrueFalseForTheStudent(t *testing.T) {
+	store := &fakeReadStore{questions: []domain.Question{trueFalseQuestion()}}
+	qs, err := NewReader(&fakeAccess{}, store).Questions(context.Background(), uuid.New(), domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	require.Len(t, qs, 1)
+	assert.Equal(t, domain.KindTheoreticalBoolean, qs[0].Kind)
+	require.NotNil(t, qs[0].Hint)
+	assert.Contains(t, *qs[0].Hint, "Think of -r")
+	assert.False(t, qs[0].Layered, "no machine for a question without a terminal")
+	raw, err := json.Marshal(qs)
+	require.NoError(t, err)
+	for _, secret := range []string{"correct", "recursive", "answerKey", "explanation"} {
+		assert.NotContains(t, string(raw), secret)
+	}
+}
+
+// Covers SPEC-035 RN-06 and CA-12 (content side): a published question of the practice of any kind of the bank, never one of
+// the assessment, a draft or a kind outside the bank.
+func TestReader_ExerciseQuestion(t *testing.T) {
+	q := trueFalseQuestion()
+	got, err := NewReader(&fakeAccess{}, &fakeReadStore{question: &q}).ExerciseQuestion(context.Background(), q.ID, Viewer{})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"correct":true}`, string(got.AnswerKey), "the key is for grading on the server")
+
+	p := practical()
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{question: &p}).ExerciseQuestion(context.Background(), p.ID, Viewer{})
+	require.NoError(t, err)
+
+	for name, mutate := range map[string]func(*domain.Question){
+		"assessment": func(q *domain.Question) { q.Usage = domain.UsageAssessment },
+		"exclusive":  func(q *domain.Question) { q.ExclusiveAssessment = true },
+		"draft":      func(q *domain.Question) { q.Status = domain.StatusDraft },
+		"other kind": func(q *domain.Question) { q.Kind = domain.KindTheoreticalMultiple },
+	} {
+		bad := trueFalseQuestion()
+		mutate(&bad)
+		_, err := NewReader(&fakeAccess{}, &fakeReadStore{question: &bad}).ExerciseQuestion(context.Background(), bad.ID, Viewer{})
+		assert.ErrorIs(t, err, ErrQuestionNotFound, name)
+	}
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{}).ExerciseQuestion(context.Background(), uuid.New(), Viewer{})
+	assert.ErrorIs(t, err, ErrQuestionNotFound)
+	_, err = NewReader(&fakeAccess{}, &fakeReadStore{findErr: errors.New("db down")}).ExerciseQuestion(context.Background(), q.ID, Viewer{})
+	assert.EqualError(t, err, "db down")
+	_, err = NewReader(&fakeAccess{err: cmdomain.ErrForbidden}, &fakeReadStore{question: &q}).ExerciseQuestion(context.Background(), q.ID, Viewer{})
+	assert.ErrorIs(t, err, ErrAuthRequired)
+}
+
+// A true or false question is never in the batch check of the machine (SPEC-035 CA-14, server side).
+func TestModulePracticeItemsSkipTrueFalse(t *testing.T) {
+	store := &fakeReadStore{questions: []domain.Question{trueFalseQuestion()}}
+	items, err := NewReader(&fakeAccess{}, store).ModulePracticeItems(context.Background(), uuid.New(), Viewer{})
+	require.NoError(t, err)
+	assert.Empty(t, items)
+}
+
+// Covers SPEC-036 RN-07, D-03 and D-07: the student gets the alternatives without the correct one, shuffled when the question asks.
+func TestReader_SingleChoiceForTheStudent(t *testing.T) {
+	var many []string
+	for i := 0; i < 7; i++ {
+		many = append(many, fmt.Sprintf(`{"id":"c%d","html":"<p>%d</p>"}`, i, i))
+	}
+	q := domain.Question{ID: uuid.New(), Kind: domain.KindTheoreticalSingle, Usage: domain.UsageExercise, Status: domain.StatusPublished,
+		Statement: "<p>?</p>", Choices: json.RawMessage("[" + strings.Join(many, ",") + "]"), AnswerKey: json.RawMessage(`{"correct":"c3"}`),
+		Explanation: str("<p>because</p>"), Hints: json.RawMessage(`[{"text":"Think"}]`), ShuffleChoices: true}
+	store := &fakeReadStore{questions: []domain.Question{q}}
+	orders := map[string]bool{}
+	for i := 0; i < 20; i++ {
+		qs, err := NewReader(&fakeAccess{}, store).Questions(context.Background(), uuid.New(), domain.UsageExercise, Viewer{})
+		require.NoError(t, err)
+		raw, _ := json.Marshal(qs)
+		assert.NotContains(t, string(raw), "because")
+		assert.NotContains(t, string(raw), "answerKey")
+		var choices []domain.Choice
+		require.NoError(t, json.Unmarshal(qs[0].Choices, &choices))
+		require.Len(t, choices, 7)
+		ids := ""
+		for _, c := range choices {
+			ids += c.ID
+		}
+		orders[ids] = true
+		require.NotNil(t, qs[0].Hint)
+	}
+	assert.Greater(t, len(orders), 1, "shuffled for the student")
+
+	q.Choices = json.RawMessage(`["legacy"]`)
+	assert.Nil(t, publicChoices(q), "the old format is not sent as choices")
+}
+
+// Covers SPEC-037 RN-05, CA-05 and D-10: the student gets the two columns without the pairs, in the order of the teacher or shuffled.
+func TestReader_MatchingForTheStudent(t *testing.T) {
+	items := func(prefix string) string {
+		var out []string
+		for i := 1; i <= 5; i++ {
+			out = append(out, fmt.Sprintf(`{"id":"%s%d","text":"%s %d"}`, prefix, i, prefix, i))
+		}
+		return "[" + strings.Join(out, ",") + "]"
+	}
+	q := domain.Question{ID: uuid.New(), Kind: domain.KindTheoreticalMatching, Usage: domain.UsageExercise, Status: domain.StatusPublished,
+		Statement: "<p>?</p>", Choices: json.RawMessage(`{"left":` + items("l") + `,"right":` + items("r") + `}`),
+		AnswerKey: json.RawMessage(`{"pairs":[{"left":"l1","right":"r1"}]}`), Explanation: str("<p>because</p>"), Hints: json.RawMessage(`[{"text":"Think"}]`)}
+
+	read := func(q domain.Question) PublicQuestion {
+		qs, err := NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), uuid.New(), domain.UsageExercise, Viewer{})
+		require.NoError(t, err)
+		raw, _ := json.Marshal(qs)
+		assert.NotContains(t, string(raw), "pairs")
+		assert.NotContains(t, string(raw), "because")
+		return qs[0]
+	}
+	kept := read(q)
+	assert.JSONEq(t, items("l"), string(kept.Left))
+	assert.JSONEq(t, items("r"), string(kept.Right), "kept in the order of the teacher")
+	require.NotNil(t, kept.Hint)
+
+	q.ShuffleChoices = true
+	orders := map[string]bool{}
+	for i := 0; i < 20; i++ {
+		orders[string(read(q).Right)+string(read(q).Left)] = true
+	}
+	assert.Greater(t, len(orders), 1, "shuffled for the student")
+
+	q.Choices = json.RawMessage(`["junk"]`)
+	assert.Nil(t, read(q).Left)
+}
+
+// Covers SPEC-039 RN-01, D-03 and D-05 (content side): the student gets the tips and the size of the answer of a descriptive question,
+// never its correct answer.
+func TestReader_DiscursiveForTheStudent(t *testing.T) {
+	q := domain.Question{ID: uuid.New(), Kind: domain.KindDiscursive, Usage: domain.UsageExercise, Status: domain.StatusPublished,
+		Statement: "<p>Explain.</p>", AnswerKey: json.RawMessage(`{"expectedAnswer":"<p>secret rwx</p>","maxLength":5000}`), Hints: json.RawMessage(`[{"text":"Think"}]`)}
+	qs, err := NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), uuid.New(), domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	raw, _ := json.Marshal(qs)
+	assert.NotContains(t, string(raw), "secret")
+	require.NotNil(t, qs[0].MaxLength)
+	assert.Equal(t, 5000, *qs[0].MaxLength)
+	require.NotNil(t, qs[0].Hint)
+
+	q.AnswerKey = nil
+	qs, err = NewReader(&fakeAccess{}, &fakeReadStore{questions: []domain.Question{q}}).Questions(context.Background(), uuid.New(), domain.UsageExercise, Viewer{})
+	require.NoError(t, err)
+	assert.Equal(t, 2000, *qs[0].MaxLength, "the default size")
 }

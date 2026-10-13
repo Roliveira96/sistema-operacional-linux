@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	contentdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	contentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/service"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/service"
@@ -27,6 +28,7 @@ import (
 type fakeService struct {
 	err      error
 	snapshot json.RawMessage
+	response json.RawMessage
 	passed   bool
 	topic    json.RawMessage
 }
@@ -39,21 +41,37 @@ func (f *fakeService) CheckModule(_ context.Context, _ uuid.UUID, _ contentservi
 	f.snapshot = s
 	now := time.Now()
 	q := uuid.New()
-	return service.ModuleCheckResult{Passed: []uuid.UUID{q}, Progress: []domain.Progress{{QuestionID: q, CompletedAt: &now}}}, f.err
+	return service.ModuleCheckResult{Passed: []uuid.UUID{q}, Progress: []service.ProgressEntry{{Progress: domain.Progress{QuestionID: q, CompletedAt: &now}}}}, f.err
 }
 
 func (f *fakeService) Scenario(context.Context, uuid.UUID, contentservice.Viewer) (json.RawMessage, error) {
 	return json.RawMessage(`{"formato":"exame-so/maquina"}`), f.err
 }
 
-func (f *fakeService) Check(_ context.Context, _ uuid.UUID, _ contentservice.Viewer, s json.RawMessage) (service.CheckResult, error) {
-	f.snapshot = s
+// Submit behaves as a practical exercise unless a response comes, then as a true or false question answered right.
+func (f *fakeService) Submit(_ context.Context, _ uuid.UUID, _ contentservice.Viewer, sub service.Submission) (service.CheckResult, error) {
+	f.snapshot, f.response = sub.Snapshot, sub.Response
+	if f.err != nil {
+		return service.CheckResult{}, f.err
+	}
 	now := time.Now()
-	return service.CheckResult{Passed: f.passed, CompletedAt: &now}, f.err
+	if len(sub.Response) > 0 {
+		why := "<p>Because.</p>"
+		return service.CheckResult{Passed: f.passed, CompletedAt: &now, Correct: json.RawMessage("true"), Explanation: &why}, nil
+	}
+	if len(sub.Snapshot) == 0 || string(sub.Snapshot) == "null" {
+		return service.CheckResult{}, service.ErrSnapshotRequired
+	}
+	return service.CheckResult{Passed: f.passed, CompletedAt: &now}, nil
 }
 
-func (f *fakeService) ModuleProgress(context.Context, uuid.UUID, uuid.UUID) ([]domain.Progress, error) {
-	return []domain.Progress{{QuestionID: uuid.New(), Attempts: 2}}, f.err
+func (f *fakeService) ModuleProgress(context.Context, uuid.UUID, contentservice.Viewer) ([]service.ProgressEntry, error) {
+	passed := true
+	why := "<p>Because.</p>"
+	return []service.ProgressEntry{
+		{Progress: domain.Progress{QuestionID: uuid.New(), Attempts: 2}},
+		{Progress: domain.Progress{QuestionID: uuid.New(), Attempts: 1, LastPassed: passed, Response: json.RawMessage(`{"value":true}`)}, Correct: json.RawMessage("true"), Explanation: &why},
+	}, f.err
 }
 
 type validator struct{ ok bool }
@@ -140,7 +158,7 @@ func TestCheckRateLimitAndProgress(t *testing.T) {
 
 	code, body = call(t, &fakeService{}, true, 30, http.MethodGet, "/modules/"+uuid.NewString()+"/progress", "")
 	assert.Equal(t, http.StatusOK, code)
-	assert.Len(t, body["items"], 1)
+	assert.Len(t, body["items"], 2)
 	code, _ = call(t, &fakeService{err: errors.New("x")}, true, 30, http.MethodGet, "/modules/"+uuid.NewString()+"/progress", "")
 	assert.Equal(t, http.StatusInternalServerError, code)
 	code, _ = call(t, &fakeService{}, true, 30, http.MethodGet, "/modules/x/progress", "")
@@ -208,4 +226,74 @@ func TestCheckModuleRoute(t *testing.T) {
 
 	code, _ = call(t, &fakeService{}, true, 120, http.MethodPost, "/modules/x/check", `{"snapshot":{}}`)
 	assert.Equal(t, http.StatusNotFound, code)
+}
+
+// Covers SPEC-035 CA-09, CA-15 and CA-17 at the HTTP level: the response of a true or false question, the answer key after it,
+// the second answer refused and the response that is not a boolean.
+func TestCheckTrueFalse(t *testing.T) {
+	svc := &fakeService{passed: false}
+	code, body := call(t, svc, true, 30, http.MethodPost, qPath+"/check", `{"response":{"value":false}}`)
+	assert.Equal(t, http.StatusOK, code)
+	assert.Equal(t, false, body["passed"])
+	assert.Equal(t, true, body["correctAnswer"])
+	assert.Equal(t, "<p>Because.</p>", body["explanation"])
+	assert.JSONEq(t, `{"value":false}`, string(svc.response))
+
+	code, _ = call(t, &fakeService{}, false, 30, http.MethodPost, qPath+"/check", `{"response":{"value":true}}`)
+	assert.Equal(t, http.StatusUnauthorized, code, "CA-15")
+
+	code, body = call(t, &fakeService{err: service.ErrAlreadyAnswered}, true, 30, http.MethodPost, qPath+"/check", `{"response":{"value":true}}`)
+	assert.Equal(t, http.StatusConflict, code, "CA-17")
+	assert.Equal(t, "already-answered", body["type"])
+
+	for _, err := range []error{service.ErrResponseRequired, contentdomain.ErrInvalidResponse} {
+		code, body = call(t, &fakeService{err: err}, true, 30, http.MethodPost, qPath+"/check", `{"response":{"value":"x"}}`)
+		assert.Equal(t, http.StatusBadRequest, code, err.Error())
+		assert.Equal(t, "validation-error", body["type"])
+	}
+}
+
+// Covers SPEC-035 CA-10 at the HTTP level: the progress of an answered question brings the answer, its result and the answer key.
+func TestProgressOfAnsweredQuestions(t *testing.T) {
+	code, body := call(t, &fakeService{}, true, 30, http.MethodGet, "/modules/"+uuid.NewString()+"/progress", "")
+	require.Equal(t, http.StatusOK, code)
+	items := body["items"].([]any)
+	require.Len(t, items, 2)
+	practical, answered := items[0].(map[string]any), items[1].(map[string]any)
+	assert.NotContains(t, practical, "response")
+	assert.NotContains(t, practical, "correctAnswer")
+	assert.Equal(t, map[string]any{"value": true}, answered["response"])
+	assert.Equal(t, true, answered["passed"])
+	assert.Equal(t, true, answered["correctAnswer"])
+	assert.Equal(t, "<p>Because.</p>", answered["explanation"])
+}
+
+// Covers SPEC-036 5.2 at the HTTP level: the answer key of a single choice question comes as correctChoice.
+func TestRevealedField(t *testing.T) {
+	answer, choice := revealed("correctChoice", json.RawMessage(`"a"`))
+	assert.Nil(t, answer)
+	assert.JSONEq(t, `"a"`, string(choice))
+	answer, choice = revealed("correctAnswer", json.RawMessage(`true`))
+	assert.JSONEq(t, "true", string(answer))
+	assert.Nil(t, choice)
+}
+
+// Covers SPEC-037 5.2 at the HTTP level: the pairs and the result of each link of a matching question.
+func TestRevealedPairs(t *testing.T) {
+	out := revealedFields("pairs", json.RawMessage(`[{"left":"l1","right":"r1"}]`), json.RawMessage(`[{"left":"l1","right":"r1","correct":true}]`))
+	assert.JSONEq(t, `[{"left":"l1","right":"r1"}]`, string(out.Pairs))
+	assert.JSONEq(t, `[{"left":"l1","right":"r1","correct":true}]`, string(out.Results))
+	assert.Nil(t, out.CorrectAnswer)
+	assert.Nil(t, out.CorrectChoice)
+	out = revealedFields("correctChoice", json.RawMessage(`"a"`), nil)
+	assert.JSONEq(t, `"a"`, string(out.CorrectChoice))
+	out = revealedFields("correctAnswer", json.RawMessage(`true`), nil)
+	assert.JSONEq(t, "true", string(out.CorrectAnswer))
+}
+
+// Covers SPEC-039 RN-09 at the HTTP level: the correct answer of a descriptive question comes in its own field.
+func TestRevealedExpectedAnswer(t *testing.T) {
+	out := revealedFields("expectedAnswer", json.RawMessage(`"<p>rwx</p>"`), nil)
+	assert.JSONEq(t, `"<p>rwx</p>"`, string(out.ExpectedAnswer))
+	assert.Nil(t, out.CorrectAnswer)
 }

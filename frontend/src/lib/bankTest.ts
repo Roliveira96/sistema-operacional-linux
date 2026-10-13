@@ -13,6 +13,9 @@ export interface BankItem {
   dependsOn: string | null;
   solution?: Setup;
   conditions: ExerciseCondition[];
+  /** False for a question without a terminal (SPEC-035 RN-09): it never runs, and `complete` says whether it can be published. */
+  terminal?: boolean;
+  complete?: boolean;
 }
 
 /** The machine of a test, already holding the snapshot of the module and the one of the bank (SPEC-023 12.1). */
@@ -51,8 +54,11 @@ export interface BankReport {
   status: "ok" | "failed";
   seed: number;
   rounds: Round[];
-  /** The exercises with no solution or no conditions recorded: they fail the test and are not run. */
+  /** The exercises with no solution or no conditions recorded, and the incomplete questions without a terminal: they fail the test
+   * and are not run. */
   untestable: string[];
+  /** The complete questions without a terminal: they need no run and do not fail the test. */
+  noTerminal: string[];
   /** The ones that failed in some round. */
   conflicts: string[];
   /** The ones that fail even alone, after the chain they declare, and for which no other exercise helps. */
@@ -101,10 +107,16 @@ export interface BankTestOptions {
 export async function testBank(items: BankItem[], sandbox: Sandbox, options: BankTestOptions = {}): Promise<BankReport> {
   const seed = options.seed ?? Math.floor(Math.random() * 0xffffffff);
   const random = seeded(seed);
-  const runnable = items.filter((it) => it.solution && it.solution.steps.length + (it.solution.files?.length ?? 0) > 0 && it.conditions.length > 0);
-  const untestable = items.filter((it) => !runnable.includes(it)).map((it) => it.id);
+  const withoutTerminal = items.filter((it) => it.terminal === false);
+  const noTerminal = withoutTerminal.filter((it) => it.complete).map((it) => it.id);
+  const terminalItems = items.filter((it) => it.terminal !== false);
+  const runnable = terminalItems.filter((it) => it.solution && it.solution.steps.length + (it.solution.files?.length ?? 0) > 0 && it.conditions.length > 0);
+  const untestable = [
+    ...terminalItems.filter((it) => !runnable.includes(it)).map((it) => it.id),
+    ...withoutTerminal.filter((it) => !it.complete).map((it) => it.id),
+  ];
   const byId = new Map(runnable.map((it) => [it.id, it]));
-  const links: ChainLink[] = items.map((it) => ({ id: it.id, title: it.title, dependsOn: it.dependsOn, solution: it.solution }));
+  const links: ChainLink[] = terminalItems.map((it) => ({ id: it.id, title: it.title, dependsOn: it.dependsOn, solution: it.solution }));
   const known = (ids: string[]) => ids.filter((id) => byId.has(id));
   const baseOrder = runnable.map((it) => it.id);
 
@@ -161,7 +173,7 @@ export async function testBank(items: BankItem[], sandbox: Sandbox, options: Ban
     if (!found) isolated.push(id);
   }
 
-  const declared = items.filter((it) => it.dependsOn).map((it) => ({ id: it.id, on: it.dependsOn! }));
+  const declared = terminalItems.filter((it) => it.dependsOn).map((it) => ({ id: it.id, on: it.dependsOn! }));
   const status = conflicts.length === 0 && untestable.length === 0 ? "ok" : "failed";
-  return { status, seed, rounds: done, untestable, conflicts, isolated, suggested, declared };
+  return { status, seed, rounds: done, untestable, noTerminal, conflicts, isolated, suggested, declared };
 }

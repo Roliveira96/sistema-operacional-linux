@@ -55,7 +55,7 @@ describe("CardBuilder, the tab of the exercises", () => {
     renderBuilder();
     openTab("Exercícios");
     expect(screen.getByText(/Salve o card uma vez para criar os exercícios/)).toBeDefined();
-    expect(screen.queryByRole("link", { name: "+ Adicionar exercício" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "+ Adicionar exercício" })).toBeNull();
   });
 
   it("lists the exercises with their level and what they have, and opens each on its page", () => {
@@ -65,10 +65,13 @@ describe("CardBuilder, the tab of the exercises", () => {
     expect(list).toHaveTextContent("Criar a pasta");
     expect(list).toHaveTextContent("Crie a pasta financeiro.");
     expect(list).toHaveTextContent("Fácil · 2 dicas · com solução · 1 condição");
-    expect(list).toHaveTextContent("Difícil · 0 dicas · sem solução · 0 condições");
+    expect(list).toHaveTextContent("Comando Linux · Difícil · 0 dicas · sem solução · 0 condições");
     expect(screen.getByRole("link", { name: "Abrir o exercício Criar a pasta" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h/exercises/0");
     expect(screen.getByRole("link", { name: "Abrir o exercício Listar" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h/exercises/1");
-    expect(screen.getByRole("link", { name: "+ Adicionar exercício" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h/exercises/new");
+    // The kind is asked first (SPEC-035 CA-18).
+    fireEvent.click(screen.getByRole("button", { name: "+ Adicionar exercício" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Verdadeiro ou falso/ }));
+    expect(screen.getByRole("link", { name: "Escolher" }).getAttribute("href")).toBe("/app/modules/mod-1/cards/h/exercises/new?kind=THEORETICAL_BOOLEAN");
   });
 
   it("does not open a page while the card has changes that are not saved, because the page would not see them", () => {
@@ -77,7 +80,7 @@ describe("CardBuilder, the tab of the exercises", () => {
     openTab("Exercícios");
     expect(screen.getByText(/Salve o card para abrir a página de um exercício/)).toBeDefined();
     expect(screen.queryByRole("link", { name: /Abrir o exercício/ })).toBeNull();
-    expect(screen.queryByRole("link", { name: "+ Adicionar exercício" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "+ Adicionar exercício" })).toBeNull();
   });
 
   it("moves and removes exercises in the list, and saves the order with the card", async () => {
@@ -140,4 +143,46 @@ describe("CardBuilder, the tab of the exercises", () => {
     expect(await screen.findByText("Exercício: Criar", {}, { timeout: 8000 })).toBeDefined();
     await waitFor(() => expect(ran).toEqual(["mod", "own", "base", "ls", "mkdir /srv"]), { timeout: 8000 });
   }, 20000);
+});
+
+// Covers SPEC-035 CA-18 and SPEC-036 CA-01 in the list of the card: what each kind without a terminal shows.
+describe("CardBuilder, exercises without a terminal in the list", () => {
+  it("shows the answer of a true or false exercise and the alternatives of a single choice one", () => {
+    renderBuilder({
+      group: withExercises([
+        { kind: "THEORETICAL_BOOLEAN", title: "Verdade", difficulty: "EASY", correctAnswer: true },
+        { kind: "THEORETICAL_BOOLEAN", title: "Sem resposta", difficulty: "EASY" },
+        { kind: "THEORETICAL_SINGLE", title: "Escolha", difficulty: "MEDIUM", choices: [{ id: "a", html: "a" }, { id: "b", html: "b" }], correctChoice: "a" },
+        { kind: "THEORETICAL_SINGLE", title: "Sem correta", difficulty: "MEDIUM", choices: [{ id: "a", html: "a" }, { id: "b", html: "b" }] },
+        { kind: "THEORETICAL_BOOLEAN", title: "Falso", difficulty: "HARD", correctAnswer: false },
+      ]),
+    });
+    openTab("Exercícios");
+    const list = screen.getByRole("list", { name: "Exercícios" });
+    expect(list).toHaveTextContent("Verdadeiro ou falso · Fácil · 0 dicas · Resposta correta: Verdadeiro");
+    expect(list).toHaveTextContent("Sem resposta");
+    expect(list).toHaveTextContent("incompleta: falta a descrição ou a resposta correta");
+    expect(list).toHaveTextContent("Escolha única · Médio · 0 dicas · 2 alternativas · correta marcada");
+    expect(list).toHaveTextContent("2 alternativas · falta marcar a correta");
+    expect(list).toHaveTextContent("Resposta correta: Falso");
+  });
+});
+
+// Covers SPEC-037 CA-01 in the list of the card: what a matching exercise shows.
+describe("CardBuilder, matching exercises in the list", () => {
+  it("shows how many pairs and whether they are marked", () => {
+    const columns = { left: [{ id: "l1", text: "a" }, { id: "l2", text: "b" }], right: [{ id: "r1", text: "c" }, { id: "r2", text: "d" }] };
+    renderBuilder({
+      group: withExercises([
+        { kind: "THEORETICAL_MATCHING", title: "Ligar", difficulty: "EASY", ...columns, pairs: [{ left: "l1", right: "r1" }, { left: "l2", right: "r2" }] },
+        { kind: "THEORETICAL_MATCHING", title: "Sem pares", difficulty: "EASY", ...columns },
+        { kind: "THEORETICAL_MATCHING", title: "Vazio", difficulty: "EASY" },
+      ]),
+    });
+    openTab("Exercícios");
+    const list = screen.getByRole("list", { name: "Exercícios" });
+    expect(list).toHaveTextContent("Ligar colunas · Fácil · 0 dicas · 2 pares · pares marcados");
+    expect(list).toHaveTextContent("2 pares · falta marcar os pares");
+    expect(list).toHaveTextContent("0 pares · falta marcar os pares");
+  });
 });

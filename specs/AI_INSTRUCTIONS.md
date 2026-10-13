@@ -36,6 +36,24 @@ Na ordem:
 4. Mudança de requisito durante a implementação: **parar**. A spec é revisada primeiro (volta a `Rascunho` se a mudança for substancial) e o código vem depois.
 5. Spec substituída por outra: status `Obsoleta`, com a substituta no campo "Substitui" da nova spec. Specs nunca são apagadas.
 
+### 4.0. Testes antes da implementação (SPEC-038)
+
+Toda implementação segue vermelho, verde, refatorar:
+
+1. **Testes:** escrever os testes listados na seção 8 da spec aprovada, um ou mais por critério de aceite, na camada indicada.
+2. **Vermelho:** rodar os testes e conferir que falham **pelo motivo esperado** (o comportamento não existe), e não por erro de outra coisa. Teste que já passa, ou que falha por outro motivo, é corrigido antes de seguir.
+3. **Commit dos testes:** um commit `test(...)` só com os testes vermelhos, na branch de feature.
+4. **Verde:** escrever o código mínimo para os testes passarem, sem mudar o que eles verificam; commit `feat(...)`, `fix(...)` ou `refactor(...)`.
+5. **Refatorar e cobrir:** melhorar o código com os testes verdes e conferir a cobertura acima de 80% (`ARCHITECTURE.md`, seção 5).
+
+Regras:
+
+- Depois do vermelho, um teste só muda se estava errado em relação à spec, e a mudança é registrada na entrega com o motivo.
+- **Correção de defeito** começa por um teste que reproduz o defeito e falha. **Refatoração** exige os testes verdes antes e depois.
+- **Mudança de requisito** no meio: a spec é revisada, os testes do requisito novo são escritos e ficam vermelhos, e só então o código muda.
+- **Exceções:** só o que não tem comportamento a testar (estilos SCSS, textos de mensagens, configuração e documentação). O comportamento que dependa deles é testado primeiro.
+- **Branches:** commits com testes vermelhos ficam só nas branches de feature, criadas a partir da `projeto-tcc2`. Na `projeto-tcc2` só entra o que está todo verde, pelo PR.
+
 ### 4.1. Ciclo de vida do status
 
 | Status | Significado | Quem altera para este status |
@@ -61,8 +79,9 @@ O agente **não pode**:
 - Violar qualquer regra de `ARCHITECTURE.md`, mesmo "temporariamente".
 - Alterar `frontend/src/engine/core/` (o motor do terminal, incorporado pela SPEC-034) sem spec aprovada que mande.
 - Colocar código, JSON mockado, SQL ou scripts dentro de documentos de spec.
-- Entregar código de produção sem os testes automatizados correspondentes no mesmo commit, ou com cobertura igual ou abaixo de 80% no escopo definido em `ARCHITECTURE.md`, seção 5.
-- Trabalhar fora da branch `projeto-tcc2`.
+- Escrever código de produção antes dos testes dos critérios de aceite que ele atende, ou sem um commit `test(...)` anterior com esses testes vermelhos (seção 4.0, SPEC-038).
+- Entregar código de produção sem os testes automatizados correspondentes, ou com cobertura igual ou abaixo de 80% no escopo definido em `ARCHITECTURE.md`, seção 5.
+- Trabalhar fora da branch `projeto-tcc2` ou de uma branch de feature criada a partir dela; levar à `projeto-tcc2` commits com testes vermelhos.
 - Mudar o status de uma spec para `Aprovada`.
 
 ## 6. Convenções de idioma
@@ -94,8 +113,9 @@ Ao final de cada tarefa, o implementador informa:
 
 1. Spec implementada (ID) e critérios de aceite cobertos.
 2. Arquivos criados ou alterados.
-3. Resultado dos testes, com números reais: quantidade, cobertura medida por pacote ou escopo e o mapeamento critério de aceite → teste. Se algo falhou ou foi pulado, dizer explicitamente.
-4. Desvios em relação à spec, com justificativa, ou "nenhum desvio".
+3. Os commits dos testes vermelhos e do código que os fez passar, com o resultado das duas execuções (vermelha e verde).
+4. Resultado dos testes, com números reais: quantidade, cobertura medida por pacote ou escopo e o mapeamento critério de aceite → teste. Se algo falhou ou foi pulado, dizer explicitamente.
+5. Desvios em relação à spec, com justificativa, ou "nenhum desvio"; e todo teste alterado depois do vermelho, com o motivo.
 
 ## 9. Mapa do repositório
 

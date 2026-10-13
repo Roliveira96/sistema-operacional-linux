@@ -109,6 +109,8 @@ Sintaxe EARS obrigatória. Cada critério é verificável por teste automatizado
 
 ## 8. Plano de Testes (Test Plan)
 
+Os testes desta seção são escritos **antes** do código e rodados vermelhos primeiro (SPEC-038). Liste cada teste pelo nome, na camada em que fica, e o critério de aceite que cobre; a spec não é aprovada sem essa lista.
+
 - **Backend:** testes de unidade de service (regras RN-xx), testes de integração de repository e de handler, por critério de aceite.
 - **Frontend:** testes de componente e de fluxo, por critério de aceite, nos dois temas.
 - **Manual:** roteiro passo a passo para o que não for automatizável.

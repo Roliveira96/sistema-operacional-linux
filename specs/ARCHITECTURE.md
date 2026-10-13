@@ -152,7 +152,14 @@ Palavras normativas: **DEVE** / **NÃO DEVE** são obrigatórias; **RECOMENDADO*
 ## 5. Testes
 
 - Cada critério de aceite de uma spec é coberto por pelo menos um teste automatizado ou por um roteiro manual descrito na própria spec.
-- **Obrigatoriedade (SPEC-006):** toda funcionalidade, refatoração ou correção entrega seus testes automatizados no mesmo commit.
+- **Obrigatoriedade (SPEC-006):** toda funcionalidade, refatoração ou correção entrega seus testes automatizados.
+- **Testes antes da implementação (SPEC-038):**
+  - **RN-01 (ordem):** nenhuma linha de código de produção é escrita antes dos testes dos critérios de aceite que ela atende.
+  - **RN-02 (vermelho legítimo):** o teste escrito primeiro falha pela ausência do comportamento; teste que já passa, ou falha por outro motivo, é corrigido antes de seguir.
+  - **RN-03 (testes não se ajustam ao código):** depois do vermelho, um teste só muda se estava errado em relação à spec, com o motivo registrado na entrega.
+  - **RN-04 (correções):** toda correção começa por um teste que reproduz o defeito e falha.
+  - **RN-05 (refatoração):** testes verdes antes e depois; comportamento novo segue a RN-01.
+  - A ordem fica no histórico: um commit `test(...)` com os testes vermelhos e depois o commit do código, numa branch de feature. Exceções só para estilos, textos de mensagens, configuração e documentação.
 - **Backend:** `testing` com `testify` (`assert` e `require`).
   - Services: testes unitários no mesmo pacote, com dependências substituídas por implementações de teste escritas à mão sobre as interfaces que o service declara (sem geradores de mock) e sem conexão real com PostgreSQL, MinIO ou SMTP.
   - Handlers: testes contra o roteador Gin real com `httptest`, conferindo validação, status HTTP e envelope RFC 7807.

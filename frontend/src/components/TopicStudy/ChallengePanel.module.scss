@@ -45,6 +45,20 @@
     border-color: var(--color-success-line);
     background: var(--color-success-faint);
   }
+
+  &.wrong {
+    border-color: var(--color-danger);
+  }
+
+  // A descriptive answer sent and waiting for the teacher (SPEC-039).
+  &.waiting {
+    border-color: var(--color-accent);
+  }
+
+  &.scored {
+    border-color: var(--color-success-line);
+    background: var(--color-success-faint);
+  }
 }
 
 .status {
@@ -68,6 +82,55 @@
       content: "✓";
     }
   }
+
+  // A graded descriptive answer shows its percentage in a pill (SPEC-039 D-04).
+  .scored > & {
+    display: grid;
+    place-items: center;
+    width: auto;
+    min-width: 24px;
+    padding: 0 6px;
+    border-color: var(--color-success);
+    border-radius: var(--radius-pill);
+    background: var(--color-success);
+    color: var(--color-surface-sunken);
+    font-size: 11px;
+    font-weight: var(--font-weight-black);
+    animation: pop 400ms var(--easing-standard);
+  }
+
+  // A descriptive answer waiting for the grade: an hourglass (SPEC-039 D-04).
+  .waiting > & {
+    display: grid;
+    place-items: center;
+    border-color: var(--color-accent);
+    font-size: 12px;
+
+    &::after {
+      content: "⏳";
+    }
+  }
+
+  // A true or false question answered wrong is done too, with a cross (SPEC-035 D-13).
+  .wrong > & {
+    display: grid;
+    place-items: center;
+    border-color: var(--color-danger);
+    background: var(--color-danger);
+    color: var(--color-surface-sunken);
+    font-size: 13px;
+    font-weight: var(--font-weight-black);
+
+    &::after {
+      content: "✗";
+    }
+  }
+}
+
+.title {
+  margin: 0 0 6px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
 }
 
 .body {
@@ -147,4 +210,24 @@
   font-size: 14.5px;
   white-space: pre-wrap;
   color: var(--color-terminal-text);
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+  }
+
+  60% {
+    transform: scale(1.15);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status {
+    animation: none;
+  }
 }

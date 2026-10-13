@@ -391,3 +391,106 @@ describe("ModuleExerciseScreen", () => {
     ).toBeDefined();
   });
 });
+
+// Covers SPEC-035 CA-01, CA-02 and CA-03: the page of a true or false question of the bank.
+describe("ModuleExerciseScreen for a true or false question", () => {
+  it("creates one of the kind chosen, with the answer and the justification and nothing of the terminal", async () => {
+    window.history.pushState({}, "", "/app/modules/mod-1/exercises/new?link=practice&kind=THEORETICAL_BOOLEAN");
+    service.create.mockResolvedValue(stored({ exercise: { ...stored().exercise, id: "tf", kind: "THEORETICAL_BOOLEAN", correctAnswer: true } }));
+    renderScreen("new");
+    await screen.findByLabelText("Título do exercício (1)");
+    expect(screen.getByText("Verdadeiro ou falso", { selector: "p" })).toBeDefined();
+    expect(screen.queryByLabelText(/Continua de/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Testar/ })).toBeNull();
+    expect(screen.queryByText(/Como fazer/)).toBeNull();
+    expect(screen.getByText(/Esta questão não usa o terminal/)).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText("Título do exercício (1)"), { target: { value: "rm -r" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Verdadeiro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salvar exercício" }));
+    await waitFor(() => expect(service.create).toHaveBeenCalled());
+    expect(service.create.mock.calls[0]![1]).toMatchObject({ kind: "THEORETICAL_BOOLEAN", title: "rm -r", correctAnswer: true });
+    expect(service.create.mock.calls[0]!.slice(2)).toEqual([null, { practice: true }]);
+    // The preview shows it as the student does: two buttons.
+    expect(screen.getByRole("complementary", { name: "Como o aluno vê" })).toHaveTextContent("Verdadeiro");
+    window.history.pushState({}, "", "/");
+  });
+
+  it("opens a stored one with its answer", async () => {
+    service.bank.mockResolvedValue({
+      items: [stored({ exercise: { ...stored().exercise, kind: "THEORETICAL_BOOLEAN", correctAnswer: false, explanation: "", conditions: [], solution: undefined } })],
+    });
+    renderScreen("q1");
+    await screen.findByLabelText("Título do exercício (1)");
+    expect((screen.getByRole("radio", { name: "Falso" }) as HTMLInputElement).checked).toBe(true);
+  });
+});
+
+// Covers SPEC-036 CA-01, CA-02, CA-03, CA-05, CA-15 and D-07: the page of a single choice question of the bank.
+describe("ModuleExerciseScreen for a single choice question", () => {
+  it("writes the alternatives in the editor, marks the only correct one, keeps the order and saves", async () => {
+    window.history.pushState({}, "", "/app/modules/mod-1/exercises/new?kind=THEORETICAL_SINGLE");
+    service.create.mockResolvedValue(stored({ exercise: { ...stored().exercise, id: "sc" } }));
+    renderScreen("new");
+    await screen.findByLabelText("Título do exercício (1)");
+    expect(screen.getByText("Escolha única", { selector: "p" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Testar/ })).toBeNull();
+    const list = () => screen.getByRole("list", { name: "Alternativas (1)" });
+    expect(list().querySelectorAll(":scope > li")).toHaveLength(2);
+    expect((screen.getByRole("button", { name: "Remover a alternativa 1" }) as HTMLButtonElement).disabled).toBe(true);
+
+    const add = screen.getByRole("button", { name: "+ Adicionar alternativa" });
+    for (let i = 0; i < 5; i++) fireEvent.click(add);
+    expect(list().querySelectorAll(":scope > li")).toHaveLength(7);
+    expect((add as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Remover a alternativa 7" }));
+    expect(list().querySelectorAll(":scope > li")).toHaveLength(6);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Marcar a alternativa 2 como correta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Subir a alternativa 2" }));
+    expect((screen.getByRole("radio", { name: "Marcar a alternativa 1 como correta" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Descer a alternativa 1" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Embaralhar as alternativas/ }));
+
+    fireEvent.change(screen.getByLabelText("Título do exercício (1)"), { target: { value: "chmod" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar exercício" }));
+    await waitFor(() => expect(service.create).toHaveBeenCalled());
+    const sent = service.create.mock.calls[0]![1];
+    expect(sent).toMatchObject({ kind: "THEORETICAL_SINGLE", title: "chmod", shuffleChoices: false });
+    expect(sent.choices).toHaveLength(6);
+    expect(sent.correctChoice).toBe(sent.choices[1].id);
+    window.history.pushState({}, "", "/");
+  });
+
+  it("clears the correct one when its alternative is removed", async () => {
+    service.bank.mockResolvedValue({
+      items: [
+        stored({
+          exercise: {
+            ...stored().exercise,
+            kind: "THEORETICAL_SINGLE",
+            choices: [
+              { id: "a", html: "<p>a</p>" },
+              { id: "b", html: "<p>b</p>" },
+              { id: "c", html: "<p>c</p>" },
+            ],
+            correctChoice: "c",
+            shuffleChoices: true,
+            explanation: "",
+            conditions: [],
+            solution: undefined,
+          },
+        }),
+      ],
+    });
+    service.update.mockResolvedValue(stored());
+    renderScreen("q1");
+    await screen.findByLabelText("Título do exercício (1)");
+    expect((screen.getByRole("radio", { name: "Marcar a alternativa 3 como correta" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Remover a alternativa 3" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salvar exercício" }));
+    await waitFor(() => expect(service.update).toHaveBeenCalled());
+    expect(service.update.mock.calls[0]![2]).toMatchObject({ correctChoice: null });
+    expect(service.update.mock.calls[0]![2].choices).toHaveLength(2);
+  });
+});

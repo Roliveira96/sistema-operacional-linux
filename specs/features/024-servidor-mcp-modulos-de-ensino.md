@@ -36,7 +36,7 @@ A API REST já cobre todo o fluxo de autoria (SPEC-010, 019, 021, 022, 023). A l
 
 ### 2.1. Fora de escopo (Non-Goals)
 
-- Ferramentas para turmas, estudantes, provas, notas e auditoria acadêmica. Turmas ainda não foram implementadas no fluxo de módulos; ficam para spec futura (decisão do Tech Lead, 10/10/2026).
+- Ferramentas para turmas, estudantes, provas, notas e auditoria acadêmica. Exceção: a sugestão de nota das respostas descritivas (SPEC-039), que nunca vale como nota; confirmar a nota segue só na interface web. Turmas ainda não foram implementadas no fluxo de módulos; ficam para spec futura (decisão do Tech Lead, 10/10/2026).
 - Executar comandos de shell no servidor (D-02).
 - Frontend do MCP além de emitir e revogar tokens e da tela de consentimento do login OAuth.
 - Refresh token, escopos por ferramenta e login OAuth de terceiros que não sejam clientes MCP locais (D-12, D-13).
@@ -82,6 +82,9 @@ Seção "Acesso por agentes (MCP)" no perfil, visível só para `ADMIN` e `TEACH
 | `set_exercise_setup` | Define o cenário do exercício, inclusive herança de outro exercício do módulo | `content` (SPEC-023 RN-11) |
 | `validate_module` | Roda as validações estruturais do rascunho e devolve a lista de problemas, para o agente corrigir antes de a docente publicar | `content`, `coursemodule` |
 | `list_module_versions` | Somente leitura: lista versões e informa alterações não publicadas | `content` |
+| `list_pending_answers` | Somente leitura: lista as respostas descritivas de um módulo por situação, com identificador anônimo (SPEC-039 RN-04, D-08) | `practice` |
+| `get_answer` | Somente leitura: a questão, a resposta correta e a resposta do aluno, marcada como dado, sem o nome (SPEC-039 RN-04, D-08) | `practice` |
+| `suggest_grade` | Grava a sugestão de nota (0, 25, 50, 75 ou 100), a justificativa e a anotação para o aluno; nunca vale como nota (SPEC-039 RN-04) | `practice` |
 
 Não existem ferramentas de publicar nem de restaurar versão (RN-08).
 
@@ -302,3 +305,7 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | 10/10/2026 | Implementador (Claude) | `create_module_exercise` é só de exercício prático, em linha com a SPEC-023 (seção 2.1); questões teóricas ficam para spec futura |
 | 10/10/2026 | Implementador (Claude) | Revisão 4, a pedido do Tech Lead: login OAuth do cliente MCP para obter o token sem copiar e colar (RN-14, CA-22 a CA-26, D-11 a D-13) e modo local sem login só em desenvolvimento (RN-15, CA-27, CA-28, D-14). Volta a Rascunho; aguarda aprovação do Tech Lead |
 | 10/10/2026 | Tech Lead | Revisão 4 aprovada (login OAuth e modo local sem login) |
+| 11/10/2026 | Implementador (Claude) | Revisada pela SPEC-035 (RN-15, D-11): `create_module_exercise` e `update_module_exercise` aceitam `kind`, `correctAnswer` e `explanation`, e as ferramentas de blocos documentam o bloco `EXERCISES` com o item de verdadeiro ou falso |
+| 12/10/2026 | Implementador (Claude) | Revisada pela SPEC-036 (RN-10): as ferramentas de exercício aceitam `THEORETICAL_SINGLE` com `choices`, `correctChoice` e `shuffleChoices`, e a documentação do bloco `EXERCISES` inclui o item de escolha única |
+| 12/10/2026 | Implementador (Claude) | Revisada pela SPEC-037 (RN-10): as ferramentas de exercício aceitam `THEORETICAL_MATCHING` com `left`, `right`, `pairs` e `shuffleChoices`, e a documentação do bloco `EXERCISES` inclui o item de ligar colunas |
+| 12/10/2026 | Implementador (Claude) | Revisada pela SPEC-039 (RN-04): ferramentas `list_pending_answers`, `get_answer` e `suggest_grade` (sugestão de nota da descritiva, que nunca vale como nota) e exceção às "notas" do fora de escopo; as ferramentas de exercício aceitam `DISCURSIVE` com `expectedAnswer` e `maxLength` |
