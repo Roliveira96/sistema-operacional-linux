@@ -13,6 +13,8 @@ export interface StudentFormModalProps {
   onClose: () => void;
   onSuccess: () => void;
   availableClasses?: Array<{ id: string; name: string }>;
+  /** From the class page: the student is enrolled in this class, without a selector (SPEC-041). */
+  fixedClass?: { id: string; name: string };
 }
 
 export function StudentFormModal({
@@ -20,13 +22,15 @@ export function StudentFormModal({
   onClose,
   onSuccess,
   availableClasses = [],
+  fixedClass,
 }: StudentFormModalProps) {
   const [academicId, setAcademicId] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [discord, setDiscord] = useState("");
-  const [classGroupId, setClassGroupId] = useState("");
+  const [selectedClassId, setClassGroupId] = useState("");
+  const classGroupId = fixedClass?.id ?? selectedClassId;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -169,24 +173,28 @@ export function StudentFormModal({
             />
           </div>
 
-          <div className={styles.field}>
-            <label htmlFor="student-class" className={styles.label}>
-              {messages.students.form.classGroup}
-            </label>
-            <select
-              id="student-class"
-              className={styles.select}
-              value={classGroupId}
-              onChange={(e) => setClassGroupId(e.target.value)}
-            >
-              <option value="">{messages.students.form.noClassOption}</option>
-              {availableClasses.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {fixedClass ? (
+            <p className={styles.hint}>{messages.students.fixedClass(fixedClass.name)}</p>
+          ) : (
+            <div className={styles.field}>
+              <label htmlFor="student-class" className={styles.label}>
+                {messages.students.form.classGroup}
+              </label>
+              <select
+                id="student-class"
+                className={styles.select}
+                value={classGroupId}
+                onChange={(e) => setClassGroupId(e.target.value)}
+              >
+                <option value="">{messages.students.form.noClassOption}</option>
+                {availableClasses.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {!classGroupId && (
             <div className={styles.warningBox} role="alert">

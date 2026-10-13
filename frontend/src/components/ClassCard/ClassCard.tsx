@@ -155,10 +155,16 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
         </div>
 
         <h3 className={styles.title}>
-          <Link href={`/app/classes/${classGroup.id}/members`} className={styles.titleLink}>
+          <Link href={`/app/classes/${classGroup.id}`} className={styles.titleLink}>
             {classGroup.name}
           </Link>
         </h3>
+
+        {classGroup.summary && (
+          <p className={styles.summary} title={classGroup.summary}>
+            {classGroup.summary}
+          </p>
+        )}
       </header>
 
       {classGroup.isExpiringSoon && (
@@ -199,7 +205,7 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
           </div>
 
           <Link
-            href={`/app/classes/${classGroup.id}/members`}
+            href={`/app/classes/${classGroup.id}?tab=students`}
             className={`${styles.counterItem} ${styles.counterClickable} ${
               classGroup.totalPendingRequests > 0 ? styles.counterPendingAttention : ""
             }`}
@@ -249,9 +255,9 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
       </div>
 
       <footer className={styles.footer}>
-        <Link href={`/app/classes/${classGroup.id}/members`} className={styles.linkActionPrimary}>
+        <Link href={`/app/classes/${classGroup.id}?tab=students`} className={styles.linkActionPrimary}>
           <IconUsers />
-          <span>{messages.classes.card.members}</span>
+          <span>{messages.classes.card.addStudents}</span>
           <IconArrowRight />
         </Link>
 

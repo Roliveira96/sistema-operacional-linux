@@ -117,7 +117,7 @@ describe("ClassForm (SPEC-041)", () => {
     fireEvent.change(screen.getByLabelText(/Resumo da disciplina/i), { target: { value: "  Linux na prática  " } });
     fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
     await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
-    expect(handleSubmit.mock.calls[0][0].summary).toBe("Linux na prática");
+    expect(handleSubmit.mock.lastCall?.[0].summary).toBe("Linux na prática");
   });
 
   // CA-11
@@ -202,7 +202,85 @@ describe("ClassForm (SPEC-041)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
     await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
-    expect(handleSubmit.mock.calls[0][0].startDate).toBe(start);
-    expect(handleSubmit.mock.calls[0][0].endDate).toBe(end);
+    expect(handleSubmit.mock.lastCall?.[0].startDate).toBe(start);
+    expect(handleSubmit.mock.lastCall?.[0].endDate).toBe(end);
+  });
+});
+
+describe("ClassForm (SPEC-041, coverage of the remaining paths)", () => {
+  it("requires both invite dates and their order when the invite link is on", async () => {
+    render(<ClassForm onSubmit={vi.fn()} />);
+    fillRequired();
+    fireEvent.click(screen.getByLabelText(/Habilitar Link de Ingresso/i));
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    const start = screen.getByLabelText(/Início da Validade do Link/i);
+    await waitFor(() => expect(start.getAttribute("aria-invalid")).toBe("true"));
+    expect(document.activeElement).toBe(start);
+
+    fireEvent.change(start, { target: { value: "2026-10-20T10:00" } });
+    fireEvent.change(screen.getByLabelText(/Fim da Validade do Link/i), { target: { value: "2026-10-10T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    expect(await screen.findByText(/abertura do link deve ser anterior/)).toBeDefined();
+  });
+
+  it("sends the schedule, the virtual meetings and the invite window", async () => {
+    const handleSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<ClassForm onSubmit={handleSubmit} />);
+    fillRequired();
+    fireEvent.change(screen.getByLabelText(/Horários dos Encontros/i), { target: { value: "Seg 08:20" } });
+    fireEvent.click(screen.getByLabelText(/Encontros Virtuais/i));
+    fireEvent.click(screen.getByLabelText(/Habilitar Link de Ingresso/i));
+    fireEvent.change(screen.getByLabelText(/Início da Validade do Link/i), { target: { value: "2026-10-01T08:00" } });
+    fireEvent.change(screen.getByLabelText(/Fim da Validade do Link/i), { target: { value: "2026-10-20T18:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
+    const payload = handleSubmit.mock.lastCall?.[0];
+    expect(payload.scheduleDescription).toBe("Seg 08:20");
+    expect(payload.enableVirtualClassroom).toBe(true);
+    expect(payload.inviteLinkStart).toBe(new Date(2026, 9, 1, 8, 0).toISOString());
+    expect(payload.inviteLinkEnd).toBe(new Date(2026, 9, 20, 18, 0).toISOString());
+  });
+
+  it("shows the invite window of a class being edited in local time", () => {
+    render(
+      <ClassForm
+        onSubmit={vi.fn()}
+        initialData={{
+          enableInviteLink: true,
+          inviteLinkStart: new Date(2026, 9, 1, 8, 5).toISOString(),
+          inviteLinkEnd: "not a date",
+        }}
+      />,
+    );
+    expect((screen.getByLabelText(/Início da Validade do Link/i) as HTMLInputElement).value).toBe("2026-10-01T08:05");
+    expect((screen.getByLabelText(/Fim da Validade do Link/i) as HTMLInputElement).value).toBe("");
+  });
+
+  it.each([
+    ["class-conflict", {}, /Código da Disciplina/i, /já tem uma turma/],
+    ["invalid-date-range", {}, /Data de Término/i, /data de início deve ser anterior/],
+    ["content-too-long", { field: "syllabus" }, null, /limite é de 20.000/],
+  ])("puts the %s problem of the server next to its field", async (type, extra, label, text) => {
+    const problem = new ApiProblemError({ type, status: 400, ...extra }, 400);
+    render(<ClassForm onSubmit={vi.fn().mockRejectedValue(problem)} />);
+    fillRequired();
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    expect(await screen.findByText(text)).toBeDefined();
+    if (label) expect(screen.getByLabelText(label).getAttribute("aria-invalid")).toBe("true");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it.each([
+    ["content-too-long", { field: "other" }, /limite é de 20.000/],
+    ["unknown-problem", {}, /Não foi possível salvar a turma/],
+    // With the invite link off its date fields are not on screen.
+    ["invite-link-dates-required", {}, /Informe a abertura/],
+    ["invalid-invite-range", {}, /abertura do link deve ser anterior/],
+  ])("shows the %s problem without a field at the top", async (type, extra, text) => {
+    const problem = new ApiProblemError({ type, status: 400, ...extra }, 400);
+    render(<ClassForm onSubmit={vi.fn().mockRejectedValue(problem)} />);
+    fillRequired();
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(text);
   });
 });

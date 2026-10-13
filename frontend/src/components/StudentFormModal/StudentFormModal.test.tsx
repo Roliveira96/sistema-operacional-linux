@@ -157,6 +157,6 @@ describe("StudentFormModal", () => {
     fireEvent.click(screen.getByRole("button", { name: messages.students.form.submit }));
 
     await waitFor(() => expect(createStudentManual).toHaveBeenCalled());
-    expect(vi.mocked(createStudentManual).mock.calls[0][0].classGroupId).toBe("c-9");
+    expect(vi.mocked(createStudentManual).mock.lastCall?.[0].classGroupId).toBe("c-9");
   });
 });

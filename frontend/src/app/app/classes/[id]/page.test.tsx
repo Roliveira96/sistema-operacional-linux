@@ -98,7 +98,8 @@ describe("ClassPage (SPEC-041)", () => {
     expect(screen.getByRole("button", { name: "Selecionar estudantes cadastrados" })).toBeDefined();
     expect(screen.getByRole("button", { name: "Cadastrar novo estudante" })).toBeDefined();
     expect(screen.getByRole("button", { name: "Importar CSV" })).toBeDefined();
-    expect(screen.getByText(/link de convite/i)).toBeDefined();
+    // The invite card is on the same tab, so the query is narrowed to the text of the empty state.
+    expect(screen.getByText(/compartilhe o link de convite/i)).toBeDefined();
   });
 
   // CA-01: the message after creating, and the main action of the students tab
@@ -128,7 +129,21 @@ describe("ClassPage (SPEC-041)", () => {
   it("shows only the presentation of the class to an enrolled student", async () => {
     asRole("STUDENT");
     const getClass = vi.spyOn(classService, "getClass");
-    vi.spyOn(classService, "getMyClass").mockResolvedValue({ ...theClass, teacherName: "Profa. Sediane" });
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id,
+      name: theClass.name,
+      courseCode: theClass.courseCode,
+      semester: theClass.semester,
+      status: theClass.status,
+      summary: theClass.summary ?? "",
+      syllabus: theClass.syllabus ?? "",
+      institutionalGuidelines: "",
+      startDate: theClass.startDate,
+      endDate: theClass.endDate,
+      scheduleDescription: theClass.scheduleDescription ?? "",
+      enableVirtualClassroom: false,
+      teacherName: "Profa. Sediane",
+    });
     render(<ClassPage params={params} />);
 
     expect(await screen.findByRole("heading", { level: 1, name: "Sistemas Operacionais" })).toBeDefined();

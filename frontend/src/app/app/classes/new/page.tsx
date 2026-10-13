@@ -14,8 +14,9 @@ export default function NewClassPage() {
   const handleSubmit = async (payload: CreateClassPayload) => {
     setIsSubmitting(true);
     try {
-      await classService.createClass(payload);
-      router.push("/app/classes");
+      const created = await classService.createClass(payload);
+      // SPEC-041 CA-01: the next step after creating is adding the students.
+      router.push(`/app/classes/${created.id}?tab=students&created=1`);
     } finally {
       setIsSubmitting(false);
     }
@@ -25,13 +26,14 @@ export default function NewClassPage() {
     <main className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>{messages.classes.form.newTitle}</h1>
-        <p className={styles.subtitle}>{messages.classes.subtitle}</p>
+        <p className={styles.subtitle}>{messages.classes.form.newSubtitle}</p>
       </header>
 
       <ClassForm
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
         submitLabel={messages.classes.form.submitCreate}
+        submittingLabel={messages.classes.form.submittingCreate}
         cancelHref="/app/classes"
       />
     </main>

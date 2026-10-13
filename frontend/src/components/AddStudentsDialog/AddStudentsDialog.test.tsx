@@ -108,4 +108,42 @@ describe("AddStudentsDialog (SPEC-041)", () => {
     setup({ isOpen: false });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("shows the error of the batch and keeps the selection", async () => {
+    setup({ enroll: vi.fn().mockRejectedValue(new Error("offline")) });
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Ana Lima/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Matricular 1 estudante" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/Não foi possível matricular/);
+    expect((screen.getByRole("checkbox", { name: /Ana Lima/ }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("shows an empty list when the search fails, and names a student without a name by the e-mail", async () => {
+    const searchStudents = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ items: [{ ...ana, name: "" }], totalCount: 1, page: 1, perPage: 20 });
+    setup({ searchStudents });
+    expect(await screen.findByText("Nenhum estudante encontrado.")).toBeDefined();
+    fireEvent.change(screen.getByRole("searchbox", { name: /Buscar/ }), { target: { value: "ana" } });
+    expect(await screen.findByRole("checkbox", { name: /1000001@alunos/ })).toBeDefined();
+  });
+
+  it("keeps selecting when the teacher gives up closing, and unselects a student", async () => {
+    const props = setup();
+    const ana = await screen.findByRole("checkbox", { name: /Ana Lima/ });
+    fireEvent.click(ana);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar selecionando" }));
+    expect(props.onClose).not.toHaveBeenCalled();
+    fireEvent.click(ana);
+    expect(screen.getByText("0 selecionados")).toBeDefined();
+  });
+
+  it("closes with Concluir after the result", async () => {
+    const props = setup();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Ana Lima/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Matricular 1 estudante" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Concluir" }));
+    expect(props.onClose).toHaveBeenCalled();
+  });
 });
