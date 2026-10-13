@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type IdentitySources } from "@/hooks/useIdentity";
 import { messages } from "@/messages/pt-BR";
@@ -123,5 +123,65 @@ describe("NavbarPublic", () => {
     expect(container.querySelector("nav")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /tema/i })).toBeNull();
     await waitFor(() => expect(entrar()).toBeTruthy());
+  });
+
+  // SPEC-043: Mobile navigation menu
+  describe("Mobile navigation (SPEC-043)", () => {
+    it("has a mobile menu toggle button that opens and closes public navigation", async () => {
+      render(<NavbarPublic identity={visitor()} />);
+      const toggleBtn = screen.getByRole("button", { name: messages.public.nav.openMenu });
+      expect(toggleBtn).toBeDefined();
+      expect(toggleBtn.getAttribute("aria-expanded")).toBe("false");
+
+      fireEvent.click(toggleBtn);
+      expect(toggleBtn.getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByRole("button", { name: messages.public.nav.closeMenu })).toBeDefined();
+
+      const mobileNav = screen.getByRole("navigation", { name: messages.public.nav.mobileAriaLabel });
+      expect(within(mobileNav).getByRole("link", { name: messages.public.nav.home })).toBeDefined();
+      expect(within(mobileNav).getByRole("link", { name: messages.public.nav.materials })).toBeDefined();
+      expect(within(mobileNav).getByRole("link", { name: messages.public.nav.simulations })).toBeDefined();
+
+      // For visitor, login and register buttons appear in mobile nav
+      expect(await within(mobileNav).findByRole("button", { name: messages.public.nav.login })).toBeDefined();
+      expect(within(mobileNav).getByRole("button", { name: messages.public.nav.register })).toBeDefined();
+
+      // Press Escape closes it
+      fireEvent.keyDown(window, { key: "Escape" });
+      expect(screen.queryByRole("navigation", { name: messages.public.nav.mobileAriaLabel })).toBeNull();
+    });
+
+    it("shows myArea button in mobile nav for signed-in student and navigates", async () => {
+      render(<NavbarPublic identity={student()} />);
+      fireEvent.click(await screen.findByRole("button", { name: messages.public.nav.openMenu }));
+      const mobileNav = screen.getByRole("navigation", { name: messages.public.nav.mobileAriaLabel });
+      const myAreaBtn = within(mobileNav).getByRole("button", { name: messages.public.nav.myArea });
+      fireEvent.click(myAreaBtn);
+      expect(mockPush).toHaveBeenCalledWith("/app");
+      expect(screen.queryByRole("navigation", { name: messages.public.nav.mobileAriaLabel })).toBeNull();
+    });
+
+    it("closes mobile menu when clicking backdrop or navigation links", async () => {
+      render(<NavbarPublic identity={visitor()} />);
+      fireEvent.click(await screen.findByRole("button", { name: messages.public.nav.openMenu }));
+      const mobileNav = screen.getByRole("navigation", { name: messages.public.nav.mobileAriaLabel });
+      fireEvent.click(within(mobileNav).getByRole("link", { name: messages.public.nav.home }));
+      expect(screen.queryByRole("navigation", { name: messages.public.nav.mobileAriaLabel })).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: messages.public.nav.openMenu }));
+      const backdrop = screen.getByRole("navigation", { name: messages.public.nav.mobileAriaLabel }).parentElement!;
+      fireEvent.click(backdrop);
+      expect(screen.queryByRole("navigation", { name: messages.public.nav.mobileAriaLabel })).toBeNull();
+    });
+
+    it("visitor clicks register in mobile nav and navigates", async () => {
+      render(<NavbarPublic identity={visitor()} />);
+      fireEvent.click(await screen.findByRole("button", { name: messages.public.nav.openMenu }));
+      const mobileNav = screen.getByRole("navigation", { name: messages.public.nav.mobileAriaLabel });
+      const regBtn = await within(mobileNav).findByRole("button", { name: messages.public.nav.register });
+      fireEvent.click(regBtn);
+      expect(mockPush).toHaveBeenCalledWith("/register");
+      expect(screen.queryByRole("navigation", { name: messages.public.nav.mobileAriaLabel })).toBeNull();
+    });
   });
 });
