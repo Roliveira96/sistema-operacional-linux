@@ -284,3 +284,48 @@ describe("ClassForm (SPEC-041, coverage of the remaining paths)", () => {
     expect((await screen.findByRole("alert")).textContent).toMatch(text);
   });
 });
+
+describe("ClassForm (SPEC-042)", () => {
+  // RN-12
+  it("chooses the color of the class", async () => {
+    const handleSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<ClassForm onSubmit={handleSubmit} initialData={{ color: "blue" }} />);
+    expect(screen.getByRole("radiogroup", { name: "Cor da turma" })).toBeDefined();
+    expect((screen.getByRole("radio", { name: "Azul" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("radio", { name: "Verde" }));
+    fillRequired();
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
+    expect(handleSubmit.mock.lastCall?.[0].color).toBe("green");
+  });
+
+  // RN-01, D-13 and CA-02
+  it("edits the weekly meetings, hides the old schedule text once there are meetings and sends them", async () => {
+    const handleSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<ClassForm onSubmit={handleSubmit} initialData={{ scheduleDescription: "Seg 08:20" }} />);
+    expect(screen.getByLabelText(/Horários dos Encontros/i)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Segunda-feira" }));
+    expect(screen.queryByLabelText(/Horários dos Encontros/i)).toBeNull();
+    fillRequired();
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
+    expect(handleSubmit.mock.lastCall?.[1]).toEqual([
+      { weekday: 1, startTime: "08:20", endTime: "10:00", lessonCount: 2, mode: "IN_PERSON", room: undefined, onlineUrl: undefined },
+    ]);
+  });
+
+  it("starts from the saved meetings and blocks an invalid one", async () => {
+    const handleSubmit = vi.fn();
+    render(
+      <ClassForm
+        onSubmit={handleSubmit}
+        initialMeetings={[{ id: "m-1", weekday: 3, startTime: "13:50", endTime: "15:30", lessonCount: 2, mode: "ONLINE", onlineUrl: "x" }]}
+      />,
+    );
+    expect((screen.getByLabelText("Início (Quarta-feira)") as HTMLInputElement).value).toBe("13:50");
+    fillRequired();
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    expect(await screen.findByText("Informe um link https.")).toBeDefined();
+    expect(handleSubmit).not.toHaveBeenCalled();
+  });
+});

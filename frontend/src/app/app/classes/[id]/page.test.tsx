@@ -12,6 +12,23 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
 }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: vi.fn() }));
+vi.mock("@/services/scheduleService", async () => {
+  const { octoberCalendar } = await import("@/test/scheduleFixtures");
+  return {
+    scheduleService: {
+      classCalendar: vi.fn().mockResolvedValue(octoberCalendar()),
+      updateSession: vi.fn().mockResolvedValue({}),
+      revertSession: vi.fn(),
+      createSession: vi.fn(),
+      deleteSession: vi.fn(),
+      createEvent: vi.fn(),
+      updateEvent: vi.fn(),
+      deleteEvent: vi.fn(),
+      applyPeriod: vi.fn(),
+      deletePeriod: vi.fn(),
+    },
+  };
+});
 vi.mock("@/services/studentService", () => ({
   listStudents: vi.fn().mockResolvedValue({ items: [], totalCount: 0, page: 1, perPage: 20 }),
   createStudentManual: vi.fn(),
@@ -149,7 +166,9 @@ describe("ClassPage (SPEC-041)", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Sistemas Operacionais" })).toBeDefined();
     expect(screen.getByText("threads")).toBeDefined();
     expect(screen.getByText(/Profa. Sediane/)).toBeDefined();
-    expect(screen.queryByRole("tab")).toBeNull();
+    // SPEC-042 gives the student the "Agenda" tab; the students tab stays for the teacher only.
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Visão geral", "Agenda"]);
+    expect(screen.queryByRole("tab", { name: /Estudantes/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Adicionar estudantes" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Configurações" })).toBeNull();
     expect(getClass).not.toHaveBeenCalled();
@@ -170,5 +189,33 @@ describe("ClassPage (SPEC-041)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Tentar de novo" }));
     await waitFor(() => expect(getClass).toHaveBeenCalledTimes(2));
     expect(await screen.findByRole("heading", { level: 1, name: "Sistemas Operacionais" })).toBeDefined();
+  });
+
+  // SPEC-042, section 3.1.4: the "Agenda" tab with the calendar of the class.
+  it("shows the calendar of the class on the Agenda tab, editable by the teacher", async () => {
+    asRole("TEACHER");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    render(<ClassPage params={params} />);
+    expect((await screen.findByRole("tab", { name: "Agenda" })).getAttribute("aria-selected")).toBe("true");
+    expect(await screen.findByRole("button", { name: "Selecionar período" })).toBeDefined();
+    fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Alterar esta aula" }));
+    expect(screen.getByRole("dialog", { name: "Alterar a aula de 19/10/2026" })).toBeDefined();
+    expect(screen.getByText("O estudante ativo receberá um e-mail.")).toBeDefined();
+  });
+
+  it("shows the calendar read-only to a student", async () => {
+    asRole("STUDENT");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id, name: theClass.name, courseCode: theClass.courseCode, semester: theClass.semester, status: "ACTIVE",
+      summary: "", syllabus: "", institutionalGuidelines: "", startDate: theClass.startDate, endDate: theClass.endDate,
+      scheduleDescription: "", enableVirtualClassroom: false,
+    });
+    render(<ClassPage params={params} />);
+    expect(await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Selecionar período" })).toBeNull();
   });
 });

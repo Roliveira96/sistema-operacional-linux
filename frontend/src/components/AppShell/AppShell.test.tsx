@@ -145,4 +145,13 @@ describe("AppShell", () => {
     fireEvent.click(screen.getByRole("button", { name: messages.auth.logout }));
     expect(logout).toHaveBeenCalledTimes(1);
   });
+
+  // SPEC-042, section 3.1.4: everyone has the calendar; administrators also the holidays.
+  it.each([["ADMIN", true], ["TEACHER", false], ["STUDENT", false]] as const)("%s sees Calendário, and Feriados: %s", (role, holidays) => {
+    signIn(role);
+    vi.mocked(getStudentProfile).mockResolvedValue({ id: "1", name: "Aluno", academicId: "1234567", email: "a@b.c", createdAt: "" });
+    renderShell();
+    expect(screen.getByRole("link", { name: "Calendário" }).getAttribute("href")).toBe("/app/calendar");
+    expect(screen.queryByRole("link", { name: "Feriados" }) !== null).toBe(holidays);
+  });
 });
