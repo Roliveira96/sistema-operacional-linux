@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-042 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 13/10/2026 |
-| **Última revisão** | 13/10/2026 |
+| **Última revisão** | 13/10/2026 (aprovada) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -89,7 +89,7 @@ O Tech Lead acrescentou dois pedidos:
 - Datas comemorativas (D-04).
 - Frequência e chamada.
 - Notificações por WhatsApp, Discord ou push.
-- Sincronização com Google Agenda e arquivo `.ics` (ver P-07).
+- Sincronização com Google Agenda e arquivo `.ics` (D-14).
 - Remover turma de forma física: o protótipo tem "Remover", o projeto só arquiva (SPEC-009).
 - Docente digitada como texto livre: a docente é a dona da turma.
 - Qualquer alteração em `frontend/src/engine/core/`.
@@ -192,7 +192,7 @@ Módulo novo **`schedule`** (domain, service, repository, handler), mais um **ag
 - **RN-02 (geração das aulas):**
   - salvar os encontros gera uma aula (`ClassSession`) para cada data da vigência em que o dia da semana coincide;
   - mudar os encontros ou a vigência regenera só as aulas **futuras e não alteradas**;
-  - aulas passadas e aulas alteradas à mão ficam como estão (P-01).
+  - aulas passadas e aulas alteradas à mão ficam como estão (D-08).
 - **RN-03 (feriado):** a aula cuja data cai num feriado ativo é criada normalmente e marcada `onHoliday = true`. O sistema não cancela sozinho (D-02).
 - **RN-04 (alteração de uma aula):**
   - a docente muda status, horário, modalidade, sala ou link;
@@ -213,9 +213,9 @@ Módulo novo **`schedule`** (domain, service, repository, handler), mais um **ag
 - **RN-09 (e-mails):** destinatários são os estudantes com matrícula `ACTIVE` e e-mail confirmado. Cada e-mail é registrado numa fila (`EmailOutbox`) e enviado pelo agendador, com até 3 novas tentativas.
   - **(a) alteração:** um e-mail por gravação. Um período gera um e-mail só, não um por aula.
   - **(b) agenda:** ao ativar uma matrícula (SPEC-041 e moderação), com as próximas aulas e os encontros.
-  - **(c) lembrete:** antes de cada aula não cancelada (antecedência na P-03).
-  - **(d) resumo semanal:** no dia e hora da P-04, com as aulas da semana seguinte, só se houver aula.
-- **RN-10 (preferências):** o estudante pode desligar (c) e (d) no perfil. (a) e (b) sempre vão (P-05).
+  - **(c) lembrete:** antes de cada aula não cancelada (antecedência na D-10).
+  - **(d) resumo semanal:** no dia e hora da D-11, com as aulas da semana seguinte, só se houver aula.
+- **RN-10 (preferências):** o estudante pode desligar (c) e (d) no perfil. (a) e (b) sempre vão (D-12).
 - **RN-11 (feriados nacionais):**
   - a migração carrega os fixos;
   - o agendador calcula e grava os móveis (Carnaval, Sexta-feira Santa, Corpus Christi), pela data da Páscoa, para o ano atual e o seguinte, uma vez por ano;
@@ -276,7 +276,7 @@ Todas as tabelas têm `id` UUIDv7, `created_at`, `updated_at` e `deleted_at` (ex
 
 - cria as tabelas;
 - carrega os feriados nacionais fixos;
-- mantém `classes.schedule_description` para turmas sem encontros (P-06).
+- mantém `classes.schedule_description` para turmas sem encontros (D-13).
 
 ## 5. Contrato de API (API Contract)
 
@@ -309,7 +309,7 @@ Resumo; os campos seguem a seção 4 em `camelCase`. Erros RFC 7807 com os slugs
 | Fuso horário e horário de verão | Hora local mais data, interpretadas em `America/Sao_Paulo` (RN-13); testes nas viradas de mês e de ano |
 | Feriado móvel calculado errado | Teste da Páscoa contra datas conhecidas (2024 a 2030) |
 | E-mail para quem não quer | Preferências para lembrete e resumo (RN-10); alterações sempre vão, porque mudam a vida do aluno |
-| Turmas antigas só com o texto livre | O texto continua aparecendo enquanto a turma não tiver encontros (P-06) |
+| Turmas antigas só com o texto livre | O texto continua aparecendo enquanto a turma não tiver encontros (D-13) |
 | Link malicioso no link da aula | Só https, mostrado como link externo com `rel="noopener noreferrer"` |
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
@@ -337,35 +337,72 @@ Resumo; os campos seguem a seção 4 em `camelCase`. Erros RFC 7807 com os slugs
 
 ## 8. Plano de Testes (Test Plan)
 
-Escritos antes do código e rodados vermelhos primeiro (SPEC-038). A lista definitiva por nome entra na revisão que resolver as pendências; abaixo, os testes por camada e critério.
+Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
-**Backend, `schedule`:**
+**Backend, `schedule/domain`:**
 
-- *domain:*
-  - validação de encontros e sobreposição (CA-02);
-  - geração de datas pela vigência, inclusive nas viradas de mês e de ano (CA-01);
-  - Páscoa e feriados móveis de 2024 a 2030 (CA-17).
-- *service:*
-  - regeneração que preserva aulas alteradas, avulsas e passadas (CA-03);
-  - sinalização de feriado (CA-04);
-  - alteração e cancelamento com motivo (CA-05, CA-06);
-  - aula avulsa e evento (CA-07);
-  - período e desfazer (CA-08, CA-09);
-  - autorização (CA-19);
-  - enfileiramento de cada tipo de e-mail e preferências (CA-05, CA-07, CA-08, CA-13 a CA-15).
-- *handler:* validação, códigos HTTP e problemas de cada rota (seção 5).
-- *repository (PostgreSQL real):* unicidade das aulas, transação do período, consulta do calendário por intervalo.
-- *platform/scheduler:* trava por tarefa e novas tentativas da fila (CA-16), com relógio injetado.
+| Teste | Cobre |
+| :--- | :--- |
+| `TestWeeklyMeeting_Validate` (horário, quantidade, modalidade, link https, sala) | CA-02 |
+| `TestMeetings_Overlap` (mesmo dia, encostados e sobrepostos) | CA-02 |
+| `TestGenerateSessionDates` (vigência, dias da semana, viradas de mês e de ano, vários encontros no dia) | CA-01 |
+| `TestEasterAndMoveableHolidays` (2024 a 2030) | CA-17 |
+| `TestReminderTime` (aula da manhã: véspera 18 h; tarde e noite: 2 h antes) | CA-14 |
+| `TestNextWeekRange` (domingo 18 h, semana seguinte) | CA-15 |
+
+**Backend, `schedule/service`:**
+
+| Teste | Cobre |
+| :--- | :--- |
+| `TestReplaceMeetings_GeneratesSessions` | CA-01 |
+| `TestReplaceMeetings_RegeneratesOnlyFutureUntouched` | CA-03 |
+| `TestSessions_FlagHoliday` | CA-04 |
+| `TestUpdateSession_OverrideAndEmail` | CA-05 |
+| `TestUpdateSession_CancelRequiresReason` | CA-06 |
+| `TestRevertOverride` | CA-05 |
+| `TestCreateExtraSessionAndEvent_Email` | CA-07 |
+| `TestApplyPeriod_ChangesAllSessionsOneEmail` | CA-08 |
+| `TestDeletePeriod_RestoresSessions` | CA-09 |
+| `TestCalendar_StudentReadsOnlyActiveClasses` | CA-12 |
+| `TestWriteRequiresOwnerOrAdmin` | CA-19 |
+| `TestEnqueueOnEnrollment` | CA-13 |
+| `TestEnqueueReminders_OncePerSessionRespectsPreference` | CA-14 |
+| `TestEnqueueWeeklyDigest_RespectsPreferenceSkipsEmpty` | CA-15 |
+| `TestHolidays_NationalLocked` | CA-18 |
+
+**Backend, `schedule/handler`:** `TestMeetingsRoute`, `TestCalendarRoute_RangeAndRoles`, `TestSessionRoutes`, `TestEventRoutes`, `TestPeriodRoutes`, `TestMyCalendarRoute`, `TestHolidayRoutes`, `TestNotificationPreferencesRoute` (validação, códigos HTTP e problemas da seção 5; CA-02, CA-06, CA-12, CA-18, CA-19).
+
+**Backend, `schedule/repository` (PostgreSQL real):** `TestRepository_SessionUniqueness`, `TestRepository_PeriodTransaction`, `TestRepository_CalendarRange`, `TestMigration00026_NationalHolidays` (CA-01, CA-08, CA-10, CA-17).
+
+**Backend, `platform/scheduler` e fila:** `TestScheduler_RunsDueTasksOnce` (trava por tarefa), `TestOutbox_RetriesThenFails` (até 3 novas tentativas, sem travar a fila) (CA-14 a CA-16).
 
 **Frontend:**
 
-- `ClassCalendar`: grade e navegação, marcos, feriados, aulas, eventos, períodos, painel do dia, modo seleção por mouse e teclado, indicadores, estudante só leitura (CA-10 a CA-12, CA-20).
-- Editor de encontros no `ClassForm` (CA-02).
-- Formulários de alteração, aula avulsa, evento e período, com o aviso de e-mail (CA-05 a CA-09).
-- Tela de feriados (CA-18).
-- `scheduleService` com `fetch` falso.
+| Teste | Arquivo | Cobre |
+| :--- | :--- | :--- |
+| grade, navegação, Hoje, legenda, marcos, feriados, aulas canceladas e online, eventos, períodos, painel do dia | `ClassCalendar.test.tsx` | CA-10 |
+| indicadores do mês | `ClassCalendar.test.tsx` | CA-11 |
+| modo seleção por mouse e teclado | `ClassCalendar.test.tsx` | CA-08, CA-20 |
+| estudante só leitura | `ClassCalendar.test.tsx` | CA-12 |
+| dias, horários, sobreposição, link, horas-aula e cor | `MeetingsEditor.test.tsx` | CA-01, CA-02 |
+| alterar, cancelar com motivo e desfazer, com o aviso de e-mail | `SessionForm.test.tsx` | CA-05, CA-06 |
+| aula avulsa e evento | `SessionForm.test.tsx`, `EventForm.test.tsx` | CA-07 |
+| período com a contagem de aulas afetadas | `PeriodForm.test.tsx` | CA-08, CA-09 |
+| aba Agenda e calendário geral | `classes/[id]/page.test.tsx`, `calendar/page.test.tsx` | CA-10, CA-12 |
+| feriados do administrador | `admin/holidays/page.test.tsx` | CA-18 |
+| chamadas e erros RFC 7807 | `scheduleService.test.ts` | todos |
 
-**Manual:** cadastrar encontros, ver o calendário, alterar uma aula, cancelar com motivo, incluir palestra, suspender uma semana e conferir os e-mails no Mailpit (`http://192.168.3.111:8125`).
+**Verificação estática:** ESLint, Stylelint e `tsc` limpos (CA-20).
+
+**Manual:**
+
+1. Cadastrar encontros e ver o calendário.
+2. Alterar uma aula e cancelar outra com motivo.
+3. Incluir uma palestra.
+4. Suspender uma semana.
+5. Conferir os e-mails no Mailpit (`http://192.168.3.111:8125`).
+6. Ver o calendário como estudante.
+7. Navegar só por teclado.
 
 **Cobertura:** acima de 80% no escopo (ARCHITECTURE, seção 5).
 
@@ -414,22 +451,22 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038). A lista defin
 | D-05 | Calendário na página da turma e calendário geral, com o mesmo componente |
 | D-06 | A docente inclui aula avulsa ou evento direto no calendário, visível aos alunos da turma |
 | D-07 | A docente seleciona um intervalo (primeiro e último dia) e edita em massa, como na "semana do saco cheio" |
+| D-08 | As aulas são guardadas como linhas (`class_sessions`); a regeneração preserva as alteradas, as avulsas e as passadas (era P-01) |
+| D-09 | Uma turma pode ter mais de um encontro no mesmo dia, sem sobreposição (era P-02) |
+| D-10 | Lembrete na véspera às 18 h para aulas que começam antes das 12 h, e 2 h antes para as demais (era P-03) |
+| D-11 | Resumo semanal no domingo às 18 h (era P-04) |
+| D-12 | O estudante pode desligar só o lembrete e o resumo; alterações e agenda sempre vão (era P-05) |
+| D-13 | O texto livre "Horários dos encontros" continua aparecendo enquanto a turma não tiver encontros e some do formulário quando houver (era P-06) |
+| D-14 | Calendário em `.ics` fica para depois (era P-07) |
+| D-15 | O período especial só suspende ou passa para online (era P-08) |
+| D-16 | O evento é só informativo; para contar horas-aula, a docente cria uma aula avulsa (era P-09) |
+| D-17 | Só o administrador cadastra feriados locais e recesso; a docente usa o período especial para a turma dela (era P-10) |
+| D-18 | Os termos do glossário ficam como propostos (era P-11) |
 
 ### Pendências
 
 | ID | Pendência | Recomendação |
 | :--- | :--- | :--- |
-| P-01 | Guardar as aulas como linhas no banco (geradas) ou calculá-las na hora a partir dos encontros mais as exceções? | **Guardar como linhas** (`class_sessions`): alterar, lembrar e consultar fica simples; a regeneração preserva o que foi mexido (RN-02) |
-| P-02 | Uma turma pode ter mais de um encontro no mesmo dia (ex.: 08:20 e 13:50)? | **Sim**, desde que não se sobreponham |
-| P-03 | Antecedência do lembrete | **Na véspera, às 18 h**, para aulas da manhã, e **2 h antes** para as demais; ou fixar só "véspera às 18 h", mais simples |
-| P-04 | Dia e hora do resumo semanal | **Domingo, 18 h** |
-| P-05 | O estudante pode desligar os e-mails? | **Só lembrete e resumo**; alterações e agenda sempre vão |
-| P-06 | O que fazer com o texto livre "Horários dos encontros" das turmas existentes? | **Manter e mostrar** enquanto a turma não tiver encontros; sumir do formulário quando houver |
-| P-07 | Oferecer o calendário em `.ics` para Google Agenda e celular? | **Não nesta spec**; fica para depois |
-| P-08 | Período especial só pode suspender ou passar para online, ou também trocar a sala de todas as aulas do intervalo? | **Só suspender ou online** nesta versão |
-| P-09 | O evento da turma conta como aula (horas-aula) ou é só informativo? | **Só informativo**; para contar horas-aula, a docente cria uma aula avulsa |
-| P-10 | Quem cadastra os feriados locais da UTFPR e o recesso: só o administrador ou também a docente para a própria turma? | **Só o administrador**, valendo para todas as turmas; a docente usa o período especial para a turma dela |
-| P-11 | Termos novos no glossário (seção ao lado) | Aprovar como estão ou ajustar os nomes |
 
 ### Termos propostos para o `GLOSSARY.md`
 
@@ -452,3 +489,4 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038). A lista defin
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 13/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | Criação do rascunho a partir do pedido da professora, do protótipo dela e dos pedidos do Tech Lead (aula ou evento avulso; edição em massa de um intervalo). Decisões D-01 a D-07; pendências P-01 a P-11 com recomendação |
+| 13/10/2026 | Tech Lead | Aprovada ("Aprovo 42"), aceitas as recomendações de P-01 a P-11 (D-08 a D-18). Seção 8 com a lista nominal dos testes. Status: `Aprovada` |
