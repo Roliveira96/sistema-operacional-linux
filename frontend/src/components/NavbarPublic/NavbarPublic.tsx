@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AccountMenu } from "@/components/AccountMenu/AccountMenu";
 import { BrandMark } from "@/components/BrandMark/BrandMark";
 import { Button } from "@/components/Button/Button";
@@ -22,12 +22,23 @@ export interface NavbarPublicProps {
  * Top bar of the public pages. It knows the session: a signed-in user sees a link to
  * their area and the account menu (SPEC-026), never the sign-in and sign-up
  * buttons; a visitor sees the buttons; while the session is read, neither.
+ * On mobile viewports (< 768px), navigation is collapsed into a drawer (SPEC-043).
  */
 export function NavbarPublic({ identity: sources, logout = () => authService.logout() }: NavbarPublicProps = {}) {
   const router = useRouter();
   const identity = useIdentity(sources);
   const [signedOut, setSignedOut] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const user = signedOut ? null : identity;
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileMenuOpen]);
 
   const leave = async () => {
     try {
@@ -76,7 +87,88 @@ export function NavbarPublic({ identity: sources, logout = () => authService.log
             </>
           )}
         </div>
+
+        <button
+          type="button"
+          className={styles.mobileToggle}
+          aria-label={mobileMenuOpen ? messages.public.nav.closeMenu : messages.public.nav.openMenu}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="public-mobile-nav"
+          onClick={() => setMobileMenuOpen((open) => !open)}
+        >
+          {mobileMenuOpen ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          )}
+        </button>
       </div>
+
+      {mobileMenuOpen && (
+        <div className={styles.mobileBackdrop} onClick={() => setMobileMenuOpen(false)}>
+          <nav
+            id="public-mobile-nav"
+            className={styles.mobileNav}
+            aria-label={messages.public.nav.mobileAriaLabel}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Link href="/" className={styles.mobileNavLink} onClick={() => setMobileMenuOpen(false)}>
+              {messages.public.nav.home}
+            </Link>
+            <Link href="/materials" className={styles.mobileNavLink} onClick={() => setMobileMenuOpen(false)}>
+              {messages.public.nav.materials}
+            </Link>
+            <Link href="/simulations" className={styles.mobileNavLink} onClick={() => setMobileMenuOpen(false)}>
+              {messages.public.nav.simulations}
+            </Link>
+            <div className={styles.mobileActions}>
+              {user === null && (
+                <>
+                  <Button
+                    variant="secondary"
+                    className={styles.mobileBtn}
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      router.push("/login");
+                    }}
+                  >
+                    {messages.public.nav.login}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className={styles.mobileBtn}
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      router.push("/register");
+                    }}
+                  >
+                    {messages.public.nav.register}
+                  </Button>
+                </>
+              )}
+              {user && (
+                <Button
+                  variant="primary"
+                  className={styles.mobileBtn}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    router.push("/app");
+                  }}
+                >
+                  {messages.public.nav.myArea}
+                </Button>
+              )}
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

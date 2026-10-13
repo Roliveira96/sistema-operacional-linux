@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-043 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 13/10/2026 |
-| **Última revisão** | 13/10/2026 (aprovada) |
+| **Última revisão** | 13/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Frontend |
@@ -92,13 +92,13 @@ Não se aplica nesta spec. Nenhum endpoint novo ou alterado no backend.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (estado): EM telas com largura inferior a 768 px, a barra de navegação desktop do `AppShell` DEVE ficar oculta e O SISTEMA DEVE exibir o botão de menu móvel.
-- [ ] **CA-02** (evento): QUANDO o usuário clica no botão de menu móvel, O SISTEMA DEVE abrir a lista vertical com os links de navegação adequados ao seu papel e alterar o ícone/rótulo do botão para indicar fecho.
-- [ ] **CA-03** (evento): QUANDO o usuário clica em qualquer link do menu móvel ou pressiona a tecla `Escape`, O SISTEMA DEVE fechar o menu móvel.
-- [ ] **CA-04** (ubíquo): O botão de menu móvel e os itens de navegação DEVEM ter altura mínima de 44 px para toque em celular.
-- [ ] **CA-05** (ubíquo): O menu móvel DEVE conter os atributos de acessibilidade `aria-expanded`, `aria-label` e ser operável via teclado.
-- [ ] **CA-06** (ubíquo): A barra pública `NavbarPublic` DEVE colapsar seus links e botões de ação em menu móvel em telas com largura inferior a 768 px.
-- [ ] **CA-07** (ubíquo): Stylelint e ESLint DEVEM permanecer sem erros e todas as cores devem vir dos tokens semânticos de `_tokens.scss`.
+- [x] **CA-01** (estado): EM telas com largura inferior a 768 px, a barra de navegação desktop do `AppShell` DEVE ficar oculta e O SISTEMA DEVE exibir o botão de menu móvel.
+- [x] **CA-02** (evento): QUANDO o usuário clica no botão de menu móvel, O SISTEMA DEVE abrir a lista vertical com os links de navegação adequados ao seu papel e alterar o ícone/rótulo do botão para indicar fecho.
+- [x] **CA-03** (evento): QUANDO o usuário clica em qualquer link do menu móvel ou pressiona a tecla `Escape`, O SISTEMA DEVE fechar o menu móvel.
+- [x] **CA-04** (ubíquo): O botão de menu móvel e os itens de navegação DEVEM ter altura mínima de 44 px para toque em celular.
+- [x] **CA-05** (ubíquo): O menu móvel DEVE conter os atributos de acessibilidade `aria-expanded`, `aria-label` e ser operável via teclado.
+- [x] **CA-06** (ubíquo): A barra pública `NavbarPublic` DEVE colapsar seus links e botões de ação em menu móvel em telas com largura inferior a 768 px.
+- [x] **CA-07** (ubíquo): Stylelint e ESLint DEVEM permanecer sem erros e todas as cores devem vir dos tokens semânticos de `_tokens.scss`.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -130,3 +130,4 @@ Nenhuma pendência.
 | :--- | :--- | :--- |
 | 13/10/2026 | Aruna Architect | Criação do rascunho da SPEC-043 após feedback do Tech Lead sobre a dificuldade de navegação mobile para professores, estudantes e administradores. Status: `Rascunho` |
 | 13/10/2026 | Tech Lead | Aprovada pelo Tech Lead ("aprovo sim"). Status: `Aprovada` |
+| 13/10/2026 | Implementador | Implementação do menu e navegação mobile responsiva no AppShell e NavbarPublic, verificação com 33 testes verdes e Stylelint/ESLint limpos. Status: `Implementada` |

@@ -218,5 +218,24 @@ describe("AppShell", () => {
       fireEvent.click(classesLink);
       expect(screen.queryByRole("navigation", { name: messages.shell.mobileNavAriaLabel })).toBeNull();
     });
+
+    it("closes the mobile menu when clicking the backdrop", () => {
+      signIn("TEACHER");
+      renderShell();
+      fireEvent.click(screen.getByRole("button", { name: messages.shell.openMenu }));
+      expect(screen.getByRole("navigation", { name: messages.shell.mobileNavAriaLabel })).toBeDefined();
+      const backdrop = screen.getByRole("navigation", { name: messages.shell.mobileNavAriaLabel }).parentElement!;
+      fireEvent.click(backdrop);
+      expect(screen.queryByRole("navigation", { name: messages.shell.mobileNavAriaLabel })).toBeNull();
+    });
+
+    it("navigates via calendar link in mobile nav and closes drawer", () => {
+      signIn("STUDENT");
+      renderShell();
+      fireEvent.click(screen.getByRole("button", { name: messages.shell.openMenu }));
+      const mobileNav = screen.getByRole("navigation", { name: messages.shell.mobileNavAriaLabel });
+      fireEvent.click(within(mobileNav).getByRole("link", { name: messages.schedule.page.nav }));
+      expect(screen.queryByRole("navigation", { name: messages.shell.mobileNavAriaLabel })).toBeNull();
+    });
   });
 });

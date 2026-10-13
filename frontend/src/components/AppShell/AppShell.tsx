@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrandMark } from "@/components/BrandMark/BrandMark";
 import { AccountMenu } from "@/components/AccountMenu/AccountMenu";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,9 +14,20 @@ import styles from "./AppShell.module.scss";
  * Frame of the signed-in area. The bar follows the pattern of the study screen
  * (SPEC-015, SPEC-016): the logo of the university and the platform at the left,
  * the navigation, and the account menu of the signed-in user (SPEC-026) at the right.
+ * On mobile viewports (< 768px), navigation is collapsed into a drawer (SPEC-043).
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileMenuOpen]);
 
   // The session is already known here, so only the student profile (RA and photo) is read.
   const sources = useMemo(() => ({ me: async () => user, studentProfile: () => getStudentProfile() }), [user]);
@@ -27,6 +38,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className={styles.shell}>
       <header className={styles.bar}>
         <BrandMark href="/app" />
+        <button
+          type="button"
+          className={styles.mobileToggle}
+          aria-label={mobileMenuOpen ? messages.shell.closeMenu : messages.shell.openMenu}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="app-mobile-nav"
+          onClick={() => setMobileMenuOpen((open) => !open)}
+        >
+          {mobileMenuOpen ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          )}
+        </button>
         <nav className={styles.nav} aria-label="Conta">
           {(user.role === "TEACHER" || user.role === "ADMIN") && (
             <>
@@ -62,6 +94,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AccountMenu user={account} logout={logout} />
         </div>
       </header>
+      {mobileMenuOpen && (
+        <div className={styles.mobileBackdrop} onClick={() => setMobileMenuOpen(false)}>
+          <nav
+            id="app-mobile-nav"
+            className={styles.mobileNav}
+            aria-label={messages.shell.mobileNavAriaLabel}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(user.role === "TEACHER" || user.role === "ADMIN") && (
+              <>
+                <Link href="/app/classes" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                  {messages.classes.title}
+                </Link>
+                <Link href="/app/students" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                  {messages.students.title}
+                </Link>
+                <Link href="/app/modules" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                  {messages.modules.title}
+                </Link>
+              </>
+            )}
+            {user.role === "ADMIN" && (
+              <>
+                <Link href="/app/admin/conformidade" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                  {messages.conformance.nav}
+                </Link>
+                <Link href="/app/admin/holidays" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                  {messages.schedule.holidays.nav}
+                </Link>
+              </>
+            )}
+            <Link href="/app/calendar" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+              {messages.schedule.page.nav}
+            </Link>
+            <Link href="/app/profile/security" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+              {messages.home.security}
+            </Link>
+          </nav>
+        </div>
+      )}
       <div className={styles.content}>{children}</div>
     </div>
   );
