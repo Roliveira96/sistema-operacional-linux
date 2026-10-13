@@ -5,12 +5,14 @@ import (
 	"context"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/htmlsafe"
 )
 
 // ClassRepository defines persistence operations needed by the service.
@@ -29,6 +31,11 @@ type ClassRepository interface {
 
 	ListTeacherClassesForMenu(ctx context.Context, teacherID uuid.UUID, limit int) (repository.MyClassesResult, error)
 	ListStudentClassesForMenu(ctx context.Context, studentID uuid.UUID, limit int) (repository.MyClassesResult, error)
+
+	FindUserRoles(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
+	ListEnrollmentsByUsers(ctx context.Context, classID uuid.UUID, userIDs []uuid.UUID) ([]domain.Enrollment, error)
+	SaveEnrollments(ctx context.Context, created, updated []domain.Enrollment) error
+	FindUserName(ctx context.Context, id uuid.UUID) (*string, error)
 }
 
 // CreateClassInput defines parameters for creating a new class.
@@ -36,6 +43,7 @@ type CreateClassInput struct {
 	Name                    string
 	CourseCode              string
 	Semester                string
+	Summary                 string
 	Syllabus                string
 	InstitutionalGuidelines string
 	StartDate               time.Time
@@ -52,6 +60,7 @@ type CreateClassInput struct {
 // UpdateClassInput defines parameters for updating an existing class.
 type UpdateClassInput struct {
 	Name                    *string
+	Summary                 *string
 	Syllabus                *string
 	InstitutionalGuidelines *string
 	StartDate               *time.Time
@@ -70,18 +79,48 @@ type JoinResult struct {
 	Status       domain.EnrollmentStatus
 }
 
+// RejectedStudent is a student of a batch that was not enrolled, with the reason (SPEC-041 RN-05).
+type RejectedStudent struct {
+	StudentID uuid.UUID
+	Reason    string
+}
+
+// EnrollStudentsResult is the outcome of a batch enrollment (SPEC-041, section 5.1).
+type EnrollStudentsResult struct {
+	Enrolled        []uuid.UUID
+	AlreadyEnrolled []uuid.UUID
+	Rejected        []RejectedStudent
+}
+
+// StudentClassView is what an enrolled student reads of a class (SPEC-041 RN-09).
+type StudentClassView struct {
+	Class       domain.ClassGroup
+	TeacherName *string
+}
+
 // Service coordinates class management and moderation operations.
 type Service struct {
-	repo ClassRepository
-	now  func() time.Time
+	repo     ClassRepository
+	richText *htmlsafe.Sanitizer
+	now      func() time.Time
 }
 
 // New creates a new classgroup service.
 func New(repo ClassRepository) *Service {
 	return &Service{
-		repo: repo,
-		now:  time.Now,
+		repo:     repo,
+		richText: htmlsafe.NewRichText(),
+		now:      time.Now,
 	}
+}
+
+// richTextField filters the HTML of a syllabus or guidelines and checks its length (SPEC-041 RN-02).
+func (s *Service) richTextField(field, markup string) (string, error) {
+	filtered := strings.TrimSpace(s.richText.Sanitize(markup))
+	if utf8.RuneCountInString(filtered) > domain.RichTextMaxLength {
+		return "", &domain.ContentTooLongError{Field: field}
+	}
+	return filtered, nil
 }
 
 // WithNow configures custom clock for deterministic testing.
@@ -96,6 +135,19 @@ func (s *Service) CreateClass(ctx context.Context, teacherID uuid.UUID, input Cr
 		return domain.ClassGroup{}, err
 	}
 	if err := domain.ValidateInviteLink(input.EnableInviteLink, input.InviteLinkStart, input.InviteLinkEnd); err != nil {
+		return domain.ClassGroup{}, err
+	}
+
+	summary, err := domain.NormalizeSummary(input.Summary)
+	if err != nil {
+		return domain.ClassGroup{}, err
+	}
+	syllabus, err := s.richTextField("syllabus", input.Syllabus)
+	if err != nil {
+		return domain.ClassGroup{}, err
+	}
+	guidelines, err := s.richTextField("institutionalGuidelines", input.InstitutionalGuidelines)
+	if err != nil {
 		return domain.ClassGroup{}, err
 	}
 
@@ -119,8 +171,9 @@ func (s *Service) CreateClass(ctx context.Context, teacherID uuid.UUID, input Cr
 		Name:                    strings.TrimSpace(input.Name),
 		CourseCode:              strings.TrimSpace(input.CourseCode),
 		Semester:                strings.TrimSpace(input.Semester),
-		Syllabus:                strings.TrimSpace(input.Syllabus),
-		InstitutionalGuidelines: strings.TrimSpace(input.InstitutionalGuidelines),
+		Summary:                 summary,
+		Syllabus:                syllabus,
+		InstitutionalGuidelines: guidelines,
 		StartDate:               input.StartDate,
 		EndDate:                 input.EndDate,
 		ScheduleDescription:     strings.TrimSpace(input.ScheduleDescription),
@@ -229,11 +282,26 @@ func (s *Service) UpdateClass(ctx context.Context, teacherID, classID uuid.UUID,
 	if input.Name != nil {
 		class.Name = strings.TrimSpace(*input.Name)
 	}
+	if input.Summary != nil {
+		summary, err := domain.NormalizeSummary(*input.Summary)
+		if err != nil {
+			return domain.ClassGroup{}, err
+		}
+		class.Summary = summary
+	}
 	if input.Syllabus != nil {
-		class.Syllabus = strings.TrimSpace(*input.Syllabus)
+		syllabus, err := s.richTextField("syllabus", *input.Syllabus)
+		if err != nil {
+			return domain.ClassGroup{}, err
+		}
+		class.Syllabus = syllabus
 	}
 	if input.InstitutionalGuidelines != nil {
-		class.InstitutionalGuidelines = strings.TrimSpace(*input.InstitutionalGuidelines)
+		guidelines, err := s.richTextField("institutionalGuidelines", *input.InstitutionalGuidelines)
+		if err != nil {
+			return domain.ClassGroup{}, err
+		}
+		class.InstitutionalGuidelines = guidelines
 	}
 	class.StartDate = startDate
 	class.EndDate = endDate
@@ -374,4 +442,108 @@ func (s *Service) ModerateMember(ctx context.Context, teacherID, classID, enroll
 		return domain.Enrollment{}, err
 	}
 	return enrollment, nil
+}
+
+// EnrollStudents enrolls a batch of existing students in the class (SPEC-041 RN-03 to RN-06). Only the owner teacher
+// or an admin enrolls; an archived class refuses. Each id is handled on its own and lands in one group of the result.
+func (s *Service) EnrollStudents(ctx context.Context, actorID uuid.UUID, actorRole string, classID uuid.UUID, studentIDs []uuid.UUID) (EnrollStudentsResult, error) {
+	ids := uniqueIDs(studentIDs)
+	if len(ids) == 0 || len(ids) > domain.MaxEnrollmentBatch {
+		return EnrollStudentsResult{}, domain.ErrInvalidEnrollmentBatch
+	}
+
+	class, err := s.repo.FindClassByID(ctx, classID)
+	if err != nil {
+		return EnrollStudentsResult{}, err
+	}
+	if actorRole != authn.RoleAdmin && class.TeacherID != actorID {
+		return EnrollStudentsResult{}, domain.ErrForbidden
+	}
+	if class.Status == domain.ClassStatusArchived {
+		return EnrollStudentsResult{}, domain.ErrClassArchived
+	}
+
+	roles, err := s.repo.FindUserRoles(ctx, ids)
+	if err != nil {
+		return EnrollStudentsResult{}, err
+	}
+	existing, err := s.repo.ListEnrollmentsByUsers(ctx, classID, ids)
+	if err != nil {
+		return EnrollStudentsResult{}, err
+	}
+	byUser := make(map[uuid.UUID]domain.Enrollment, len(existing))
+	for _, e := range existing {
+		byUser[e.UserID] = e
+	}
+
+	now := s.now()
+	result := EnrollStudentsResult{Enrolled: []uuid.UUID{}, AlreadyEnrolled: []uuid.UUID{}, Rejected: []RejectedStudent{}}
+	var created, updated []domain.Enrollment
+	for _, id := range ids {
+		if roles[id] != authn.RoleStudent {
+			result.Rejected = append(result.Rejected, RejectedStudent{StudentID: id, Reason: domain.RejectReasonNotAStudent})
+			continue
+		}
+		enrollment, found := byUser[id]
+		if !found {
+			created = append(created, domain.Enrollment{
+				ClassID: classID, UserID: id, Status: domain.EnrollmentActive, Origin: domain.OriginDirectByTeacher,
+				RequestedAt: now, DecidedAt: &now,
+			})
+			result.Enrolled = append(result.Enrolled, id)
+			continue
+		}
+		switch enrollment.Status {
+		case domain.EnrollmentActive:
+			result.AlreadyEnrolled = append(result.AlreadyEnrolled, id)
+		case domain.EnrollmentTransferred:
+			result.Rejected = append(result.Rejected, RejectedStudent{StudentID: id, Reason: domain.RejectReasonTransferred})
+		default: // PENDING_MODERATION, REJECTED, UNENROLLED (D-10)
+			decided := now
+			enrollment.Status = domain.EnrollmentActive
+			enrollment.Origin = domain.OriginDirectByTeacher
+			enrollment.RejectionReason = nil
+			enrollment.DecidedAt = &decided
+			updated = append(updated, enrollment)
+			result.Enrolled = append(result.Enrolled, id)
+		}
+	}
+
+	if len(created) > 0 || len(updated) > 0 {
+		if err := s.repo.SaveEnrollments(ctx, created, updated); err != nil {
+			return EnrollStudentsResult{}, err
+		}
+	}
+	return result, nil
+}
+
+// GetMyClass returns the class to a student with an ACTIVE enrollment in it; anyone else gets ErrClassNotFound,
+// so the class is not revealed (SPEC-041 RN-08).
+func (s *Service) GetMyClass(ctx context.Context, studentID, classID uuid.UUID) (StudentClassView, error) {
+	class, err := s.repo.FindClassByID(ctx, classID)
+	if err != nil {
+		return StudentClassView{}, err
+	}
+	enrollment, err := s.repo.FindEnrollment(ctx, classID, studentID)
+	if err != nil || enrollment.Status != domain.EnrollmentActive {
+		return StudentClassView{}, domain.ErrClassNotFound
+	}
+	teacherName, err := s.repo.FindUserName(ctx, class.TeacherID)
+	if err != nil {
+		return StudentClassView{}, err
+	}
+	return StudentClassView{Class: class, TeacherName: teacherName}, nil
+}
+
+// uniqueIDs keeps the first occurrence of each id, in order.
+func uniqueIDs(ids []uuid.UUID) []uuid.UUID {
+	seen := make(map[uuid.UUID]bool, len(ids))
+	out := make([]uuid.UUID, 0, len(ids))
+	for _, id := range ids {
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out
 }

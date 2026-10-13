@@ -42,3 +42,12 @@ type Enrollment struct {
 
 // TableName maps Enrollment to the "class_enrollments" table.
 func (Enrollment) TableName() string { return "class_enrollments" }
+
+// MaxEnrollmentBatch is the largest number of students enrolled by one request (SPEC-041, section 5.1).
+const MaxEnrollmentBatch = 200
+
+// Reasons why a student of a batch is not enrolled (SPEC-041 RN-05).
+const (
+	RejectReasonNotAStudent = "not-a-student"
+	RejectReasonTransferred = "transferred"
+)

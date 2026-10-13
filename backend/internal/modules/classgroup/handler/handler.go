@@ -29,6 +29,8 @@ type ClassService interface {
 	ListMembers(ctx context.Context, teacherID, classID uuid.UUID, status string) ([]repository.EnrollmentWithUser, error)
 	ModerateMember(ctx context.Context, teacherID, classID, enrollmentID uuid.UUID, approve bool, rejectionReason *string) (domain.Enrollment, error)
 	ListMyClasses(ctx context.Context, userID uuid.UUID, role string) (repository.MyClassesResult, error)
+	EnrollStudents(ctx context.Context, actorID uuid.UUID, actorRole string, classID uuid.UUID, studentIDs []uuid.UUID) (service.EnrollStudentsResult, error)
+	GetMyClass(ctx context.Context, studentID, classID uuid.UUID) (service.StudentClassView, error)
 }
 
 // Handler manages class-related HTTP requests.
@@ -61,6 +63,8 @@ func (h *Handler) Register(r gin.IRouter) {
 
 	// Account menu: classes of the authenticated user (SPEC-026)
 	r.GET("/me/classes", authn.Required(h.auth), authn.PasswordChanged(), h.listMyClasses)
+	// Class read by an enrolled student (SPEC-041, section 5.2)
+	r.GET("/me/classes/:id", authn.Required(h.auth), authn.PasswordChanged(), authn.Roles(authn.RoleStudent), h.getMyClass)
 
 	// Teacher/Admin endpoints
 	teacherGroup := r.Group("/classes", authn.Required(h.auth), authn.Roles(authn.RoleTeacher, authn.RoleAdmin))
@@ -71,12 +75,14 @@ func (h *Handler) Register(r gin.IRouter) {
 	teacherGroup.POST("/:id/archive", h.archiveClass)
 	teacherGroup.GET("/:id/members", h.listMembers)
 	teacherGroup.POST("/:id/members/:memberId/moderate", h.moderateMember)
+	teacherGroup.POST("/:id/enrollments", h.enrollStudents)
 }
 
 type createClassRequest struct {
 	Name                    string      `json:"name"`
 	CourseCode              string      `json:"courseCode"`
 	Semester                string      `json:"semester"`
+	Summary                 string      `json:"summary"`
 	Syllabus                string      `json:"syllabus"`
 	InstitutionalGuidelines string      `json:"institutionalGuidelines"`
 	StartDate               string      `json:"startDate"`
@@ -95,6 +101,7 @@ type classResponse struct {
 	Name                    string     `json:"name"`
 	CourseCode              string     `json:"courseCode"`
 	Semester                string     `json:"semester"`
+	Summary                 string     `json:"summary"`
 	Syllabus                string     `json:"syllabus"`
 	InstitutionalGuidelines string     `json:"institutionalGuidelines"`
 	StartDate               time.Time  `json:"startDate"`
@@ -132,6 +139,7 @@ func (h *Handler) toClassResponse(c domain.ClassGroup) classResponse {
 		Name:                    c.Name,
 		CourseCode:              c.CourseCode,
 		Semester:                c.Semester,
+		Summary:                 c.Summary,
 		Syllabus:                c.Syllabus,
 		InstitutionalGuidelines: c.InstitutionalGuidelines,
 		StartDate:               c.StartDate,
@@ -217,6 +225,7 @@ func (h *Handler) createClass(c *gin.Context) {
 		Name:                    req.Name,
 		CourseCode:              req.CourseCode,
 		Semester:                req.Semester,
+		Summary:                 req.Summary,
 		Syllabus:                req.Syllabus,
 		InstitutionalGuidelines: req.InstitutionalGuidelines,
 		StartDate:               start,
@@ -344,6 +353,7 @@ func (h *Handler) getClass(c *gin.Context) {
 
 type updateClassRequest struct {
 	Name                    *string `json:"name"`
+	Summary                 *string `json:"summary"`
 	Syllabus                *string `json:"syllabus"`
 	InstitutionalGuidelines *string `json:"institutionalGuidelines"`
 	StartDate               *string `json:"startDate"`
@@ -376,6 +386,7 @@ func (h *Handler) updateClass(c *gin.Context) {
 
 	input := service.UpdateClassInput{
 		Name:                    req.Name,
+		Summary:                 req.Summary,
 		Syllabus:                req.Syllabus,
 		InstitutionalGuidelines: req.InstitutionalGuidelines,
 		ScheduleDescription:     req.ScheduleDescription,
@@ -582,8 +593,132 @@ func (h *Handler) moderateMember(c *gin.Context) {
 	})
 }
 
+type enrollStudentsRequest struct {
+	StudentIDs []uuid.UUID `json:"studentIds"`
+}
+
+type rejectedStudentResponse struct {
+	StudentID uuid.UUID `json:"studentId"`
+	Reason    string    `json:"reason"`
+}
+
+type enrollStudentsResponse struct {
+	Enrolled        []uuid.UUID               `json:"enrolled"`
+	AlreadyEnrolled []uuid.UUID               `json:"alreadyEnrolled"`
+	Rejected        []rejectedStudentResponse `json:"rejected"`
+}
+
+func (h *Handler) enrollStudents(c *gin.Context) {
+	principal, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+
+	classID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		fail(c, problem.BadRequest("invalid-uuid", "The class ID parameter is invalid."))
+		return
+	}
+
+	var req enrollStudentsRequest
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.StudentIDs) == 0 || len(req.StudentIDs) > domain.MaxEnrollmentBatch {
+		fail(c, problem.BadRequest("malformed-request", "studentIds must list from 1 to 200 student ids."))
+		return
+	}
+
+	res, err := h.svc.EnrollStudents(c.Request.Context(), principal.UserID, principal.Role, classID, req.StudentIDs)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+
+	out := enrollStudentsResponse{
+		Enrolled:        nonNilIDs(res.Enrolled),
+		AlreadyEnrolled: nonNilIDs(res.AlreadyEnrolled),
+		Rejected:        make([]rejectedStudentResponse, len(res.Rejected)),
+	}
+	for i, r := range res.Rejected {
+		out.Rejected[i] = rejectedStudentResponse{StudentID: r.StudentID, Reason: r.Reason}
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+func nonNilIDs(ids []uuid.UUID) []uuid.UUID {
+	if ids == nil {
+		return []uuid.UUID{}
+	}
+	return ids
+}
+
+// studentClassResponse is the presentation of a class to an enrolled student; it never carries the invite token,
+// member counters or the archive reason (SPEC-041 RN-09).
+type studentClassResponse struct {
+	ID                      uuid.UUID `json:"id"`
+	Name                    string    `json:"name"`
+	CourseCode              string    `json:"courseCode"`
+	Semester                string    `json:"semester"`
+	Status                  string    `json:"status"`
+	Summary                 string    `json:"summary"`
+	Syllabus                string    `json:"syllabus"`
+	InstitutionalGuidelines string    `json:"institutionalGuidelines"`
+	StartDate               time.Time `json:"startDate"`
+	EndDate                 time.Time `json:"endDate"`
+	ScheduleDescription     string    `json:"scheduleDescription"`
+	EnableVirtualClassroom  bool      `json:"enableVirtualClassroom"`
+	TeacherName             *string   `json:"teacherName,omitempty"`
+}
+
+func (h *Handler) getMyClass(c *gin.Context) {
+	principal, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+
+	classID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		fail(c, problem.BadRequest("invalid-uuid", "The class ID parameter is invalid."))
+		return
+	}
+
+	view, err := h.svc.GetMyClass(c.Request.Context(), principal.UserID, classID)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+
+	cl := view.Class
+	c.JSON(http.StatusOK, studentClassResponse{
+		ID:                      cl.ID,
+		Name:                    cl.Name,
+		CourseCode:              cl.CourseCode,
+		Semester:                cl.Semester,
+		Status:                  string(cl.Status),
+		Summary:                 cl.Summary,
+		Syllabus:                cl.Syllabus,
+		InstitutionalGuidelines: cl.InstitutionalGuidelines,
+		StartDate:               cl.StartDate,
+		EndDate:                 cl.EndDate,
+		ScheduleDescription:     cl.ScheduleDescription,
+		EnableVirtualClassroom:  cl.EnableVirtualClassroom,
+		TeacherName:             view.TeacherName,
+	})
+}
+
 func toProblem(err error) *problem.Problem {
+	var tooLong *domain.ContentTooLongError
 	switch {
+	case errors.Is(err, domain.ErrSummaryTooLong):
+		return problem.BadRequest("invalid-summary", err.Error()).WithExtension("field", "summary")
+	case errors.As(err, &tooLong):
+		return problem.BadRequest("content-too-long", err.Error()).WithExtension("field", tooLong.Field)
+	case errors.Is(err, domain.ErrContentTooLong):
+		return problem.BadRequest("content-too-long", err.Error())
+	case errors.Is(err, domain.ErrInvalidEnrollmentBatch):
+		return problem.BadRequest("malformed-request", err.Error())
+	case errors.Is(err, domain.ErrClassArchived):
+		return problem.Conflict("class-archived", err.Error())
 	case errors.Is(err, domain.ErrInvalidDateRange):
 		return problem.BadRequest("invalid-date-range", err.Error())
 	case errors.Is(err, domain.ErrInvalidInviteRange):
