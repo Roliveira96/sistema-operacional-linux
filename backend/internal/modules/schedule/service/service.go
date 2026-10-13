@@ -598,8 +598,16 @@ func (s *Service) calendar(ctx context.Context, classIDs []uuid.UUID, from, to t
 	if cal.Periods, err = s.repo.ListPeriods(ctx, classIDs, from, to); err != nil {
 		return Calendar{}, err
 	}
-	if cal.Holidays, err = s.repo.ListHolidays(ctx, from, to); err != nil {
+	holidays, err := s.repo.ListHolidays(ctx, from, to)
+	if err != nil {
 		return Calendar{}, err
+	}
+	// The calendar shows only the active holidays; the admin list shows all of them.
+	cal.Holidays = []domain.Holiday{}
+	for _, h := range holidays {
+		if h.Active {
+			cal.Holidays = append(cal.Holidays, h)
+		}
 	}
 	return cal, nil
 }
