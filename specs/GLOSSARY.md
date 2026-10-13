@@ -30,6 +30,9 @@ Regras:
 | :--- | :--- | :--- | :--- | :--- |
 | Disciplina | `Course` | Componente curricular (ex.: Sistemas Operacionais, código SI34E) | `Subject`, `Discipline` | Canônico |
 | Turma | `ClassGroup` | Oferta de uma disciplina em um semestre, com docente responsável | `Class` (palavra reservada em várias linguagens), `Classroom` (confunde com sala física), `Team`, `Group` | Proposto |
+| Resumo da disciplina | `summary` (campo de `ClassGroup`) | Texto curto, escrito pela docente, que apresenta a turma no card e na página da turma | `description`, `abstract` | Proposto (SPEC-041) |
+| Ementa | `syllabus` (campo de `ClassGroup`) | Conteúdo programático da disciplina na turma, em texto formatado | `program`, `curriculum` | Proposto (SPEC-041) |
+| Diretrizes institucionais | `institutionalGuidelines` (campo de `ClassGroup`; coluna `institutional_guidelines`) | Regras de frequência, avaliação e conduta da turma, em texto formatado | `rules`, `policies` | Proposto (SPEC-041) |
 | Matrícula (inscrição na turma) | `Enrollment` | Vínculo de um estudante com uma turma e o ciclo de vida desse vínculo | `Registration`, `Subscription`, `Inscription` | Canônico |
 | Status da matrícula | `PENDING_MODERATION`, `ACTIVE`, `REJECTED`, `TRANSFERRED`, `UNENROLLED` | Ciclo de vida do vínculo com a turma | `PENDING`, `APPROVED`, `REMOVED` | Decidido (`REJECTED` e `UNENROLLED` propostos na SPEC-002) |
 | Origem da matrícula | `INVITE_LINK`, `CSV_IMPORT`, `DIRECT_BY_TEACHER` | Por qual via o estudante entrou na turma | — | Canônico |
