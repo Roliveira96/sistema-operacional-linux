@@ -43,6 +43,19 @@ Regras:
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 
+## 2.2. Agenda da turma (SPEC-042)
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Agenda da turma | módulo `schedule` | Encontros, aulas, eventos e períodos de uma turma | `Timetable` | Proposto (SPEC-042) |
+| Encontro semanal | `WeeklyMeeting` | Horário fixo da turma num dia da semana, que gera as aulas | `Slot`, `Recurrence` | Proposto (SPEC-042) |
+| Aula (sessão de aula) | `ClassSession` | Ocorrência numa data, gerada por um encontro ou avulsa (`origin = EXTRA`) | `Lesson` (reservado a "Módulo de ensino"), `Class` | Proposto (SPEC-042) |
+| Evento da turma | `ClassEvent` | Palestra, visita ou atividade informada aos alunos da turma | `Activity` | Proposto (SPEC-042) |
+| Período especial | `SpecialPeriod` | Intervalo de dias com aulas suspensas (`NO_CLASSES`) ou online (`ONLINE`) | `Block`, `Break` | Proposto (SPEC-042) |
+| Feriado | `Holiday` | Data sem expediente: `NATIONAL`, `LOCAL` ou `RECESS` | `DayOff` | Proposto (SPEC-042) |
+| Modalidade da aula | `IN_PERSON`, `ONLINE` | Presencial ou online | `REMOTE`, `VIRTUAL` | Proposto (SPEC-042) |
+| Fila de e-mails | `EmailOutbox` | Mensagens a enviar pelo agendador, com novas tentativas | `MailQueue` | Proposto (SPEC-042) |
+
 ## 2.1. Autenticação e segurança de acesso
 
 | Português | Código (EN) | Definição | Evitar | Status |
