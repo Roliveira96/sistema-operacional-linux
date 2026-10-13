@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -37,6 +39,8 @@ type ClassGroup struct {
 	Name                     string
 	CourseCode               string
 	Semester                 string
+	Summary                  string
+	Color                    string `gorm:"default:orange"`
 	Syllabus                 string
 	InstitutionalGuidelines  string
 	StartDate                time.Time
@@ -110,8 +114,58 @@ func GenerateInviteToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+// ClassColors are the palette keys of a class (SPEC-042 RN-12); the colors themselves are frontend tokens.
+var ClassColors = []string{"orange", "blue", "green", "purple", "pink", "teal", "yellow", "red"}
+
+// DefaultClassColor is the color of a class created without one.
+const DefaultClassColor = "orange"
+
+// NormalizeColor returns the color, the default one when empty, or ErrInvalidColor (SPEC-042 RN-12).
+func NormalizeColor(color string) (string, error) {
+	color = strings.TrimSpace(color)
+	if color == "" {
+		return DefaultClassColor, nil
+	}
+	for _, c := range ClassColors {
+		if c == color {
+			return color, nil
+		}
+	}
+	return "", ErrInvalidColor
+}
+
+// SummaryMaxLength is the largest summary of a class, in characters (SPEC-041 RN-01, D-09).
+const SummaryMaxLength = 300
+
+// RichTextMaxLength is the largest syllabus or guidelines of a class after the HTML filter, in characters (SPEC-041 RN-02).
+const RichTextMaxLength = 20000
+
+// NormalizeSummary trims the summary and checks its length (SPEC-041 RN-01).
+func NormalizeSummary(summary string) (string, error) {
+	trimmed := strings.TrimSpace(summary)
+	if utf8.RuneCountInString(trimmed) > SummaryMaxLength {
+		return "", ErrSummaryTooLong
+	}
+	return trimmed, nil
+}
+
+// ContentTooLongError tells which formatted field of a class is over RichTextMaxLength. It matches ErrContentTooLong.
+type ContentTooLongError struct {
+	Field string
+}
+
+func (e *ContentTooLongError) Error() string { return e.Field + ": " + ErrContentTooLong.Error() }
+
+// Is makes errors.Is(err, ErrContentTooLong) true.
+func (e *ContentTooLongError) Is(target error) bool { return target == ErrContentTooLong }
+
 // Domain errors.
 var (
+	ErrInvalidColor              = errors.New("color must be one of the palette keys")
+	ErrSummaryTooLong            = errors.New("summary must have at most 300 characters")
+	ErrContentTooLong            = errors.New("formatted content must have at most 20000 characters")
+	ErrClassArchived             = errors.New("an archived class does not take new enrollments")
+	ErrInvalidEnrollmentBatch    = errors.New("the batch must have from 1 to 200 student ids")
 	ErrInvalidDateRange          = errors.New("start date must be before or equal to end date")
 	ErrInvalidInviteRange         = errors.New("invite link start must be before or equal to end date")
 	ErrInviteLinkConfigRequired   = errors.New("invite link start and end dates are required when invite link is enabled")

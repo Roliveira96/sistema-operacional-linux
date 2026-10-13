@@ -79,7 +79,8 @@ export default function ClassSettingsPage({
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
         submitLabel={messages.classes.form.submitSave}
-        cancelHref="/app/classes"
+        submittingLabel={messages.classes.form.submittingSave}
+        cancelHref={`/app/classes/${classData.id}`}
       />
     </main>
   );

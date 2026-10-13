@@ -438,3 +438,13 @@
   }
 }
 
+
+// Summary of the class (SPEC-041): two lines at most, the full text in the title.
+.summary {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  color: var(--color-text-secondary);
+
+  @include mixins.truncate(2);
+}

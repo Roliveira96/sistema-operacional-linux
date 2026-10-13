@@ -435,3 +435,4 @@ Nenhuma pendência em aberto. Spec aprovada para implementação.
 | 08/10/2026 | Aruna Architect | Criação da spec inicial |
 | 08/10/2026 | Tech Lead (Ricardo Martins de Oliveira) | Aprovação para implementação |
 | 08/10/2026 | Ricardo Martins de Oliveira | Implementação concluída com cobertura de testes e critérios de aceite verificados |
+| 13/10/2026 | Implementador (Claude) | Revista pela SPEC-041 (D-03): o seletor de estudantes sai do formulário de criação e vai para a página da turma (`/app/classes/:id`); `/members` e `/students` redirecionam para a aba Estudantes |

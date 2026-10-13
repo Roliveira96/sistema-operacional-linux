@@ -104,5 +104,17 @@ describe("ClassCard", () => {
     expect(screen.getByText("Arquivada")).toBeDefined();
     expect(screen.queryByText("Arquivar")).toBeNull();
   });
+
+  // SPEC-041 CA-19 and CA-10: the card leads to the class page, shows the summary and offers to add students.
+  it("leads to the class page, shows the summary and the action to add students", () => {
+    render(<ClassCard classGroup={{ ...mockClass, summary: "Linux na prática, do shell ao kernel." }} />);
+    expect(screen.getByRole("link", { name: "Sistemas Operacionais" }).getAttribute("href")).toBe("/app/classes/c-1");
+    const summary = screen.getByText("Linux na prática, do shell ao kernel.");
+    expect(summary.getAttribute("title")).toBe("Linux na prática, do shell ao kernel.");
+    expect(screen.getByRole("link", { name: /Adicionar estudantes/i }).getAttribute("href")).toBe("/app/classes/c-1?tab=students");
+    for (const link of screen.getAllByRole("link")) {
+      expect(link.getAttribute("href")).not.toMatch(/\/members$/);
+    }
+  });
 });
 

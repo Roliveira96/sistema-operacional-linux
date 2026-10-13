@@ -185,4 +185,22 @@ describe("StudentImportCsvModal", () => {
     fireEvent.click(closeBtn);
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
+
+  // SPEC-041 CA-08: from the class page the class is fixed, without a class selector.
+  it("imports into the fixed class without asking for it", async () => {
+    vi.mocked(importStudentsCSV).mockResolvedValueOnce({
+      totalRows: 1, created: 1, enrolled: 1, alreadyEnrolled: 0, errors: [],
+    } as never);
+    render(<StudentImportCsvModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} fixedClass={{ id: "c-9", name: "Sistemas Operacionais" }} />);
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.getByText(/Sistemas Operacionais/)).toBeDefined();
+
+    const csvFile = new File(["email,academic_id\na@b.com,1234567"], "dados.csv", { type: "text/csv" });
+    const input = screen.getByRole("button", { name: (text) => text.includes("Arraste") })
+      .querySelector("input[type='file']") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [csvFile] } });
+    fireEvent.click(screen.getByRole("button", { name: messages.students.importModal.submit }));
+
+    await waitFor(() => expect(importStudentsCSV).toHaveBeenCalledWith(csvFile, "c-9"));
+  });
 });

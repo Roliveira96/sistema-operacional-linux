@@ -53,15 +53,15 @@ func (StudentProfile) TableName() string { return "student_profiles" }
 
 // StudentSummary represents a student in teacher/admin listings.
 type StudentSummary struct {
-	ID                   uuid.UUID
-	AcademicID           string
-	Email                string
-	Name                 string
-	Whatsapp             *string
-	Discord              *string
-	AvatarURL            *string
-	TotalClassesEnrolled int64
-	CreatedAt            time.Time
+	ID                   uuid.UUID `json:"id"`
+	AcademicID           string    `json:"academicId"`
+	Email                string    `json:"email"`
+	Name                 string    `json:"name"`
+	Whatsapp             *string   `json:"whatsapp,omitempty"`
+	Discord              *string   `json:"discord,omitempty"`
+	AvatarURL            *string   `json:"avatarUrl,omitempty"`
+	TotalClassesEnrolled int64     `json:"totalClassesEnrolled"`
+	CreatedAt            time.Time `json:"createdAt"`
 }
 
 // StudentProfileResponse represents the self profile view of a student.

@@ -30,6 +30,9 @@ Regras:
 | :--- | :--- | :--- | :--- | :--- |
 | Disciplina | `Course` | Componente curricular (ex.: Sistemas Operacionais, código SI34E) | `Subject`, `Discipline` | Canônico |
 | Turma | `ClassGroup` | Oferta de uma disciplina em um semestre, com docente responsável | `Class` (palavra reservada em várias linguagens), `Classroom` (confunde com sala física), `Team`, `Group` | Proposto |
+| Resumo da disciplina | `summary` (campo de `ClassGroup`) | Texto curto, escrito pela docente, que apresenta a turma no card e na página da turma | `description`, `abstract` | Proposto (SPEC-041) |
+| Ementa | `syllabus` (campo de `ClassGroup`) | Conteúdo programático da disciplina na turma, em texto formatado | `program`, `curriculum` | Proposto (SPEC-041) |
+| Diretrizes institucionais | `institutionalGuidelines` (campo de `ClassGroup`; coluna `institutional_guidelines`) | Regras de frequência, avaliação e conduta da turma, em texto formatado | `rules`, `policies` | Proposto (SPEC-041) |
 | Matrícula (inscrição na turma) | `Enrollment` | Vínculo de um estudante com uma turma e o ciclo de vida desse vínculo | `Registration`, `Subscription`, `Inscription` | Canônico |
 | Status da matrícula | `PENDING_MODERATION`, `ACTIVE`, `REJECTED`, `TRANSFERRED`, `UNENROLLED` | Ciclo de vida do vínculo com a turma | `PENDING`, `APPROVED`, `REMOVED` | Decidido (`REJECTED` e `UNENROLLED` propostos na SPEC-002) |
 | Origem da matrícula | `INVITE_LINK`, `CSV_IMPORT`, `DIRECT_BY_TEACHER` | Por qual via o estudante entrou na turma | — | Canônico |
@@ -39,6 +42,19 @@ Regras:
 | Link de convite | `InviteLink` | URL compartilhável para pedir matrícula na turma | `JoinLink` | Canônico |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
+
+## 2.2. Agenda da turma (SPEC-042)
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Agenda da turma | módulo `schedule` | Encontros, aulas, eventos e períodos de uma turma | `Timetable` | Proposto (SPEC-042) |
+| Encontro semanal | `WeeklyMeeting` | Horário fixo da turma num dia da semana, que gera as aulas | `Slot`, `Recurrence` | Proposto (SPEC-042) |
+| Aula (sessão de aula) | `ClassSession` | Ocorrência numa data, gerada por um encontro ou avulsa (`origin = EXTRA`) | `Lesson` (reservado a "Módulo de ensino"), `Class` | Proposto (SPEC-042) |
+| Evento da turma | `ClassEvent` | Palestra, visita ou atividade informada aos alunos da turma | `Activity` | Proposto (SPEC-042) |
+| Período especial | `SpecialPeriod` | Intervalo de dias com aulas suspensas (`NO_CLASSES`) ou online (`ONLINE`) | `Block`, `Break` | Proposto (SPEC-042) |
+| Feriado | `Holiday` | Data sem expediente: `NATIONAL`, `LOCAL` ou `RECESS` | `DayOff` | Proposto (SPEC-042) |
+| Modalidade da aula | `IN_PERSON`, `ONLINE` | Presencial ou online | `REMOTE`, `VIRTUAL` | Proposto (SPEC-042) |
+| Fila de e-mails | `EmailOutbox` | Mensagens a enviar pelo agendador, com novas tentativas | `MailQueue` | Proposto (SPEC-042) |
 
 ## 2.1. Autenticação e segurança de acesso
 

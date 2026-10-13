@@ -1,6 +1,8 @@
 package domain_test
 
 import (
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -139,5 +141,48 @@ func TestGenerateInviteToken(t *testing.T) {
 	}
 	if tok1 == tok2 {
 		t.Fatalf("tokens should be unique, got duplicate: %s", tok1)
+	}
+}
+
+// Covers SPEC-041 RN-01: the summary is trimmed and holds up to 300 characters, counted in runes.
+func TestNormalizeSummary(t *testing.T) {
+	got, err := domain.NormalizeSummary("  Disciplina prática de Linux.  ")
+	if err != nil || got != "Disciplina prática de Linux." {
+		t.Fatalf("expected trimmed summary, got %q, %v", got, err)
+	}
+	if got, err := domain.NormalizeSummary(""); err != nil || got != "" {
+		t.Fatalf("expected empty summary to be valid, got %q, %v", got, err)
+	}
+	if _, err := domain.NormalizeSummary(strings.Repeat("ç", domain.SummaryMaxLength)); err != nil {
+		t.Fatalf("expected 300 runes to be valid, got %v", err)
+	}
+	if _, err := domain.NormalizeSummary(strings.Repeat("a", domain.SummaryMaxLength+1)); !errors.Is(err, domain.ErrSummaryTooLong) {
+		t.Fatalf("expected ErrSummaryTooLong, got %v", err)
+	}
+}
+
+// Covers SPEC-042 RN-12.
+func TestNormalizeColor(t *testing.T) {
+	for _, c := range domain.ClassColors {
+		if got, err := domain.NormalizeColor(" " + c + " "); err != nil || got != c {
+			t.Fatalf("expected %q to be valid, got %q, %v", c, got, err)
+		}
+	}
+	if got, err := domain.NormalizeColor(""); err != nil || got != domain.DefaultClassColor {
+		t.Fatalf("expected the default color, got %q, %v", got, err)
+	}
+	if _, err := domain.NormalizeColor("black"); !errors.Is(err, domain.ErrInvalidColor) {
+		t.Fatalf("expected ErrInvalidColor, got %v", err)
+	}
+}
+
+// Covers SPEC-041 RN-02: the error of a long formatted field tells which field and matches ErrContentTooLong.
+func TestContentTooLongError(t *testing.T) {
+	err := error(&domain.ContentTooLongError{Field: "syllabus"})
+	if !errors.Is(err, domain.ErrContentTooLong) || !strings.HasPrefix(err.Error(), "syllabus: ") {
+		t.Fatalf("unexpected error %v", err)
+	}
+	if errors.Is(err, domain.ErrSummaryTooLong) {
+		t.Fatal("it must not match another error")
 	}
 }

@@ -14,6 +14,8 @@ export interface StudentImportCsvModalProps {
   onSuccess: () => void;
   availableClasses?: Array<{ id: string; name: string }>;
   defaultClassId?: string;
+  /** From the class page: the list goes to this class, without a selector (SPEC-041). */
+  fixedClass?: { id: string; name: string };
 }
 
 export function StudentImportCsvModal({
@@ -22,9 +24,11 @@ export function StudentImportCsvModal({
   onSuccess,
   availableClasses = [],
   defaultClassId = "",
+  fixedClass,
 }: StudentImportCsvModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [classGroupId, setClassGroupId] = useState(defaultClassId);
+  const [selectedClassId, setClassGroupId] = useState(defaultClassId);
+  const classGroupId = fixedClass?.id ?? selectedClassId;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<CSVImportResult | null>(null);
@@ -195,30 +199,34 @@ export function StudentImportCsvModal({
                     {messages.students.importModal.selectedFile(selectedFile.name)}
                   </div>
                 ) : (
-                  <div className={styles.dropText}>
-                    {messages.students.importModal.dragDropArea}
-                  </div>
-                )}
-              </div>
+                    <div className={styles.dropText}>
+                      {messages.students.importModal.dragDropArea}
+                    </div>
+                  )}
+                </div>
 
-              <div className={styles.field} style={{ marginTop: "1rem" }}>
-                <label htmlFor="csv-class-select" className={styles.label}>
-                  {messages.students.importModal.classGroupLabel}
-                </label>
-                <select
-                  id="csv-class-select"
-                  className={styles.select}
-                  value={classGroupId}
-                  onChange={(e) => setClassGroupId(e.target.value)}
-                >
-                  <option value="">{messages.students.importModal.noClassOption}</option>
-                  {availableClasses.map((cls) => (
-                    <option key={cls.id} value={cls.id}>
-                      {cls.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {fixedClass ? (
+                  <p className={styles.label} style={{ marginTop: "1rem" }}>{messages.students.fixedClass(fixedClass.name)}</p>
+                ) : (
+                <div className={styles.field} style={{ marginTop: "1rem" }}>
+                  <label htmlFor="csv-class-select" className={styles.label}>
+                    {messages.students.importModal.classGroupLabel}
+                  </label>
+                  <select
+                    id="csv-class-select"
+                    className={styles.select}
+                    value={classGroupId}
+                    onChange={(e) => setClassGroupId(e.target.value)}
+                  >
+                    <option value="">{messages.students.importModal.noClassOption}</option>
+                    {availableClasses.map((cls) => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </form>
           )}
         </div>

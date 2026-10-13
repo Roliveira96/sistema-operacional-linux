@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createClassService } from "./classService";
-import type { HttpClient } from "./httpClient";
+import { ApiProblemError, type HttpClient } from "./httpClient";
 
 describe("classService", () => {
   const fakeClient: HttpClient = {
@@ -98,5 +98,25 @@ describe("classService", () => {
       approve: true,
       rejectionReason: undefined,
     });
+  });
+
+  // SPEC-041, section 5.1 (CA-03): enrolls a batch of existing students.
+  it("enrolls existing students in a class", async () => {
+    const result = { enrolled: ["s-1"], alreadyEnrolled: ["s-2"], rejected: [{ studentId: "s-3", reason: "not-a-student" }] };
+    vi.mocked(fakeClient.post).mockResolvedValueOnce(result);
+
+    await expect(service.enrollStudents("c-1", ["s-1", "s-2", "s-3"])).resolves.toEqual(result);
+    expect(fakeClient.post).toHaveBeenCalledWith("/classes/c-1/enrollments", { studentIds: ["s-1", "s-2", "s-3"] });
+  });
+
+  // SPEC-041, section 5.2 (CA-13, CA-14): reads the class of an enrolled student, and passes the problem on.
+  it("reads the class of the signed-in student", async () => {
+    vi.mocked(fakeClient.get).mockResolvedValueOnce({ id: "c-1", name: "SO", summary: "Resumo" });
+    await expect(service.getMyClass("c-1")).resolves.toEqual({ id: "c-1", name: "SO", summary: "Resumo" });
+    expect(fakeClient.get).toHaveBeenCalledWith("/me/classes/c-1");
+
+    const notFound = new ApiProblemError({ type: "class-not-found", status: 404 }, 404);
+    vi.mocked(fakeClient.get).mockRejectedValueOnce(notFound);
+    await expect(service.getMyClass("c-2")).rejects.toBe(notFound);
   });
 });

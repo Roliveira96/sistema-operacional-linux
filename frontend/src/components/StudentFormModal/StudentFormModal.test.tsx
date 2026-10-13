@@ -142,4 +142,21 @@ describe("StudentFormModal", () => {
     fireEvent.click(screen.getByRole("button", { name: messages.students.form.cancel }));
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
+
+  // SPEC-041 CA-08: from the class page the class is fixed, without a class selector.
+  it("enrolls the new student in the fixed class without asking for it", async () => {
+    vi.mocked(createStudentManual).mockResolvedValueOnce({
+      id: "s-1", academicId: "1234567", email: "a@b.com", enrollmentStatus: "ACTIVE", createdAt: "",
+    });
+    render(<StudentFormModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} fixedClass={{ id: "c-9", name: "Sistemas Operacionais" }} />);
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.getByText(/Sistemas Operacionais/)).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText(messages.students.form.academicId), { target: { value: "1234567" } });
+    fireEvent.change(screen.getByLabelText(messages.students.form.email), { target: { value: "a@b.com" } });
+    fireEvent.click(screen.getByRole("button", { name: messages.students.form.submit }));
+
+    await waitFor(() => expect(createStudentManual).toHaveBeenCalled());
+    expect(vi.mocked(createStudentManual).mock.lastCall?.[0].classGroupId).toBe("c-9");
+  });
 });

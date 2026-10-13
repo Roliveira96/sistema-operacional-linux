@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
@@ -70,25 +71,98 @@ func (r *Repository) CreateClass(ctx context.Context, class *domain.ClassGroup, 
 			return err
 		}
 
+		enrollments := make([]domain.Enrollment, 0, len(initialStudentIDs))
 		for _, studentID := range initialStudentIDs {
-			enrollment := domain.Enrollment{
+			enrollments = append(enrollments, domain.Enrollment{
 				ClassID:     class.ID,
 				UserID:      studentID,
 				Status:      domain.EnrollmentActive,
 				Origin:      domain.OriginDirectByTeacher,
 				RequestedAt: now,
 				DecidedAt:   &now,
-			}
-			if err := conn.Create(&enrollment).Error; err != nil {
-				var pgErr *pgconn.PgError
-				if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
-					continue // Ignore duplicate initial enrollment
-				}
+			})
+		}
+		// A repeated initial student is skipped by the database, never by catching the error: in PostgreSQL an
+		// error aborts the transaction (SPEC-041 RN-06, D-08).
+		return insertEnrollmentsSkippingDuplicates(conn, enrollments)
+	})
+}
+
+// insertEnrollmentsSkippingDuplicates inserts each enrollment, leaving out those whose class and user already have one.
+func insertEnrollmentsSkippingDuplicates(conn *gorm.DB, enrollments []domain.Enrollment) error {
+	for i := range enrollments {
+		err := conn.Clauses(clause.OnConflict{
+			Columns:     []clause.Column{{Name: "class_id"}, {Name: "user_id"}},
+			TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "deleted_at IS NULL"}}},
+			DoNothing:   true,
+		}).Create(&enrollments[i]).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// SaveEnrollments writes a batch of new and changed enrollments in one transaction (SPEC-041 RN-06).
+// A new enrollment whose class and user already have one is left out.
+func (r *Repository) SaveEnrollments(ctx context.Context, created, updated []domain.Enrollment) error {
+	return r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
+		conn := r.db.Conn(txCtx)
+		if err := insertEnrollmentsSkippingDuplicates(conn, created); err != nil {
+			return err
+		}
+		for i := range updated {
+			if err := conn.Save(&updated[i]).Error; err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+}
+
+// FindUserRoles returns the role of each existing user among ids; missing or removed users are left out (SPEC-041 RN-05).
+func (r *Repository) FindUserRoles(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	roles := make(map[uuid.UUID]string, len(ids))
+	if len(ids) == 0 {
+		return roles, nil
+	}
+	var rows []struct {
+		ID   uuid.UUID `gorm:"column:id"`
+		Role string    `gorm:"column:role"`
+	}
+	if err := r.db.Conn(ctx).Table("users").Select("id, role").
+		Where("id IN ? AND deleted_at IS NULL", ids).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		roles[row.ID] = row.Role
+	}
+	return roles, nil
+}
+
+// ListEnrollmentsByUsers returns the enrollments of the given users in the class.
+func (r *Repository) ListEnrollmentsByUsers(ctx context.Context, classID uuid.UUID, userIDs []uuid.UUID) ([]domain.Enrollment, error) {
+	var enrollments []domain.Enrollment
+	if len(userIDs) == 0 {
+		return enrollments, nil
+	}
+	err := r.db.Conn(ctx).Where("class_id = ? AND user_id IN ? AND deleted_at IS NULL", classID, userIDs).Find(&enrollments).Error
+	return enrollments, err
+}
+
+// FindUserName returns the display name of a user, or nil when the user has none or does not exist.
+func (r *Repository) FindUserName(ctx context.Context, id uuid.UUID) (*string, error) {
+	var rows []struct {
+		Name *string `gorm:"column:name"`
+	}
+	if err := r.db.Conn(ctx).Table("users").Select("name").
+		Where("id = ? AND deleted_at IS NULL", id).Limit(1).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return rows[0].Name, nil
 }
 
 // FindClassByID retrieves a class by its UUID.

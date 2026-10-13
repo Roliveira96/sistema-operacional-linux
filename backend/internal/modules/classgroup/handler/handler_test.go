@@ -50,6 +50,14 @@ type fakeService struct {
 	myResult repository.MyClassesResult
 	myErr    error
 	myRole   string
+
+	// SPEC-041
+	enrollResult service.EnrollStudentsResult
+	enrollErr    error
+	enrollCall   *enrollCall
+	myClass      service.StudentClassView
+	myClassErr   error
+	createInput  *service.CreateClassInput
 }
 
 func newFakeService() *fakeService {
@@ -60,6 +68,7 @@ func newFakeService() *fakeService {
 }
 
 func (f *fakeService) CreateClass(ctx context.Context, teacherID uuid.UUID, input service.CreateClassInput) (domain.ClassGroup, error) {
+	f.createInput = &input
 	if f.createErr != nil {
 		return domain.ClassGroup{}, f.createErr
 	}

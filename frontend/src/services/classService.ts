@@ -6,11 +6,16 @@ export interface ClassGroup {
   name: string;
   courseCode: string;
   semester: string;
+  /** Short presentation of the class (SPEC-041). */
+  summary?: string;
+  /** Filtered HTML (SPEC-041 RN-02). */
   syllabus?: string;
+  /** Filtered HTML (SPEC-041 RN-02). */
   institutionalGuidelines?: string;
   startDate: string;
   endDate: string;
   scheduleDescription?: string;
+  color?: string;
   enableVirtualClassroom: boolean;
   enableInviteLink: boolean;
   inviteLinkToken?: string;
@@ -39,11 +44,13 @@ export interface CreateClassPayload {
   name: string;
   courseCode: string;
   semester: string;
+  summary?: string;
   syllabus?: string;
   institutionalGuidelines?: string;
   startDate: string;
   endDate: string;
   scheduleDescription?: string;
+  color?: string;
   enableVirtualClassroom?: boolean;
   enableInviteLink?: boolean;
   inviteLinkStart?: string;
@@ -53,11 +60,13 @@ export interface CreateClassPayload {
 
 export interface UpdateClassPayload {
   name?: string;
+  summary?: string;
   syllabus?: string;
   institutionalGuidelines?: string;
   startDate?: string;
   endDate?: string;
   scheduleDescription?: string;
+  color?: string;
   enableVirtualClassroom?: boolean;
   enableInviteLink?: boolean;
   inviteLinkStart?: string;
@@ -98,6 +107,33 @@ export interface MyClassesResult {
   total: number;
 }
 
+/** Why a student of a batch was not enrolled (SPEC-041 RN-05). */
+export type EnrollRejectReason = "not-a-student" | "transferred";
+
+/** Result of a batch enrollment (SPEC-041, section 5.1). */
+export interface EnrollStudentsResult {
+  enrolled: string[];
+  alreadyEnrolled: string[];
+  rejected: Array<{ studentId: string; reason: EnrollRejectReason }>;
+}
+
+/** What an enrolled student reads of a class (SPEC-041, section 5.2). */
+export interface StudentClass {
+  id: string;
+  name: string;
+  courseCode: string;
+  semester: string;
+  status: ClassGroup["status"];
+  summary: string;
+  syllabus: string;
+  institutionalGuidelines: string;
+  startDate: string;
+  endDate: string;
+  scheduleDescription: string;
+  enableVirtualClassroom: boolean;
+  teacherName?: string;
+}
+
 /** Class management API client (SPEC-009). */
 export function createClassService(client: HttpClient = httpClient) {
   return {
@@ -111,6 +147,9 @@ export function createClassService(client: HttpClient = httpClient) {
       return client.get<ListClassesResult>(`/classes${qs ? `?${qs}` : ""}`);
     },
     myClasses: () => client.get<MyClassesResult>("/me/classes"),
+    getMyClass: (id: string) => client.get<StudentClass>(`/me/classes/${id}`),
+    enrollStudents: (classId: string, studentIds: string[]) =>
+      client.post<EnrollStudentsResult>(`/classes/${classId}/enrollments`, { studentIds }),
     getClass: (id: string) => client.get<ClassGroup>(`/classes/${id}`),
     createClass: (payload: CreateClassPayload) => client.post<ClassGroup>("/classes", payload),
     updateClass: (id: string, payload: UpdateClassPayload) => client.patch<ClassGroup>(`/classes/${id}`, payload),
