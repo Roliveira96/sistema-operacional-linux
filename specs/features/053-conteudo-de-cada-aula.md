@@ -116,6 +116,12 @@ Tabela nova `class_session_links`:
 - **Resposta (200):** `topic`, `description`, `module` (identificador e título), `deck` (identificador, título, número de lâminas e `downloadUrl` assinada de 15 minutos) e `links` (nome, endereço e posição); vazio se a aula não tem conteúdo.
 - **Erros:** 403 `forbidden`; 404 `session-not-found`.
 
+**`GET /api/v1/classes/{id}/live/decks`**: lista as apresentações da turma, para o professor escolher uma já enviada (módulo `classroom`).
+
+- **Papéis autorizados:** docente dona e administrador.
+- **Resposta (200):** `decks`: lista, da mais recente para a mais antiga, com `id`, `title`, `pageCount` e `createdAt` (sem endereço de download).
+- **Erros:** 403 `forbidden`; 404 `class-not-found`.
+
 **Aula no calendário:** o objeto da aula nas respostas do calendário ganha `topic` (texto, ausente se vazio) e `hasContent` (verdadeiro se há qualquer conteúdo).
 
 ## 6. Impacto e Riscos (Impact & Risks)
@@ -139,6 +145,7 @@ Tabela nova `class_session_links`:
 - [ ] **CA-09** (ubíquo): No painel de uma aula, o professor DEVE ter o botão "Conteúdo da aula" com os campos tema, descrição, links, módulo e apresentação (com envio de PDF), e DEVE conseguir salvar; erros de campo DEVEM aparecer junto do campo.
 - [ ] **CA-10** (ubíquo): O painel da aula DEVE mostrar o conteúdo a quem lê (tema, descrição, links que abrem em outra aba com `rel="noopener noreferrer"`, módulo e apresentação), e o tema DEVE aparecer no marcador do dia.
 - [ ] **CA-11** (evento): QUANDO o professor aciona "Iniciar aula ao vivo" no painel de uma aula, O SISTEMA DEVE iniciar a sala ligada a essa aula, com o tema como título, o módulo e a apresentação da aula; SE já há aula ativa, ENTÃO DEVE levar a ela.
+- [ ] **CA-13** (evento): QUANDO o professor abre o diálogo de conteúdo, O SISTEMA DEVE listar as apresentações da turma (do mais recente para o mais antigo) para ele escolher; só a docente dona e o administrador podem listar.
 - [ ] **CA-12** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens.
 
 ## 8. Plano de Testes (Test Plan)
@@ -149,6 +156,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 - **Backend, `schedule/service` (com portas de teste):** `TestSaveContent_OwnerAndAdmin`, `TestSaveContent_OnlyThatSession`, `TestSaveContent_DoesNotMarkAsChangedNorMail` (CA-01, CA-02); `TestSaveContent_Invalid` (CA-03); `TestSaveContent_ForeignDeckOrMissingModule` (CA-04); `TestContent_Permissions` (CA-05); `TestRegenerationKeepsSessionsWithContent` e `TestRemovedMeetingKeepsSessionsWithContent` (CA-06).
 - **Backend, `schedule/repository` (banco de teste):** a substituição de links é atômica e com exclusão lógica; a regeneração não apaga a aula com conteúdo. Cobre CA-01 e CA-06.
 - **Backend, `schedule/handler`:** as duas rotas, os papéis e os erros da seção 5; `topic` e `hasContent` no calendário. Cobre CA-03 a CA-05 e CA-07.
+- **Backend, `classroom` (lista):** `TestListDecks` (ordem, só da turma, papéis e 403 e 404) no serviço e no handler. Cobre CA-13.
 - **Backend, `classroom` (limite):** `TestUploadDeck_SuccessAndMaxLimit` passa a testar 100. Cobre CA-08.
 - **Frontend, serviço e componentes:** diálogo "Conteúdo da aula" (campos, salvar, erros junto do campo, envio de PDF com validação no navegador) cobre CA-09; painel da aula (mostra o conteúdo, tema no marcador) cobre CA-10; "Iniciar aula ao vivo" cobre CA-11, para docente e sem o botão para estudante.
 - **Manual:** na aba Horários, abrir a aula de segunda e a de terça, dar um conteúdo diferente a cada uma, enviar um PDF, entrar como estudante e ver cada conteúdo, e iniciar a aula ao vivo a partir da aula do dia.
@@ -172,3 +180,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: tema, descrição, links, módulo
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao decidir o conteúdo de cada aula e o início da aula ao vivo pela aula do dia |
+| 14/10/2026 | Aruna Architect | Falha de contrato achada na implementação: o diálogo precisa listar as apresentações da turma, e não havia endpoint. Acrescentados `GET /live/decks` e o CA-13 |
