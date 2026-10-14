@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
 import { classService, type ClassGroup, type ClassMember } from "@/services/classService";
 import { ApiProblemError } from "@/services/httpClient";
+import { classroomService } from "@/services/classroomService";
 import { moduleService } from "@/services/moduleService";
 import { scheduleService, startLiveFromSession } from "@/services/scheduleService";
 import ClassPage from "./page";
@@ -390,6 +391,7 @@ describe("ClassPage (SPEC-041)", () => {
     vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
     vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
     vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: [], total: 0, page: 1, limit: 100 });
+    vi.spyOn(classroomService, "listDecks").mockResolvedValue([]);
     render(<ClassPage params={params} />);
 
     fireEvent.click(await screen.findByRole("button", { name: /^quarta-feira, 21 de outubro/ }));

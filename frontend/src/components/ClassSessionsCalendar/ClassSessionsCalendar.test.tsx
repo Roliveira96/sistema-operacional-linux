@@ -115,6 +115,7 @@ describe("ClassSessionsCalendar", () => {
   it("edits the content of a lesson in a dialog, saves it and loads the calendar again", async () => {
     const { calendar } = setup();
     vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: [], total: 0, page: 1, limit: 100 });
+    vi.spyOn(classroomService, "listDecks").mockResolvedValue([]);
     vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue({ links: [] });
     const save = vi.spyOn(scheduleService, "saveSessionContent").mockResolvedValue({ links: [] });
     await openDay(/^segunda-feira, 26 de outubro/);

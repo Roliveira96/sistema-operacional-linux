@@ -39,6 +39,14 @@ describe("classroomService", () => {
     expect(client.get).toHaveBeenCalledWith("/classes/c-1/live/active");
   });
 
+  // SPEC-053 CA-13: the presentations of the class, the most recent first
+  it("lists the presentations of the class", async () => {
+    const decks = [{ id: "d-2", title: "Slides 2", pageCount: 8, createdAt: "2026-10-02" }, { id: "d-1", title: "Slides 1", pageCount: 12, createdAt: "2026-10-01" }];
+    vi.mocked(client.get).mockResolvedValueOnce({ decks });
+    expect(await service.listDecks("c-1")).toEqual(decks);
+    expect(client.get).toHaveBeenCalledWith("/classes/c-1/live/decks");
+  });
+
   it("lists the classes (5.5)", async () => {
     vi.mocked(client.get).mockResolvedValueOnce({ sessions: [{ id: "s-1", title: "Aula 5", status: "FINISHED" }] });
     expect(await service.listSessions("c-1")).toEqual([{ id: "s-1", title: "Aula 5", status: "FINISHED" }]);

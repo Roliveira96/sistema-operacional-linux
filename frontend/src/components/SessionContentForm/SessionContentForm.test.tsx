@@ -36,8 +36,11 @@ const saved: SessionContent = {
   links: [{ name: "Meet", url: "https://meet.google.com/abc", position: 0 }],
 };
 
+let classDecks: Array<{ id: string; title: string; pageCount: number; createdAt: string }> = [];
+
 function setup(content: SessionContent = { links: [] }) {
   vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: modules, total: 2, page: 1, limit: 100 });
+  vi.spyOn(classroomService, "listDecks").mockResolvedValue(classDecks);
   const get = vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue(content);
   const save = vi.spyOn(scheduleService, "saveSessionContent").mockResolvedValue(content);
   const onSaved = vi.fn();
@@ -50,7 +53,10 @@ async function ready() {
   return screen.findByRole("dialog", { name: "Conteúdo da aula de 26/10/2026" });
 }
 
-beforeEach(() => readPdfInfo.mockReset());
+beforeEach(() => {
+  readPdfInfo.mockReset();
+  classDecks = [];
+});
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -77,6 +83,36 @@ describe("SessionContentForm", () => {
     await waitFor(() => expect(Array.from(select.options).map((o) => o.textContent)).toEqual(["Nenhum", "Linux na prática", "Redes"]));
     const deck = within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement;
     expect(Array.from(deck.options).map((o) => o.textContent)).toEqual(["Nenhuma"]);
+  });
+
+  // SPEC-053 CA-13: the presentations of the class are listed, most recent first
+  it("lists the presentations of the class, with none as an option, and selects the one of the lesson", async () => {
+    classDecks = [
+      { id: "d-2", title: "Slides 2", pageCount: 8, createdAt: "2026-10-02" },
+      { id: "d-1", title: "Slides 1", pageCount: 12, createdAt: "2026-10-01" },
+    ];
+    const { get } = setup(saved);
+    const dialog = await ready();
+    const deck = (await within(dialog).findByLabelText("Apresentação (PDF)")) as HTMLSelectElement;
+    await waitFor(() => expect(Array.from(deck.options).map((o) => o.textContent)).toEqual(["Nenhuma", "Slides 2", "Slides 1"]));
+    expect(deck.value).toBe("d-1");
+    expect(classroomService.listDecks).toHaveBeenCalledWith("c-1");
+    expect(get).toHaveBeenCalled();
+  });
+
+  it("keeps the presentation of the lesson as an option when the list does not bring it, and works when the list fails", async () => {
+    setup(saved);
+    const dialog = await ready();
+    const deck = (await within(dialog).findByLabelText("Apresentação (PDF)")) as HTMLSelectElement;
+    await waitFor(() => expect(Array.from(deck.options).map((o) => o.textContent)).toEqual(["Nenhuma", "Slides 1"]));
+    cleanup();
+    vi.restoreAllMocks();
+    vi.spyOn(classroomService, "listDecks").mockRejectedValue(new Error("down"));
+    vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: modules, total: 2, page: 1, limit: 100 });
+    vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue({ links: [] });
+    render(<SessionContentForm classId="c-1" session={lesson} onSaved={vi.fn()} onClose={vi.fn()} />);
+    const again = (await screen.findByLabelText("Apresentação (PDF)")) as HTMLSelectElement;
+    expect(Array.from(again.options).map((o) => o.textContent)).toEqual(["Nenhuma"]);
   });
 
   it("saves the topic, the module, the presentation and the links at once and closes", async () => {
