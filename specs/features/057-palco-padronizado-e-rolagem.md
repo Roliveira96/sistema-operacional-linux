@@ -46,6 +46,7 @@ Hoje o palco ocupa o tamanho da janela de cada pessoa. O professor, no projetor,
 - **Lâminas.** A página do PDF é desenhada com a largura do palco (1920) e alta o quanto for; uma página mais alta que 1080 **rola dentro do palco** (`overflow-y: auto` na área da lâmina). A barra de rolagem aparece só para o professor; para o aluno a área é rolada pelo professor. Traços e ponteiro continuam em **percentual da página inteira** (altura total, não só a parte visível), então batem mesmo com a rolagem. Mudar de lâmina volta a rolagem ao topo.
 - **Módulo** (`TopicStudyLive`). O layout da tela de estudo é desenhado no palco fixo, igual para todos. A rolagem do **material** e a **posição da divisória** acompanham o professor. O **ponteiro** passa a ser mostrado também no módulo, em percentual do palco (0 a 100 em x e y), com o laser como destaque (como nas lâminas).
 - **Envio.** A janela de apresentação envia `live:stage:scroll` (a cada 100 ms no máximo, só se mudou) quando o professor rola a lâmina ou o material, e `live:stage:split` quando solta ou arrasta a divisória. O aluno aplica os valores sem interpolar além da transição de 100 ms.
+- **Palco do aluno o maior possível.** Na sala do aluno, o palco ocupa **toda a área da janela** que sobrar do cabeçalho: o cabeçalho fica fino (uma linha), e as anotações da aula e os demais painéis abrem **por cima** do palco, em gaveta, sem tirar o espaço dele. O aluno tem o botão **Tela cheia** (e a tecla F) que leva o palco à tela inteira do navegador. A escala é a maior que cabe sem cortar nada.
 - **O professor vê o mesmo que o aluno.** A janela de apresentação usa o mesmo `FixedStage`; o professor vê o palco exatamente como os alunos.
 
 ### 3.2. Backend (Go — Camada de Módulo/Service)
@@ -87,6 +88,7 @@ Nenhuma tabela e nenhuma migração: o estado de rolagem e divisória fica em me
 - [ ] **CA-09** (ubíquo): O servidor DEVE aceitar `live:stage:scroll` e `live:stage:split` só da janela de apresentação, validar os campos, repassar sem eco e incluir os valores no instantâneo.
 - [ ] **CA-10** (ubíquo): O aluno NÃO DEVE conseguir rolar a lâmina nem mover a divisória por conta própria.
 - [ ] **CA-11** (ubíquo): A tela de estudo comum (`/materials/:id`), o painel do professor e o resto do `TopicStudy` NÃO DEVEM mudar; os testes existentes passam sem alteração. `engine/core` não é alterado.
+- [ ] **CA-13** (ubíquo): Na sala do aluno, o palco DEVE ocupar toda a área da janela, abaixo de um cabeçalho de uma linha; as anotações e os demais painéis DEVEM abrir por cima, sem diminuir o palco; e DEVE haver o botão (e a tecla F) de tela cheia, sem cortar nenhuma parte do palco.
 - [ ] **CA-12** (ubíquo): Stylelint, ESLint, `tsc` e `go vet` limpos; cobertura acima de 80% no escopo.
 
 ## 8. Plano de Testes (Test Plan)
@@ -119,3 +121,4 @@ O Tech Lead pediu o palco igual para todos e a rolagem; a escolha de **1920 × 1
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido do Tech Lead; a resolução fica para a revisão dele |
+| 14/10/2026 | Aruna Architect | Pedido do Tech Lead: a tela do aluno deve ser maior, com o scroll do professor refletido e nada cortado. Acrescentados o palco do aluno ocupando a área toda, com anotações em gaveta e tela cheia, e o CA-13 |
