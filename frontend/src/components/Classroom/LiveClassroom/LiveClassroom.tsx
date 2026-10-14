@@ -106,7 +106,7 @@ export function LiveClassroom({ classId, role, userId, session }: LiveClassroomP
             {m.room.leave}
           </Button>
         </header>
-        <WaitingRoom state={live.admission} waitedMinutes={Math.floor((now - joinedAt) / 60_000)} onAskAgain={live.reconnect} />
+        <WaitingRoom state={live.admission} waitedMinutes={Math.floor((now - joinedAt) / 60_000)} onAskAgain={live.requestEntry} />
       </main>
     );
   }

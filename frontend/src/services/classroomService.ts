@@ -69,6 +69,7 @@ export interface LiveModuleContent {
   title: string;
   blocks: ContentBlock[];
   scenario: unknown;
+  setup?: unknown;
 }
 
 export interface LiveSnapshot {

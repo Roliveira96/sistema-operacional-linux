@@ -113,9 +113,9 @@ function apply(state: State, message: LiveMessage): State {
     case "live:module:focus":
       return { ...state, room: { ...state.room, moduleFocusBlockId: (data.blockId as string | undefined) ?? null } };
     case "live:terminal:broadcast":
-      return { ...state, room: { ...state.room, terminalBroadcast: Boolean(data.on) } };
+      return { ...state, room: { ...state.room, terminalBroadcast: Boolean(data.enabled) } };
     case "live:admission:state":
-      return { ...state, admission: data.state as AdmissionState };
+      return { ...state, admission: data.status as AdmissionState };
     case "live:admission:queue":
       return {
         ...state,
@@ -168,7 +168,7 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
   const socket = useRef<LiveSocket | null>(null);
   const alive = useRef(true);
   const finished = useRef(false);
-  const [attempt, setAttempt] = useState(0);
+
 
   useEffect(() => {
     finished.current = state.ended;
@@ -202,7 +202,7 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
       clearTimeout(timer);
       socket.current?.close();
     };
-  }, [classId, connect, attempt]);
+  }, [classId, connect]);
 
   const canControl = role === "teacher" && !state.passive;
   const emit = useCallback(
@@ -230,7 +230,7 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
       if (canControl) sendOnly("live:hand:moderate", studentId ? { studentId } : { all: true });
     },
     focusBlock: (blockId: string) => emit("live:module:focus", { blockId }),
-    setTerminalBroadcast: (on: boolean) => emit("live:terminal:broadcast", { on }),
+    setTerminalBroadcast: (enabled: boolean) => emit("live:terminal:broadcast", { enabled }),
     acceptStudent: (studentId: string) => {
       if (canControl) sendOnly("live:admission:accept", { studentId });
     },
@@ -240,8 +240,8 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
     removeStudent: (studentId: string) => {
       if (canControl) sendOnly("live:admission:remove", { studentId });
     },
-    /** Opens a new connection, which is how a student removed from the class asks to come in again. */
-    reconnect: () => setAttempt((n) => n + 1),
+    /** A student removed from the class asks to come in again. */
+    requestEntry: () => sendOnly("live:admission:request", {}),
     raiseHand: () => sendOnly("live:hand:raise", {}),
     lowerHand: () => sendOnly("live:hand:lower", {}),
   };
