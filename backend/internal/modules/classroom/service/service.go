@@ -862,6 +862,12 @@ func (s *Service) SetTerminalScroll(sessionID uuid.UUID, terminal int, y float64
 	s.live.setTerminalScroll(sessionID, terminal, y)
 }
 
+// SetStageFullscreen keeps whether the teacher asked the students to go full screen, for who comes in later (SPEC-059). It is the teacher's
+// choice, so a new slide or a new module does not take it back; it ends with the lesson.
+func (s *Service) SetStageFullscreen(sessionID uuid.UUID, on bool) {
+	s.live.setFullscreen(sessionID, on)
+}
+
 // SetStageScrollX keeps how far the teacher scrolled the slide sideways, which goes with its vertical scroll. The caller checked it with
 // domain.ValidStageScrollX.
 func (s *Service) SetStageScrollX(sessionID uuid.UUID, x float64) {

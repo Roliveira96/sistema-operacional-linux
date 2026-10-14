@@ -47,6 +47,7 @@ type Service interface {
 	SetTerminalScroll(sessionID uuid.UUID, terminal int, y float64)
 	SetStageSplit(sessionID uuid.UUID, ratio float64)
 	SetStageZoom(sessionID uuid.UUID, zoom float64)
+	SetStageFullscreen(sessionID uuid.UUID, on bool)
 	SetStageSelection(sessionID uuid.UUID, selection json.RawMessage)
 	ModuleOfRoom(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.ModuleView, error)
 
@@ -169,7 +170,7 @@ func myHand(entries []domain.HandRaiseEntry, student string) gin.H {
 
 // stageViewJSON is how the teacher left the stage: the scroll of each pane (the slide sideways too), the divider (null while he has not
 // moved it), the zoom, the selected text (null while there is none) and the scroll of each terminal that he scrolled, by its number as
-// the key ("1" to "3"), an empty object while none was (SPEC-057).
+// the key ("1" to "3"), an empty object while none was (SPEC-057), and whether the full screen of the students was asked (SPEC-059).
 func stageViewJSON(v service.StageView) gin.H {
 	terminals := make(map[string]float64, len(v.TerminalScroll))
 	for terminal, y := range v.TerminalScroll {
@@ -177,7 +178,7 @@ func stageViewJSON(v service.StageView) gin.H {
 	}
 	return gin.H{
 		"slideScroll": v.SlideScroll, "slideScrollX": v.SlideScrollX, "materialScroll": v.MaterialScroll, "split": v.Split,
-		"zoom": v.Zoom, "selection": v.Selection, "terminalScroll": terminals,
+		"zoom": v.Zoom, "selection": v.Selection, "terminalScroll": terminals, "fullscreen": v.Fullscreen,
 	}
 }
 

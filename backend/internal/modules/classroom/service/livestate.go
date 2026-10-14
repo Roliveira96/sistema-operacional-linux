@@ -43,6 +43,8 @@ type StageView struct {
 	Zoom           float64
 	Selection      json.RawMessage
 	TerminalScroll map[int]float64
+	// Fullscreen is whether the teacher asked the students to go full screen (SPEC-059).
+	Fullscreen bool
 }
 
 // defaultStageView is the stage that nobody touched: at the top, no divider chosen, at 100%, nothing selected, no terminal scrolled.
@@ -136,6 +138,12 @@ func (l *liveStates) setTerminalScroll(id uuid.UUID, terminal int, y float64) {
 func (l *liveStates) setScrollX(id uuid.UUID, x float64) {
 	l.mu.Lock()
 	l.of(id).stage.SlideScrollX = x
+	l.mu.Unlock()
+}
+
+func (l *liveStates) setFullscreen(id uuid.UUID, on bool) {
+	l.mu.Lock()
+	l.of(id).stage.Fullscreen = on
 	l.mu.Unlock()
 }
 

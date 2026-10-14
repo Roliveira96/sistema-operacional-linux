@@ -49,6 +49,9 @@ const (
 	typeStageZoom      = "live:stage:zoom"
 	typeStageSelection = "live:stage:selection"
 
+	// SPEC-059: the teacher asks the students to go full screen, from either of his windows
+	typeStageFullscreen = "live:stage:fullscreen"
+
 	// clearSelectionData is the data of the message that takes the selection away, as it goes to the others
 	clearSelectionData = `{"clear":true}`
 
@@ -88,6 +91,8 @@ func hubConfig() hub.Config {
 			typeStageSplit:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			typeStageZoom:      {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			typeStageSelection: {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
+			// the request for the full screen is from either window of the teacher, so it has no Kind; it is tiny
+			typeStageFullscreen: {MaxBytes: 256, ControllerOnly: true, Coalesce: true},
 			// the waiting room and the hands are the panel's
 			typeHandModerate:       {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 			typeAdmissionAccept:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
@@ -384,6 +389,16 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 			return
 		}
 		svc.SetStageZoom(session, *d.Zoom)
+		relay()
+	case typeStageFullscreen:
+		var d struct {
+			Enabled *bool `json:"enabled"` // a pointer tells a missing field from false; anything but a boolean does not decode
+		}
+		if err := json.Unmarshal(msg.Data, &d); err != nil || d.Enabled == nil {
+			w.reject(room, who, msg, errors.New("the message needs enabled as a boolean"))
+			return
+		}
+		svc.SetStageFullscreen(session, *d.Enabled)
 		relay()
 	case typeStageSelection:
 		// the domain checks the three shapes and gives what is kept and passed on: the selection with only the fields of its shape
