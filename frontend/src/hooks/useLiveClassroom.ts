@@ -166,7 +166,6 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
   const [state, dispatch] = useReducer(reducer, initial);
   const [connected, setConnected] = useState(false);
   const socket = useRef<LiveSocket | null>(null);
-  const alive = useRef(true);
   const finished = useRef(false);
 
 
@@ -175,22 +174,28 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
   }, [state.ended]);
 
   useEffect(() => {
-    alive.current = true;
+    // The connections of one run of this effect belong to it: once the run is over (the screen went away, or React mounted it twice in
+    // development), whatever its connections still say or do is ignored, so an old connection cannot take the control from the new one
+    // nor reopen a connection by itself.
+    let active = true;
     let wait = RETRY_FIRST_MS;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const open = () => {
       socket.current = connect(classId, {
         onOpen: () => {
+          if (!active) return;
           wait = RETRY_FIRST_MS;
           setConnected(true);
         },
         onMessage: (message) => {
+          if (!active) return;
           if (message.type === "live:ended") finished.current = true;
           dispatch({ kind: "message", message });
         },
         onClose: () => {
+          if (!active) return;
           setConnected(false);
-          if (!alive.current || finished.current) return;
+          if (finished.current) return;
           timer = setTimeout(open, wait);
           wait = Math.min(wait * 2, RETRY_MAX_MS);
         },
@@ -198,7 +203,7 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
     };
     open();
     return () => {
-      alive.current = false;
+      active = false;
       clearTimeout(timer);
       socket.current?.close();
     };
