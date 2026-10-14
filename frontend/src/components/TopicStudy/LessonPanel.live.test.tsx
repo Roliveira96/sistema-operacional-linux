@@ -1,12 +1,16 @@
 import { readFileSync } from "node:fs";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TopicPlayer } from "@/hooks/useTopicPlayer";
 import { buildTopicScript } from "@/lib/topicScript";
 import type { ContentBlock } from "@/services/contentService";
 import { LessonPanel } from "./LessonPanel";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+});
 
 const blocks: ContentBlock[] = [
   { id: "b-1", type: "TEXT", position: 0, payload: { title: "Sistema", command: "uname", html: "<p>Sobre o sistema</p>" } },
@@ -73,6 +77,16 @@ describe("the examples of the material in the live class", () => {
       view.rerender(<LessonPanel script={script} player={player({ running: null })} readOnly canRun />);
       expect(buttons().every((button) => !button.disabled)).toBe(true);
       expect(row(0).classList.contains("running")).toBe(false);
+    });
+
+    it("keeps the example that runs in view, as the study screen does", () => {
+      vi.useFakeTimers();
+      const scrollIntoView = vi.fn();
+      Element.prototype.scrollIntoView = scrollIntoView;
+      render(<LessonPanel script={script} player={player({ running: 1 })} readOnly canRun />);
+      act(() => void vi.advanceTimersByTime(500));
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView.mock.contexts[0]).toBe(row(1));
     });
 
     it("runs nothing from a button that is off", () => {

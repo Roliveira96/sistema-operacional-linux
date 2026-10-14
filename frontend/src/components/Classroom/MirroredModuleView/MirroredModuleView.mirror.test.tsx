@@ -9,6 +9,9 @@ vi.setConfig({ testTimeout: 30_000 });
 
 afterEach(cleanup);
 
+/** The first mount loads the whole engine, which the default wait of `waitFor` (1 s) does not cover. */
+const ENGINE_LOAD = { timeout: 20_000 };
+
 type Run = (step: TerminalStep) => Promise<number | null>;
 
 const textOf = (node: ScreenNode): string => (typeof node === "string" ? node : (node.children ?? []).map(textOf).join(""));
@@ -24,7 +27,7 @@ describe("a step run by the terminal of the teacher, as the class sees it", () =
     const pictures: ScreenElement[] = [];
     let runner: Run | null = null;
     render(<MirroredModuleView role="teacher" terminal={{ screen: null }} onScreen={(tree) => pictures.push(tree)} onRunner={(run) => (runner = run)} />);
-    await waitFor(() => expect(runner).not.toBeNull());
+    await waitFor(() => expect(runner).not.toBeNull(), ENGINE_LOAD);
 
     // The command has two spaces and the output one, so the output cannot be mistaken for the line that was typed.
     const command = "echo ola  aula";
@@ -51,7 +54,7 @@ describe("a step run by the terminal of the teacher, as the class sees it", () =
     const pictures: ScreenElement[] = [];
     let runner: Run | null = null;
     render(<MirroredModuleView role="teacher" terminal={{ screen: null }} onScreen={(tree) => pictures.push(tree)} onRunner={(run) => (runner = run)} />);
-    await waitFor(() => expect(runner).not.toBeNull());
+    await waitFor(() => expect(runner).not.toBeNull(), ENGINE_LOAD);
     expect(await runner!({ command: "whoami", terminal: 2, login: { user: "ricardo", password: "123" } })).toBe(0);
     await waitFor(() => expect(findAll(pictures.at(-1)!, (element) => hasClass(element, "janela-aba"))).toHaveLength(2));
   });
@@ -59,7 +62,7 @@ describe("a step run by the terminal of the teacher, as the class sees it", () =
   it("gives null at once, with no wait, while a command still runs in the terminal that the step asks for", async () => {
     let runner: Run | null = null;
     render(<MirroredModuleView role="teacher" terminal={{ screen: null }} onScreen={() => undefined} onRunner={(run) => (runner = run)} />);
-    await waitFor(() => expect(runner).not.toBeNull());
+    await waitFor(() => expect(runner).not.toBeNull(), ENGINE_LOAD);
     const slow = runner!({ command: "sleep 3" });
     await new Promise((resolve) => setTimeout(resolve, 1200));
     const started = Date.now();

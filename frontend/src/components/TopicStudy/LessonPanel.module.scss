@@ -128,7 +128,9 @@
     background: var(--accent-faint);
   }
 
+  // The example that runs: its button pulses and stays as clear as when it can be used, though it is off like the others (SPEC-060).
   &.running .run {
+    opacity: 1;
     animation: pulse 0.9s ease-in-out infinite;
   }
 
@@ -154,7 +156,7 @@
   font-size: 11px;
   cursor: pointer;
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: var(--accent);
     background: var(--accent);
     color: var(--color-accent-contrast);
@@ -163,6 +165,12 @@
   &:focus-visible {
     outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
+  }
+
+  // Off in the live class: the student's, always, and the teacher's while another example runs. The box is the same, only the look and the pointer change.
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
   }
 }
 

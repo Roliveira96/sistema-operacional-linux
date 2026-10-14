@@ -45,6 +45,11 @@ export interface TerminalWindow {
    * status of the command (0 is success), or null when it did not run (SPEC-020 RN-08).
    */
   run(step: TerminalStep): Promise<number | null>;
+  /**
+   * True when that terminal (from 1) is open and cannot take a command now: a program runs in it, an editor is open or it waits for an answer. `run` would wait
+   * for it, up to 30 s, so whoever needs the answer at once asks first (SPEC-060). A terminal that is not open is not busy: a step opens it.
+   */
+  isBusy(terminal: number): boolean;
   /** Like run, and also gives what the command printed, to show the error of a command that failed. */
   execute(step: TerminalStep): Promise<CommandResult>;
   setSpeed(speed: number): void;
@@ -312,6 +317,7 @@ export async function mountTerminalWindow(
     } | null;
     usuarioAtual(): string | null;
     renderizarEntrada(): void;
+    estaLivre(): boolean;
     estado: string;
     buffer: string;
     cursor: number;
@@ -378,6 +384,11 @@ export async function mountTerminalWindow(
     execute,
     async run(step) {
       return (await execute(step)).status;
+    },
+
+    isBusy(terminal) {
+      const open = (window3 as unknown as WindowInternals).terminais[terminal - 1];
+      return Boolean(open) && !open!.estaLivre();
     },
 
     setSpeed(speed) {

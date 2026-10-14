@@ -38,7 +38,7 @@ const step: TerminalStep = { command: "uname -o" };
 async function mountTeacher(onRunner = vi.fn<(run: Run | null) => void>()) {
   const view = render(<MirroredModuleView role="teacher" terminal={empty} onRunner={onRunner} />);
   await waitFor(() => expect(onRunner).toHaveBeenCalled());
-  const runner = () => onRunner.mock.calls.findLast(([run]) => run !== null)![0] as Run;
+  const runner = () => onRunner.mock.calls.map(([run]) => run).filter((run): run is Run => run !== null).at(-1)!;
   return { view, onRunner, runner };
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { mountTerminalWindow } from "@/engine/terminalWindow";
+import { mountTerminalWindow, type TerminalStep } from "@/engine/terminalWindow";
 import type { ScreenElement, ScreenLocator } from "@/engine/terminalScreen";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import { messages } from "@/messages/pt-BR";
@@ -10,6 +10,9 @@ import { TerminalMirror } from "../TerminalMirror/TerminalMirror";
 import styles from "./MirroredModuleView.module.scss";
 
 const m = messages.classroom.terminal;
+
+/** Types and runs a step in the terminal of the class: the exit status, or null when it did not run, as the terminal was busy or could not take it (SPEC-060). */
+export type StepRunner = (step: TerminalStep) => Promise<number | null>;
 
 export interface MirroredModuleViewProps {
   role: "teacher" | "student";
@@ -27,10 +30,15 @@ export interface MirroredModuleViewProps {
   onTerminalScroll?(terminal: number, y: number): void;
   /** Where the teacher has the history of each terminal, which the student's copy follows (SPEC-057 CA-23). */
   terminalScroll?: Record<string, number>;
+  /**
+   * The teacher's terminal tells how to run a step in it once its window is open, and null when it goes away. What it runs is typed on the screen, at the
+   * normal speed, and reaches the class through the picture of the window, as what the teacher types does (SPEC-060). The student's copy never tells it.
+   */
+  onRunner?(run: StepRunner | null): void;
 }
 
 /** The real terminal of the teacher: it runs the commands and tells the class what its window looks like. */
-function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll }: Pick<MirroredModuleViewProps, "initialState" | "onScreen" | "onLocator" | "onTerminalScroll">) {
+function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll, onRunner }: Pick<MirroredModuleViewProps, "initialState" | "onScreen" | "onLocator" | "onTerminalScroll" | "onRunner">) {
   const host = useRef<HTMLDivElement>(null);
   // Read once, when the terminal is mounted: a new module mounts a new view.
   const startOn = useRef(initialState);
@@ -39,10 +47,12 @@ function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll }
   const tell = useRef(onScreen);
   const locate = useRef(onLocator);
   const scrolled = useRef(onTerminalScroll);
+  const runs = useRef(onRunner);
   useEffect(() => {
     tell.current = onScreen;
     locate.current = onLocator;
     scrolled.current = onTerminalScroll;
+    runs.current = onRunner;
   });
 
   useEffect(() => {
@@ -75,11 +85,14 @@ function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll }
         if (cancelled) return created.destroy();
         win = created;
         setOpened(true);
+        // A terminal that is busy does not make the step wait for it, as the study screen does: the screen has to know at once that it cannot run.
+        runs.current?.(async (step) => (created.isBusy(step.terminal ?? 1) ? null : created.run(step)));
       })
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
       container.removeEventListener("scroll", heard, true);
+      if (win) runs.current?.(null);
       win?.destroy();
       container.remove();
       setOpened(false);
@@ -107,10 +120,10 @@ function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll }
  * The terminal of the module in the live classroom (SPEC-056). The teacher's is the real one and tells the picture of its window; the student's is a
  * read-only copy that draws that picture and never mounts the terminal engine, so it cannot run anything.
  */
-export function MirroredModuleView({ role, terminal, initialState, onScreen, onLocator, selection, onTerminalScroll, terminalScroll }: MirroredModuleViewProps) {
+export function MirroredModuleView({ role, terminal, initialState, onScreen, onLocator, selection, onTerminalScroll, terminalScroll, onRunner }: MirroredModuleViewProps) {
   return role === "student" ? (
     <TerminalMirror screen={terminal.screen} selection={selection} scroll={terminalScroll} />
   ) : (
-    <TeacherTerminal initialState={initialState} onScreen={onScreen} onLocator={onLocator} onTerminalScroll={onTerminalScroll} />
+    <TeacherTerminal initialState={initialState} onScreen={onScreen} onLocator={onLocator} onTerminalScroll={onTerminalScroll} onRunner={onRunner} />
   );
 }

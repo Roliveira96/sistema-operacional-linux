@@ -1267,6 +1267,7 @@ export const messages = {
       connectionLost: "Conexão perdida. Tentando de novo…",
       passive: "Outra janela de apresentação assumiu. Esta só acompanha.",
       noModule: "Esta aula não tem módulo. Escolha um no painel.",
+      runFailed: "Não foi possível executar o exemplo",
       teacherOnly: "Esta janela é do professor da turma.",
     },
     moduleStage: {

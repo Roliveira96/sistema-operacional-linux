@@ -45,6 +45,8 @@ export interface ModuleStageProps {
   startedAt?: string | null;
   /** How many hands are up, for the header of the module (SPEC-058). */
   handCount?: number;
+  /** An example the teacher ran could not run: the window of the presentation tells him (SPEC-060). */
+  onRunFailed?(): void;
 }
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: LiveModuleContent };
@@ -53,7 +55,7 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: 
  * The module of the live class: the study screen of the module in the live-class mode (SPEC-055 CA-13), drawn in the stage. Only the teacher can send:
  * the picture of his terminal, his reading, the scroll of the material, the divider, his mouse and the text he selects (SPEC-057).
  */
-export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection, onTerminalScroll, startedAt, handCount }: ModuleStageProps) {
+export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection, onTerminalScroll, startedAt, handCount, onRunFailed }: ModuleStageProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const scale = useStageScale();
   const zoom = useStageZoom();
@@ -118,6 +120,8 @@ export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, termi
           onSplit: teacher ? onSplit : undefined,
           onSelection: teacher ? onSelection : undefined,
           onTerminalScroll: teacher ? onTerminalScroll : undefined,
+          // Only the teacher runs the examples, so only he is told when one cannot run (SPEC-060).
+          onRunFailed: teacher ? onRunFailed : undefined,
         }}
       />
       {/* The teacher sees his own mouse, not the point that stands for it; the laser tells him it is on. */}

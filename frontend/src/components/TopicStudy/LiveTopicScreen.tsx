@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { LiveHeaderStatus } from "@/components/Classroom/LiveHeaderStatus/LiveHeaderStatus";
-import { MirroredModuleView } from "@/components/Classroom/MirroredModuleView/MirroredModuleView";
+import { MirroredModuleView, type StepRunner } from "@/components/Classroom/MirroredModuleView/MirroredModuleView";
 import { placeContent, scrollFraction } from "@/components/Classroom/FixedStage/stage";
 import { MATERIAL_HIGHLIGHT, materialRangeOf, materialSelectionOf, showHighlight, terminalSelectionOf } from "@/components/Classroom/selection/selection";
 import type { ScreenElement, ScreenLocator } from "@/engine/terminalScreen";
@@ -10,7 +10,7 @@ import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import type { TopicPlayer } from "@/hooks/useTopicPlayer";
 import { clampSplit, SPLIT } from "@/lib/machineStorage";
 import { topicAccentVars } from "@/lib/moduleVisual";
-import { buildTopicScript } from "@/lib/topicScript";
+import { buildTopicScript, type TopicScript } from "@/lib/topicScript";
 import { contentMessages as m } from "@/messages/content.pt-BR";
 import type { LiveModuleContent, StageSelection } from "@/services/classroomService";
 import { LessonPanel } from "./LessonPanel";
@@ -56,9 +56,12 @@ export interface TopicLive {
   startedAt?: string | null;
   /** How many hands are up, for the header; 0 when the room does not say (SPEC-058). */
   handCount?: number;
+  /** The teacher ran an example and it could not run: the terminal was busy, closed or failed. The window of the presentation tells him (SPEC-060 CA-04). */
+  onRunFailed?(): void;
 }
 
-// Nothing here plays: the material is read, and the terminal is the one of the class.
+// Nothing here plays: the material is read, and the terminal is the one of the class. The only thing the teacher plays is one example at a time, by its
+// button (SPEC-060); next, back, play all, speed and the marks of done are not part of the live class.
 const noop = async () => undefined;
 const idlePlayer: TopicPlayer = {
   index: -1,
@@ -95,7 +98,7 @@ function blockUnderReading(panel: HTMLElement): string | null {
  * teacher's, and the student only follows them (SPEC-057).
  */
 export function LiveTopicScreen({ live }: { live: TopicLive }) {
-  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, terminalScroll, startedAt, handCount = 0, onRead, onScreen, onMaterialScroll, onSplit, onSelection, onTerminalScroll } = live;
+  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, terminalScroll, startedAt, handCount = 0, onRead, onScreen, onMaterialScroll, onSplit, onSelection, onTerminalScroll, onRunFailed } = live;
   const teacher = role === "teacher";
   const script = useMemo(() => buildTopicScript(module.blocks), [module.blocks]);
   const panel = useRef<HTMLDivElement>(null);
@@ -105,6 +108,48 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
   // How to find a point of the teacher's terminal in the text of the last picture he told, as the terminal tells it with each picture.
   const locator = useRef<ScreenLocator | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  // One example at a time runs in the terminal of the class, typed on its screen: its number is kept with the script it is of, so a module that replaces
+  // this one does not inherit the state. `busyOn` is the script that has a run going, which a second click does not start over.
+  const [running, setRunning] = useState<{ script: TopicScript; index: number } | null>(null);
+  const busyOn = useRef<TopicScript | null>(null);
+  const terminalRun = useRef<StepRunner | null>(null);
+  const latest = useRef<{ script: TopicScript | null; failed: (() => void) | undefined }>({ script, failed: onRunFailed });
+  useEffect(() => {
+    latest.current = { script, failed: onRunFailed };
+  });
+  useEffect(
+    () => () => {
+      latest.current.script = null;
+    },
+    [],
+  );
+  const runOne = useCallback(
+    async (index: number) => {
+      const step = script.steps[index];
+      if (!teacher || !step || busyOn.current === script) return;
+      const run = terminalRun.current;
+      if (!run) {
+        latest.current.failed?.();
+        return;
+      }
+      busyOn.current = script;
+      setRunning({ script, index });
+      let status: number | null = null;
+      try {
+        status = await run(step);
+      } catch {
+        // A terminal that fails is the same as one that did not run the step.
+      }
+      if (busyOn.current === script) busyOn.current = null;
+      setRunning((now) => (now?.script === script ? null : now));
+      // The result of a run is for the screen it was started on: the module may have changed, or the screen gone, since.
+      if (status === null && latest.current.script === script) latest.current.failed?.();
+    },
+    [script, teacher],
+  );
+  const runningIndex = running?.script === script ? running.index : null;
+  const examplesPlayer = useMemo<TopicPlayer>(() => ({ ...idlePlayer, running: runningIndex, runOne }), [runningIndex, runOne]);
 
   // The divider is where the room says, from the start: the screen keeps no preference of its own, because the others would not have it. The
   // teacher moves it by hand, and what the room says takes its place again when it changes (the teacher connecting again, for one).
@@ -251,7 +296,7 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
         <section className={styles.study}>
           <div ref={panel} className={`${styles.panel} ${styles.livePanel} ${teacher ? "" : styles.follower}`} data-live-panel="" onScroll={onScroll}>
             <div ref={content} className={styles.liveContent} data-live-content="">
-              <LessonPanel script={script} player={idlePlayer} readOnly />
+              <LessonPanel script={script} player={teacher ? examplesPlayer : idlePlayer} readOnly canRun={teacher} />
             </div>
           </div>
         </section>
@@ -279,6 +324,13 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
             selection={teacher ? undefined : selection}
             onTerminalScroll={teacher ? onTerminalScroll : undefined}
             terminalScroll={teacher ? undefined : terminalScroll}
+            onRunner={
+              teacher
+                ? (run) => {
+                    terminalRun.current = run;
+                  }
+                : undefined
+            }
           />
         </div>
       </main>

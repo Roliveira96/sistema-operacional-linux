@@ -19,6 +19,8 @@ const sf = m.studentsFullscreen;
 /** How long the toolbar stays after the mouse stops, and how long the full-screen hint stays. */
 const TOOLBAR_MS = 3000;
 const HINT_MS = 5000;
+/** How long the notice of an example that could not run stays. */
+const NOTICE_MS = 5000;
 
 const TIP_KEY = "live-presenter-tip";
 const tipSeen = () => {
@@ -52,6 +54,7 @@ export function PresenterStage({ classId, session }: PresenterStageProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const hide = useRef<ReturnType<typeof setTimeout>>(undefined);
   const hintTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const showToolbar = () => {
     setToolbar(true);
@@ -63,6 +66,7 @@ export function PresenterStage({ classId, session }: PresenterStageProps) {
     return () => {
       clearTimeout(hide.current);
       clearTimeout(hintTimer.current);
+      clearTimeout(noticeTimer.current);
     };
   }, []);
 
@@ -75,7 +79,14 @@ export function PresenterStage({ classId, session }: PresenterStageProps) {
   const goto = (slide: number) => {
     if (slide >= 1 && slide <= total && slide !== room.slide) live.changeSlide(slide);
   };
+  // An example of the module that could not run: a short notice over the window of the teacher, outside the stage, so the students' screen is the same (SPEC-060).
+  const runFailed = () => {
+    setNotice(p.runFailed);
+    clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), NOTICE_MS);
+  };
   const swapStage = () => {
+    clearTimeout(noticeTimer.current);
     setNotice(null);
     if (mode === "SLIDES") {
       if (room.moduleId) live.switchMode("MODULE", room.moduleId);
@@ -201,6 +212,7 @@ export function PresenterStage({ classId, session }: PresenterStageProps) {
               onSplit={live.sendStageSplit}
               onSelection={live.sendStageSelection}
               onTerminalScroll={live.sendTerminalScroll}
+              onRunFailed={runFailed}
             />
           )}
 
