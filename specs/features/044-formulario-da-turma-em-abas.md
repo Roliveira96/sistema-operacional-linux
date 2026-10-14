@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Aprovada |
+| **Status** | Rascunho |
 | **Data de criação** | 14/10/2026 |
-| **Última revisão** | 14/10/2026 (aprovada) |
+| **Última revisão** | 14/10/2026 (prévia do calendário; volta a Rascunho) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Frontend |
@@ -30,12 +30,14 @@ Além disso, a sugestão da quantidade de aulas de um encontro divide a duraçã
 2. As informações da turma e os horários ficam em abas separadas.
 3. A sugestão de aulas por encontro usa 60 minutos por aula.
 4. O botão de salvar continua único e salva todas as abas de uma vez.
+5. Na aba Horários, o docente vê **como as aulas ficam no calendário**, de acordo com os horários que marcou e com as datas de início e fim da turma, antes de salvar.
 
 ### 2.1. Fora de escopo (Non-Goals)
 
 - Mudar campos, validações, textos de erro ou contrato de API do formulário.
 - Salvar cada aba separadamente ou criar rotas por aba.
 - Mudar o limite de 1 a 8 aulas por encontro.
+- Gravar ou editar aulas pela prévia, ou mostrar feriados e eventos nela.
 - Recalcular a quantidade de aulas de turmas já salvas.
 - Alterar o backend ou `frontend/src/engine/core/`.
 
@@ -65,7 +67,19 @@ Regras de interface:
 - No celular, a lista de abas rola na horizontal, com alvos de toque de no mínimo 44 px (SPEC-043).
 - Cores só dos tokens semânticos de `_tokens.scss`; tema claro e escuro.
 
-#### 3.1.2. Aula de 60 minutos
+#### 3.1.2. Prévia do calendário na aba Horários
+
+Abaixo do editor de encontros, a aba Horários mostra um calendário mensal com as aulas que os encontros marcados vão gerar (SPEC-042, RN-01):
+
+- vai da **data de início** à **data de fim** da turma, informadas na aba Informações; o calendário abre no mês do início e permite ir e voltar entre os meses da vigência, sem sair dela;
+- cada dia da vigência que cai num dia da semana com encontro mostra um marcador com o horário e a quantidade de aulas, na cor da turma;
+- atualiza na hora, sem salvar, quando o docente liga ou desliga um dia, muda horário ou quantidade de aulas, ou muda as datas;
+- é só leitura: não cria, não edita e não apaga aula;
+- sem datas válidas (vazias ou início depois do fim), mostra uma mensagem pedindo as datas na aba Informações; sem encontros, mostra a mensagem de que ainda não há horários;
+- feriados e recessos não entram na prévia (ver P-03);
+- no celular, o calendário ocupa a largura da tela e os marcadores continuam legíveis; cores só dos tokens, nos temas claro e escuro.
+
+#### 3.1.3. Aula de 60 minutos
 
 A função que sugere a quantidade de aulas de um encontro passa a dividir a duração por 60 minutos, mantendo o mínimo de 1 e o máximo de 8. Exemplos: 08:00 às 10:00 sugere 2 aulas; 08:20 às 10:00 sugere 1 aula; 19:00 às 22:00 sugere 3 aulas. O texto de ajuda que cita a duração da aula, se houver, passa a dizer 60 minutos. O docente continua podendo ajustar a quantidade à mão.
 
@@ -96,6 +110,10 @@ Não se aplica nesta spec: nenhum endpoint muda.
 - [ ] **CA-05** (indesejado): SE o servidor devolve um problema ligado a um campo, ENTÃO O SISTEMA DEVE abrir a aba desse campo e mostrar o erro junto dele.
 - [ ] **CA-06** (evento): QUANDO o usuário clica em salvar, O SISTEMA DEVE enviar os dados de todas as abas em uma única requisição, como antes.
 - [ ] **CA-07** (ubíquo): A sugestão de aulas de um encontro DEVE ser a duração dividida por 60 minutos, entre 1 e 8 aulas.
+- [ ] **CA-09** (estado): ENQUANTO houver datas de início e fim válidas e ao menos um encontro, a aba Horários DEVE mostrar um calendário mensal com um marcador (horário e aulas) em cada dia da vigência cujo dia da semana tem encontro.
+- [ ] **CA-10** (evento): QUANDO o docente muda um encontro ou uma das datas, O SISTEMA DEVE atualizar a prévia sem salvar a turma.
+- [ ] **CA-11** (ubíquo): A prévia NÃO DEVE mostrar dias fora da vigência nem permitir navegar para meses fora dela.
+- [ ] **CA-12** (estado): ENQUANTO as datas forem inválidas ou não houver encontros, a prévia DEVE mostrar a mensagem correspondente em vez do calendário.
 - [ ] **CA-08** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens semânticos, nos temas claro e escuro.
 
 ## 8. Plano de Testes (Test Plan)
@@ -112,6 +130,11 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
   - problema `class-conflict` do servidor abre a aba Informações e mostra o erro no código. Cobre CA-05.
   - salvar envia, em uma chamada, valores das quatro abas. Cobre CA-06.
 - **Frontend, páginas `new` e `settings`:** continuam criando e salvando a turma. Cobre CA-06.
+- **Frontend, `ClassForm.test.tsx` e componente da prévia:**
+  - com datas 2026-10-05 a 2026-10-31 e encontro na segunda, a prévia marca 5, 12, 19 e 26 de outubro com horário e aulas. Cobre CA-09.
+  - mudar o horário ou ligar outro dia atualiza os marcadores sem chamar `onSubmit`. Cobre CA-10.
+  - dias fora da vigência não têm marcador e o botão de mês seguinte some no último mês. Cobre CA-11.
+  - sem datas, início depois do fim, ou sem encontros, mostra a mensagem. Cobre CA-12.
 - **Manual:** conferir as abas em 360 px de largura e nos dois temas; rodar `npm run lint`. Cobre CA-03 e CA-08.
 - **Cobertura:** acima de 80% no escopo da spec.
 
@@ -124,7 +147,12 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
 ## 10. Pendências para aprovação
 
-Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas (Informações, Horários, Conteúdo, Ingresso) e abas dentro do `ClassForm`, sem componente genérico.
+Decisões anteriores do Tech Lead (14/10/2026): quatro abas e abas dentro do `ClassForm`.
+
+| ID | Pendência | Recomendação |
+| :--- | :--- | :--- |
+| P-03 | A prévia deve descontar feriados e recessos (SPEC-042), ou mostrar todas as datas em que o dia da semana coincide? Feriados vêm do servidor e a turma ainda pode não existir. | Não descontar nesta spec: a prévia mostra a regra semanal. Os feriados continuam valendo na agenda real da turma. |
+| P-04 | A prévia é um calendário mensal (como a agenda da turma) ou uma semana típica com a grade de horas? O pedido fala em "como vai ficar a semana" e em usar início e fim. | Mensal com navegação dentro da vigência: usa as duas datas e mostra todas as semanas; a grade semanal fica para depois. |
 
 ---
 
@@ -134,3 +162,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas (Informações, Horá
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação (Rascunho) |
 | 14/10/2026 | Aruna Architect | Decisões do Tech Lead incorporadas (quatro abas, dentro do `ClassForm`); pendências P-01 e P-02 resolvidas; status Aprovada |
+| 14/10/2026 | Aruna Architect | Novo requisito do Tech Lead: prévia do calendário na aba Horários (3.1.2, CA-09 a CA-12); renumera a aula de 60 minutos para 3.1.3; volta a Rascunho com P-03 e P-04 |
