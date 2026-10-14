@@ -218,4 +218,48 @@ describe("ClassPage (SPEC-041)", () => {
     expect(await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ })).toBeDefined();
     expect(screen.queryByRole("button", { name: "Selecionar período" })).toBeNull();
   });
+
+  // SPEC-048 CA-09 and CA-10: the links of the class on the overview
+  it("shows the links section with the form to the teacher and read-only to the student", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    const getLinks = vi.spyOn(classService, "getLinks").mockResolvedValue([{ id: "l-1", name: "Link do Meet", url: "https://meet.google.com/abc", position: 0 }]);
+    render(<ClassPage params={params} />);
+    expect(await screen.findByRole("heading", { name: "Links da turma" })).toBeDefined();
+    expect(getLinks).toHaveBeenCalledWith("c-1");
+    expect(await screen.findByRole("button", { name: "Adicionar link" })).toBeDefined();
+    cleanup();
+
+    asRole("STUDENT");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id,
+      name: theClass.name,
+      courseCode: theClass.courseCode,
+      semester: theClass.semester,
+      status: theClass.status,
+      summary: "",
+      syllabus: "",
+      institutionalGuidelines: "",
+      startDate: theClass.startDate,
+      endDate: theClass.endDate,
+      scheduleDescription: "",
+      enableVirtualClassroom: false,
+      teacherName: "Profa. Sediane",
+    });
+    render(<ClassPage params={params} />);
+    expect(await screen.findByRole("link", { name: /Link do Meet/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Adicionar link" })).toBeNull();
+  });
+
+  // SPEC-048 CA-09: an archived class only shows the links
+  it("does not let the teacher edit the links of an archived class", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue({ ...theClass, status: "ARCHIVED" });
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    vi.spyOn(classService, "getLinks").mockResolvedValue([{ id: "l-1", name: "Link do Meet", url: "https://meet.google.com/abc", position: 0 }]);
+    render(<ClassPage params={params} />);
+    expect(await screen.findByRole("link", { name: /Link do Meet/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Adicionar link" })).toBeNull();
+  });
 });

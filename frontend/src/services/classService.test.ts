@@ -81,6 +81,22 @@ describe("classService", () => {
     expect(fakeClient.post).toHaveBeenCalledWith("/classes/join/tok123");
   });
 
+  // SPEC-048
+  it("reads the links of a class", async () => {
+    vi.mocked(fakeClient.get).mockResolvedValueOnce({ links: [{ id: "l-1", name: "Meet", url: "https://a.com", position: 0 }] });
+    const links = await service.getLinks("class-1");
+    expect(fakeClient.get).toHaveBeenCalledWith("/classes/class-1/links");
+    expect(links).toEqual([{ id: "l-1", name: "Meet", url: "https://a.com", position: 0 }]);
+  });
+
+  // SPEC-048
+  it("replaces the whole list of links of a class", async () => {
+    vi.mocked(fakeClient.put).mockResolvedValueOnce({ links: [{ id: "l-1", name: "Meet", url: "https://a.com", position: 0 }] });
+    const links = await service.replaceLinks("class-1", [{ name: "Meet", url: "https://a.com" }]);
+    expect(fakeClient.put).toHaveBeenCalledWith("/classes/class-1/links", { links: [{ name: "Meet", url: "https://a.com" }] });
+    expect(links).toHaveLength(1);
+  });
+
   it("calls listMembers with status filter", async () => {
     vi.mocked(fakeClient.get).mockResolvedValueOnce([]);
 
