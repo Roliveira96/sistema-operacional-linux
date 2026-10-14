@@ -214,7 +214,7 @@ export function ClassForm({
 
   // The holidays of the years of the term, for the preview of a new class (SPEC-044, CA-15).
   useEffect(() => {
-    if (classId || !loadHolidays || !startDate || !endDate || startDate > endDate) return;
+    if (!loadHolidays || !startDate || !endDate || startDate > endDate) return;
     let active = true;
     const first = Number(startDate.slice(0, 4));
     const last = Math.min(Number(endDate.slice(0, 4)), first + 5);
@@ -225,7 +225,7 @@ export function ClassForm({
     return () => {
       active = false;
     };
-  }, [classId, loadHolidays, startDate, endDate]);
+  }, [loadHolidays, startDate, endDate]);
 
   const meetingsNotApplied = Boolean(classId) && JSON.stringify(toMeetings(meetings)) !== appliedMeetings;
 
@@ -578,6 +578,16 @@ export function ClassForm({
                     </button>
                     {meetingsNotApplied && <span className={styles.help}>{messages.schedule.preview.notApplied}</span>}
                   </div>
+                )}
+                {meetingsNotApplied && (
+                  <MeetingsPreview
+                    startDate={startDate}
+                    endDate={endDate}
+                    meetings={meetings}
+                    color={color}
+                    holidays={holidays}
+                    label={messages.schedule.preview.notAppliedTitle}
+                  />
                 )}
                 <ClassSessionsCalendar
                   classId={classId}

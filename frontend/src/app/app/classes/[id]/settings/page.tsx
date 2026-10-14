@@ -83,6 +83,7 @@ export default function ClassSettingsPage({
         initialData={classData}
         initialMeetings={meetings}
         classId={classData.id}
+        loadHolidays={scheduleService.holidays}
         onApplyMeetings={async (list) => {
           await scheduleService.replaceMeetings(classData.id, list);
         }}

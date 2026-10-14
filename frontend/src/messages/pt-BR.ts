@@ -445,6 +445,7 @@ export const messages = {
     } as Record<string, string>,
     preview: {
       label: "Prévia do calendário",
+      notAppliedTitle: "Prévia dos horários ainda não aplicados",
       applyMeetings: "Aplicar horários ao calendário",
       applyingMeetings: "Aplicando…",
       notApplied: "O calendário ainda mostra os horários salvos. Aplique para ver as mudanças.",

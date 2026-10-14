@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (calendário real na configuração, Opção A) |
 | **Autor** | Aruna Architect |
@@ -197,3 +197,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `Clas
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: dia de feriado em vermelho nos dois calendários e nome contido na célula (CA-21) |
 | 14/10/2026 | Implementador | CA-21 implementado: célula de feriado em vermelho nos dois calendários e grade com colunas de largura fixa (`minmax(0, 1fr)`), que impede o nome do feriado de alargar a grade |
 | 14/10/2026 | Aruna Architect | Defeito relatado pelo Tech Lead: dias marcados não apareciam no calendário da turma salva até aplicar; a prévia ao vivo passa a aparecer acima do calendário real enquanto houver horários não aplicados (CA-22) |
+| 14/10/2026 | Implementador | CA-22 implementado: prévia ao vivo, com feriados, acima do calendário real enquanto houver horários não aplicados |
