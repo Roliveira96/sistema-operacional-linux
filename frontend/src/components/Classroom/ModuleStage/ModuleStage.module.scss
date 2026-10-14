@@ -1,56 +1,7 @@
-@use "@/styles/mixins" as mixins;
-
-// The module of the live class: the content on one side, the terminal on the other (SPEC-054 CA-11).
+// The module of the live class is the study screen; it gets a box to fit in (SPEC-055 CA-13).
 .stage {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-4);
-
-  @include mixins.from("lg") {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-}
-
-.content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-  max-height: 70vh;
-  overflow-y: auto;
-}
-
-.title {
-  margin: 0;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-}
-
-.block {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-}
-
-// The block the teacher is on: ring and a label, so it is not only a color.
-.focused {
-  border-color: var(--color-accent);
-  background-color: var(--color-accent-subtle);
-}
-
-.badge {
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-accent);
-  color: var(--color-accent-contrast);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  height: 100%;
+  min-height: 0;
 }
 
 .note {

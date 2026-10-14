@@ -14,6 +14,7 @@ import {
   type LiveSocket,
   type LiveSocketHandlers,
   type LiveStroke,
+  type LiveView,
 } from "@/services/classroomService";
 
 export interface LiveRoomState {
@@ -22,8 +23,8 @@ export interface LiveRoomState {
   moduleId: string | null;
   /** The block of the module the teacher put in focus (SPEC-054). */
   moduleFocusBlockId: string | null;
-  /** Whether the teacher sends his terminal to the class; off until he says (SPEC-054 CA-10). */
-  terminalBroadcast: boolean;
+  /** The stage is kept blank by the teacher, for everybody (SPEC-055 CA-17). */
+  blank: boolean;
   deck: LiveDeck | null;
   strokes: LiveStroke[];
   cursor: { x: number; y: number; laser: boolean } | null;
@@ -45,17 +46,23 @@ interface State {
   /** Where the student stands; null until the server says (SPEC-054 CA-01). */
   admission: AdmissionState | null;
   admissions: LiveAdmissions;
+  /** When the class began, as the panel is told. */
+  startedAt: string | null;
+  /** Whether the presentation window of the teacher is connected, as the panel is told (SPEC-055 RN-05). */
+  presenterConnected: boolean;
   ready: boolean;
   ended: boolean;
   passive: boolean;
 }
 
 const initial: State = {
-  room: { mode: "SLIDES", slide: 1, moduleId: null, moduleFocusBlockId: null, terminalBroadcast: false, deck: null, strokes: [], cursor: null, online: 0 },
+  room: { mode: "SLIDES", slide: 1, moduleId: null, moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: null, online: 0 },
   terminal: { input: null, entries: [], state: null, revision: 0 },
   hands: [],
   admission: null,
   admissions: { waiting: [], admitted: [] },
+  startedAt: null,
+  presenterConnected: false,
   ready: false,
   ended: false,
   passive: false,
@@ -76,12 +83,14 @@ function apply(state: State, message: LiveMessage): State {
         ready: true,
         admission: "ADMITTED",
         admissions: s.admissions ?? state.admissions,
+        startedAt: s.startedAt ?? s.session?.startedAt ?? state.startedAt,
+        presenterConnected: s.presenterConnected ?? state.presenterConnected,
         room: {
           mode: s.displayMode,
           slide: s.currentSlide,
           moduleId: s.moduleId ?? s.activeModuleId ?? null,
           moduleFocusBlockId: s.moduleFocusBlockId ?? null,
-          terminalBroadcast: s.terminalBroadcast ?? false,
+          blank: s.stageBlank ?? false,
           deck: s.activeDeck ?? null,
           strokes: s.recentDrawings ?? [],
           cursor: null,
@@ -112,8 +121,10 @@ function apply(state: State, message: LiveMessage): State {
       };
     case "live:module:focus":
       return { ...state, room: { ...state.room, moduleFocusBlockId: (data.blockId as string | undefined) ?? null } };
-    case "live:terminal:broadcast":
-      return { ...state, room: { ...state.room, terminalBroadcast: Boolean(data.enabled) } };
+    case "live:stage:blank":
+      return { ...state, room: { ...state.room, blank: Boolean(data.blank) } };
+    case "live:presenter:state":
+      return { ...state, presenterConnected: Boolean(data.connected) };
     case "live:admission:state":
       return { ...state, admission: data.status as AdmissionState };
     case "live:admission:queue":
@@ -133,7 +144,11 @@ function apply(state: State, message: LiveMessage): State {
     case "live:hand:queue":
       return { ...state, hands: (data.queue as HandRaiseItem[]) ?? [] };
     case "live:presence":
-      return { ...state, room: { ...state.room, online: Number(data.online) || 0 } };
+      return {
+        ...state,
+        presenterConnected: typeof data.presenterConnected === "boolean" ? data.presenterConnected : state.presenterConnected,
+        room: { ...state.room, online: Number(data.online) || 0 },
+      };
     case "live:control:revoked":
       return { ...state, passive: true };
     case "live:ended":
@@ -145,7 +160,9 @@ function apply(state: State, message: LiveMessage): State {
 
 const reducer = (state: State, action: Action): State => apply(state, action.message);
 
-type Connect = (classId: string, handlers: LiveSocketHandlers) => LiveSocket;
+type Connect = (classId: string, handlers: LiveSocketHandlers, view?: LiveView) => LiveSocket;
+
+const connectToServer: Connect = (classId, handlers, view) => openLiveSocket(classId, handlers, undefined, view);
 
 /** The first wait before trying again, and the longest. */
 const RETRY_FIRST_MS = 1000;
@@ -155,6 +172,8 @@ export interface UseLiveClassroomOptions {
   classId: string;
   /** The teacher (and the administrator) controls the room; a student only follows it. */
   role: "teacher" | "student";
+  /** The window of the teacher: the panel (the default) or the presentation. A student has none (SPEC-055 RN-01). */
+  view?: LiveView;
   connect?: Connect;
 }
 
@@ -162,7 +181,8 @@ export interface UseLiveClassroomOptions {
  * The connection with the live classroom and its state: it reconnects by itself and, at every connection, the first message brings the
  * whole state of the room (SPEC-051 RN-07). What the teacher sends is also applied to his own screen, because the server does not echo it.
  */
-export function useLiveClassroom({ classId, role, connect = openLiveSocket }: UseLiveClassroomOptions) {
+export function useLiveClassroom({ classId, role, view, connect = connectToServer }: UseLiveClassroomOptions) {
+  const kind = role === "teacher" ? (view ?? "panel") : undefined;
   const [state, dispatch] = useReducer(reducer, initial);
   const [connected, setConnected] = useState(false);
   const socket = useRef<LiveSocket | null>(null);
@@ -199,7 +219,7 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
           timer = setTimeout(open, wait);
           wait = Math.min(wait * 2, RETRY_MAX_MS);
         },
-      });
+      }, kind);
     };
     open();
     return () => {
@@ -207,9 +227,12 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
       clearTimeout(timer);
       socket.current?.close();
     };
-  }, [classId, connect]);
+  }, [classId, connect, kind]);
 
   const canControl = role === "teacher" && !state.passive;
+  // Who sends what (SPEC-055 RN-02): the stage is the presentation window's, the waiting room and the hands are the panel's.
+  const onStage = canControl && kind === "presenter";
+  const onPanel = canControl && kind === "panel";
   const emit = useCallback(
     (type: string, data: unknown) => {
       if (!canControl) return;
@@ -225,25 +248,25 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
     connected,
     canControl,
     changeSlide: (slide: number) => emit("live:slide:change", { slide }),
-    moveCursor: (x: number, y: number, laser: boolean) => emit("live:cursor:move", { x, y, laser }),
-    draw: (path: Array<[number, number]>) => emit("live:canvas:draw", { path }),
-    clearDrawings: () => emit("live:canvas:draw", { clear: true }),
+    moveCursor: (x: number, y: number, laser: boolean) => onStage && emit("live:cursor:move", { x, y, laser }),
+    draw: (path: Array<[number, number]>) => onStage && emit("live:canvas:draw", { path }),
+    clearDrawings: () => onStage && emit("live:canvas:draw", { clear: true }),
+    setBlank: (blank: boolean) => onStage && emit("live:stage:blank", { blank }),
     switchMode: (mode: LiveMode, moduleId?: string) => emit("live:mode:switch", moduleId ? { mode, moduleId } : { mode }),
-    sendTerminalInput: (event: TerminalInputEvent) => emit("live:terminal:input", event),
-    sendTerminalSync: (event: TerminalCommandEvent) => emit("live:terminal:sync", event),
+    sendTerminalInput: (event: TerminalInputEvent) => onStage && emit("live:terminal:input", event),
+    sendTerminalSync: (event: TerminalCommandEvent) => onStage && emit("live:terminal:sync", event),
     moderate: (studentId?: string) => {
-      if (canControl) sendOnly("live:hand:moderate", studentId ? { studentId } : { all: true });
+      if (onPanel) sendOnly("live:hand:moderate", studentId ? { studentId } : { all: true });
     },
     focusBlock: (blockId: string) => emit("live:module:focus", { blockId }),
-    setTerminalBroadcast: (enabled: boolean) => emit("live:terminal:broadcast", { enabled }),
     acceptStudent: (studentId: string) => {
-      if (canControl) sendOnly("live:admission:accept", { studentId });
+      if (onPanel) sendOnly("live:admission:accept", { studentId });
     },
     acceptAll: () => {
-      if (canControl) sendOnly("live:admission:accept-all", {});
+      if (onPanel) sendOnly("live:admission:accept-all", {});
     },
     removeStudent: (studentId: string) => {
-      if (canControl) sendOnly("live:admission:remove", { studentId });
+      if (onPanel) sendOnly("live:admission:remove", { studentId });
     },
     /** A student removed from the class asks to come in again. */
     requestEntry: () => sendOnly("live:admission:request", {}),

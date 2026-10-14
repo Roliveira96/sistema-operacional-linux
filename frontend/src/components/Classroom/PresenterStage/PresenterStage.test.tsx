@@ -5,6 +5,9 @@ import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import type { LiveSession } from "@/services/classroomService";
 import { PresenterStage } from "./PresenterStage";
 
+const styleOf = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const css = styleOf("./PresenterStage.module.scss");
+
 vi.mock("@/hooks/useLiveClassroom", () => ({ useLiveClassroom: vi.fn() }));
 const slides = vi.fn();
 vi.mock("../SlidePresenter/SlidePresenter", async () => {
@@ -357,7 +360,6 @@ describe("PresenterStage", () => {
   });
 
   it("uses only the color tokens", () => {
-    const css = readFileSync(new URL("./PresenterStage.module.scss", import.meta.url), "utf8");
     expect(css.length).toBeGreaterThan(0);
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(css).not.toMatch(/\brgba?\(/);

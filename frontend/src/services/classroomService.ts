@@ -80,9 +80,12 @@ export interface LiveSnapshot {
   activeModuleId?: string | null;
   moduleId?: string | null;
   moduleFocusBlockId?: string | null;
-  terminalBroadcast?: boolean;
-  /** Only the teacher gets it. */
+  /** The teacher keeps the stage blank (SPEC-055 CA-17). */
+  stageBlank?: boolean;
+  /** Only the panel of the teacher gets these (SPEC-055 RN-05). */
   admissions?: LiveAdmissions;
+  startedAt?: string;
+  presenterConnected?: boolean;
   activeDeck: LiveDeck | null;
   recentDrawings: LiveStroke[];
   terminal: LiveTerminalState;
@@ -171,10 +174,13 @@ export interface LiveSocket {
   close(): void;
 }
 
-/** The address of the socket of a class: the same origin as the page, under /api/v1. */
-export function liveSocketUrl(classId: string, where: { protocol: string; host: string }): string {
+/** The window of the teacher a connection belongs to (SPEC-055 RN-01). */
+export type LiveView = "panel" | "presenter";
+
+/** The address of the socket of a class: the same origin as the page, under /api/v1; the teacher says which window it is. */
+export function liveSocketUrl(classId: string, where: { protocol: string; host: string }, view?: LiveView): string {
   const scheme = where.protocol === "https:" ? "wss:" : "ws:";
-  return `${scheme}//${where.host}/api/v1/classes/${classId}/live/ws`;
+  return `${scheme}//${where.host}/api/v1/classes/${classId}/live/ws${view ? `?view=${view}` : ""}`;
 }
 
 /** Opens the socket of the class. A message that is not JSON is ignored (the server is not trusted blindly either). */
@@ -182,8 +188,9 @@ export function openLiveSocket(
   classId: string,
   handlers: LiveSocketHandlers,
   create: (url: string) => WebSocket = (url) => new WebSocket(url),
+  view?: LiveView,
 ): LiveSocket {
-  const socket = create(liveSocketUrl(classId, window.location));
+  const socket = create(liveSocketUrl(classId, window.location, view));
   socket.onopen = () => handlers.onOpen();
   socket.onclose = () => handlers.onClose();
   socket.onmessage = (event) => {

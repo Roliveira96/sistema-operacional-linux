@@ -29,6 +29,29 @@
   color: var(--color-text-body);
 }
 
+// The study screen as the screen of a live class: it fits the box the room gives it, instead of the whole page.
+.live {
+  height: 100%;
+  min-height: 0;
+
+  // The block the teacher is on: a ring, so it is not only a color (SPEC-055 CA-13).
+  [data-focused="true"] {
+    border-radius: var(--radius-md);
+    outline: 2px solid var(--accent);
+    outline-offset: 6px;
+    background: var(--accent-faint);
+  }
+}
+
+// The terminal of the class, where the terminal of the study screen goes.
+.livePane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 16px 10px;
+  background: var(--color-surface-sunken);
+}
+
 .header {
   display: flex;
   flex-wrap: wrap;

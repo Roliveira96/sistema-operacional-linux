@@ -24,20 +24,22 @@ const PLAIN: Record<string, ComponentType<{ payload: Payload }>> = {
   EXERCISES: ExercisesBlock,
 };
 
-function Examples({ steps, player, intro }: { steps: ScriptStep[]; player: TopicPlayer; intro: boolean }) {
+function Examples({ steps, player, intro, blockId, readOnly }: { steps: ScriptStep[]; player: TopicPlayer; intro: boolean; blockId: string; readOnly: boolean }) {
   return (
     <>
       <div className={styles.label}>{intro ? m.examplesIntro : m.examples}</div>
-      <ol className={styles.examples}>
+      <ol className={styles.examples} data-block={blockId}>
         {steps.map((step) => {
           const terminal = step.terminal ?? 1;
           const current = player.running === step.index;
           const classes = [styles.example, current ? styles.running : "", (player.running ?? player.index) === step.index ? styles.current : "", player.done.has(step.index) ? styles.done : ""];
           return (
             <li key={step.index} className={classes.filter(Boolean).join(" ")} data-step={step.index}>
-              <button type="button" className={styles.run} onClick={() => void player.runOne(step.index)} title={m.runStep(terminal)} aria-label={`${m.runStep(terminal)}: ${step.command}`}>
-                ▶
-              </button>
+              {!readOnly && (
+                <button type="button" className={styles.run} onClick={() => void player.runOne(step.index)} title={m.runStep(terminal)} aria-label={`${m.runStep(terminal)}: ${step.command}`}>
+                  ▶
+                </button>
+              )}
               <div className={styles.exampleBody}>
                 <code className={styles.command} data-narrate="command">
                   {terminal > 1 && (
@@ -72,7 +74,7 @@ function Examples({ steps, player, intro }: { steps: ScriptStep[]; player: Topic
 }
 
 /** Renders the blocks of one card; COMMAND blocks become runnable examples. */
-function CardBody({ card, steps, player }: { card: LessonCard; steps: ScriptStep[]; player: TopicPlayer }) {
+function CardBody({ card, steps, player, readOnly }: { card: LessonCard; steps: ScriptStep[]; player: TopicPlayer; readOnly: boolean }) {
   // Where the steps of each COMMAND block start inside the script.
   const starts = card.blocks.reduce<number[]>((acc, block, i) => {
     const previous = card.blocks[i - 1];
@@ -96,7 +98,7 @@ function CardBody({ card, steps, player }: { card: LessonCard; steps: ScriptStep
           const from = starts[i] ?? card.start;
           const count = Array.isArray(payload.steps) ? payload.steps.length : 0;
           const own = steps.slice(from, from + count);
-          return own.length ? <Examples key={block.id} steps={own} player={player} intro={card.index === 0 && card.label === INTRO_LABEL} /> : null;
+          return own.length ? <Examples key={block.id} steps={own} player={player} intro={card.index === 0 && card.label === INTRO_LABEL} blockId={block.id} readOnly={readOnly} /> : null;
         }
         const Component = PLAIN[block.type];
         return (
@@ -115,6 +117,8 @@ export interface LessonPanelProps {
   completedBlockIds?: Set<string>;
   completedAtByBlock?: Record<string, string>;
   onToggleBlockProgress?: (blockId: string, completed: boolean) => void;
+  /** The live class shows the material to be read, not to be played (SPEC-055 CA-13). */
+  readOnly?: boolean;
 }
 
 function formatDate(iso?: string): string {
@@ -128,7 +132,7 @@ function formatDate(iso?: string): string {
 }
 
 /** The "Comandos e dicas" tab: the module blocks grouped in lesson cards (SPEC-016). */
-export function LessonPanel({ script, player, completedBlockIds, completedAtByBlock, onToggleBlockProgress }: LessonPanelProps) {
+export function LessonPanel({ script, player, completedBlockIds, completedAtByBlock, onToggleBlockProgress, readOnly = false }: LessonPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   const { running } = player;
 
@@ -176,7 +180,7 @@ export function LessonPanel({ script, player, completedBlockIds, completedAtByBl
                   {isCompleted ? `✓ Visto ${completedAtText ? `(${completedAtText})` : ""}` : "☐ Marcar como visto"}
                 </button>
               )}
-              {hasSteps && (
+              {hasSteps && !readOnly && (
                 <button
                   type="button"
                   className={`${styles.cardPlay} ${playing ? styles.playing : ""}`}
@@ -187,7 +191,7 @@ export function LessonPanel({ script, player, completedBlockIds, completedAtByBl
                 </button>
               )}
             </header>
-            <CardBody card={card} steps={script.steps} player={player} />
+            <CardBody card={card} steps={script.steps} player={player} readOnly={readOnly} />
           </article>
         );
       })}

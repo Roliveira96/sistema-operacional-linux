@@ -67,7 +67,7 @@ export function AdmissionPanel({ waiting, admitted, onAccept, onAcceptAll, onRem
                   {waited(entry) && <span className={styles.muted}>{waited(entry)}</span>}
                 </span>
                 <span className={styles.actions}>
-                  <Button variant="primary" size="sm" aria-label={m.accept(entry.name)} onClick={() => onAccept(entry.studentId)}>
+                  <Button variant="secondary" size="sm" aria-label={m.accept(entry.name)} onClick={() => onAccept(entry.studentId)}>
                     {m.acceptShort}
                   </Button>
                   <Button variant="ghost" size="sm" aria-label={m.decline(entry.name)} onClick={() => onRemove(entry.studentId)}>
@@ -77,7 +77,7 @@ export function AdmissionPanel({ waiting, admitted, onAccept, onAcceptAll, onRem
               </li>
             ))}
           </ul>
-          <Button variant="secondary" size="sm" onClick={onAcceptAll}>
+          <Button variant="primary" size="sm" onClick={onAcceptAll}>
             {m.acceptAll}
           </Button>
         </>

@@ -25,6 +25,10 @@ export interface SlidePresenterProps {
   onDraw(path: Array<[number, number]>): void;
   onClear(): void;
   loader?: PdfLoader;
+  /** The presentation window has its own toolbar and keys (SPEC-055 CA-16): no bar, no keys here, and the laser and the pen come from it. */
+  bare?: boolean;
+  laser?: boolean;
+  pen?: boolean;
 }
 
 type Point = [number, number];
@@ -68,13 +72,15 @@ function throttle<A extends unknown[]>(fn: (...args: A) => void, ms: number): Th
 }
 
 /** The slides of the live classroom (SPEC-051, section 3.1): drawn from the PDF in the browser, with the laser and the pen of the teacher on top. */
-export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSlide, onCursor, onDraw, onClear, loader = pdfLoader }: SlidePresenterProps) {
+export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSlide, onCursor, onDraw, onClear, loader = pdfLoader, bare = false, laser: laserProp, pen: penProp }: SlidePresenterProps) {
   const stage = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<PdfPageRenderer | null>(null);
   const [failed, setFailed] = useState(false);
-  const [laser, setLaser] = useState(false);
-  const [pen, setPen] = useState(false);
+  const [ownLaser, setLaser] = useState(false);
+  const [ownPen, setPen] = useState(false);
+  const laser = laserProp ?? ownLaser;
+  const pen = penProp ?? ownPen;
 
   const total = pdf?.pageCount ?? deck.pageCount;
   const current = Math.min(Math.max(slide, 1), Math.max(total, 1));
@@ -138,7 +144,7 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
   const goto = (to: number) => onSlide(Math.min(Math.max(to, 1), Math.max(total, 1)));
 
   const keyDown = (event: KeyboardEvent) => {
-    if (!canControl) return;
+    if (!canControl || bare) return;
     if (event.key === "ArrowRight" || event.key === "ArrowDown" || event.key === " ") {
       event.preventDefault();
       goto(current + 1);
@@ -173,10 +179,14 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
     points.current = null;
   };
 
-  const toggleLaser = () => {
-    if (laser) cursorOut.current?.call(0, 0, false);
-    setLaser(!laser);
-  };
+  const toggleLaser = () => setLaser(!laser);
+
+  // Whoever turns the laser off, the class stops seeing it.
+  const wasLaser = useRef(laser);
+  useEffect(() => {
+    if (wasLaser.current && !laser) cursorOut.current?.call(0, 0, false);
+    wasLaser.current = laser;
+  }, [laser]);
 
   return (
     <section className={styles.presenter}>
@@ -213,6 +223,7 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
         {cursor?.laser && <span className={styles.laser} data-laser="" style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }} />}
       </div>
 
+      {!bare && (
       <div className={styles.bar}>
         {canControl && (
           <>
@@ -252,6 +263,7 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
           </>
         )}
       </div>
+      )}
     </section>
   );
 }

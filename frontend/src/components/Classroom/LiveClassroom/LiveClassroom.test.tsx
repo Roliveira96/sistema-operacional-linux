@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { classroomService, type LiveSession } from "@/services/classroomService";
@@ -103,10 +103,10 @@ describe("LiveClassroom", () => {
   it("shows the module in the study-screen style, read only, with the block in focus, and sends nothing", () => {
     live({ canControl: false, room: { mode: "MODULE", slide: 1, moduleId: "m-1", moduleFocusBlockId: "b-2", blank: false, deck: null, strokes: [], cursor: null, online: 2 } });
     render(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
-    const module = screen.getByTestId("module");
-    expect(module.getAttribute("data-role")).toBe("student");
-    expect(module.getAttribute("data-focus")).toBe("b-2");
-    expect(module.getAttribute("data-can-send")).toBe("false");
+    const stage = screen.getByTestId("module");
+    expect(stage.getAttribute("data-role")).toBe("student");
+    expect(stage.getAttribute("data-focus")).toBe("b-2");
+    expect(stage.getAttribute("data-can-send")).toBe("false");
     expect(screen.getByText("Módulo de Ensino")).toBeDefined();
     expect(screen.queryByTestId("slides")).toBeNull();
   });

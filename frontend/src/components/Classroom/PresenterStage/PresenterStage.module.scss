@@ -1,0 +1,136 @@
+// The presentation window: the stage fills the screen, over the menus of the signed-in area (SPEC-055 section 3.1).
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  color: var(--color-text-body);
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-3);
+  overflow: hidden;
+}
+
+.notice {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--color-overlay);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  transform: translateX(-50%);
+}
+
+.link {
+  color: var(--color-accent);
+}
+
+// The connection that dropped: small, at the corner, so it does not get in front of the class.
+.connection {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+}
+
+.toolbar {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 50%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  max-width: 95%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-overlay);
+  transform: translateX(-50%);
+}
+
+// The blank screen: the class sees nothing; the teacher sees the same, with how to come back.
+.blank {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: var(--color-surface-sunken);
+}
+
+.blankNotice {
+  margin: 0 0 var(--space-6);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.tip {
+  position: absolute;
+  bottom: var(--space-12, 4rem);
+  left: 50%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 90%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  transform: translateX(-50%);
+}
+
+.dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  transform: translate(-50%, -50%);
+}
+
+.dialogTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.keys {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  kbd {
+    display: inline-block;
+    min-width: 2rem;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-sunken);
+    font-family: var(--font-mono);
+    text-align: center;
+  }
+}

@@ -190,4 +190,40 @@ describe("TopicStudy in the live-class mode", () => {
       }).not.toThrow();
     });
   });
+
+  describe("the divider", () => {
+    const value = () => Number(screen.getByRole("separator").getAttribute("aria-valuenow"));
+
+    it("is dragged with the pointer, and keeps the place", () => {
+      study();
+      vi.spyOn(screen.getByRole("main"), "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 1000, height: 600, right: 1000, bottom: 600, x: 0, y: 0, toJSON: () => ({}) });
+      const divider = screen.getByRole("separator");
+      fireEvent.pointerMove(divider, { clientX: 700 });
+      expect(value()).not.toBe(70);
+      fireEvent.pointerDown(divider, { pointerId: 1 });
+      fireEvent.pointerMove(divider, { clientX: 600 });
+      expect(value()).toBe(60);
+      fireEvent.pointerUp(divider);
+      expect(localStorage.length).toBeGreaterThan(0);
+      fireEvent.pointerDown(divider, { pointerId: 1 });
+      fireEvent.pointerCancel(divider);
+      fireEvent.pointerMove(divider, { clientX: 300 });
+      expect(value()).toBe(60);
+    });
+
+    it("goes back to the start with a double click, and to the ends with Home and End", () => {
+      study();
+      const divider = screen.getByRole("separator");
+      fireEvent.keyDown(divider, { key: "Home" });
+      const min = value();
+      fireEvent.keyDown(divider, { key: "End" });
+      expect(value()).toBeGreaterThan(min);
+      fireEvent.click(divider, { detail: 2 });
+      expect(value()).toBeGreaterThan(min);
+      expect(value()).toBeLessThan(80);
+      fireEvent.keyDown(divider, { key: "x" });
+      fireEvent.keyDown(divider, { key: "ArrowLeft", shiftKey: true });
+    });
+  });
 });
+

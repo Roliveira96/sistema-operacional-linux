@@ -6,6 +6,9 @@ import { classroomService, type LiveModuleContent, type LiveSession } from "@/se
 import { moduleService } from "@/services/moduleService";
 import { TeacherPanel } from "./TeacherPanel";
 
+const styleOf = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const css = styleOf("./TeacherPanel.module.scss");
+
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/hooks/useLiveClassroom", () => ({ useLiveClassroom: vi.fn() }));
@@ -327,11 +330,11 @@ describe("TeacherPanel", () => {
       expect(l.switchMode).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole("button", { name: "Ir para o módulo" }));
       expect(l.switchMode).toHaveBeenLastCalledWith("MODULE", "m-1");
-      live({}, { mode: "MODULE", moduleId: "m-1" });
+      const inModule = live({}, { mode: "MODULE", moduleId: "m-1" });
       view.rerender(<TeacherPanel {...props()} />);
       expect(screen.queryByRole("button", { name: "Ir para o módulo" })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Ir para as lâminas" }));
-      expect(l.switchMode).toHaveBeenLastCalledWith("SLIDES");
+      expect(inModule.switchMode).toHaveBeenLastCalledWith("SLIDES");
     });
 
     it("offers no swap when the class has only one of the two", async () => {
@@ -415,7 +418,6 @@ describe("TeacherPanel", () => {
   });
 
   it("uses only the color tokens", () => {
-    const css = readFileSync(new URL("./TeacherPanel.module.scss", import.meta.url), "utf8");
     expect(css.length).toBeGreaterThan(0);
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(css).not.toMatch(/\brgba?\(/);

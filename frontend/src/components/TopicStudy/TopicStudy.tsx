@@ -80,10 +80,13 @@ import { LessonPanel } from "./LessonPanel";
 import { PlayerBar } from "./PlayerBar";
 import { UserBadge } from "@/components/UserBadge/UserBadge";
 import { TerminalPane } from "./TerminalPane";
+import { LiveTopicScreen, type TopicLive } from "./LiveTopicScreen";
 import styles from "./TopicStudy.module.scss";
 
 const t = m.topic;
 const TOAST_MS = 3200;
+
+export type { TopicLive };
 
 export interface TopicStudyProps {
   moduleId: string;
@@ -102,6 +105,8 @@ export interface TopicStudyProps {
   identity?: IdentitySources;
   /** Asks the student to confirm a destructive action (the prototype uses window.confirm). */
   confirm?: (message: string) => boolean;
+  /** The study screen as the screen of a live class: only the material and the terminal of the class (SPEC-055). Without it, nothing changes. */
+  live?: TopicLive;
 }
 
 interface Loaded {
@@ -147,10 +152,13 @@ export function TopicStudy({
   speech = speechService,
   identity,
   confirm = (message) => window.confirm(message),
+  live,
 }: TopicStudyProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
+    // The live class brings the module with it; there is nothing to load for the study alone.
+    if (live) return;
     let active = true;
     (async () => {
       try {
@@ -218,7 +226,9 @@ export function TopicStudy({
     return () => {
       active = false;
     };
-  }, [moduleId, content, modules, practice, draft]);
+  }, [moduleId, content, modules, practice, draft, live]);
+
+  if (live) return <LiveTopicScreen live={live} />;
 
   if (state.kind === "loading") {
     return (
