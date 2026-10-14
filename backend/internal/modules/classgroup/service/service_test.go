@@ -25,6 +25,7 @@ type fakeClassRepo struct {
 
 	userRoles map[uuid.UUID]string  // users that exist, by role (SPEC-041)
 	userNames map[uuid.UUID]*string // display names of users
+	deletedBy map[uuid.UUID]uuid.UUID // classes deleted, by who (SPEC-050)
 	saveCalls int
 }
 
@@ -44,7 +45,15 @@ func newFakeRepo() *fakeClassRepo {
 		enrollments: make(map[uuid.UUID]domain.Enrollment),
 		userRoles:   make(map[uuid.UUID]string),
 		userNames:   make(map[uuid.UUID]*string),
+		deletedBy:   make(map[uuid.UUID]uuid.UUID),
 	}
+}
+
+// DeleteClass removes the class and records who deleted it (SPEC-050).
+func (f *fakeClassRepo) DeleteClass(ctx context.Context, class *domain.ClassGroup, actorID uuid.UUID) error {
+	delete(f.classes, class.ID)
+	f.deletedBy[class.ID] = actorID
+	return nil
 }
 
 func (f *fakeClassRepo) CreateClass(ctx context.Context, class *domain.ClassGroup, initialStudentIDs []uuid.UUID, now time.Time) error {
