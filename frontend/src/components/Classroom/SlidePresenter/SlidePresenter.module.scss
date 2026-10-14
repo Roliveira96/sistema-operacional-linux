@@ -77,6 +77,21 @@
     top 40ms linear;
 }
 
+// The plain mouse of the teacher: small and quiet, so the laser is the one that stands out.
+.pointer {
+  position: absolute;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin: -0.375rem 0 0 -0.375rem;
+  border: 2px solid var(--color-text-primary);
+  border-radius: var(--radius-full);
+  background-color: var(--color-accent);
+  pointer-events: none;
+  transition:
+    left 40ms linear,
+    top 40ms linear;
+}
+
 .bar {
   display: flex;
   flex-wrap: wrap;

@@ -27,7 +27,7 @@ export interface LiveRoomState {
   blank: boolean;
   deck: LiveDeck | null;
   strokes: LiveStroke[];
-  cursor: { x: number; y: number; laser: boolean } | null;
+  cursor: { x: number; y: number; laser: boolean; visible: boolean } | null;
   online: number;
 }
 
@@ -108,7 +108,7 @@ function apply(state: State, message: LiveMessage): State {
     case "live:slide:change":
       return { ...state, room: { ...state.room, slide: Number(data.slide) || 1, strokes: [] } };
     case "live:cursor:move":
-      return { ...state, room: { ...state.room, cursor: { x: Number(data.x), y: Number(data.y), laser: Boolean(data.laser) } } };
+      return { ...state, room: { ...state.room, cursor: { x: Number(data.x), y: Number(data.y), laser: Boolean(data.laser), visible: data.visible !== false } } };
     case "live:canvas:draw": {
       if (data.clear) return { ...state, room: { ...state.room, strokes: [] } };
       const strokes = [...state.room.strokes, data as LiveStroke].slice(-MAX_STROKES);
@@ -248,7 +248,7 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
     connected,
     canControl,
     changeSlide: (slide: number) => emit("live:slide:change", { slide }),
-    moveCursor: (x: number, y: number, laser: boolean) => onStage && emit("live:cursor:move", { x, y, laser }),
+    moveCursor: (x: number, y: number, laser: boolean, visible = true) => onStage && emit("live:cursor:move", { x, y, laser, visible }),
     draw: (path: Array<[number, number]>) => onStage && emit("live:canvas:draw", { path }),
     clearDrawings: () => onStage && emit("live:canvas:draw", { clear: true }),
     setBlank: (blank: boolean) => onStage && emit("live:stage:blank", { blank }),

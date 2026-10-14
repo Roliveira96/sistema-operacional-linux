@@ -17,10 +17,11 @@ export interface SlidePresenterProps {
   slide: number;
   /** The teacher moves the slides and draws on them; a student only follows. */
   canControl: boolean;
-  cursor: { x: number; y: number; laser: boolean } | null;
+  /** The mouse of the teacher: always a pointer, and a highlighted one when the laser is on. */
+  cursor: { x: number; y: number; laser: boolean; visible: boolean } | null;
   strokes: LiveStroke[];
   onSlide(slide: number): void;
-  onCursor(x: number, y: number, laser: boolean): void;
+  onCursor(x: number, y: number, laser: boolean, visible?: boolean): void;
   /** A piece of a stroke, in percentages of the slide. */
   onDraw(path: Array<[number, number]>): void;
   onClear(): void;
@@ -115,7 +116,8 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
   });
   const points = useRef<Point[] | null>(null);
   const sent = useRef(0);
-  const cursorOut = useRef<Throttle<[number, number, boolean]> | null>(null);
+  const cursorOut = useRef<Throttle<[number, number, boolean, boolean]> | null>(null);
+  const lastAt = useRef<Point | null>(null);
   const penOut = useRef<Throttle<[]> | null>(null);
   const flushPen = useRef<() => void>(() => undefined);
   useEffect(() => {
@@ -125,7 +127,7 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
       send.current.onDraw(path.slice(Math.max(sent.current - 1, 0)));
       sent.current = path.length;
     };
-    const cursorPace = throttle((x: number, y: number, on: boolean) => send.current.onCursor(x, y, on), FRAME_MS);
+    const cursorPace = throttle((x: number, y: number, on: boolean, visible: boolean) => send.current.onCursor(x, y, on, visible), FRAME_MS);
     const penPace = throttle(() => flushPen.current(), FRAME_MS);
     cursorOut.current = cursorPace;
     penOut.current = penPace;
@@ -160,9 +162,19 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
     if (points.current) {
       points.current.push([x, y]);
       penOut.current?.call();
-    } else if (laser) {
-      cursorOut.current?.call(x, y, true);
+    } else {
+      lastAt.current = [x, y];
+      cursorOut.current?.call(x, y, laser, true);
     }
+  };
+
+  // The pointer goes away from the screens of the class when the mouse leaves the slide.
+  const mouseLeaveStage = (event: MouseEvent) => {
+    mouseUp(event);
+    if (!canControl) return;
+    lastAt.current = null;
+    cursorOut.current?.cancel();
+    send.current.onCursor(0, 0, false, false);
   };
 
   const mouseDown = (event: MouseEvent) => {
@@ -181,10 +193,10 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
 
   const toggleLaser = () => setLaser(!laser);
 
-  // Whoever turns the laser off, the class stops seeing it.
+  // Whoever turns the laser on or off, the class sees the pointer change at once, even if the mouse is still.
   const wasLaser = useRef(laser);
   useEffect(() => {
-    if (wasLaser.current && !laser) cursorOut.current?.call(0, 0, false);
+    if (wasLaser.current !== laser && lastAt.current) send.current.onCursor(lastAt.current[0], lastAt.current[1], laser, true);
     wasLaser.current = laser;
   }, [laser]);
 
@@ -210,7 +222,7 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
         onMouseMove={mouseMove}
         onMouseDown={mouseDown}
         onMouseUp={mouseUp}
-        onMouseLeave={mouseUp}
+        onMouseLeave={mouseLeaveStage}
       >
         <canvas ref={canvas} className={styles.page} />
         <svg className={styles.strokes} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -220,7 +232,13 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
               <polyline key={index} points={stroke.path!.map((point) => point.join(",")).join(" ")} />
             ))}
         </svg>
-        {cursor?.laser && <span className={styles.laser} data-laser="" style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }} />}
+        {cursor?.visible && (
+          <span
+            className={cursor.laser ? styles.laser : styles.pointer}
+            {...(cursor.laser ? { "data-laser": "" } : { "data-pointer": "" })}
+            style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }}
+          />
+        )}
       </div>
 
       {!bare && (
