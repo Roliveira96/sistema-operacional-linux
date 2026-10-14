@@ -102,15 +102,16 @@ func (f *fakeService) FocusModuleBlock(_ context.Context, _ uuid.UUID, blockID s
 	f.mu.Unlock()
 	return nil
 }
-func (f *fakeService) SetTerminalBroadcast(_ uuid.UUID, on bool) {
+func (f *fakeService) SetStageBlank(_ uuid.UUID, on bool) {
 	f.mu.Lock()
-	f.broadcast = on
+	f.blank = on
+	f.blankSets = append(f.blankSets, on)
 	f.mu.Unlock()
 }
-func (f *fakeService) TerminalBroadcasting(uuid.UUID) bool {
+func (f *fakeService) StageBlank(uuid.UUID) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.broadcast
+	return f.blank
 }
 func (f *fakeService) ModuleOfRoom(_ context.Context, a service.Actor, _ uuid.UUID) (service.ModuleView, error) {
 	f.moduleFor = a
@@ -201,7 +202,7 @@ func TestWaitingStudent_MessagesAreDropped(t *testing.T) {
 func TestAccept_ReleasesTheStage(t *testing.T) {
 	w := setup(t)
 	w.waitingRoom()
-	w.svc.active = service.Active{Found: true, Session: w.session, ModuleFocusBlockID: "b-2", TerminalBroadcast: true}
+	w.svc.active = service.Active{Found: true, Session: w.session, ModuleFocusBlockID: "b-2"}
 	teacher := w.dial(t, "teacher")
 	readUntil(t, teacher, "live:snapshot")
 	student := w.dial(t, "student")
@@ -214,7 +215,7 @@ func TestAccept_ReleasesTheStage(t *testing.T) {
 	require.NoError(t, json.Unmarshal(readUntil(t, student, "live:snapshot").Data, &snap))
 	assert.EqualValues(t, 2, snap["currentSlide"])
 	assert.Equal(t, "b-2", snap["moduleFocusBlockId"])
-	assert.Equal(t, true, snap["terminalBroadcast"])
+	assert.NotContains(t, snap, "terminalBroadcast", "the terminal has no switch (SPEC-055 RN-04)")
 	assert.NotContains(t, snap, "admissions", "the lists of the waiting room are for the teacher")
 
 	waiting, admitted := queueOf(t, readUntil(t, teacher, "live:admission:queue"))
@@ -240,7 +241,7 @@ func TestAdmittedStudent_ReceivesTheRoom(t *testing.T) {
 
 	sendMsg(t, teacher, "live:slide:change", `{"slide":5}`)
 	assert.JSONEq(t, `{"slide":5}`, string(readUntil(t, student, "live:slide:change").Data))
-	assert.JSONEq(t, `{"online":1}`, string(readUntil(t, teacher, "live:presence").Data), "the admitted counts online")
+	assert.JSONEq(t, `{"online":1,"presenterConnected":false}`, string(readUntil(t, teacher, "live:presence").Data), "the admitted counts online")
 
 	sendMsg(t, student, "live:hand:raise", `{}`)
 	readUntil(t, teacher, "live:hand:queue")
@@ -354,38 +355,24 @@ func TestTeacherSnapshotCarriesTheAdmissions(t *testing.T) {
 
 // ---- WebSocket: the broadcast of the terminal and the module ----
 
-// Covers SPEC-054 CA-10 and RN-04: the terminal of the teacher is private until the broadcast is turned on, and private again after.
-func TestTerminalBroadcastSwitch(t *testing.T) {
+// Covers SPEC-055 CA-05, CA-11 and RN-04: the terminal of the teacher is always broadcast, with no switch; the old message is unknown.
+func TestTerminalIsAlwaysBroadcast(t *testing.T) {
 	w := setup(t)
-	teacher := w.dial(t, "teacher")
+	presenter := w.dialView(t, "teacher", "presenter")
 	student := w.dial(t, "student")
-	readUntil(t, teacher, "live:snapshot")
+	readUntil(t, presenter, "live:snapshot")
 	readUntil(t, student, "live:snapshot")
 
-	sendMsg(t, teacher, "live:terminal:input", `{"terminal":1,"line":"secret"}`)
-	sendMsg(t, teacher, "live:terminal:sync", `{"terminal":1,"line":"secret","output":"x","state":{}}`)
-	sendMsg(t, teacher, "live:module:focus", `{"blockId":"marker"}`)
-	assert.Equal(t, "live:module:focus", nextMsg(t, student).Type, "the private terminal sent nothing before the marker")
-	assert.Empty(t, w.svc.input)
-	assert.Empty(t, w.svc.syncs)
-
-	sendMsg(t, teacher, "live:terminal:broadcast", `{"enabled":true}`)
-	assert.JSONEq(t, `{"enabled":true}`, string(readUntil(t, student, "live:terminal:broadcast").Data))
-	sendMsg(t, teacher, "live:terminal:input", `{"terminal":1,"line":"ls"}`)
+	sendMsg(t, presenter, "live:terminal:input", `{"terminal":1,"line":"ls"}`)
 	assert.JSONEq(t, `{"terminal":1,"line":"ls"}`, string(readUntil(t, student, "live:terminal:input").Data))
-	sendMsg(t, teacher, "live:terminal:sync", `{"terminal":1,"line":"ls","output":"a","state":{"fs":1}}`)
+	sendMsg(t, presenter, "live:terminal:sync", `{"terminal":1,"line":"ls","output":"a","state":{"fs":1}}`)
 	readUntil(t, student, "live:terminal:sync")
+	assert.NotEmpty(t, w.svc.input)
+	assert.NotEmpty(t, w.svc.syncs)
 
-	sendMsg(t, teacher, "live:terminal:broadcast", `{"enabled":false}`)
-	assert.JSONEq(t, `{"enabled":false}`, string(readUntil(t, student, "live:terminal:broadcast").Data))
-	sendMsg(t, teacher, "live:terminal:input", `{"terminal":1,"line":"private again"}`)
-	sendMsg(t, teacher, "live:module:focus", `{"blockId":"marker2"}`)
-	assert.Equal(t, "live:module:focus", nextMsg(t, student).Type, "private again: nothing before the marker")
-
-	// A student cannot turn it on.
-	sendMsg(t, student, "live:terminal:broadcast", `{"enabled":true}`)
+	sendMsg(t, presenter, "live:terminal:broadcast", `{"enabled":false}`)
 	eventually(t, func() bool { return w.logs.FilterMessage("classroom message dropped").Len() == 1 })
-	assert.False(t, w.svc.TerminalBroadcasting(w.session.ID))
+	assert.Equal(t, "unknown-type", w.logs.FilterMessage("classroom message dropped").All()[0].ContextMap()["reason"])
 }
 
 // Covers SPEC-054 CA-11 and RN-04: the block in focus reaches the admitted students and is kept for who comes in later.
@@ -427,19 +414,19 @@ func TestSnapshotCarriesTheModuleAndTheBroadcast(t *testing.T) {
 	session := w.session
 	session.ActiveModuleID = &module
 	session.DisplayMode = domain.ModeModule
-	w.svc.active = service.Active{Found: true, Session: session, ModuleFocusBlockID: "block-3", TerminalBroadcast: true}
+	w.svc.active = service.Active{Found: true, Session: session, ModuleFocusBlockID: "block-3"}
 	var snap map[string]any
 	require.NoError(t, json.Unmarshal(readUntil(t, w.dial(t, "student"), "live:snapshot").Data, &snap))
 	assert.Equal(t, module.String(), snap["moduleId"])
 	assert.Equal(t, "block-3", snap["moduleFocusBlockId"])
-	assert.Equal(t, true, snap["terminalBroadcast"])
+	assert.NotContains(t, snap, "terminalBroadcast")
 
 	w.svc.active = service.Active{Found: true, Session: w.session}
 	code, body := w.call(t, "student", http.MethodGet, w.path("/active"), nil)
 	require.Equal(t, http.StatusOK, code)
 	assert.Nil(t, body["moduleId"])
 	assert.Equal(t, "", body["moduleFocusBlockId"])
-	assert.Equal(t, false, body["terminalBroadcast"])
+	assert.NotContains(t, body, "terminalBroadcast")
 }
 
 // ---- REST: the module of the room ----

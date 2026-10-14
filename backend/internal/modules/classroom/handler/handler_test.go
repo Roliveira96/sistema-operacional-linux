@@ -75,8 +75,9 @@ type fakeService struct {
 	waiting    bool // a student comes in waiting; by default he comes in admitted, as before SPEC-054
 	states     map[uuid.UUID]string
 	decided    []string
-	broadcast  bool
 	focus      []string
+	blank      bool // the black screen of the stage (SPEC-055)
+	blankSets  []bool
 	moduleView service.ModuleView
 	moduleErr  error
 	moduleFor  service.Actor
@@ -175,18 +176,12 @@ func (f *fakeService) RememberDrawing(_ uuid.UUID, raw json.RawMessage) {
 func (f *fakeService) RememberTerminalInput(_ uuid.UUID, raw json.RawMessage) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if !f.broadcast {
-		return false
-	}
 	f.input = append(f.input, string(raw))
 	return true
 }
 func (f *fakeService) RememberTerminalSync(_ uuid.UUID, raw json.RawMessage) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if !f.broadcast {
-		return false
-	}
 	f.syncs = append(f.syncs, string(raw))
 	return true
 }
@@ -547,7 +542,16 @@ func TestNotesRoutes(t *testing.T) {
 
 func (w *world) dial(t *testing.T, token string) *websocket.Conn {
 	t.Helper()
+	return w.dialView(t, token, "")
+}
+
+// dialView connects with the window kind of the teacher (SPEC-055): "panel", "presenter", or none.
+func (w *world) dialView(t *testing.T, token, view string) *websocket.Conn {
+	t.Helper()
 	url := "ws" + strings.TrimPrefix(w.srv.URL, "http") + w.path("/ws")
+	if view != "" {
+		url += "?view=" + view
+	}
 	hdr := http.Header{"Cookie": []string{authn.CookieName + "=" + token}}
 	c, _, err := websocket.DefaultDialer.Dial(url, hdr)
 	require.NoError(t, err)
@@ -645,7 +649,7 @@ func TestWebSocketRefusals(t *testing.T) {
 // Covers SPEC-051 CA-05, CA-06, CA-07 and section 5.8: what the teacher sends is saved when it must be and reaches the students.
 func TestTeacherControlsAreBroadcast(t *testing.T) {
 	w := setup(t)
-	teacher := w.dial(t, "teacher")
+	teacher := w.dialView(t, "teacher", "presenter") // the stage messages are the presenter's (SPEC-055)
 	student := w.dial(t, "student")
 	readUntil(t, teacher, "live:snapshot")
 	readUntil(t, student, "live:snapshot")
@@ -669,8 +673,6 @@ func TestTeacherControlsAreBroadcast(t *testing.T) {
 	assert.Equal(t, []string{"MODULE"}, w.svc.modes)
 	assert.Equal(t, &module, w.svc.moduleID)
 
-	sendMsg(t, teacher, "live:terminal:broadcast", `{"enabled":true}`)
-	readUntil(t, student, "live:terminal:broadcast")
 	sendMsg(t, teacher, "live:terminal:input", `{"terminal":1,"line":"ls -l"}`)
 	assert.JSONEq(t, `{"terminal":1,"line":"ls -l"}`, string(readUntil(t, student, "live:terminal:input").Data))
 	sendMsg(t, teacher, "live:terminal:sync", `{"terminal":1,"line":"ls -l","output":"total 0","state":{"fs":2}}`)
@@ -801,9 +803,9 @@ func TestPresenceAndTeacherLeaving(t *testing.T) {
 
 	student := w.dial(t, "student")
 	readUntil(t, student, "live:snapshot")
-	assert.JSONEq(t, `{"online":1}`, string(readUntil(t, teacher, "live:presence").Data))
+	assert.JSONEq(t, `{"online":1,"presenterConnected":false}`, string(readUntil(t, teacher, "live:presence").Data))
 	_ = student.Close()
-	assert.JSONEq(t, `{"online":0}`, string(readUntil(t, teacher, "live:presence").Data))
+	assert.JSONEq(t, `{"online":0,"presenterConnected":false}`, string(readUntil(t, teacher, "live:presence").Data))
 
 	_ = teacher.Close()
 	eventually(t, func() bool { return w.svc.called("presence") >= 1 })

@@ -352,34 +352,37 @@ func TestModuleFocus_IsPublishedState(t *testing.T) {
 	assert.ErrorIs(t, w.svc.FocusModuleBlock(ctx, uuid.New(), "b"), domain.ErrSessionNotFound)
 }
 
-// Covers SPEC-054 CA-10, CA-13 and RN-04: the terminal of the teacher is private until the broadcast is on, and what it kept leaves with it.
-func TestTerminalBroadcast_OffByDefaultAndForgottenWhenOff(t *testing.T) {
+// Covers SPEC-055 CA-05 and RN-04: the terminal of the teacher is always kept for the snapshot, with no switch.
+func TestTerminal_AlwaysKept(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
 	s := w.start(t)
 
-	assert.False(t, w.svc.TerminalBroadcasting(s.ID))
-	assert.False(t, w.svc.RememberTerminalInput(s.ID, json.RawMessage(`{"line":"ls"}`)), "nothing is kept while it is private")
-	assert.False(t, w.svc.RememberTerminalSync(s.ID, json.RawMessage(`{"line":"ls","state":{"fs":1}}`)))
+	w.svc.RememberTerminalInput(s.ID, json.RawMessage(`{"line":"ls"}`))
+	w.svc.RememberTerminalSync(s.ID, json.RawMessage(`{"line":"ls","state":{"fs":1}}`))
 	a, err := w.svc.Snapshot(ctx, s.ID)
 	require.NoError(t, err)
-	assert.False(t, a.TerminalBroadcast)
-	assert.Empty(t, a.Terminal.Entries)
-	assert.Empty(t, a.Terminal.Input)
-
-	w.svc.SetTerminalBroadcast(s.ID, true)
-	assert.True(t, w.svc.TerminalBroadcasting(s.ID))
-	assert.True(t, w.svc.RememberTerminalInput(s.ID, json.RawMessage(`{"line":"ls"}`)))
-	assert.True(t, w.svc.RememberTerminalSync(s.ID, json.RawMessage(`{"line":"ls","state":{"fs":1}}`)))
-	a, _ = w.svc.Snapshot(ctx, s.ID)
-	assert.True(t, a.TerminalBroadcast)
 	assert.Len(t, a.Terminal.Entries, 1)
+	assert.JSONEq(t, `{"line":"ls"}`, string(a.Terminal.Input))
+	assert.JSONEq(t, `{"fs":1}`, string(a.Terminal.State))
+}
 
-	w.svc.SetTerminalBroadcast(s.ID, false)
-	a, _ = w.svc.Snapshot(ctx, s.ID)
-	assert.False(t, a.TerminalBroadcast)
-	assert.Empty(t, a.Terminal.Entries, "turning it off takes the terminal out of the snapshot")
-	assert.Empty(t, a.Terminal.State)
+// Covers SPEC-055 CA-17: the black screen is kept in memory, false by default, and ends with the lesson.
+func TestStageBlank_KeptUntilTurnedOffOrTheLessonEnds(t *testing.T) {
+	w := setup(t)
+	ctx := context.Background()
+	s := w.start(t)
+
+	assert.False(t, w.svc.StageBlank(s.ID))
+	w.svc.SetStageBlank(s.ID, true)
+	assert.True(t, w.svc.StageBlank(s.ID))
+	w.svc.SetStageBlank(s.ID, false)
+	assert.False(t, w.svc.StageBlank(s.ID))
+
+	w.svc.SetStageBlank(s.ID, true)
+	_, err := w.svc.EndSession(ctx, w.teacher, w.class, s.ID)
+	require.NoError(t, err)
+	assert.False(t, w.svc.StageBlank(s.ID), "the lesson ended")
 }
 
 // Covers SPEC-054 CA-12 and RN-07: the module of the room is read by the teacher and by the admitted student only, with the room open.

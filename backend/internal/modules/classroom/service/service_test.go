@@ -570,7 +570,6 @@ func TestActiveSession_ReturnsSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, w.svc.ChangeSlide(ctx, s.ID, 4))
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"path":[1,2]}`))
-	w.svc.SetTerminalBroadcast(s.ID, true)
 	w.svc.RememberTerminalInput(s.ID, json.RawMessage(`{"line":"ls -"}`))
 	w.svc.RememberTerminalSync(s.ID, json.RawMessage(`{"terminal":1,"line":"ls","output":"a b","state":{"fs":1}}`))
 	w.admit(s.ID, w.student.UserID)
@@ -606,7 +605,6 @@ func TestSnapshotKeepsTheTerminalHistoryAndClearsStrokes(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
 	s := w.start(t)
-	w.svc.SetTerminalBroadcast(s.ID, true)
 	for i := 1; i <= 250; i++ {
 		w.svc.RememberTerminalSync(s.ID, json.RawMessage(fmt.Sprintf(`{"terminal":1,"line":"cmd %d","state":{"n":%d}}`, i, i)))
 	}
