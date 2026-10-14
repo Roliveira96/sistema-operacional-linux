@@ -125,4 +125,34 @@ describe("ClassCard", () => {
     const settings = screen.getByRole("link", { name: /Configurações/i });
     expect(view.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  // SPEC-047 CA-01: Visualizar is the main action
+  it("puts Visualizar first and as the main action, before adding students", () => {
+    render(<ClassCard classGroup={mockClass} />);
+    const view = screen.getByRole("link", { name: /Visualizar/i });
+    const add = screen.getByRole("link", { name: /Adicionar estudantes/i });
+    expect(view.getAttribute("data-primary")).toBe("true");
+    expect(add.getAttribute("data-primary")).toBeNull();
+    expect(view.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // SPEC-047 CA-02: the icon actions keep a name and a tip
+  it("gives the icon actions a name and a tip", () => {
+    render(<ClassCard classGroup={mockClass} onArchive={vi.fn()} />);
+    for (const name of ["Configurações", "Arquivar"]) {
+      const action = screen.getByRole(name === "Arquivar" ? "button" : "link", { name });
+      expect(action.getAttribute("title")).toBe(name);
+      expect(action.getAttribute("data-icon-only")).toBe("true");
+    }
+  });
+
+  // SPEC-047 CA-03: the pending requests stand out only when there are some
+  it("marks the pending requests only when there are some", () => {
+    const { rerender } = render(<ClassCard classGroup={{ ...mockClass, totalPendingRequests: 3 }} />);
+    const pending = () => screen.getByRole("link", { name: /Ingressos pendentes/i });
+    expect(pending().getAttribute("data-attention")).toBe("true");
+    expect(pending().getAttribute("href")).toBe("/app/classes/c-1?tab=students");
+    rerender(<ClassCard classGroup={{ ...mockClass, totalPendingRequests: 0 }} />);
+    expect(pending().getAttribute("data-attention")).toBeNull();
+  });
 });
