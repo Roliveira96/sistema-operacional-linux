@@ -50,6 +50,7 @@ Regras:
 | Espelho do terminal | `TerminalMirror` | Cópia somente leitura da tela do terminal do professor na aula ao vivo, desenhada pelo aluno a partir de uma árvore segura de tags (`live:terminal:screen`) | `Terminal remoto`, `Replay` | Proposto (SPEC-056) |
 | Palco | `FixedStage` | Área fixa de 1920 × 1080 px lógicos onde a aula ao vivo é desenhada, ajustada por escala à janela de cada pessoa, para o professor e os alunos verem a mesma tela | `Viewport`, `Canvas` | Proposto (SPEC-057) |
 | Modo foco | `data-focus` da sala do aluno | A sala do aluno cobrindo o menu da plataforma, com o palco na janela inteira, quando o professor liga a tela cheia dos alunos | `Fullscreen` (a tela cheia do navegador é outra coisa) | Proposto (SPEC-059) |
+| Tela de espera | `WaitingScreen` (estado interno `blank`, mensagem `live:stage:blank`) | Tela animada e colorida, com o título da aula e o tempo de aula, que o professor liga para cobrir o palco de todos; não confundir com a Sala de espera (admissão) | `Tela preta`, `Blank screen` | Proposto (SPEC-061) |
 | Dúvida da mão | `question` da mão levantada (`live_hand_raises`) | Texto opcional de até 300 caracteres que o aluno escreve ao levantar a mão; só o professor o lê | `Pergunta`, `Chat` | Proposto (SPEC-058) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |

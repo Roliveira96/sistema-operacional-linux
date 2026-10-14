@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-061 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada pelo pedido do Tech Lead) |
 | **Autor** | Aruna Architect |
@@ -106,3 +106,4 @@ O Tech Lead pediu a tela animada, colorida, com título e tempo. O texto "A aula
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido do Tech Lead; o texto, a paleta e o movimento ficam para a revisão dele |
+| 14/10/2026 | Aruna Architect | Implementada (`8555dbf`, `13cc792`). Desvios: sem token novo (as manchas são gradientes radiais dos tokens existentes, sem `filter: blur`); a chave `classroom.room.blank` saiu e entrou `classroom.waitingScreen`; o `setInterval` de 1 s fica dentro do componente; sem verificação do movimento no navegador |
