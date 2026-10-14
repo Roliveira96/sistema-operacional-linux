@@ -52,26 +52,55 @@ func TestTerminalScroll_TheSnapshotIsACopy(t *testing.T) {
 	assert.Equal(t, map[int]float64{1: 0.5}, stageOf(t, w, s.ID).TerminalScroll)
 }
 
-// Covers SPEC-057 CA-23 and section 3.2: the terminals of the lesson are the same through the whole lesson, so a new slide, a new module,
-// or the slides again do not put their scroll back to the top.
-func TestTerminalScroll_SurvivesTheChangesOfSlideAndModule(t *testing.T) {
+// Covers SPEC-057 CA-23 (adjusted): the terminals of the lesson are created again with each module, so choosing another module puts the
+// scroll of every terminal back ({}), together with the scroll of the material and the selection of text; the slide, the zoom and the
+// request of the full screen stay. A new slide, going back to the slides, showing the same module again, or a module that is refused do
+// not touch the terminals.
+func TestTerminalScroll_ChangingTheModulePutsThemBack(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
 	s := w.start(t)
-	first, second := uuid.New(), uuid.New()
+	first, second, ghost := uuid.New(), uuid.New(), uuid.New()
 	w.withModules(first, second)
-	w.svc.SetTerminalScroll(s.ID, 1, 0.3)
-	w.svc.SetTerminalScroll(s.ID, 2, 0.8)
+	scrolled := func() {
+		w.svc.SetTerminalScroll(s.ID, 1, 0.3)
+		w.svc.SetTerminalScroll(s.ID, 2, 0.8)
+		w.svc.SetStageScroll(s.ID, "material", 0.5)
+		w.svc.SetStageSelection(s.ID, terminalPick)
+		w.svc.SetStageScroll(s.ID, "slide", 0.4)
+		w.svc.SetStageZoom(s.ID, 1.5)
+		w.svc.SetStageFullscreen(s.ID, true)
+	}
 	want := map[int]float64{1: 0.3, 2: 0.8}
+	scrolled()
 
 	require.NoError(t, w.svc.ChangeSlide(ctx, s.ID, 2))
 	assert.Equal(t, want, stageOf(t, w, s.ID).TerminalScroll, "a new slide")
+
 	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &first))
-	assert.Equal(t, want, stageOf(t, w, s.ID).TerminalScroll, "the first module")
-	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &second))
-	assert.Equal(t, want, stageOf(t, w, s.ID).TerminalScroll, "another module")
+	view := stageOf(t, w, s.ID)
+	assert.Empty(t, view.TerminalScroll, "the first module of the lesson: its terminals start at the end")
+	assert.NotNil(t, view.TerminalScroll, "an empty object, not null")
+	assert.Zero(t, view.MaterialScroll)
+	assert.Empty(t, view.Selection)
+	assert.Equal(t, []any{1.5, true}, []any{view.Zoom, view.Fullscreen}, "the zoom and the full screen are the teacher's choices for the lesson")
+
+	scrolled()
 	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeSlides, nil))
-	assert.Equal(t, want, stageOf(t, w, s.ID).TerminalScroll, "back to the slides")
+	assert.Equal(t, want, stageOf(t, w, s.ID).TerminalScroll, "back to the slides keeps the module, and its terminals")
+	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &first))
+	assert.Equal(t, want, stageOf(t, w, s.ID).TerminalScroll, "the same module again is not a change of module")
+	assert.ErrorIs(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &ghost), domain.ErrModuleNotFound)
+	assert.Equal(t, want, stageOf(t, w, s.ID).TerminalScroll, "a module that is refused changes nothing")
+
+	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &second))
+	view = stageOf(t, w, s.ID)
+	assert.Empty(t, view.TerminalScroll, "another module: its terminals start at the end")
+	assert.NotNil(t, view.TerminalScroll)
+	assert.Equal(t, 0.4, view.SlideScroll, "the slide stays")
+
+	w.svc.SetTerminalScroll(s.ID, 3, 0.6)
+	assert.Equal(t, map[int]float64{3: 0.6}, stageOf(t, w, s.ID).TerminalScroll, "and the new terminals scroll from nothing")
 }
 
 // Covers SPEC-057 CA-23: the position of each terminal is part of the state of the room that anybody who comes in receives, from the REST
