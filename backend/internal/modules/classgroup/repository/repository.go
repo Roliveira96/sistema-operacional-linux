@@ -322,6 +322,18 @@ func (r *Repository) UpdateClass(ctx context.Context, class *domain.ClassGroup) 
 	return err
 }
 
+// DeleteClass soft deletes the class and records who did it, in one transaction (SPEC-050 RN-03). The enrollments and the other
+// records of the class stay as they are.
+func (r *Repository) DeleteClass(ctx context.Context, class *domain.ClassGroup, actorID uuid.UUID) error {
+	return r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
+		conn := r.db.Conn(txCtx)
+		if err := conn.Model(&domain.ClassGroup{}).Where("id = ?", class.ID).Update("deleted_by", actorID).Error; err != nil {
+			return err
+		}
+		return conn.Delete(&domain.ClassGroup{}, "id = ?", class.ID).Error
+	})
+}
+
 // CreateEnrollment inserts a student enrollment record.
 func (r *Repository) CreateEnrollment(ctx context.Context, enrollment *domain.Enrollment) error {
 	err := r.db.Conn(ctx).Create(enrollment).Error

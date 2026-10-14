@@ -58,7 +58,38 @@ type ClassGroup struct {
 	UpdatedBy  uuid.UUID
 	ArchivedAt *time.Time
 	ArchivedBy *uuid.UUID
+	// DeletedBy is who deleted the class (SPEC-050); the date is the soft delete of the model.
+	DeletedBy *uuid.UUID
 }
+
+// ArchiveRetentionDays is how long a class stays archived before it can be deleted (SPEC-050 RN-01).
+const ArchiveRetentionDays = 30
+
+// DeletableAfter is the instant from which an archived class can be deleted, or nil when it cannot be (not archived, or archived
+// without the date). SPEC-050 RN-01.
+func (c ClassGroup) DeletableAfter() *time.Time {
+	if c.Status != ClassStatusArchived || c.ArchivedAt == nil {
+		return nil
+	}
+	after := c.ArchivedAt.Add(ArchiveRetentionDays * 24 * time.Hour)
+	return &after
+}
+
+// CanDelete tells whether the class can be deleted at the given instant (SPEC-050 RN-01).
+func (c ClassGroup) CanDelete(now time.Time) bool {
+	after := c.DeletableAfter()
+	return after != nil && !now.Before(*after)
+}
+
+// NotDeletableError is the refusal to delete a class; After is the date from which it can be, when there is one (SPEC-050 RN-04).
+type NotDeletableError struct {
+	After *time.Time
+}
+
+func (e *NotDeletableError) Error() string { return ErrClassNotDeletable.Error() }
+
+// Unwrap makes the error match ErrClassNotDeletable.
+func (e *NotDeletableError) Unwrap() error { return ErrClassNotDeletable }
 
 // TableName maps ClassGroup to the "classes" table.
 func (ClassGroup) TableName() string { return "classes" }
@@ -177,6 +208,7 @@ var (
 	ErrArchiveReasonRequired      = errors.New("archive reason is required for active classes")
 	ErrClassConflict              = errors.New("a class with the same course code and semester already exists for this teacher")
 	ErrClassNotFound              = errors.New("class not found")
+	ErrClassNotDeletable          = errors.New("only a class archived for 30 days or more can be deleted")
 	ErrForbidden                  = errors.New("you are not authorized to manage this class")
 	ErrInviteLinkExpired          = errors.New("invite link is inactive or outside its validity window")
 	ErrAlreadyEnrolled            = errors.New("student is already enrolled or pending moderation in this class")

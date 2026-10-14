@@ -25,6 +25,7 @@ type ClassService interface {
 	GetClass(ctx context.Context, teacherID, classID uuid.UUID) (domain.ClassGroup, error)
 	UpdateClass(ctx context.Context, teacherID, classID uuid.UUID, input service.UpdateClassInput) (domain.ClassGroup, error)
 	ArchiveClass(ctx context.Context, teacherID, classID uuid.UUID, reason string) (domain.ClassGroup, error)
+	DeleteClass(ctx context.Context, teacherID, classID uuid.UUID) error
 	JoinByToken(ctx context.Context, studentID uuid.UUID, token string) (service.JoinResult, error)
 	ListMembers(ctx context.Context, teacherID, classID uuid.UUID, status string) ([]repository.EnrollmentWithUser, error)
 	ModerateMember(ctx context.Context, teacherID, classID, enrollmentID uuid.UUID, approve bool, rejectionReason *string) (domain.Enrollment, error)
@@ -85,6 +86,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	teacherGroup.GET("/:id", h.getClass)
 	teacherGroup.PATCH("/:id", h.updateClass)
 	teacherGroup.POST("/:id/archive", h.archiveClass)
+	teacherGroup.DELETE("/:id", h.deleteClass)
 	teacherGroup.GET("/:id/members", h.listMembers)
 	teacherGroup.POST("/:id/members/:memberId/moderate", h.moderateMember)
 	teacherGroup.POST("/:id/enrollments", h.enrollStudents)
@@ -204,6 +206,25 @@ func (h *Handler) withNames(ctx context.Context, c domain.ClassGroup, res classR
 		res.ArchivedByName = names[*c.ArchivedBy]
 	}
 	return res
+}
+
+// deleteClass deletes an archived class of 30 days or more (SPEC-050).
+func (h *Handler) deleteClass(c *gin.Context) {
+	principal, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+	classID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		fail(c, problem.BadRequest("invalid-uuid", "The class ID parameter is invalid."))
+		return
+	}
+	if err := h.svc.DeleteClass(c.Request.Context(), principal.UserID, classID); err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *Handler) createClass(c *gin.Context) {
@@ -782,6 +803,13 @@ func toProblem(err error) *problem.Problem {
 		return problem.New(http.StatusUnprocessableEntity, "archive-reason-required", err.Error())
 	case errors.Is(err, domain.ErrClassConflict):
 		return problem.Conflict("class-conflict", err.Error())
+	case errors.Is(err, domain.ErrClassNotDeletable):
+		p := problem.Conflict("class-not-deletable", err.Error())
+		var nd *domain.NotDeletableError
+		if errors.As(err, &nd) && nd.After != nil {
+			p = p.WithExtension("deletableAfter", nd.After.UTC().Format(time.RFC3339))
+		}
+		return p
 	case errors.Is(err, domain.ErrClassNotFound):
 		return problem.NotFound("class-not-found", err.Error())
 	case errors.Is(err, domain.ErrForbidden):

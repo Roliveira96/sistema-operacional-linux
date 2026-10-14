@@ -22,6 +22,8 @@ type ClassRepository interface {
 	FindClassByInviteToken(ctx context.Context, token string) (domain.ClassGroup, error)
 	ListClassesByTeacher(ctx context.Context, teacherID uuid.UUID, filter repository.ListFilter) (repository.ListResult, error)
 	UpdateClass(ctx context.Context, class *domain.ClassGroup) error
+	// DeleteClass soft deletes the class, recording who did it (SPEC-050).
+	DeleteClass(ctx context.Context, class *domain.ClassGroup, actorID uuid.UUID) error
 
 	CreateEnrollment(ctx context.Context, enrollment *domain.Enrollment) error
 	FindEnrollment(ctx context.Context, classID, userID uuid.UUID) (domain.Enrollment, error)
@@ -384,6 +386,22 @@ func (s *Service) ArchiveClass(ctx context.Context, teacherID, classID uuid.UUID
 		return domain.ClassGroup{}, err
 	}
 	return class, nil
+}
+
+// DeleteClass deletes an archived class once 30 days or more have passed since it was archived. Only the owner deletes; the class
+// is soft deleted and what hangs from it is kept (SPEC-050 RN-01 to RN-04).
+func (s *Service) DeleteClass(ctx context.Context, teacherID, classID uuid.UUID) error {
+	class, err := s.repo.FindClassByID(ctx, classID)
+	if err != nil {
+		return err
+	}
+	if class.TeacherID != teacherID {
+		return domain.ErrForbidden
+	}
+	if !class.CanDelete(s.now()) {
+		return &domain.NotDeletableError{After: class.DeletableAfter()}
+	}
+	return s.repo.DeleteClass(ctx, &class, teacherID)
 }
 
 // UserNames returns the display names of the users, for the history of a class (SPEC-049 RN-04). A user that cannot be read is
