@@ -67,10 +67,11 @@ describe("useLiveClassroom", () => {
     act(() => socket().receive("live:snapshot", snapshot()));
     act(() => socket().receive("live:slide:change", { slide: 5 }));
     expect(result.current.room.slide).toBe(5);
+    expect(result.current.room.strokes).toEqual([]);
     act(() => socket().receive("live:cursor:move", { x: 10, y: 20, laser: true }));
     expect(result.current.room.cursor).toEqual({ x: 10, y: 20, laser: true });
     act(() => socket().receive("live:canvas:draw", { path: [[3, 4], [5, 6]] }));
-    expect(result.current.room.strokes).toHaveLength(2);
+    expect(result.current.room.strokes).toHaveLength(1);
     act(() => socket().receive("live:canvas:draw", { clear: true }));
     expect(result.current.room.strokes).toEqual([]);
     act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-1" }));
