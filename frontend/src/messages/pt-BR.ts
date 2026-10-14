@@ -443,6 +443,17 @@ export const messages = {
       yellow: "Amarelo",
       red: "Vermelho",
     } as Record<string, string>,
+    preview: {
+      label: "Prévia do calendário",
+      needDates: "Informe as datas de início e fim da turma, na aba Informações, para ver o calendário.",
+      needMeetings: "Marque os dias da semana para ver as aulas no calendário.",
+      previousMonth: "Mês anterior",
+      nextMonth: "Próximo mês",
+      monthTitle: (month: number, year: number) =>
+        `${["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"][month]} de ${year}`,
+      marker: (start: string, end: string, lessons: number) =>
+        `${start}–${end} · ${lessons} ${lessons === 1 ? "aula" : "aulas"}`,
+    },
     colorLabel: "Cor da turma",
     colorHelp: "Identifica a turma no calendário.",
     errors: {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { MeetingsEditor, validateMeetingDrafts, type MeetingDraft } from "@/components/MeetingsEditor/MeetingsEditor";
+import { MeetingsPreview } from "@/components/MeetingsPreview/MeetingsPreview";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import { messages } from "@/messages/pt-BR";
 import type { ClassGroup, CreateClassPayload } from "@/services/classService";
@@ -512,6 +513,10 @@ export function ClassForm({
                 setMeetingErrors(validateMeetingDrafts(next));
               }}
             />
+          </div>
+
+          <div className={`${styles.field} ${styles.fullWidth}`}>
+            <MeetingsPreview startDate={startDate} endDate={endDate} meetings={meetings} color={color} />
           </div>
 
           {meetings.length === 0 && (
