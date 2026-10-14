@@ -138,7 +138,8 @@ type SlideDeck struct {
 // TableName maps SlideDeck to its table.
 func (SlideDeck) TableName() string { return "slide_decks" }
 
-// LiveHandRaise is a request to speak of a student, in the queue of a room.
+// LiveHandRaise is a request to speak of a student, in the queue of a room. Question is the doubt that came with it (SPEC-058), nil for
+// none; it is erased when the hand goes down.
 type LiveHandRaise struct {
 	database.Model
 	SessionID   uuid.UUID
@@ -146,16 +147,19 @@ type LiveHandRaise struct {
 	Status      string
 	RequestedAt time.Time
 	ResolvedAt  *time.Time
+	Question    *string
 }
 
 // TableName maps LiveHandRaise to its table.
 func (LiveHandRaise) TableName() string { return "live_hand_raises" }
 
-// HandRaiseEntry is a pending hand of the queue, with the name of the student.
+// HandRaiseEntry is a pending hand of the queue, with the name of the student and his question ("" with none). Only the teacher reads the
+// question (SPEC-058).
 type HandRaiseEntry struct {
 	StudentID   uuid.UUID
 	Name        string
 	RequestedAt time.Time
+	Question    string
 }
 
 // LiveClassroomNote is the private notebook of a student in a room.

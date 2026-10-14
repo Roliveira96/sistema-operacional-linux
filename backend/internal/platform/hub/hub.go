@@ -449,8 +449,15 @@ func (h *Hub) allow(c *conn) bool {
 // Broadcast sends the message to everyone in the room but the connection `except`. A message whose rule coalesces reaches each
 // connection as the latest of the window.
 func (h *Hub) Broadcast(roomID string, msg Message, except string) {
+	h.BroadcastTo(roomID, msg, func(who Identity) bool { return who.ConnID != except })
+}
+
+// BroadcastTo sends the message to the connections of the room that `include` picks, by their identity (the application decides who
+// gets what: the queue of raised hands has the questions for the panel only). It follows the rule of the type like Broadcast, and the
+// connections that wait to be admitted are never asked and never get it.
+func (h *Hub) BroadcastTo(roomID string, msg Message, include func(Identity) bool) {
 	for _, c := range h.members(roomID) {
-		if c.id == except || c.isWaiting() {
+		if c.isWaiting() || !include(c.identity()) {
 			continue
 		}
 		if h.cfg.Rules[msg.Type].Coalesce && h.cfg.CoalesceEvery > 0 {

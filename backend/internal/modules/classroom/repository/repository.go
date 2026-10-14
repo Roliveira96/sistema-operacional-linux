@@ -177,53 +177,57 @@ func (r *Repository) FindDeck(ctx context.Context, id uuid.UUID) (domain.SlideDe
 
 // ---- raised hands ----
 
-// RaiseHand puts the student in the queue, unless a hand of his is already waiting.
-// ponytail: check and insert are two statements, so a double click could queue twice; a partial unique index when it shows up.
-func (r *Repository) RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID, now time.Time) error {
-	var n int64
+// RaiseHand puts the student in the queue with his question ("" is none, kept as null). A hand of his that is already waiting only takes
+// the new question: it stays one hand, in its place.
+// ponytail: update and insert are two statements, so a double click could queue twice; a partial unique index when it shows up.
+func (r *Repository) RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID, question string, now time.Time) error {
+	var text *string
+	if question != "" {
+		text = &question
+	}
 	conn := r.db.Conn(ctx)
-	if err := conn.Model(&domain.LiveHandRaise{}).Where("session_id = ? AND student_id = ? AND status = ?", sessionID, studentID, domain.HandPending).Count(&n).Error; err != nil {
-		return err
+	waiting := conn.Model(&domain.LiveHandRaise{}).Where("session_id = ? AND student_id = ? AND status = ?", sessionID, studentID, domain.HandPending).
+		Update("question", text)
+	if waiting.Error != nil || waiting.RowsAffected > 0 {
+		return waiting.Error
 	}
-	if n > 0 {
-		return nil
-	}
-	return conn.Create(&domain.LiveHandRaise{SessionID: sessionID, StudentID: studentID, Status: domain.HandPending, RequestedAt: now}).Error
+	return conn.Create(&domain.LiveHandRaise{SessionID: sessionID, StudentID: studentID, Status: domain.HandPending, RequestedAt: now, Question: text}).Error
 }
 
 type handRow struct {
 	StudentID   uuid.UUID `gorm:"column:student_id"`
 	Name        string    `gorm:"column:name"`
 	RequestedAt time.Time `gorm:"column:requested_at"`
+	Question    string    `gorm:"column:question"`
 }
 
-// ListHandRaises returns the waiting hands, first in first served, with the name of each student.
+// ListHandRaises returns the waiting hands, first in first served, with the name of each student and his question ("" with none).
 func (r *Repository) ListHandRaises(ctx context.Context, sessionID uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	var rows []handRow
 	err := r.db.Conn(ctx).Table("live_hand_raises h").
-		Select("h.student_id, COALESCE(u.name, u.email) AS name, h.requested_at").
+		Select("h.student_id, COALESCE(u.name, u.email) AS name, h.requested_at, COALESCE(h.question, '') AS question").
 		Joins("INNER JOIN users u ON u.id = h.student_id").
 		Where("h.session_id = ? AND h.status = ? AND h.deleted_at IS NULL", sessionID, domain.HandPending).
 		Order("h.requested_at, h.id").Scan(&rows).Error
 	out := make([]domain.HandRaiseEntry, len(rows))
 	for i, row := range rows {
-		out[i] = domain.HandRaiseEntry{StudentID: row.StudentID, Name: row.Name, RequestedAt: row.RequestedAt}
+		out[i] = domain.HandRaiseEntry{StudentID: row.StudentID, Name: row.Name, RequestedAt: row.RequestedAt, Question: row.Question}
 	}
 	return out, err
 }
 
-// ResolveHand closes the waiting hand of the student with the status (answered or lowered).
+// ResolveHand closes the waiting hand of the student with the status (answered or lowered), and erases his question.
 func (r *Repository) ResolveHand(ctx context.Context, sessionID, studentID uuid.UUID, status string, now time.Time) error {
 	return r.db.Conn(ctx).Model(&domain.LiveHandRaise{}).
 		Where("session_id = ? AND student_id = ? AND status = ?", sessionID, studentID, domain.HandPending).
-		Updates(map[string]any{"status": status, "resolved_at": now}).Error
+		Updates(map[string]any{"status": status, "resolved_at": now, "question": nil}).Error
 }
 
-// ResolveAllHands lowers every waiting hand of the room.
+// ResolveAllHands lowers every waiting hand of the room, and erases their questions.
 func (r *Repository) ResolveAllHands(ctx context.Context, sessionID uuid.UUID, now time.Time) error {
 	return r.db.Conn(ctx).Model(&domain.LiveHandRaise{}).
 		Where("session_id = ? AND status = ?", sessionID, domain.HandPending).
-		Updates(map[string]any{"status": domain.HandLowered, "resolved_at": now}).Error
+		Updates(map[string]any{"status": domain.HandLowered, "resolved_at": now, "question": nil}).Error
 }
 
 // ---- notes ----

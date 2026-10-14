@@ -47,9 +47,11 @@ type Repository interface {
 	CreateDeck(ctx context.Context, d *domain.SlideDeck) error
 	FindDeck(ctx context.Context, id uuid.UUID) (domain.SlideDeck, error)
 
-	// RaiseHand does nothing when a hand of the student is already waiting.
-	RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID, now time.Time) error
+	// RaiseHand queues the hand with its question ("" is none). A hand of the student that is already waiting only takes the new
+	// question and keeps its place in the queue (SPEC-058).
+	RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID, question string, now time.Time) error
 	ListHandRaises(ctx context.Context, sessionID uuid.UUID) ([]domain.HandRaiseEntry, error)
+	// ResolveHand and ResolveAllHands close the waiting hands, and erase their questions.
 	ResolveHand(ctx context.Context, sessionID, studentID uuid.UUID, status string, now time.Time) error
 	ResolveAllHands(ctx context.Context, sessionID uuid.UUID, now time.Time) error
 
@@ -783,15 +785,21 @@ func (s *Service) ModuleOfRoom(ctx context.Context, actor Actor, classID uuid.UU
 	return s.modules.Read(ctx, *session.ActiveModuleID)
 }
 
-// RaiseHand puts the student in the queue and returns it. Only an admitted student raises his hand (SPEC-054 RN-03).
-func (s *Service) RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.HandRaiseEntry, error) {
+// RaiseHand puts the student in the queue, with his question if he wrote one, and returns the queue. Only an admitted student raises his
+// hand (SPEC-054 RN-03). With the hand already up, it only updates the question (none included); a question that is not valid is refused
+// (domain.ErrInvalidQuestion) before anything changes (SPEC-058).
+func (s *Service) RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID, question string) ([]domain.HandRaiseEntry, error) {
 	if _, err := s.activeSession(ctx, sessionID); err != nil {
 		return nil, err
 	}
 	if err := s.requireAdmitted(ctx, sessionID, studentID); err != nil {
 		return nil, err
 	}
-	if err := s.repo.RaiseHand(ctx, sessionID, studentID, s.now()); err != nil {
+	text, err := domain.NormalizeQuestion(question)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.RaiseHand(ctx, sessionID, studentID, text, s.now()); err != nil {
 		return nil, err
 	}
 	return s.repo.ListHandRaises(ctx, sessionID)

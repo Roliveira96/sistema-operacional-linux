@@ -55,7 +55,7 @@ type Service interface {
 	AdmitAll(ctx context.Context, actor service.Actor, sessionID uuid.UUID) ([]uuid.UUID, service.Admissions, error)
 	Remove(ctx context.Context, actor service.Actor, sessionID, studentID uuid.UUID) (service.Admissions, error)
 	RequestAgain(ctx context.Context, sessionID, studentID uuid.UUID) (string, error)
-	RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.HandRaiseEntry, error)
+	RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID, question string) ([]domain.HandRaiseEntry, error)
 	LowerHand(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.HandRaiseEntry, error)
 	ModerateHand(ctx context.Context, sessionID uuid.UUID, studentID *uuid.UUID) ([]domain.HandRaiseEntry, error)
 	TeacherPresence(ctx context.Context, sessionID uuid.UUID) error
@@ -142,12 +142,28 @@ func deckJSON(v service.DeckView) gin.H {
 	return gin.H{"id": v.Deck.ID, "title": v.Deck.Title, "pageCount": v.Deck.PageCount, "downloadUrl": v.DownloadURL}
 }
 
-func handsJSON(entries []domain.HandRaiseEntry) []gin.H {
+// handsJSON is the queue of raised hands. The question of each one (empty with none) goes only where withQuestions is true, which is the
+// teacher: the text of a doubt never goes to a student or to the presentation window (SPEC-058).
+func handsJSON(entries []domain.HandRaiseEntry, withQuestions bool) []gin.H {
 	out := make([]gin.H, 0, len(entries))
 	for _, e := range entries {
-		out = append(out, gin.H{"studentId": e.StudentID, "name": e.Name, "requestedAt": e.RequestedAt})
+		hand := gin.H{"studentId": e.StudentID, "name": e.Name, "requestedAt": e.RequestedAt}
+		if withQuestions {
+			hand["question"] = e.Question
+		}
+		out = append(out, hand)
 	}
 	return out
+}
+
+// myHand is the hand of the student in the queue, with his own question, so that his screen can restore the field (SPEC-058).
+func myHand(entries []domain.HandRaiseEntry, student string) gin.H {
+	for _, e := range entries {
+		if e.StudentID.String() == student {
+			return gin.H{"raised": true, "question": e.Question}
+		}
+	}
+	return gin.H{"raised": false, "question": ""}
 }
 
 // stageViewJSON is how the teacher left the stage: the scroll of each pane (the slide sideways too), the divider (null while he has not
@@ -159,8 +175,9 @@ func stageViewJSON(v service.StageView) gin.H {
 	}
 }
 
-// activeBody is the state of an open room, for the REST answer and for the snapshot of a new connection.
-func activeBody(a service.Active, online int) gin.H {
+// activeBody is the state of an open room, for the REST answer and for the snapshot of a new connection. The raised hands have their
+// questions only when withQuestions is true (the teacher).
+func activeBody(a service.Active, online int, withQuestions bool) gin.H {
 	drawings := a.Drawings
 	if drawings == nil {
 		drawings = []json.RawMessage{}
@@ -177,7 +194,7 @@ func activeBody(a service.Active, online int) gin.H {
 		"recentDrawings":     drawings,
 		"terminal":           gin.H{"screen": a.TerminalScreen}, // null until the teacher sends the first screen (SPEC-056)
 		"stageView":          stageViewJSON(a.StageView),
-		"handRaises":         handsJSON(a.HandRaises),
+		"handRaises":         handsJSON(a.HandRaises, withQuestions),
 		"onlineCount":        online,
 	}
 	if a.Deck != nil {
@@ -337,7 +354,7 @@ func (h *Handler) active(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"hasActiveSession": false})
 		return
 	}
-	c.JSON(http.StatusOK, activeBody(a, h.hub.Online(a.Session.ID.String())))
+	c.JSON(http.StatusOK, activeBody(a, h.hub.Online(a.Session.ID.String()), actor.Role != authn.RoleStudent)) // only the teacher reads the doubts
 }
 
 // module reads the module that the open room chose, for its teacher and for its admitted students (SPEC-054).

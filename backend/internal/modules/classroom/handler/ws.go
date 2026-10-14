@@ -93,7 +93,8 @@ func hubConfig() hub.Config {
 			typeAdmissionAcceptAll: {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 			typeAdmissionRemove:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 
-			typeHandRaise:        {MaxBytes: kib},
+			// the question is up to 300 characters, which are up to 1,200 bytes, or more when the client escapes them (SPEC-058)
+			typeHandRaise:        {MaxBytes: 4 * kib},
 			typeHandLower:        {MaxBytes: kib},
 			typeAdmissionRequest: {MaxBytes: kib, Limited: true, AllowWaiting: true},
 		},
@@ -151,7 +152,7 @@ func (w wsHandler) Snapshot(ctx context.Context, room string, who hub.Identity) 
 	if kind == viewPresenter {
 		w.takeOverStage(room, who)
 	}
-	return w.snapshot(ctx, room, kind)
+	return w.snapshot(ctx, room, kind, who.UserID)
 }
 
 // takeOverStage ends the black screen when a new presenter window takes over; the others are told (SPEC-055).
@@ -169,13 +170,15 @@ func admissionState(status string) hub.Message {
 }
 
 // snapshot is the state of the room for a connection of the kind: the panel also gets the waiting room, the start of the lesson and
-// the state of the presenter window; the presenter gets the stage only; a student gets the room (SPEC-055 RN-05).
-func (w wsHandler) snapshot(ctx context.Context, room, kind string) (hub.Message, error) {
+// the state of the presenter window, and reads the questions of the raised hands; the presenter gets the stage and the raised hands
+// without their questions; a student gets the room, the hands without questions, and his own hand with his question in myHand
+// (SPEC-055 RN-05, SPEC-058). student is the user of the connection.
+func (w wsHandler) snapshot(ctx context.Context, room, kind, student string) (hub.Message, error) {
 	a, err := w.h.svc.Snapshot(ctx, sessionOf(room))
 	if err != nil {
 		return hub.Message{}, err
 	}
-	body := activeBody(a, w.h.hub.Online(room))
+	body := activeBody(a, w.h.hub.Online(room), kind == viewPanel)
 	body["stageBlank"] = w.h.svc.StageBlank(sessionOf(room))
 	switch kind {
 	case viewPanel:
@@ -187,8 +190,9 @@ func (w wsHandler) snapshot(ctx context.Context, room, kind string) (hub.Message
 		body["startedAt"] = a.Session.StartedAt
 		body["presenterConnected"] = w.h.hub.KindConnected(room, viewPresenter)
 	case viewPresenter:
-		delete(body, "handRaises")
 		delete(body, "onlineCount")
+	default:
+		body["myHand"] = myHand(a.HandRaises, student)
 	}
 	return hub.Message{Type: typeSnapshot, Data: mustMarshal(body)}, nil
 }
@@ -461,7 +465,7 @@ func (w wsHandler) release(ctx context.Context, room string, student uuid.UUID) 
 	id := student.String()
 	w.h.hub.SendTo(room, id, admissionState(domain.AdmissionAdmitted))
 	w.h.hub.SetWaiting(room, id, false)
-	snap, err := w.snapshot(ctx, room, "")
+	snap, err := w.snapshot(ctx, room, "", id)
 	if err != nil {
 		w.h.log.Warn("classroom snapshot of the admitted not sent", zap.String("room", room), zap.String("userId", id), zap.Error(err))
 		return
@@ -474,11 +478,12 @@ func (w wsHandler) sendQueue(room string, adm service.Admissions) {
 	w.h.hub.SendToKind(room, viewPanel, hub.Message{Type: typeAdmissionQueue, Data: mustMarshal(admissionsBody(adm))})
 }
 
-// hands changes the queue of raised hands and sends the new queue to the whole room.
+// hands changes the queue of raised hands and sends the new queue to the whole room: with the questions to the panel, and without them to
+// the students and to the presentation window (SPEC-058).
 func (w wsHandler) hands(ctx context.Context, room string, who hub.Identity, msg hub.Message) {
 	svc, session := w.h.svc, sessionOf(room)
 	var (
-		queue []queueEntry
+		queue []domain.HandRaiseEntry
 		err   error
 	)
 	switch msg.Type {
@@ -489,9 +494,23 @@ func (w wsHandler) hands(ctx context.Context, room string, who hub.Identity, msg
 			return
 		}
 		if msg.Type == typeHandRaise {
-			queue, err = toQueue(svc.RaiseHand(ctx, session, student))
+			// the question is optional: no data, {}, null and "" all raise the hand with none
+			var d struct {
+				Question *string `json:"question"`
+			}
+			if len(msg.Data) > 0 {
+				if parseErr := json.Unmarshal(msg.Data, &d); parseErr != nil {
+					w.reject(room, who, msg, parseErr)
+					return
+				}
+			}
+			question := ""
+			if d.Question != nil {
+				question = *d.Question
+			}
+			queue, err = svc.RaiseHand(ctx, session, student, question)
 		} else {
-			queue, err = toQueue(svc.LowerHand(ctx, session, student))
+			queue, err = svc.LowerHand(ctx, session, student)
 		}
 	case typeHandModerate:
 		var d struct {
@@ -501,26 +520,21 @@ func (w wsHandler) hands(ctx context.Context, room string, who hub.Identity, msg
 			w.reject(room, who, msg, parseErr)
 			return
 		}
-		queue, err = toQueue(svc.ModerateHand(ctx, session, d.StudentID))
+		queue, err = svc.ModerateHand(ctx, session, d.StudentID)
 	}
 	if err != nil {
 		w.reject(room, who, msg, err)
 		return
 	}
-	w.h.hub.Broadcast(room, hub.Message{Type: typeHandQueue, Data: mustMarshal(map[string]any{"queue": queue})}, "")
+	w.sendHandQueue(room, queue)
 }
 
-type queueEntry struct {
-	StudentID   uuid.UUID `json:"studentId"`
-	Name        string    `json:"name"`
-	RequestedAt time.Time `json:"requestedAt"`
-}
-
-// toQueue shapes the queue for the wire; an error of the service goes through.
-func toQueue(entries []domain.HandRaiseEntry, err error) ([]queueEntry, error) {
-	out := make([]queueEntry, len(entries))
-	for i, e := range entries {
-		out[i] = queueEntry{StudentID: e.StudentID, Name: e.Name, RequestedAt: e.RequestedAt}
-	}
-	return out, err
+// sendHandQueue tells the room the queue of raised hands. The text of the doubts is for the teacher: the panel gets each hand with its
+// question, and everybody else (the students, even the one who asked, and the presentation window) gets the hands without the key.
+func (w wsHandler) sendHandQueue(room string, queue []domain.HandRaiseEntry) {
+	isPanel := func(who hub.Identity) bool { return who.Role == hub.Controller && who.Kind == viewPanel }
+	full := hub.Message{Type: typeHandQueue, Data: mustMarshal(map[string]any{"queue": handsJSON(queue, true)})}
+	plain := hub.Message{Type: typeHandQueue, Data: mustMarshal(map[string]any{"queue": handsJSON(queue, false)})}
+	w.h.hub.SendToKind(room, viewPanel, full)
+	w.h.hub.BroadcastTo(room, plain, func(who hub.Identity) bool { return !isPanel(who) })
 }
