@@ -126,14 +126,18 @@ describe("ClassCard", () => {
     expect(view.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  // SPEC-047 CA-01: Visualizar is the main action
-  it("puts Visualizar first and as the main action, before adding students", () => {
-    render(<ClassCard classGroup={mockClass} />);
+  // SPEC-047 CA-01 and CA-06: Visualizar is the main action and every action follows the pattern of button
+  it("puts Visualizar first as the primary button and gives each action its variant", () => {
+    render(<ClassCard classGroup={mockClass} onArchive={vi.fn()} />);
     const view = screen.getByRole("link", { name: /Visualizar/i });
     const add = screen.getByRole("link", { name: /Adicionar estudantes/i });
-    expect(view.getAttribute("data-primary")).toBe("true");
-    expect(add.getAttribute("data-primary")).toBeNull();
+    expect(view.getAttribute("data-variant")).toBe("primary");
+    expect(add.getAttribute("data-variant")).toBe("secondary");
     expect(view.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Copiar/i }).getAttribute("data-variant")).toBe("secondary");
+    expect(screen.getByRole("button", { name: /Copiar/i }).getAttribute("data-size")).toBe("sm");
+    expect(screen.getByRole("link", { name: "Configurações" }).getAttribute("data-variant")).toBe("ghost");
+    expect(screen.getByRole("button", { name: "Arquivar" }).getAttribute("data-variant")).toBe("ghost");
   });
 
   // SPEC-047 CA-02: the icon actions keep a name and a tip
@@ -142,7 +146,7 @@ describe("ClassCard", () => {
     for (const name of ["Configurações", "Arquivar"]) {
       const action = screen.getByRole(name === "Arquivar" ? "button" : "link", { name });
       expect(action.getAttribute("title")).toBe(name);
-      expect(action.getAttribute("data-icon-only")).toBe("true");
+      expect(action.getAttribute("data-icon")).toBe("true");
     }
   });
 

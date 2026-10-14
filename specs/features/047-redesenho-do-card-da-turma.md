@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-047 |
-| **Status** | Implementada |
+| **Status** | Aprovada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada) |
 | **Autor** | Aruna Architect |
@@ -27,6 +27,7 @@ O card da turma mostra tudo em caixas do mesmo peso: contadores, horários, link
 - Hierarquia clara em uma olhada: identificação e estado no alto, números e horários numa faixa leve, ações no rodapé.
 - **Visualizar** é a ação principal; "Adicionar estudantes" é a secundária; "Configurações" e "Arquivar" viram ações discretas (ícones com nome acessível e dica).
 - Menos caixas e bordas: os dados saem das caixas e viram uma faixa de informações; o alerta de vigência e as pendências ganham destaque só quando há algo a fazer.
+- **Um só padrão de botão:** todas as ações do card usam o componente `Button` do sistema (SPEC-015), sem estilos próprios de botão no card.
 - Visual consistente com o sistema de design do projeto (tokens, espaçamento em múltiplos de 4 px, raios, alvos de toque de 44 px, temas claro e escuro).
 
 ### 2.1. Fora de escopo (Non-Goals)
@@ -49,6 +50,18 @@ Estrutura do card, de cima para baixo:
    - horários, em uma linha (quando houver);
    - link de convite: um texto curto "Link de convite ativo" com o botão de copiar; "Link desativado" aparece em tom discreto.
 5. **Rodapé:** botão principal **Visualizar** (cor de destaque), botão secundário **Adicionar estudantes** (contorno) e, à direita, dois botões de ícone: **Configurações** e **Arquivar** (este só se a turma não está arquivada e há a ação). Os botões de ícone têm nome acessível, dica ao passar o mouse e alvo de toque de 44 px.
+
+**Padrão de botões (CA-06).** O componente `Button` do sistema (variantes `primary` e `secondary`) passa a ter também a variante `ghost` (sem fundo nem borda, para ações discretas), o tamanho `sm` e o modo `icon` (quadrado de 44 px, só ícone). Há uma versão para ligação, `ButtonLink`, que tem exatamente o mesmo visual e leva a uma rota. No card:
+
+| Ação | Componente | Variante |
+| :--- | :--- | :--- |
+| Visualizar | `ButtonLink` | `primary` |
+| Adicionar estudantes | `ButtonLink` | `secondary` |
+| Copiar link | `Button` | `secondary`, tamanho `sm` |
+| Configurações | `ButtonLink` | `ghost`, `icon` |
+| Arquivar | `Button` | `ghost`, `icon` |
+
+Todos têm a mesma altura (44 px; o de tamanho `sm`, 32 px), o mesmo raio, a mesma fonte e o mesmo foco. Cada botão expõe a variante em `data-variant`.
 
 No celular, os botões principal e secundário ocupam a linha toda, um abaixo do outro; os de ícone ficam ao lado do cabeçalho do rodapé. Cores só dos tokens semânticos, nos temas claro e escuro. Texto das mensagens no arquivo de mensagens.
 
@@ -75,11 +88,13 @@ Não se aplica nesta spec: nenhum endpoint muda.
 - [ ] **CA-02** (ubíquo): "Configurações" e "Arquivar" DEVEM ter nome acessível e dica (`title`), mesmo sendo botões de ícone.
 - [ ] **CA-03** (estado): ENQUANTO há ingressos pendentes, o contador de pendências DEVE ser destacado e ligar à aba de estudantes; sem pendências, DEVE ficar discreto.
 - [ ] **CA-04** (ubíquo): Os dados, as ações e as ligações atuais do card (título, contadores, link de convite, copiar, arquivar, alerta de vigência) DEVEM continuar existindo e funcionando.
+- [ ] **CA-06** (ubíquo): Todas as ações do card DEVEM usar `Button` ou `ButtonLink` com as variantes da tabela da seção 3.1, e o `Button` DEVE aceitar `ghost`, `sm` e `icon`.
 - [ ] **CA-05** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens, nos temas claro e escuro.
 
 ## 8. Plano de Testes (Test Plan)
 
 - **Frontend, `ClassCard.test.tsx`:** Visualizar vem antes de Adicionar estudantes (CA-01); "Configurações" e "Arquivar" têm `title` e nome acessível (CA-02); o contador de pendências tem a marca de atenção só com pendências (CA-03, `data-attention`); os testes atuais do card continuam passando (CA-04).
+- **Frontend, `Button.test.tsx` e `ButtonLink` (CA-06):** variantes, tamanho e modo de ícone aparecem em `data-variant`, `data-size` e `data-icon`; `ButtonLink` é uma ligação com o mesmo visual; no `ClassCard`, cada ação tem a variante da tabela.
 - **Manual:** conferir o card em 360 px e em desktop, nos dois temas, com nome longo, sem resumo, sem horários, arquivada e com alerta de vigência (CA-05).
 - **Cobertura:** acima de 80% no escopo.
 
@@ -87,7 +102,7 @@ Não se aplica nesta spec: nenhum endpoint muda.
 
 1. **Pré-leitura:** `AI_INSTRUCTIONS.md`, `ClassCard.tsx`, `ClassCard.module.scss`, SPEC-046.
 2. **Ordem:** testes vermelhos; reorganizar o JSX; reescrever o SCSS; conferir lint e testes.
-3. **Arquivos:** `ClassCard.tsx`, `ClassCard.module.scss`, `ClassCard.test.tsx`, `messages/pt-BR.ts` (só textos novos).
+3. **Arquivos:** `ClassCard.tsx`, `ClassCard.module.scss`, `ClassCard.test.tsx`, `Button/Button.tsx`, `Button/Button.module.scss`, `Button/ButtonLink.tsx` (novo), `Button/Button.test.tsx` (novo), `messages/pt-BR.ts` (só textos novos).
 4. **Pronto:** CA marcados, testes verdes, status `Implementada`.
 
 ## 10. Pendências para aprovação
@@ -102,3 +117,4 @@ Nenhuma.
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao pedir a melhoria do visual do card |
 | 14/10/2026 | Implementador | Implementada: cabeçalho com situação, faixa de informações sem caixas, Visualizar como ação principal e Configurações e Arquivar como botões de ícone |
+| 14/10/2026 | Aruna Architect | Pedido do Tech Lead: os botões do card não seguem um padrão. Passam a usar o `Button` do sistema, estendido com `ghost`, `sm`, `icon` e `ButtonLink` (CA-06); volta a Aprovada |
