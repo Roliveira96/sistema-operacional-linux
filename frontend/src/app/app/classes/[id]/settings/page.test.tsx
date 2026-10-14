@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { classService, type ClassGroup } from "@/services/classService";
+import { scheduleService, type Meeting } from "@/services/scheduleService";
 import ClassSettingsPage from "./page";
 
 const pushMock = vi.fn();
@@ -53,5 +54,28 @@ describe("ClassSettingsPage", () => {
       expect(updateSpy).toHaveBeenCalledWith("class-123", expect.objectContaining({ name: "SO Prática" }));
       expect(pushMock).toHaveBeenCalledWith("/app/classes");
     });
+  });
+
+  // SPEC-042: the form of a saved class starts from its meetings and saves them again.
+  it("loads the saved meetings into the form and saves the changed ones", async () => {
+    vi.spyOn(classService, "getClass").mockResolvedValueOnce(mockClass);
+    vi.spyOn(scheduleService, "getMeetings").mockResolvedValueOnce([
+      { id: "m-1", classId: "class-123", weekday: 3, startTime: "13:50", endTime: "15:30", lessonCount: 2, mode: "IN_PERSON" } as unknown as Meeting,
+    ]);
+    vi.spyOn(classService, "updateClass").mockResolvedValueOnce(mockClass);
+    const meetingsSpy = vi.spyOn(scheduleService, "replaceMeetings").mockResolvedValueOnce([]);
+
+    render(<ClassSettingsPage params={Promise.resolve({ id: "class-123" })} />);
+    await screen.findByDisplayValue("Sistemas Operacionais");
+    expect((screen.getByLabelText("Início (Quarta-feira)") as HTMLInputElement).value).toBe("13:50");
+
+    fireEvent.click(screen.getByText("Salvar Alterações"));
+
+    await waitFor(() => expect(meetingsSpy).toHaveBeenCalledTimes(1));
+    expect(meetingsSpy.mock.lastCall?.[0]).toBe("class-123");
+    expect(meetingsSpy.mock.lastCall?.[1]).toEqual([
+      expect.objectContaining({ weekday: 3, startTime: "13:50", endTime: "15:30", lessonCount: 2, mode: "IN_PERSON" }),
+    ]);
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/app/classes"));
   });
 });
