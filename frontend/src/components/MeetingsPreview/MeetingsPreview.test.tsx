@@ -73,4 +73,24 @@ describe("MeetingsPreview (SPEC-044)", () => {
     expect(screen.getByText(/Marque os dias da semana/)).toBeDefined();
     expect(screen.queryByRole("button", { name: "Próximo mês" })).toBeNull();
   });
+
+  // CA-15
+  it("shows the holidays on their days and keeps the lesson that falls on one", () => {
+    const { container } = render(
+      <MeetingsPreview
+        startDate="2026-10-05"
+        endDate="2026-10-31"
+        meetings={[monday]}
+        color="blue"
+        holidays={[
+          { id: "h-1", date: "2026-10-12", name: "Nossa Senhora Aparecida", scope: "NATIONAL", active: true },
+          { id: "h-2", date: "2026-10-13", name: "Feriado desligado", scope: "LOCAL", active: false },
+        ]}
+      />,
+    );
+    const day = container.querySelector('[data-date="2026-10-12"]');
+    expect(day?.querySelector("[data-holiday]")?.textContent).toBe("Nossa Senhora Aparecida");
+    expect(day?.querySelector("[data-marker]")).not.toBeNull();
+    expect(container.querySelector('[data-date="2026-10-13"] [data-holiday]')).toBeNull();
+  });
 });

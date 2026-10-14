@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiProblemError } from "@/services/httpClient";
+import { scheduleService } from "@/services/scheduleService";
+import { octoberCalendar } from "@/test/scheduleFixtures";
 import { ClassForm } from "./ClassForm";
 
 afterEach(() => {
@@ -476,5 +478,52 @@ describe("ClassForm (SPEC-044)", () => {
     render(<ClassForm onSubmit={vi.fn()} />);
     fireEvent.click(tab("Horários"));
     expect(screen.getByText(/Informe as datas de início e fim da turma/)).toBeDefined();
+  });
+
+  // CA-19 and CA-16
+  it("on a saved class shows the real calendar and applies the meetings to it", async () => {
+    const calendar = vi.spyOn(scheduleService, "classCalendar").mockResolvedValue(octoberCalendar());
+    const onApplyMeetings = vi.fn().mockResolvedValue(undefined);
+    const { container } = render(
+      <ClassForm
+        onSubmit={vi.fn()}
+        classId="c-1"
+        onApplyMeetings={onApplyMeetings}
+        initialData={{ startDate: "2026-10-01T03:00:00Z", endDate: "2026-10-31T23:59:59Z" }}
+      />,
+    );
+    fireEvent.click(tab("Horários"));
+    expect(await screen.findByRole("heading", { name: "outubro de 2026" })).toBeDefined();
+    expect(screen.queryByRole("region", { name: "Prévia do calendário" })).toBeNull();
+    expect(container.querySelector("[data-marker]")).toBeNull();
+    expect(screen.queryByText(/ainda mostra os horários salvos/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Terça-feira" }));
+    expect(screen.getByText(/ainda mostra os horários salvos/)).toBeDefined();
+    const before = calendar.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar horários ao calendário" }));
+    await waitFor(() => expect(onApplyMeetings).toHaveBeenCalledTimes(1));
+    expect(onApplyMeetings.mock.lastCall?.[0]).toEqual([expect.objectContaining({ weekday: 2, startTime: "08:20", endTime: "10:20" })]);
+    await waitFor(() => expect(calendar.mock.calls.length).toBeGreaterThan(before));
+    await waitFor(() => expect(screen.queryByText(/ainda mostra os horários salvos/)).toBeNull());
+  });
+
+  // CA-16
+  it("on a new class shows no apply button", () => {
+    render(<ClassForm onSubmit={vi.fn()} />);
+    fireEvent.click(tab("Horários"));
+    expect(screen.queryByRole("button", { name: "Aplicar horários ao calendário" })).toBeNull();
+  });
+
+  // CA-15
+  it("on a new class loads the holidays of the term and shows them in the preview", async () => {
+    const loadHolidays = vi.fn().mockResolvedValue([{ id: "h-1", date: "2026-10-12", name: "Nossa Senhora Aparecida", scope: "NATIONAL", active: true }]);
+    const { container } = render(<ClassForm onSubmit={vi.fn()} loadHolidays={loadHolidays} />);
+    fireEvent.change(screen.getByLabelText(/Data de Início/i), { target: { value: "2026-10-05" } });
+    fireEvent.change(screen.getByLabelText(/Data de Término/i), { target: { value: "2026-10-31" } });
+    fireEvent.click(tab("Horários"));
+    fireEvent.click(screen.getByRole("button", { name: "Segunda-feira" }));
+    await waitFor(() => expect(container.querySelector('[data-date="2026-10-12"] [data-holiday]')).not.toBeNull());
+    expect(loadHolidays).toHaveBeenCalledWith(2026);
   });
 });
