@@ -21,6 +21,9 @@ import (
 	classgrouphandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/handler"
 	classgrouprepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
 	classgroupservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/service"
+	classlinkhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/handler"
+	classlinkrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/repository"
+	classlinkservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/service"
 	contentdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	contenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/handler"
 	contentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/repository"
@@ -176,6 +179,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	// The schedule of the classes (SPEC-042): its e-mails wait in the outbox and the scheduler delivers them.
 	scheduleService := scheduleservice.New(schedulerepository.New(db), time.Now, cfg.Auth.PublicURL)
 	scheduleHandler := schedulehandler.New(scheduleService, auth)
+	classLinkHandler := classlinkhandler.New(classlinkservice.New(classlinkrepository.New(db)), auth)
 
 	classRepo := classgrouprepository.New(db)
 	classService := classgroupservice.New(classRepo).WithScheduleHook(scheduleService)
@@ -258,6 +262,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		ttsHandler,
 		studentHandler,
 		scheduleHandler,
+		classLinkHandler,
 	)
 	mcpOAuthHandler.RegisterRoot(engine)
 	mcpHandler.Register(engine)
