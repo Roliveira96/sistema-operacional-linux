@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-055 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada) |
 | **Autor** | Aruna Architect |
@@ -165,3 +165,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: o professor interage na janela de
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao decidir a janela de apresentação e o painel do professor |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: o modo Módulo da turma deve ter o mesmo estilo da tela de estudo (`/materials/:id`). Acrescentados o modo opcional de aula ao vivo do `TopicStudy` e o CA-13 |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: deixar a apresentação intuitiva, com pouco trabalho para o professor. Acrescentada a seção 3.3 (passo a passo, aula já pronta, barra e atalhos, tela preta, foco automático, aviso da espera, confirmação ao encerrar) e os CA-14 a CA-20 |
+| 14/10/2026 | Aruna Architect | Implementada (commits `277ed46`, `f1fd230`, `418e84b`, `69818c8`). Desvios: `view` inválido responde 400 (segundo a spec); a janela de apresentação é `fixed` sobre o `AppShell`; "Na aula" conta os aceitos (o backend não diz quais estão conectados); o terminal da aula parte só do `scenario`, sem as camadas de `setup` do módulo (limitação já conhecida da SPEC-054); sem verificação no navegador |
