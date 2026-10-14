@@ -209,6 +209,9 @@ func (f *fakeService) activeNow() service.Active {
 		a.TerminalScreen = f.screen
 	}
 	a.StageView = f.stage
+	if len(f.queue) > 0 { // the hands that were raised in the test, with their questions (SPEC-058)
+		a.HandRaises = append([]domain.HandRaiseEntry(nil), f.queue...)
+	}
 	return a
 }
 
@@ -289,23 +292,52 @@ func (f *fakeService) keptSplits() []float64 {
 	defer f.mu.Unlock()
 	return append([]float64(nil), f.splits...)
 }
-func (f *fakeService) RaiseHand(_ context.Context, _ uuid.UUID, student uuid.UUID) ([]domain.HandRaiseEntry, error) {
+
+// RaiseHand refuses a bad question before it touches the hand, as the real service does (SPEC-058); a hand that is already up only takes
+// the new question, and keeps its place.
+func (f *fakeService) RaiseHand(_ context.Context, _ uuid.UUID, student uuid.UUID, question string) ([]domain.HandRaiseEntry, error) {
 	f.record("raise")
-	f.queue = append(f.queue, domain.HandRaiseEntry{StudentID: student, Name: "Ana", RequestedAt: time.Date(2026, 10, 14, 19, 0, 0, 0, time.UTC)})
-	return f.queue, nil
+	text, err := domain.NormalizeQuestion(question)
+	if err != nil {
+		return nil, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := range f.queue {
+		if f.queue[i].StudentID == student {
+			f.queue[i].Question = text
+			return append([]domain.HandRaiseEntry(nil), f.queue...), nil
+		}
+	}
+	f.queue = append(f.queue, domain.HandRaiseEntry{StudentID: student, Name: "Ana", RequestedAt: time.Date(2026, 10, 14, 19, 0, 0, 0, time.UTC), Question: text})
+	return append([]domain.HandRaiseEntry(nil), f.queue...), nil
 }
-func (f *fakeService) LowerHand(_ context.Context, _ uuid.UUID, _ uuid.UUID) ([]domain.HandRaiseEntry, error) {
+func (f *fakeService) LowerHand(_ context.Context, _ uuid.UUID, student uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	f.record("lower")
-	f.queue = nil
-	return f.queue, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	kept := f.queue[:0:0]
+	for _, e := range f.queue {
+		if e.StudentID != student {
+			kept = append(kept, e)
+		}
+	}
+	f.queue = kept
+	return append([]domain.HandRaiseEntry(nil), f.queue...), nil
 }
 func (f *fakeService) ModerateHand(_ context.Context, _ uuid.UUID, student *uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	f.record("moderate")
 	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.moderate = append(f.moderate, student)
-	f.mu.Unlock()
-	f.queue = nil
-	return f.queue, nil
+	kept := f.queue[:0:0]
+	for _, e := range f.queue {
+		if student != nil && e.StudentID != *student {
+			kept = append(kept, e)
+		}
+	}
+	f.queue = kept
+	return append([]domain.HandRaiseEntry(nil), f.queue...), nil
 }
 func (f *fakeService) TeacherPresence(context.Context, uuid.UUID) error {
 	f.record("presence")

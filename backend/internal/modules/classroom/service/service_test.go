@@ -40,12 +40,15 @@ type fakeRepo struct {
 
 	// race makes the next CreateSession lose to a session that another request just created.
 	race bool
+	// raises counts the calls of RaiseHand, to tell that a refused question never got to the repository (SPEC-058).
+	raises int
 }
 
 type handRow struct {
 	session, student uuid.UUID
 	status           string
 	at               time.Time
+	question         string // SPEC-058: the doubt that came with the hand; closing the hand erases it
 }
 
 func newRepo() *fakeRepo {
@@ -192,20 +195,23 @@ func (f *fakeRepo) FindDeck(_ context.Context, id uuid.UUID) (domain.SlideDeck, 
 	return d, nil
 }
 
-func (f *fakeRepo) RaiseHand(_ context.Context, session, student uuid.UUID, now time.Time) error {
-	for _, h := range f.hands {
+// RaiseHand queues the hand with its question; a hand that is already up only takes the new question, and keeps its place (SPEC-058).
+func (f *fakeRepo) RaiseHand(_ context.Context, session, student uuid.UUID, question string, now time.Time) error {
+	f.raises++
+	for i, h := range f.hands {
 		if h.session == session && h.student == student && h.status == domain.HandPending {
+			f.hands[i].question = question
 			return nil
 		}
 	}
-	f.hands = append(f.hands, handRow{session, student, domain.HandPending, now})
+	f.hands = append(f.hands, handRow{session, student, domain.HandPending, now, question})
 	return nil
 }
 func (f *fakeRepo) ListHandRaises(_ context.Context, session uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	var out []domain.HandRaiseEntry
 	for _, h := range f.hands {
 		if h.session == session && h.status == domain.HandPending {
-			out = append(out, domain.HandRaiseEntry{StudentID: h.student, Name: f.studentNames[h.student], RequestedAt: h.at})
+			out = append(out, domain.HandRaiseEntry{StudentID: h.student, Name: f.studentNames[h.student], RequestedAt: h.at, Question: h.question})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].RequestedAt.Before(out[j].RequestedAt) })
@@ -214,7 +220,7 @@ func (f *fakeRepo) ListHandRaises(_ context.Context, session uuid.UUID) ([]domai
 func (f *fakeRepo) ResolveHand(_ context.Context, session, student uuid.UUID, status string, _ time.Time) error {
 	for i, h := range f.hands {
 		if h.session == session && h.student == student && h.status == domain.HandPending {
-			f.hands[i].status = status
+			f.hands[i].status, f.hands[i].question = status, ""
 		}
 	}
 	return nil
@@ -222,7 +228,7 @@ func (f *fakeRepo) ResolveHand(_ context.Context, session, student uuid.UUID, st
 func (f *fakeRepo) ResolveAllHands(_ context.Context, session uuid.UUID, _ time.Time) error {
 	for i, h := range f.hands {
 		if h.session == session && h.status == domain.HandPending {
-			f.hands[i].status = domain.HandLowered
+			f.hands[i].status, f.hands[i].question = domain.HandLowered, ""
 		}
 	}
 	return nil
@@ -572,7 +578,7 @@ func TestActiveSession_ReturnsSnapshot(t *testing.T) {
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"path":[1,2]}`))
 	w.svc.RememberTerminalScreen(s.ID, json.RawMessage(`{"tag":"div","children":["$ ls"]}`))
 	w.admit(s.ID, w.student.UserID)
-	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
+	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID, "")
 	require.NoError(t, err)
 
 	for _, who := range []service.Actor{w.student, w.teacher, w.admin} {
@@ -701,17 +707,17 @@ func TestHandRaiseQueueAndModeration(t *testing.T) {
 		}
 		return out
 	}
-	q, err := w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
+	q, err := w.svc.RaiseHand(ctx, s.ID, w.student.UserID, "")
 	require.NoError(t, err)
 	w.now = w.now.Add(time.Second)
-	_, err = w.svc.RaiseHand(ctx, s.ID, second.UserID)
+	_, err = w.svc.RaiseHand(ctx, s.ID, second.UserID, "")
 	require.NoError(t, err)
 	w.now = w.now.Add(time.Second)
-	q, err = w.svc.RaiseHand(ctx, s.ID, third.UserID)
+	q, err = w.svc.RaiseHand(ctx, s.ID, third.UserID, "")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"Ana", "Bruno", "Carla"}, names(q), "first in, first served")
 
-	q, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
+	q, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID, "")
 	require.NoError(t, err)
 	assert.Len(t, q, 3, "raising twice does not duplicate")
 

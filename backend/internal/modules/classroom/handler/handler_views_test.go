@@ -51,9 +51,10 @@ func TestConnectionView(t *testing.T) {
 
 	presenter := snapshotOf(t, w.dialView(t, "teacher", "presenter"))
 	assert.Equal(t, false, presenter["stageBlank"])
-	for _, key := range []string{"admissions", "handRaises", "onlineCount", "presenterConnected", "terminalBroadcast"} {
+	for _, key := range []string{"admissions", "onlineCount", "presenterConnected", "terminalBroadcast"} {
 		assert.NotContains(t, presenter, key, "the presenter gets the stage only")
 	}
+	assert.Contains(t, presenter, "handRaises", "SPEC-058: and the raised hands, without their questions, for the header of the module")
 	assert.EqualValues(t, 2, presenter["currentSlide"])
 	assert.Contains(t, presenter, "recentDrawings")
 	assert.Contains(t, presenter, "terminal")

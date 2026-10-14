@@ -277,7 +277,7 @@ func TestAdmitted_OnlyCanRaiseHandAndWriteNotes(t *testing.T) {
 	_, err := w.svc.Connect(ctx, w.student, w.class)
 	require.NoError(t, err)
 
-	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
+	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID, "")
 	assert.ErrorIs(t, err, domain.ErrNotAdmitted)
 	_, err = w.svc.SaveNote(ctx, w.student, w.class, s.ID, "x")
 	assert.ErrorIs(t, err, domain.ErrNotAdmitted)
@@ -286,14 +286,14 @@ func TestAdmitted_OnlyCanRaiseHandAndWriteNotes(t *testing.T) {
 
 	_, err = w.svc.Admit(ctx, w.teacher, s.ID, w.student.UserID)
 	require.NoError(t, err)
-	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
+	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID, "")
 	assert.NoError(t, err)
 	_, err = w.svc.SaveNote(ctx, w.student, w.class, s.ID, "x")
 	assert.NoError(t, err)
 
 	_, err = w.svc.Remove(ctx, w.teacher, s.ID, w.student.UserID)
 	require.NoError(t, err)
-	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
+	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID, "")
 	assert.ErrorIs(t, err, domain.ErrNotAdmitted, "the removed lost the right")
 
 	// The notes of a lesson that ended stay readable to who wrote them.
