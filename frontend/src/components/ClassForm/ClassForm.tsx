@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { MeetingsEditor, validateMeetingDrafts, type MeetingDraft } from "@/components/MeetingsEditor/MeetingsEditor";
+import { ClassSessionsCalendar } from "@/components/ClassSessionsCalendar/ClassSessionsCalendar";
 import { MeetingsPreview } from "@/components/MeetingsPreview/MeetingsPreview";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
+import { parseIsoDate } from "@/lib/calendar";
 import { messages } from "@/messages/pt-BR";
 import type { ClassGroup, CreateClassPayload } from "@/services/classService";
 import { ApiProblemError } from "@/services/httpClient";
-import type { Meeting } from "@/services/scheduleService";
+import type { Holiday, Meeting } from "@/services/scheduleService";
 import styles from "./ClassForm.module.scss";
 
 const m = messages.classes.form;
@@ -25,6 +27,25 @@ export interface ClassFormProps {
   /** Label of the main button while the form is sent (SPEC-041 CA-16). */
   submittingLabel?: string;
   cancelHref?: string;
+  /** The id of a saved class: the Horários tab then shows its real calendar (SPEC-044, section 3.1.2). */
+  classId?: string;
+  /** Saves the weekly meetings of the saved class, so the real calendar shows them. */
+  onApplyMeetings?: (meetings: Meeting[]) => Promise<void>;
+  /** The holidays of a year, shown in the preview of a new class. */
+  loadHolidays?: (year: number) => Promise<Holiday[]>;
+}
+
+/** The meetings as the server takes them. */
+function toMeetings(drafts: MeetingDraft[]): Meeting[] {
+  return drafts.map((m) => ({
+    weekday: m.weekday,
+    startTime: m.startTime,
+    endTime: m.endTime,
+    lessonCount: m.lessonCount,
+    mode: m.mode,
+    room: m.room || undefined,
+    onlineUrl: m.onlineUrl || undefined,
+  })) as Meeting[];
 }
 
 /** Fields that can show an error next to them, in the order the focus visits them. */
@@ -151,6 +172,9 @@ export function ClassForm({
   submitLabel,
   submittingLabel,
   cancelHref = "/app/classes",
+  classId,
+  onApplyMeetings,
+  loadHolidays,
 }: ClassFormProps) {
   const [name, setName] = useState(initialData?.name ?? "");
   const [courseCode, setCourseCode] = useState(initialData?.courseCode ?? "");
@@ -164,6 +188,10 @@ export function ClassForm({
   const [color, setColor] = useState(initialData?.color ?? "orange");
   const [meetings, setMeetings] = useState<MeetingDraft[]>(initialMeetings ?? []);
   const [meetingErrors, setMeetingErrors] = useState<Record<string, string>>({});
+  const [appliedMeetings, setAppliedMeetings] = useState(() => JSON.stringify(toMeetings(initialMeetings ?? [])));
+  const [applying, setApplying] = useState(false);
+  const [calendarReload, setCalendarReload] = useState(0);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [enableVirtual, setEnableVirtual] = useState(initialData?.enableVirtualClassroom ?? false);
   const [enableInvite, setEnableInvite] = useState(initialData?.enableInviteLink ?? false);
   const [inviteStart, setInviteStart] = useState(toDateTimeInput(initialData?.inviteLinkStart));
@@ -183,6 +211,42 @@ export function ClassForm({
   useEffect(() => {
     if (focusRequest) document.getElementById(focusRequest.id)?.focus();
   }, [focusRequest]);
+
+  // The holidays of the years of the term, for the preview of a new class (SPEC-044, CA-15).
+  useEffect(() => {
+    if (classId || !loadHolidays || !startDate || !endDate || startDate > endDate) return;
+    let active = true;
+    const first = Number(startDate.slice(0, 4));
+    const last = Math.min(Number(endDate.slice(0, 4)), first + 5);
+    const years = Array.from({ length: last - first + 1 }, (_, i) => first + i);
+    void Promise.all(years.map((y) => loadHolidays(y).catch(() => [] as Holiday[]))).then((lists) => {
+      if (active) setHolidays(lists.flat());
+    });
+    return () => {
+      active = false;
+    };
+  }, [classId, loadHolidays, startDate, endDate]);
+
+  const meetingsNotApplied = Boolean(classId) && JSON.stringify(toMeetings(meetings)) !== appliedMeetings;
+
+  const applyMeetings = async () => {
+    if (!onApplyMeetings) return;
+    const found = validateMeetingDrafts(meetings);
+    setMeetingErrors(found);
+    if (Object.keys(found).length > 0) return;
+    setApplying(true);
+    setFormError(null);
+    try {
+      const list = toMeetings(meetings);
+      await onApplyMeetings(list);
+      setAppliedMeetings(JSON.stringify(list));
+      setCalendarReload((n) => n + 1);
+    } catch {
+      setFormError(m.errors.generic);
+    } finally {
+      setApplying(false);
+    }
+  };
 
   const showErrors = (found: FieldErrors) => {
     setErrors(found);
@@ -279,18 +343,7 @@ export function ClassForm({
       inviteLinkEnd: enableInvite && inviteEnd ? new Date(inviteEnd).toISOString() : undefined,
     };
 
-    const meetingsToSend =
-      meetings.length > 0
-        ? meetings.map((m) => ({
-            weekday: m.weekday,
-            startTime: m.startTime,
-            endTime: m.endTime,
-            lessonCount: m.lessonCount,
-            mode: m.mode,
-            room: m.room || undefined,
-            onlineUrl: m.onlineUrl || undefined,
-          }))
-        : undefined;
+    const meetingsToSend = meetings.length > 0 ? toMeetings(meetings) : undefined;
 
     try {
       await onSubmit(payload, meetingsToSend);
@@ -516,7 +569,25 @@ export function ClassForm({
           </div>
 
           <div className={`${styles.field} ${styles.fullWidth}`}>
-            <MeetingsPreview startDate={startDate} endDate={endDate} meetings={meetings} color={color} />
+            {classId ? (
+              <>
+                {onApplyMeetings && (
+                  <div className={styles.applyRow}>
+                    <button type="button" className={styles.apply} disabled={applying} onClick={() => void applyMeetings()}>
+                      {applying ? messages.schedule.preview.applyingMeetings : messages.schedule.preview.applyMeetings}
+                    </button>
+                    {meetingsNotApplied && <span className={styles.help}>{messages.schedule.preview.notApplied}</span>}
+                  </div>
+                )}
+                <ClassSessionsCalendar
+                  classId={classId}
+                  reloadKey={calendarReload}
+                  initialMonth={startDate ? parseIsoDate(startDate) : undefined}
+                />
+              </>
+            ) : (
+              <MeetingsPreview startDate={startDate} endDate={endDate} meetings={meetings} color={color} holidays={holidays} />
+            )}
           </div>
 
           {meetings.length === 0 && (

@@ -82,6 +82,10 @@ export default function ClassSettingsPage({
       <ClassForm
         initialData={classData}
         initialMeetings={meetings}
+        classId={classData.id}
+        onApplyMeetings={async (list) => {
+          await scheduleService.replaceMeetings(classData.id, list);
+        }}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
         submitLabel={messages.classes.form.submitSave}

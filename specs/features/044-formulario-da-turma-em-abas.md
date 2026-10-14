@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (calendário real na configuração, Opção A) |
 | **Autor** | Aruna Architect |
@@ -188,3 +188,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `Clas
 | 14/10/2026 | Aruna Architect | Tech Lead mandou implementar a prévia; P-03 (não descontar feriados) e P-04 (mensal) resolvidas com as recomendações; status Aprovada |
 | 14/10/2026 | Implementador | Implementada: abas, prévia do calendário, regra de 60 minutos nos dois sentidos (CA-13, CA-14) e correção do salvamento dos horários (SPEC-042) |
 | 14/10/2026 | Aruna Architect | Tech Lead escolheu a Opção A: turma nova com prévia (agora com feriados) e turma salva com o calendário real (cancelar, ajustar, incluir aula avulsa); CA-15 a CA-20; volta a Aprovada |
+| 14/10/2026 | Implementador | Implementada a Opção A: feriados na prévia, calendário real na configuração (cancelar, ajustar, incluir aula avulsa) e botão Aplicar horários; testes alterados depois do vermelho: seleção de situação por rádio em `ClassSessionsCalendar.test.tsx` e o teste da tela de configuração, que passou a esperar o calendário real (CA-16) |

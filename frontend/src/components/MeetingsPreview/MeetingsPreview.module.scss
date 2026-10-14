@@ -99,6 +99,18 @@
   color: var(--color-text-secondary);
 }
 
+.holiday {
+  display: block;
+  overflow: hidden;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-subtle);
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .marker {
   display: block;
   overflow: hidden;

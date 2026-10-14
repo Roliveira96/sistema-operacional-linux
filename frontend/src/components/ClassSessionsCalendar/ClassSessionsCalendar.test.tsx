@@ -41,8 +41,8 @@ describe("ClassSessionsCalendar", () => {
     const panel = screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" });
     fireEvent.click(within(panel).getByRole("button", { name: "Alterar esta aula" }));
     const dialog = await screen.findByRole("dialog", { name: "Alterar a aula de 26/10/2026" });
-    fireEvent.change(within(dialog).getByLabelText("Situação"), { target: { value: "CANCELED" } });
-    fireEvent.change(within(dialog).getByLabelText(/Motivo/), { target: { value: "Viagem do professor" } });
+    fireEvent.click(within(dialog).getByLabelText("Cancelada"));
+    fireEvent.change(within(dialog).getByLabelText("Motivo"), { target: { value: "Viagem do professor" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar alteração" }));
 
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));

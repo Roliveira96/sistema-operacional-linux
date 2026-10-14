@@ -33,6 +33,7 @@ export default function NewClassPage() {
 
       <ClassForm
         onSubmit={handleSubmit}
+        loadHolidays={scheduleService.holidays}
         isSubmitting={isSubmitting}
         submitLabel={messages.classes.form.submitCreate}
         submittingLabel={messages.classes.form.submittingCreate}

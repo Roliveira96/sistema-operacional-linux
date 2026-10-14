@@ -317,7 +317,7 @@ export function ClassCalendar({
             </div>
           )}
 
-          {editable && (
+          {editable && onSelectPeriod && (
             <div>
               {isSelecting ? (
                 <button
@@ -568,20 +568,24 @@ export function ClassCalendar({
             <h3 className={styles.dayPanelTitle}>{selectedDayPanelTitle}</h3>
             {editable && (
               <div className={styles.panelActions}>
-                <button
-                  type="button"
-                  className={styles.actionBtn}
-                  onClick={() => onAddSession?.(selectedDayIso!)}
-                >
-                  {messages.schedule.calendar.addSession}
-                </button>
-                <button
-                  type="button"
-                  className={styles.actionBtn}
-                  onClick={() => onAddEvent?.(selectedDayIso!)}
-                >
-                  {messages.schedule.calendar.addEvent}
-                </button>
+                {onAddSession && (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onAddSession(selectedDayIso!)}
+                  >
+                    {messages.schedule.calendar.addSession}
+                  </button>
+                )}
+                {onAddEvent && (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onAddEvent(selectedDayIso!)}
+                  >
+                    {messages.schedule.calendar.addEvent}
+                  </button>
+                )}
               </div>
             )}
           </div>

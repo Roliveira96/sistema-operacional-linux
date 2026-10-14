@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { classService, type ClassGroup } from "@/services/classService";
 import { scheduleService, type Meeting } from "@/services/scheduleService";
+import { octoberCalendar } from "@/test/scheduleFixtures";
 import ClassSettingsPage from "./page";
 
 const pushMock = vi.fn();
@@ -79,19 +80,19 @@ describe("ClassSettingsPage", () => {
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/app/classes"));
   });
 
-  // SPEC-044 CA-09: the settings screen shows the calendar of the saved term in the Horários tab.
-  it("shows the calendar preview of the saved meetings in the Horários tab", async () => {
-    vi.spyOn(classService, "getClass").mockResolvedValueOnce({ ...mockClass, startDate: "2026-10-05T03:00:00Z", endDate: "2026-10-31T23:59:59Z" });
-    vi.spyOn(scheduleService, "getMeetings").mockResolvedValueOnce([
-      { id: "m-1", classId: "class-123", weekday: 1, startTime: "08:20", endTime: "10:20", lessonCount: 2, mode: "IN_PERSON" } as unknown as Meeting,
-    ]);
+  // SPEC-044 CA-16: the settings screen shows the real calendar of the class in the Horários tab.
+  it("shows the real calendar of the class in the Horários tab", async () => {
+    vi.spyOn(classService, "getClass").mockResolvedValueOnce({ ...mockClass, startDate: "2026-10-01T03:00:00Z", endDate: "2026-10-31T23:59:59Z" });
+    vi.spyOn(scheduleService, "getMeetings").mockResolvedValueOnce([]);
+    const calendar = vi.spyOn(scheduleService, "classCalendar").mockResolvedValue(octoberCalendar());
 
-    const { container } = render(<ClassSettingsPage params={Promise.resolve({ id: "class-123" })} />);
+    render(<ClassSettingsPage params={Promise.resolve({ id: "class-123" })} />);
     await screen.findByDisplayValue("Sistemas Operacionais");
     fireEvent.click(screen.getByRole("tab", { name: "Horários" }));
 
-    expect(screen.getByRole("region", { name: "Prévia do calendário" })).toBeDefined();
-    expect(container.querySelectorAll("[data-marker]").length).toBeGreaterThanOrEqual(4);
-    expect(container.querySelector('[data-date="2026-10-05"] [data-marker]')?.textContent).toContain("08:20");
+    expect(await screen.findByRole("heading", { name: "outubro de 2026" })).toBeDefined();
+    expect(calendar).toHaveBeenCalledWith("class-123", "2026-09-27", "2026-10-31");
+    expect(screen.queryByRole("region", { name: "Prévia do calendário" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Aplicar horários ao calendário" })).toBeDefined();
   });
 });

@@ -4,6 +4,7 @@ import { type ReactNode, useState } from "react";
 import type { MeetingDraft } from "@/components/MeetingsEditor/MeetingsEditor";
 import { addMonths, isoDate, minutesOf, monthGrid, parseIsoDate } from "@/lib/calendar";
 import { messages } from "@/messages/pt-BR";
+import type { Holiday } from "@/services/scheduleService";
 import styles from "./MeetingsPreview.module.scss";
 
 const m = messages.schedule.preview;
@@ -15,10 +16,12 @@ export interface MeetingsPreviewProps {
   endDate: string;
   meetings: MeetingDraft[];
   color: string;
+  /** Holidays and recesses to show on their days (SPEC-044, CA-15). */
+  holidays?: Holiday[];
 }
 
 /** Read-only month calendar of the lessons the weekly meetings generate in the term (SPEC-044, section 3.1.2). */
-export function MeetingsPreview({ startDate, endDate, meetings, color }: MeetingsPreviewProps) {
+export function MeetingsPreview({ startDate, endDate, meetings, color, holidays = [] }: MeetingsPreviewProps) {
   const [shown, setShown] = useState<{ key: string; month: Date } | null>(null);
 
   const validTerm = Boolean(startDate) && Boolean(endDate) && startDate <= endDate;
@@ -70,6 +73,13 @@ export function MeetingsPreview({ startDate, endDate, meetings, color }: Meeting
                 className={`${styles.day} ${day.getMonth() === month.getMonth() ? "" : styles.otherMonth} ${inTerm ? "" : styles.outOfTerm}`}
               >
                 <span className={styles.dayNumber}>{day.getDate()}</span>
+                {holidays
+                  .filter((h) => h.active && h.date === iso)
+                  .map((h) => (
+                    <span key={h.id} data-holiday="" className={styles.holiday}>
+                      {h.name}
+                    </span>
+                  ))}
                 {dayMeetings.map((x, i) => (
                   <span key={x.key ?? x.id ?? i} data-marker="" data-color={color} className={styles.marker}>
                     {m.marker(x.startTime, x.endTime, x.lessonCount)}
