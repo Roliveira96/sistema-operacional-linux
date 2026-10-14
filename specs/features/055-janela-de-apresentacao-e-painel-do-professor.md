@@ -74,6 +74,19 @@ Botões do padrão `Button`, tema único escuro, só tokens, alvos de 44 px, tec
 - **RN-05 (instantâneo e presença):** o instantâneo do `panel` leva a sala de espera, a lista dos aceitos, a fila de mãos, o horário de início da aula e se a janela `presenter` está conectada; a presença muda (`live:presence`) quando uma janela do professor entra ou sai, informando também o estado da janela de apresentação. O instantâneo do `presenter` leva o palco, sem os dados administrativos.
 - **RN-06 (encerramento e rede de segurança):** a aula só termina quando o docente a encerra (pelo painel) ou pela rede de segurança de 12 horas sem nenhuma janela do professor conectada (SPEC-051 RN-03); fechar uma das janelas não encerra a aula.
 
+### 3.3. Facilidade de uso para o professor
+
+Pedido do Tech Lead: o professor não pode ter trabalho para apresentar o conteúdo da aula. Regras de tela (sem mudança no backend):
+
+- **Começo guiado.** O painel abre com um **passo a passo** de três etapas, cada uma com o estado visível e o botão da etapa: **1. Abrir a janela de apresentação** (marca como feita quando a janela conecta), **2. Aceitar os alunos** (mostra quantos esperam; marca como feita quando ninguém espera) e **3. Apresentar** (a lâmina ou o módulo da aula já na tela). O professor nunca precisa procurar o que fazer a seguir: a próxima etapa pendente fica em destaque.
+- **A aula já vem pronta.** Quando a aula nasce de uma aula do calendário (SPEC-053), a apresentação e o módulo dela já estão carregados: se há apresentação, o palco começa nas lâminas; se há só módulo, começa no módulo; se há os dois, começa nas lâminas e o painel mostra o botão grande **Ir para o módulo** (e o inverso). Sem escolher nada.
+- **Um clique para o que mais se faz.** Na janela de apresentação, uma **barra de ferramentas** que aparece ao mover o mouse e some sozinha depois de alguns segundos tem: anterior e próxima, laser, caneta, apagar traços, trocar entre lâminas e módulo, tela cheia. Cada botão tem rótulo ao passar o mouse com a tecla de atalho.
+- **Teclado para tudo.** Seta direita, seta esquerda e barra de espaço trocam de lâmina; **L** liga o laser; **P**, a caneta; **C**, apaga os traços; **M**, troca entre lâminas e módulo; **F**, a tela cheia; **B**, tela preta (a turma vê uma tela vazia até apertar de novo); **?**, mostra a lista de atalhos. Na primeira vez em cada janela, uma dica curta mostra os atalhos principais.
+- **O módulo acompanha o professor sozinho.** No modo Módulo, o bloco em foco é o que o professor está lendo (o que está à vista no material), sem ele marcar nada; o seletor manual do painel continua para quem preferir.
+- **Quem chega, ele vê.** Quando um aluno entra na espera, o painel dá um aviso na tela (e um som curto, que o professor pode desligar). **Aceitar todos** é o botão principal da sala de espera.
+- **Sem surpresa ao encerrar.** **Encerrar aula** pede uma confirmação que diz quanto tempo durou e quantos alunos participaram, e só encerra se o professor confirmar.
+- **Linguagem simples.** Rótulos e mensagens em português claro, estados vazios que dizem o que fazer ("Nenhum aluno esperando. Compartilhe o aviso da aula com a turma."), e erros que dizem a ação ("A janela de apresentação foi fechada. Abrir de novo").
+
 ## 4. Modelo de Dados (Data Model)
 
 Não se aplica nesta spec: não há mudança de esquema.
@@ -111,6 +124,13 @@ Sem mudança nos endpoints REST.
 - [ ] **CA-10** (evento): QUANDO o professor encerra a aula pelo painel, O SISTEMA DEVE encerrá-la para todos, inclusive a janela de apresentação; fechar só uma das janelas NÃO DEVE encerrar a aula.
 - [ ] **CA-11** (ubíquo): A tela dividida, "Minha tela", "Tela da turma", a lâmina privada e a chave "Transmitir o terminal" NÃO DEVEM mais existir.
 - [ ] **CA-13** (ubíquo): No modo Módulo, a janela de apresentação e a tela do estudante DEVEM ter o mesmo visual da tela de estudo do módulo (`/materials/:id`): material à esquerda e terminal à direita, com a divisória arrastável, sem desafios, progresso, resposta a exercícios, leitor por voz nem link de voltar; e a tela de estudo comum, fora da aula, NÃO DEVE mudar.
+- [ ] **CA-14** (ubíquo): O painel DEVE abrir com o passo a passo de três etapas (abrir a apresentação, aceitar os alunos, apresentar), com o estado de cada uma e a próxima pendente em destaque.
+- [ ] **CA-15** (evento): QUANDO a aula nasce de uma aula do calendário com apresentação, módulo ou ambos, O SISTEMA DEVE começar o palco já com o que existe (lâminas se há apresentação; senão o módulo) e DEVE oferecer o botão de trocar para o outro, sem o professor escolher nada.
+- [ ] **CA-16** (ubíquo): A janela de apresentação DEVE ter a barra de ferramentas que aparece ao mover o mouse e some sozinha, e os atalhos de teclado (setas e espaço, L, P, C, M, F, B e ?), com a lista de atalhos e a dica na primeira vez.
+- [ ] **CA-17** (evento): QUANDO o professor aciona a tela preta, O SISTEMA DEVE mostrar à turma uma tela vazia até ele acionar de novo.
+- [ ] **CA-18** (estado): ENQUANTO o modo é Módulo, O SISTEMA DEVE usar como bloco em foco o que o professor está lendo, sem ação dele.
+- [ ] **CA-19** (evento): QUANDO um aluno entra na espera, O SISTEMA DEVE avisar o professor no painel, com um som curto que ele pode desligar.
+- [ ] **CA-20** (evento): QUANDO o professor aciona "Encerrar aula", O SISTEMA DEVE pedir a confirmação com a duração e o número de participantes, e só encerrar se ele confirmar.
 - [ ] **CA-12** (ubíquo): As duas janelas DEVEM usar o tema único escuro, só tokens, alvos de 44 px e navegação por teclado.
 
 ## 8. Plano de Testes (Test Plan)
@@ -121,6 +141,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 - **Backend, `classroom/handler` e `service`:** a conexão com `view` (`panel`, `presenter`, ausente e inválido); o instantâneo de cada janela (CA-01, CA-09); o terminal sempre guardado e transmitido sem chave (CA-05); `live:terminal:broadcast` deixa de existir (CA-11); encerrar pelo painel encerra as duas janelas e fechar uma não encerra (CA-10).
 - **Frontend:** `TeacherPanel` (tempo de aula, resumo e contagens, sala de espera, lista, mãos, miniaturas e troca de modo e módulo, Encerrar aula; CA-01, CA-03, CA-10); botão de abrir a janela de apresentação (CA-02); `PresenterStage` (palco sem menus, tela cheia, teclado, laser, caneta e terminal enviando na hora; CA-04, CA-05); as duas janelas refletindo a troca de lâmina e de modo (CA-06); a janela substituída em modo passivo (CA-07); ausência da tela dividida, da lâmina privada e da chave (CA-11); tema, alvos e teclado (CA-12).
 - **Frontend (CA-13):** o modo de aula ao vivo do `TopicStudy` mostra o material e o terminal no layout da tela de estudo, sem desafios, progresso, respostas nem leitor por voz; o professor transmite e o estudante espelha, com o bloco em foco; e **todos os testes existentes do `TopicStudy` e das páginas de estudo continuam verdes sem alteração** (a tela comum não muda).
+- **Frontend (CA-14 a CA-20):** `TeacherPanel` (passo a passo e a etapa pendente em destaque, aviso e som da espera, confirmação ao encerrar com duração e participantes, estados vazios); a aula nascida do calendário abre no que existe (lâminas ou módulo) e oferece a troca; `PresenterStage` (barra que aparece e some, os atalhos, a lista de atalhos, a dica da primeira vez, a tela preta que a turma também vê); o bloco em foco que acompanha a leitura do professor.
 - **Manual:** abrir o painel no monitor do professor e a apresentação no projetor; passar lâminas por uma e pela outra e ver as duas acompanharem; digitar no terminal da apresentação e ver o aluno acompanhar na hora; conferir o cronômetro e as contagens; fechar a janela de apresentação e ver o painel avisar.
 - **Cobertura:** acima de 80% no escopo (`go test -cover` e Vitest).
 
@@ -143,3 +164,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: o professor interage na janela de
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao decidir a janela de apresentação e o painel do professor |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: o modo Módulo da turma deve ter o mesmo estilo da tela de estudo (`/materials/:id`). Acrescentados o modo opcional de aula ao vivo do `TopicStudy` e o CA-13 |
+| 14/10/2026 | Aruna Architect | Pedido do Tech Lead: deixar a apresentação intuitiva, com pouco trabalho para o professor. Acrescentada a seção 3.3 (passo a passo, aula já pronta, barra e atalhos, tela preta, foco automático, aviso da espera, confirmação ao encerrar) e os CA-14 a CA-20 |
