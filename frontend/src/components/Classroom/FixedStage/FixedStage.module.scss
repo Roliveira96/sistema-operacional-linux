@@ -60,15 +60,8 @@
     top 40ms linear;
 }
 
-// What the teacher selected is marked on the screen of the student with the highlight of the browser, in the same color for the material and for the
-// terminal (SPEC-057 CA-20). It sits on the stage, which holds both, so the rule has a class of this file.
-.stage ::highlight(teacher-material),
-.stage ::highlight(teacher-terminal) {
-  background-color: var(--color-orange-line);
-  color: var(--color-text-primary);
-}
-
-// The same mark, for a browser with no highlight: it wraps the text and changes nothing of it.
+// What the teacher selected is marked with the highlight of the browser, painted by the global stylesheet (a CSS Module would rename the highlight).
+// This is the mark for a browser with no highlight: it wraps the text and changes nothing of it.
 .stage mark[data-teacher-selection] {
   background-color: var(--color-orange-line);
   color: var(--color-text-primary);

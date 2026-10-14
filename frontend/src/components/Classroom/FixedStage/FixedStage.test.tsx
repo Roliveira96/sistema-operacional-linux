@@ -239,9 +239,12 @@ describe("FixedStage with zoom", () => {
 // The marks of the text the teacher selected (SPEC-057 CA-20, CA-21) are painted with the highlight of the browser, with a token for the color
 describe("the highlight of the selection of the teacher", () => {
   it("is styled for the material and for the terminal with tokens, and with no color written in the style", () => {
-    expect(css).toMatch(/::highlight\(teacher-material\)/);
-    expect(css).toMatch(/::highlight\(teacher-terminal\)/);
-    expect(css).toMatch(/::highlight\([^)]*\)[^{]*\{[^}]*background-color:\s*var\(--color-/);
+    // In the global stylesheet: the build renames the name inside ::highlight() of a CSS Module, and the highlight is registered with the plain name.
+    const global = styleOf("../../../styles/globals.scss");
+    expect(global).toMatch(/::highlight\(teacher-material\)/);
+    expect(global).toMatch(/::highlight\(teacher-terminal\)/);
+    expect(global).toMatch(/::highlight\(teacher-terminal\)[^{]*\{[^}]*background-color:\s*var\(--color-/);
+    expect(css).not.toContain("::highlight(");
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}/);
   });
 
