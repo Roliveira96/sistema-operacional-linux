@@ -93,6 +93,6 @@ describe("ClassSettingsPage", () => {
     expect(await screen.findByRole("heading", { name: "outubro de 2026" })).toBeDefined();
     expect(calendar).toHaveBeenCalledWith("class-123", "2026-09-27", "2026-10-31");
     expect(screen.queryByRole("region", { name: "Prévia do calendário" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Aplicar horários ao calendário" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Aplicar horários ao calendário" })).toBeNull();
   });
 });

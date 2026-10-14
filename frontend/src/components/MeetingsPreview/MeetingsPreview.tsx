@@ -18,12 +18,10 @@ export interface MeetingsPreviewProps {
   color: string;
   /** Holidays and recesses to show on their days (SPEC-044, CA-15). */
   holidays?: Holiday[];
-  /** The title and accessible name; the default is the preview of a new class. */
-  label?: string;
 }
 
 /** Read-only month calendar of the lessons the weekly meetings generate in the term (SPEC-044, section 3.1.2). */
-export function MeetingsPreview({ startDate, endDate, meetings, color, holidays = [], label = m.label }: MeetingsPreviewProps) {
+export function MeetingsPreview({ startDate, endDate, meetings, color, holidays = [] }: MeetingsPreviewProps) {
   const [shown, setShown] = useState<{ key: string; month: Date } | null>(null);
 
   const validTerm = Boolean(startDate) && Boolean(endDate) && startDate <= endDate;
@@ -98,8 +96,8 @@ export function MeetingsPreview({ startDate, endDate, meetings, color, holidays 
   }
 
   return (
-    <section className={styles.preview} aria-label={label}>
-      <h3 className={styles.heading}>{label}</h3>
+    <section className={styles.preview} aria-label={m.label}>
+      <h3 className={styles.heading}>{m.label}</h3>
       {body}
     </section>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { MeetingsEditor, validateMeetingDrafts, type MeetingDraft } from "@/components/MeetingsEditor/MeetingsEditor";
 import { ClassSessionsCalendar } from "@/components/ClassSessionsCalendar/ClassSessionsCalendar";
 import { MeetingsPreview } from "@/components/MeetingsPreview/MeetingsPreview";
@@ -34,6 +34,9 @@ export interface ClassFormProps {
   /** The holidays of a year, shown in the preview of a new class. */
   loadHolidays?: (year: number) => Promise<Holiday[]>;
 }
+
+/** How long after the last change the meetings of a saved class are applied. */
+const APPLY_DELAY_MS = 600;
 
 /** The meetings as the server takes them. */
 function toMeetings(drafts: MeetingDraft[]): Meeting[] {
@@ -189,7 +192,7 @@ export function ClassForm({
   const [meetings, setMeetings] = useState<MeetingDraft[]>(initialMeetings ?? []);
   const [meetingErrors, setMeetingErrors] = useState<Record<string, string>>({});
   const [appliedMeetings, setAppliedMeetings] = useState(() => JSON.stringify(toMeetings(initialMeetings ?? [])));
-  const [applying, setApplying] = useState(false);
+  const [applyState, setApplyState] = useState<"idle" | "applying" | "applied">("idle");
   const [calendarReload, setCalendarReload] = useState(0);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [enableVirtual, setEnableVirtual] = useState(initialData?.enableVirtualClassroom ?? false);
@@ -208,7 +211,7 @@ export function ClassForm({
 
   // The field to focus once its tab is on screen (a hidden panel cannot take the focus).
   const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (focusRequest) document.getElementById(focusRequest.id)?.focus();
   }, [focusRequest]);
 
@@ -227,26 +230,30 @@ export function ClassForm({
     };
   }, [loadHolidays, startDate, endDate]);
 
-  const meetingsNotApplied = Boolean(classId) && JSON.stringify(toMeetings(meetings)) !== appliedMeetings;
-
-  const applyMeetings = async () => {
-    if (!onApplyMeetings) return;
-    const found = validateMeetingDrafts(meetings);
-    setMeetingErrors(found);
-    if (Object.keys(found).length > 0) return;
-    setApplying(true);
-    setFormError(null);
-    try {
-      const list = toMeetings(meetings);
-      await onApplyMeetings(list);
-      setAppliedMeetings(JSON.stringify(list));
-      setCalendarReload((n) => n + 1);
-    } catch {
-      setFormError(m.errors.generic);
-    } finally {
-      setApplying(false);
-    }
-  };
+  // On a saved class the valid meetings are applied to it by themselves, a little after the last change,
+  // so the real calendar shows them (SPEC-044, section 3.1.2). A content that failed is not tried again.
+  const pendingMeetings = JSON.stringify(toMeetings(meetings));
+  const lastTried = useRef(appliedMeetings);
+  useEffect(() => {
+    if (!classId || !onApplyMeetings) return;
+    if (pendingMeetings === appliedMeetings || pendingMeetings === lastTried.current) return;
+    if (Object.keys(validateMeetingDrafts(meetings)).length > 0) return;
+    const timer = setTimeout(() => {
+      lastTried.current = pendingMeetings;
+      setApplyState("applying");
+      onApplyMeetings(toMeetings(meetings))
+        .then(() => {
+          setAppliedMeetings(pendingMeetings);
+          setCalendarReload((n) => n + 1);
+          setApplyState("applied");
+        })
+        .catch(() => {
+          setFormError(m.errors.generic);
+          setApplyState("idle");
+        });
+    }, APPLY_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [classId, onApplyMeetings, pendingMeetings, appliedMeetings, meetings]);
 
   const showErrors = (found: FieldErrors) => {
     setErrors(found);
@@ -571,23 +578,10 @@ export function ClassForm({
           <div className={`${styles.field} ${styles.fullWidth}`}>
             {classId ? (
               <>
-                {onApplyMeetings && (
-                  <div className={styles.applyRow}>
-                    <button type="button" className={styles.apply} disabled={applying} onClick={() => void applyMeetings()}>
-                      {applying ? messages.schedule.preview.applyingMeetings : messages.schedule.preview.applyMeetings}
-                    </button>
-                    {meetingsNotApplied && <span className={styles.help}>{messages.schedule.preview.notApplied}</span>}
-                  </div>
-                )}
-                {meetingsNotApplied && (
-                  <MeetingsPreview
-                    startDate={startDate}
-                    endDate={endDate}
-                    meetings={meetings}
-                    color={color}
-                    holidays={holidays}
-                    label={messages.schedule.preview.notAppliedTitle}
-                  />
+                {applyState !== "idle" && (
+                  <span role="status" className={styles.help}>
+                    {applyState === "applying" ? messages.schedule.preview.applyingStatus : messages.schedule.preview.appliedStatus}
+                  </span>
                 )}
                 <ClassSessionsCalendar
                   classId={classId}

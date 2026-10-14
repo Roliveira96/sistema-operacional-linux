@@ -445,11 +445,8 @@ export const messages = {
     } as Record<string, string>,
     preview: {
       label: "Prévia do calendário",
-      notAppliedTitle: "Prévia dos horários ainda não aplicados",
-      applyMeetings: "Aplicar horários ao calendário",
-      applyingMeetings: "Aplicando…",
-      notApplied: "O calendário ainda mostra os horários salvos. Aplique para ver as mudanças.",
-      applyError: "Não foi possível aplicar os horários.",
+      applyingStatus: "Aplicando horários…",
+      appliedStatus: "Horários aplicados ao calendário.",
       needDates: "Informe as datas de início e fim da turma, na aba Informações, para ver o calendário.",
       needMeetings: "Marque os dias da semana para ver as aulas no calendário.",
       previousMonth: "Mês anterior",

@@ -309,31 +309,3 @@
   color: var(--color-text-body);
   cursor: pointer;
 }
-
-// The button that saves the meetings of a saved class, above its calendar (SPEC-044, section 3.1.2).
-.applyRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.apply {
-  min-height: 2.75rem;
-  padding: 0.6rem 1.1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-
-  @include mixins.focusable;
-
-  &:disabled {
-    cursor: progress;
-    opacity: 0.6;
-  }
-}
