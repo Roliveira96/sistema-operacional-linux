@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveSnapshot } from "@/services/classroomService";
 import { useLiveClassroom } from "./useLiveClassroom";
@@ -288,6 +289,48 @@ describe("useLiveClassroom", () => {
       act(() => student.result.current.focusBlock("b-1"));
       act(() => student.result.current.setTerminalBroadcast(true));
       expect(student.socket().sent).toEqual([]);
+    });
+  });
+
+  // Defect found in use: with the screen mounted twice (React Strict Mode in development, or a quick reload) the first connection was
+  // closed but its messages and its close still reached the screen, so the teacher was made passive and the connection was reopened.
+  describe("a connection that was replaced", () => {
+    function strict(role: "teacher" | "student") {
+      FakeLive.all = [];
+      const connect = vi.fn((_classId: string, handlers: Handlers) => new FakeLive(handlers));
+      const view = renderHook(() => useLiveClassroom({ classId: "c-1", role, connect: connect as never }), { wrapper: StrictMode });
+      return { ...view, connect };
+    }
+
+    it("does not let the old connection take the control from the teacher", () => {
+      const { result } = strict("teacher");
+      const [old, current] = [FakeLive.all[0]!, FakeLive.all.at(-1)!];
+      expect(old).not.toBe(current);
+      expect(old.closed).toBe(true);
+      act(() => old.receive("live:control:revoked", {}));
+      expect(result.current.canControl).toBe(true);
+      act(() => current.receive("live:control:revoked", {}));
+      expect(result.current.canControl).toBe(false);
+    });
+
+    it("does not reconnect when the old connection closes", () => {
+      const { connect } = strict("teacher");
+      const old = FakeLive.all[0]!;
+      const before = connect.mock.calls.length;
+      act(() => old.handlers.onClose());
+      act(() => vi.advanceTimersByTime(60_000));
+      expect(connect.mock.calls.length).toBe(before);
+    });
+
+    it("does not mix up the state of the connection with the one of the old", () => {
+      const { result } = strict("student");
+      const [old, current] = [FakeLive.all[0]!, FakeLive.all.at(-1)!];
+      act(() => old.handlers.onOpen());
+      expect(result.current.connected).toBe(false);
+      act(() => old.receive("live:ended", {}));
+      expect(result.current.ended).toBe(false);
+      act(() => current.handlers.onOpen());
+      expect(result.current.connected).toBe(true);
     });
   });
 });
