@@ -159,4 +159,17 @@ describe("ClassCard", () => {
     rerender(<ClassCard classGroup={{ ...mockClass, totalPendingRequests: 0 }} />);
     expect(pending().getAttribute("data-attention")).toBeNull();
   });
+
+  // SPEC-047 CA-07: the two main buttons share a line; the icon actions are in the header
+  it("keeps Visualizar and Adicionar estudantes in the same row and the icon actions in the header", () => {
+    const { container } = render(<ClassCard classGroup={mockClass} onArchive={vi.fn()} />);
+    const view = screen.getByRole("link", { name: /Visualizar/i });
+    const add = screen.getByRole("link", { name: /Adicionar estudantes/i });
+    expect(view.parentElement).toBe(add.parentElement);
+    expect(view.parentElement?.parentElement?.tagName).toBe("FOOTER");
+    const header = container.querySelector("header");
+    expect(header?.contains(screen.getByRole("link", { name: "Configurações" }))).toBe(true);
+    expect(header?.contains(screen.getByRole("button", { name: "Arquivar" }))).toBe(true);
+    expect(container.querySelector("footer")?.contains(screen.getByRole("link", { name: "Configurações" }))).toBe(false);
+  });
 });
