@@ -136,19 +136,19 @@ func TestStageMessagesOnlyFromThePresenter(t *testing.T) {
 
 	sendMsg(t, panel, "live:cursor:move", `{"x":1,"y":1}`)
 	sendMsg(t, panel, "live:canvas:draw", `{"path":[[1,2]]}`)
-	sendMsg(t, panel, "live:terminal:input", `{"terminal":1,"line":"ls"}`)
-	sendMsg(t, panel, "live:terminal:sync", `{"terminal":1,"line":"ls","state":{}}`)
+	sendMsg(t, panel, "live:terminal:screen", `{"screen":{"tag":"div","children":["ls"]}}`)
 	sendMsg(t, panel, "live:stage:blank", `{"blank":true}`)
-	eventually(t, func() bool { return w.logs.FilterMessage("classroom message dropped").Len() == 5 })
+	eventually(t, func() bool { return w.logs.FilterMessage("classroom message dropped").Len() == 4 })
 
 	entry := w.logs.FilterMessage("classroom message dropped").All()[0].ContextMap()
 	assert.Equal(t, "live:cursor:move", entry["type"])
 	assert.Equal(t, "wrong-view", entry["reason"])
 	assert.Equal(t, w.teacher.UserID.String(), entry["userId"])
-	nothingMore(t, student, "live:cursor:move", "live:canvas:draw", "live:terminal:input", "live:terminal:sync", "live:stage:blank")
+	assert.Equal(t, []string{"live:cursor:move:wrong-view", "live:canvas:draw:wrong-view", "live:terminal:screen:wrong-view", "live:stage:blank:wrong-view"},
+		droppedReasons(w), "SPEC-056 CA-08: the screen from the panel is dropped with the audit entry of the stage messages")
+	nothingMore(t, student, "live:cursor:move", "live:canvas:draw", "live:terminal:screen", "live:stage:blank")
 	assert.Empty(t, w.svc.drawings)
-	assert.Empty(t, w.svc.input)
-	assert.Empty(t, w.svc.syncs)
+	assert.Empty(t, w.svc.keptScreens())
 	assert.Empty(t, w.svc.blankSets)
 }
 

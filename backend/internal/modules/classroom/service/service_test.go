@@ -570,8 +570,7 @@ func TestActiveSession_ReturnsSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, w.svc.ChangeSlide(ctx, s.ID, 4))
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"path":[1,2]}`))
-	w.svc.RememberTerminalInput(s.ID, json.RawMessage(`{"line":"ls -"}`))
-	w.svc.RememberTerminalSync(s.ID, json.RawMessage(`{"terminal":1,"line":"ls","output":"a b","state":{"fs":1}}`))
+	w.svc.RememberTerminalScreen(s.ID, json.RawMessage(`{"tag":"div","children":["$ ls"]}`))
 	w.admit(s.ID, w.student.UserID)
 	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
 	require.NoError(t, err)
@@ -585,9 +584,7 @@ func TestActiveSession_ReturnsSnapshot(t *testing.T) {
 		require.NotNil(t, a.Deck)
 		assert.Contains(t, a.Deck.DownloadURL, "ttl=900", "a renewed address each time")
 		assert.Len(t, a.Drawings, 1)
-		assert.JSONEq(t, `{"line":"ls -"}`, string(a.Terminal.Input))
-		require.Len(t, a.Terminal.Entries, 1)
-		assert.JSONEq(t, `{"fs":1}`, string(a.Terminal.State))
+		assert.JSONEq(t, `{"tag":"div","children":["$ ls"]}`, string(a.TerminalScreen), "SPEC-056 CA-05: the screen of the teacher")
 		require.Len(t, a.HandRaises, 1)
 		assert.Equal(t, "Ana", a.HandRaises[0].Name)
 	}
@@ -600,23 +597,21 @@ func TestActiveSession_ReturnsSnapshot(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrClassNotFound)
 }
 
-// Covers SPEC-051 CA-14 and RN-07: the snapshot keeps the last 200 terminal entries and clears the strokes of the slide that was left.
-func TestSnapshotKeepsTheTerminalHistoryAndClearsStrokes(t *testing.T) {
+// Covers SPEC-051 CA-14 and RN-07, and SPEC-056 CA-05: the snapshot keeps only the last terminal screen, and clears the strokes of the
+// slide that was left.
+func TestSnapshotKeepsTheLastTerminalScreenAndClearsStrokes(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
 	s := w.start(t)
 	for i := 1; i <= 250; i++ {
-		w.svc.RememberTerminalSync(s.ID, json.RawMessage(fmt.Sprintf(`{"terminal":1,"line":"cmd %d","state":{"n":%d}}`, i, i)))
+		w.svc.RememberTerminalScreen(s.ID, json.RawMessage(fmt.Sprintf(`{"tag":"div","children":["screen %d"]}`, i)))
 	}
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"path":[1]}`))
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"path":[2]}`))
 
 	snap, err := w.svc.Snapshot(ctx, s.ID)
 	require.NoError(t, err)
-	require.Len(t, snap.Terminal.Entries, 200)
-	assert.Contains(t, string(snap.Terminal.Entries[199]), "cmd 250")
-	assert.Contains(t, string(snap.Terminal.Entries[0]), "cmd 51")
-	assert.JSONEq(t, `{"n":250}`, string(snap.Terminal.State))
+	assert.JSONEq(t, `{"tag":"div","children":["screen 250"]}`, string(snap.TerminalScreen), "only the last screen, no history")
 	assert.Len(t, snap.Drawings, 2)
 
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"clear":true}`))

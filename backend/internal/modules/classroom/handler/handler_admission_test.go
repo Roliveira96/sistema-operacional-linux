@@ -355,7 +355,8 @@ func TestTeacherSnapshotCarriesTheAdmissions(t *testing.T) {
 
 // ---- WebSocket: the broadcast of the terminal and the module ----
 
-// Covers SPEC-055 CA-05, CA-11 and RN-04: the terminal of the teacher is always broadcast, with no switch; the old message is unknown.
+// Covers SPEC-055 CA-05, CA-11 and RN-04, and SPEC-056 CA-09: the terminal screen of the teacher is always broadcast, with no switch;
+// the messages of the mirroring by commands and the old switch are unknown, and nothing is kept or passed on.
 func TestTerminalIsAlwaysBroadcast(t *testing.T) {
 	w := setup(t)
 	presenter := w.dialView(t, "teacher", "presenter")
@@ -363,16 +364,17 @@ func TestTerminalIsAlwaysBroadcast(t *testing.T) {
 	readUntil(t, presenter, "live:snapshot")
 	readUntil(t, student, "live:snapshot")
 
-	sendMsg(t, presenter, "live:terminal:input", `{"terminal":1,"line":"ls"}`)
-	assert.JSONEq(t, `{"terminal":1,"line":"ls"}`, string(readUntil(t, student, "live:terminal:input").Data))
-	sendMsg(t, presenter, "live:terminal:sync", `{"terminal":1,"line":"ls","output":"a","state":{"fs":1}}`)
-	readUntil(t, student, "live:terminal:sync")
-	assert.NotEmpty(t, w.svc.input)
-	assert.NotEmpty(t, w.svc.syncs)
+	sendMsg(t, presenter, "live:terminal:screen", `{"screen":{"tag":"div","children":["ls"]}}`)
+	assert.JSONEq(t, `{"screen":{"tag":"div","children":["ls"]}}`, string(readUntil(t, student, "live:terminal:screen").Data))
+	assert.Equal(t, 1, len(w.svc.keptScreens()))
 
+	sendMsg(t, presenter, "live:terminal:input", `{"terminal":1,"line":"ls"}`)
+	sendMsg(t, presenter, "live:terminal:sync", `{"terminal":1,"line":"ls","output":"a","state":{"fs":1}}`)
 	sendMsg(t, presenter, "live:terminal:broadcast", `{"enabled":false}`)
-	eventually(t, func() bool { return w.logs.FilterMessage("classroom message dropped").Len() == 1 })
-	assert.Equal(t, "unknown-type", w.logs.FilterMessage("classroom message dropped").All()[0].ContextMap()["reason"])
+	eventually(t, func() bool { return w.logs.FilterMessage("classroom message dropped").Len() == 3 })
+	assert.Equal(t, []string{"live:terminal:input:unknown-type", "live:terminal:sync:unknown-type", "live:terminal:broadcast:unknown-type"}, droppedReasons(w))
+	nothingMore(t, student, "live:terminal:input", "live:terminal:sync", "live:terminal:broadcast")
+	assert.Equal(t, 1, len(w.svc.keptScreens()), "the old messages keep nothing")
 }
 
 // Covers SPEC-054 CA-11 and RN-04: the block in focus reaches the admitted students and is kept for who comes in later.

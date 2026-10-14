@@ -66,8 +66,8 @@ type fakeService struct {
 	modes    []string
 	moduleID *uuid.UUID
 	drawings []string
-	input    []string
-	syncs    []string
+	screens  []string        // the terminal screens the handler asked to keep (SPEC-056)
+	screen   json.RawMessage // the last of them, which the snapshot gives back
 	moderate []*uuid.UUID
 	presence int
 
@@ -122,7 +122,7 @@ func (f *fakeService) ListDecks(_ context.Context, a service.Actor, _ uuid.UUID)
 }
 func (f *fakeService) GetActive(_ context.Context, a service.Actor, _ uuid.UUID) (service.Active, error) {
 	f.actor = a
-	return f.active, f.err
+	return f.activeNow(), f.err
 }
 func (f *fakeService) ListSessions(_ context.Context, a service.Actor, _ uuid.UUID) ([]service.SessionSummary, error) {
 	f.actor = a
@@ -150,7 +150,7 @@ func (f *fakeService) Connect(_ context.Context, a service.Actor, _ uuid.UUID) (
 	return conn, nil
 }
 func (f *fakeService) Snapshot(context.Context, uuid.UUID) (service.Active, error) {
-	return f.active, nil
+	return f.activeNow(), nil
 }
 func (f *fakeService) ChangeSlide(_ context.Context, _ uuid.UUID, slide int) error {
 	f.mu.Lock()
@@ -173,15 +173,29 @@ func (f *fakeService) RememberDrawing(_ uuid.UUID, raw json.RawMessage) {
 	f.drawings = append(f.drawings, string(raw))
 	f.mu.Unlock()
 }
-func (f *fakeService) RememberTerminalInput(_ uuid.UUID, raw json.RawMessage) {
+func (f *fakeService) RememberTerminalScreen(_ uuid.UUID, raw json.RawMessage) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.input = append(f.input, string(raw))
+	f.screens = append(f.screens, string(raw))
+	f.screen = raw
 }
-func (f *fakeService) RememberTerminalSync(_ uuid.UUID, raw json.RawMessage) {
+
+// keptScreens are the screens the handler asked to keep, in order.
+func (f *fakeService) keptScreens() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.syncs = append(f.syncs, string(raw))
+	return append([]string(nil), f.screens...)
+}
+
+// activeNow is the state of the room with the last kept terminal screen, as the real service gives it.
+func (f *fakeService) activeNow() service.Active {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	a := f.active
+	if f.screen != nil {
+		a.TerminalScreen = f.screen
+	}
+	return a
 }
 func (f *fakeService) RaiseHand(_ context.Context, _ uuid.UUID, student uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	f.record("raise")
@@ -454,7 +468,6 @@ func TestActiveRoute(t *testing.T) {
 		Session:    w.session,
 		Deck:       &service.DeckView{Deck: domain.SlideDeck{Model: database.Model{ID: deckID}, Title: "Slides", PageCount: 9}, DownloadURL: "https://files.test/d?ttl=900"},
 		Drawings:   []json.RawMessage{json.RawMessage(`{"path":[1,2]}`)},
-		Terminal:   service.TerminalState{Input: json.RawMessage(`{"line":"ls"}`), Entries: []json.RawMessage{json.RawMessage(`{"line":"pwd"}`)}, State: json.RawMessage(`{"fs":1}`)},
 		HandRaises: []domain.HandRaiseEntry{{StudentID: w.student.UserID, Name: "Ana", RequestedAt: time.Date(2026, 10, 14, 19, 5, 0, 0, time.UTC)}},
 	}
 	code, body := w.call(t, "student", http.MethodGet, w.path("/active"), nil)
@@ -472,10 +485,7 @@ func TestActiveRoute(t *testing.T) {
 	assert.EqualValues(t, 9, activeDeck["pageCount"])
 	assert.Equal(t, "https://files.test/d?ttl=900", activeDeck["downloadUrl"])
 	assert.Len(t, body["recentDrawings"], 1)
-	terminal := body["terminal"].(map[string]any)
-	assert.JSONEq(t, `{"line":"ls"}`, mustJSON(terminal["input"]))
-	assert.Len(t, terminal["entries"], 1)
-	assert.JSONEq(t, `{"fs":1}`, mustJSON(terminal["state"]))
+	assert.JSONEq(t, `{"screen":null}`, mustJSON(body["terminal"]), "no screen yet: the terminal has only the screen key, empty")
 	hands := body["handRaises"].([]any)
 	require.Len(t, hands, 1)
 	assert.Equal(t, "Ana", hands[0].(map[string]any)["name"])
@@ -610,7 +620,7 @@ func eventually(t *testing.T, cond func() bool) {
 // Covers SPEC-051 CA-14, RN-07 and section 5.8: the first message of a connection is the snapshot of the room.
 func TestSnapshotComesFirst(t *testing.T) {
 	w := setup(t)
-	w.svc.active = service.Active{Found: true, Session: w.session, Terminal: service.TerminalState{State: json.RawMessage(`{"fs":7}`)},
+	w.svc.active = service.Active{Found: true, Session: w.session, TerminalScreen: json.RawMessage(`{"tag":"div","children":["$ ls"]}`),
 		Drawings: []json.RawMessage{json.RawMessage(`{"path":[9]}`)}}
 	c := w.dial(t, "student")
 	m := readMsg(t, c)
@@ -620,7 +630,7 @@ func TestSnapshotComesFirst(t *testing.T) {
 	assert.Equal(t, "SLIDES", snap["displayMode"])
 	assert.EqualValues(t, 2, snap["currentSlide"])
 	assert.Len(t, snap["recentDrawings"], 1)
-	assert.JSONEq(t, `{"fs":7}`, mustJSON(snap["terminal"].(map[string]any)["state"]))
+	assert.JSONEq(t, `{"screen":{"tag":"div","children":["$ ls"]}}`, mustJSON(snap["terminal"]), "the terminal is the screen only (SPEC-056 CA-05, CA-09)")
 	assert.EqualValues(t, 1, snap["onlineCount"], "the student counts himself")
 }
 
@@ -671,17 +681,12 @@ func TestTeacherControlsAreBroadcast(t *testing.T) {
 	assert.Equal(t, []string{"MODULE"}, w.svc.modes)
 	assert.Equal(t, &module, w.svc.moduleID)
 
-	sendMsg(t, teacher, "live:terminal:input", `{"terminal":1,"line":"ls -l"}`)
-	assert.JSONEq(t, `{"terminal":1,"line":"ls -l"}`, string(readUntil(t, student, "live:terminal:input").Data))
-	sendMsg(t, teacher, "live:terminal:sync", `{"terminal":1,"line":"ls -l","output":"total 0","state":{"fs":2}}`)
-	assert.JSONEq(t, `{"terminal":1,"line":"ls -l","output":"total 0","state":{"fs":2}}`, string(readUntil(t, student, "live:terminal:sync").Data))
-	eventually(t, func() bool {
-		w.svc.mu.Lock()
-		defer w.svc.mu.Unlock()
-		return len(w.svc.syncs) == 1 && len(w.svc.input) >= 1
-	})
+	sendMsg(t, teacher, "live:terminal:screen", `{"screen":{"tag":"div","children":["$ ls -l"]}}`)
+	assert.JSONEq(t, `{"screen":{"tag":"div","children":["$ ls -l"]}}`, string(readUntil(t, student, "live:terminal:screen").Data))
+	eventually(t, func() bool { return len(w.svc.keptScreens()) == 1 })
+	assert.JSONEq(t, `{"tag":"div","children":["$ ls -l"]}`, w.svc.keptScreens()[0], "the service keeps the screen, not the envelope")
 
-	nothingMore(t, teacher, "live:slide:change", "live:cursor:move", "live:terminal:sync")
+	nothingMore(t, teacher, "live:slide:change", "live:cursor:move", "live:terminal:screen")
 }
 
 // Covers SPEC-051 CA-02 and RN-06: a student cannot control the room, and the attempt is logged.
@@ -693,12 +698,14 @@ func TestStudentControlMessagesAreDropped(t *testing.T) {
 	readUntil(t, student, "live:snapshot")
 
 	sendMsg(t, student, "live:slide:change", `{"slide":9}`)
-	sendMsg(t, student, "live:terminal:sync", `{"terminal":1,"state":{}}`)
+	sendMsg(t, student, "live:terminal:screen", `{"screen":{"tag":"div"}}`)
 	sendMsg(t, student, "live:cursor:move", `{"x":1,"y":1}`)
 	eventually(t, func() bool { return w.logs.FilterMessage("classroom message dropped").Len() == 3 })
-	nothingMore(t, teacher, "live:slide:change", "live:terminal:sync", "live:cursor:move")
+	nothingMore(t, teacher, "live:slide:change", "live:terminal:screen", "live:cursor:move")
 	assert.Empty(t, w.svc.slides)
-	assert.Empty(t, w.svc.syncs)
+	assert.Empty(t, w.svc.keptScreens())
+	assert.Equal(t, []string{"live:slide:change:not-controller", "live:terminal:screen:not-controller", "live:cursor:move:not-controller"}, droppedReasons(w),
+		"SPEC-056 CA-08: the screen from a student is dropped as the other control messages")
 	entry := w.logs.FilterMessage("classroom message dropped").All()[0].ContextMap()
 	assert.Equal(t, "live:slide:change", entry["type"])
 	assert.Equal(t, "not-controller", entry["reason"])

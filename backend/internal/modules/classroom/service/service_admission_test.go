@@ -352,19 +352,53 @@ func TestModuleFocus_IsPublishedState(t *testing.T) {
 	assert.ErrorIs(t, w.svc.FocusModuleBlock(ctx, uuid.New(), "b"), domain.ErrSessionNotFound)
 }
 
-// Covers SPEC-055 CA-05 and RN-04: the terminal of the teacher is always kept for the snapshot, with no switch.
-func TestTerminal_AlwaysKept(t *testing.T) {
+// Covers SPEC-055 CA-05 and RN-04, and SPEC-056 CA-05: the terminal screen of the teacher is always kept for the snapshot, with no switch;
+// there is none before the first, the last one replaces the one before, and it lives through the slides and the modes of the lesson.
+func TestTerminalScreen_AlwaysKept(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
 	s := w.start(t)
+	module := uuid.New()
+	w.withModules(module)
 
-	w.svc.RememberTerminalInput(s.ID, json.RawMessage(`{"line":"ls"}`))
-	w.svc.RememberTerminalSync(s.ID, json.RawMessage(`{"line":"ls","state":{"fs":1}}`))
 	a, err := w.svc.Snapshot(ctx, s.ID)
 	require.NoError(t, err)
-	assert.Len(t, a.Terminal.Entries, 1)
-	assert.JSONEq(t, `{"line":"ls"}`, string(a.Terminal.Input))
-	assert.JSONEq(t, `{"fs":1}`, string(a.Terminal.State))
+	assert.Empty(t, a.TerminalScreen, "no screen before the teacher sends one")
+
+	w.svc.RememberTerminalScreen(s.ID, json.RawMessage(`{"tag":"div","children":["$ ls"]}`))
+	w.svc.RememberTerminalScreen(s.ID, json.RawMessage(`{"tag":"div","children":["$ pwd"]}`))
+	a, err = w.svc.Snapshot(ctx, s.ID)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"tag":"div","children":["$ pwd"]}`, string(a.TerminalScreen))
+
+	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &module))
+	require.NoError(t, w.svc.FocusModuleBlock(ctx, s.ID, "block-1"))
+	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeSlides, nil))
+	a, err = w.svc.Snapshot(ctx, s.ID)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"tag":"div","children":["$ pwd"]}`, string(a.TerminalScreen), "the screen is not tied to the mode or to the block in focus")
+}
+
+// Covers SPEC-056 section 4: the screen is kept in memory only, and ends with the lesson (the room is reopened in the fake repository just
+// to look at what the service still holds for it).
+func TestTerminalScreen_EndsWithTheLesson(t *testing.T) {
+	w := setup(t)
+	ctx := context.Background()
+	s := w.start(t)
+	w.svc.RememberTerminalScreen(s.ID, json.RawMessage(`{"tag":"div"}`))
+	before, err := w.svc.Snapshot(ctx, s.ID)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"tag":"div"}`, string(before.TerminalScreen), "the room had a screen")
+
+	_, err = w.svc.EndSession(ctx, w.teacher, w.class, s.ID)
+	require.NoError(t, err)
+	reopened := w.repo.sessions[s.ID]
+	reopened.Status, reopened.EndedAt = domain.StatusActive, nil
+	w.repo.sessions[s.ID] = reopened
+
+	a, err := w.svc.Snapshot(ctx, s.ID)
+	require.NoError(t, err)
+	assert.Empty(t, a.TerminalScreen, "the lesson ended: nothing of its screen is left")
 }
 
 // Covers SPEC-055 CA-17: the black screen is kept in memory, false by default, and ends with the lesson.
