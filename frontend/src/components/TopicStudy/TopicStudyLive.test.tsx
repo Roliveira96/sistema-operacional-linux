@@ -417,6 +417,23 @@ describe("TopicStudy in the live-class mode", () => {
     });
   });
 
+  // SPEC-057 CA-23: the scroll of the terminals reaches the terminal of each one
+  describe("the scroll of the terminals", () => {
+    it("gives the teacher's terminal the way to tell the place of each terminal, and no place to follow", () => {
+      const onTerminalScroll = vi.fn();
+      study({ role: "teacher", onTerminalScroll, terminalScroll: { "1": 0.5 } });
+      expect(mirrored.mock.lastCall![0].onTerminalScroll).toBe(onTerminalScroll);
+      expect(mirrored.mock.lastCall![0].terminalScroll).toBeUndefined();
+    });
+
+    it("gives the student's copy the places the teacher has, and no way to tell any", () => {
+      const onTerminalScroll = vi.fn();
+      study({ role: "student", onTerminalScroll, terminalScroll: { "1": 0.5, "3": 1 } });
+      expect(mirrored.mock.lastCall![0].terminalScroll).toEqual({ "1": 0.5, "3": 1 });
+      expect(mirrored.mock.lastCall![0].onTerminalScroll).toBeUndefined();
+    });
+  });
+
   // SPEC-057 CA-16: the layout is drawn in the stage, so the rules that answer to the width of the window do not apply to it
   describe("the layout in the stage", () => {
     const file = "./TopicStudy.module.scss";

@@ -46,6 +46,7 @@ vi.mock("../ModuleStage/ModuleStage", async () => {
     laser?: boolean;
     stageView?: { materialScroll: number; split: number | null };
     onSelection?: (selection: unknown) => void;
+    onTerminalScroll?: (terminal: number, y: number) => void;
     onFocusBlock?: (id: string) => void;
     onScreen?: (tree: unknown) => void;
     onCursor?: (x: number, y: number, laser: boolean) => void;
@@ -67,6 +68,7 @@ vi.mock("../ModuleStage/ModuleStage", async () => {
         React.createElement("button", { onClick: () => p.onMaterialScroll?.(0.3) }, "mock-material-scroll"),
         React.createElement("button", { onClick: () => p.onSplit?.(0.6) }, "mock-split"),
         React.createElement("button", { onClick: () => p.onSelection?.({ pane: "terminal", terminal: 1, start: 0, end: 2 }) }, "mock-selection"),
+        React.createElement("button", { onClick: () => p.onTerminalScroll?.(2, 0.4) }, "mock-terminal-scroll"),
         React.createElement("button", { onClick: () => p.onCursor?.(10, 20, false) }, "mock-module-cursor"),
         React.createElement("button", { onClick: () => p.onScreen?.({ tag: "div", attrs: { class: "janela" } }) }, "mock-screen"),
         React.createElement("button", { onClick: () => p.onFocusBlock?.("b-9") }, "mock-read"),
@@ -79,14 +81,14 @@ const deck = { id: "d", title: "t", pageCount: 5, downloadUrl: "https://x" };
 
 const actions = () => ({
   changeSlide: vi.fn(), moveCursor: vi.fn(), draw: vi.fn(), clearDrawings: vi.fn(), switchMode: vi.fn(), sendTerminalScreen: vi.fn(),
-  focusBlock: vi.fn(), setBlank: vi.fn(), sendStageScroll: vi.fn(), sendStageSplit: vi.fn(), sendStageZoom: vi.fn(), sendStageSelection: vi.fn(),
+  focusBlock: vi.fn(), setBlank: vi.fn(), sendStageScroll: vi.fn(), sendStageSplit: vi.fn(), sendStageZoom: vi.fn(), sendStageSelection: vi.fn(), sendTerminalScroll: vi.fn(),
 });
 
 function live(over: Record<string, unknown> = {}, room: Record<string, unknown> = {}) {
   const value = {
     room: { mode: "SLIDES", slide: 2, moduleId: "m-1", moduleFocusBlockId: null, deck, strokes: [], cursor: null, online: 5, blank: false, ...room },
     terminal: { screen: null },
-    stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null },
+    stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: {} },
     ready: true,
     ended: false,
     passive: false,
@@ -412,6 +414,17 @@ describe("PresenterStage", () => {
       expect(stage.contains(screen.getByRole("note", { name: "Dica de atalhos" }))).toBe(false);
     });
 
+    // CA-22: inside the stage the teacher has what the students have, and nothing else
+    it("covers the stage with a blank screen as empty as the students', and keeps the hint of how to come back outside of it", () => {
+      live({}, { blank: true });
+      render(<PresenterStage classId="c-1" session={session} />);
+      const stage = screen.getByTestId("fixed-stage");
+      const cover = screen.getByRole("status", { name: "Tela preta" });
+      expect(stage.contains(cover)).toBe(true);
+      expect(cover.textContent).toBe("");
+      expect(stage.contains(screen.getByText("Tela preta ligada. Aperte B para voltar."))).toBe(false);
+    });
+
     it("keeps the connection indicator and the notices outside of the stage", () => {
       live({ connected: false, passive: true, canControl: false });
       render(<PresenterStage classId="c-1" session={session} />);
@@ -424,7 +437,7 @@ describe("PresenterStage", () => {
   // CA-04: the scroll of the slide goes to the class; CA-07: so do the scroll of the material and the divider of the module
   describe("the scroll and the divider", () => {
     it("gives the slides the scroll of the room, and tells the class the scroll of the teacher", () => {
-      const l = live({ stageView: { slideScroll: 0.4, slideScrollX: 0.3, materialScroll: 0, split: null, zoom: 1, selection: null } });
+      const l = live({ stageView: { slideScroll: 0.4, slideScrollX: 0.3, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: {} } });
       render(<PresenterStage classId="c-1" session={session} />);
       expect(screen.getByTestId("slides").getAttribute("data-scroll")).toBe("0.4");
       expect(screen.getByTestId("slides").getAttribute("data-scroll-x")).toBe("0.3");
@@ -433,7 +446,7 @@ describe("PresenterStage", () => {
     });
 
     it("gives the module the scroll of the material and the divider of the room, and tells the class what the teacher does with them", () => {
-      const l = live({ stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0.7, split: 0.6, zoom: 1, selection: null } }, { mode: "MODULE" });
+      const l = live({ stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0.7, split: 0.6, zoom: 1, selection: null, terminalScroll: {} } }, { mode: "MODULE" });
       render(<PresenterStage classId="c-1" session={session} />);
       const module_ = screen.getByTestId("module");
       expect(module_.getAttribute("data-material-scroll")).toBe("0.7");
@@ -512,7 +525,7 @@ describe("PresenterStage", () => {
 
   // SPEC-057 CA-15, CA-16: the zoom of the teacher
   describe("the zoom", () => {
-    const zoomView = (zoom: number) => ({ slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom, selection: null });
+    const zoomView = (zoom: number) => ({ slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom, selection: null, terminalScroll: {} });
 
     it("draws the stage smaller by the zoom, in the same box the students have", () => {
       live({ stageView: zoomView(2) });
@@ -610,6 +623,16 @@ describe("PresenterStage", () => {
       render(<PresenterStage classId="c-1" session={session} />);
       key("+");
       expect(l.sendStageZoom).not.toHaveBeenCalled();
+    });
+  });
+
+  // CA-23: the scroll of each terminal goes to the class
+  describe("the scroll of the terminals", () => {
+    it("tells the class the number of the terminal the teacher scrolls, and the place", () => {
+      const l = live({}, { mode: "MODULE" });
+      render(<PresenterStage classId="c-1" session={session} />);
+      fireEvent.click(screen.getByRole("button", { name: "mock-terminal-scroll" }));
+      expect(l.sendTerminalScroll).toHaveBeenCalledWith(2, 0.4);
     });
   });
 

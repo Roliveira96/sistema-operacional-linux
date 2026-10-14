@@ -81,7 +81,7 @@ describe("ModuleStage", () => {
 
   // SPEC-057 CA-07, CA-10: the scroll of the material and the divider follow the teacher, and only he moves them
   describe("the scroll of the material and the divider", () => {
-    const stageView = { slideScroll: 0.2, slideScrollX: 0, materialScroll: 0.6, split: 0.55, zoom: 1, selection: null };
+    const stageView = { slideScroll: 0.2, slideScrollX: 0, materialScroll: 0.6, split: 0.55, zoom: 1, selection: null, terminalScroll: {} };
 
     it("gives the study screen where the teacher is: the scroll of the material and the divider", async () => {
       vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
@@ -109,6 +109,36 @@ describe("ModuleStage", () => {
       await screen.findByTestId("topic");
       expect(topic.mock.lastCall![0].live.materialScroll).toBeUndefined();
       expect(topic.mock.lastCall![0].live.split).toBeUndefined();
+    });
+  });
+
+  // SPEC-057 CA-23: the scroll of the terminals is the teacher's, and the student's copy follows it
+  describe("the scroll of the terminals", () => {
+    const view = { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: { "1": 0.4, "2": 1 } };
+
+    it("gives the student's study screen where the teacher has each terminal, and no way to tell one", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const onTerminalScroll = vi.fn();
+      render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} stageView={view} onTerminalScroll={onTerminalScroll} />);
+      await screen.findByTestId("topic");
+      expect(topic.mock.lastCall![0].live.terminalScroll).toEqual({ "1": 0.4, "2": 1 });
+      expect(topic.mock.lastCall![0].live.onTerminalScroll).toBeUndefined();
+    });
+
+    it("lets the teacher tell the place of a terminal, straight, and leaves the following to the real scroll he has", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const onTerminalScroll = vi.fn();
+      render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} stageView={view} onTerminalScroll={onTerminalScroll} />);
+      await screen.findByTestId("topic");
+      expect(topic.mock.lastCall![0].live.onTerminalScroll).toBe(onTerminalScroll);
+      expect(topic.mock.lastCall![0].live.terminalScroll).toBeUndefined();
+    });
+
+    it("tells nothing about the terminals when the room tells nothing", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} />);
+      await screen.findByTestId("topic");
+      expect(topic.mock.lastCall![0].live.terminalScroll).toBeUndefined();
     });
   });
 
@@ -257,7 +287,7 @@ describe("ModuleStage", () => {
       vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
       const picked = { pane: "material" as const, start: { block: "b-1", offset: 1 }, end: { block: "b-2", offset: 3 } };
       const onSelection = vi.fn();
-      render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} stageView={{ slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: picked }} onSelection={onSelection} />);
+      render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} stageView={{ slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: picked, terminalScroll: {} }} onSelection={onSelection} />);
       await screen.findByTestId("topic");
       expect(topic.mock.lastCall![0].live.selection).toEqual(picked);
       expect(topic.mock.lastCall![0].live.onSelection).toBeUndefined();
@@ -267,7 +297,7 @@ describe("ModuleStage", () => {
       vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
       const picked = { pane: "terminal" as const, terminal: 1, start: 1, end: 3 };
       const onSelection = vi.fn();
-      render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} stageView={{ slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: picked }} onSelection={onSelection} />);
+      render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} stageView={{ slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: picked, terminalScroll: {} }} onSelection={onSelection} />);
       await screen.findByTestId("topic");
       expect(topic.mock.lastCall![0].live.onSelection).toBe(onSelection);
       expect(topic.mock.lastCall![0].live.selection).toBeUndefined();

@@ -67,6 +67,7 @@ vi.mock("../ModuleStage/ModuleStage", async () => {
         "data-material-scroll": String(p.stageView?.materialScroll),
         "data-split": String(p.stageView?.split),
         "data-selection": JSON.stringify(p.stageView?.selection ?? null),
+        "data-terminal-scroll": JSON.stringify((p.stageView as { terminalScroll?: unknown } | undefined)?.terminalScroll ?? null),
       }),
   };
 });
@@ -86,7 +87,7 @@ function live(over: Record<string, unknown> = {}) {
     room: { mode: "SLIDES", slide: 2, moduleId: null, moduleFocusBlockId: null, blank: false, deck: { id: "d", title: "t", pageCount: 5, downloadUrl: "https://x" }, strokes: [], cursor: null, online: 5 },
     admission: "ADMITTED",
     terminal: { screen: null },
-    stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null },
+    stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: {} },
     hands: [],
     ready: true,
     ended: false,
@@ -247,7 +248,7 @@ describe("LiveClassroom", () => {
     });
 
     it("gives the slides the scroll of the teacher", () => {
-      live({ canControl: false, stageView: { slideScroll: 0.4, slideScrollX: 0.3, materialScroll: 0.9, split: 0.5, zoom: 1, selection: null } });
+      live({ canControl: false, stageView: { slideScroll: 0.4, slideScrollX: 0.3, materialScroll: 0.9, split: 0.5, zoom: 1, selection: null, terminalScroll: {} } });
       render(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
       expect(screen.getByTestId("slides").getAttribute("data-scroll")).toBe("0.4");
       expect(screen.getByTestId("slides").getAttribute("data-scroll-x")).toBe("0.3");
@@ -256,7 +257,7 @@ describe("LiveClassroom", () => {
     it("gives the module the scroll of the material, the divider and the pointer of the teacher, and nothing to send", () => {
       live({
         canControl: false,
-        stageView: { slideScroll: 0.4, slideScrollX: 0, materialScroll: 0.9, split: 0.5, zoom: 1, selection: null },
+        stageView: { slideScroll: 0.4, slideScrollX: 0, materialScroll: 0.9, split: 0.5, zoom: 1, selection: null, terminalScroll: {} },
         room: { mode: "MODULE", slide: 1, moduleId: "m-1", moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: { x: 30, y: 40, laser: true, visible: true }, online: 2 },
       });
       render(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
@@ -460,16 +461,29 @@ describe("LiveClassroom", () => {
     });
 
     describe("what is over the stage", () => {
-      it("is only the stage itself: the connecting and the lost-connection notices, and the blank screen", () => {
+      it("is only the stage itself: the blank screen, and the connecting, which takes the place of the content", () => {
         live({ canControl: false, ready: false, connected: false });
-        const view = room();
+        room();
         const stage = screen.getByTestId("fixed-stage");
         expect(stage.contains(screen.getByRole("status"))).toBe(true);
         expect(screen.getByRole("status").textContent).toBe("Conectando à sala…");
+        // It is the whole of what the stage has, in the place of the slides.
+        expect(stage.querySelector("[data-testid='slides'], [data-testid='module']")).toBeNull();
+      });
+
+      // CA-22: what is only the student's does not go inside the stage, where the teacher has nothing of the kind
+      it("tells the loss of the connection in the strip, and leaves the stage as the teacher's", () => {
         live({ canControl: false, ready: true, connected: false });
-        view.rerender(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
-        expect(screen.getByTestId("fixed-stage").contains(screen.getByRole("status"))).toBe(true);
-        expect(screen.getByRole("status").textContent).toBe("Conexão perdida. Tentando de novo…");
+        room();
+        expect(within(strip()).getByRole("status").textContent).toBe("Conexão perdida. Tentando de novo…");
+        expect(screen.getByTestId("fixed-stage").querySelector("[role='status']")).toBeNull();
+        expect(screen.getByTestId("slides")).toBeDefined();
+      });
+
+      it("does not tell the loss of the connection while it is connected", () => {
+        live({ canControl: false });
+        room();
+        expect(screen.queryByRole("status")).toBeNull();
       });
 
       it("shows no slides while the room is connecting, and shows them when the first state comes", () => {
@@ -490,14 +504,14 @@ describe("LiveClassroom", () => {
     // CA-15, CA-18: the student follows the zoom, and has no control of it
     describe("the zoom of the teacher", () => {
       it("draws the stage smaller by the zoom of the teacher, in the same box", () => {
-        live({ canControl: false, stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 2, selection: null } });
+        live({ canControl: false, stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 2, selection: null, terminalScroll: {} } });
         room();
         expect(screen.getByTestId("stage-box").style.width).toBe("640px");
         expect(screen.getByTestId("stage-box").style.height).toBe("360px");
       });
 
       it("has no button of zoom, and no key of zoom", () => {
-        live({ canControl: false, stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1.5, selection: null } });
+        live({ canControl: false, stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1.5, selection: null, terminalScroll: {} } });
         room();
         expect(screen.queryByRole("button", { name: /Aumentar|Diminuir|\d+%/ })).toBeNull();
         for (const key of ["+", "-", "0"]) fireEvent.keyDown(document.body, { key });
@@ -505,12 +519,23 @@ describe("LiveClassroom", () => {
       });
     });
 
+    // CA-23: where the teacher has each terminal reaches the module of the student
+    it("gives the module the places of the terminals of the teacher", () => {
+      live({
+        canControl: false,
+        stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: { "1": 0.25, "2": 1 } },
+        room: { mode: "MODULE", slide: 1, moduleId: "m-1", moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: null, online: 2 },
+      });
+      room();
+      expect(JSON.parse(screen.getByTestId("module").getAttribute("data-terminal-scroll")!)).toEqual({ "1": 0.25, "2": 1 });
+    });
+
     // CA-20, CA-21: the stretch of text of the teacher reaches the module
     it("gives the module the selection of the teacher to mark", () => {
       const picked = { pane: "material", start: { block: "b-1", offset: 1 }, end: { block: "b-1", offset: 4 } };
       live({
         canControl: false,
-        stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: picked },
+        stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: picked, terminalScroll: {} },
         room: { mode: "MODULE", slide: 1, moduleId: "m-1", moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: null, online: 2 },
       });
       room();

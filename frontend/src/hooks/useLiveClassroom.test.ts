@@ -447,8 +447,8 @@ describe("useLiveClassroom", () => {
 
   // SPEC-057: the scroll of the slide and of the material and the divider of the module follow the teacher
   describe("the stage view", () => {
-    const NONE = { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null };
-    const view = (over: Record<string, unknown> = {}) => ({ slideScroll: 0.25, slideScrollX: 0.1, materialScroll: 0.5, split: 0.6, zoom: 1.5, selection: null, ...over });
+    const NONE = { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: {} };
+    const view = (over: Record<string, unknown> = {}) => ({ slideScroll: 0.25, slideScrollX: 0.1, materialScroll: 0.5, split: 0.6, zoom: 1.5, selection: null, terminalScroll: { "1": 0.2 }, ...over });
     const scrolls = (sent: Array<{ type: string; data: unknown }>) => sent.filter((m) => m.type === "live:stage:scroll");
 
     // CA-08: who comes in, or connects again, sees where the teacher is without waiting for him
@@ -518,7 +518,7 @@ describe("useLiveClassroom", () => {
       act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-1" }));
       expect(result.current.stageView).toEqual(view());
       act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-2" }));
-      expect(result.current.stageView).toEqual(view({ materialScroll: 0 }));
+      expect(result.current.stageView).toEqual(view({ materialScroll: 0, terminalScroll: {} }));
     });
 
     it("keeps the scroll of the material when the teacher goes to the slides and back to the same module, as the server does", () => {
@@ -785,6 +785,176 @@ describe("useLiveClassroom", () => {
           const { result, unmount } = presenter();
           act(() => result.current.sendStageSelection(material as never));
           act(() => result.current.sendStageSelection(terminal as never));
+          unmount();
+          expect(vi.getTimerCount()).toBe(0);
+        });
+      });
+    });
+
+    // SPEC-057 CA-23: the scroll of the history of each terminal is the teacher's too, and the students follow it
+    describe("the scroll of the terminals", () => {
+      const terminalScrolls = (sent: Array<{ type: string; data: unknown }>) => sent.filter((m) => m.type === "live:stage:scroll" && (m.data as { pane: string }).pane === "terminal").map((m) => m.data);
+
+      it("starts with no terminal scrolled, and takes the places of the snapshot, for who comes in or connects again", () => {
+        const { result, socket } = setup("student");
+        expect(result.current.stageView.terminalScroll).toEqual({});
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ terminalScroll: { "1": 0.25, "3": 0.75 } }) } as never)));
+        expect(result.current.stageView.terminalScroll).toEqual({ "1": 0.25, "3": 0.75 });
+        act(() => socket().receive("live:snapshot", snapshot()));
+        expect(result.current.stageView.terminalScroll).toEqual({});
+      });
+
+      it("takes only the places of terminals 1 to 3, between 0 and 1, from a snapshot", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ terminalScroll: { "1": 4, "2": -1, "4": 0.5, "0": 0.5, x: 0.5, "3": "a" } }) } as never)));
+        expect(result.current.stageView.terminalScroll).toEqual({ "1": 1, "2": 0 });
+        for (const bad of [null, "x", [0.5], 7]) act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ terminalScroll: bad }) } as never)));
+        expect(result.current.stageView.terminalScroll).toEqual({});
+      });
+
+      it("follows the place of each terminal the teacher scrolls, and keeps the others", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:stage:scroll", { pane: "terminal", terminal: 2, y: 0.4 }));
+        expect(result.current.stageView.terminalScroll).toEqual({ "2": 0.4 });
+        act(() => socket().receive("live:stage:scroll", { pane: "terminal", terminal: 1, y: 1 }));
+        expect(result.current.stageView.terminalScroll).toEqual({ "1": 1, "2": 0.4 });
+        act(() => socket().receive("live:stage:scroll", { pane: "terminal", terminal: 2, y: 0.9 }));
+        expect(result.current.stageView.terminalScroll).toEqual({ "1": 1, "2": 0.9 });
+      });
+
+      it("leaves the scroll of the slide and of the material alone", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
+        act(() => socket().receive("live:stage:scroll", { pane: "terminal", terminal: 1, y: 0.7 }));
+        expect(result.current.stageView).toMatchObject({ slideScroll: 0.25, slideScrollX: 0.1, materialScroll: 0.5 });
+      });
+
+      it("keeps the place between 0 and 1, and does not take a terminal that does not exist or a place that is not a number", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:stage:scroll", { pane: "terminal", terminal: 1, y: 9 }));
+        expect(result.current.stageView.terminalScroll).toEqual({ "1": 1 });
+        act(() => socket().receive("live:stage:scroll", { pane: "terminal", terminal: 1, y: -9 }));
+        expect(result.current.stageView.terminalScroll).toEqual({ "1": 0 });
+        const bad = [
+          { pane: "terminal", y: 0.5 },
+          { pane: "terminal", terminal: 0, y: 0.5 },
+          { pane: "terminal", terminal: 4, y: 0.5 },
+          { pane: "terminal", terminal: 1.5, y: 0.5 },
+          { pane: "terminal", terminal: "2", y: 0.5 },
+          { pane: "terminal", terminal: 2 },
+          { pane: "terminal", terminal: 2, y: "a" },
+          { pane: "terminal", terminal: 2, y: Number.NaN },
+        ];
+        for (const data of bad) act(() => socket().receive("live:stage:scroll", data));
+        expect(result.current.stageView.terminalScroll).toEqual({ "1": 0 });
+      });
+
+      it("is kept when the slide changes, and cleared when the module changes, because the new module has new terminals", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1", stageView: view({ terminalScroll: { "1": 0.3 } }) } as never)));
+        act(() => socket().receive("live:slide:change", { slide: 3 }));
+        act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-1" }));
+        expect(result.current.stageView.terminalScroll).toEqual({ "1": 0.3 });
+        act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-2" }));
+        expect(result.current.stageView.terminalScroll).toEqual({});
+      });
+
+      describe("sending", () => {
+        function presenter() {
+          const h = setup("teacher", "presenter");
+          act(() => h.socket().handlers.onOpen());
+          return h;
+        }
+
+        it("lets only the presentation window tell it", () => {
+          const panel = setup("teacher", "panel");
+          const panelSocket = panel.socket();
+          act(() => panelSocket.handlers.onOpen());
+          act(() => panel.result.current.sendTerminalScroll(1, 0.5));
+          const student = setup("student");
+          const studentSocket = student.socket();
+          act(() => studentSocket.handlers.onOpen());
+          act(() => student.result.current.sendTerminalScroll(1, 0.5));
+          const lost = presenter();
+          const lostSocket = lost.socket();
+          act(() => lostSocket.receive("live:control:revoked", {}));
+          act(() => lost.result.current.sendTerminalScroll(1, 0.5));
+          act(() => vi.advanceTimersByTime(1000));
+          for (const sent of [panelSocket.sent, studentSocket.sent, lostSocket.sent]) expect(sent).toEqual([]);
+        });
+
+        it("tells the terminal and the place as the contract says, and nothing else", () => {
+          const { result, socket } = presenter();
+          act(() => result.current.sendTerminalScroll(2, 0.4));
+          expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "terminal", terminal: 2, y: 0.4 } });
+        });
+
+        it("keeps the terminal and the place inside what the server takes", () => {
+          const { result, socket } = presenter();
+          act(() => result.current.sendTerminalScroll(1, 7));
+          expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "terminal", terminal: 1, y: 1 } });
+          for (const terminal of [0, 4, 1.5, Number.NaN]) act(() => result.current.sendTerminalScroll(terminal, 0.5));
+          expect(terminalScrolls(socket().sent)).toHaveLength(1);
+        });
+
+        it("sends at once, then at most every 100 ms, the last place always arrives, and only what changed", () => {
+          const { result, socket } = presenter();
+          act(() => result.current.sendTerminalScroll(1, 0.1));
+          act(() => vi.advanceTimersByTime(30));
+          act(() => result.current.sendTerminalScroll(1, 0.2));
+          act(() => vi.advanceTimersByTime(30));
+          act(() => result.current.sendTerminalScroll(1, 0.3));
+          expect(terminalScrolls(socket().sent)).toHaveLength(1);
+          act(() => vi.advanceTimersByTime(40));
+          expect(terminalScrolls(socket().sent)).toEqual([
+            { pane: "terminal", terminal: 1, y: 0.1 },
+            { pane: "terminal", terminal: 1, y: 0.3 },
+          ]);
+          act(() => result.current.sendTerminalScroll(1, 0.3));
+          act(() => vi.advanceTimersByTime(500));
+          expect(terminalScrolls(socket().sent)).toHaveLength(2);
+        });
+
+        it("keeps a pace for each terminal, so one does not hold the other back", () => {
+          const { result, socket } = presenter();
+          act(() => result.current.sendTerminalScroll(1, 0.1));
+          act(() => result.current.sendTerminalScroll(2, 0.2));
+          act(() => result.current.sendTerminalScroll(3, 0.3));
+          expect(terminalScrolls(socket().sent)).toEqual([
+            { pane: "terminal", terminal: 1, y: 0.1 },
+            { pane: "terminal", terminal: 2, y: 0.2 },
+            { pane: "terminal", terminal: 3, y: 0.3 },
+          ]);
+        });
+
+        it("drops a place that was waiting when the module changes, and counts the end as told, as the new terminals start at the end", () => {
+          const { result, socket } = presenter();
+          act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1" } as never)));
+          act(() => result.current.sendTerminalScroll(1, 0.5));
+          act(() => result.current.sendTerminalScroll(1, 0.7));
+          act(() => result.current.switchMode("MODULE", "m-2"));
+          act(() => vi.advanceTimersByTime(300));
+          expect(terminalScrolls(socket().sent)).toEqual([{ pane: "terminal", terminal: 1, y: 0.5 }]);
+          act(() => result.current.sendTerminalScroll(1, 1));
+          act(() => vi.advanceTimersByTime(300));
+          expect(terminalScrolls(socket().sent)).toHaveLength(1);
+          act(() => result.current.sendTerminalScroll(1, 0.4));
+          act(() => vi.advanceTimersByTime(300));
+          expect(terminalScrolls(socket().sent).at(-1)).toEqual({ pane: "terminal", terminal: 1, y: 0.4 });
+        });
+
+        it("does not show his own place to himself: the teacher has the real scroll", () => {
+          const { result } = presenter();
+          act(() => result.current.sendTerminalScroll(1, 0.4));
+          expect(result.current.stageView.terminalScroll).toEqual({});
+        });
+
+        it("leaves no timer behind when the window goes away", () => {
+          const { result, unmount } = presenter();
+          act(() => result.current.sendTerminalScroll(1, 0.1));
+          act(() => result.current.sendTerminalScroll(1, 0.2));
+          act(() => result.current.sendTerminalScroll(2, 0.1));
+          act(() => result.current.sendTerminalScroll(2, 0.2));
           unmount();
           expect(vi.getTimerCount()).toBe(0);
         });

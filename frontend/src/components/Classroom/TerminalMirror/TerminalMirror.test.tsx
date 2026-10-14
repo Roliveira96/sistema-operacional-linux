@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScreenElement, ScreenNode } from "@/engine/terminalScreen";
+import { messages } from "@/messages/pt-BR";
 import { TerminalMirror } from "./TerminalMirror";
 
 // The path goes through a variable on purpose: Vite rewrites `new URL("./literal", import.meta.url)` as an asset address.
@@ -191,14 +192,16 @@ describe("TerminalMirror", () => {
     expect(window_().querySelectorAll(".janela")).toHaveLength(1);
   });
 
-  it("warns that it is a read-only copy, and says it is loading until the first screen arrives", () => {
+  // SPEC-057 CA-22: the copy has nothing above the window that the teacher's has not, so the content and the pointer of the teacher fall where they are
+  it("says it is loading until the first screen arrives, and never says that it is read only", () => {
     const view = render(<TerminalMirror screen={null} />);
-    expect(screen.getByText("Você acompanha o terminal do professor. O teclado fica travado.")).toBeDefined();
+    expect(screen.queryByText(/Você acompanha o terminal do professor/)).toBeNull();
+    expect(screen.queryByText(/teclado fica travado/)).toBeNull();
     expect(screen.getByRole("status").textContent).toBe("Carregando o terminal…");
     expect(window_().querySelector(".janela")).toBeNull();
     view.rerender(<TerminalMirror screen={oneTerminal()} />);
     expect(screen.queryByRole("status")).toBeNull();
-    expect(screen.getByText("Você acompanha o terminal do professor. O teclado fica travado.")).toBeDefined();
+    expect(screen.queryByText(/Você acompanha o terminal do professor/)).toBeNull();
     view.rerender(<TerminalMirror screen={null} />);
     expect(window_().querySelector(".janela")).toBeNull();
     expect(screen.getByRole("status")).toBeDefined();
@@ -319,6 +322,118 @@ describe("TerminalMirror", () => {
       render(<TerminalMirror screen={lines("alfa")} selection={pick(0, 2)} />);
       expect(window_().hasAttribute("inert")).toBe(true);
       expect(style).toMatch(/user-select:\s*none/);
+    });
+  });
+
+  // CA-22: the window is the first thing in the copy, and what the copy says about itself is over it, not in the flow
+  describe("what the copy has besides the window", () => {
+    const rule = (name: string) => style.slice(style.indexOf(`.${name} {`), style.indexOf("}", style.indexOf(`.${name} {`)));
+
+    it("has the window as the only thing in the flow, with no label, no warning and no strip, before or after it", () => {
+      const { container } = render(<TerminalMirror screen={oneTerminal()} />);
+      const view = container.firstElementChild!;
+      expect(view.children).toHaveLength(1);
+      expect(view.firstElementChild).toBe(window_());
+    });
+
+    it("tells that it is loading over the window, which stays where it is", () => {
+      const { container } = render(<TerminalMirror screen={null} />);
+      const view = container.firstElementChild!;
+      expect(view.firstElementChild).toBe(window_());
+      expect(view.lastElementChild!.getAttribute("role")).toBe("status");
+      expect(rule("note")).toMatch(/position:\s*absolute/);
+      expect(rule("view")).toMatch(/position:\s*relative/);
+    });
+
+    it("does not show the text that says the copy is read only any more", () => {
+      expect(Object.keys(messages.classroom.terminal)).not.toContain("readOnly");
+    });
+  });
+
+  // SPEC-057 CA-23: the place of each terminal is the teacher's, and the end of the screen is followed only while the teacher is at the end
+  describe("the scroll of the terminals", () => {
+    const terminals = (count: number) =>
+      el(
+        "div",
+        { class: "janela" },
+        el("div", { class: "janela-corpo dividida" }, ...Array.from({ length: count }, (_, i) => el("div", { class: "term visivel" }, el("div", { class: "term-tela" }, el("div", { class: "term-linha" }, `saida ${i + 1}`))))),
+      );
+    const tops = () => [...window_().querySelectorAll<HTMLElement>(".term-tela")].map((tela) => tela.scrollTop);
+    /** The sizes the browser would compute; jsdom has none. */
+    function sizes(content: number, view: number) {
+      const now = { content, view };
+      vi.spyOn(Element.prototype, "scrollHeight", "get").mockImplementation(() => now.content);
+      vi.spyOn(Element.prototype, "clientHeight", "get").mockImplementation(() => now.view);
+      return now;
+    }
+
+    it("goes to the end of every terminal when the teacher has not scrolled any", () => {
+      sizes(1000, 400);
+      render(<TerminalMirror screen={terminals(2)} />);
+      expect(tops()).toEqual([1000, 1000]);
+    });
+
+    it("puts each terminal at the place the teacher has it, as a fraction of what can be scrolled, and the others at the end", () => {
+      sizes(1000, 400);
+      render(<TerminalMirror screen={terminals(3)} scroll={{ "2": 0.5, "3": 0 }} />);
+      expect(tops()).toEqual([1000, 300, 0]);
+    });
+
+    it("stays at the end of a terminal while the teacher is at the end of it, and follows the new output", () => {
+      const now = sizes(1000, 400);
+      const view = render(<TerminalMirror screen={terminals(1)} scroll={{ "1": 1 }} />);
+      expect(tops()).toEqual([1000]);
+      now.content = 1800;
+      view.rerender(<TerminalMirror screen={terminals(1)} scroll={{ "1": 1 }} />);
+      expect(tops()).toEqual([1800]);
+      const next = terminals(1);
+      view.rerender(<TerminalMirror screen={next} scroll={{ "1": 1 }} />);
+      expect(tops()).toEqual([1800]);
+    });
+
+    it("stays at the same fraction when the teacher is away from the end, with new output coming, and stops following the end", () => {
+      const now = sizes(1000, 400);
+      const view = render(<TerminalMirror screen={terminals(1)} scroll={{ "1": 0.5 }} />);
+      expect(tops()).toEqual([300]);
+      now.content = 2000;
+      view.rerender(<TerminalMirror screen={terminals(1)} scroll={{ "1": 0.5 }} />);
+      expect(tops()).toEqual([800]);
+    });
+
+    it("applies a new place at once, without waiting for another picture, and goes back to the end when the teacher does", () => {
+      sizes(1000, 400);
+      const screenOf = terminals(2);
+      const view = render(<TerminalMirror screen={screenOf} scroll={{ "1": 1, "2": 1 }} />);
+      view.rerender(<TerminalMirror screen={screenOf} scroll={{ "1": 1, "2": 0.25 }} />);
+      expect(tops()).toEqual([1000, 150]);
+      view.rerender(<TerminalMirror screen={screenOf} scroll={{ "1": 1, "2": 1 }} />);
+      expect(tops()).toEqual([1000, 1000]);
+    });
+
+    it("counts the terminals in the order the window has them, as the teacher does", () => {
+      sizes(1000, 400);
+      render(<TerminalMirror screen={terminals(3)} scroll={{ "1": 0.1, "2": 0.2, "3": 0.3 }} />);
+      expect(tops()).toEqual([60, 120, 180]);
+    });
+
+    it("has nothing to scroll when everything fits: the place is the start, and the end is the same", () => {
+      sizes(300, 400);
+      const view = render(<TerminalMirror screen={terminals(1)} scroll={{ "1": 0.5 }} />);
+      expect(tops()).toEqual([0]);
+      view.rerender(<TerminalMirror screen={terminals(1)} scroll={{ "1": 1 }} />);
+      expect(tops()).toEqual([300]);
+    });
+
+    it("takes a place that is not a number, or is outside 0 and 1, as the end or as the limit", () => {
+      sizes(1000, 400);
+      render(<TerminalMirror screen={terminals(3)} scroll={{ "1": Number.NaN, "2": 9, "3": -3 }} />);
+      expect(tops()).toEqual([1000, 1000, 0]);
+    });
+
+    it("keeps the copy inert, so the student cannot scroll it", () => {
+      sizes(1000, 400);
+      render(<TerminalMirror screen={terminals(1)} scroll={{ "1": 0.5 }} />);
+      expect(window_().hasAttribute("inert")).toBe(true);
     });
   });
 });
