@@ -10,6 +10,7 @@ import { FixedStage } from "../FixedStage/FixedStage";
 import { stepZoom } from "../FixedStage/stage";
 import { ModuleStage } from "../ModuleStage/ModuleStage";
 import { SlidePresenter } from "../SlidePresenter/SlidePresenter";
+import { WaitingScreen } from "../WaitingScreen/WaitingScreen";
 import styles from "./PresenterStage.module.scss";
 
 const m = messages.classroom;
@@ -75,6 +76,7 @@ export function PresenterStage({ classId, session }: PresenterStageProps) {
   const zoom = live.stageView.zoom;
   const studentsFullscreen = live.fullscreenRequested;
   const slides = mode === "SLIDES" && room.deck !== null;
+  const startedAt = live.startedAt ?? session.startedAt;
 
   const goto = (slide: number) => {
     if (slide >= 1 && slide <= total && slide !== room.slide) live.changeSlide(slide);
@@ -203,7 +205,7 @@ export function PresenterStage({ classId, session }: PresenterStageProps) {
               cursor={room.cursor}
               laser={laser}
               stageView={live.stageView}
-              startedAt={live.startedAt ?? session.startedAt}
+              startedAt={startedAt}
               handCount={live.handCount}
               onFocusBlock={live.focusBlock}
               onScreen={live.sendTerminalScreen}
@@ -216,8 +218,8 @@ export function PresenterStage({ classId, session }: PresenterStageProps) {
             />
           )}
 
-          {/* As empty as the students' blank screen: what the teacher needs to know about it is outside the stage (SPEC-057 CA-22). */}
-          {room.blank && <div className={styles.blank} role="status" aria-label={p.blank} />}
+          {/* The waiting screen the students have, the very same: what the teacher needs to know about it is outside the stage (SPEC-057 CA-22, SPEC-061). */}
+          {room.blank && <WaitingScreen title={session.title} startedAt={startedAt} />}
         </FixedStage>
       </div>
       {room.blank && <p className={styles.notice}>{p.blankOn}</p>}

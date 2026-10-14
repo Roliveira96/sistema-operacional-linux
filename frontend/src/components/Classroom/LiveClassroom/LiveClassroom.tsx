@@ -14,6 +14,7 @@ import { ModuleStage } from "../ModuleStage/ModuleStage";
 import { SlidePresenter } from "../SlidePresenter/SlidePresenter";
 import { StudentNotesPanel } from "../StudentNotesPanel/StudentNotesPanel";
 import { WaitingRoom } from "../WaitingRoom/WaitingRoom";
+import { WaitingScreen } from "../WaitingScreen/WaitingScreen";
 import styles from "./LiveClassroom.module.scss";
 import { useRequestedFullscreen } from "./useRequestedFullscreen";
 
@@ -111,6 +112,7 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   const slideOf = room.deck ? Math.min(Math.max(room.slide, 1), Math.max(room.deck.pageCount, 1)) : 0;
   const place = live.hands.findIndex((hand) => hand.studentId === userId);
   const raised = place >= 0;
+  const startedAt = live.startedAt ?? session.startedAt;
 
   return (
     <main ref={frame} className={styles.live} data-focus={requested ? "true" : undefined}>
@@ -149,11 +151,11 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
                 terminal={live.terminal}
                 cursor={room.cursor}
                 stageView={live.stageView}
-                startedAt={live.startedAt ?? session.startedAt}
+                startedAt={startedAt}
                 handCount={live.handCount}
               />
             )}
-            {room.blank && <div className={styles.blank} role="status" aria-label={m.room.blank} />}
+            {room.blank && <WaitingScreen title={session.title} startedAt={startedAt} />}
           </FixedStage>
         </div>
 

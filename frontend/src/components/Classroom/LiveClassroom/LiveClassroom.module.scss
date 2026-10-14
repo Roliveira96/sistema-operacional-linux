@@ -209,10 +209,3 @@
   font-size: var(--font-size-md);
   transform: translateX(-50%);
 }
-
-// The teacher keeps the stage blank: an empty screen over it, for everybody (SPEC-055 CA-17). It is drawn in the stage, like the rest.
-.blank {
-  position: absolute;
-  inset: 0;
-  background-color: var(--color-surface-sunken);
-}

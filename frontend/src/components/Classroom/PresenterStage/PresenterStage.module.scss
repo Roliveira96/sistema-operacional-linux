@@ -63,13 +63,6 @@
   transform: translateX(-50%);
 }
 
-// The blank screen, drawn in the stage like the rest: the class sees nothing, and the teacher sees the same; how to come back is told outside the stage.
-.blank {
-  position: absolute;
-  inset: 0;
-  background-color: var(--color-surface-sunken);
-}
-
 .tip {
   position: absolute;
   bottom: var(--space-12, 4rem);
