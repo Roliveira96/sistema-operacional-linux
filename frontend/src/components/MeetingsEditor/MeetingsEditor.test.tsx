@@ -37,6 +37,37 @@ describe("MeetingsEditor", () => {
     expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ weekday: 1, startTime: "08:20", endTime: "11:40", lessonCount: 3, mode: "IN_PERSON" })]);
   });
 
+  // SPEC-044 CA-13 and CA-14
+  it("starts a day with 2 lessons ending 2 hours after the start", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Segunda-feira" }));
+    expect((screen.getByLabelText("Fim (Segunda-feira)") as HTMLInputElement).value).toBe("10:20");
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar outro horário (Segunda-feira)" }));
+    expect((screen.getAllByLabelText("Início (Segunda-feira)")[1] as HTMLInputElement).value).toBe("10:40");
+    expect((screen.getAllByLabelText("Fim (Segunda-feira)")[1] as HTMLInputElement).value).toBe("12:40");
+  });
+
+  // SPEC-044 CA-13
+  it("moves the end time to 60 minutes per lesson when the number of lessons changes", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Segunda-feira" }));
+    fireEvent.change(screen.getByLabelText("Aulas (Segunda-feira)"), { target: { value: "3" } });
+    expect((screen.getByLabelText("Fim (Segunda-feira)") as HTMLInputElement).value).toBe("11:20");
+    expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ startTime: "08:20", endTime: "11:20", lessonCount: 3 })]);
+    fireEvent.change(screen.getByLabelText("Aulas (Segunda-feira)"), { target: { value: "1" } });
+    expect((screen.getByLabelText("Fim (Segunda-feira)") as HTMLInputElement).value).toBe("09:20");
+  });
+
+  // SPEC-044 CA-13
+  it("does not pass 23:59 when the lessons do not fit in the day", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Segunda-feira" }));
+    fireEvent.change(screen.getByLabelText("Início (Segunda-feira)"), { target: { value: "21:00" } });
+    fireEvent.change(screen.getByLabelText("Aulas (Segunda-feira)"), { target: { value: "5" } });
+    expect((screen.getByLabelText("Fim (Segunda-feira)") as HTMLInputElement).value).toBe("23:59");
+  });
+
   it("asks for an https link when online and shows the room only in person", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "Quarta-feira" }));

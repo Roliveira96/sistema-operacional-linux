@@ -81,7 +81,7 @@ describe("NewClassPage", () => {
     await waitFor(() => expect(meetingsSpy).toHaveBeenCalledTimes(1));
     expect(meetingsSpy.mock.lastCall?.[0]).toBe("c-9");
     expect(meetingsSpy.mock.lastCall?.[1]).toEqual([
-      expect.objectContaining({ weekday: 1, startTime: "08:20", endTime: "10:00", lessonCount: 2 }),
+      expect.objectContaining({ weekday: 1, startTime: "08:20", endTime: "10:20", lessonCount: 2 }),
     ]);
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/app/classes/c-9?tab=students&created=1"));
   });

@@ -305,7 +305,7 @@ describe("ClassForm (SPEC-042)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
     await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
     expect(handleSubmit.mock.lastCall?.[1]).toEqual([
-      { weekday: 1, startTime: "08:20", endTime: "10:00", lessonCount: 2, mode: "IN_PERSON", room: undefined, onlineUrl: undefined },
+      { weekday: 1, startTime: "08:20", endTime: "10:20", lessonCount: 2, mode: "IN_PERSON", room: undefined, onlineUrl: undefined },
     ]);
   });
 

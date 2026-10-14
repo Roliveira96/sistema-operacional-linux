@@ -81,7 +81,7 @@ Abaixo do editor de encontros, a aba Horários mostra um calendário mensal com 
 
 #### 3.1.3. Aula de 60 minutos
 
-A função que sugere a quantidade de aulas de um encontro passa a dividir a duração por 60 minutos, mantendo o mínimo de 1 e o máximo de 8. Exemplos: 08:00 às 10:00 sugere 2 aulas; 08:20 às 10:00 sugere 1 aula; 19:00 às 22:00 sugere 3 aulas. O texto de ajuda que cita a duração da aula, se houver, passa a dizer 60 minutos. O docente continua podendo ajustar a quantidade à mão.
+A função que sugere a quantidade de aulas de um encontro passa a dividir a duração por 60 minutos, mantendo o mínimo de 1 e o máximo de 8. Exemplos: 08:00 às 10:00 sugere 2 aulas; 08:20 às 10:00 sugere 1 aula; 19:00 às 22:00 sugere 3 aulas. O texto de ajuda que cita a duração da aula, se houver, passa a dizer 60 minutos. O docente continua podendo ajustar a quantidade à mão. A regra vale nos dois sentidos: ao mudar a quantidade de aulas, o horário de fim passa a ser o início mais 60 minutos por aula (limitado a 23:59); ao mudar início ou fim, a quantidade é sugerida como acima. Os horários padrão de um encontro novo seguem a mesma regra (08:20 com 2 aulas termina às 10:20).
 
 ### 3.2. Backend (Go — Camada de Módulo/Service)
 
@@ -114,6 +114,8 @@ Não se aplica nesta spec: nenhum endpoint muda.
 - [ ] **CA-10** (evento): QUANDO o docente muda um encontro ou uma das datas, O SISTEMA DEVE atualizar a prévia sem salvar a turma.
 - [ ] **CA-11** (ubíquo): A prévia NÃO DEVE mostrar dias fora da vigência nem permitir navegar para meses fora dela.
 - [ ] **CA-12** (estado): ENQUANTO as datas forem inválidas ou não houver encontros, a prévia DEVE mostrar a mensagem correspondente em vez do calendário.
+- [ ] **CA-13** (evento): QUANDO o docente muda a quantidade de aulas de um encontro, O SISTEMA DEVE ajustar o horário de fim para início mais 60 minutos por aula, sem passar das 23:59.
+- [ ] **CA-14** (ubíquo): Os horários padrão de um encontro novo DEVEM respeitar a regra de 60 minutos por aula (início 08:20 com 2 aulas termina às 10:20; o horário adicionado depois começa 20 minutos após o fim do anterior).
 - [ ] **CA-08** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens semânticos, nos temas claro e escuro.
 
 ## 8. Plano de Testes (Test Plan)
