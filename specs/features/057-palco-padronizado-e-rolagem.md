@@ -30,6 +30,7 @@ Hoje o palco ocupa o tamanho da janela de cada pessoa. O professor, no projetor,
 - Um **palco de tamanho fixo e lógico** (**1280 × 720**, proporção 16:9, a do projetor), desenhado do mesmo jeito para o professor e para todos os alunos, e **ajustado por escala** à janela de cada um, com faixas escuras nas sobras. Quem vê, vê a mesma coisa, só maior ou menor.
 - **Rolagem** da lâmina que passa da altura do palco, controlada pelo professor e acompanhada pelos alunos.
 - O ponteiro, a caneta, a rolagem do material e a divisória do módulo **correspondem** nas duas pontas.
+- **Zoom do professor:** o professor aumenta ou diminui o tamanho do conteúdo no palco e **todos os alunos veem o mesmo zoom**, para o texto ficar legível em qualquer tela.
 
 ### 2.1. Fora de escopo (Non-Goals)
 
@@ -48,6 +49,7 @@ Hoje o palco ocupa o tamanho da janela de cada pessoa. O professor, no projetor,
 - **Envio.** A janela de apresentação envia `live:stage:scroll` (a cada 100 ms no máximo, só se mudou) quando o professor rola a lâmina ou o material, e `live:stage:split` quando solta ou arrasta a divisória. O aluno aplica os valores sem interpolar além da transição de 100 ms.
 - **Palco do aluno o maior possível, no estilo do Google Meet.** Na sala do aluno não há cabeçalho nem margens: o palco ocupa **toda a janela**, menos uma **faixa de controles fixa embaixo** (uns 56 px, que **nunca cobre** o material). A faixa leva, à esquerda, o título, o tempo e quantos estão online; ao centro, os botões **Levantar a mão** (com o estado "mão levantada" visível), **Anotações** e **Tela cheia** (também a tecla F); à direita, **Sair**. As **anotações abrem numa coluna ao lado** (uns 320 px), e o palco **se reajusta** ao espaço que sobra, sem ficar coberto; fechadas, o palco volta a ocupar tudo. Nenhum painel, menu ou aviso fica por cima do palco (só a tela preta do professor e o aviso de "aguardando" cobrem, por serem o próprio palco). A escala é a maior que cabe, sem cortar nada.
 - **Janela de apresentação do professor sem espaço perdido.** O palco ocupa a janela inteira, sem margens nem faixas; a barra de ferramentas do professor (SPEC-055) aparece ao mover o mouse e some sozinha. O painel (`/live`) continua sendo a tela de controle.
+- **Zoom do professor.** A janela de apresentação ganha os botões **Aumentar** e **Diminuir** (e as teclas `+`, `-` e `0` para voltar a 100%) com o valor atual (por exemplo "125%"). Os níveis são 100%, 125%, 150%, 175% e 200%. O zoom `z` vale para o módulo e para as lâminas e funciona assim: o **tamanho lógico do palco** passa a ser `(1280 / z) × (720 / z)`, desenhado e escalado à janela como sempre, e por isso o texto do material e do terminal fica `z` vezes maior e quebra de novo no espaço menor (o módulo e o terminal se reorganizam); a **página da lâmina continua sendo desenhada com a largura-base de 1280** e, como o palco ficou menor, ela fica `z` vezes maior na tela e **rola nos dois sentidos** (a rolagem horizontal também acompanha o professor). O zoom vale até o fim da aula e não volta sozinho a 100% ao trocar de lâmina ou de módulo. O aluno só **acompanha** o zoom: não tem controle próprio, e o zoom do navegador dele não muda o tamanho do conteúdo no palco (a escala sempre ajusta o palco à janela).
 - **O professor vê o mesmo que o aluno.** A janela de apresentação usa o mesmo `FixedStage`; o professor vê o palco exatamente como os alunos.
 
 ### 3.2. Backend (Go — Camada de Módulo/Service)
@@ -56,6 +58,8 @@ Hoje o palco ocupa o tamanho da janela de cada pessoa. O professor, no projetor,
   - `live:stage:scroll` com `{"pane": "slide"|"material", "y": number}`, onde `y` é a posição de rolagem como fração de 0 a 1 do que se pode rolar.
   - `live:stage:split` com `{"ratio": number}`, a fração (0,2 a 0,8) da largura do palco que o material ocupa.
 - O servidor valida os campos (`pane` conhecido, números finitos, faixas), guarda **o último valor de cada um** em memória como parte do estado do palco, repassa às outras conexões aceitas (painel e alunos, sem eco) e inclui no `live:snapshot` de todos: `stageView: {"slideScroll": number, "materialScroll": number, "split": number|null}` (rolagens 0 por padrão; `split` nulo = o padrão do layout).
+- Mais uma mensagem do palco, só do `presenter`: `live:stage:zoom` com `{"zoom": number}` finito de 1 a 2 (inclusive). Guardada em memória (1 por padrão), repassada sem eco, com Coalesce e sem `Limited`, e levada pelo instantâneo em `stageView.zoom`. Não é reiniciada por troca de lâmina ou de módulo.
+- A rolagem da lâmina ganha o eixo horizontal: `live:stage:scroll` com `pane: "slide"` aceita também `x` (fração de 0 a 1), opcional (ausente = 0); o instantâneo leva `stageView.slideScrollX`. Trocar de lâmina volta `slideScroll` e `slideScrollX` a 0.
 - O servidor volta `slideScroll` a 0 ao trocar de lâmina, e `materialScroll` a 0 ao trocar de módulo.
 - Mensagem fora do papel é descartada com auditoria (`wrong-view`), a inválida é rejeitada com log `classroom message rejected`.
 
@@ -66,7 +70,8 @@ Nenhuma tabela e nenhuma migração: o estado de rolagem e divisória fica em me
 ## 5. Contrato de API (API Contract)
 
 - **Cliente → servidor (só `presenter`):** `live:stage:scroll {"pane": "slide"|"material", "y": 0..1}`; `live:stage:split {"ratio": 0.2..0.8}`.
-- **Servidor → clientes:** as mesmas mensagens, a todas as outras conexões; `live:snapshot` leva `stageView {slideScroll, materialScroll, split}`.
+- **Cliente → servidor (só `presenter`), acréscimos:** `live:stage:zoom {"zoom": 1..2}`; `live:stage:scroll` com `pane: "slide"` aceita `x` (0..1, opcional).
+- **Servidor → clientes:** as mesmas mensagens, a todas as outras conexões; `live:snapshot` leva `stageView {slideScroll, slideScrollX, materialScroll, split, zoom}`.
 - **Mudança de significado:** `live:cursor:move` (`x`, `y` em 0 a 100) é **percentual da página inteira** no modo lâminas e **do palco** no modo módulo.
 
 ## 6. Impacto e Riscos (Impact & Risks)
@@ -86,11 +91,15 @@ Nenhuma tabela e nenhuma migração: o estado de rolagem e divisória fica em me
 - [ ] **CA-06** (ubíquo): O ponteiro, o laser e os traços DEVEM cair no mesmo ponto da lâmina para o professor e para os alunos, mesmo com a lâmina rolada e com escalas diferentes.
 - [ ] **CA-07** (estado): ENQUANTO o modo for Módulo, O SISTEMA DEVE mostrar aos alunos o ponteiro do professor (em percentual do palco), a rolagem do material e a posição da divisória.
 - [ ] **CA-08** (evento): QUANDO um aluno entra ou reconecta, O SISTEMA DEVE mostrar a rolagem e a divisória atuais, sem esperar o professor mexer.
-- [ ] **CA-09** (ubíquo): O servidor DEVE aceitar `live:stage:scroll` e `live:stage:split` só da janela de apresentação, validar os campos, repassar sem eco e incluir os valores no instantâneo.
+- [ ] **CA-09** (ubíquo): O servidor DEVE aceitar `live:stage:scroll` (com `x` opcional), `live:stage:split` e `live:stage:zoom` só da janela de apresentação, validar os campos, repassar sem eco e incluir os valores no instantâneo.
 - [ ] **CA-10** (ubíquo): O aluno NÃO DEVE conseguir rolar a lâmina nem mover a divisória por conta própria.
 - [ ] **CA-11** (ubíquo): A tela de estudo comum (`/materials/:id`), o painel do professor e o resto do `TopicStudy` NÃO DEVEM mudar; os testes existentes passam sem alteração. `engine/core` não é alterado.
 - [ ] **CA-13** (ubíquo): Na sala do aluno, o palco DEVE ocupar toda a janela, menos uma faixa de controles fixa embaixo; os botões de levantar a mão, anotações, tela cheia e sair DEVEM ficar nessa faixa; as anotações DEVEM abrir numa coluna ao lado que reajusta o palco; e NENHUM painel, menu ou aviso DEVE ficar por cima do palco.
 - [ ] **CA-14** (ubíquo): Na janela de apresentação do professor, o palco DEVE ocupar a janela inteira, sem margens nem faixas fixas, com a barra de ferramentas aparecendo só ao mover o mouse.
+- [ ] **CA-15** (evento): QUANDO o professor aciona Aumentar, Diminuir ou as teclas `+`, `-` e `0`, O SISTEMA DEVE mudar o zoom entre 100% e 200%, nos níveis combinados, e DEVE mostrar o mesmo zoom aos alunos em até 300 ms, no módulo e nas lâminas.
+- [ ] **CA-16** (ubíquo): Com zoom maior que 100%, o texto do material e do terminal DEVE ficar maior e se reorganizar no espaço menor do palco, igual para o professor e os alunos, sem cortar nada.
+- [ ] **CA-17** (estado): ENQUANTO o zoom for maior que 100% no modo lâminas, a página DEVE rolar nos dois sentidos, e as duas rolagens do professor DEVEM aparecer aos alunos.
+- [ ] **CA-18** (evento): QUANDO um aluno entra ou reconecta, O SISTEMA DEVE aplicar o zoom atual (e a rolagem horizontal) do instantâneo; o aluno NÃO DEVE ter controle de zoom, e o zoom do navegador dele NÃO DEVE mudar o tamanho do conteúdo no palco.
 - [ ] **CA-12** (ubíquo): Stylelint, ESLint, `tsc` e `go vet` limpos; cobertura acima de 80% no escopo.
 
 ## 8. Plano de Testes (Test Plan)
@@ -126,3 +135,4 @@ O Tech Lead pediu o palco igual para todos e a rolagem; a escolha de **1280 × 7
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: a tela do aluno deve ser maior, com o scroll do professor refletido e nada cortado. Acrescentados o palco do aluno ocupando a área toda, com anotações em gaveta e tela cheia, e o CA-13 |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead ("como o Meet"): o menu de levantar a mão não pode ficar em cima do material, e a visualização do aluno e do professor deve aproveitar o espaço. CA-13 corrigido (faixa de controles fixa embaixo, anotações em coluna lateral que reajusta o palco, nada por cima) e CA-14 novo (palco do professor na janela inteira) |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: a tela do aluno fica pequena demais para ler. Palco trocado de 1920 × 1080 para 1280 × 720 (mesma proporção, texto cerca de 1,5 vez maior na tela do aluno); a largura e a altura ficam em uma constante só |
+| 14/10/2026 | Aruna Architect | Pedido do Tech Lead: os alunos reclamam do tamanho do texto; o professor aumenta o tamanho da tela dele e o zoom reflete para os alunos. Acrescentados o zoom do professor (níveis de 100% a 200%, tamanho lógico do palco dividido pelo zoom), `live:stage:zoom`, o eixo horizontal da rolagem da lâmina e os CA-15 a CA-18 |
