@@ -21,7 +21,7 @@ describe("AdmissionPanel", () => {
   it("says when nobody is waiting", () => {
     setup([]);
     expect(screen.getByRole("heading", { name: "Sala de espera" })).toBeDefined();
-    expect(screen.getByText("Ninguém aguardando.")).toBeDefined();
+    expect(screen.getByText("Nenhum aluno esperando. Compartilhe o aviso da aula com a turma.")).toBeDefined();
     expect(screen.queryByRole("button", { name: "Aceitar todos" })).toBeNull();
   });
 
@@ -38,6 +38,13 @@ describe("AdmissionPanel", () => {
     expect(h.onRemove).toHaveBeenCalledWith("u-2");
     fireEvent.click(screen.getByRole("button", { name: "Aceitar todos" }));
     expect(h.onAcceptAll).toHaveBeenCalledTimes(1);
+  });
+
+  // SPEC-055 CA-19: accept all is the main button of the waiting room
+  it("makes Accept all the main button, and Accept of each student the secondary one", () => {
+    setup([ana, bruno]);
+    expect(screen.getByRole("button", { name: "Aceitar todos" }).className).toContain("primary");
+    expect(screen.getByRole("button", { name: "Aceitar Ana" }).className).not.toContain("primary");
   });
 
   it("lists who is in the class, counts them and removes one", () => {

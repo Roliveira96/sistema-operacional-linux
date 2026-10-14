@@ -38,10 +38,10 @@ const snapshot = (over: Partial<LiveSnapshot> = {}): LiveSnapshot => ({
   ...over,
 });
 
-function setup(role: "teacher" | "student") {
+function setup(role: "teacher" | "student", window?: "panel" | "presenter") {
   FakeLive.all = [];
-  const connect = vi.fn((_classId: string, handlers: Handlers) => new FakeLive(handlers));
-  const view = renderHook(() => useLiveClassroom({ classId: "c-1", role, connect: connect as never }));
+  const connect = vi.fn((_classId: string, handlers: Handlers, _view?: string) => new FakeLive(handlers));
+  const view = renderHook(() => useLiveClassroom({ classId: "c-1", role, view: window, connect: connect as never }));
   const socket = () => FakeLive.all.at(-1)!;
   return { ...view, socket, connect };
 }
@@ -115,7 +115,7 @@ describe("useLiveClassroom", () => {
 
   // The teacher sends and also applies what he sends.
   it("sends the controls of the teacher and applies them to his own screen", () => {
-    const { result, socket } = setup("teacher");
+    const { result, socket } = setup("teacher", "presenter");
     act(() => socket().handlers.onOpen());
     act(() => socket().receive("live:snapshot", snapshot()));
     act(() => result.current.changeSlide(4));
@@ -132,6 +132,11 @@ describe("useLiveClassroom", () => {
     expect(socket().sent.at(-1)).toEqual({ type: "live:mode:switch", data: { mode: "MODULE", moduleId: "m-9" } });
     act(() => result.current.sendTerminalInput({ terminal: 1, line: "l" }));
     expect(socket().sent.at(-1)).toEqual({ type: "live:terminal:input", data: { terminal: 1, line: "l" } });
+  });
+
+  it("lets the panel lower the hands", () => {
+    const { result, socket } = setup("teacher", "panel");
+    act(() => socket().handlers.onOpen());
     act(() => result.current.moderate("u-1"));
     expect(socket().sent.at(-1)).toEqual({ type: "live:hand:moderate", data: { studentId: "u-1" } });
     act(() => result.current.moderate());
@@ -145,7 +150,7 @@ describe("useLiveClassroom", () => {
     act(() => student.result.current.moveCursor(1, 2, false));
     expect(student.socket().sent).toEqual([]);
 
-    const teacher = setup("teacher");
+    const teacher = setup("teacher", "presenter");
     act(() => teacher.socket().handlers.onOpen());
     act(() => teacher.socket().receive("live:control:revoked", {}));
     act(() => teacher.result.current.changeSlide(2));
@@ -249,46 +254,123 @@ describe("useLiveClassroom", () => {
     });
   });
 
-  // SPEC-054 CA-10 and CA-11: the module in focus and the broadcast of the terminal
-  describe("module and terminal broadcast", () => {
-    it("takes the module, the block in focus and the broadcast from the snapshot and from the messages", () => {
+  // SPEC-054 CA-10 (focus) and SPEC-055 RN-04: the module in focus, and no switch for the terminal any more
+  describe("module and focus", () => {
+    it("takes the module and the block in focus from the snapshot and from the messages", () => {
       const { result, socket } = setup("student");
-      act(() =>
-        socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-3", moduleFocusBlockId: "b-2", terminalBroadcast: true } as never)),
-      );
-      expect(result.current.room).toMatchObject({ mode: "MODULE", moduleId: "m-3", moduleFocusBlockId: "b-2", terminalBroadcast: true });
+      act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-3", moduleFocusBlockId: "b-2" } as never)));
+      expect(result.current.room).toMatchObject({ mode: "MODULE", moduleId: "m-3", moduleFocusBlockId: "b-2" });
+      expect(result.current.room).not.toHaveProperty("terminalBroadcast");
       act(() => socket().receive("live:module:focus", { blockId: "b-5" }));
       expect(result.current.room.moduleFocusBlockId).toBe("b-5");
-      act(() => socket().receive("live:terminal:broadcast", { enabled: false }));
-      expect(result.current.room.terminalBroadcast).toBe(false);
       act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-4" }));
       expect(result.current.room.moduleFocusBlockId).toBeNull();
     });
 
-    it("keeps the broadcast off, and no focus, until the teacher says", () => {
-      const { result, socket } = setup("teacher");
+    it("does not know the message that switched the broadcast of the terminal", () => {
+      const { result, socket } = setup("teacher", "presenter");
+      expect(result.current).not.toHaveProperty("setTerminalBroadcast");
       act(() => socket().receive("live:snapshot", snapshot()));
-      expect(result.current.room).toMatchObject({ terminalBroadcast: false, moduleFocusBlockId: null });
+      act(() => socket().receive("live:terminal:broadcast", { enabled: true }));
+      expect(result.current.room).not.toHaveProperty("terminalBroadcast");
     });
 
-    it("sends the focus and the broadcast of the teacher and applies them to his own screen", () => {
-      const { result, socket } = setup("teacher");
-      act(() => socket().handlers.onOpen());
-      act(() => socket().receive("live:snapshot", snapshot()));
-      act(() => result.current.focusBlock("b-7"));
-      expect(socket().sent.at(-1)).toEqual({ type: "live:module:focus", data: { blockId: "b-7" } });
-      expect(result.current.room.moduleFocusBlockId).toBe("b-7");
-      act(() => result.current.setTerminalBroadcast(true));
-      expect(socket().sent.at(-1)).toEqual({ type: "live:terminal:broadcast", data: { enabled: true } });
-      expect(result.current.room.terminalBroadcast).toBe(true);
+    it("sends the focus from any of the two windows and applies it to his own screen", () => {
+      for (const window of ["panel", "presenter"] as const) {
+        const { result, socket } = setup("teacher", window);
+        act(() => socket().handlers.onOpen());
+        act(() => socket().receive("live:snapshot", snapshot()));
+        act(() => result.current.focusBlock("b-7"));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:module:focus", data: { blockId: "b-7" } });
+        expect(result.current.room.moduleFocusBlockId).toBe("b-7");
+      }
     });
 
-    it("does not let a student, or a tab that lost the control, send them", () => {
+    it("does not let a student send the focus", () => {
       const student = setup("student");
       act(() => student.socket().handlers.onOpen());
       act(() => student.result.current.focusBlock("b-1"));
-      act(() => student.result.current.setTerminalBroadcast(true));
       expect(student.socket().sent).toEqual([]);
+    });
+  });
+
+  // SPEC-055 RN-01: the window of the teacher is told to the server
+  describe("the two windows of the teacher", () => {
+    it("connects as the panel by default and as the presenter when asked, and the student asks for no window", () => {
+      expect(setup("teacher").connect.mock.calls[0]![2]).toBe("panel");
+      expect(setup("teacher", "presenter").connect.mock.calls[0]![2]).toBe("presenter");
+      expect(setup("student").connect.mock.calls[0]![2]).toBeUndefined();
+    });
+
+    // RN-02: who sends what
+    it("lets only the presenter send the messages of the stage", () => {
+      const panel = setup("teacher", "panel");
+      act(() => panel.socket().handlers.onOpen());
+      act(() => panel.result.current.moveCursor(1, 2, true));
+      act(() => panel.result.current.draw([[1, 1], [2, 2]]));
+      act(() => panel.result.current.clearDrawings());
+      act(() => panel.result.current.sendTerminalInput({ terminal: 1, line: "l" }));
+      act(() => panel.result.current.sendTerminalSync({ terminal: 1, line: "ls" } as never));
+      act(() => panel.result.current.setBlank(true));
+      expect(panel.socket().sent).toEqual([]);
+
+      const presenter = setup("teacher", "presenter");
+      act(() => presenter.socket().handlers.onOpen());
+      act(() => presenter.result.current.sendTerminalSync({ terminal: 1, line: "ls", state: { n: 2 } } as never));
+      expect(presenter.socket().sent.at(-1)).toMatchObject({ type: "live:terminal:sync" });
+    });
+
+    it("lets both windows change the slide and the mode", () => {
+      for (const window of ["panel", "presenter"] as const) {
+        const { result, socket } = setup("teacher", window);
+        act(() => socket().handlers.onOpen());
+        act(() => result.current.changeSlide(3));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:slide:change", data: { slide: 3 } });
+        act(() => result.current.switchMode("SLIDES"));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:mode:switch", data: { mode: "SLIDES" } });
+      }
+    });
+
+    it("lets only the panel handle the waiting room", () => {
+      const presenter = setup("teacher", "presenter");
+      act(() => presenter.socket().handlers.onOpen());
+      act(() => presenter.result.current.acceptStudent("u-1"));
+      act(() => presenter.result.current.acceptAll());
+      act(() => presenter.result.current.removeStudent("u-1"));
+      act(() => presenter.result.current.moderate());
+      expect(presenter.socket().sent).toEqual([]);
+    });
+
+    // RN-05, CA-09
+    it("knows the start of the class and whether the presenter window is connected, from the snapshot and from the messages", () => {
+      const { result, socket } = setup("teacher", "panel");
+      expect(result.current.presenterConnected).toBe(false);
+      act(() => socket().receive("live:snapshot", snapshot({ startedAt: "2026-10-14T10:00:00Z", presenterConnected: true } as never)));
+      expect(result.current.startedAt).toBe("2026-10-14T10:00:00Z");
+      expect(result.current.presenterConnected).toBe(true);
+      act(() => socket().receive("live:presenter:state", { connected: false }));
+      expect(result.current.presenterConnected).toBe(false);
+      act(() => socket().receive("live:presence", { online: 4, presenterConnected: true }));
+      expect(result.current.presenterConnected).toBe(true);
+      expect(result.current.room.online).toBe(4);
+      act(() => socket().receive("live:presence", { online: 5 }));
+      expect(result.current.presenterConnected).toBe(true);
+    });
+
+    // CA-17: the blank screen
+    it("follows the blank screen of the stage, and only the presenter sends it", () => {
+      const student = setup("student");
+      expect(student.result.current.room.blank).toBe(false);
+      act(() => student.socket().receive("live:snapshot", snapshot({ stageBlank: true } as never)));
+      expect(student.result.current.room.blank).toBe(true);
+      act(() => student.socket().receive("live:stage:blank", { blank: false }));
+      expect(student.result.current.room.blank).toBe(false);
+
+      const presenter = setup("teacher", "presenter");
+      act(() => presenter.socket().handlers.onOpen());
+      act(() => presenter.result.current.setBlank(true));
+      expect(presenter.socket().sent.at(-1)).toEqual({ type: "live:stage:blank", data: { blank: true } });
+      expect(presenter.result.current.room.blank).toBe(true);
     });
   });
 

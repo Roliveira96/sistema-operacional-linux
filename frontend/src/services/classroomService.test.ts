@@ -88,6 +88,16 @@ describe("live socket", () => {
     expect(liveSocketUrl("c-1", { protocol: "https:", host: "aulas.exemplo.br" })).toBe("wss://aulas.exemplo.br/api/v1/classes/c-1/live/ws");
   });
 
+  // SPEC-055 RN-01: the window of the teacher goes in the address
+  it("tells the window of the teacher in the address, and only when there is one", () => {
+    const where = { protocol: "http:", host: "localhost:3010" };
+    expect(liveSocketUrl("c-1", where, "presenter")).toBe("ws://localhost:3010/api/v1/classes/c-1/live/ws?view=presenter");
+    expect(liveSocketUrl("c-1", where, "panel")).toBe("ws://localhost:3010/api/v1/classes/c-1/live/ws?view=panel");
+    expect(liveSocketUrl("c-1", where)).toBe("ws://localhost:3010/api/v1/classes/c-1/live/ws");
+    openLiveSocket("c-1", { onOpen: vi.fn(), onMessage: vi.fn(), onClose: vi.fn() }, (url) => new FakeSocket(url) as unknown as WebSocket, "presenter");
+    expect(FakeSocket.last.url).toContain("/live/ws?view=presenter");
+  });
+
   it("sends and receives messages as { type, data }", () => {
     const handlers = { onOpen: vi.fn(), onMessage: vi.fn(), onClose: vi.fn() };
     const socket = openLiveSocket("c-1", handlers, (url) => new FakeSocket(url) as unknown as WebSocket);

@@ -1,24 +1,17 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import { classroomService, type LiveModuleContent } from "@/services/classroomService";
 import { ModuleStage } from "./ModuleStage";
 
-const mirrored = vi.fn();
-vi.mock("../MirroredModuleView/MirroredModuleView", async () => {
+const topic = vi.fn();
+vi.mock("@/components/TopicStudy/TopicStudy", async () => {
   const React = await import("react");
   return {
-    MirroredModuleView: (p: { role: string; initialState?: unknown }) => {
-      mirrored(p);
-      return React.createElement("div", { "data-testid": "terminal", "data-role": p.role });
+    TopicStudy: (p: { moduleId: string; live?: { role: string; focusBlockId: string | null; module: { title: string }; onRead?: unknown; onInput?: unknown; onSync?: unknown } }) => {
+      topic(p);
+      return React.createElement("div", { "data-testid": "topic", "data-module": p.moduleId, "data-role": p.live?.role, "data-focus": p.live?.focusBlockId ?? "" }, p.live?.module.title);
     },
-  };
-});
-vi.mock("@/components/ContentRenderer/ContentRenderer", async () => {
-  const React = await import("react");
-  return {
-    ContentRenderer: ({ blocks }: { blocks: Array<{ id: string; payload: { html?: string } }> }) =>
-      React.createElement("div", null, blocks.map((b) => React.createElement("p", { key: b.id }, b.payload.html))),
   };
 });
 
@@ -33,51 +26,57 @@ const module_: LiveModuleContent = {
   ],
 };
 
-beforeEach(() => {
-  mirrored.mockClear();
-  Element.prototype.scrollIntoView = vi.fn();
-});
 afterEach(() => {
   cleanup();
+  topic.mockClear();
   vi.restoreAllMocks();
 });
 
-// SPEC-054 CA-11 and CA-13
+// SPEC-055 CA-13: the module of the room is the study screen of the module, in the live-class mode
 describe("ModuleStage", () => {
-  it("shows the module of the room, read only, with the terminal on the machine of the module", async () => {
+  it("loads the module of the room and shows it in the study screen, in the live-class mode", async () => {
     const get = vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
-    render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} />);
-    expect(await screen.findByRole("heading", { name: "Permissões de arquivos" })).toBeDefined();
+    render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId="b-2" terminal={terminal} />);
+    expect(screen.getByRole("status").textContent).toBe("Carregando o módulo da aula…");
+    const view = await screen.findByTestId("topic");
     expect(get).toHaveBeenCalledWith("c-1");
-    expect(screen.getByText("Primeiro bloco")).toBeDefined();
-    expect(screen.getByText("Segundo bloco")).toBeDefined();
-    expect(screen.getByTestId("terminal").getAttribute("data-role")).toBe("student");
-    expect(mirrored).toHaveBeenLastCalledWith(expect.objectContaining({ initialState: module_.scenario, role: "student" }));
-    expect(screen.queryByRole("button", { name: /Colocar o bloco/ })).toBeNull();
+    expect(view.getAttribute("data-module")).toBe("m-1");
+    expect(view.getAttribute("data-role")).toBe("student");
+    expect(view.getAttribute("data-focus")).toBe("b-2");
+    expect(topic.mock.lastCall![0].live).toMatchObject({ module: module_, terminal, role: "student" });
   });
 
-  it("highlights the block in focus and takes the student's eyes to it", async () => {
+  it("gives the student no way to send anything", async () => {
     vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
-    const view = render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId="b-2" terminal={terminal} />);
-    await screen.findByText("Segundo bloco");
-    const focused = screen.getByText("Segundo bloco").closest("[data-block-id]")!;
-    expect(focused.getAttribute("data-block-id")).toBe("b-2");
-    expect(focused.getAttribute("aria-current")).toBe("true");
-    expect(screen.getByText("Primeiro bloco").closest("[data-block-id]")!.getAttribute("aria-current")).toBeNull();
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
-
-    view.rerender(<ModuleStage classId="c-1" role="student" moduleFocusBlockId="b-1" terminal={terminal} />);
-    expect(screen.getByText("Primeiro bloco").closest("[data-block-id]")!.getAttribute("aria-current")).toBe("true");
+    render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} onInput={vi.fn()} onSync={vi.fn()} onFocusBlock={vi.fn()} />);
+    await screen.findByTestId("topic");
+    const { live } = topic.mock.lastCall![0];
+    expect(live.onInput).toBeUndefined();
+    expect(live.onSync).toBeUndefined();
+    expect(live.onRead).toBeUndefined();
   });
 
-  it("lets the teacher put a block in focus", async () => {
+  it("gives the teacher the typing, the commands and the reading, straight", async () => {
     vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+    const onInput = vi.fn();
+    const onSync = vi.fn();
     const onFocusBlock = vi.fn();
-    render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onFocusBlock={onFocusBlock} />);
-    await screen.findByText("Primeiro bloco");
-    fireEvent.click(screen.getAllByRole("button", { name: "Colocar este bloco em foco" })[1]!);
-    expect(onFocusBlock).toHaveBeenCalledWith("b-2");
-    expect(screen.getByTestId("terminal").getAttribute("data-role")).toBe("teacher");
+    render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onInput={onInput} onSync={onSync} onFocusBlock={onFocusBlock} />);
+    await screen.findByTestId("topic");
+    const { live } = topic.mock.lastCall![0];
+    expect(live.onInput).toBe(onInput);
+    expect(live.onSync).toBe(onSync);
+    expect(live.onRead).toBe(onFocusBlock);
+  });
+
+  it("loads the module again when the module of the room changes, and not at every focus", async () => {
+    const get = vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+    const view = render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} />);
+    await screen.findByTestId("topic");
+    view.rerender(<ModuleStage classId="c-1" role="student" moduleFocusBlockId="b-1" terminal={terminal} />);
+    expect(get).toHaveBeenCalledTimes(1);
+    view.rerender(<ModuleStage classId="c-1" moduleId="m-2" role="student" moduleFocusBlockId={null} terminal={terminal} />);
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
   });
 
   it("tells when the module cannot be loaded", async () => {

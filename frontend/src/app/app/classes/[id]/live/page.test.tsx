@@ -9,8 +9,14 @@ vi.mock("@/hooks/useAuth", () => ({ useAuth: vi.fn() }));
 vi.mock("@/components/Classroom/LiveClassroom/LiveClassroom", async () => {
   const React = await import("react");
   return {
-    LiveClassroom: (p: { classId: string; role: string; userId: string; session: LiveSession }) =>
-      React.createElement("div", { "data-testid": "room", "data-class": p.classId, "data-role": p.role, "data-user": p.userId, "data-session": p.session.id }),
+    LiveClassroom: (p: { classId: string; userId: string; session: LiveSession }) =>
+      React.createElement("div", { "data-testid": "room", "data-class": p.classId, "data-user": p.userId, "data-session": p.session.id }),
+  };
+});
+vi.mock("@/components/Classroom/TeacherPanel/TeacherPanel", async () => {
+  const React = await import("react");
+  return {
+    TeacherPanel: (p: { classId: string; session: LiveSession }) => React.createElement("div", { "data-testid": "panel", "data-class": p.classId, "data-session": p.session.id }),
   };
 });
 
@@ -29,26 +35,29 @@ function asRole(role: "TEACHER" | "STUDENT" | "ADMIN") {
 
 // SPEC-051, section 3.1
 describe("live classroom page", () => {
-  it("opens the room of the class in progress, as the teacher", async () => {
+  // SPEC-055: the teacher gets the panel, the student the room
+  it("opens the panel of the class in progress, as the teacher", async () => {
     asRole("TEACHER");
     vi.spyOn(classroomService, "getActive").mockResolvedValue(room());
     render(<LivePage params={params} />);
-    const view = await screen.findByTestId("room");
+    const view = await screen.findByTestId("panel");
     expect(view.getAttribute("data-class")).toBe("c-1");
-    expect(view.getAttribute("data-role")).toBe("teacher");
-    expect(view.getAttribute("data-user")).toBe("u-1");
     expect(view.getAttribute("data-session")).toBe("s-1");
+    expect(screen.queryByTestId("room")).toBeNull();
   });
 
-  it("treats the administrator as the teacher and the student as a student", async () => {
+  it("treats the administrator as the teacher, and gives the student the room", async () => {
     asRole("ADMIN");
     vi.spyOn(classroomService, "getActive").mockResolvedValue(room());
     const { unmount } = render(<LivePage params={params} />);
-    expect((await screen.findByTestId("room")).getAttribute("data-role")).toBe("teacher");
+    expect(await screen.findByTestId("panel")).toBeDefined();
     unmount();
     asRole("STUDENT");
     render(<LivePage params={params} />);
-    expect((await screen.findByTestId("room")).getAttribute("data-role")).toBe("student");
+    const view = await screen.findByTestId("room");
+    expect(view.getAttribute("data-user")).toBe("u-1");
+    expect(view.getAttribute("data-session")).toBe("s-1");
+    expect(screen.queryByTestId("panel")).toBeNull();
   });
 
   it("says there is no class in progress, with the way back", async () => {

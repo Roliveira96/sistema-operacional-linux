@@ -168,4 +168,44 @@ describe("SlidePresenter", () => {
     unmount();
     expect(destroy).toHaveBeenCalled();
   });
+
+  // SPEC-055 CA-04, CA-16: the presentation window has its own toolbar and keys
+  describe("when the window drives it", () => {
+    it("hides its own bar, and leaves the keys to the window", async () => {
+      const { props, renderPage } = setup({ bare: true });
+      await waitFor(() => expect(renderPage).toHaveBeenCalled());
+      expect(screen.queryByRole("button", { name: "Próxima lâmina" })).toBeNull();
+      expect(screen.queryByText("Lâmina 2 de 3")).toBeNull();
+      fireEvent.keyDown(screen.getByRole("group", { name: "Palco da apresentação" }), { key: "ArrowRight" });
+      expect(props.onSlide).not.toHaveBeenCalled();
+    });
+
+    it("takes the laser and the pen from outside, and sends the pointer only with the laser on", async () => {
+      vi.useFakeTimers();
+      const { props, rerender } = setup({ bare: true, laser: false, pen: false });
+      const stage = screen.getByRole("group", { name: "Palco da apresentação" });
+      fireEvent.mouseMove(stage, { clientX: 100, clientY: 50 });
+      expect(props.onCursor).not.toHaveBeenCalled();
+      rerender(<SlidePresenter {...props} bare laser pen={false} />);
+      fireEvent.mouseMove(stage, { clientX: 100, clientY: 50 });
+      expect(props.onCursor).toHaveBeenCalledWith(50, 50, true);
+    });
+
+    it("turns the laser off for the class when it is turned off from outside", () => {
+      vi.useFakeTimers();
+      const { props, rerender } = setup({ bare: true, laser: true });
+      rerender(<SlidePresenter {...props} bare laser={false} />);
+      expect(props.onCursor).toHaveBeenLastCalledWith(0, 0, false);
+    });
+
+    it("draws with the pen when it is on from outside", () => {
+      vi.useFakeTimers();
+      const { props } = setup({ bare: true, pen: true });
+      const stage = screen.getByRole("group", { name: "Palco da apresentação" });
+      fireEvent.mouseDown(stage, { clientX: 20, clientY: 10 });
+      fireEvent.mouseMove(stage, { clientX: 100, clientY: 50 });
+      fireEvent.mouseUp(stage, { clientX: 180, clientY: 90 });
+      expect(props.onDraw).toHaveBeenCalled();
+    });
+  });
 });
