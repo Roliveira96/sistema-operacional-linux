@@ -69,8 +69,10 @@ describe("useLiveClassroom", () => {
     act(() => socket().receive("live:slide:change", { slide: 5 }));
     expect(result.current.room.slide).toBe(5);
     expect(result.current.room.strokes).toEqual([]);
-    act(() => socket().receive("live:cursor:move", { x: 10, y: 20, laser: true }));
-    expect(result.current.room.cursor).toEqual({ x: 10, y: 20, laser: true });
+    act(() => socket().receive("live:cursor:move", { x: 10, y: 20, laser: true, visible: true }));
+    expect(result.current.room.cursor).toEqual({ x: 10, y: 20, laser: true, visible: true });
+    act(() => socket().receive("live:cursor:move", { x: 0, y: 0, laser: false, visible: false }));
+    expect(result.current.room.cursor?.visible).toBe(false);
     act(() => socket().receive("live:canvas:draw", { path: [[3, 4], [5, 6]] }));
     expect(result.current.room.strokes).toHaveLength(1);
     act(() => socket().receive("live:canvas:draw", { clear: true }));
@@ -122,7 +124,9 @@ describe("useLiveClassroom", () => {
     expect(socket().sent.at(-1)).toEqual({ type: "live:slide:change", data: { slide: 4 } });
     expect(result.current.room.slide).toBe(4);
     act(() => result.current.moveCursor(1, 2, true));
-    expect(socket().sent.at(-1)).toEqual({ type: "live:cursor:move", data: { x: 1, y: 2, laser: true } });
+    expect(socket().sent.at(-1)).toEqual({ type: "live:cursor:move", data: { x: 1, y: 2, laser: true, visible: true } });
+    act(() => result.current.moveCursor(0, 0, false, false));
+    expect(socket().sent.at(-1)).toEqual({ type: "live:cursor:move", data: { x: 0, y: 0, laser: false, visible: false } });
     act(() => result.current.draw([[1, 1], [2, 2]]));
     expect(socket().sent.at(-1)).toEqual({ type: "live:canvas:draw", data: { path: [[1, 1], [2, 2]] } });
     act(() => result.current.clearDrawings());

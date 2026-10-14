@@ -87,7 +87,7 @@ describe("SlidePresenter", () => {
   it("lets a student follow it, with no control, key or pen", async () => {
     const { props, renderPage, container } = setup({
       canControl: false,
-      cursor: { x: 10, y: 20, laser: true },
+      cursor: { x: 10, y: 20, laser: true, visible: true },
       strokes: [{ path: [[1, 1], [2, 2]] }, { path: [[5, 5], [6, 6]] }],
     });
     await waitFor(() => expect(renderPage).toHaveBeenCalled());
@@ -108,9 +108,20 @@ describe("SlidePresenter", () => {
     expect(container.querySelectorAll("polyline")).toHaveLength(2);
   });
 
-  it("hides the laser of the student when the teacher turned it off", async () => {
-    const { renderPage, container } = setup({ canControl: false, cursor: { x: 10, y: 20, laser: false } });
+  it("hides the pointer of the student when the teacher left the slide", async () => {
+    const { renderPage, container } = setup({ canControl: false, cursor: { x: 10, y: 20, laser: false, visible: false } });
     await waitFor(() => expect(renderPage).toHaveBeenCalled());
+    expect(container.querySelector("[data-laser]")).toBeNull();
+    expect(container.querySelector("[data-pointer]")).toBeNull();
+  });
+
+  // CA-06 of SPEC-051: the mouse of the teacher is the pointer of the class, with no switch
+  it("shows the plain pointer of the teacher to the student, and the laser as a highlight", async () => {
+    const { renderPage, container } = setup({ canControl: false, cursor: { x: 30, y: 40, laser: false, visible: true } });
+    await waitFor(() => expect(renderPage).toHaveBeenCalled());
+    const pointer = container.querySelector("[data-pointer]") as HTMLElement;
+    expect(pointer.style.left).toBe("30%");
+    expect(pointer.style.top).toBe("40%");
     expect(container.querySelector("[data-laser]")).toBeNull();
   });
 
@@ -123,7 +134,7 @@ describe("SlidePresenter", () => {
     fireEvent.click(screen.getByRole("button", { name: "Laser" }));
     fireEvent.mouseMove(stage, { clientX: 20, clientY: 10 });
     expect(props.onCursor).toHaveBeenCalledTimes(1);
-    expect(props.onCursor).toHaveBeenLastCalledWith(10, 10, true);
+    expect(props.onCursor).toHaveBeenLastCalledWith(10, 10, true, true);
     act(() => vi.advanceTimersByTime(10));
     fireEvent.mouseMove(stage, { clientX: 40, clientY: 20 });
     act(() => vi.advanceTimersByTime(10));
@@ -131,14 +142,17 @@ describe("SlidePresenter", () => {
     expect(props.onCursor).toHaveBeenCalledTimes(1);
     act(() => vi.advanceTimersByTime(14));
     expect(props.onCursor).toHaveBeenCalledTimes(2);
-    expect(props.onCursor).toHaveBeenLastCalledWith(50, 50, true);
+    expect(props.onCursor).toHaveBeenLastCalledWith(50, 50, true, true);
   });
 
-  it("does not send the laser while it is off", async () => {
+  it("sends the plain pointer while the laser is off, and hides it when the mouse leaves the slide", async () => {
     const { props, renderPage } = setup();
     await waitFor(() => expect(renderPage).toHaveBeenCalled());
-    fireEvent.mouseMove(screen.getByLabelText("Palco da apresentação"), { clientX: 20, clientY: 10 });
-    expect(props.onCursor).not.toHaveBeenCalled();
+    const stage = screen.getByLabelText("Palco da apresentação");
+    fireEvent.mouseMove(stage, { clientX: 20, clientY: 10 });
+    expect(props.onCursor).toHaveBeenLastCalledWith(10, 10, false, true);
+    fireEvent.mouseLeave(stage);
+    expect(props.onCursor).toHaveBeenLastCalledWith(0, 0, false, false);
   });
 
   it("draws with the pen in percentages and clears the strokes", async () => {
@@ -180,22 +194,23 @@ describe("SlidePresenter", () => {
       expect(props.onSlide).not.toHaveBeenCalled();
     });
 
-    it("takes the laser and the pen from outside, and sends the pointer only with the laser on", async () => {
+    it("takes the laser and the pen from outside, and sends the pointer with the laser as a highlight", async () => {
       vi.useFakeTimers();
       const { props, rerender } = setup({ bare: true, laser: false, pen: false });
       const stage = screen.getByRole("group", { name: "Palco da apresentação" });
       fireEvent.mouseMove(stage, { clientX: 100, clientY: 50 });
-      expect(props.onCursor).not.toHaveBeenCalled();
+      expect(props.onCursor).toHaveBeenCalledWith(50, 50, false, true);
       rerender(<SlidePresenter {...props} bare laser pen={false} />);
       fireEvent.mouseMove(stage, { clientX: 100, clientY: 50 });
-      expect(props.onCursor).toHaveBeenCalledWith(50, 50, true);
+      expect(props.onCursor).toHaveBeenCalledWith(50, 50, true, true);
     });
 
-    it("turns the laser off for the class when it is turned off from outside", () => {
+    it("takes the highlight off the pointer of the class when the laser is turned off from outside", () => {
       vi.useFakeTimers();
       const { props, rerender } = setup({ bare: true, laser: true });
+      fireEvent.mouseMove(screen.getByRole("group", { name: "Palco da apresentação" }), { clientX: 100, clientY: 50 });
       rerender(<SlidePresenter {...props} bare laser={false} />);
-      expect(props.onCursor).toHaveBeenLastCalledWith(0, 0, false);
+      expect(props.onCursor).toHaveBeenLastCalledWith(50, 50, false, true);
     });
 
     it("draws with the pen when it is on from outside", () => {
