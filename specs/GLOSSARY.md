@@ -46,6 +46,7 @@ Regras:
 | Lâmina | `Slide` | Uma página da apresentação | `Page` | Proposto (SPEC-051) |
 | Mão levantada | `LiveHandRaise` (tabela `live_hand_raises`) | Pedido de fala de um estudante na sala ao vivo, em fila cronológica | `Question`, `Request` | Proposto (SPEC-051) |
 | Anotações da aula | `LiveClassroomNote` (tabela `live_classroom_notes`) | Caderno privativo do estudante durante a sala ao vivo | `Notes` sozinho | Proposto (SPEC-051) |
+| Sala de espera | `LiveClassroomAdmission` (tabela `live_classroom_admissions`) | Situação do estudante numa aula ao vivo (`WAITING`, `ADMITTED`, `REMOVED`): só o aceito pelo professor vê a aula | `Lobby`, `Approval` | Proposto (SPEC-054) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 
