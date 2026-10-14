@@ -85,13 +85,6 @@ function fillRequired() {
 }
 
 describe("ClassForm (SPEC-041)", () => {
-  it("groups the fields in four sections", () => {
-    render(<ClassForm onSubmit={vi.fn()} />);
-    for (const legend of ["Identificação", "Vigência e encontros", "Conteúdo", "Ingresso"]) {
-      expect(screen.getByRole("group", { name: legend })).toBeDefined();
-    }
-  });
-
   // CA-10
   it("counts the summary and refuses more than 300 characters next to the field", async () => {
     const handleSubmit = vi.fn().mockResolvedValue(undefined);
@@ -303,6 +296,7 @@ describe("ClassForm (SPEC-042)", () => {
   it("edits the weekly meetings, hides the old schedule text once there are meetings and sends them", async () => {
     const handleSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ClassForm onSubmit={handleSubmit} initialData={{ scheduleDescription: "Seg 08:20" }} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Horários" }));
     expect(screen.getByLabelText(/Horários dos Encontros/i)).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Segunda-feira" }));
     expect(screen.queryByLabelText(/Horários dos Encontros/i)).toBeNull();
@@ -327,5 +321,130 @@ describe("ClassForm (SPEC-042)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
     expect(await screen.findByText("Informe um link https.")).toBeDefined();
     expect(handleSubmit).not.toHaveBeenCalled();
+  });
+});
+
+function tab(name: string) {
+  return screen.getByRole("tab", { name });
+}
+
+describe("ClassForm (SPEC-044)", () => {
+  // CA-01
+  it("shows the four tabs and opens on Informações", () => {
+    render(<ClassForm onSubmit={vi.fn()} />);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent?.trim())).toEqual([
+      "Informações",
+      "Horários",
+      "Conteúdo",
+      "Ingresso",
+    ]);
+    expect(tab("Informações").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tabpanel", { name: "Informações" })).toBeDefined();
+    expect(screen.getByLabelText(/Nome da Turma/i)).toBeDefined();
+  });
+
+  // CA-02
+  it("shows only the panel of the selected tab and keeps what was typed in the others", () => {
+    render(<ClassForm onSubmit={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/Nome da Turma/i), { target: { value: "Turma A" } });
+    fireEvent.click(tab("Horários"));
+    expect(tab("Horários").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tabpanel", { name: "Horários" })).toBeDefined();
+    expect(screen.queryByRole("tabpanel", { name: "Informações" })).toBeNull();
+    fireEvent.click(tab("Informações"));
+    expect((screen.getByLabelText(/Nome da Turma/i) as HTMLInputElement).value).toBe("Turma A");
+  });
+
+  // CA-03
+  it("follows the WAI-ARIA tabs pattern with arrows, Home and End", () => {
+    render(<ClassForm onSubmit={vi.fn()} />);
+    expect(screen.getByRole("tablist")).toBeDefined();
+    const first = tab("Informações");
+    expect(first.getAttribute("aria-controls")).toBe(screen.getByRole("tabpanel").id);
+    expect(first.getAttribute("tabindex")).toBe("0");
+    expect(tab("Horários").getAttribute("tabindex")).toBe("-1");
+
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+    expect(tab("Horários").getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tab("Horários"));
+    fireEvent.keyDown(tab("Horários"), { key: "End" });
+    expect(tab("Ingresso").getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab("Ingresso"), { key: "ArrowLeft" });
+    expect(tab("Conteúdo").getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab("Conteúdo"), { key: "Home" });
+    expect(tab("Informações").getAttribute("aria-selected")).toBe("true");
+  });
+
+  // CA-04
+  it("opens the tab of the first invalid field, focuses it and marks every tab with a problem", async () => {
+    const handleSubmit = vi.fn();
+    render(<ClassForm onSubmit={handleSubmit} />);
+    fireEvent.click(tab("Ingresso"));
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    const name = screen.getByLabelText(/Nome da Turma/i);
+    await waitFor(() => expect(tab("Informações").getAttribute("aria-selected")).toBe("true"));
+    expect(document.activeElement).toBe(name);
+    expect(tab("Informações").getAttribute("data-invalid")).toBe("true");
+    expect(tab("Horários").getAttribute("data-invalid")).not.toBe("true");
+    expect(handleSubmit).not.toHaveBeenCalled();
+  });
+
+  // CA-04
+  it("opens the Horários tab when a meeting is invalid", async () => {
+    render(
+      <ClassForm
+        onSubmit={vi.fn()}
+        initialMeetings={[{ id: "m-1", weekday: 3, startTime: "13:50", endTime: "15:30", lessonCount: 2, mode: "ONLINE", onlineUrl: "x" }]}
+      />,
+    );
+    fillRequired();
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    await waitFor(() => expect(tab("Horários").getAttribute("aria-selected")).toBe("true"));
+    expect(tab("Horários").getAttribute("data-invalid")).toBe("true");
+    expect(screen.getByText("Informe um link https.")).toBeDefined();
+  });
+
+  // CA-04
+  it("opens the Ingresso tab when the invite dates are missing", async () => {
+    render(<ClassForm onSubmit={vi.fn()} />);
+    fillRequired();
+    fireEvent.click(screen.getByLabelText(/Habilitar Link de Ingresso/i));
+    fireEvent.click(tab("Horários"));
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    await waitFor(() => expect(tab("Ingresso").getAttribute("aria-selected")).toBe("true"));
+    expect(document.activeElement).toBe(screen.getByLabelText(/Início da Validade do Link/i));
+  });
+
+  // CA-05
+  it("opens the Informações tab for a problem of the server about the course code", async () => {
+    const problem = new ApiProblemError({ type: "class-conflict", status: 409 }, 409);
+    render(<ClassForm onSubmit={vi.fn().mockRejectedValue(problem)} />);
+    fillRequired();
+    fireEvent.click(tab("Horários"));
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    await waitFor(() => expect(tab("Informações").getAttribute("aria-selected")).toBe("true"));
+    expect(screen.getByLabelText(/Código da Disciplina/i).getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByLabelText(/Código da Disciplina/i));
+  });
+
+  // CA-06
+  it("sends the data of all the tabs in a single call", async () => {
+    const handleSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<ClassForm onSubmit={handleSubmit} />);
+    fillRequired();
+    fireEvent.change(screen.getByLabelText(/Resumo da disciplina/i), { target: { value: "Resumo" } });
+    fireEvent.click(tab("Horários"));
+    fireEvent.click(screen.getByRole("button", { name: "Segunda-feira" }));
+    fireEvent.click(tab("Ingresso"));
+    fireEvent.click(screen.getByLabelText(/Habilitar Link de Ingresso/i));
+    fireEvent.change(screen.getByLabelText(/Início da Validade do Link/i), { target: { value: "2026-10-10T10:00" } });
+    fireEvent.change(screen.getByLabelText(/Fim da Validade do Link/i), { target: { value: "2026-10-20T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
+    await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1));
+    const [payload, meetings] = handleSubmit.mock.lastCall ?? [];
+    expect(payload.name).toBe("Turma A");
+    expect(payload.summary).toBe("Resumo");
+    expect(payload.enableInviteLink).toBe(true);
+    expect(meetings).toHaveLength(1);
   });
 });
