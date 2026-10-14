@@ -94,6 +94,9 @@ type fakeService struct {
 
 	// the selection of text of the teacher the handler asked to keep: "none" for the clear message (SPEC-057 CA-20, CA-21)
 	selections []string
+
+	// the scroll of each terminal the handler asked to keep, "1:0.25" (SPEC-057 CA-23)
+	terminalScrolls []string
 }
 
 func (f *fakeService) record(s string) {
@@ -259,6 +262,27 @@ func (f *fakeService) SetStageSelection(_ uuid.UUID, selection json.RawMessage) 
 		f.selections = append(f.selections, string(selection))
 	}
 	f.stage.Selection = selection
+}
+
+// SetTerminalScroll keeps the position of one terminal. The map is replaced, not changed, so a snapshot that holds the old one is not
+// touched while it is written out.
+func (f *fakeService) SetTerminalScroll(_ uuid.UUID, terminal int, y float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.terminalScrolls = append(f.terminalScrolls, strconv.Itoa(terminal)+":"+strconv.FormatFloat(y, 'g', -1, 64))
+	next := map[int]float64{terminal: y}
+	for k, v := range f.stage.TerminalScroll {
+		if k != terminal {
+			next[k] = v
+		}
+	}
+	f.stage.TerminalScroll = next
+}
+
+func (f *fakeService) keptTerminalScrolls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.terminalScrolls...)
 }
 
 func (f *fakeService) keptSelections() []string {

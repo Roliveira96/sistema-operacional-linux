@@ -24,7 +24,7 @@ const (
 
 // the view of a stage nobody touched: the scrolls at 0, no divider, 100%, no selection (the zoom, the horizontal scroll and the selection
 // came with CA-15 to CA-21)
-const noStageView = `{"slideScroll":0,"slideScrollX":0,"materialScroll":0,"split":null,"zoom":1,"selection":null}`
+const noStageView = `{"slideScroll":0,"slideScrollX":0,"materialScroll":0,"split":null,"zoom":1,"selection":null,"terminalScroll":{}}`
 
 // stageFrame is a raw frame of a stage message with exactly size bytes, padded inside the data.
 func stageFrame(t *testing.T, typ, data string, size int) []byte {
@@ -311,10 +311,23 @@ func TestStageView_TheSnapshotsCarryTheCurrentView(t *testing.T) {
 	sendMsg(t, presenter, scrollMessage, `{"pane":"material","y":0.7}`)
 	sendMsg(t, presenter, splitMessage, `{"ratio":0.35}`)
 	sendMsg(t, presenter, scrollMessage, `{"pane":"slide","y":0.45}`)
-	untilScroll(t, student, 0.45)
-	readUntil(t, student, splitMessage)
+	// the panes do not share a place in the window of the hub: the latest of the slide, the latest of the material and the divider all
+	// arrive (in the order of their keys), where the one of the slide alone would have taken the place of the material
+	for arrived := map[string]float64{}; arrived["slide"] < 0.449 || arrived["material"] < 0.699 || arrived["split"] == 0; {
+		switch m := readMsg(t, student); m.Type {
+		case scrollMessage:
+			var d struct {
+				Pane string  `json:"pane"`
+				Y    float64 `json:"y"`
+			}
+			require.NoError(t, json.Unmarshal(m.Data, &d))
+			arrived[d.Pane] = d.Y
+		case splitMessage:
+			arrived["split"] = 1
+		}
+	}
 	eventually(t, func() bool { return len(w.svc.keptScrolls()) == 3 && len(w.svc.keptSplits()) == 1 })
-	want := `{"slideScroll":0.45,"slideScrollX":0,"materialScroll":0.7,"split":0.35,"zoom":1,"selection":null}`
+	want := `{"slideScroll":0.45,"slideScrollX":0,"materialScroll":0.7,"split":0.35,"zoom":1,"selection":null,"terminalScroll":{}}`
 
 	assert.JSONEq(t, want, mustJSON(snapshotOf(t, w.dialView(t, "student", ""))["stageView"]), "a student who comes in later")
 	assert.JSONEq(t, want, mustJSON(snapshotOf(t, w.dialView(t, "teacher2", "panel"))["stageView"]), "the panel that opens later")
@@ -349,7 +362,7 @@ func TestStageView_TheAcceptedStudentGetsTheCurrentView(t *testing.T) {
 	require.Equal(t, "live:snapshot", snap.Type)
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(snap.Data, &body))
-	assert.JSONEq(t, `{"slideScroll":0.2,"slideScrollX":0,"materialScroll":0.6,"split":0.3,"zoom":1,"selection":null}`, mustJSON(body["stageView"]))
+	assert.JSONEq(t, `{"slideScroll":0.2,"slideScrollX":0,"materialScroll":0.6,"split":0.3,"zoom":1,"selection":null,"terminalScroll":{}}`, mustJSON(body["stageView"]))
 }
 
 // Covers SPEC-057 CA-05 (transport): the new slide and the new module reach everybody by their own messages, and the server invents no
