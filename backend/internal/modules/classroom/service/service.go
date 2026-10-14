@@ -699,8 +699,8 @@ func (s *Service) ChangeSlide(ctx context.Context, sessionID uuid.UUID, slide in
 }
 
 // SwitchMode saves the mode of the room; the module mode needs a module the teacher can use (SPEC-054 RN-06). Going back to the slides
-// keeps the module of the lesson; choosing another module drops the block in focus and puts the scroll of the material back to the top
-// (SPEC-057).
+// keeps the module of the lesson; choosing another module drops the block in focus, puts the scroll of the material back to the top and
+// clears the selection of text, which was of the module that left (SPEC-057).
 func (s *Service) SwitchMode(ctx context.Context, actor Actor, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error {
 	if !domain.ValidMode(mode) {
 		return domain.ErrInvalidMode
@@ -719,6 +719,7 @@ func (s *Service) SwitchMode(ctx context.Context, actor Actor, sessionID uuid.UU
 		if session.ActiveModuleID == nil || *session.ActiveModuleID != *moduleID {
 			s.live.setFocus(sessionID, "")
 			s.live.resetScroll(sessionID, domain.PaneMaterial)
+			s.live.setSelection(sessionID, nil)
 		}
 		session.ActiveModuleID = moduleID
 	}
@@ -844,6 +845,24 @@ func (s *Service) SetStageScroll(sessionID uuid.UUID, pane string, y float64) {
 // SetStageSplit keeps the divider of the module as the teacher left it (SPEC-057). The caller checked it with domain.ValidStageSplit.
 func (s *Service) SetStageSplit(sessionID uuid.UUID, ratio float64) {
 	s.live.setSplit(sessionID, ratio)
+}
+
+// SetStageScrollX keeps how far the teacher scrolled the slide sideways, which goes with its vertical scroll. The caller checked it with
+// domain.ValidStageScrollX.
+func (s *Service) SetStageScrollX(sessionID uuid.UUID, x float64) {
+	s.live.setScrollX(sessionID, x)
+}
+
+// SetStageZoom keeps the zoom of the stage, which is the teacher's choice for the whole lesson: a new slide or a new module does not start
+// it over (SPEC-057). The caller checked it with domain.ValidStageZoom.
+func (s *Service) SetStageZoom(sessionID uuid.UUID, zoom float64) {
+	s.live.setZoom(sessionID, zoom)
+}
+
+// SetStageSelection keeps the text the teacher selected, in the JSON form that domain.ParseStageSelection gave, or none (nil) when he
+// cleared it. A new module clears it (SwitchMode) and so does the end of the lesson.
+func (s *Service) SetStageSelection(sessionID uuid.UUID, selection json.RawMessage) {
+	s.live.setSelection(sessionID, selection)
 }
 
 // StageBlank tells whether the stage is on the black screen.

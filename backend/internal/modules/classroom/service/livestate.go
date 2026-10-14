@@ -27,13 +27,21 @@ type liveState struct {
 	stage StageView
 }
 
-// StageView is how the teacher left the stage: how far each pane is scrolled, as a fraction from 0 to 1 of what can be scrolled, and the
-// divider of the module as the fraction of the width that the material takes (nil is the default of the layout).
+// StageView is how the teacher left the stage: how far each pane is scrolled, as a fraction from 0 to 1 of what can be scrolled (the slide
+// also sideways), the divider of the module as the fraction of the width that the material takes (nil is the default of the layout), the
+// zoom (1 is 100%) and the text he selected (the last selection in its JSON form, nil for none). The server does not read the selection:
+// it was checked when it came in.
 type StageView struct {
 	SlideScroll    float64
+	SlideScrollX   float64
 	MaterialScroll float64
 	Split          *float64
+	Zoom           float64
+	Selection      json.RawMessage
 }
+
+// defaultStageView is the stage that nobody touched: at the top, no divider chosen, at 100%, nothing selected.
+func defaultStageView() StageView { return StageView{Zoom: domain.MinZoom} }
 
 type liveStates struct {
 	mu    sync.Mutex
@@ -46,7 +54,7 @@ func newLiveStates() *liveStates { return &liveStates{rooms: map[uuid.UUID]*live
 func (l *liveStates) of(id uuid.UUID) *liveState {
 	st, ok := l.rooms[id]
 	if !ok {
-		st = &liveState{}
+		st = &liveState{stage: defaultStageView()}
 		l.rooms[id] = st
 	}
 	return st
@@ -108,8 +116,38 @@ func (l *liveStates) setSplit(id uuid.UUID, ratio float64) {
 	l.mu.Unlock()
 }
 
-// resetScroll puts the scroll of a pane back to the top, which is what a new slide or a new module starts at.
-func (l *liveStates) resetScroll(id uuid.UUID, pane string) { l.setScroll(id, pane, 0) }
+func (l *liveStates) setScrollX(id uuid.UUID, x float64) {
+	l.mu.Lock()
+	l.of(id).stage.SlideScrollX = x
+	l.mu.Unlock()
+}
+
+func (l *liveStates) setZoom(id uuid.UUID, zoom float64) {
+	l.mu.Lock()
+	l.of(id).stage.Zoom = zoom
+	l.mu.Unlock()
+}
+
+// setSelection keeps the selection in place of the one before; nil is no selection.
+func (l *liveStates) setSelection(id uuid.UUID, raw json.RawMessage) {
+	l.mu.Lock()
+	l.of(id).stage.Selection = bytes.Clone(raw)
+	l.mu.Unlock()
+}
+
+// resetScroll puts the scroll of a pane back to the top, which is what a new slide or a new module starts at; the slide goes back to the
+// left too.
+func (l *liveStates) resetScroll(id uuid.UUID, pane string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	st := l.of(id)
+	switch pane {
+	case domain.PaneSlide:
+		st.stage.SlideScroll, st.stage.SlideScrollX = 0, 0
+	case domain.PaneMaterial:
+		st.stage.MaterialScroll = 0
+	}
+}
 
 // stageView returns a copy of the view of the stage of the room.
 func (l *liveStates) stageView(id uuid.UUID) StageView {
@@ -117,13 +155,14 @@ func (l *liveStates) stageView(id uuid.UUID) StageView {
 	defer l.mu.Unlock()
 	st, ok := l.rooms[id]
 	if !ok {
-		return StageView{}
+		return defaultStageView()
 	}
 	view := st.stage
 	if view.Split != nil {
 		ratio := *view.Split
 		view.Split = &ratio
 	}
+	view.Selection = bytes.Clone(view.Selection)
 	return view
 }
 

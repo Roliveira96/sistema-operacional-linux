@@ -235,14 +235,18 @@ func ValidSlide(slide, pageCount int) bool {
 	return slide >= 1 && (pageCount == 0 || slide <= pageCount)
 }
 
-// The panes of the stage that the teacher scrolls, and the range of the divider of the module, as a fraction of the width of the stage
-// that the material takes (SPEC-057).
+// The panes of the stage that the teacher scrolls (the terminal is one more, for the selection of text), the range of the divider of the
+// module, as a fraction of the width of the stage that the material takes, and the range of the zoom, 1 being 100% (SPEC-057).
 const (
 	PaneSlide    = "slide"
 	PaneMaterial = "material"
+	PaneTerminal = "terminal"
 
 	MinSplit = 0.2
 	MaxSplit = 0.8
+
+	MinZoom = 1.0
+	MaxZoom = 2.0
 )
 
 // ValidStageScroll tells whether the scroll is of a pane of the stage and is a finite fraction from 0 to 1 of what can be scrolled.
@@ -251,5 +255,11 @@ func ValidStageScroll(pane string, y float64) bool {
 	return (pane == PaneSlide || pane == PaneMaterial) && y >= 0 && y <= 1
 }
 
+// ValidStageScrollX tells whether the horizontal scroll is a finite fraction from 0 to 1 of a pane that has one: only the slide does.
+func ValidStageScrollX(pane string, x float64) bool { return pane == PaneSlide && x >= 0 && x <= 1 }
+
 // ValidStageSplit tells whether the divider is a finite fraction of the width of the stage from MinSplit to MaxSplit.
 func ValidStageSplit(ratio float64) bool { return ratio >= MinSplit && ratio <= MaxSplit }
+
+// ValidStageZoom tells whether the zoom is a finite number from MinZoom to MaxZoom.
+func ValidStageZoom(zoom float64) bool { return zoom >= MinZoom && zoom <= MaxZoom }

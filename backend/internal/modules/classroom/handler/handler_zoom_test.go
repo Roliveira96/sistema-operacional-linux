@@ -274,8 +274,12 @@ func TestStageZoom_TheSnapshotsCarryTheCurrentZoomAndScrollX(t *testing.T) {
 	readUntil(t, student, "live:snapshot")
 	sendMsg(t, presenter, zoomMessage, `{"zoom":1.5}`)
 	sendMsg(t, presenter, scrollMessage, `{"pane":"slide","y":0.4,"x":0.6}`)
-	readUntil(t, student, zoomMessage)
-	readUntil(t, student, scrollMessage)
+	// the two messages of a window of the hub arrive in the order of their types, not of their sending: wait for both, whichever comes first
+	for seen := 0; seen < 2; {
+		if m := readMsg(t, student); m.Type == zoomMessage || m.Type == scrollMessage {
+			seen++
+		}
+	}
 	eventually(t, func() bool { return len(w.svc.keptZooms()) == 1 && len(w.svc.keptScrollXs()) == 1 })
 	want := `{"slideScroll":0.4,"slideScrollX":0.6,"materialScroll":0,"split":null,"zoom":1.5,"selection":null}`
 

@@ -42,9 +42,14 @@ const (
 	// SPEC-056: the picture of the terminal window of the teacher, which the students and the panel see as it is
 	typeTerminalScreen = "live:terminal:screen"
 
-	// SPEC-057: how far the teacher scrolled a pane of the stage, and where he put the divider of the module
-	typeStageScroll = "live:stage:scroll"
-	typeStageSplit  = "live:stage:split"
+	// SPEC-057: how far the teacher scrolled a pane of the stage, where he put the divider of the module, the zoom, and the text he selected
+	typeStageScroll    = "live:stage:scroll"
+	typeStageSplit     = "live:stage:split"
+	typeStageZoom      = "live:stage:zoom"
+	typeStageSelection = "live:stage:selection"
+
+	// clearSelectionData is the data of the message that takes the selection away, as it goes to the others
+	clearSelectionData = `{"clear":true}`
 
 	typeSnapshot  = "live:snapshot"
 	typeEnded     = "live:ended"
@@ -63,8 +68,8 @@ const (
 // about 30 times per second; the server takes up to 35 per second from each emitter and gives each viewer the latest every 30 ms. The
 // screen of the terminal is a whole picture, so the latest is all a viewer needs and it is not counted in that budget (the pointer would
 // use it up and the last screen would be lost); the window of the presenter sends at most 10 per second, and the frame has its own limit
-// (SPEC-056). The scroll and the divider are the same: the latest is all a viewer needs, the window of the presenter limits them to 10 per
-// second, and counting them would let the pointer take their budget (SPEC-057).
+// (SPEC-056). The scroll, the divider, the zoom and the selection are the same: the latest is all a viewer needs, the window of the
+// presenter limits them to 10 per second, and counting them would let the pointer take their budget (SPEC-057).
 func hubConfig() hub.Config {
 	const kib = 1 << 10
 	return hub.Config{
@@ -80,6 +85,8 @@ func hubConfig() hub.Config {
 			typeStageBlank:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter},
 			typeStageScroll:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			typeStageSplit:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
+			typeStageZoom:      {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
+			typeStageSelection: {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			// the waiting room and the hands are the panel's
 			typeHandModerate:       {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 			typeAdmissionAccept:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
@@ -306,17 +313,50 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 		svc.RememberTerminalScreen(session, d.Screen)
 		relay()
 	case typeStageScroll:
-		// pointers tell a missing field from a 0; the domain checks the pane and the range
+		// pointers tell a missing field from a 0; the domain checks the pane and the range. Only the slide has x (the material is rejected
+		// with one, not ignored), and with no x the slide is at the left: the message says the whole position of the pane.
 		var d struct {
 			Pane *string  `json:"pane"`
 			Y    *float64 `json:"y"`
+			X    *float64 `json:"x"`
 		}
-		if err := json.Unmarshal(msg.Data, &d); err != nil || d.Pane == nil || d.Y == nil || !domain.ValidStageScroll(*d.Pane, *d.Y) {
-			w.reject(room, who, msg, errors.New("the message needs a known pane and a position from 0 to 1"))
+		if err := json.Unmarshal(msg.Data, &d); err != nil || d.Pane == nil || d.Y == nil || !domain.ValidStageScroll(*d.Pane, *d.Y) ||
+			(d.X != nil && !domain.ValidStageScrollX(*d.Pane, *d.X)) {
+			w.reject(room, who, msg, errors.New("the message needs a known pane, a position from 0 to 1 and, for the slide only, an x from 0 to 1"))
 			return
 		}
 		svc.SetStageScroll(session, *d.Pane, *d.Y)
+		if *d.Pane == domain.PaneSlide {
+			x := 0.0
+			if d.X != nil {
+				x = *d.X
+			}
+			svc.SetStageScrollX(session, x)
+		}
 		relay()
+	case typeStageZoom:
+		var d struct {
+			Zoom *float64 `json:"zoom"`
+		}
+		if err := json.Unmarshal(msg.Data, &d); err != nil || d.Zoom == nil || !domain.ValidStageZoom(*d.Zoom) {
+			w.reject(room, who, msg, errors.New("the message needs a zoom from 1 to 2"))
+			return
+		}
+		svc.SetStageZoom(session, *d.Zoom)
+		relay()
+	case typeStageSelection:
+		// the domain checks the three shapes and gives what is kept and passed on: the selection with only the fields of its shape
+		cleared, selection, err := domain.ParseStageSelection(msg.Data)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		svc.SetStageSelection(session, selection) // nil is no selection
+		out := selection
+		if cleared {
+			out = json.RawMessage(clearSelectionData)
+		}
+		w.h.hub.Broadcast(room, hub.Message{Type: msg.Type, Data: out}, who.ConnID)
 	case typeStageSplit:
 		var d struct {
 			Ratio *float64 `json:"ratio"`

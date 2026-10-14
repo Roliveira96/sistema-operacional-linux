@@ -43,7 +43,10 @@ type Service interface {
 	SetStageBlank(sessionID uuid.UUID, on bool)
 	StageBlank(sessionID uuid.UUID) bool
 	SetStageScroll(sessionID uuid.UUID, pane string, y float64)
+	SetStageScrollX(sessionID uuid.UUID, x float64)
 	SetStageSplit(sessionID uuid.UUID, ratio float64)
+	SetStageZoom(sessionID uuid.UUID, zoom float64)
+	SetStageSelection(sessionID uuid.UUID, selection json.RawMessage)
 	ModuleOfRoom(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.ModuleView, error)
 
 	AdmissionState(ctx context.Context, sessionID, studentID uuid.UUID) (string, error)
@@ -147,9 +150,13 @@ func handsJSON(entries []domain.HandRaiseEntry) []gin.H {
 	return out
 }
 
-// stageViewJSON is how the teacher left the stage: the scroll of each pane and the divider, null while he has not moved it (SPEC-057).
+// stageViewJSON is how the teacher left the stage: the scroll of each pane (the slide sideways too), the divider (null while he has not
+// moved it), the zoom and the selected text (null while there is none) (SPEC-057).
 func stageViewJSON(v service.StageView) gin.H {
-	return gin.H{"slideScroll": v.SlideScroll, "materialScroll": v.MaterialScroll, "split": v.Split}
+	return gin.H{
+		"slideScroll": v.SlideScroll, "slideScrollX": v.SlideScrollX, "materialScroll": v.MaterialScroll, "split": v.Split,
+		"zoom": v.Zoom, "selection": v.Selection,
+	}
 }
 
 // activeBody is the state of an open room, for the REST answer and for the snapshot of a new connection.
