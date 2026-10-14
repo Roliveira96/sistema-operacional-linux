@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Implementada |
+| **Status** | Aprovada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (calendário real na configuração, Opção A) |
 | **Autor** | Aruna Architect |
@@ -139,6 +139,7 @@ Não se aplica nesta spec: nenhum endpoint muda.
 - [ ] **CA-22** (estado): ENQUANTO a turma é salva, a aba Horários DEVE mostrar um único calendário, o real da turma, sem prévia nem botão de aplicar.
 - [ ] **CA-20** (ubíquo): O calendário da turma salva, na tela de configuração, NÃO DEVE mostrar botões de evento nem de período especial.
 - [ ] **CA-21** (estado): ENQUANTO um dia é feriado ou recesso, a célula desse dia, na prévia e no calendário da turma, DEVE ser destacada em vermelho (cor `danger` dos tokens), e o nome do feriado DEVE ficar contido na célula, sem alargar a grade nem quebrar o formulário.
+- [ ] **CA-23** (ubíquo): O seletor de cor da turma DEVE mostrar uma bolinha de cada cor, sem o nome escrito; cada bolinha DEVE manter o nome da cor como nome acessível e dica, e a escolhida DEVE ter um destaque visível além da cor (anel).
 - [ ] **CA-13** (evento): QUANDO o docente muda a quantidade de aulas de um encontro, O SISTEMA DEVE ajustar o horário de fim para início mais 60 minutos por aula, sem passar das 23:59.
 - [ ] **CA-14** (ubíquo): Os horários padrão de um encontro novo DEVEM respeitar a regra de 60 minutos por aula (início 08:20 com 2 aulas termina às 10:20; o horário adicionado depois começa 20 minutos após o fim do anterior).
 - [ ] **CA-08** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens semânticos, nos temas claro e escuro.
@@ -171,6 +172,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
   - não há botões de evento nem de período. Cobre CA-20.
 - **Frontend (CA-21):** a célula de feriado recebe a marca `data-on-holiday` na prévia e no `ClassCalendar`. O destaque vermelho e a contenção do nome são estilo, conferidos no roteiro manual.
 - **Frontend, `ClassForm.test.tsx` (turma salva):** há um só calendário, sem prévia nem botão de aplicar. Cobre CA-22.
+- **Frontend, `ClassForm.test.tsx` (CA-23):** o nome da cor não aparece como texto, as opções seguem acessíveis pelo nome e cada bolinha traz a cor em `data-color`.
 - **Manual:** conferir as abas em 360 px de largura e nos dois temas; rodar `npm run lint`. Cobre CA-03 e CA-08.
 - **Cobertura:** acima de 80% no escopo da spec.
 
@@ -204,3 +206,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `Clas
 | 14/10/2026 | Implementador | CA-22 implementado: prévia ao vivo, com feriados, acima do calendário real enquanto houver horários não aplicados |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: um calendário só na turma salva, o clicável; os encontros válidos passam a ser aplicados automaticamente (CA-19 e CA-22 reescritos) |
 | 14/10/2026 | Implementador | Implementados CA-19 e CA-22 reescritos: um calendário só e aplicação automática dos horários válidos (pausa de 600 ms). Foco do campo com erro passou a `useLayoutEffect` para não correr com a troca de aba |
+| 14/10/2026 | Aruna Architect | Pedido do Tech Lead: seletor de cor com bolinhas, sem os nomes das cores (CA-23); volta a Aprovada |

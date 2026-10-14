@@ -546,4 +546,18 @@ describe("ClassForm (SPEC-044)", () => {
     await waitFor(() => expect(container.querySelector('[data-date="2026-10-12"] [data-holiday]')).not.toBeNull());
     expect(loadHolidays).toHaveBeenCalledWith(2026);
   });
+
+  // CA-23: a dot of each color, without the name written
+  it("shows a dot for each color, with no color name written, keeping the names for assistive technology", () => {
+    const { container } = render(<ClassForm onSubmit={vi.fn()} initialData={{ color: "blue" }} />);
+    expect(screen.queryByText("Azul")).toBeNull();
+    expect(screen.queryByText("Laranja")).toBeNull();
+    const radios = screen.getAllByRole("radio");
+    expect(radios).toHaveLength(8);
+    const blue = screen.getByRole("radio", { name: "Azul" }) as HTMLInputElement;
+    expect(blue.checked).toBe(true);
+    expect(blue.closest("label")?.getAttribute("title")).toBe("Azul");
+    const dots = Array.from(container.querySelectorAll("[data-color]")).map((d) => d.getAttribute("data-color"));
+    expect(dots).toEqual(["orange", "blue", "green", "purple", "pink", "teal", "yellow", "red"]);
+  });
 });
