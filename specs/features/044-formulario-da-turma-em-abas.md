@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 14/10/2026 |
-| **Última revisão** | 14/10/2026 (prévia do calendário; volta a Rascunho) |
+| **Última revisão** | 14/10/2026 (prévia do calendário aprovada) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Frontend |
@@ -71,7 +71,7 @@ Regras de interface:
 
 Abaixo do editor de encontros, a aba Horários mostra um calendário mensal com as aulas que os encontros marcados vão gerar (SPEC-042, RN-01):
 
-- vai da **data de início** à **data de fim** da turma, informadas na aba Informações; o calendário abre no mês do início e permite ir e voltar entre os meses da vigência, sem sair dela;
+- vai da **data de início** à **data de fim** da turma, informadas na aba Informações; o calendário abre no mês do início e permite ir e voltar entre os meses da vigência, sem sair dela (os botões de mês anterior e seguinte ficam desabilitados nos limites);
 - cada dia da vigência que cai num dia da semana com encontro mostra um marcador com o horário e a quantidade de aulas, na cor da turma;
 - atualiza na hora, sem salvar, quando o docente liga ou desliga um dia, muda horário ou quantidade de aulas, ou muda as datas;
 - é só leitura: não cria, não edita e não apaga aula;
@@ -133,7 +133,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 - **Frontend, `ClassForm.test.tsx` e componente da prévia:**
   - com datas 2026-10-05 a 2026-10-31 e encontro na segunda, a prévia marca 5, 12, 19 e 26 de outubro com horário e aulas. Cobre CA-09.
   - mudar o horário ou ligar outro dia atualiza os marcadores sem chamar `onSubmit`. Cobre CA-10.
-  - dias fora da vigência não têm marcador e o botão de mês seguinte some no último mês. Cobre CA-11.
+  - dias fora da vigência não têm marcador e os botões de mês ficam desabilitados nos limites da vigência. Cobre CA-11.
   - sem datas, início depois do fim, ou sem encontros, mostra a mensagem. Cobre CA-12.
 - **Manual:** conferir as abas em 360 px de largura e nos dois temas; rodar `npm run lint`. Cobre CA-03 e CA-08.
 - **Cobertura:** acima de 80% no escopo da spec.
@@ -147,12 +147,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
 ## 10. Pendências para aprovação
 
-Decisões anteriores do Tech Lead (14/10/2026): quatro abas e abas dentro do `ClassForm`.
-
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-03 | A prévia deve descontar feriados e recessos (SPEC-042), ou mostrar todas as datas em que o dia da semana coincide? Feriados vêm do servidor e a turma ainda pode não existir. | Não descontar nesta spec: a prévia mostra a regra semanal. Os feriados continuam valendo na agenda real da turma. |
-| P-04 | A prévia é um calendário mensal (como a agenda da turma) ou uma semana típica com a grade de horas? O pedido fala em "como vai ficar a semana" e em usar início e fim. | Mensal com navegação dentro da vigência: usa as duas datas e mostra todas as semanas; a grade semanal fica para depois. |
+Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `ClassForm`; prévia mensal que não desconta feriados nem recessos.
 
 ---
 
@@ -163,3 +158,4 @@ Decisões anteriores do Tech Lead (14/10/2026): quatro abas e abas dentro do `Cl
 | 14/10/2026 | Aruna Architect | Criação (Rascunho) |
 | 14/10/2026 | Aruna Architect | Decisões do Tech Lead incorporadas (quatro abas, dentro do `ClassForm`); pendências P-01 e P-02 resolvidas; status Aprovada |
 | 14/10/2026 | Aruna Architect | Novo requisito do Tech Lead: prévia do calendário na aba Horários (3.1.2, CA-09 a CA-12); renumera a aula de 60 minutos para 3.1.3; volta a Rascunho com P-03 e P-04 |
+| 14/10/2026 | Aruna Architect | Tech Lead mandou implementar a prévia; P-03 (não descontar feriados) e P-04 (mensal) resolvidas com as recomendações; status Aprovada |

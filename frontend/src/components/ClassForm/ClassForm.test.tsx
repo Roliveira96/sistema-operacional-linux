@@ -448,4 +448,33 @@ describe("ClassForm (SPEC-044)", () => {
     expect(payload.enableInviteLink).toBe(true);
     expect(meetings).toHaveLength(1);
   });
+
+  // CA-09 and CA-10
+  it("previews the lessons of the week in the calendar of the term, updating without saving", () => {
+    const onSubmit = vi.fn();
+    const { container } = render(<ClassForm onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText(/Data de Início/i), { target: { value: "2026-10-05" } });
+    fireEvent.change(screen.getByLabelText(/Data de Término/i), { target: { value: "2026-10-31" } });
+    fireEvent.click(tab("Horários"));
+    const dates = () =>
+      Array.from(container.querySelectorAll("[data-marker]")).map((m) => m.closest("[data-date]")?.getAttribute("data-date"));
+    expect(screen.getByText(/Marque os dias da semana/)).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Segunda-feira" }));
+    expect(dates()).toEqual(["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Quarta-feira" }));
+    expect(dates()).toHaveLength(8);
+
+    fireEvent.change(screen.getByLabelText(/Data de Término/i), { target: { value: "2026-10-14" } });
+    expect(dates()).toEqual(["2026-10-05", "2026-10-07", "2026-10-12", "2026-10-14"]);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  // CA-12
+  it("asks for the dates in the preview while the term is not filled in", () => {
+    render(<ClassForm onSubmit={vi.fn()} />);
+    fireEvent.click(tab("Horários"));
+    expect(screen.getByText(/Informe as datas de início e fim da turma/)).toBeDefined();
+  });
 });
