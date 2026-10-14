@@ -5,7 +5,7 @@
 | **ID** | SPEC-059 |
 | **Status** | Aprovada |
 | **Data de criação** | 14/10/2026 |
-| **Última revisão** | 14/10/2026 (aprovada pelo pedido do Tech Lead) |
+| **Última revisão** | 14/10/2026 (solução em dois passos confirmada pelo Tech Lead) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -102,7 +102,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
 ## 10. Pendências para aprovação
 
-O Tech Lead pediu a tela cheia automática; a limitação do navegador (gesto do usuário) e a solução em dois passos (modo foco imediato, tela cheia real no primeiro clique) são da Aruna e devem ser revisadas. Alternativa descartada: pedir ao aluno uma confirmação ao entrar na sala, que dá um gesto antecipado para a tela cheia (mais atrito na entrada, e não cobre quem já está na sala).
+Nenhuma. O Tech Lead confirmou em 14/10/2026 a solução em dois passos (modo foco imediato e tela cheia real no primeiro clique do aluno), diante da limitação do navegador.
 
 ---
 
@@ -111,3 +111,4 @@ O Tech Lead pediu a tela cheia automática; a limitação do navegador (gesto do
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido do Tech Lead; a solução em dois passos fica para a revisão dele |
+| 14/10/2026 | Aruna Architect | O Tech Lead confirmou a solução em dois passos; pendências encerradas |
