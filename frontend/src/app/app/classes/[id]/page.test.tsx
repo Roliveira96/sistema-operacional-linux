@@ -29,6 +29,13 @@ vi.mock("@/services/scheduleService", async () => {
     },
   };
 });
+vi.mock("@/components/Classroom/LiveClassPanel/LiveClassPanel", async () => {
+  const React = await import("react");
+  return {
+    LiveClassPanel: (p: { classId: string; role: string; archived: boolean }) =>
+      React.createElement("div", { "data-testid": "live-panel", "data-class": p.classId, "data-role": p.role, "data-archived": String(p.archived) }),
+  };
+});
 vi.mock("@/services/studentService", () => ({
   listStudents: vi.fn().mockResolvedValue({ items: [], totalCount: 0, page: 1, perPage: 20 }),
   createStudentManual: vi.fn(),
@@ -332,5 +339,41 @@ describe("ClassPage (SPEC-041)", () => {
     render(<ClassPage params={params} />);
     await screen.findByRole("heading", { level: 1, name: "Sistemas Operacionais" });
     expect(screen.queryByRole("heading", { name: "Histórico" })).toBeNull();
+  });
+
+  // SPEC-051 CA-18: the section "Aula ao vivo" on the overview
+  it("shows the live class section on the overview, with the role and whether the class is archived", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue({ ...theClass, status: "ARCHIVED" });
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    vi.spyOn(classService, "getLinks").mockResolvedValue([]);
+    const teacher = render(<ClassPage params={params} />);
+    const panel = await screen.findByTestId("live-panel");
+    expect(panel.getAttribute("data-class")).toBe("c-1");
+    expect(panel.getAttribute("data-role")).toBe("teacher");
+    expect(panel.getAttribute("data-archived")).toBe("true");
+    teacher.unmount();
+
+    asRole("STUDENT");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id,
+      name: theClass.name,
+      courseCode: theClass.courseCode,
+      semester: theClass.semester,
+      status: theClass.status,
+      summary: "",
+      syllabus: "",
+      institutionalGuidelines: "",
+      startDate: theClass.startDate,
+      endDate: theClass.endDate,
+      scheduleDescription: "",
+      enableVirtualClassroom: false,
+      teacherName: "Profa. Sediane",
+    });
+    vi.spyOn(classService, "getLinks").mockResolvedValue([]);
+    render(<ClassPage params={params} />);
+    const studentPanel = await screen.findByTestId("live-panel");
+    expect(studentPanel.getAttribute("data-role")).toBe("student");
+    expect(studentPanel.getAttribute("data-archived")).toBe("false");
   });
 });
