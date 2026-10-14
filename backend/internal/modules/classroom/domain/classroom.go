@@ -24,6 +24,11 @@ const (
 	HandPending  = "PENDING"
 	HandAnswered = "ANSWERED"
 	HandLowered  = "LOWERED"
+
+	// The situation of a student in the waiting room of a live classroom (SPEC-054).
+	AdmissionWaiting  = "WAITING"
+	AdmissionAdmitted = "ADMITTED"
+	AdmissionRemoved  = "REMOVED"
 )
 
 // Limits (SPEC-051 sections 3.2 and 5).
@@ -34,6 +39,7 @@ const (
 	MaxDeckBytes      = 25 << 20
 	MaxNoteLength     = 20000
 	MaxListedSessions = 50
+	MaxBlockIDLength  = 64
 
 	// SafetyNet is how long a room may stay open without its teacher before it is ended by itself (RN-03).
 	SafetyNet = 12 * time.Hour
@@ -62,6 +68,11 @@ var (
 	ErrNotesNotFound        = errors.New("no notes of the student in this live classroom")
 	ErrDeckLimit            = errors.New("the class already has 100 presentations")
 	ErrActiveSessionExists  = errors.New("the class already has a live classroom open")
+	ErrInvalidBlock         = errors.New("the block must have an id of up to 64 characters")
+	ErrNotAdmitted          = errors.New("the teacher has not admitted you to this live classroom")
+	ErrAdmissionNotFound    = errors.New("the student is not waiting in this live classroom")
+	ErrNoActiveSession      = errors.New("the class has no live classroom open")
+	ErrModuleNotSelected    = errors.New("the live classroom has not chosen a module yet")
 )
 
 // FieldError tells which field broke a rule. It matches the sentinel it wraps.
@@ -157,6 +168,28 @@ type LiveClassroomNote struct {
 
 // TableName maps LiveClassroomNote to its table.
 func (LiveClassroomNote) TableName() string { return "live_classroom_notes" }
+
+// LiveClassroomAdmission is the situation of a student in the waiting room of a room: the teacher decides, per room (SPEC-054 RN-02).
+type LiveClassroomAdmission struct {
+	database.Model
+	SessionID   uuid.UUID
+	StudentID   uuid.UUID
+	Status      string
+	RequestedAt time.Time
+	DecidedAt   *time.Time
+	DecidedBy   *uuid.UUID
+}
+
+// TableName maps LiveClassroomAdmission to its table.
+func (LiveClassroomAdmission) TableName() string { return "live_classroom_admissions" }
+
+// AdmissionEntry is a student of the waiting room or of the admitted, with his name.
+type AdmissionEntry struct {
+	StudentID   uuid.UUID
+	Name        string
+	Status      string
+	RequestedAt time.Time
+}
 
 // NormalizeTitle trims the title and checks its length (SPEC-051 section 5.1).
 func NormalizeTitle(raw string) (string, error) {

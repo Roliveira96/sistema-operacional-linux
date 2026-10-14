@@ -3,12 +3,14 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/service"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/hub"
 )
 
@@ -23,6 +25,17 @@ const (
 	typeHandModerate  = "live:hand:moderate"
 	typeHandRaise     = "live:hand:raise"
 	typeHandLower     = "live:hand:lower"
+
+	// SPEC-054: the waiting room, the module of the lesson and the broadcast of the terminal
+	typeAdmissionAccept    = "live:admission:accept"
+	typeAdmissionAcceptAll = "live:admission:accept-all"
+	typeAdmissionRemove    = "live:admission:remove"
+	typeAdmissionRequest   = "live:admission:request"
+	typeModuleFocus        = "live:module:focus"
+	typeTerminalBroadcast  = "live:terminal:broadcast"
+
+	typeAdmissionState = "live:admission:state"
+	typeAdmissionQueue = "live:admission:queue"
 
 	typeSnapshot  = "live:snapshot"
 	typeEnded     = "live:ended"
@@ -46,8 +59,16 @@ func hubConfig() hub.Config {
 			typeHandModerate:  {MaxBytes: kib, ControllerOnly: true},
 			typeHandRaise:     {MaxBytes: kib},
 			typeHandLower:     {MaxBytes: kib},
+
+			typeAdmissionAccept:    {MaxBytes: kib, ControllerOnly: true},
+			typeAdmissionAcceptAll: {MaxBytes: kib, ControllerOnly: true},
+			typeAdmissionRemove:    {MaxBytes: kib, ControllerOnly: true},
+			typeAdmissionRequest:   {MaxBytes: kib, Limited: true, AllowWaiting: true},
+			typeModuleFocus:        {MaxBytes: kib, ControllerOnly: true},
+			typeTerminalBroadcast:  {MaxBytes: kib, ControllerOnly: true},
 		},
 		MaxViewers:    100,
+		MaxWaiting:    200,
 		RatePerSecond: 35,
 		CoalesceEvery: 30 * time.Millisecond,
 		RevokedType:   typeRevoked,
@@ -67,12 +88,47 @@ func mustMarshal(v any) json.RawMessage {
 	return b
 }
 
-func (w wsHandler) Snapshot(ctx context.Context, room string, _ hub.Identity) (hub.Message, error) {
+// actorOf is who sent a message: the hub keeps the role the user had when he connected.
+func actorOf(who hub.Identity) (service.Actor, error) {
+	id, err := uuid.Parse(who.UserID)
+	return service.Actor{UserID: id, Role: who.Meta}, err
+}
+
+// Snapshot is what a new connection gets first: the state of the room for who is in it (the teacher also gets the waiting room), and
+// only his situation for a student who is not admitted (SPEC-054 RN-01, RN-05).
+func (w wsHandler) Snapshot(ctx context.Context, room string, who hub.Identity) (hub.Message, error) {
+	if who.Waiting {
+		student, err := uuid.Parse(who.UserID)
+		if err != nil {
+			return hub.Message{}, err
+		}
+		status, err := w.h.svc.AdmissionState(ctx, sessionOf(room), student)
+		if err != nil {
+			return hub.Message{}, err
+		}
+		return admissionState(status), nil
+	}
+	return w.snapshot(ctx, room, who.Role == hub.Controller)
+}
+
+func admissionState(status string) hub.Message {
+	return hub.Message{Type: typeAdmissionState, Data: mustMarshal(map[string]string{"status": status})}
+}
+
+func (w wsHandler) snapshot(ctx context.Context, room string, withAdmissions bool) (hub.Message, error) {
 	a, err := w.h.svc.Snapshot(ctx, sessionOf(room))
 	if err != nil {
 		return hub.Message{}, err
 	}
-	return hub.Message{Type: typeSnapshot, Data: mustMarshal(activeBody(a, w.h.hub.Online(room)))}, nil
+	body := activeBody(a, w.h.hub.Online(room))
+	if withAdmissions {
+		adm, err := w.h.svc.Admissions(ctx, sessionOf(room))
+		if err != nil {
+			return hub.Message{}, err
+		}
+		body["admissions"] = admissionsBody(adm)
+	}
+	return hub.Message{Type: typeSnapshot, Data: mustMarshal(body)}, nil
 }
 
 func (w wsHandler) Dropped(room string, who hub.Identity, msgType, reason string) {
@@ -81,21 +137,36 @@ func (w wsHandler) Dropped(room string, who hub.Identity, msgType, reason string
 }
 
 func (w wsHandler) Joined(room string, who hub.Identity) {
-	if who.Role == hub.Viewer {
+	switch {
+	case who.Waiting:
+		w.queue(context.Background(), room) // the teacher sees the new student in the waiting room
+	case who.Role == hub.Viewer:
 		w.presence(room)
 	}
 }
 
 func (w wsHandler) Left(room string, who hub.Identity) {
-	switch who.Role {
-	case hub.Viewer:
+	switch {
+	case who.Waiting:
+		// who waits is not online in the room; the line only changes when the teacher decides
+	case who.Role == hub.Viewer:
 		w.presence(room)
-	case hub.Controller:
+	case who.Role == hub.Controller:
 		// The safety net counts the hours from the moment the teacher left (SPEC-051 RN-03).
 		if err := w.h.svc.TeacherPresence(context.Background(), sessionOf(room)); err != nil {
 			w.h.log.Warn("classroom teacher presence not saved", zap.String("room", room), zap.Error(err))
 		}
 	}
+}
+
+// queue tells the teacher the waiting room and the admitted.
+func (w wsHandler) queue(ctx context.Context, room string) {
+	adm, err := w.h.svc.Admissions(ctx, sessionOf(room))
+	if err != nil {
+		w.h.log.Warn("classroom admissions not read", zap.String("room", room), zap.Error(err))
+		return
+	}
+	w.h.hub.SendToController(room, hub.Message{Type: typeAdmissionQueue, Data: mustMarshal(admissionsBody(adm))})
 }
 
 func (w wsHandler) presence(room string) {
@@ -139,20 +210,129 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 			w.reject(room, who, msg, err)
 			return
 		}
-		if err := svc.SwitchMode(ctx, session, d.Mode, d.ModuleID); err != nil {
+		actor, err := actorOf(who)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		if err := svc.SwitchMode(ctx, actor, session, d.Mode, d.ModuleID); err != nil {
 			w.reject(room, who, msg, err)
 			return
 		}
 		relay()
 	case typeTerminalInput:
-		svc.RememberTerminalInput(session, msg.Data)
-		relay()
+		if svc.RememberTerminalInput(session, msg.Data) {
+			relay()
+		}
 	case typeTerminalSync:
-		svc.RememberTerminalSync(session, msg.Data)
+		if svc.RememberTerminalSync(session, msg.Data) {
+			relay()
+		}
+	case typeTerminalBroadcast:
+		var d struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.Unmarshal(msg.Data, &d); err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		svc.SetTerminalBroadcast(session, d.Enabled)
 		relay()
+	case typeModuleFocus:
+		var d struct {
+			BlockID string `json:"blockId"`
+		}
+		if err := json.Unmarshal(msg.Data, &d); err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		if err := svc.FocusModuleBlock(ctx, session, d.BlockID); err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		relay()
+	case typeAdmissionAccept, typeAdmissionAcceptAll, typeAdmissionRemove, typeAdmissionRequest:
+		w.admissions(ctx, room, who, msg)
 	case typeHandRaise, typeHandLower, typeHandModerate:
 		w.hands(ctx, room, who, msg)
 	}
+}
+
+// admissions runs the messages of the waiting room: the teacher decides, the student asks to come in again (SPEC-054).
+func (w wsHandler) admissions(ctx context.Context, room string, who hub.Identity, msg hub.Message) {
+	svc, session := w.h.svc, sessionOf(room)
+	actor, err := actorOf(who)
+	if err != nil {
+		w.reject(room, who, msg, err)
+		return
+	}
+	var d struct {
+		StudentID *uuid.UUID `json:"studentId"`
+	}
+	if msg.Type != typeAdmissionAcceptAll && msg.Type != typeAdmissionRequest {
+		if err := json.Unmarshal(msg.Data, &d); err != nil || d.StudentID == nil {
+			w.reject(room, who, msg, errors.New("the message needs the id of a student"))
+			return
+		}
+	}
+	switch msg.Type {
+	case typeAdmissionAccept:
+		adm, err := svc.Admit(ctx, actor, session, *d.StudentID)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		w.release(ctx, room, *d.StudentID)
+		w.sendQueue(room, adm)
+	case typeAdmissionAcceptAll:
+		ids, adm, err := svc.AdmitAll(ctx, actor, session)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		for _, id := range ids {
+			w.release(ctx, room, id)
+		}
+		w.sendQueue(room, adm)
+	case typeAdmissionRemove:
+		adm, err := svc.Remove(ctx, actor, session, *d.StudentID)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		w.h.hub.SendTo(room, d.StudentID.String(), admissionState(domain.AdmissionRemoved))
+		w.h.hub.SetWaiting(room, d.StudentID.String(), true)
+		w.presence(room)
+		w.sendQueue(room, adm)
+	case typeAdmissionRequest:
+		status, err := svc.RequestAgain(ctx, session, actor.UserID)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		w.h.hub.SendTo(room, who.UserID, admissionState(status))
+		if status == domain.AdmissionWaiting {
+			w.queue(ctx, room)
+		}
+	}
+}
+
+// release lets the student into the room: he is told, starts to receive what the room broadcasts, and gets the state of the room.
+func (w wsHandler) release(ctx context.Context, room string, student uuid.UUID) {
+	id := student.String()
+	w.h.hub.SendTo(room, id, admissionState(domain.AdmissionAdmitted))
+	w.h.hub.SetWaiting(room, id, false)
+	snap, err := w.snapshot(ctx, room, false)
+	if err != nil {
+		w.h.log.Warn("classroom snapshot of the admitted not sent", zap.String("room", room), zap.String("userId", id), zap.Error(err))
+		return
+	}
+	w.h.hub.SendTo(room, id, snap)
+	w.presence(room)
+}
+
+func (w wsHandler) sendQueue(room string, adm service.Admissions) {
+	w.h.hub.SendToController(room, hub.Message{Type: typeAdmissionQueue, Data: mustMarshal(admissionsBody(adm))})
 }
 
 // hands changes the queue of raised hands and sends the new queue to the whole room.

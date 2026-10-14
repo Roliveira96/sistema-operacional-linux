@@ -113,6 +113,7 @@ func (f *fakeService) UploadDeck(_ context.Context, a service.Actor, _ uuid.UUID
 	f.uploaded, _ = io.ReadAll(in.File)
 	return f.deck, f.err
 }
+
 // ListDecks answers with the decks set in the test (SPEC-053).
 func (f *fakeService) ListDecks(_ context.Context, a service.Actor, _ uuid.UUID) ([]domain.SlideDeck, error) {
 	f.actor = a

@@ -348,7 +348,7 @@ func TestModuleFocus_IsPublishedState(t *testing.T) {
 	a, _ = w.svc.Snapshot(ctx, s.ID)
 	assert.Empty(t, a.ModuleFocusBlockID, "the focus belonged to the other module")
 
-	assert.ErrorIs(t, w.svc.FocusModuleBlock(ctx, s.ID, string(make([]byte, 200))), domain.ErrInvalidSlide)
+	assert.ErrorIs(t, w.svc.FocusModuleBlock(ctx, s.ID, string(make([]byte, 200))), domain.ErrInvalidBlock)
 	assert.ErrorIs(t, w.svc.FocusModuleBlock(ctx, uuid.New(), "b"), domain.ErrSessionNotFound)
 }
 

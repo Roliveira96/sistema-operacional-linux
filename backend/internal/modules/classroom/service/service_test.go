@@ -165,6 +165,7 @@ func (f *fakeRepo) CountDecks(_ context.Context, classID uuid.UUID) (int64, erro
 	}
 	return n, nil
 }
+
 // ListDecks lists the decks of the class, newest first (SPEC-053).
 func (f *fakeRepo) ListDecks(_ context.Context, classID uuid.UUID) ([]domain.SlideDeck, error) {
 	out := []domain.SlideDeck{}
@@ -605,6 +606,7 @@ func TestSnapshotKeepsTheTerminalHistoryAndClearsStrokes(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
 	s := w.start(t)
+	w.svc.SetTerminalBroadcast(s.ID, true)
 	for i := 1; i <= 250; i++ {
 		w.svc.RememberTerminalSync(s.ID, json.RawMessage(fmt.Sprintf(`{"terminal":1,"line":"cmd %d","state":{"n":%d}}`, i, i)))
 	}

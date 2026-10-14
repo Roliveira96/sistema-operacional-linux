@@ -55,6 +55,40 @@ type Repository interface {
 
 	SaveNote(ctx context.Context, sessionID, studentID uuid.UUID, content string) (domain.LiveClassroomNote, error)
 	FindNote(ctx context.Context, sessionID, studentID uuid.UUID) (domain.LiveClassroomNote, error)
+
+	// FindAdmission returns domain.ErrAdmissionNotFound when the student never asked to come in (SPEC-054).
+	FindAdmission(ctx context.Context, sessionID, studentID uuid.UUID) (domain.LiveClassroomAdmission, error)
+	// UpsertAdmission creates the row or changes its status; waiting puts the student at the end of the line.
+	UpsertAdmission(ctx context.Context, sessionID, studentID uuid.UUID, status string, now time.Time, decidedBy *uuid.UUID) (domain.LiveClassroomAdmission, error)
+	// ListAdmissions returns who waits and who is admitted, first in first served, without the removed.
+	ListAdmissions(ctx context.Context, sessionID uuid.UUID) ([]domain.AdmissionEntry, error)
+	AdmitAllWaiting(ctx context.Context, sessionID uuid.UUID, now time.Time, decidedBy *uuid.UUID) ([]uuid.UUID, error)
+}
+
+// ModuleBlock is a block of the lesson of a module, as the room shows it.
+type ModuleBlock struct {
+	ID       string
+	Type     string
+	Position int
+	Payload  json.RawMessage
+}
+
+// ModuleView is the module of the room: its blocks and the machine the terminal starts from (SPEC-054 RN-07).
+type ModuleView struct {
+	ID       uuid.UUID
+	Title    string
+	Blocks   []ModuleBlock
+	// Scenario is the prepared machine of the module topic, or nil for the default machine; Setup is the snapshot of the module, which
+	// the study screen applies on top of it, together with the setups of the cards.
+	Scenario json.RawMessage
+	Setup    json.RawMessage
+}
+
+// Modules is what the service needs from the teaching modules. The room reads them for its students, who have no access of their own.
+type Modules interface {
+	// Available returns domain.ErrModuleNotFound when the module does not exist or the actor cannot use it.
+	Available(ctx context.Context, actor Actor, moduleID uuid.UUID) error
+	Read(ctx context.Context, moduleID uuid.UUID) (ModuleView, error)
 }
 
 // Storage keeps the files of the presentations.
@@ -76,6 +110,7 @@ type Service struct {
 	now     func() time.Time
 	onEnded func(sessionID uuid.UUID)
 	live    *liveStates
+	modules Modules
 }
 
 // New creates the service.
@@ -86,6 +121,12 @@ func New(repo Repository, store Storage, now func() time.Time) *Service {
 // WithOnEnded sets what runs when a room ends, to close its connections.
 func (s *Service) WithOnEnded(fn func(sessionID uuid.UUID)) *Service {
 	s.onEnded = fn
+	return s
+}
+
+// WithModules sets the reader of the teaching modules. Without it, the room only checks that a module exists and cannot read one.
+func (s *Service) WithModules(m Modules) *Service {
+	s.modules = m
 	return s
 }
 
@@ -357,6 +398,9 @@ type Active struct {
 	Drawings   []json.RawMessage
 	Terminal   TerminalState
 	HandRaises []domain.HandRaiseEntry
+	// ModuleFocusBlockID is the block of the module the teacher put in focus; TerminalBroadcast tells whether his terminal is on the air.
+	ModuleFocusBlockID string
+	TerminalBroadcast  bool
 }
 
 // GetActive returns the open room of the class with its state, with a renewed address for the deck (RN-07).
@@ -402,6 +446,7 @@ func (s *Service) stateOf(ctx context.Context, session domain.LiveClassroomSessi
 		return Active{}, err
 	}
 	a.HandRaises = hands
+	a.ModuleFocusBlockID, a.TerminalBroadcast = s.live.published(session.ID)
 	return a, nil
 }
 
@@ -453,6 +498,12 @@ func (s *Service) studentRoom(ctx context.Context, actor Actor, classID, session
 	if session.ClassID != classID {
 		return domain.LiveClassroomSession{}, domain.ErrSessionNotFound
 	}
+	// The notes of a lesson that ended stay with who wrote them; while it goes on, only the admitted student has them (SPEC-054 RN-03).
+	if session.IsActive() {
+		if err := s.requireAdmitted(ctx, sessionID, actor.UserID); err != nil {
+			return domain.LiveClassroomSession{}, err
+		}
+	}
 	return session, nil
 }
 
@@ -475,10 +526,12 @@ func (s *Service) GetNote(ctx context.Context, actor Actor, classID, sessionID u
 	return s.repo.FindNote(ctx, sessionID, actor.UserID)
 }
 
-// Connection is who connects to the realtime channel of the room, and as what.
+// Connection is who connects to the realtime channel of the room, and as what. Admission is the situation of a student in the waiting
+// room; who runs the room has none.
 type Connection struct {
 	Session    domain.LiveClassroomSession
 	Controller bool
+	Admission  string
 }
 
 // Connect says whether the actor may connect to the open room of the class: the owner teacher or an administrator control it; a student
@@ -491,7 +544,135 @@ func (s *Service) Connect(ctx context.Context, actor Actor, classID uuid.UUID) (
 	if err != nil {
 		return Connection{}, err
 	}
-	return Connection{Session: session, Controller: isTeacherSide(actor.Role)}, nil
+	conn := Connection{Session: session, Controller: isTeacherSide(actor.Role)}
+	if !conn.Controller {
+		// A student who comes in for the first time waits; the decision of the teacher outlives the connection (SPEC-054 RN-01, RN-02).
+		a, err := s.repo.FindAdmission(ctx, session.ID, actor.UserID)
+		if err == domain.ErrAdmissionNotFound {
+			a, err = s.repo.UpsertAdmission(ctx, session.ID, actor.UserID, domain.AdmissionWaiting, s.now(), nil)
+		}
+		if err != nil {
+			return Connection{}, err
+		}
+		conn.Admission = a.Status
+	}
+	return conn, nil
+}
+
+// Admissions are who waits to come in and who is already in, in the order of the requests.
+type Admissions struct {
+	Waiting  []domain.AdmissionEntry
+	Admitted []domain.AdmissionEntry
+}
+
+// Admissions returns the waiting room and the admitted of the room.
+func (s *Service) Admissions(ctx context.Context, sessionID uuid.UUID) (Admissions, error) {
+	entries, err := s.repo.ListAdmissions(ctx, sessionID)
+	if err != nil {
+		return Admissions{}, err
+	}
+	out := Admissions{Waiting: []domain.AdmissionEntry{}, Admitted: []domain.AdmissionEntry{}}
+	for _, e := range entries {
+		if e.Status == domain.AdmissionAdmitted {
+			out.Admitted = append(out.Admitted, e)
+		} else {
+			out.Waiting = append(out.Waiting, e)
+		}
+	}
+	return out, nil
+}
+
+// AdmissionState is the situation of the student in the room.
+func (s *Service) AdmissionState(ctx context.Context, sessionID, studentID uuid.UUID) (string, error) {
+	a, err := s.repo.FindAdmission(ctx, sessionID, studentID)
+	return a.Status, err
+}
+
+func (s *Service) requireAdmitted(ctx context.Context, sessionID, studentID uuid.UUID) error {
+	a, err := s.repo.FindAdmission(ctx, sessionID, studentID)
+	if err == domain.ErrAdmissionNotFound || (err == nil && a.Status != domain.AdmissionAdmitted) {
+		return domain.ErrNotAdmitted
+	}
+	return err
+}
+
+// decider returns the open room when the actor runs its class: the owner teacher or an administrator (SPEC-054 RN-02).
+func (s *Service) decider(ctx context.Context, actor Actor, sessionID uuid.UUID) (domain.LiveClassroomSession, error) {
+	session, err := s.activeSession(ctx, sessionID)
+	if err != nil {
+		return domain.LiveClassroomSession{}, err
+	}
+	if _, err := s.writable(ctx, actor, session.ClassID); err != nil {
+		return domain.LiveClassroomSession{}, err
+	}
+	return session, nil
+}
+
+// Admit lets a waiting student in. Admitting who is already in changes nothing.
+func (s *Service) Admit(ctx context.Context, actor Actor, sessionID, studentID uuid.UUID) (Admissions, error) {
+	if _, err := s.decider(ctx, actor, sessionID); err != nil {
+		return Admissions{}, err
+	}
+	a, err := s.repo.FindAdmission(ctx, sessionID, studentID)
+	if err != nil {
+		return Admissions{}, err
+	}
+	switch a.Status {
+	case domain.AdmissionWaiting:
+		if _, err := s.repo.UpsertAdmission(ctx, sessionID, studentID, domain.AdmissionAdmitted, s.now(), &actor.UserID); err != nil {
+			return Admissions{}, err
+		}
+	case domain.AdmissionRemoved:
+		return Admissions{}, domain.ErrAdmissionNotFound
+	}
+	return s.Admissions(ctx, sessionID)
+}
+
+// AdmitAll lets in everybody who waits, and returns who they are.
+func (s *Service) AdmitAll(ctx context.Context, actor Actor, sessionID uuid.UUID) ([]uuid.UUID, Admissions, error) {
+	if _, err := s.decider(ctx, actor, sessionID); err != nil {
+		return nil, Admissions{}, err
+	}
+	ids, err := s.repo.AdmitAllWaiting(ctx, sessionID, s.now(), &actor.UserID)
+	if err != nil {
+		return nil, Admissions{}, err
+	}
+	adm, err := s.Admissions(ctx, sessionID)
+	return ids, adm, err
+}
+
+// Remove refuses a waiting student or takes an admitted one out of the room. He only comes back by asking again.
+func (s *Service) Remove(ctx context.Context, actor Actor, sessionID, studentID uuid.UUID) (Admissions, error) {
+	if _, err := s.decider(ctx, actor, sessionID); err != nil {
+		return Admissions{}, err
+	}
+	a, err := s.repo.FindAdmission(ctx, sessionID, studentID)
+	if err != nil {
+		return Admissions{}, err
+	}
+	if a.Status == domain.AdmissionRemoved {
+		return Admissions{}, domain.ErrAdmissionNotFound
+	}
+	if _, err := s.repo.UpsertAdmission(ctx, sessionID, studentID, domain.AdmissionRemoved, s.now(), &actor.UserID); err != nil {
+		return Admissions{}, err
+	}
+	return s.Admissions(ctx, sessionID)
+}
+
+// RequestAgain puts a removed student back in the waiting room, and returns his situation. Whoever waits or is admitted keeps it.
+func (s *Service) RequestAgain(ctx context.Context, sessionID, studentID uuid.UUID) (string, error) {
+	if _, err := s.activeSession(ctx, sessionID); err != nil {
+		return "", err
+	}
+	a, err := s.repo.FindAdmission(ctx, sessionID, studentID)
+	if err != nil && err != domain.ErrAdmissionNotFound {
+		return "", err
+	}
+	if err == nil && a.Status != domain.AdmissionRemoved {
+		return a.Status, nil
+	}
+	a, err = s.repo.UpsertAdmission(ctx, sessionID, studentID, domain.AdmissionWaiting, s.now(), nil)
+	return a.Status, err
 }
 
 // ChangeSlide saves the slide the teacher moved to and drops the strokes of the one he left.
@@ -519,8 +700,9 @@ func (s *Service) ChangeSlide(ctx context.Context, sessionID uuid.UUID, slide in
 	return nil
 }
 
-// SwitchMode saves the mode of the room; the module mode needs a module that exists.
-func (s *Service) SwitchMode(ctx context.Context, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error {
+// SwitchMode saves the mode of the room; the module mode needs a module the teacher can use (SPEC-054 RN-06). Going back to the slides
+// keeps the module of the lesson; choosing another module drops the block in focus.
+func (s *Service) SwitchMode(ctx context.Context, actor Actor, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error {
 	if !domain.ValidMode(mode) {
 		return domain.ErrInvalidMode
 	}
@@ -532,12 +714,11 @@ func (s *Service) SwitchMode(ctx context.Context, sessionID uuid.UUID, mode stri
 		if moduleID == nil {
 			return domain.ErrModuleNotFound
 		}
-		ok, err := s.repo.ModuleExists(ctx, *moduleID)
-		if err != nil {
+		if err := s.checkModule(ctx, actor, *moduleID); err != nil {
 			return err
 		}
-		if !ok {
-			return domain.ErrModuleNotFound
+		if session.ActiveModuleID == nil || *session.ActiveModuleID != *moduleID {
+			s.live.setFocus(sessionID, "")
 		}
 		session.ActiveModuleID = moduleID
 	}
@@ -545,9 +726,68 @@ func (s *Service) SwitchMode(ctx context.Context, sessionID uuid.UUID, mode stri
 	return s.repo.SaveSession(ctx, &session)
 }
 
-// RaiseHand puts the student in the queue and returns it.
+func (s *Service) checkModule(ctx context.Context, actor Actor, moduleID uuid.UUID) error {
+	if s.modules != nil {
+		return s.modules.Available(ctx, actor, moduleID)
+	}
+	ok, err := s.repo.ModuleExists(ctx, moduleID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return domain.ErrModuleNotFound
+	}
+	return nil
+}
+
+// FocusModuleBlock keeps the block of the module that the teacher put in focus, for who comes in later.
+func (s *Service) FocusModuleBlock(ctx context.Context, sessionID uuid.UUID, blockID string) error {
+	if len(blockID) > domain.MaxBlockIDLength {
+		return domain.ErrInvalidBlock
+	}
+	if _, err := s.activeSession(ctx, sessionID); err != nil {
+		return err
+	}
+	s.live.setFocus(sessionID, blockID)
+	return nil
+}
+
+// ModuleOfRoom returns the module the open room of the class chose, for its teacher and for its admitted students. It is the only way
+// a student reads a module that is private to another class (SPEC-054 RN-07).
+func (s *Service) ModuleOfRoom(ctx context.Context, actor Actor, classID uuid.UUID) (ModuleView, error) {
+	if _, err := s.readable(ctx, actor, classID); err != nil {
+		return ModuleView{}, err
+	}
+	session, err := s.repo.FindActiveSession(ctx, classID)
+	if err == domain.ErrSessionNotFound {
+		return ModuleView{}, domain.ErrNoActiveSession
+	}
+	if err != nil {
+		return ModuleView{}, err
+	}
+	if actor.Role == authn.RoleStudent {
+		if err := s.requireAdmitted(ctx, session.ID, actor.UserID); err != nil {
+			if err == domain.ErrNotAdmitted {
+				return ModuleView{}, domain.ErrForbidden
+			}
+			return ModuleView{}, err
+		}
+	}
+	if session.ActiveModuleID == nil {
+		return ModuleView{}, domain.ErrModuleNotSelected
+	}
+	if s.modules == nil {
+		return ModuleView{}, domain.ErrModuleNotFound
+	}
+	return s.modules.Read(ctx, *session.ActiveModuleID)
+}
+
+// RaiseHand puts the student in the queue and returns it. Only an admitted student raises his hand (SPEC-054 RN-03).
 func (s *Service) RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	if _, err := s.activeSession(ctx, sessionID); err != nil {
+		return nil, err
+	}
+	if err := s.requireAdmitted(ctx, sessionID, studentID); err != nil {
 		return nil, err
 	}
 	if err := s.repo.RaiseHand(ctx, sessionID, studentID, s.now()); err != nil {
@@ -583,12 +823,23 @@ func (s *Service) RememberDrawing(sessionID uuid.UUID, raw json.RawMessage) {
 	s.live.drawing(sessionID, raw)
 }
 
-// RememberTerminalInput keeps the line the teacher is typing.
-func (s *Service) RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage) {
-	s.live.input(sessionID, raw)
+// RememberTerminalInput keeps the line the teacher is typing. It reports whether the terminal is being broadcast: when it is not, the
+// line is private, nothing is kept and the room is not to be told (SPEC-054 RN-04).
+func (s *Service) RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage) bool {
+	return s.live.input(sessionID, raw)
 }
 
-// RememberTerminalSync keeps a command of the teacher with its output, and the machine it left.
-func (s *Service) RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage) {
-	s.live.sync(sessionID, raw)
+// RememberTerminalSync keeps a command of the teacher with its output, and the machine it left, while the terminal is being broadcast.
+func (s *Service) RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage) bool {
+	return s.live.sync(sessionID, raw)
+}
+
+// SetTerminalBroadcast turns the broadcast of the terminal of the teacher on or off. Off, it forgets what the terminal kept.
+func (s *Service) SetTerminalBroadcast(sessionID uuid.UUID, on bool) {
+	s.live.setBroadcast(sessionID, on)
+}
+
+// TerminalBroadcasting tells whether the terminal of the teacher is on the air.
+func (s *Service) TerminalBroadcasting(sessionID uuid.UUID) bool {
+	return s.live.broadcasting(sessionID)
 }

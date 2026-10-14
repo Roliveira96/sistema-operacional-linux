@@ -20,6 +20,10 @@ type liveState struct {
 	input    json.RawMessage
 	entries  []json.RawMessage
 	state    json.RawMessage
+
+	// what the teacher published of the module, and whether the terminal is being broadcast (SPEC-054)
+	focusBlock string
+	broadcast  bool
 }
 
 type liveStates struct {
@@ -70,14 +74,56 @@ func (l *liveStates) drawing(id uuid.UUID, raw json.RawMessage) {
 	}
 }
 
-func (l *liveStates) input(id uuid.UUID, raw json.RawMessage) {
+// input keeps the line being typed; it reports false, keeping nothing, while the terminal is not being broadcast.
+func (l *liveStates) input(id uuid.UUID, raw json.RawMessage) bool {
 	l.mu.Lock()
-	l.of(id).input = bytes.Clone(raw)
+	defer l.mu.Unlock()
+	st := l.of(id)
+	if !st.broadcast {
+		return false
+	}
+	st.input = bytes.Clone(raw)
+	return true
+}
+
+// setBroadcast turns the broadcast of the terminal on or off; turning it off forgets what the terminal kept.
+func (l *liveStates) setBroadcast(id uuid.UUID, on bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	st := l.of(id)
+	st.broadcast = on
+	if !on {
+		st.input, st.entries, st.state = nil, nil, nil
+	}
+}
+
+func (l *liveStates) broadcasting(id uuid.UUID) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	st, ok := l.rooms[id]
+	return ok && st.broadcast
+}
+
+func (l *liveStates) setFocus(id uuid.UUID, blockID string) {
+	l.mu.Lock()
+	l.of(id).focusBlock = blockID
 	l.mu.Unlock()
 }
 
-// sync keeps a command with its output in the history and the machine it left as the current state.
-func (l *liveStates) sync(id uuid.UUID, raw json.RawMessage) {
+// published returns the block in focus and the state of the broadcast.
+func (l *liveStates) published(id uuid.UUID) (string, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	st, ok := l.rooms[id]
+	if !ok {
+		return "", false
+	}
+	return st.focusBlock, st.broadcast
+}
+
+// sync keeps a command with its output in the history and the machine it left as the current state; it reports false, keeping
+// nothing, while the terminal is not being broadcast.
+func (l *liveStates) sync(id uuid.UUID, raw json.RawMessage) bool {
 	var m struct {
 		State json.RawMessage `json:"state"`
 	}
@@ -85,6 +131,9 @@ func (l *liveStates) sync(id uuid.UUID, raw json.RawMessage) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	st := l.of(id)
+	if !st.broadcast {
+		return false
+	}
 	st.entries = append(st.entries, bytes.Clone(raw))
 	if len(st.entries) > maxTerminalEntries {
 		st.entries = st.entries[len(st.entries)-maxTerminalEntries:]
@@ -92,6 +141,7 @@ func (l *liveStates) sync(id uuid.UUID, raw json.RawMessage) {
 	if len(m.State) > 0 && string(m.State) != "null" {
 		st.state = bytes.Clone(m.State)
 	}
+	return true
 }
 
 // view returns a copy of the strokes and of the terminal of the room.

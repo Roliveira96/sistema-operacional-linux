@@ -119,6 +119,16 @@ func (f *fakeService) ModuleOfRoom(_ context.Context, a service.Actor, _ uuid.UU
 
 func (w *world) waitingRoom() { w.svc.waiting = true }
 
+// nextMsg is the next message in line, leaving out the presence counter, which comes whenever somebody joins.
+func nextMsg(t *testing.T, c *websocket.Conn) message {
+	t.Helper()
+	for {
+		if m := readMsg(t, c); m.Type != "live:presence" {
+			return m
+		}
+	}
+}
+
 func queueOf(t *testing.T, m message) (waiting, admitted []map[string]any) {
 	t.Helper()
 	var q struct {
@@ -277,14 +287,14 @@ func TestRemove_TakesTheStageAndAllowsAskingAgain(t *testing.T) {
 	assert.Empty(t, admitted)
 
 	sendMsg(t, teacher, "live:slide:change", `{"slide":6}`)
-	nothingMore(t, student, "live:slide:change")
 
 	sendMsg(t, student, "live:hand:raise", `{}`)
 	eventually(t, func() bool { return w.logs.FilterMessage("classroom message dropped").Len() == 1 })
 	assert.Equal(t, 0, w.svc.called("raise"))
 
 	sendMsg(t, student, "live:admission:request", `{}`)
-	assert.Equal(t, "WAITING", statusOf(t, readUntil(t, student, "live:admission:state")))
+	// (a read that timed out breaks the socket, so "nothing arrived" is shown by what is first in line: the slide would be before this)
+	assert.Equal(t, "WAITING", statusOf(t, nextMsg(t, student)), "the slide of the teacher did not reach the removed student")
 	waiting, _ := queueOf(t, readUntil(t, teacher, "live:admission:queue"))
 	require.Len(t, waiting, 1)
 	assert.Equal(t, w.student.UserID.String(), waiting[0]["studentId"])
@@ -354,7 +364,8 @@ func TestTerminalBroadcastSwitch(t *testing.T) {
 
 	sendMsg(t, teacher, "live:terminal:input", `{"terminal":1,"line":"secret"}`)
 	sendMsg(t, teacher, "live:terminal:sync", `{"terminal":1,"line":"secret","output":"x","state":{}}`)
-	nothingMore(t, student, "live:terminal:input", "live:terminal:sync")
+	sendMsg(t, teacher, "live:module:focus", `{"blockId":"marker"}`)
+	assert.Equal(t, "live:module:focus", nextMsg(t, student).Type, "the private terminal sent nothing before the marker")
 	assert.Empty(t, w.svc.input)
 	assert.Empty(t, w.svc.syncs)
 
@@ -368,7 +379,8 @@ func TestTerminalBroadcastSwitch(t *testing.T) {
 	sendMsg(t, teacher, "live:terminal:broadcast", `{"enabled":false}`)
 	assert.JSONEq(t, `{"enabled":false}`, string(readUntil(t, student, "live:terminal:broadcast").Data))
 	sendMsg(t, teacher, "live:terminal:input", `{"terminal":1,"line":"private again"}`)
-	nothingMore(t, student, "live:terminal:input")
+	sendMsg(t, teacher, "live:module:focus", `{"blockId":"marker2"}`)
+	assert.Equal(t, "live:module:focus", nextMsg(t, student).Type, "private again: nothing before the marker")
 
 	// A student cannot turn it on.
 	sendMsg(t, student, "live:terminal:broadcast", `{"enabled":true}`)
@@ -436,7 +448,7 @@ func TestSnapshotCarriesTheModuleAndTheBroadcast(t *testing.T) {
 func TestModuleRoute(t *testing.T) {
 	w := setup(t)
 	module := uuid.New()
-	w.svc.moduleView = service.ModuleView{ID: module, Title: "Processos", Scenario: json.RawMessage(`{"fs":1}`),
+	w.svc.moduleView = service.ModuleView{ID: module, Title: "Processos", Scenario: json.RawMessage(`{"fs":1}`), Setup: json.RawMessage(`{"layers":[]}`),
 		Blocks: []service.ModuleBlock{{ID: "b1", Type: "TEXT", Position: 1, Payload: json.RawMessage(`{"text":"oi"}`)}}}
 
 	code, body := w.call(t, "student", http.MethodGet, w.path("/module"), nil)
@@ -444,6 +456,7 @@ func TestModuleRoute(t *testing.T) {
 	assert.Equal(t, module.String(), body["moduleId"])
 	assert.Equal(t, "Processos", body["title"])
 	assert.JSONEq(t, `{"fs":1}`, mustJSON(body["scenario"]))
+	assert.JSONEq(t, `{"layers":[]}`, mustJSON(body["setup"]), "the snapshot of the module goes with the scenario, as in the study screen")
 	blocks := body["blocks"].([]any)
 	require.Len(t, blocks, 1)
 	block := blocks[0].(map[string]any)
@@ -458,6 +471,7 @@ func TestModuleRoute(t *testing.T) {
 	_, body = w.call(t, "teacher", http.MethodGet, w.path("/module"), nil)
 	assert.Equal(t, []any{}, body["blocks"], "an empty list, not null")
 	assert.Nil(t, body["scenario"])
+	assert.Nil(t, body["setup"])
 
 	for _, tc := range []struct {
 		err    error

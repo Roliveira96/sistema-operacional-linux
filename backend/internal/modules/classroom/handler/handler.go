@@ -36,10 +36,22 @@ type Service interface {
 	Connect(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Connection, error)
 	Snapshot(ctx context.Context, sessionID uuid.UUID) (service.Active, error)
 	ChangeSlide(ctx context.Context, sessionID uuid.UUID, slide int) error
-	SwitchMode(ctx context.Context, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error
+	SwitchMode(ctx context.Context, actor service.Actor, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error
+	FocusModuleBlock(ctx context.Context, sessionID uuid.UUID, blockID string) error
 	RememberDrawing(sessionID uuid.UUID, raw json.RawMessage)
-	RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage)
-	RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage)
+	// RememberTerminalInput and RememberTerminalSync report whether the terminal is on the air; if not, the message is not passed on.
+	RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage) bool
+	RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage) bool
+	SetTerminalBroadcast(sessionID uuid.UUID, on bool)
+	TerminalBroadcasting(sessionID uuid.UUID) bool
+	ModuleOfRoom(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.ModuleView, error)
+
+	AdmissionState(ctx context.Context, sessionID, studentID uuid.UUID) (string, error)
+	Admissions(ctx context.Context, sessionID uuid.UUID) (service.Admissions, error)
+	Admit(ctx context.Context, actor service.Actor, sessionID, studentID uuid.UUID) (service.Admissions, error)
+	AdmitAll(ctx context.Context, actor service.Actor, sessionID uuid.UUID) ([]uuid.UUID, service.Admissions, error)
+	Remove(ctx context.Context, actor service.Actor, sessionID, studentID uuid.UUID) (service.Admissions, error)
+	RequestAgain(ctx context.Context, sessionID, studentID uuid.UUID) (string, error)
 	RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.HandRaiseEntry, error)
 	LowerHand(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.HandRaiseEntry, error)
 	ModerateHand(ctx context.Context, sessionID uuid.UUID, studentID *uuid.UUID) ([]domain.HandRaiseEntry, error)
@@ -97,6 +109,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/live/decks", h.upload)
 	g.GET("/classes/:id/live/decks", h.decks)
 	g.GET("/classes/:id/live/active", h.active)
+	g.GET("/classes/:id/live/module", h.module)
 	g.GET("/classes/:id/live/sessions", h.sessions)
 	g.PUT("/classes/:id/live/sessions/:sessionId/notes", h.saveNote)
 	g.GET("/classes/:id/live/sessions/:sessionId/notes", h.getNote)
@@ -145,21 +158,36 @@ func activeBody(a service.Active, online int) gin.H {
 		entries = []json.RawMessage{}
 	}
 	body := gin.H{
-		"hasActiveSession": true,
-		"session":          sessionJSON(a.Session),
-		"displayMode":      a.Session.DisplayMode,
-		"currentSlide":     a.Session.CurrentSlide,
-		"activeModuleId":   a.Session.ActiveModuleID,
-		"activeDeck":       nil,
-		"recentDrawings":   drawings,
-		"terminal":         gin.H{"input": a.Terminal.Input, "entries": entries, "state": a.Terminal.State},
-		"handRaises":       handsJSON(a.HandRaises),
-		"onlineCount":      online,
+		"hasActiveSession":   true,
+		"session":            sessionJSON(a.Session),
+		"displayMode":        a.Session.DisplayMode,
+		"currentSlide":       a.Session.CurrentSlide,
+		"activeModuleId":     a.Session.ActiveModuleID,
+		"moduleId":           a.Session.ActiveModuleID,
+		"moduleFocusBlockId": a.ModuleFocusBlockID,
+		"terminalBroadcast":  a.TerminalBroadcast,
+		"activeDeck":         nil,
+		"recentDrawings":     drawings,
+		"terminal":           gin.H{"input": a.Terminal.Input, "entries": entries, "state": a.Terminal.State},
+		"handRaises":         handsJSON(a.HandRaises),
+		"onlineCount":        online,
 	}
 	if a.Deck != nil {
 		body["activeDeck"] = deckJSON(*a.Deck)
 	}
 	return body
+}
+
+// admissionsBody is the waiting room and the admitted, for the teacher.
+func admissionsBody(a service.Admissions) gin.H {
+	list := func(entries []domain.AdmissionEntry) []gin.H {
+		out := make([]gin.H, 0, len(entries))
+		for _, e := range entries {
+			out = append(out, gin.H{"studentId": e.StudentID, "name": e.Name, "requestedAt": e.RequestedAt})
+		}
+		return out
+	}
+	return gin.H{"waiting": list(a.Waiting), "admitted": list(a.Admitted)}
 }
 
 // ---- REST ----
@@ -304,6 +332,24 @@ func (h *Handler) active(c *gin.Context) {
 	c.JSON(http.StatusOK, activeBody(a, h.hub.Online(a.Session.ID.String())))
 }
 
+// module reads the module that the open room chose, for its teacher and for its admitted students (SPEC-054).
+func (h *Handler) module(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	view, err := h.svc.ModuleOfRoom(c.Request.Context(), actor, classID)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	blocks := make([]gin.H, 0, len(view.Blocks))
+	for _, b := range view.Blocks {
+		blocks = append(blocks, gin.H{"id": b.ID, "type": b.Type, "position": b.Position, "payload": b.Payload})
+	}
+	c.JSON(http.StatusOK, gin.H{"moduleId": view.ID, "title": view.Title, "blocks": blocks, "scenario": view.Scenario, "setup": view.Setup})
+}
+
 // decks lists the presentations of the class, without the address to download them (SPEC-053).
 func (h *Handler) decks(c *gin.Context) {
 	actor, classID, ok := requestOf(c)
@@ -403,7 +449,9 @@ func (h *Handler) connect(c *gin.Context) {
 	if conn.Controller {
 		role = hub.Controller
 	}
-	if err := h.hub.Serve(c.Request.Context(), ws, conn.Session.ID.String(), hub.Identity{UserID: actor.UserID.String(), Role: role}); err != nil {
+	if err := h.hub.Serve(c.Request.Context(), ws, conn.Session.ID.String(), hub.Identity{
+		UserID: actor.UserID.String(), Role: role, Meta: actor.Role, Waiting: !conn.Controller && conn.Admission != domain.AdmissionAdmitted,
+	}); err != nil {
 		h.log.Debug("classroom connection ended", zap.String("userId", actor.UserID.String()), zap.Error(err))
 	}
 }
@@ -429,7 +477,7 @@ func toProblem(err error) *problem.Problem {
 		return problem.BadRequest("validation-error", err.Error())
 	case errors.Is(err, domain.ErrFileTooLarge):
 		return problem.PayloadTooLarge(err.Error())
-	case errors.Is(err, domain.ErrForbidden):
+	case errors.Is(err, domain.ErrForbidden), errors.Is(err, domain.ErrNotAdmitted):
 		return problem.Forbidden("forbidden", err.Error())
 	case errors.Is(err, domain.ErrClassNotFound):
 		return problem.NotFound("class-not-found", err.Error())
@@ -441,6 +489,10 @@ func toProblem(err error) *problem.Problem {
 		return problem.NotFound("class-session-not-found", err.Error())
 	case errors.Is(err, domain.ErrModuleNotFound):
 		return problem.NotFound("module-not-found", err.Error())
+	case errors.Is(err, domain.ErrNoActiveSession):
+		return problem.NotFound("no-active-session", err.Error())
+	case errors.Is(err, domain.ErrModuleNotSelected):
+		return problem.NotFound("module-not-selected", err.Error())
 	case errors.Is(err, domain.ErrNotesNotFound):
 		return problem.NotFound("notes-not-found", err.Error())
 	case errors.Is(err, domain.ErrClassArchived):
