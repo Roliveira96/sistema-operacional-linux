@@ -480,8 +480,8 @@ describe("ClassForm (SPEC-044)", () => {
     expect(screen.getByText(/Informe as datas de início e fim da turma/)).toBeDefined();
   });
 
-  // CA-19 and CA-16
-  it("on a saved class shows the real calendar and applies the meetings to it", async () => {
+  // CA-16, CA-19 and CA-22
+  it("on a saved class shows one calendar and applies the valid meetings by itself", async () => {
     const calendar = vi.spyOn(scheduleService, "classCalendar").mockResolvedValue(octoberCalendar());
     const onApplyMeetings = vi.fn().mockResolvedValue(undefined);
     const { container } = render(
@@ -494,22 +494,38 @@ describe("ClassForm (SPEC-044)", () => {
     );
     fireEvent.click(tab("Horários"));
     expect(await screen.findByRole("heading", { name: "outubro de 2026" })).toBeDefined();
-    expect(screen.queryByRole("region", { name: "Prévia do calendário" })).toBeNull();
+    expect(screen.queryByRole("region", { name: /Prévia/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Aplicar horários ao calendário" })).toBeNull();
     expect(container.querySelector("[data-marker]")).toBeNull();
-    expect(screen.queryByText(/ainda mostra os horários salvos/)).toBeNull();
+    expect(onApplyMeetings).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Terça-feira" }));
-    expect(screen.getByText(/ainda mostra os horários salvos/)).toBeDefined();
-    // CA-22: the days just marked show on a live preview above the real calendar
-    expect(screen.getByRole("region", { name: "Prévia dos horários ainda não aplicados" })).toBeDefined();
-    expect(container.querySelectorAll("[data-marker]").length).toBeGreaterThanOrEqual(4);
     const before = calendar.mock.calls.length;
-    fireEvent.click(screen.getByRole("button", { name: "Aplicar horários ao calendário" }));
-    await waitFor(() => expect(onApplyMeetings).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Terça-feira" }));
+    await waitFor(() => expect(onApplyMeetings).toHaveBeenCalledTimes(1), { timeout: 3000 });
     expect(onApplyMeetings.mock.lastCall?.[0]).toEqual([expect.objectContaining({ weekday: 2, startTime: "08:20", endTime: "10:20" })]);
     await waitFor(() => expect(calendar.mock.calls.length).toBeGreaterThan(before));
-    await waitFor(() => expect(screen.queryByText(/ainda mostra os horários salvos/)).toBeNull());
-    expect(screen.queryByRole("region", { name: "Prévia dos horários ainda não aplicados" })).toBeNull();
+    expect(await screen.findByText("Horários aplicados ao calendário.")).toBeDefined();
+  });
+
+  // CA-19
+  it("does not apply an invalid meeting", async () => {
+    vi.spyOn(scheduleService, "classCalendar").mockResolvedValue(octoberCalendar());
+    const onApplyMeetings = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ClassForm
+        onSubmit={vi.fn()}
+        classId="c-1"
+        onApplyMeetings={onApplyMeetings}
+        initialData={{ startDate: "2026-10-01T03:00:00Z", endDate: "2026-10-31T23:59:59Z" }}
+      />,
+    );
+    fireEvent.click(tab("Horários"));
+    fireEvent.click(screen.getByRole("button", { name: "Quarta-feira" }));
+    await waitFor(() => expect(onApplyMeetings).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    fireEvent.change(screen.getByLabelText("Modalidade (Quarta-feira)"), { target: { value: "ONLINE" } });
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(onApplyMeetings).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Informe um link https.")).toBeDefined();
   });
 
   // CA-16

@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Implementada |
+| **Status** | Aprovada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (calendário real na configuração, Opção A) |
 | **Autor** | Aruna Architect |
@@ -89,6 +89,10 @@ Abaixo do editor de encontros, a aba Horários mostra um calendário mensal. Ele
 - Ao selecionar um dia, o docente pode, como na agenda: **cancelar a aula** (informando o motivo), **ajustar a aula** (horário, quantidade de aulas, modalidade, sala ou link) ou **reverter** um ajuste; e **incluir uma aula avulsa** no dia (SPEC-042, RN-04 e RN-05).
 - Enquanto houver horários **não aplicados**, a prévia ao vivo (a mesma da turma nova, com feriados) aparece **acima** do calendário real, com o título "Prévia dos horários ainda não aplicados", para o docente ver as aulas dos dias que acabou de marcar sem sair da tela. Ao aplicar, a prévia some e o calendário real mostra as aulas.
 - Os eventos e os períodos especiais não são editados aqui, só na agenda da turma: os botões que dependem deles não aparecem.
+- É um calendário só. As aulas vêm do servidor; por isso, **os encontros válidos são aplicados à turma automaticamente**, cerca de meio segundo depois da última mudança no editor (SPEC-042, RN-01 e RN-02), e o calendário recarrega com as aulas dos dias marcados. Não há botão de aplicar nem segunda prévia.
+- Um aviso de estado ao lado do editor mostra "Aplicando horários…" e depois "Horários aplicados ao calendário.". Encontros inválidos (sobreposição, fim antes do início, link sem https) não são aplicados e mostram o erro junto do campo. Se o servidor recusar, mostra o erro geral do formulário e não tenta de novo o mesmo conteúdo.
+- Por isso, nesta tela, mudar os encontros grava na turma sem esperar o botão "Salvar Alterações"; o botão "Cancelar" não desfaz o que já foi aplicado.
+- Os eventos e os períodos especiais não são editados aqui, só na agenda da turma: os botões que dependem deles não aparecem.
 - As aulas vêm do servidor; por isso, mudar os encontros no editor só aparece no calendário depois de **aplicar os horários**: um botão "Aplicar horários ao calendário", abaixo do editor, salva os encontros da turma (SPEC-042, RN-01 e RN-02) e recarrega o calendário. Um aviso ao lado do botão explica isso quando há mudança ainda não aplicada.
 - Cores só dos tokens, nos temas claro e escuro; no celular, usa a largura da tela.
 
@@ -131,8 +135,8 @@ Não se aplica nesta spec: nenhum endpoint muda.
 - [ ] **CA-16** (estado): ENQUANTO a turma é salva, a aba Horários DEVE mostrar o calendário real da turma, com feriados, em vez da prévia.
 - [ ] **CA-17** (evento): QUANDO o docente seleciona um dia com aula no calendário da turma salva e escolhe alterar, O SISTEMA DEVE abrir o formulário da aula, no qual pode cancelá-la com motivo, ajustá-la ou revertê-la, e recarregar o calendário.
 - [ ] **CA-18** (evento): QUANDO o docente seleciona um dia e escolhe incluir aula avulsa, O SISTEMA DEVE abrir o formulário, criar a aula nesse dia e recarregar o calendário.
-- [ ] **CA-19** (evento): QUANDO o docente aciona "Aplicar horários ao calendário", O SISTEMA DEVE salvar os encontros da turma e recarregar o calendário; SE houver mudança não aplicada, ENTÃO DEVE avisar que o calendário ainda mostra os horários salvos.
-- [ ] **CA-22** (estado): ENQUANTO a turma é salva e há horários não aplicados, a aba Horários DEVE mostrar, acima do calendário real, a prévia ao vivo com os marcadores desses horários; QUANDO os horários são aplicados, a prévia DEVE sumir.
+- [ ] **CA-19** (evento): QUANDO o docente muda os encontros de uma turma salva e eles são válidos, O SISTEMA DEVE aplicá-los à turma após uma breve pausa e recarregar o calendário, mostrando o estado "Aplicando horários…" e depois "Horários aplicados ao calendário."; SE forem inválidos, ENTÃO NÃO DEVE aplicá-los.
+- [ ] **CA-22** (estado): ENQUANTO a turma é salva, a aba Horários DEVE mostrar um único calendário, o real da turma, sem prévia nem botão de aplicar.
 - [ ] **CA-20** (ubíquo): O calendário da turma salva, na tela de configuração, NÃO DEVE mostrar botões de evento nem de período especial.
 - [ ] **CA-21** (estado): ENQUANTO um dia é feriado ou recesso, a célula desse dia, na prévia e no calendário da turma, DEVE ser destacada em vermelho (cor `danger` dos tokens), e o nome do feriado DEVE ficar contido na célula, sem alargar a grade nem quebrar o formulário.
 - [ ] **CA-13** (evento): QUANDO o docente muda a quantidade de aulas de um encontro, O SISTEMA DEVE ajustar o horário de fim para início mais 60 minutos por aula, sem passar das 23:59.
@@ -163,10 +167,10 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
   - com `classId`, a aba Horários mostra o calendário real (feriados) e não a prévia. Cobre CA-16.
   - alterar uma aula: cancelar com motivo, ajustar horário, e recarregar. Cobre CA-17.
   - incluir aula avulsa no dia selecionado. Cobre CA-18.
-  - "Aplicar horários ao calendário" salva os encontros e recarrega; aviso de mudança não aplicada. Cobre CA-19.
+  - marcar um dia aplica os encontros sozinho (após a pausa), recarrega o calendário e mostra o estado; encontro inválido não é aplicado. Cobre CA-19.
   - não há botões de evento nem de período. Cobre CA-20.
 - **Frontend (CA-21):** a célula de feriado recebe a marca `data-on-holiday` na prévia e no `ClassCalendar`. O destaque vermelho e a contenção do nome são estilo, conferidos no roteiro manual.
-- **Frontend, `ClassForm.test.tsx` (turma salva):** marcar um dia mostra a prévia com os marcadores acima do calendário real; aplicar faz a prévia sumir. Cobre CA-22.
+- **Frontend, `ClassForm.test.tsx` (turma salva):** há um só calendário, sem prévia nem botão de aplicar. Cobre CA-22.
 - **Manual:** conferir as abas em 360 px de largura e nos dois temas; rodar `npm run lint`. Cobre CA-03 e CA-08.
 - **Cobertura:** acima de 80% no escopo da spec.
 
@@ -198,3 +202,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `Clas
 | 14/10/2026 | Implementador | CA-21 implementado: célula de feriado em vermelho nos dois calendários e grade com colunas de largura fixa (`minmax(0, 1fr)`), que impede o nome do feriado de alargar a grade |
 | 14/10/2026 | Aruna Architect | Defeito relatado pelo Tech Lead: dias marcados não apareciam no calendário da turma salva até aplicar; a prévia ao vivo passa a aparecer acima do calendário real enquanto houver horários não aplicados (CA-22) |
 | 14/10/2026 | Implementador | CA-22 implementado: prévia ao vivo, com feriados, acima do calendário real enquanto houver horários não aplicados |
+| 14/10/2026 | Aruna Architect | Pedido do Tech Lead: um calendário só na turma salva, o clicável; os encontros válidos passam a ser aplicados automaticamente (CA-19 e CA-22 reescritos) |
