@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (calendário real na configuração, Opção A) |
 | **Autor** | Aruna Architect |
@@ -192,3 +192,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `Clas
 | 14/10/2026 | Aruna Architect | Tech Lead escolheu a Opção A: turma nova com prévia (agora com feriados) e turma salva com o calendário real (cancelar, ajustar, incluir aula avulsa); CA-15 a CA-20; volta a Aprovada |
 | 14/10/2026 | Implementador | Implementada a Opção A: feriados na prévia, calendário real na configuração (cancelar, ajustar, incluir aula avulsa) e botão Aplicar horários; testes alterados depois do vermelho: seleção de situação por rádio em `ClassSessionsCalendar.test.tsx` e o teste da tela de configuração, que passou a esperar o calendário real (CA-16) |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: dia de feriado em vermelho nos dois calendários e nome contido na célula (CA-21) |
+| 14/10/2026 | Implementador | CA-21 implementado: célula de feriado em vermelho nos dois calendários e grade com colunas de largura fixa (`minmax(0, 1fr)`), que impede o nome do feriado de alargar a grade |

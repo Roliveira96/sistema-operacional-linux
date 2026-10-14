@@ -66,10 +66,12 @@ export function MeetingsPreview({ startDate, endDate, meetings, color, holidays 
             const iso = isoDate(day);
             const inTerm = iso >= startDate && iso <= endDate;
             const dayMeetings = inTerm ? byWeekday(day.getDay()) : [];
+            const onHoliday = holidays.some((h) => h.active && h.date === iso);
             return (
               <div
                 key={iso}
                 data-date={iso}
+                data-on-holiday={onHoliday ? "true" : undefined}
                 className={`${styles.day} ${day.getMonth() === month.getMonth() ? "" : styles.otherMonth} ${inTerm ? "" : styles.outOfTerm}`}
               >
                 <span className={styles.dayNumber}>{day.getDate()}</span>

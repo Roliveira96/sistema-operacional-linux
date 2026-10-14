@@ -85,6 +85,16 @@
   background: var(--color-surface);
 }
 
+// A holiday or recess day stands out in red (SPEC-044, CA-21).
+.day[data-on-holiday="true"] {
+  background: var(--color-danger-subtle);
+
+  .dayNumber {
+    color: var(--color-danger);
+    font-weight: var(--font-weight-bold);
+  }
+}
+
 .otherMonth {
   opacity: 0.55;
 }
@@ -104,9 +114,9 @@
   overflow: hidden;
   padding: 1px 4px;
   border-radius: var(--radius-sm);
-  background: var(--color-warning-subtle);
+  background: var(--color-danger-faint);
   font-size: var(--font-size-xs);
-  color: var(--color-warning);
+  color: var(--color-danger);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

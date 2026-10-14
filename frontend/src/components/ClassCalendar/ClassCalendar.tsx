@@ -449,6 +449,7 @@ export function ClassCalendar({
                 className={`${styles.dayCell} ${!isCurrentMonth ? styles.otherMonth : ""}`}
                 aria-label={ariaLabel}
                 aria-current={isToday ? "date" : undefined}
+                data-on-holiday={dayHolidays.length > 0 ? "true" : undefined}
                 onClick={() => handleDayClick(day)}
                 onKeyDown={(e) => handleDayKeyDown(idx, e)}
               >
