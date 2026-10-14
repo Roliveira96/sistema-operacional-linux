@@ -117,4 +117,22 @@ describe("MirroredModuleView", () => {
     view.unmount();
     expect(windows[0]!.destroy).toHaveBeenCalled();
   });
+
+  // SPEC-054 CA-11: both terminals start on the machine of the module
+  it("mounts the terminal on the machine of the module when it is given, for the teacher and for the student", async () => {
+    const machine = { formato: "exame-so/maquina", n: 7 };
+    const teacher = render(<MirroredModuleView role="teacher" terminal={empty} initialState={machine} />);
+    await waitFor(() => expect(mountTerminalWindow).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(mountTerminalWindow).mock.calls[0]![1]).toBe(machine);
+    teacher.unmount();
+    render(<MirroredModuleView role="student" terminal={empty} initialState={machine} />);
+    await waitFor(() => expect(mountTerminalWindow).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(mountTerminalWindow).mock.calls[1]![1]).toBe(machine);
+  });
+
+  it("mounts the default machine when there is none", async () => {
+    render(<MirroredModuleView role="student" terminal={empty} />);
+    await waitFor(() => expect(mountTerminalWindow).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(mountTerminalWindow).mock.calls[0]![1]).toBeNull();
+  });
 });

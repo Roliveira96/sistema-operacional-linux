@@ -114,4 +114,13 @@ describe("live socket", () => {
     socket.send("live:hand:raise", {});
     expect(FakeSocket.last.sent).toEqual([]);
   });
+
+  // SPEC-054, section 5: the module of the room, for the teacher and for the admitted student
+  it("reads the module of the room, with its blocks and the first machine of its terminal", async () => {
+    const http: HttpClient = { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
+    const module_ = { moduleId: "m-1", title: "Permissões", blocks: [], scenario: { n: 1 } };
+    vi.mocked(http.get).mockResolvedValueOnce(module_);
+    expect(await createClassroomService(http).getLiveModule("c-1")).toEqual(module_);
+    expect(http.get).toHaveBeenCalledWith("/classes/c-1/live/module");
+  });
 });
