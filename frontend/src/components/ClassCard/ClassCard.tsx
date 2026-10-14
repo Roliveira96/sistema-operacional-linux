@@ -90,6 +90,15 @@ function IconSettings() {
   );
 }
 
+function IconEye() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 function IconArchive() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -262,6 +271,11 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
         </Link>
 
         <div className={styles.secondaryActions}>
+          <Link href={`/app/classes/${classGroup.id}`} className={styles.linkAction} title={messages.classes.card.view}>
+            <IconEye />
+            <span>{messages.classes.card.view}</span>
+          </Link>
+
           <Link
             href={`/app/classes/${classGroup.id}/settings`}
             className={styles.linkAction}

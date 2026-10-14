@@ -245,6 +245,7 @@ export const messages = {
       schedule: "Horários",
       activeStudents: "Alunos ativos",
       pendingRequests: "Ingressos pendentes",
+      view: "Visualizar",
       manage: "Configurações",
       members: "Membros",
       archive: "Arquivar",
