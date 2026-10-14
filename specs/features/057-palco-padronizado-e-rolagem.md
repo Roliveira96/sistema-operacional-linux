@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-057 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada pelo pedido do Tech Lead; a resolução fica para a revisão dele) |
 | **Autor** | Aruna Architect |
@@ -150,3 +150,4 @@ O Tech Lead pediu o palco igual para todos e a rolagem; a escolha de **1280 × 7
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: o professor não precisa ver a bolinha (só o mouse dele), e o texto selecionado pelo professor deve aparecer selecionado ao aluno. Acrescentados o ponteiro só para os alunos, a seleção de texto (`live:stage:selection`, `stageView.selection`) e os CA-19 a CA-21 |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: o aviso "Você acompanha o terminal do professor. O teclado fica travado." desloca o conteúdo do aluno e o ponteiro cai fora do lugar. Acrescentados o desenho idêntico dentro do palco, a remoção do aviso (que a SPEC-056 mandava mostrar) e o CA-22 |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: o scroll do professor tem de aparecer ao aluno. O do material já estava coberto (CA-07); acrescentada a rolagem do histórico do terminal (`pane: "terminal"`, `stageView.terminalScroll`) e o CA-23 |
+| 14/10/2026 | Aruna Architect | Implementada e aprovada no teste manual do Tech Lead ("ficou muito bom"). Commits: backend `eb51ba1`, `92d22ae`, `57459cd`, `37aafbd`, `babfdd2`, `3655134`, `a2492d3`, `b6f3db6`; frontend `4983db9`, `cc5d294`, `a86b703` (e os `test` correspondentes). Desvios: o `Coalesce` do hub ganhou chave de fusão por regra (`CoalesceKey`); a rolagem dos terminais também zera na troca de módulo; as anotações abrem fechadas por padrão; a sala do aluno é `fixed` sobre o `AppShell` |
