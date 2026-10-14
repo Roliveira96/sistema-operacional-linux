@@ -70,6 +70,16 @@ type fakeService struct {
 	syncs    []string
 	moderate []*uuid.UUID
 	presence int
+
+	// the waiting room, the broadcast of the terminal and the module of the room (SPEC-054)
+	waiting    bool // a student comes in waiting; by default he comes in admitted, as before SPEC-054
+	states     map[uuid.UUID]string
+	decided    []string
+	broadcast  bool
+	focus      []string
+	moduleView service.ModuleView
+	moduleErr  error
+	moduleFor  service.Actor
 }
 
 func (f *fakeService) record(s string) {
@@ -130,7 +140,12 @@ func (f *fakeService) Connect(_ context.Context, a service.Actor, _ uuid.UUID) (
 	if f.connErr != nil {
 		return service.Connection{}, f.connErr
 	}
-	return service.Connection{Session: f.session, Controller: a.Role == authn.RoleTeacher || a.Role == authn.RoleAdmin}, nil
+	controller := a.Role == authn.RoleTeacher || a.Role == authn.RoleAdmin
+	conn := service.Connection{Session: f.session, Controller: controller}
+	if !controller {
+		conn.Admission = f.stateOf(a.UserID)
+	}
+	return conn, nil
 }
 func (f *fakeService) Snapshot(context.Context, uuid.UUID) (service.Active, error) {
 	return f.active, nil
@@ -141,7 +156,10 @@ func (f *fakeService) ChangeSlide(_ context.Context, _ uuid.UUID, slide int) err
 	f.mu.Unlock()
 	return nil
 }
-func (f *fakeService) SwitchMode(_ context.Context, _ uuid.UUID, mode string, module *uuid.UUID) error {
+func (f *fakeService) SwitchMode(_ context.Context, _ service.Actor, _ uuid.UUID, mode string, module *uuid.UUID) error {
+	if mode == domain.ModeModule && module == nil {
+		return domain.ErrModuleNotFound // the real service refuses the module mode without a module (SPEC-054 RN-06)
+	}
 	f.mu.Lock()
 	f.modes = append(f.modes, mode)
 	f.moduleID = module
@@ -153,15 +171,23 @@ func (f *fakeService) RememberDrawing(_ uuid.UUID, raw json.RawMessage) {
 	f.drawings = append(f.drawings, string(raw))
 	f.mu.Unlock()
 }
-func (f *fakeService) RememberTerminalInput(_ uuid.UUID, raw json.RawMessage) {
+func (f *fakeService) RememberTerminalInput(_ uuid.UUID, raw json.RawMessage) bool {
 	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !f.broadcast {
+		return false
+	}
 	f.input = append(f.input, string(raw))
-	f.mu.Unlock()
+	return true
 }
-func (f *fakeService) RememberTerminalSync(_ uuid.UUID, raw json.RawMessage) {
+func (f *fakeService) RememberTerminalSync(_ uuid.UUID, raw json.RawMessage) bool {
 	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !f.broadcast {
+		return false
+	}
 	f.syncs = append(f.syncs, string(raw))
-	f.mu.Unlock()
+	return true
 }
 func (f *fakeService) RaiseHand(_ context.Context, _ uuid.UUID, student uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	f.record("raise")
@@ -196,6 +222,7 @@ type world struct {
 	teacher  authn.Principal
 	student  authn.Principal
 	stranger authn.Principal
+	people   map[string]authn.Principal // the tokens the validator knows; a test may add one
 }
 
 func setup(t *testing.T) *world {
@@ -210,6 +237,7 @@ func setup(t *testing.T) *world {
 		DisplayMode: domain.ModeSlides, CurrentSlide: 2, Status: domain.StatusActive, StartedAt: time.Date(2026, 10, 14, 19, 0, 0, 0, time.UTC)}
 	w.svc.session = w.session
 	w.svc.active = service.Active{Found: true, Session: w.session}
+	w.people = val.people
 	w.h = handler.New(w.svc, val, zap.New(core), handler.Options{})
 	w.srv = httptest.NewServer(server.NewEngine(zap.NewNop(), nil, w.h))
 	t.Cleanup(w.srv.Close)
@@ -640,6 +668,8 @@ func TestTeacherControlsAreBroadcast(t *testing.T) {
 	assert.Equal(t, []string{"MODULE"}, w.svc.modes)
 	assert.Equal(t, &module, w.svc.moduleID)
 
+	sendMsg(t, teacher, "live:terminal:broadcast", `{"enabled":true}`)
+	readUntil(t, student, "live:terminal:broadcast")
 	sendMsg(t, teacher, "live:terminal:input", `{"terminal":1,"line":"ls -l"}`)
 	assert.JSONEq(t, `{"terminal":1,"line":"ls -l"}`, string(readUntil(t, student, "live:terminal:input").Data))
 	sendMsg(t, teacher, "live:terminal:sync", `{"terminal":1,"line":"ls -l","output":"total 0","state":{"fs":2}}`)

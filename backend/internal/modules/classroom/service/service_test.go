@@ -35,6 +35,8 @@ type fakeRepo struct {
 	decks    map[uuid.UUID]domain.SlideDeck
 	hands    []handRow
 	notes    map[[2]uuid.UUID]domain.LiveClassroomNote
+	// admissions are the rows of the waiting room, by (session, student) (SPEC-054).
+	admissions map[[2]uuid.UUID]*domain.LiveClassroomAdmission
 
 	// race makes the next CreateSession lose to a session that another request just created.
 	race bool
@@ -51,7 +53,7 @@ func newRepo() *fakeRepo {
 		classes: map[uuid.UUID]service.ClassInfo{}, students: map[uuid.UUID]map[uuid.UUID]bool{}, studentNames: map[uuid.UUID]string{},
 		classSessions: map[uuid.UUID]uuid.UUID{}, modules: map[uuid.UUID]bool{},
 		sessions: map[uuid.UUID]domain.LiveClassroomSession{}, decks: map[uuid.UUID]domain.SlideDeck{},
-		notes: map[[2]uuid.UUID]domain.LiveClassroomNote{},
+		notes: map[[2]uuid.UUID]domain.LiveClassroomNote{}, admissions: map[[2]uuid.UUID]*domain.LiveClassroomAdmission{},
 	}
 }
 
@@ -567,8 +569,10 @@ func TestActiveSession_ReturnsSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, w.svc.ChangeSlide(ctx, s.ID, 4))
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"path":[1,2]}`))
+	w.svc.SetTerminalBroadcast(s.ID, true)
 	w.svc.RememberTerminalInput(s.ID, json.RawMessage(`{"line":"ls -"}`))
 	w.svc.RememberTerminalSync(s.ID, json.RawMessage(`{"terminal":1,"line":"ls","output":"a b","state":{"fs":1}}`))
+	w.admit(s.ID, w.student.UserID)
 	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
 	require.NoError(t, err)
 
@@ -642,15 +646,15 @@ func TestChangeSlideAndSwitchMode(t *testing.T) {
 
 	module := uuid.New()
 	w.repo.modules[module] = true
-	require.NoError(t, w.svc.SwitchMode(ctx, s.ID, domain.ModeModule, &module))
+	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &module))
 	assert.Equal(t, domain.ModeModule, w.repo.sessions[s.ID].DisplayMode)
 	assert.Equal(t, &module, w.repo.sessions[s.ID].ActiveModuleID)
-	require.NoError(t, w.svc.SwitchMode(ctx, s.ID, domain.ModeSlides, nil))
+	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeSlides, nil))
 	assert.Equal(t, domain.ModeSlides, w.repo.sessions[s.ID].DisplayMode)
-	assert.ErrorIs(t, w.svc.SwitchMode(ctx, s.ID, "VIDEO", nil), domain.ErrInvalidMode)
+	assert.ErrorIs(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, "VIDEO", nil), domain.ErrInvalidMode)
 	ghost := uuid.New()
-	assert.ErrorIs(t, w.svc.SwitchMode(ctx, s.ID, domain.ModeModule, &ghost), domain.ErrModuleNotFound)
-	assert.ErrorIs(t, w.svc.SwitchMode(ctx, s.ID, domain.ModeModule, nil), domain.ErrModuleNotFound, "the module mode needs a module")
+	assert.ErrorIs(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &ghost), domain.ErrModuleNotFound)
+	assert.ErrorIs(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, nil), domain.ErrModuleNotFound, "the module mode needs a module")
 
 	w.now = w.now.Add(time.Hour)
 	_, err = w.svc.EndSession(ctx, w.teacher, w.class, s.ID)
@@ -676,6 +680,7 @@ func TestConnect(t *testing.T) {
 	c, err = w.svc.Connect(ctx, w.student, w.class)
 	require.NoError(t, err)
 	assert.False(t, c.Controller)
+	assert.Equal(t, domain.AdmissionWaiting, c.Admission, "a student comes in waiting (SPEC-054 RN-01)")
 
 	for _, who := range []service.Actor{w.other, w.outside} {
 		_, err = w.svc.Connect(ctx, who, w.class)
@@ -692,6 +697,7 @@ func TestHandRaiseQueueAndModeration(t *testing.T) {
 	third := service.Actor{UserID: uuid.New(), Role: authn.RoleStudent}
 	w.repo.studentNames[second.UserID] = "Bruno"
 	w.repo.studentNames[third.UserID] = "Carla"
+	w.admit(s.ID, w.student.UserID, second.UserID, third.UserID)
 
 	names := func(q []domain.HandRaiseEntry) []string {
 		out := make([]string, len(q))
@@ -741,6 +747,7 @@ func TestStudentNotes_SaveAndRetrieve(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
 	s := w.start(t)
+	w.admit(s.ID, w.student.UserID)
 
 	n, err := w.svc.SaveNote(ctx, w.student, w.class, s.ID, "processos e threads")
 	require.NoError(t, err)
@@ -752,6 +759,7 @@ func TestStudentNotes_SaveAndRetrieve(t *testing.T) {
 	// Another student of the class has his own notebook.
 	friend := service.Actor{UserID: uuid.New(), Role: authn.RoleStudent}
 	w.repo.students[w.class][friend.UserID] = true
+	w.admit(s.ID, friend.UserID)
 	_, err = w.svc.GetNote(ctx, friend, w.class, s.ID)
 	assert.ErrorIs(t, err, domain.ErrNotesNotFound)
 	_, err = w.svc.SaveNote(ctx, friend, w.class, s.ID, "do amigo")
