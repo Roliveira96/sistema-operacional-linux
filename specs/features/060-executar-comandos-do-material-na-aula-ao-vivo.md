@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-060 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada pelo pedido do Tech Lead) |
 | **Autor** | Aruna Architect |
@@ -98,3 +98,4 @@ O Tech Lead pediu o botão de executar por exemplo; o botão **desativado** no a
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido do Tech Lead; o botão desativado no aluno e o um por vez ficam para a revisão dele |
+| 14/10/2026 | Aruna Architect | Implementada (`84b0a70`, `58f6028`). Desvios: `LessonPanel` ganhou a prop `canRun` (com `readOnly` o ▶ é sempre desenhado); o adaptador do terminal ganhou `isBusy` para o aviso de terminal ocupado não esperar 30 s; só `null`, exceção ou terminal ausente contam como falha; o aviso some sozinho em 5 s; sem verificação no navegador |
