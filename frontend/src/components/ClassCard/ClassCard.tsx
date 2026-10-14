@@ -92,6 +92,17 @@ function IconSettings() {
   );
 }
 
+function IconTrash() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
 function IconArchive() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -105,9 +116,20 @@ function IconArchive() {
 export interface ClassCardProps {
   classGroup: ClassSummary;
   onArchive?: (id: string) => void;
+  /** Offered for a class archived for 30 days or more (SPEC-050). */
+  onDelete?: (id: string) => void;
 }
 
-export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
+/** The instant from which an archived class can be deleted, or null (SPEC-050 RN-01). */
+function deletableFrom(c: ClassSummary): Date | null {
+  if (c.status !== "ARCHIVED" || !c.archivedAt) return null;
+  return new Date(new Date(c.archivedAt).getTime() + ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+}
+
+/** How long a class stays archived before it can be deleted (SPEC-050 RN-01). */
+const ARCHIVE_RETENTION_DAYS = 30;
+
+export function ClassCard({ classGroup, onArchive, onDelete }: ClassCardProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyLink = () => {
@@ -127,6 +149,10 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
         : styles.archived;
 
   const hasPending = classGroup.totalPendingRequests > 0;
+  const deletableAt = deletableFrom(classGroup);
+  // The clock is read once, when the card is born, so the render stays pure.
+  const [now] = useState(() => Date.now());
+  const canDelete = deletableAt !== null && now >= deletableAt.getTime();
 
   return (
     <article className={styles.card} aria-label={classGroup.name}>
@@ -153,7 +179,14 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
                 <span className={styles.srOnly}>{messages.classes.card.manage}</span>
               </ButtonLink>
 
-              {classGroup.status !== "ARCHIVED" && onArchive && (
+              {canDelete && onDelete && (
+            <Button variant="ghost" icon onClick={() => onDelete(classGroup.id)} title={messages.classes.card.delete}>
+              <IconTrash />
+              <span className={styles.srOnly}>{messages.classes.card.delete}</span>
+            </Button>
+          )}
+
+          {classGroup.status !== "ARCHIVED" && onArchive && (
                 <Button variant="ghost" icon onClick={() => onArchive(classGroup.id)} title={messages.classes.card.archive}>
                   <IconArchive />
                   <span className={styles.srOnly}>{messages.classes.card.archive}</span>
@@ -220,6 +253,15 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
             <span className={styles.infoText}>
               <strong>{messages.classes.card.schedule}:</strong> {classGroup.scheduleDescription}
             </span>
+          </p>
+        )}
+
+        {deletableAt && !canDelete && onDelete && (
+          <p className={styles.infoLine}>
+            <span className={styles.statIcon} aria-hidden="true">
+              <IconClock />
+            </span>
+            <span className={styles.infoText}>{messages.classes.card.deletableFrom(deletableAt.toLocaleDateString("pt-BR"))}</span>
           </p>
         )}
 

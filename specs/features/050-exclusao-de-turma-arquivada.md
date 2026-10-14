@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-050 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada) |
 | **Autor** | Aruna Architect |
@@ -127,3 +127,4 @@ Nenhuma. Decisão do Tech Lead em 14/10/2026: uma turma só pode ser excluída d
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao pedir a exclusão de turmas arquivadas há mais de 30 dias |
+| 14/10/2026 | Implementador | Implementada: migração 00029, `DeleteClass` no service e no repositório, `DELETE /classes/{id}`, diálogo `DeleteClassModal`, ação Excluir e a data no card, e a variante `danger` do `Button` (SPEC-047). O teste vermelho da variante `danger` do `Button` passou antes do código, porque o teste não confere tipos; o `tsc` o cobre |

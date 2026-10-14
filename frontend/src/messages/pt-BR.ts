@@ -275,6 +275,8 @@ export const messages = {
       manage: "Configurações",
       members: "Membros",
       archive: "Arquivar",
+      delete: "Excluir",
+      deletableFrom: (date: string) => `Pode ser excluída a partir de ${date}`,
       addStudents: "Adicionar estudantes",
     },
     form: {
@@ -439,6 +441,18 @@ export const messages = {
       confirmButton: "Confirmar Arquivamento",
       cancelButton: "Cancelar",
       successMessage: "Turma arquivada com sucesso!",
+    },
+    deleteModal: {
+      title: "Excluir turma",
+      warning: "A turma sai da lista e das telas. O histórico acadêmico é preservado.",
+      confirmButton: "Excluir turma",
+      deleting: "Excluindo…",
+      cancelButton: "Cancelar",
+      successMessage: "Turma excluída.",
+      errors: {
+        notDeletable: "Esta turma ainda não pode ser excluída.",
+        generic: "Não foi possível excluir a turma.",
+      },
     },
     members: {
       title: "Membros da Turma",

@@ -1,7 +1,8 @@
 import type { ButtonHTMLAttributes } from "react";
 import styles from "./Button.module.scss";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost";
+// danger is for the actions that remove something (SPEC-050).
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 export interface ButtonStyleProps {
   variant?: ButtonVariant;

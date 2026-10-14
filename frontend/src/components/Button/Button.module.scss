@@ -46,6 +46,16 @@
   }
 }
 
+.danger {
+  background: var(--color-danger);
+  color: var(--color-accent-contrast);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+  }
+}
+
 // No fill and no border, for the actions that are not the point of the screen.
 .ghost {
   background: transparent;

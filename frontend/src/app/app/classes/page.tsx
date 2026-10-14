@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { ArchiveClassModal } from "@/components/ArchiveClassModal/ArchiveClassModal";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { ClassCard } from "@/components/ClassCard/ClassCard";
+import { DeleteClassModal } from "@/components/DeleteClassModal/DeleteClassModal";
 import { messages } from "@/messages/pt-BR";
 import { classService, type ClassSummary } from "@/services/classService";
+import { ApiProblemError } from "@/services/httpClient";
 import styles from "./page.module.scss";
 
 type StatusTab = "ACTIVE" | "DRAFT" | "ARCHIVED";
@@ -43,6 +45,10 @@ export default function ClassesPage() {
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [archiveTarget, setArchiveTarget] = useState<ClassSummary | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ClassSummary | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
@@ -79,6 +85,29 @@ export default function ClassesPage() {
       setReloadTrigger((prev) => prev + 1);
     } finally {
       setIsArchiving(false);
+    }
+  };
+
+  const closeDelete = () => {
+    setDeleteTarget(null);
+    setDeleteError(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await classService.deleteClass(deleteTarget.id);
+      setDeleteTarget(null);
+      setNotice(messages.classes.deleteModal.successMessage);
+      setIsLoading(true);
+      setReloadTrigger((prev) => prev + 1);
+    } catch (err) {
+      const notDeletable = err instanceof ApiProblemError && err.type === "class-not-deletable";
+      setDeleteError(notDeletable ? messages.classes.deleteModal.errors.notDeletable : messages.classes.deleteModal.errors.generic);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -195,9 +224,30 @@ export default function ClassesPage() {
               key={c.id}
               classGroup={c}
               onArchive={() => setArchiveTarget(c)}
+              onDelete={() => {
+                setNotice(null);
+                setDeleteTarget(c);
+              }}
             />
           ))}
         </div>
+      )}
+
+      {notice && (
+        <p className={styles.notice} role="status">
+          {notice}
+        </p>
+      )}
+
+      {deleteTarget && (
+        <DeleteClassModal
+          isOpen
+          className={deleteTarget.name}
+          onClose={closeDelete}
+          onConfirm={handleDeleteConfirm}
+          isSubmitting={isDeleting}
+          error={deleteError}
+        />
       )}
 
       {archiveTarget && (

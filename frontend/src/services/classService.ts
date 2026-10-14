@@ -172,6 +172,7 @@ export function createClassService(client: HttpClient = httpClient) {
     enrollStudents: (classId: string, studentIds: string[]) =>
       client.post<EnrollStudentsResult>(`/classes/${classId}/enrollments`, { studentIds }),
     getClass: (id: string) => client.get<ClassGroup>(`/classes/${id}`),
+    deleteClass: (id: string) => client.delete<void>(`/classes/${id}`),
     getLinks: async (classId: string) => (await client.get<{ links: ClassLinkItem[] }>(`/classes/${classId}/links`)).links,
     replaceLinks: async (classId: string, links: ClassLinkInput[]) =>
       (await client.put<{ links: ClassLinkItem[] }>(`/classes/${classId}/links`, { links })).links,
