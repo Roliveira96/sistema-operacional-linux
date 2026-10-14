@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-048 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada) |
 | **Autor** | Aruna Architect |
@@ -156,3 +156,4 @@ Nenhuma. Decisões assumidas por recomendação, sem objeção do Tech Lead: lis
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao pedir os links da turma |
+| 14/10/2026 | Implementador | Implementada: módulo `classlink` (migração 00027, domain, repository, service, handler), serviço, componente `ClassLinks` e seção na visão geral. O erro de validação usa `invalid-link` com a extensão `field`, no padrão da agenda |

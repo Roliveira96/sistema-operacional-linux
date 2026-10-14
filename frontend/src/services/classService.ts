@@ -28,6 +28,19 @@ export interface ClassGroup {
   updatedAt: string;
 }
 
+/** A link of a class: a name and an https address the teacher publishes (SPEC-048). */
+export interface ClassLinkItem {
+  id: string;
+  name: string;
+  url: string;
+  position: number;
+}
+
+export interface ClassLinkInput {
+  name: string;
+  url: string;
+}
+
 export interface ClassSummary extends ClassGroup {
   totalActiveStudents: number;
   totalPendingRequests: number;
@@ -151,6 +164,9 @@ export function createClassService(client: HttpClient = httpClient) {
     enrollStudents: (classId: string, studentIds: string[]) =>
       client.post<EnrollStudentsResult>(`/classes/${classId}/enrollments`, { studentIds }),
     getClass: (id: string) => client.get<ClassGroup>(`/classes/${id}`),
+    getLinks: async (classId: string) => (await client.get<{ links: ClassLinkItem[] }>(`/classes/${classId}/links`)).links,
+    replaceLinks: async (classId: string, links: ClassLinkInput[]) =>
+      (await client.put<{ links: ClassLinkItem[] }>(`/classes/${classId}/links`, { links })).links,
     createClass: (payload: CreateClassPayload) => client.post<ClassGroup>("/classes", payload),
     updateClass: (id: string, payload: UpdateClassPayload) => client.patch<ClassGroup>(`/classes/${id}`, payload),
     archiveClass: (id: string, reason: string) => client.post<ClassGroup>(`/classes/${id}/archive`, { reason }),

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { AddStudentsDialog } from "@/components/AddStudentsDialog/AddStudentsDialog";
 import { ClassCalendar } from "@/components/ClassCalendar/ClassCalendar";
+import { ClassLinks } from "@/components/ClassLinks/ClassLinks";
 import { ClassMembersTable } from "@/components/ClassMembersTable/ClassMembersTable";
 import { EventForm } from "@/components/EventForm/EventForm";
 import { InviteLinkCard } from "@/components/InviteLinkCard/InviteLinkCard";
@@ -115,11 +116,12 @@ function RichSection({ id, icon, title, html }: { id: string; icon: ReactNode; t
   );
 }
 
-function Overview({ data }: { data: Presentation }) {
+function Overview({ data, editableLinks }: { data: Presentation; editableLinks: boolean }) {
   const progress = validityProgress(data.startDate, data.endDate, new Date());
   return (
     <div className={styles.overview}>
       <div className={styles.mainColumn}>
+        <ClassLinks classId={data.id} editable={editableLinks} />
         <RichSection id="syllabus-title" icon={<IconBook />} title={m.syllabus} html={data.syllabus} />
         <RichSection id="guidelines-title" icon={<IconShield />} title={m.guidelines} html={data.institutionalGuidelines} />
       </div>
@@ -530,7 +532,7 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
 
       <div role="tabpanel" className={styles.tabPanel}>
         {tab === "overview" ? (
-          <Overview data={data} />
+          <Overview data={data} editableLinks={!isStudent && data.status !== "ARCHIVED"} />
         ) : tab === "schedule" ? (
           <ClassCalendar
             load={loadCalendar}
