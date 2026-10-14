@@ -34,6 +34,11 @@ type Identity struct {
 	UserID string
 	ConnID string
 	Role   Role
+	// Waiting is a connection that was not admitted to the room yet: it gets its snapshot and only the messages of the rules that
+	// AllowWaiting, and receives none of the broadcasts (SPEC-054 RN-01, RN-02).
+	Waiting bool
+	// Meta is an opaque label the application attaches to the connection (the hub does not read it).
+	Meta string
 }
 
 // Message is what travels on the wire: a type and its data.
@@ -52,6 +57,8 @@ type Rule struct {
 	Limited bool
 	// Coalesce gives the viewers only the latest message of the type in each CoalesceEvery.
 	Coalesce bool
+	// AllowWaiting lets a connection that is waiting to be admitted send the message; any other type from it is dropped.
+	AllowWaiting bool
 }
 
 // Config sets the limits of the hub.
@@ -59,6 +66,8 @@ type Config struct {
 	Rules map[string]Rule
 	// MaxViewers is how many viewers a room takes; 0 is no limit. The controller does not count.
 	MaxViewers int
+	// MaxWaiting is how many connections a room takes in the waiting room, apart from the viewers; 0 is no limit.
+	MaxWaiting int
 	// RatePerSecond is how many Limited messages an emitter may send in a second; 0 is no limit.
 	RatePerSecond int
 	// CoalesceEvery is the window of the Coalesce rules.
@@ -133,6 +142,8 @@ type conn struct {
 
 	mu        sync.Mutex
 	role      Role
+	waiting   bool
+	meta      string
 	ready     bool
 	closed    bool
 	pending   []Message
@@ -147,7 +158,7 @@ type conn struct {
 func (c *conn) identity() Identity {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return Identity{UserID: c.userID, ConnID: c.id, Role: c.role}
+	return Identity{UserID: c.userID, ConnID: c.id, Role: c.role, Waiting: c.waiting, Meta: c.meta}
 }
 
 // deliver queues a message for the connection. Before the snapshot went out, it waits behind it.
@@ -248,7 +259,7 @@ func (c *conn) closeLocked() {
 
 // Serve runs a connection in the room until it ends. The first message it sends is the snapshot of the handler.
 func (h *Hub) Serve(ctx context.Context, ws *websocket.Conn, roomID string, who Identity) error {
-	c := &conn{id: uuid.NewString(), userID: who.UserID, ws: ws, out: make(chan Message, outBuffer), role: who.Role}
+	c := &conn{id: uuid.NewString(), userID: who.UserID, ws: ws, out: make(chan Message, outBuffer), role: who.Role, waiting: who.Waiting, meta: who.Meta}
 	var replaced *conn
 
 	h.mu.Lock()
@@ -257,7 +268,14 @@ func (h *Hub) Serve(ctx context.Context, ws *websocket.Conn, roomID string, who 
 		r = &room{conns: map[string]*conn{}}
 		h.rooms[roomID] = r
 	}
-	if who.Role == Viewer && h.cfg.MaxViewers > 0 && r.count(Viewer) >= h.cfg.MaxViewers {
+	full := false
+	switch {
+	case who.Waiting:
+		full = h.cfg.MaxWaiting > 0 && r.countWaiting() >= h.cfg.MaxWaiting
+	case who.Role == Viewer:
+		full = h.cfg.MaxViewers > 0 && r.count(Viewer) >= h.cfg.MaxViewers
+	}
+	if full {
 		empty := len(r.conns) == 0
 		if empty {
 			delete(h.rooms, roomID)
@@ -304,7 +322,19 @@ func (r *room) count(role Role) int {
 	n := 0
 	for _, c := range r.conns {
 		c.mu.Lock()
-		if c.role == role {
+		if c.role == role && !c.waiting {
+			n++
+		}
+		c.mu.Unlock()
+	}
+	return n
+}
+
+func (r *room) countWaiting() int {
+	n := 0
+	for _, c := range r.conns {
+		c.mu.Lock()
+		if c.waiting {
 			n++
 		}
 		c.mu.Unlock()
@@ -383,6 +413,8 @@ func (h *Hub) readLoop(ctx context.Context, roomID string, c *conn) {
 			h.h.Dropped(roomID, who, msg.Type, "unknown-type")
 		case len(raw) > rule.MaxBytes:
 			h.h.Dropped(roomID, who, msg.Type, "too-large")
+		case who.Waiting && !rule.AllowWaiting:
+			h.h.Dropped(roomID, who, msg.Type, "not-admitted")
 		case rule.ControllerOnly && who.Role != Controller:
 			h.h.Dropped(roomID, who, msg.Type, "not-controller")
 		case rule.Limited && !h.allow(c):
@@ -410,7 +442,7 @@ func (h *Hub) allow(c *conn) bool {
 // connection as the latest of the window.
 func (h *Hub) Broadcast(roomID string, msg Message, except string) {
 	for _, c := range h.members(roomID) {
-		if c.id == except {
+		if c.id == except || c.isWaiting() {
 			continue
 		}
 		if h.cfg.Rules[msg.Type].Coalesce && h.cfg.CoalesceEvery > 0 {
@@ -418,6 +450,46 @@ func (h *Hub) Broadcast(roomID string, msg Message, except string) {
 			continue
 		}
 		c.deliver(msg)
+	}
+}
+
+func (c *conn) isWaiting() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.waiting
+}
+
+// SendTo sends the message to the connections of one user in the room, even when they are waiting.
+func (h *Hub) SendTo(roomID, userID string, msg Message) {
+	for _, c := range h.members(roomID) {
+		if c.userID == userID {
+			c.deliver(msg)
+		}
+	}
+}
+
+// SetWaiting admits (false) or sends back to the waiting room (true) the connections of one user. Whoever is admitted starts to
+// receive the broadcasts, so the application sends the snapshot with SendTo before it calls this.
+func (h *Hub) SetWaiting(roomID, userID string, waiting bool) {
+	for _, c := range h.members(roomID) {
+		if c.userID != userID {
+			continue
+		}
+		c.mu.Lock()
+		c.waiting = waiting
+		c.mu.Unlock()
+	}
+}
+
+// SendToController sends the message to the controller of the room, if there is one.
+func (h *Hub) SendToController(roomID string, msg Message) {
+	for _, c := range h.members(roomID) {
+		c.mu.Lock()
+		isController := c.role == Controller
+		c.mu.Unlock()
+		if isController {
+			c.deliver(msg)
+		}
 	}
 }
 
