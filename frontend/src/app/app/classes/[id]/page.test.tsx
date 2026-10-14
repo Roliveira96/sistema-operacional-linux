@@ -1,14 +1,17 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
 import { classService, type ClassGroup, type ClassMember } from "@/services/classService";
 import { ApiProblemError } from "@/services/httpClient";
+import { moduleService } from "@/services/moduleService";
+import { scheduleService, startLiveFromSession } from "@/services/scheduleService";
 import ClassPage from "./page";
 
 const replaceMock = vi.fn();
+const pushMock = vi.hoisted(() => vi.fn());
 let searchParams = new URLSearchParams();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: replaceMock }),
+  useRouter: () => ({ push: pushMock, replace: replaceMock }),
   useSearchParams: () => searchParams,
 }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: vi.fn() }));
@@ -26,7 +29,10 @@ vi.mock("@/services/scheduleService", async () => {
       deleteEvent: vi.fn(),
       applyPeriod: vi.fn(),
       deletePeriod: vi.fn(),
+      getSessionContent: vi.fn().mockResolvedValue({ links: [] }),
+      saveSessionContent: vi.fn().mockResolvedValue({ links: [] }),
     },
+    startLiveFromSession: vi.fn().mockResolvedValue({ id: "r-1" }),
   };
 });
 vi.mock("@/components/Classroom/LiveClassPanel/LiveClassPanel", async () => {
@@ -375,5 +381,39 @@ describe("ClassPage (SPEC-041)", () => {
     const studentPanel = await screen.findByTestId("live-panel");
     expect(studentPanel.getAttribute("data-role")).toBe("student");
     expect(studentPanel.getAttribute("data-archived")).toBe("false");
+  });
+
+  // SPEC-053 CA-09 and CA-11: the buttons of the content and of the live class in the agenda of the class
+  it("lets the teacher edit the content of a lesson and start the live class from it, in the Agenda tab", async () => {
+    asRole("TEACHER");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: [], total: 0, page: 1, limit: 100 });
+    render(<ClassPage params={params} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /^quarta-feira, 21 de outubro/ }));
+    const panel = screen.getByRole("region", { name: "quarta-feira, 21 de outubro de 2026" });
+    fireEvent.click(within(panel).getByRole("button", { name: "Iniciar aula ao vivo" }));
+    await waitFor(() => expect(startLiveFromSession).toHaveBeenCalledWith("c-1", expect.objectContaining({ id: "s-21" }), "Sistemas Operacionais"));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/app/classes/c-1/live"));
+
+    fireEvent.click(within(panel).getByRole("button", { name: "Conteúdo da aula" }));
+    expect(await screen.findByRole("dialog", { name: "Conteúdo da aula de 21/10/2026" })).toBeDefined();
+    expect(scheduleService.getSessionContent).toHaveBeenCalledWith("c-1", "s-21");
+  });
+
+  it("does not give the student the buttons of the content nor of the live class", async () => {
+    asRole("STUDENT");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id, name: theClass.name, courseCode: theClass.courseCode, semester: theClass.semester, status: "ACTIVE",
+      summary: "", syllabus: "", institutionalGuidelines: "", startDate: theClass.startDate, endDate: theClass.endDate,
+      scheduleDescription: "", enableVirtualClassroom: false,
+    });
+    render(<ClassPage params={params} />);
+    fireEvent.click(await screen.findByRole("button", { name: /^quarta-feira, 21 de outubro/ }));
+    expect(screen.queryByRole("button", { name: "Conteúdo da aula" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Iniciar aula ao vivo" })).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SessionContent } from "@/services/scheduleService";
 import { octoberCalendar } from "@/test/scheduleFixtures";
 import { ClassCalendar, type ClassCalendarProps } from "./ClassCalendar";
 
@@ -175,5 +176,103 @@ describe("ClassCalendar", () => {
     setup();
     expect((await screen.findByRole("button", { name: /^segunda-feira, 12 de outubro/ })).getAttribute("data-on-holiday")).toBe("true");
     expect(dayButton(/^terça-feira, 13 de outubro/).getAttribute("data-on-holiday")).toBeNull();
+  });
+
+  // SPEC-053, section 3.1: the content of each lesson
+  describe("content of a lesson (SPEC-053)", () => {
+    const content: SessionContent = {
+      topic: "Permissões de arquivos",
+      description: "<p>Veremos <strong>chmod</strong>.</p>",
+      module: { id: "m-1", title: "Linux na prática" },
+      deck: { id: "d-1", title: "Slides 1", pageCount: 12, downloadUrl: "https://minio/d-1.pdf" },
+      links: [{ name: "Meet", url: "https://meet.google.com/abc", position: 0 }],
+    };
+    const withContent = () => {
+      const data = octoberCalendar();
+      data.sessions = data.sessions.map((x) => (x.id === "s-26" ? { ...x, topic: "Permissões de arquivos", hasContent: true } : x));
+      return data;
+    };
+    const monday26 = () => dayButton(/^segunda-feira, 26 de outubro/);
+
+    // CA-10
+    it("shows the topic in the mark of the day, in place of the code of the course", async () => {
+      setup({ load: vi.fn().mockResolvedValue(withContent()) });
+      await screen.findByRole("heading", { name: "outubro de 2026" });
+      expect(within(monday26()).getByText("Permissões de arquivos")).toBeDefined();
+      expect(within(monday26()).queryByText("SO34E")).toBeNull();
+      expect(within(dayButton(/^quarta-feira, 28 de outubro/)).getByText("SO34E")).toBeDefined();
+    });
+
+    // CA-10
+    it("shows the content to whoever reads the lesson: topic, description, links, module and presentation", async () => {
+      const loadContent = vi.fn().mockResolvedValue(content);
+      setup({ load: vi.fn().mockResolvedValue(withContent()), loadContent });
+      await screen.findByRole("heading", { name: "outubro de 2026" });
+      fireEvent.click(monday26());
+      const panel = screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" });
+      expect(await within(panel).findByText(/Veremos/)).toBeDefined();
+      expect(loadContent).toHaveBeenCalledWith(expect.objectContaining({ id: "s-26" }));
+      expect(within(panel).getByText("chmod")).toBeDefined();
+      expect(within(panel).getByRole("heading", { level: 4, name: "Permissões de arquivos" })).toBeDefined();
+      const meet = within(panel).getByRole("link", { name: "Meet" });
+      expect(meet.getAttribute("href")).toBe("https://meet.google.com/abc");
+      expect(meet.getAttribute("target")).toBe("_blank");
+      expect(meet.getAttribute("rel")).toBe("noopener noreferrer");
+      expect(within(panel).getByRole("link", { name: "Linux na prática" }).getAttribute("href")).toBe("/app/modules/m-1");
+      const deck = within(panel).getByRole("link", { name: "Ver apresentação" });
+      expect(deck.getAttribute("href")).toBe("https://minio/d-1.pdf");
+      expect(deck.getAttribute("rel")).toBe("noopener noreferrer");
+      expect(within(panel).queryByRole("button", { name: "Conteúdo da aula" })).toBeNull();
+      expect(within(panel).queryByRole("button", { name: "Iniciar aula ao vivo" })).toBeNull();
+    });
+
+    it("does not load the content of a lesson that has none", async () => {
+      const loadContent = vi.fn();
+      setup({ loadContent });
+      fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ }));
+      expect(loadContent).not.toHaveBeenCalled();
+    });
+
+    it("tells when the content cannot be loaded", async () => {
+      setup({ load: vi.fn().mockResolvedValue(withContent()), loadContent: vi.fn().mockRejectedValue(new Error("down")) });
+      fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 26 de outubro/ }));
+      expect(await screen.findByText("Não foi possível carregar o conteúdo da aula.")).toBeDefined();
+    });
+
+    // CA-09 and CA-11
+    it("gives the teacher the buttons Conteúdo da aula and Iniciar aula ao vivo, tied to the lesson", async () => {
+      const onEditContent = vi.fn();
+      const onStartLive = vi.fn();
+      setup({ editable: true, onEditSession: vi.fn(), onEditContent, onStartLive });
+      fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ }));
+      const panel = screen.getByRole("region", { name: "segunda-feira, 19 de outubro de 2026" });
+      fireEvent.click(within(panel).getByRole("button", { name: "Conteúdo da aula" }));
+      expect(onEditContent).toHaveBeenCalledWith(expect.objectContaining({ id: "s-19" }));
+      fireEvent.click(screen.getByRole("button", { name: /^quarta-feira, 21 de outubro/ }));
+      fireEvent.click(within(screen.getByRole("region", { name: "quarta-feira, 21 de outubro de 2026" })).getByRole("button", { name: "Iniciar aula ao vivo" }));
+      expect(onStartLive).toHaveBeenCalledWith(expect.objectContaining({ id: "s-21" }), "Sistemas Operacionais");
+    });
+
+    it("does not offer to start a live class for a canceled lesson, but still lets the content be edited", async () => {
+      setup({ editable: true, onEditContent: vi.fn(), onStartLive: vi.fn() });
+      fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ }));
+      const panel = screen.getByRole("region", { name: "segunda-feira, 19 de outubro de 2026" });
+      expect(within(panel).getByText("Cancelada")).toBeDefined();
+      expect(within(panel).queryByRole("button", { name: "Iniciar aula ao vivo" })).toBeNull();
+      expect(within(panel).getByRole("button", { name: "Conteúdo da aula" })).toBeDefined();
+    });
+
+    it("hides each button when its action is not given or the calendar is read-only", async () => {
+      setup({ editable: true, onEditContent: vi.fn() });
+      fireEvent.click(await screen.findByRole("button", { name: /^quarta-feira, 21 de outubro/ }));
+      const panel = screen.getByRole("region", { name: "quarta-feira, 21 de outubro de 2026" });
+      expect(within(panel).getByRole("button", { name: "Conteúdo da aula" })).toBeDefined();
+      expect(within(panel).queryByRole("button", { name: "Iniciar aula ao vivo" })).toBeNull();
+      cleanup();
+      setup({ editable: false, onEditContent: vi.fn(), onStartLive: vi.fn() });
+      fireEvent.click(await screen.findByRole("button", { name: /^quarta-feira, 21 de outubro/ }));
+      expect(screen.queryByRole("button", { name: "Conteúdo da aula" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Iniciar aula ao vivo" })).toBeNull();
+    });
   });
 });

@@ -1,0 +1,256 @@
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { classroomService } from "@/services/classroomService";
+import { ApiProblemError } from "@/services/httpClient";
+import { moduleService, type CourseModuleSummary } from "@/services/moduleService";
+import { scheduleService, type Session, type SessionContent } from "@/services/scheduleService";
+import { SessionContentForm } from "./SessionContentForm";
+
+const readPdfInfo = vi.fn();
+vi.mock("@/components/Classroom/SlidePresenter/pdfRenderer", () => ({ readPdfInfo: (file: File) => readPdfInfo(file) }));
+
+const lesson: Session = {
+  id: "s-26",
+  classId: "c-1",
+  date: "2026-10-26",
+  startTime: "08:20",
+  endTime: "10:00",
+  lessonCount: 2,
+  mode: "IN_PERSON",
+  status: "SCHEDULED",
+  origin: "WEEKLY",
+  overridden: false,
+  onHoliday: false,
+};
+
+const modules = [
+  { id: "m-1", title: "Linux na prática" },
+  { id: "m-2", title: "Redes" },
+] as CourseModuleSummary[];
+
+const saved: SessionContent = {
+  topic: "Permissões de arquivos",
+  description: "<p>Veremos chmod.</p>",
+  module: { id: "m-1", title: "Linux na prática" },
+  deck: { id: "d-1", title: "Slides 1", pageCount: 12, downloadUrl: "https://minio/d-1.pdf" },
+  links: [{ name: "Meet", url: "https://meet.google.com/abc", position: 0 }],
+};
+
+function setup(content: SessionContent = { links: [] }) {
+  vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: modules, total: 2, page: 1, limit: 100 });
+  const get = vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue(content);
+  const save = vi.spyOn(scheduleService, "saveSessionContent").mockResolvedValue(content);
+  const onSaved = vi.fn();
+  const onClose = vi.fn();
+  render(<SessionContentForm classId="c-1" session={lesson} onSaved={onSaved} onClose={onClose} />);
+  return { get, save, onSaved, onClose };
+}
+
+async function ready() {
+  return screen.findByRole("dialog", { name: "Conteúdo da aula de 26/10/2026" });
+}
+
+beforeEach(() => readPdfInfo.mockReset());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+// SPEC-053, section 3.1 (CA-09)
+describe("SessionContentForm", () => {
+  it("opens with the content of the lesson already filled in", async () => {
+    const { get } = setup(saved);
+    const dialog = await ready();
+    expect(get).toHaveBeenCalledWith("c-1", "s-26");
+    await waitFor(() => expect((within(dialog).getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
+    expect(within(dialog).getByText("Meet")).toBeDefined();
+    expect(within(dialog).getByText("https://meet.google.com/abc")).toBeDefined();
+    await waitFor(() => expect((within(dialog).getByLabelText("Módulo de ensino") as HTMLSelectElement).value).toBe("m-1"));
+    expect((within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement).value).toBe("d-1");
+    expect(within(dialog).getByRole("textbox", { name: "Descrição do conteúdo" }).textContent).toContain("Veremos chmod.");
+  });
+
+  it("lists the modules the teacher can use, with none as an option, and the presentation as none", async () => {
+    setup();
+    const dialog = await ready();
+    const select = (await within(dialog).findByLabelText("Módulo de ensino")) as HTMLSelectElement;
+    await waitFor(() => expect(Array.from(select.options).map((o) => o.textContent)).toEqual(["Nenhum", "Linux na prática", "Redes"]));
+    const deck = within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement;
+    expect(Array.from(deck.options).map((o) => o.textContent)).toEqual(["Nenhuma"]);
+  });
+
+  it("saves the topic, the module, the presentation and the links at once and closes", async () => {
+    const { save, onSaved, onClose } = setup(saved);
+    const dialog = await ready();
+    await waitFor(() => expect((within(dialog).getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
+    fireEvent.change(within(dialog).getByLabelText("Tema"), { target: { value: "  Usuários e grupos " } });
+    fireEvent.change(within(dialog).getByLabelText("Módulo de ensino"), { target: { value: "m-2" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save).toHaveBeenCalledWith("c-1", "s-26", {
+      topic: "Usuários e grupos",
+      description: "<p>Veremos chmod.</p>",
+      moduleId: "m-2",
+      deckId: "d-1",
+      links: [{ name: "Meet", url: "https://meet.google.com/abc" }],
+    });
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears what is emptied: no module, no presentation, no links, no topic", async () => {
+    const { save } = setup(saved);
+    const dialog = await ready();
+    await waitFor(() => expect((within(dialog).getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
+    fireEvent.change(within(dialog).getByLabelText("Tema"), { target: { value: "" } });
+    fireEvent.change(within(dialog).getByLabelText("Módulo de ensino"), { target: { value: "" } });
+    fireEvent.change(within(dialog).getByLabelText("Apresentação (PDF)"), { target: { value: "" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remover link: Meet" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.lastCall?.[2]).toEqual({ topic: "", description: "<p>Veremos chmod.</p>", moduleId: "", deckId: "", links: [] });
+  });
+
+  it("refuses a topic of more than 120 characters next to the field, without calling the server", async () => {
+    const { save } = setup();
+    const dialog = await ready();
+    const topic = within(dialog).getByLabelText("Tema");
+    fireEvent.change(topic, { target: { value: "a".repeat(121) } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    expect(within(dialog).getByText("O tema pode ter até 120 caracteres.")).toBeDefined();
+    expect(topic.getAttribute("aria-invalid")).toBe("true");
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("adds a link after checking the name and the https address next to each field", async () => {
+    setup();
+    const dialog = await ready();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Adicionar link" }));
+    expect(within(dialog).getByText("Informe o nome do link.")).toBeDefined();
+    fireEvent.change(within(dialog).getByLabelText("Nome do link"), { target: { value: "Slides" } });
+    fireEvent.change(within(dialog).getByLabelText("Endereço do link"), { target: { value: "http://x.com" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Adicionar link" }));
+    expect(within(dialog).getByText("O endereço deve começar com https://.")).toBeDefined();
+    fireEvent.change(within(dialog).getByLabelText("Endereço do link"), { target: { value: " https://slides.example.com/a " } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Adicionar link" }));
+    expect(within(dialog).getByText("https://slides.example.com/a")).toBeDefined();
+    expect((within(dialog).getByLabelText("Nome do link") as HTMLInputElement).value).toBe("");
+  });
+
+  it("stops at 10 links", async () => {
+    const links = Array.from({ length: 10 }, (_, i) => ({ name: `L${i}`, url: `https://a.com/${i}`, position: i }));
+    setup({ links });
+    const dialog = await ready();
+    await within(dialog).findByText("L9");
+    fireEvent.change(within(dialog).getByLabelText("Nome do link"), { target: { value: "Mais um" } });
+    fireEvent.change(within(dialog).getByLabelText("Endereço do link"), { target: { value: "https://a.com/x" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Adicionar link" }));
+    expect(within(dialog).getByText("Uma aula pode ter até 10 links.")).toBeDefined();
+    expect(within(dialog).queryByText("Mais um")).toBeNull();
+  });
+
+  it("puts the problems of the server on the field or at the top, and keeps the dialog open", async () => {
+    const { save, onClose } = setup();
+    const dialog = await ready();
+    save.mockRejectedValueOnce(new ApiProblemError({ type: "invalid-session-content", status: 400, field: "topic" }, 400));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(within(dialog).getByLabelText("Tema").getAttribute("aria-invalid")).toBe("true"));
+
+    save.mockRejectedValueOnce(new ApiProblemError({ type: "deck-not-found", status: 404 }, 404));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    expect((await within(dialog).findByRole("alert")).textContent).toMatch(/apresentação não está mais disponível/);
+
+    save.mockRejectedValueOnce(new ApiProblemError({ type: "module-not-found", status: 404 }, 404));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(within(dialog).getByRole("alert").textContent).toMatch(/módulo não está mais disponível/));
+
+    save.mockRejectedValueOnce(new Error("boom"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(within(dialog).getByRole("alert").textContent).toMatch(/Não foi possível salvar o conteúdo/));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("disables the buttons while it saves", async () => {
+    const { save } = setup();
+    const dialog = await ready();
+    let finish: (c: SessionContent) => void = () => {};
+    save.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    const busy = await within(dialog).findByRole("button", { name: "Salvando…" });
+    expect((busy as HTMLButtonElement).disabled).toBe(true);
+    finish({ links: [] });
+  });
+
+  it("closes with Cancel and with Escape", async () => {
+    const { onClose } = setup();
+    const dialog = await ready();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("explains when the content cannot be loaded and tries again", async () => {
+    vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: [], total: 0, page: 1, limit: 100 });
+    const get = vi.spyOn(scheduleService, "getSessionContent").mockRejectedValueOnce(new Error("down")).mockResolvedValue(saved);
+    render(<SessionContentForm classId="c-1" session={lesson} onSaved={vi.fn()} onClose={vi.fn()} />);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/Não foi possível carregar o conteúdo/);
+    fireEvent.click(within(alert).getByRole("button", { name: "Tentar de novo" }));
+    await waitFor(() => expect((screen.getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  describe("sending the PDF of the presentation", () => {
+    const pdf = () => new File(["%PDF-1.7"], "Aula 3 - Permissões.pdf", { type: "application/pdf" });
+    const choose = (dialog: HTMLElement, file: File) => fireEvent.change(within(dialog).getByLabelText("Enviar PDF"), { target: { files: [file] } });
+
+    it("reads it in the browser, sends it and already selects it", async () => {
+      setup();
+      const dialog = await ready();
+      readPdfInfo.mockResolvedValue({ pageCount: 7 });
+      const upload = vi.spyOn(classroomService, "uploadDeck").mockResolvedValue({ id: "d-9", title: "Aula 3 - Permissões", pageCount: 7, downloadUrl: "https://minio/d-9" });
+      const file = pdf();
+      choose(dialog, file);
+      await waitFor(() => expect(upload).toHaveBeenCalledWith("c-1", file, "Aula 3 - Permissões", 7));
+      const deck = within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement;
+      await waitFor(() => expect(deck.value).toBe("d-9"));
+      expect(Array.from(deck.options).map((o) => o.textContent)).toContain("Aula 3 - Permissões");
+    });
+
+    it("refuses what is not a PDF, is too big, has too many pages or cannot be read, before sending", async () => {
+      setup();
+      const dialog = await ready();
+      const upload = vi.spyOn(classroomService, "uploadDeck");
+
+      choose(dialog, new File(["x"], "foto.png", { type: "image/png" }));
+      expect(await within(dialog).findByText("Escolha um arquivo PDF.")).toBeDefined();
+
+      const big = pdf();
+      Object.defineProperty(big, "size", { value: 26 * 1024 * 1024 });
+      choose(dialog, big);
+      expect(await within(dialog).findByText("O PDF pode ter até 25 MB.")).toBeDefined();
+
+      readPdfInfo.mockResolvedValueOnce({ pageCount: 101 });
+      choose(dialog, pdf());
+      expect(await within(dialog).findByText("O PDF pode ter até 100 páginas.")).toBeDefined();
+
+      readPdfInfo.mockRejectedValueOnce(new Error("password"));
+      choose(dialog, pdf());
+      expect(await within(dialog).findByText(/Não foi possível ler o PDF/)).toBeDefined();
+      expect(upload).not.toHaveBeenCalled();
+    });
+
+    it("shows the refusals of the server", async () => {
+      setup();
+      const dialog = await ready();
+      readPdfInfo.mockResolvedValue({ pageCount: 3 });
+      const upload = vi.spyOn(classroomService, "uploadDeck").mockRejectedValueOnce(new ApiProblemError({ type: "deck-limit-exceeded", status: 409 }, 409));
+      choose(dialog, pdf());
+      expect(await within(dialog).findByText("Esta turma já tem 100 apresentações.")).toBeDefined();
+      upload.mockRejectedValueOnce(new Error("boom"));
+      choose(dialog, pdf());
+      await waitFor(() => expect(within(dialog).getByText("Não foi possível enviar a apresentação.")).toBeDefined());
+    });
+  });
+});

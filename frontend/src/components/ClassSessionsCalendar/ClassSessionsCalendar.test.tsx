@@ -1,10 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { classroomService } from "@/services/classroomService";
+import { moduleService } from "@/services/moduleService";
 import { scheduleService } from "@/services/scheduleService";
 import { octoberCalendar, session } from "@/test/scheduleFixtures";
 import { ClassSessionsCalendar } from "./ClassSessionsCalendar";
 
+const push = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 afterEach(() => {
+  push.mockClear();
   cleanup();
   vi.restoreAllMocks();
 });
@@ -103,5 +109,43 @@ describe("ClassSessionsCalendar", () => {
     const before = calendar.mock.calls.length;
     rerender(<ClassSessionsCalendar classId="c-1" initialMonth={new Date(2026, 9, 1)} reloadKey={1} />);
     await waitFor(() => expect(calendar.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  // SPEC-053 CA-09: the content of each lesson, from the Horários tab
+  it("edits the content of a lesson in a dialog, saves it and loads the calendar again", async () => {
+    const { calendar } = setup();
+    vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: [], total: 0, page: 1, limit: 100 });
+    vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue({ links: [] });
+    const save = vi.spyOn(scheduleService, "saveSessionContent").mockResolvedValue({ links: [] });
+    await openDay(/^segunda-feira, 26 de outubro/);
+    fireEvent.click(within(screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" })).getByRole("button", { name: "Conteúdo da aula" }));
+    const dialog = await screen.findByRole("dialog", { name: "Conteúdo da aula de 26/10/2026" });
+    const before = calendar.mock.calls.length;
+    fireEvent.change(within(dialog).getByLabelText("Tema"), { target: { value: "Permissões" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith("c-1", "s-26", expect.objectContaining({ topic: "Permissões" })));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Conteúdo da aula de 26/10/2026" })).toBeNull());
+    await waitFor(() => expect(calendar.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  // SPEC-053 CA-11: start the live class from the lesson of the day
+  it("starts the live class from the lesson, tied to it, and goes to the room", async () => {
+    setup();
+    const start = vi.spyOn(classroomService, "startSession").mockResolvedValue({
+      id: "r-1", classId: "c-1", title: "Sistemas Operacionais", status: "ACTIVE", displayMode: "SLIDES", currentSlide: 1, startedAt: "",
+    });
+    await openDay(/^segunda-feira, 26 de outubro/);
+    fireEvent.click(within(screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" })).getByRole("button", { name: "Iniciar aula ao vivo" }));
+    await waitFor(() => expect(start).toHaveBeenCalledWith("c-1", { title: "Sistemas Operacionais", classSessionId: "s-26" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app/classes/c-1/live"));
+  });
+
+  it("tells when the live class could not be started and stays where it is", async () => {
+    setup();
+    vi.spyOn(classroomService, "startSession").mockRejectedValue(new Error("boom"));
+    await openDay(/^segunda-feira, 26 de outubro/);
+    fireEvent.click(within(screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" })).getByRole("button", { name: "Iniciar aula ao vivo" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Não foi possível iniciar a aula.");
+    expect(push).not.toHaveBeenCalled();
   });
 });
