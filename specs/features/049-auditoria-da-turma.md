@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-049 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada) |
 | **Autor** | Aruna Architect |
@@ -126,3 +126,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: guardar quem e quando criou, atua
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao pedir a auditoria da turma |
+| 14/10/2026 | Implementador | Implementada: migração 00028, autoria no service, nomes no detalhe e seção Histórico na visão geral. O teste de migração 00025 passou a informar `created_by` e `updated_by` no INSERT direto, porque agora são obrigatórios; o repositório preenche o autor pelo `teacher_id` quando a turma é salva sem autor (não muda o service) |

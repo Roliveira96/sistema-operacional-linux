@@ -116,7 +116,7 @@ function RichSection({ id, icon, title, html }: { id: string; icon: ReactNode; t
   );
 }
 
-function Overview({ data, editableLinks }: { data: Presentation; editableLinks: boolean }) {
+function Overview({ data, editableLinks, history }: { data: Presentation; editableLinks: boolean; history?: ClassGroup }) {
   const progress = validityProgress(data.startDate, data.endDate, new Date());
   return (
     <div className={styles.overview}>
@@ -157,8 +157,36 @@ function Overview({ data, editableLinks }: { data: Presentation; editableLinks: 
             </DetailRow>
           )}
         </dl>
+        {history && <History data={history} />}
       </aside>
     </div>
+  );
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
+
+/** Who created, updated and archived the class, and when, for the teacher and the administrator (SPEC-049). */
+function History({ data }: { data: ClassGroup }) {
+  const h = m.history;
+  const wasUpdated = new Date(data.updatedAt).getTime() - new Date(data.createdAt).getTime() > 1000;
+  return (
+    <section aria-labelledby="history-title" className={styles.history}>
+      <h3 id="history-title" className={styles.historyTitle}>
+        {h.title}
+      </h3>
+      <ul className={styles.historyList}>
+        <li>{h.created(data.createdByName || h.removedUser, formatDateTime(data.createdAt))}</li>
+        {wasUpdated && <li>{h.updated(data.updatedByName || h.removedUser, formatDateTime(data.updatedAt))}</li>}
+        {data.archivedAt && (
+          <li>
+            {h.archived(data.archivedByName || h.removedUser, formatDateTime(data.archivedAt))}
+            {data.archiveReason && <span className={styles.historyReason}>{h.reason(data.archiveReason)}</span>}
+          </li>
+        )}
+      </ul>
+    </section>
   );
 }
 
@@ -532,7 +560,7 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
 
       <div role="tabpanel" className={styles.tabPanel}>
         {tab === "overview" ? (
-          <Overview data={data} editableLinks={!isStudent && data.status !== "ARCHIVED"} />
+          <Overview data={data} editableLinks={!isStudent && data.status !== "ARCHIVED"} history={isStudent ? undefined : (classData ?? undefined)} />
         ) : tab === "schedule" ? (
           <ClassCalendar
             load={loadCalendar}
