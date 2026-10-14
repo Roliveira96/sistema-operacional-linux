@@ -27,14 +27,13 @@ vi.mock("../SlidePresenter/SlidePresenter", async () => {
 });
 vi.mock("../ModuleStage/ModuleStage", async () => {
   const React = await import("react");
-  type P = { role: string; moduleFocusBlockId: string | null; onFocusBlock?: (id: string) => void; onInput?: (e: unknown) => void; onSync?: (e: unknown) => void };
+  type P = { role: string; moduleFocusBlockId: string | null; onFocusBlock?: (id: string) => void; onScreen?: (tree: unknown) => void };
   return {
     ModuleStage: (p: P) =>
       React.createElement(
         "div",
         { "data-testid": "module", "data-role": p.role, "data-focus": p.moduleFocusBlockId ?? "" },
-        React.createElement("button", { onClick: () => p.onInput?.({ terminal: 1, line: "l" }) }, "mock-input"),
-        React.createElement("button", { onClick: () => p.onSync?.({ terminal: 1, line: "ls" }) }, "mock-sync"),
+        React.createElement("button", { onClick: () => p.onScreen?.({ tag: "div", attrs: { class: "janela" } }) }, "mock-screen"),
         React.createElement("button", { onClick: () => p.onFocusBlock?.("b-9") }, "mock-read"),
       ),
   };
@@ -44,14 +43,14 @@ const session: LiveSession = { id: "s-1", classId: "c-1", title: "Permissões", 
 const deck = { id: "d", title: "t", pageCount: 5, downloadUrl: "https://x" };
 
 const actions = () => ({
-  changeSlide: vi.fn(), moveCursor: vi.fn(), draw: vi.fn(), clearDrawings: vi.fn(), switchMode: vi.fn(), sendTerminalInput: vi.fn(), sendTerminalSync: vi.fn(),
+  changeSlide: vi.fn(), moveCursor: vi.fn(), draw: vi.fn(), clearDrawings: vi.fn(), switchMode: vi.fn(), sendTerminalScreen: vi.fn(),
   focusBlock: vi.fn(), setBlank: vi.fn(),
 });
 
 function live(over: Record<string, unknown> = {}, room: Record<string, unknown> = {}) {
   const value = {
     room: { mode: "SLIDES", slide: 2, moduleId: "m-1", moduleFocusBlockId: null, deck, strokes: [], cursor: null, online: 5, blank: false, ...room },
-    terminal: { input: null, entries: [], state: null, revision: 0 },
+    terminal: { screen: null },
     ready: true,
     ended: false,
     passive: false,
@@ -106,17 +105,15 @@ describe("PresenterStage", () => {
     expect(l.draw).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the module, in the study-screen style, with the terminal of the teacher going to the class at once", () => {
+  it("shows the module, in the study-screen style, with the screen of the terminal of the teacher going to the class at once", () => {
     const l = live({}, { mode: "MODULE", moduleFocusBlockId: "b-2" });
     render(<PresenterStage classId="c-1" session={session} />);
     const module_ = screen.getByTestId("module");
     expect(module_.getAttribute("data-role")).toBe("teacher");
     expect(module_.getAttribute("data-focus")).toBe("b-2");
-    fireEvent.click(screen.getByRole("button", { name: "mock-input" }));
-    fireEvent.click(screen.getByRole("button", { name: "mock-sync" }));
+    fireEvent.click(screen.getByRole("button", { name: "mock-screen" }));
     fireEvent.click(screen.getByRole("button", { name: "mock-read" }));
-    expect(l.sendTerminalInput).toHaveBeenCalledWith({ terminal: 1, line: "l" });
-    expect(l.sendTerminalSync).toHaveBeenCalledWith({ terminal: 1, line: "ls" });
+    expect(l.sendTerminalScreen).toHaveBeenCalledWith({ tag: "div", attrs: { class: "janela" } });
     expect(l.focusBlock).toHaveBeenCalledWith("b-9");
   });
 

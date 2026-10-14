@@ -8,14 +8,14 @@ const mirrored = vi.fn();
 vi.mock("@/components/Classroom/MirroredModuleView/MirroredModuleView", async () => {
   const React = await import("react");
   return {
-    MirroredModuleView: (p: { role: string; initialState?: unknown; onInput?: () => void }) => {
+    MirroredModuleView: (p: { role: string; initialState?: unknown; onScreen?: () => void }) => {
       mirrored(p);
       return React.createElement("div", { "data-testid": "terminal", "data-role": p.role });
     },
   };
 });
 
-const terminal: LiveTerminal = { input: null, entries: [], state: null, revision: 0 };
+const terminal: LiveTerminal = { screen: null };
 const module_: LiveModuleContent = {
   moduleId: "m-1",
   title: "Permissões de arquivos",
@@ -82,18 +82,17 @@ describe("TopicStudy in the live-class mode", () => {
     expect(screen.getByRole("main").contains(screen.getByTestId("terminal"))).toBe(true);
   });
 
-  it("gives the terminal the machine of the module, the state of the class and the typing of the teacher", () => {
-    const onInput = vi.fn();
-    const onSync = vi.fn();
-    study({ role: "teacher", onInput, onSync });
+  it("gives the terminal the machine of the module, the screen of the class and the way for the teacher to tell his screen", () => {
+    const onScreen = vi.fn();
+    study({ role: "teacher", onScreen });
     expect(screen.getByTestId("terminal").getAttribute("data-role")).toBe("teacher");
-    expect(mirrored).toHaveBeenLastCalledWith(expect.objectContaining({ initialState: { n: 1 }, terminal, onInput, onSync }));
+    expect(mirrored).toHaveBeenLastCalledWith(expect.objectContaining({ initialState: { n: 1 }, terminal, onScreen }));
   });
 
   it("gives the student a terminal that only follows", () => {
     study({ role: "student" });
     expect(screen.getByTestId("terminal").getAttribute("data-role")).toBe("student");
-    expect(mirrored.mock.lastCall![0].onInput).toBeUndefined();
+    expect(mirrored.mock.lastCall![0].onScreen).toBeUndefined();
   });
 
   // CA-13, SPEC-054 CA-11: the block in focus

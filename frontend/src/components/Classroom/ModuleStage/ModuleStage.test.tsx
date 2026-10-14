@@ -8,14 +8,14 @@ const topic = vi.fn();
 vi.mock("@/components/TopicStudy/TopicStudy", async () => {
   const React = await import("react");
   return {
-    TopicStudy: (p: { moduleId: string; live?: { role: string; focusBlockId: string | null; module: { title: string }; onRead?: unknown; onInput?: unknown; onSync?: unknown } }) => {
+    TopicStudy: (p: { moduleId: string; live?: { role: string; focusBlockId: string | null; module: { title: string }; onRead?: unknown; onScreen?: unknown } }) => {
       topic(p);
       return React.createElement("div", { "data-testid": "topic", "data-module": p.moduleId, "data-role": p.live?.role, "data-focus": p.live?.focusBlockId ?? "" }, p.live?.module.title);
     },
   };
 });
 
-const terminal: LiveTerminal = { input: null, entries: [], state: null, revision: 0 };
+const terminal: LiveTerminal = { screen: null };
 const module_: LiveModuleContent = {
   moduleId: "m-1",
   title: "Permissões de arquivos",
@@ -48,24 +48,21 @@ describe("ModuleStage", () => {
 
   it("gives the student no way to send anything", async () => {
     vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
-    render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} onInput={vi.fn()} onSync={vi.fn()} onFocusBlock={vi.fn()} />);
+    render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} onScreen={vi.fn()} onFocusBlock={vi.fn()} />);
     await screen.findByTestId("topic");
     const { live } = topic.mock.lastCall![0];
-    expect(live.onInput).toBeUndefined();
-    expect(live.onSync).toBeUndefined();
+    expect(live.onScreen).toBeUndefined();
     expect(live.onRead).toBeUndefined();
   });
 
-  it("gives the teacher the typing, the commands and the reading, straight", async () => {
+  it("gives the teacher the picture of the terminal screen and the reading, straight", async () => {
     vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
-    const onInput = vi.fn();
-    const onSync = vi.fn();
+    const onScreen = vi.fn();
     const onFocusBlock = vi.fn();
-    render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onInput={onInput} onSync={onSync} onFocusBlock={onFocusBlock} />);
+    render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onScreen={onScreen} onFocusBlock={onFocusBlock} />);
     await screen.findByTestId("topic");
     const { live } = topic.mock.lastCall![0];
-    expect(live.onInput).toBe(onInput);
-    expect(live.onSync).toBe(onSync);
+    expect(live.onScreen).toBe(onScreen);
     expect(live.onRead).toBe(onFocusBlock);
   });
 

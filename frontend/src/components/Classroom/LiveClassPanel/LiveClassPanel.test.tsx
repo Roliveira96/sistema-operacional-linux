@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 const session: LiveSession = { id: "s-1", classId: "c-1", title: "Permissões", status: "ACTIVE", displayMode: "SLIDES", currentSlide: 1, startedAt: "2026-10-14T13:30:00Z" };
-const active = (): ActiveRoom => ({ hasActiveSession: true, session, displayMode: "SLIDES", currentSlide: 1, activeDeck: null, recentDrawings: [], terminal: { input: null, entries: [], state: null }, handRaises: [], onlineCount: 1 });
+const active = (): ActiveRoom => ({ hasActiveSession: true, session, displayMode: "SLIDES", currentSlide: 1, activeDeck: null, recentDrawings: [], terminal: { screen: null }, handRaises: [], onlineCount: 1 });
 const past: LiveSessionSummary[] = [
   { id: "s-0", title: "Introdução", status: "FINISHED", startedAt: "2026-10-07T13:00:00Z", endedAt: "2026-10-07T14:40:00Z", durationMinutes: 100, hasNotes: true },
   { id: "s--1", title: "Revisão", status: "FINISHED", startedAt: "2026-09-30T13:00:00Z", endedAt: "2026-09-30T13:50:00Z", durationMinutes: 50, hasNotes: false },

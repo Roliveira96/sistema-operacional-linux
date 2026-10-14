@@ -20,7 +20,7 @@ afterEach(() => {
 
 const params = Promise.resolve({ id: "c-1" });
 const session: LiveSession = { id: "s-1", classId: "c-1", title: "Aula", status: "ACTIVE", displayMode: "SLIDES", currentSlide: 1, startedAt: "x" };
-const room = (): ActiveRoom => ({ hasActiveSession: true, session, displayMode: "SLIDES", currentSlide: 1, activeDeck: null, recentDrawings: [], terminal: { input: null, entries: [], state: null }, handRaises: [], onlineCount: 1 });
+const room = (): ActiveRoom => ({ hasActiveSession: true, session, displayMode: "SLIDES", currentSlide: 1, activeDeck: null, recentDrawings: [], terminal: { screen: null }, handRaises: [], onlineCount: 1 });
 
 function asRole(role: "TEACHER" | "STUDENT" | "ADMIN") {
   vi.mocked(useAuth).mockReturnValue({ user: { userId: "u-1", email: "u@x.br", role, status: "ACTIVE", mustChangePassword: false, sessionCreatedAt: "", sessionExpiresAt: "" }, refresh: vi.fn(), logout: vi.fn() });

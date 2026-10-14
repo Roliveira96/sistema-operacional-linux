@@ -41,14 +41,14 @@ vi.mock("../SlidePresenter/SlidePresenter", async () => {
 });
 vi.mock("../ModuleStage/ModuleStage", async () => {
   const React = await import("react");
-  type P = { role: string; moduleFocusBlockId: string | null; onFocusBlock?: (id: string) => void; onInput?: (e: unknown) => void; onSync?: (e: unknown) => void };
+  type P = { role: string; moduleFocusBlockId: string | null; onFocusBlock?: (id: string) => void; onScreen?: (e: unknown) => void };
   return {
     ModuleStage: (p: P) =>
       React.createElement("div", {
         "data-testid": "module",
         "data-role": p.role,
         "data-focus": p.moduleFocusBlockId ?? "",
-        "data-can-send": String(Boolean(p.onInput || p.onSync || p.onFocusBlock)),
+        "data-can-send": String(Boolean(p.onScreen || p.onFocusBlock)),
       }),
   };
 });
@@ -67,7 +67,7 @@ function live(over: Record<string, unknown> = {}) {
   const value = {
     room: { mode: "SLIDES", slide: 2, moduleId: null, moduleFocusBlockId: null, blank: false, deck: { id: "d", title: "t", pageCount: 5, downloadUrl: "https://x" }, strokes: [], cursor: null, online: 5 },
     admission: "ADMITTED",
-    terminal: { input: null, entries: [], state: null, revision: 0 },
+    terminal: { screen: null },
     hands: [],
     ready: true,
     ended: false,
@@ -202,6 +202,7 @@ describe("LiveClassroom", () => {
     ["LiveClassroom", liveClassroomStyles],
     ["SlidePresenter", slideStyles],
     ["MirroredModuleView", mirroredStyles],
+    ["TerminalMirror", styleOf("../TerminalMirror/TerminalMirror.module.scss")],
     ["LiveInteractionDrawer", drawerStyles],
     ["StudentNotesPanel", notesStyles],
     ["LiveClassPanel", liveClassPanelStyles],

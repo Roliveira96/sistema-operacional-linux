@@ -1,24 +1,19 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mountTerminalWindow, type TerminalCommandEvent, type TerminalWindowCallbacks } from "@/engine/terminalWindow";
+import { mountTerminalWindow, type TerminalWindowCallbacks } from "@/engine/terminalWindow";
+import type { ScreenElement } from "@/engine/terminalScreen";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import { MirroredModuleView } from "./MirroredModuleView";
 
 vi.mock("@/engine/terminalWindow", () => ({ mountTerminalWindow: vi.fn() }));
+vi.mock("@/engine/terminalScreen", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/engine/terminalScreen")>()), loadTerminalStyle: async () => undefined }));
 
-type FakeWindow = Record<"setSpeed" | "setReadOnly" | "showInput" | "printScreen" | "syncMachine" | "destroy", ReturnType<typeof vi.fn>>;
+type FakeWindow = Record<"setSpeed" | "destroy", ReturnType<typeof vi.fn>>;
 const windows: FakeWindow[] = [];
 let callbacks: TerminalWindowCallbacks | null = null;
 
 function fakeWindow(): FakeWindow {
-  const w: FakeWindow = {
-    setSpeed: vi.fn(),
-    setReadOnly: vi.fn(),
-    showInput: vi.fn().mockResolvedValue(undefined),
-    printScreen: vi.fn().mockResolvedValue(undefined),
-    syncMachine: vi.fn().mockResolvedValue(undefined),
-    destroy: vi.fn(),
-  };
+  const w: FakeWindow = { setSpeed: vi.fn(), destroy: vi.fn() };
   windows.push(w);
   return w;
 }
@@ -36,77 +31,74 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const empty: LiveTerminal = { input: null, entries: [], state: null, revision: 0 };
-const entry = (line: string, n: number): TerminalCommandEvent => ({
-  terminal: 1,
-  line,
-  output: `saida ${n}`,
-  status: 0,
-  segments: [{ text: `root@x:~# ${line}\n` }, { text: `saida ${n}\n` }],
-  user: "root",
-  cwd: "/tmp",
-  state: { n },
+const empty: LiveTerminal = { screen: null };
+const tree = (text: string): ScreenElement => ({
+  tag: "div",
+  attrs: { class: "janela" },
+  children: [{ tag: "div", attrs: { class: "term-tela" }, children: [{ tag: "div", attrs: { class: "term-linha" }, children: [text] }] }],
 });
 
-// SPEC-051 CA-07 and CA-08
+// SPEC-056 CA-01 to CA-05: the teacher has the real terminal and tells its screen; the student only draws the screen it receives
 describe("MirroredModuleView", () => {
-  it("gives the teacher the real terminal and passes on what he types and runs", async () => {
-    const onInput = vi.fn();
-    const onSync = vi.fn();
-    render(<MirroredModuleView role="teacher" terminal={empty} onInput={onInput} onSync={onSync} />);
+  it("gives the teacher the real terminal and passes on the picture of its screen", async () => {
+    const onScreen = vi.fn();
+    render(<MirroredModuleView role="teacher" terminal={empty} onScreen={onScreen} />);
     await waitFor(() => expect(windows).toHaveLength(1));
-    expect(windows[0]!.setReadOnly).not.toHaveBeenCalledWith(true);
-    callbacks!.onInput!({ terminal: 1, line: "l" });
-    expect(onInput).toHaveBeenCalledWith({ terminal: 1, line: "l" });
-    const done = entry("ls", 1);
-    callbacks!.onCommandDone!(done);
-    expect(onSync).toHaveBeenCalledWith(done);
+    expect(callbacks!.onScreen).toBeTypeOf("function");
+    const picture = tree("ls");
+    callbacks!.onScreen!(picture);
+    expect(onScreen).toHaveBeenCalledWith(picture);
   });
 
-  it("gives the student a read-only copy that reports nothing", async () => {
-    render(<MirroredModuleView role="student" terminal={empty} />);
-    await waitFor(() => expect(windows[0]?.setReadOnly).toHaveBeenCalledWith(true));
-    expect(callbacks!.onInput).toBeUndefined();
-    expect(callbacks!.onCommandDone).toBeUndefined();
+  it("tells the picture to the latest handler, and not to the one of the first render", async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const view = render(<MirroredModuleView role="teacher" terminal={empty} onScreen={first} />);
+    await waitFor(() => expect(windows).toHaveLength(1));
+    view.rerender(<MirroredModuleView role="teacher" terminal={empty} onScreen={second} />);
+    callbacks!.onScreen!(tree("pwd"));
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not ask the teacher's terminal for what was typed or run, which is no longer sent", async () => {
+    render(<MirroredModuleView role="teacher" terminal={empty} onScreen={vi.fn()} />);
+    await waitFor(() => expect(windows).toHaveLength(1));
+    expect(callbacks).not.toHaveProperty("onInput");
+    expect(callbacks).not.toHaveProperty("onCommandDone");
+    expect(screen.queryByText("Você acompanha o terminal do professor. O teclado fica travado.")).toBeNull();
+  });
+
+  // CA-04: the student never mounts the engine
+  it("gives the student a copy that does not mount the terminal engine", async () => {
+    render(<MirroredModuleView role="student" terminal={{ screen: tree("ola") }} />);
+    await act(async () => {});
+    expect(mountTerminalWindow).not.toHaveBeenCalled();
+    expect(callbacks).toBeNull();
     expect(screen.getByText("Você acompanha o terminal do professor. O teclado fica travado.")).toBeDefined();
   });
 
-  it("shows what the teacher is typing", async () => {
+  // CA-05: who comes in the middle gets the current screen from the snapshot, with no new change
+  it("shows to the student the screen that was already there when he came in", () => {
+    render(<MirroredModuleView role="student" terminal={{ screen: tree("tela atual do professor") }} />);
+    expect(screen.getByText("tela atual do professor")).toBeDefined();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("says it is loading until the first screen arrives, and follows each new one", () => {
     const view = render(<MirroredModuleView role="student" terminal={empty} />);
-    await waitFor(() => expect(windows[0]?.setReadOnly).toHaveBeenCalled());
-    view.rerender(<MirroredModuleView role="student" terminal={{ ...empty, input: { terminal: 1, line: "ls -l" } }} />);
-    await waitFor(() => expect(windows[0]!.showInput).toHaveBeenCalledWith(1, "ls -l"));
+    expect(screen.getByRole("status").textContent).toBe("Carregando o terminal…");
+    view.rerender(<MirroredModuleView role="student" terminal={{ screen: tree("primeira") }} />);
+    expect(screen.getByText("primeira")).toBeDefined();
+    expect(screen.queryByRole("status")).toBeNull();
+    view.rerender(<MirroredModuleView role="student" terminal={{ screen: tree("segunda") }} />);
+    expect(screen.queryByText("primeira")).toBeNull();
+    expect(screen.getByText("segunda")).toBeDefined();
   });
 
-  it("prints each command with its output and applies the machine, once and in order", async () => {
-    const view = render(<MirroredModuleView role="student" terminal={empty} />);
-    await waitFor(() => expect(windows[0]?.setReadOnly).toHaveBeenCalled());
-    const first = entry("ls", 1);
-    view.rerender(<MirroredModuleView role="student" terminal={{ input: null, entries: [first], state: first.state, revision: 1 }} />);
-    await waitFor(() => expect(windows[0]!.syncMachine).toHaveBeenCalledTimes(1));
-    expect(windows[0]!.printScreen).toHaveBeenCalledWith(1, first.segments);
-    expect(windows[0]!.syncMachine).toHaveBeenCalledWith(first.state, { terminal: 1, cwd: "/tmp" });
-
-    const second = entry("pwd", 2);
-    view.rerender(<MirroredModuleView role="student" terminal={{ input: null, entries: [first, second], state: second.state, revision: 2 }} />);
-    await waitFor(() => expect(windows[0]!.syncMachine).toHaveBeenCalledTimes(2));
-    expect(windows[0]!.printScreen).toHaveBeenCalledTimes(2);
-    expect(windows[0]!.printScreen).toHaveBeenLastCalledWith(1, second.segments);
-  });
-
-  // CA-14: who comes in the middle of the class gets the recent commands and the last machine
-  it("prints the history that was already there when the student comes in, and applies the last machine only", async () => {
-    const entries = [entry("ls", 1), entry("pwd", 2), entry("date", 3)];
-    render(<MirroredModuleView role="student" terminal={{ input: { terminal: 1, line: "cat" }, entries, state: entries[2]!.state, revision: 1 }} />);
-    await waitFor(() => expect(windows[0]?.printScreen).toHaveBeenCalledTimes(3));
-    expect(windows[0]!.syncMachine).toHaveBeenCalledTimes(1);
-    expect(windows[0]!.syncMachine).toHaveBeenCalledWith(entries[2]!.state, { terminal: 1, cwd: "/tmp" });
-    await waitFor(() => expect(windows[0]!.showInput).toHaveBeenCalledWith(1, "cat"));
-  });
-
-  it("says so when the terminal cannot be opened", async () => {
+  it("says so when the terminal of the teacher cannot be opened", async () => {
     vi.mocked(mountTerminalWindow).mockRejectedValueOnce(new Error("falhou"));
-    render(<MirroredModuleView role="student" terminal={empty} />);
+    render(<MirroredModuleView role="teacher" terminal={empty} />);
     expect((await screen.findByRole("alert")).textContent).toBe("Não foi possível abrir o terminal.");
   });
 
@@ -118,20 +110,24 @@ describe("MirroredModuleView", () => {
     expect(windows[0]!.destroy).toHaveBeenCalled();
   });
 
-  // SPEC-054 CA-11: both terminals start on the machine of the module
-  it("mounts the terminal on the machine of the module when it is given, for the teacher and for the student", async () => {
+  it("frees the window of the teacher when the view becomes the student's", async () => {
+    const view = render(<MirroredModuleView role="teacher" terminal={empty} />);
+    await waitFor(() => expect(windows).toHaveLength(1));
+    await act(async () => {});
+    view.rerender(<MirroredModuleView role="student" terminal={empty} />);
+    expect(windows[0]!.destroy).toHaveBeenCalled();
+  });
+
+  // SPEC-054 CA-11: the terminal of the teacher starts on the machine of the module
+  it("mounts the terminal on the machine of the module when it is given", async () => {
     const machine = { formato: "exame-so/maquina", n: 7 };
-    const teacher = render(<MirroredModuleView role="teacher" terminal={empty} initialState={machine} />);
+    render(<MirroredModuleView role="teacher" terminal={empty} initialState={machine} />);
     await waitFor(() => expect(mountTerminalWindow).toHaveBeenCalledTimes(1));
     expect(vi.mocked(mountTerminalWindow).mock.calls[0]![1]).toBe(machine);
-    teacher.unmount();
-    render(<MirroredModuleView role="student" terminal={empty} initialState={machine} />);
-    await waitFor(() => expect(mountTerminalWindow).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(mountTerminalWindow).mock.calls[1]![1]).toBe(machine);
   });
 
   it("mounts the default machine when there is none", async () => {
-    render(<MirroredModuleView role="student" terminal={empty} />);
+    render(<MirroredModuleView role="teacher" terminal={empty} />);
     await waitFor(() => expect(mountTerminalWindow).toHaveBeenCalledTimes(1));
     expect(vi.mocked(mountTerminalWindow).mock.calls[0]![1]).toBeNull();
   });

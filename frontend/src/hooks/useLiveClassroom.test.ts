@@ -24,6 +24,8 @@ class FakeLive {
   }
 }
 
+const screenOf = (text: string) => ({ tag: "div", attrs: { class: "janela" }, children: [{ tag: "span", children: [text] }] });
+
 const snapshot = (over: Partial<LiveSnapshot> = {}): LiveSnapshot => ({
   hasActiveSession: true,
   session: { id: "s-1", classId: "c-1", title: "Aula", status: "ACTIVE", displayMode: "SLIDES", currentSlide: 2, startedAt: "2026-10-14T10:00:00Z" },
@@ -32,7 +34,7 @@ const snapshot = (over: Partial<LiveSnapshot> = {}): LiveSnapshot => ({
   activeModuleId: null,
   activeDeck: { id: "d-1", title: "Slides", pageCount: 10, downloadUrl: "https://minio/x" },
   recentDrawings: [{ path: [[1, 2]] }],
-  terminal: { input: { terminal: 1, line: "ls" }, entries: [], state: { formato: "exame-so/maquina" } },
+  terminal: { screen: screenOf("ls") },
   handRaises: [],
   onlineCount: 3,
   ...over,
@@ -58,7 +60,7 @@ describe("useLiveClassroom", () => {
     expect(result.current.connected).toBe(true);
     act(() => socket().receive("live:snapshot", snapshot()));
     expect(result.current.room).toMatchObject({ mode: "SLIDES", slide: 2, online: 3, deck: { pageCount: 10 }, strokes: [{ path: [[1, 2]] }] });
-    expect(result.current.terminal).toMatchObject({ input: { line: "ls" }, state: { formato: "exame-so/maquina" } });
+    expect(result.current.terminal).toEqual({ screen: screenOf("ls") });
     expect(result.current.ready).toBe(true);
   });
 
@@ -83,17 +85,43 @@ describe("useLiveClassroom", () => {
     expect(result.current.room.online).toBe(8);
   });
 
-  it("keeps the typing and the commands of the terminal", () => {
+  // SPEC-056 CA-05: who comes in gets the current screen of the teacher with the snapshot
+  it("takes the screen of the terminal from the snapshot, and null when there is none", () => {
+    const { result, socket } = setup("student");
+    expect(result.current.terminal).toEqual({ screen: null });
+    act(() => socket().receive("live:snapshot", snapshot({ terminal: { screen: null } })));
+    expect(result.current.terminal.screen).toBeNull();
+    act(() => socket().receive("live:snapshot", snapshot({ terminal: undefined } as never)));
+    expect(result.current.terminal.screen).toBeNull();
+    act(() => socket().receive("live:snapshot", snapshot()));
+    expect(result.current.terminal.screen).toEqual(screenOf("ls"));
+  });
+
+  // SPEC-056 CA-01 to CA-03: each screen of the teacher replaces the last one
+  it("keeps the last screen of the terminal that the teacher sent", () => {
+    const { result, socket } = setup("student");
+    act(() => socket().receive("live:snapshot", snapshot()));
+    act(() => socket().receive("live:terminal:screen", { screen: screenOf("echo o") }));
+    expect(result.current.terminal.screen).toEqual(screenOf("echo o"));
+    act(() => socket().receive("live:terminal:screen", { screen: screenOf("echo oi") }));
+    expect(result.current.terminal.screen).toEqual(screenOf("echo oi"));
+    // What is not a tree is not taken: the screen stays as it was.
+    act(() => socket().receive("live:terminal:screen", { screen: "texto solto" }));
+    act(() => socket().receive("live:terminal:screen", { screen: null }));
+    act(() => socket().receive("live:terminal:screen", {}));
+    expect(result.current.terminal.screen).toEqual(screenOf("echo oi"));
+  });
+
+  // SPEC-056 CA-09: the copy by commands is gone from the protocol
+  it("no longer knows the typing and the commands of the terminal", () => {
     const { result, socket } = setup("student");
     act(() => socket().receive("live:snapshot", snapshot()));
     act(() => socket().receive("live:terminal:input", { terminal: 1, line: "echo o" }));
-    expect(result.current.terminal.input).toEqual({ terminal: 1, line: "echo o" });
-    const done = { terminal: 1, line: "echo oi", output: "oi", status: 0, segments: [{ text: "oi\n" }], user: "root", cwd: "/root", state: { n: 1 } };
-    act(() => socket().receive("live:terminal:sync", done));
-    expect(result.current.terminal.entries.at(-1)).toEqual(done);
-    expect(result.current.terminal.state).toEqual({ n: 1 });
-    expect(result.current.terminal.input).toBeNull();
-    expect(result.current.terminal.revision).toBeGreaterThan(0);
+    act(() => socket().receive("live:terminal:sync", { terminal: 1, line: "echo oi", output: "oi", state: { n: 1 } }));
+    expect(result.current.terminal).toEqual({ screen: screenOf("ls") });
+    for (const gone of ["input", "entries", "state", "revision"]) expect(result.current.terminal).not.toHaveProperty(gone);
+    expect(result.current).not.toHaveProperty("sendTerminalInput");
+    expect(result.current).not.toHaveProperty("sendTerminalSync");
   });
 
   // CA-08, CA-09
@@ -134,8 +162,6 @@ describe("useLiveClassroom", () => {
     expect(result.current.room.strokes).toEqual([]);
     act(() => result.current.switchMode("MODULE", "m-9"));
     expect(socket().sent.at(-1)).toEqual({ type: "live:mode:switch", data: { mode: "MODULE", moduleId: "m-9" } });
-    act(() => result.current.sendTerminalInput({ terminal: 1, line: "l" }));
-    expect(socket().sent.at(-1)).toEqual({ type: "live:terminal:input", data: { terminal: 1, line: "l" } });
   });
 
   it("lets the panel lower the hands", () => {
@@ -313,15 +339,56 @@ describe("useLiveClassroom", () => {
       act(() => panel.result.current.moveCursor(1, 2, true));
       act(() => panel.result.current.draw([[1, 1], [2, 2]]));
       act(() => panel.result.current.clearDrawings());
-      act(() => panel.result.current.sendTerminalInput({ terminal: 1, line: "l" }));
-      act(() => panel.result.current.sendTerminalSync({ terminal: 1, line: "ls" } as never));
+      act(() => panel.result.current.sendTerminalScreen(screenOf("l") as never));
       act(() => panel.result.current.setBlank(true));
       expect(panel.socket().sent).toEqual([]);
 
       const presenter = setup("teacher", "presenter");
       act(() => presenter.socket().handlers.onOpen());
-      act(() => presenter.result.current.sendTerminalSync({ terminal: 1, line: "ls", state: { n: 2 } } as never));
-      expect(presenter.socket().sent.at(-1)).toMatchObject({ type: "live:terminal:sync" });
+      act(() => presenter.result.current.sendTerminalScreen(screenOf("ls") as never));
+      expect(presenter.socket().sent.at(-1)).toEqual({ type: "live:terminal:screen", data: { screen: screenOf("ls") } });
+    });
+
+    // SPEC-056 CA-08: a student, or a tab that lost the control, never sends a screen
+    it("does not send the screen of the terminal from a student, nor from a presenter that lost the control", () => {
+      const student = setup("student");
+      act(() => student.socket().handlers.onOpen());
+      act(() => student.result.current.sendTerminalScreen(screenOf("x") as never));
+      expect(student.socket().sent).toEqual([]);
+
+      const presenter = setup("teacher", "presenter");
+      act(() => presenter.socket().handlers.onOpen());
+      act(() => presenter.socket().receive("live:control:revoked", {}));
+      act(() => presenter.result.current.sendTerminalScreen(screenOf("x") as never));
+      expect(presenter.socket().sent).toEqual([]);
+    });
+
+    // SPEC-056 section 4: the server keeps the screen in memory only, so the presenter window tells the whole screen again at every connection
+    it("tells the last screen again when the presenter connects, or connects again, because a message sent before that is lost", () => {
+      const { result, socket } = setup("teacher", "presenter");
+      act(() => result.current.sendTerminalScreen(screenOf("antes de conectar") as never));
+      // The fake socket records what it is given even when closed; the real one drops it, which is why the screen is told again on open.
+      const sentBeforeOpen = socket().sent.length;
+      act(() => socket().handlers.onOpen());
+      expect(socket().sent.slice(sentBeforeOpen)).toEqual([{ type: "live:terminal:screen", data: { screen: screenOf("antes de conectar") } }]);
+
+      act(() => result.current.sendTerminalScreen(screenOf("a ultima") as never));
+      act(() => socket().handlers.onClose());
+      act(() => vi.advanceTimersByTime(1000));
+      const again = socket();
+      expect(again.sent).toEqual([]);
+      act(() => again.handlers.onOpen());
+      expect(again.sent).toEqual([{ type: "live:terminal:screen", data: { screen: screenOf("a ultima") } }]);
+    });
+
+    it("tells nothing at the connection when there is no screen yet, and the panel never tells one", () => {
+      const presenter = setup("teacher", "presenter");
+      act(() => presenter.socket().handlers.onOpen());
+      expect(presenter.socket().sent).toEqual([]);
+      const panel = setup("teacher", "panel");
+      act(() => panel.result.current.sendTerminalScreen(screenOf("x") as never));
+      act(() => panel.socket().handlers.onOpen());
+      expect(panel.socket().sent).toEqual([]);
     });
 
     it("lets both windows change the slide and the mode", () => {
