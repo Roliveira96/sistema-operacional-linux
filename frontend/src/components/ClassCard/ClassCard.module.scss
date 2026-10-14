@@ -270,22 +270,31 @@
   display: inline-flex;
 }
 
+// The two main actions, always in the same row and in equal parts (SPEC-047, CA-07).
 .footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
   margin-top: auto;
   padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--color-hairline);
 }
 
 .mainActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+
+  > * {
+    min-width: 0;
+    padding: 0 var(--space-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.headerEnd {
   display: flex;
-  flex: 1 1 14rem;
-  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .iconActions {

@@ -92,15 +92,6 @@ function IconSettings() {
   );
 }
 
-function IconEye() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
 function IconArchive() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -150,10 +141,26 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
             {classGroup.courseCode} • {classGroup.semester}
           </span>
 
-          <span className={`${styles.badge} ${statusClass}`}>
-            <span className={styles.statusDot} aria-hidden="true" />
-            {messages.classes.statusBadge[classGroup.status] ?? classGroup.status}
-          </span>
+          <div className={styles.headerEnd}>
+            <span className={`${styles.badge} ${statusClass}`}>
+              <span className={styles.statusDot} aria-hidden="true" />
+              {messages.classes.statusBadge[classGroup.status] ?? classGroup.status}
+            </span>
+
+            <div className={styles.iconActions}>
+              <ButtonLink href={`/app/classes/${classGroup.id}/settings`} variant="ghost" icon title={messages.classes.card.manage}>
+                <IconSettings />
+                <span className={styles.srOnly}>{messages.classes.card.manage}</span>
+              </ButtonLink>
+
+              {classGroup.status !== "ARCHIVED" && onArchive && (
+                <Button variant="ghost" icon onClick={() => onArchive(classGroup.id)} title={messages.classes.card.archive}>
+                  <IconArchive />
+                  <span className={styles.srOnly}>{messages.classes.card.archive}</span>
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
         <h3 className={styles.title}>
@@ -239,27 +246,11 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
       <footer className={styles.footer}>
         <div className={styles.mainActions}>
           <ButtonLink href={`/app/classes/${classGroup.id}`} variant="primary">
-            <IconEye />
-            <span>{messages.classes.card.view}</span>
+            {messages.classes.card.view}
           </ButtonLink>
           <ButtonLink href={`/app/classes/${classGroup.id}?tab=students`} variant="secondary">
-            <IconUsers />
-            <span>{messages.classes.card.addStudents}</span>
+            {messages.classes.card.addStudents}
           </ButtonLink>
-        </div>
-
-        <div className={styles.iconActions}>
-          <ButtonLink href={`/app/classes/${classGroup.id}/settings`} variant="ghost" icon title={messages.classes.card.manage}>
-            <IconSettings />
-            <span className={styles.srOnly}>{messages.classes.card.manage}</span>
-          </ButtonLink>
-
-          {classGroup.status !== "ARCHIVED" && onArchive && (
-            <Button variant="ghost" icon onClick={() => onArchive(classGroup.id)} title={messages.classes.card.archive}>
-              <IconArchive />
-              <span className={styles.srOnly}>{messages.classes.card.archive}</span>
-            </Button>
-          )}
         </div>
       </footer>
     </article>

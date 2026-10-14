@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-047 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada) |
 | **Autor** | Aruna Architect |
@@ -123,3 +123,4 @@ Nenhuma.
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: os botões do card não seguem um padrão. Passam a usar o `Button` do sistema, estendido com `ghost`, `sm`, `icon` e `ButtonLink` (CA-06); volta a Aprovada |
 | 14/10/2026 | Implementador | Implementado o padrão de botões: `Button` com `ghost`, `sm` e `icon`, `ButtonLink`, card e botão "Nova turma" da lista usando-os. Os testes `data-primary` e `data-icon-only` da primeira versão foram trocados por `data-variant` e `data-icon`, porque o padrão mudou |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: Visualizar e Adicionar estudantes na mesma linha. As ações de ícone sobem para o cabeçalho; os botões do rodapé perdem o ícone (CA-07); volta a Aprovada |
+| 14/10/2026 | Implementador | CA-07 implementado: dois botões na mesma linha (grade de duas colunas iguais) e ações de ícone no cabeçalho. Substitui o CA-02 da SPEC-046 (ordem antes de Configurações): o teste dessa ordem foi trocado porque Configurações saiu do rodapé |

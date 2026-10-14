@@ -117,13 +117,10 @@ describe("ClassCard", () => {
     }
   });
 
-  // SPEC-046 CA-01 and CA-02
-  it.each(["ACTIVE", "DRAFT", "ARCHIVED"] as const)("has a Visualizar link to the class page, before Configurações (%s)", (status) => {
+  // SPEC-046 CA-01 (its CA-02, the order before Configurações, is replaced by SPEC-047 CA-07)
+  it.each(["ACTIVE", "DRAFT", "ARCHIVED"] as const)("has a Visualizar link to the class page (%s)", (status) => {
     render(<ClassCard classGroup={{ ...mockClass, status }} />);
-    const view = screen.getByRole("link", { name: /Visualizar/i });
-    expect(view.getAttribute("href")).toBe("/app/classes/c-1");
-    const settings = screen.getByRole("link", { name: /Configurações/i });
-    expect(view.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Visualizar/i }).getAttribute("href")).toBe("/app/classes/c-1");
   });
 
   // SPEC-047 CA-01 and CA-06: Visualizar is the main action and every action follows the pattern of button
