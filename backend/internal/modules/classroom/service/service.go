@@ -394,6 +394,8 @@ type Active struct {
 	HandRaises     []domain.HandRaiseEntry
 	// ModuleFocusBlockID is the block of the module the teacher put in focus.
 	ModuleFocusBlockID string
+	// StageView is the scroll of the panes and the divider of the module as the teacher left them (SPEC-057).
+	StageView StageView
 }
 
 // GetActive returns the open room of the class with its state, with a renewed address for the deck (RN-07).
@@ -440,6 +442,7 @@ func (s *Service) stateOf(ctx context.Context, session domain.LiveClassroomSessi
 	}
 	a.HandRaises = hands
 	a.ModuleFocusBlockID = s.live.focus(session.ID)
+	a.StageView = s.live.stageView(session.ID)
 	return a, nil
 }
 
@@ -668,7 +671,8 @@ func (s *Service) RequestAgain(ctx context.Context, sessionID, studentID uuid.UU
 	return a.Status, err
 }
 
-// ChangeSlide saves the slide the teacher moved to and drops the strokes of the one he left.
+// ChangeSlide saves the slide the teacher moved to, drops the strokes of the one he left and puts the scroll of the slide back to the top
+// (SPEC-057).
 func (s *Service) ChangeSlide(ctx context.Context, sessionID uuid.UUID, slide int) error {
 	session, err := s.activeSession(ctx, sessionID)
 	if err != nil {
@@ -690,11 +694,13 @@ func (s *Service) ChangeSlide(ctx context.Context, sessionID uuid.UUID, slide in
 		return err
 	}
 	s.live.clearDrawings(sessionID)
+	s.live.resetScroll(sessionID, domain.PaneSlide)
 	return nil
 }
 
 // SwitchMode saves the mode of the room; the module mode needs a module the teacher can use (SPEC-054 RN-06). Going back to the slides
-// keeps the module of the lesson; choosing another module drops the block in focus.
+// keeps the module of the lesson; choosing another module drops the block in focus and puts the scroll of the material back to the top
+// (SPEC-057).
 func (s *Service) SwitchMode(ctx context.Context, actor Actor, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error {
 	if !domain.ValidMode(mode) {
 		return domain.ErrInvalidMode
@@ -712,6 +718,7 @@ func (s *Service) SwitchMode(ctx context.Context, actor Actor, sessionID uuid.UU
 		}
 		if session.ActiveModuleID == nil || *session.ActiveModuleID != *moduleID {
 			s.live.setFocus(sessionID, "")
+			s.live.resetScroll(sessionID, domain.PaneMaterial)
 		}
 		session.ActiveModuleID = moduleID
 	}
@@ -826,6 +833,17 @@ func (s *Service) RememberTerminalScreen(sessionID uuid.UUID, screen json.RawMes
 // over, or the lesson ends (SPEC-055).
 func (s *Service) SetStageBlank(sessionID uuid.UUID, on bool) {
 	s.live.setBlank(sessionID, on)
+}
+
+// SetStageScroll keeps how far the teacher scrolled a pane of the stage, for who comes in later: only the latest of each pane (SPEC-057).
+// The caller checked the pane and the range with domain.ValidStageScroll.
+func (s *Service) SetStageScroll(sessionID uuid.UUID, pane string, y float64) {
+	s.live.setScroll(sessionID, pane, y)
+}
+
+// SetStageSplit keeps the divider of the module as the teacher left it (SPEC-057). The caller checked it with domain.ValidStageSplit.
+func (s *Service) SetStageSplit(sessionID uuid.UUID, ratio float64) {
+	s.live.setSplit(sessionID, ratio)
 }
 
 // StageBlank tells whether the stage is on the black screen.

@@ -136,14 +136,16 @@ func TestStageView_OnlyFromThePresenter(t *testing.T) {
 	}
 	assert.Empty(t, w.logs.FilterMessage("classroom message rejected").All(), "they were dropped, not rejected")
 	nothingMore(t, presenter, scrollMessage, splitMessage)
-	nothingMore(t, student, scrollMessage, splitMessage)
 	assert.Empty(t, w.svc.keptScrolls())
 	assert.Empty(t, w.svc.keptSplits())
 
-	// the next thing the presenter sends is the first one that anybody sees
+	// the next thing the presenter sends is the first one that anybody sees (a read that times out ends a connection for the test, so the
+	// student and the panel are not checked for silence: had they got the dropped ones, 0.5 would come before 0.1)
 	sendMsg(t, presenter, scrollMessage, `{"pane":"slide","y":0.1}`)
 	assert.InDelta(t, 0.1, scrollY(t, readUntil(t, student, scrollMessage)), 1e-9)
 	assert.InDelta(t, 0.1, scrollY(t, readUntil(t, panel, scrollMessage)), 1e-9)
+	assert.Equal(t, []string{"slide:0.1"}, w.svc.keptScrolls())
+	assert.Empty(t, w.svc.keptSplits())
 }
 
 // Covers SPEC-057 CA-09: an unknown pane, a missing or non-numeric position, a number out of its range, a divider out of 0.2 to 0.8, and
@@ -309,7 +311,7 @@ func TestStageView_TheSnapshotsCarryTheCurrentView(t *testing.T) {
 	sendMsg(t, presenter, scrollMessage, `{"pane":"slide","y":0.45}`)
 	untilScroll(t, student, 0.45)
 	readUntil(t, student, splitMessage)
-	eventually(t, func() bool { return len(w.svc.keptScrolls()) == 4 && len(w.svc.keptSplits()) == 1 })
+	eventually(t, func() bool { return len(w.svc.keptScrolls()) == 3 && len(w.svc.keptSplits()) == 1 })
 	want := `{"slideScroll":0.45,"materialScroll":0.7,"split":0.35}`
 
 	assert.JSONEq(t, want, mustJSON(snapshotOf(t, w.dialView(t, "student", ""))["stageView"]), "a student who comes in later")
@@ -363,10 +365,10 @@ func TestStageView_ChangesOfSlideAndModuleSendNoExtraMessage(t *testing.T) {
 	readUntil(t, panel, scrollMessage)
 
 	sendMsg(t, presenter, "live:slide:change", `{"slide":3}`)
-	sendMsg(t, panel, "live:mode:switch", `{"mode":"MODULE","moduleId":"`+uuid.NewString()+`"}`)
 	for _, c := range []*websocket.Conn{student, panel} {
 		assert.JSONEq(t, `{"slide":3}`, string(readUntil(t, c, "live:slide:change").Data), "the panel and the student see the new slide")
 	}
+	sendMsg(t, panel, "live:mode:switch", `{"mode":"MODULE","moduleId":"`+uuid.NewString()+`"}`)
 	readUntil(t, student, "live:mode:switch")
 	readUntil(t, presenter, "live:mode:switch")
 	nothingMore(t, student, scrollMessage, splitMessage)

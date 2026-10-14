@@ -42,6 +42,10 @@ const (
 	// SPEC-056: the picture of the terminal window of the teacher, which the students and the panel see as it is
 	typeTerminalScreen = "live:terminal:screen"
 
+	// SPEC-057: how far the teacher scrolled a pane of the stage, and where he put the divider of the module
+	typeStageScroll = "live:stage:scroll"
+	typeStageSplit  = "live:stage:split"
+
 	typeSnapshot  = "live:snapshot"
 	typeEnded     = "live:ended"
 	typeRevoked   = "live:control:revoked"
@@ -59,7 +63,8 @@ const (
 // about 30 times per second; the server takes up to 35 per second from each emitter and gives each viewer the latest every 30 ms. The
 // screen of the terminal is a whole picture, so the latest is all a viewer needs and it is not counted in that budget (the pointer would
 // use it up and the last screen would be lost); the window of the presenter sends at most 10 per second, and the frame has its own limit
-// (SPEC-056).
+// (SPEC-056). The scroll and the divider are the same: the latest is all a viewer needs, the window of the presenter limits them to 10 per
+// second, and counting them would let the pointer take their budget (SPEC-057).
 func hubConfig() hub.Config {
 	const kib = 1 << 10
 	return hub.Config{
@@ -73,6 +78,8 @@ func hubConfig() hub.Config {
 			typeCanvasDraw:     {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
 			typeTerminalScreen: {MaxBytes: 256 * kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			typeStageBlank:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter},
+			typeStageScroll:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
+			typeStageSplit:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			// the waiting room and the hands are the panel's
 			typeHandModerate:       {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 			typeAdmissionAccept:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
@@ -297,6 +304,28 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 			return
 		}
 		svc.RememberTerminalScreen(session, d.Screen)
+		relay()
+	case typeStageScroll:
+		// pointers tell a missing field from a 0; the domain checks the pane and the range
+		var d struct {
+			Pane *string  `json:"pane"`
+			Y    *float64 `json:"y"`
+		}
+		if err := json.Unmarshal(msg.Data, &d); err != nil || d.Pane == nil || d.Y == nil || !domain.ValidStageScroll(*d.Pane, *d.Y) {
+			w.reject(room, who, msg, errors.New("the message needs a known pane and a position from 0 to 1"))
+			return
+		}
+		svc.SetStageScroll(session, *d.Pane, *d.Y)
+		relay()
+	case typeStageSplit:
+		var d struct {
+			Ratio *float64 `json:"ratio"`
+		}
+		if err := json.Unmarshal(msg.Data, &d); err != nil || d.Ratio == nil || !domain.ValidStageSplit(*d.Ratio) {
+			w.reject(room, who, msg, errors.New("the message needs a divider from 0.2 to 0.8"))
+			return
+		}
+		svc.SetStageSplit(session, *d.Ratio)
 		relay()
 	case typeStageBlank:
 		var d struct {

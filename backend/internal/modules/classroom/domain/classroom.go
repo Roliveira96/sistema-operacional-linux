@@ -234,3 +234,22 @@ func ValidMode(mode string) bool { return mode == ModeSlides || mode == ModeModu
 func ValidSlide(slide, pageCount int) bool {
 	return slide >= 1 && (pageCount == 0 || slide <= pageCount)
 }
+
+// The panes of the stage that the teacher scrolls, and the range of the divider of the module, as a fraction of the width of the stage
+// that the material takes (SPEC-057).
+const (
+	PaneSlide    = "slide"
+	PaneMaterial = "material"
+
+	MinSplit = 0.2
+	MaxSplit = 0.8
+)
+
+// ValidStageScroll tells whether the scroll is of a pane of the stage and is a finite fraction from 0 to 1 of what can be scrolled.
+// NaN fails every comparison, so it is out; the range leaves out the infinities.
+func ValidStageScroll(pane string, y float64) bool {
+	return (pane == PaneSlide || pane == PaneMaterial) && y >= 0 && y <= 1
+}
+
+// ValidStageSplit tells whether the divider is a finite fraction of the width of the stage from MinSplit to MaxSplit.
+func ValidStageSplit(ratio float64) bool { return ratio >= MinSplit && ratio <= MaxSplit }

@@ -6,6 +6,8 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
 )
 
 // What a student who comes in the middle of the lesson needs and that is not worth a database row (SPEC-051 RN-07). It lives in memory
@@ -20,6 +22,17 @@ type liveState struct {
 	// what the teacher published of the module (SPEC-054), and whether the stage is on the black screen (SPEC-055)
 	focusBlock string
 	blank      bool
+
+	// the view of the stage (SPEC-057): only the latest of each, never a history
+	stage StageView
+}
+
+// StageView is how the teacher left the stage: how far each pane is scrolled, as a fraction from 0 to 1 of what can be scrolled, and the
+// divider of the module as the fraction of the width that the material takes (nil is the default of the layout).
+type StageView struct {
+	SlideScroll    float64
+	MaterialScroll float64
+	Split          *float64
 }
 
 type liveStates struct {
@@ -75,6 +88,43 @@ func (l *liveStates) setScreen(id uuid.UUID, raw json.RawMessage) {
 	l.mu.Lock()
 	l.of(id).screen = bytes.Clone(raw)
 	l.mu.Unlock()
+}
+
+// setScroll keeps the scroll of a pane; a pane the stage does not have changes nothing.
+func (l *liveStates) setScroll(id uuid.UUID, pane string, y float64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	switch pane {
+	case domain.PaneSlide:
+		l.of(id).stage.SlideScroll = y
+	case domain.PaneMaterial:
+		l.of(id).stage.MaterialScroll = y
+	}
+}
+
+func (l *liveStates) setSplit(id uuid.UUID, ratio float64) {
+	l.mu.Lock()
+	l.of(id).stage.Split = &ratio
+	l.mu.Unlock()
+}
+
+// resetScroll puts the scroll of a pane back to the top, which is what a new slide or a new module starts at.
+func (l *liveStates) resetScroll(id uuid.UUID, pane string) { l.setScroll(id, pane, 0) }
+
+// stageView returns a copy of the view of the stage of the room.
+func (l *liveStates) stageView(id uuid.UUID) StageView {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	st, ok := l.rooms[id]
+	if !ok {
+		return StageView{}
+	}
+	view := st.stage
+	if view.Split != nil {
+		ratio := *view.Split
+		view.Split = &ratio
+	}
+	return view
 }
 
 func (l *liveStates) setBlank(id uuid.UUID, on bool) {
