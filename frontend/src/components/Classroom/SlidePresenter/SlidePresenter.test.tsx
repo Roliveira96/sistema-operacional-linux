@@ -237,8 +237,10 @@ describe("SlidePresenter", () => {
     }
     const areaEl = () => screen.getByRole("group", { name: "Palco da apresentação" });
     const sheetEl = () => areaEl().querySelector("[data-sheet]") as HTMLElement;
-    const rectOf = (el: Element, r: { left: number; top: number; width: number; height: number }) =>
-      vi.spyOn(el, "getBoundingClientRect").mockReturnValue({ ...r, right: r.left + r.width, bottom: r.top + r.height, x: r.left, y: r.top, toJSON: () => ({}) });
+    // Set on the element itself: the prototype is mocked for all elements by the test above, and a spy on one element would be that same mock.
+    const rectOf = (el: Element, r: { left: number; top: number; width: number; height: number }) => {
+      el.getBoundingClientRect = () => ({ ...r, right: r.left + r.width, bottom: r.top + r.height, x: r.left, y: r.top, toJSON: () => ({}) });
+    };
 
     function setupAt(scale: number) {
       const { loader, render: renderPage } = fakeLoader();
@@ -371,6 +373,7 @@ describe("SlidePresenter", () => {
       layout(2160);
       const { props, renderPage } = setup();
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
+      await act(async () => undefined);
       rectOf(areaEl(), { left: 0, top: 0, width: 1920, height: 1080 });
       rectOf(sheetEl(), { left: 0, top: -540, width: 1920, height: 2160 });
       areaEl().scrollTop = 540;
@@ -383,6 +386,7 @@ describe("SlidePresenter", () => {
       layout(2160);
       const { props, renderPage } = setupAt(0.5);
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
+      await act(async () => undefined);
       rectOf(areaEl(), { left: 100, top: 50, width: 960, height: 540 });
       rectOf(sheetEl(), { left: 100, top: -220, width: 960, height: 1080 });
       areaEl().scrollTop = 540;
@@ -394,6 +398,7 @@ describe("SlidePresenter", () => {
       layout(2160);
       const { props, renderPage } = setup({ pen: true, bare: true });
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
+      await act(async () => undefined);
       rectOf(areaEl(), { left: 0, top: 0, width: 1920, height: 1080 });
       rectOf(sheetEl(), { left: 0, top: -540, width: 1920, height: 2160 });
       areaEl().scrollTop = 540;
@@ -408,6 +413,7 @@ describe("SlidePresenter", () => {
       layout(2160);
       const { props, renderPage } = setup();
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
+      await act(async () => undefined);
       rectOf(areaEl(), { left: 0, top: 0, width: 1920, height: 1080 });
       rectOf(sheetEl(), { left: 0, top: 0, width: 1920, height: 2160 });
       vi.useFakeTimers();

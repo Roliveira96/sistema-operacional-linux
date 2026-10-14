@@ -520,12 +520,16 @@ describe("useLiveClassroom", () => {
       expect(result.current.stageView).toEqual({ slideScroll: 0.25, materialScroll: 0, split: 0.6 });
     });
 
-    it("takes the scroll of the material back to the top when the teacher goes to the slides and back to a module", () => {
+    it("keeps the scroll of the material when the teacher goes to the slides and back to the same module, as the server does", () => {
       const { result, socket } = setup("student");
       act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1", stageView: view() } as never)));
       act(() => socket().receive("live:mode:switch", { mode: "SLIDES" }));
+      expect(result.current.room.moduleId).toBe("m-1");
       act(() => socket().receive("live:stage:scroll", { pane: "material", y: 0.9 }));
       act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-1" }));
+      expect(result.current.stageView.materialScroll).toBe(0.9);
+      act(() => socket().receive("live:mode:switch", { mode: "SLIDES" }));
+      act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-2" }));
       expect(result.current.stageView.materialScroll).toBe(0);
     });
 
@@ -537,6 +541,19 @@ describe("useLiveClassroom", () => {
       expect(result.current.stageView.slideScroll).toBe(0);
       act(() => result.current.switchMode("MODULE", "m-9"));
       expect(result.current.stageView.materialScroll).toBe(0);
+    });
+
+    // The pointer is a percentage of the page on the slides and of the stage on the module, so it means nothing in the other mode
+    it("takes the pointer away when the mode changes", () => {
+      const { result, socket } = setup("student");
+      act(() => socket().receive("live:snapshot", snapshot()));
+      act(() => socket().receive("live:cursor:move", { x: 40, y: 80, laser: false, visible: true }));
+      expect(result.current.room.cursor).not.toBeNull();
+      act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-1" }));
+      expect(result.current.room.cursor).toBeNull();
+      act(() => socket().receive("live:cursor:move", { x: 10, y: 20, laser: true, visible: true }));
+      act(() => socket().receive("live:mode:switch", { mode: "SLIDES" }));
+      expect(result.current.room.cursor).toBeNull();
     });
 
     describe("sending", () => {
