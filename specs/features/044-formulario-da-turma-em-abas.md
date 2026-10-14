@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (prévia do calendário aprovada) |
 | **Autor** | Aruna Architect |
@@ -161,3 +161,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `Clas
 | 14/10/2026 | Aruna Architect | Decisões do Tech Lead incorporadas (quatro abas, dentro do `ClassForm`); pendências P-01 e P-02 resolvidas; status Aprovada |
 | 14/10/2026 | Aruna Architect | Novo requisito do Tech Lead: prévia do calendário na aba Horários (3.1.2, CA-09 a CA-12); renumera a aula de 60 minutos para 3.1.3; volta a Rascunho com P-03 e P-04 |
 | 14/10/2026 | Aruna Architect | Tech Lead mandou implementar a prévia; P-03 (não descontar feriados) e P-04 (mensal) resolvidas com as recomendações; status Aprovada |
+| 14/10/2026 | Implementador | Implementada: abas, prévia do calendário, regra de 60 minutos nos dois sentidos (CA-13, CA-14) e correção do salvamento dos horários (SPEC-042) |
