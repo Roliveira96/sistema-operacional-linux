@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -81,6 +82,11 @@ type fakeService struct {
 	moduleView service.ModuleView
 	moduleErr  error
 	moduleFor  service.Actor
+
+	// the scroll of the panes and the divider of the stage the handler asked to keep, in order, and the view the snapshot gives back (SPEC-057)
+	scrolls []string // "slide:0.25"
+	splits  []float64
+	stage   service.StageView
 }
 
 func (f *fakeService) record(s string) {
@@ -195,7 +201,41 @@ func (f *fakeService) activeNow() service.Active {
 	if f.screen != nil {
 		a.TerminalScreen = f.screen
 	}
+	a.StageView = f.stage
 	return a
+}
+
+// SetStageScroll and SetStageSplit keep the last value of each, as the real service does (SPEC-057).
+func (f *fakeService) SetStageScroll(_ uuid.UUID, pane string, y float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.scrolls = append(f.scrolls, pane+":"+strconv.FormatFloat(y, 'g', -1, 64))
+	switch pane {
+	case "slide":
+		f.stage.SlideScroll = y
+	case "material":
+		f.stage.MaterialScroll = y
+	}
+}
+
+func (f *fakeService) SetStageSplit(_ uuid.UUID, ratio float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.splits = append(f.splits, ratio)
+	f.stage.Split = &ratio
+}
+
+// keptScrolls and keptSplits are what the handler asked to keep, in order.
+func (f *fakeService) keptScrolls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.scrolls...)
+}
+
+func (f *fakeService) keptSplits() []float64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]float64(nil), f.splits...)
 }
 func (f *fakeService) RaiseHand(_ context.Context, _ uuid.UUID, student uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	f.record("raise")
