@@ -10,16 +10,12 @@ import (
 
 // What a student who comes in the middle of the lesson needs and that is not worth a database row (SPEC-051 RN-07). It lives in memory
 // while the room is open.
-const (
-	maxDrawings        = 1000
-	maxTerminalEntries = 200
-)
+const maxDrawings = 1000
 
 type liveState struct {
 	drawings []json.RawMessage
-	input    json.RawMessage
-	entries  []json.RawMessage
-	state    json.RawMessage
+	// the last screen of the terminal of the teacher (SPEC-056): only the latest, never a history
+	screen json.RawMessage
 
 	// what the teacher published of the module (SPEC-054), and whether the stage is on the black screen (SPEC-055)
 	focusBlock string
@@ -74,10 +70,10 @@ func (l *liveStates) drawing(id uuid.UUID, raw json.RawMessage) {
 	}
 }
 
-// input keeps the line being typed.
-func (l *liveStates) input(id uuid.UUID, raw json.RawMessage) {
+// setScreen keeps the screen of the terminal in place of the one before.
+func (l *liveStates) setScreen(id uuid.UUID, raw json.RawMessage) {
 	l.mu.Lock()
-	l.of(id).input = bytes.Clone(raw)
+	l.of(id).screen = bytes.Clone(raw)
 	l.mu.Unlock()
 }
 
@@ -110,32 +106,13 @@ func (l *liveStates) focus(id uuid.UUID) string {
 	return ""
 }
 
-// sync keeps a command with its output in the history and the machine it left as the current state.
-func (l *liveStates) sync(id uuid.UUID, raw json.RawMessage) {
-	var m struct {
-		State json.RawMessage `json:"state"`
-	}
-	_ = json.Unmarshal(raw, &m)
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	st := l.of(id)
-	st.entries = append(st.entries, bytes.Clone(raw))
-	if len(st.entries) > maxTerminalEntries {
-		st.entries = st.entries[len(st.entries)-maxTerminalEntries:]
-	}
-	if len(m.State) > 0 && string(m.State) != "null" {
-		st.state = bytes.Clone(m.State)
-	}
-}
-
-// view returns a copy of the strokes and of the terminal of the room.
-func (l *liveStates) view(id uuid.UUID) ([]json.RawMessage, TerminalState) {
+// view returns a copy of the strokes of the room and its last terminal screen.
+func (l *liveStates) view(id uuid.UUID) ([]json.RawMessage, json.RawMessage) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	st, ok := l.rooms[id]
 	if !ok {
-		return nil, TerminalState{}
+		return nil, nil
 	}
-	return append([]json.RawMessage(nil), st.drawings...),
-		TerminalState{Input: st.input, Entries: append([]json.RawMessage(nil), st.entries...), State: st.state}
+	return append([]json.RawMessage(nil), st.drawings...), st.screen
 }

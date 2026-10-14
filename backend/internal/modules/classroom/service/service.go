@@ -75,9 +75,9 @@ type ModuleBlock struct {
 
 // ModuleView is the module of the room: its blocks and the machine the terminal starts from (SPEC-054 RN-07).
 type ModuleView struct {
-	ID       uuid.UUID
-	Title    string
-	Blocks   []ModuleBlock
+	ID     uuid.UUID
+	Title  string
+	Blocks []ModuleBlock
 	// Scenario is the prepared machine of the module topic, or nil for the default machine; Setup is the snapshot of the module, which
 	// the study screen applies on top of it, together with the setups of the cards.
 	Scenario json.RawMessage
@@ -382,22 +382,16 @@ func (s *Service) deckView(ctx context.Context, deck domain.SlideDeck) (DeckView
 	return DeckView{Deck: deck, DownloadURL: url}, err
 }
 
-// TerminalState is what a student needs to see the terminal of the teacher as it is: the line being typed, the last commands with their
-// output and the serialized machine.
-type TerminalState struct {
-	Input   json.RawMessage
-	Entries []json.RawMessage
-	State   json.RawMessage
-}
-
 // Active is the state of the open room of a class.
 type Active struct {
-	Found      bool
-	Session    domain.LiveClassroomSession
-	Deck       *DeckView
-	Drawings   []json.RawMessage
-	Terminal   TerminalState
-	HandRaises []domain.HandRaiseEntry
+	Found    bool
+	Session  domain.LiveClassroomSession
+	Deck     *DeckView
+	Drawings []json.RawMessage
+	// TerminalScreen is the last screen of the terminal of the teacher, as the window of the presenter sent it (SPEC-056); empty before the
+	// first one.
+	TerminalScreen json.RawMessage
+	HandRaises     []domain.HandRaiseEntry
 	// ModuleFocusBlockID is the block of the module the teacher put in focus.
 	ModuleFocusBlockID string
 }
@@ -439,7 +433,7 @@ func (s *Service) stateOf(ctx context.Context, session domain.LiveClassroomSessi
 		}
 		a.Deck = &view
 	}
-	a.Drawings, a.Terminal = s.live.view(session.ID)
+	a.Drawings, a.TerminalScreen = s.live.view(session.ID)
 	hands, err := s.repo.ListHandRaises(ctx, session.ID)
 	if err != nil {
 		return Active{}, err
@@ -822,14 +816,10 @@ func (s *Service) RememberDrawing(sessionID uuid.UUID, raw json.RawMessage) {
 	s.live.drawing(sessionID, raw)
 }
 
-// RememberTerminalInput keeps the line the teacher is typing; the terminal of the teacher is always broadcast (SPEC-055 RN-04).
-func (s *Service) RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage) {
-	s.live.input(sessionID, raw)
-}
-
-// RememberTerminalSync keeps a command of the teacher with its output, and the machine it left.
-func (s *Service) RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage) {
-	s.live.sync(sessionID, raw)
+// RememberTerminalScreen keeps the latest screen of the terminal of the teacher for who comes in later; the terminal of the teacher is
+// always broadcast (SPEC-055 RN-04, SPEC-056). It lasts until the lesson ends.
+func (s *Service) RememberTerminalScreen(sessionID uuid.UUID, screen json.RawMessage) {
+	s.live.setScreen(sessionID, screen)
 }
 
 // SetStageBlank puts the stage on the black screen or takes it off; it lasts until it is turned off, a new presenter window takes

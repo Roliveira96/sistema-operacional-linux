@@ -39,8 +39,7 @@ type Service interface {
 	SwitchMode(ctx context.Context, actor service.Actor, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error
 	FocusModuleBlock(ctx context.Context, sessionID uuid.UUID, blockID string) error
 	RememberDrawing(sessionID uuid.UUID, raw json.RawMessage)
-	RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage)
-	RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage)
+	RememberTerminalScreen(sessionID uuid.UUID, screen json.RawMessage)
 	SetStageBlank(sessionID uuid.UUID, on bool)
 	StageBlank(sessionID uuid.UUID) bool
 	ModuleOfRoom(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.ModuleView, error)
@@ -152,10 +151,6 @@ func activeBody(a service.Active, online int) gin.H {
 	if drawings == nil {
 		drawings = []json.RawMessage{}
 	}
-	entries := a.Terminal.Entries
-	if entries == nil {
-		entries = []json.RawMessage{}
-	}
 	body := gin.H{
 		"hasActiveSession":   true,
 		"session":            sessionJSON(a.Session),
@@ -166,7 +161,7 @@ func activeBody(a service.Active, online int) gin.H {
 		"moduleFocusBlockId": a.ModuleFocusBlockID,
 		"activeDeck":         nil,
 		"recentDrawings":     drawings,
-		"terminal":           gin.H{"input": a.Terminal.Input, "entries": entries, "state": a.Terminal.State},
+		"terminal":           gin.H{"screen": a.TerminalScreen}, // null until the teacher sends the first screen (SPEC-056)
 		"handRaises":         handsJSON(a.HandRaises),
 		"onlineCount":        online,
 	}

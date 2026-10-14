@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,17 +17,15 @@ import (
 
 // The messages of the realtime channel (SPEC-051, section 5.8).
 const (
-	typeSlideChange   = "live:slide:change"
-	typeCursorMove    = "live:cursor:move"
-	typeCanvasDraw    = "live:canvas:draw"
-	typeModeSwitch    = "live:mode:switch"
-	typeTerminalInput = "live:terminal:input"
-	typeTerminalSync  = "live:terminal:sync"
-	typeHandModerate  = "live:hand:moderate"
-	typeHandRaise     = "live:hand:raise"
-	typeHandLower     = "live:hand:lower"
+	typeSlideChange  = "live:slide:change"
+	typeCursorMove   = "live:cursor:move"
+	typeCanvasDraw   = "live:canvas:draw"
+	typeModeSwitch   = "live:mode:switch"
+	typeHandModerate = "live:hand:moderate"
+	typeHandRaise    = "live:hand:raise"
+	typeHandLower    = "live:hand:lower"
 
-	// SPEC-054: the waiting room, the module of the lesson and the broadcast of the terminal
+	// SPEC-054: the waiting room and the module of the lesson
 	typeAdmissionAccept    = "live:admission:accept"
 	typeAdmissionAcceptAll = "live:admission:accept-all"
 	typeAdmissionRemove    = "live:admission:remove"
@@ -39,6 +38,9 @@ const (
 	// SPEC-055: the black screen of the stage, and the state of the presenter window for the panel
 	typeStageBlank     = "live:stage:blank"
 	typePresenterState = "live:presenter:state"
+
+	// SPEC-056: the picture of the terminal window of the teacher, which the students and the panel see as it is
+	typeTerminalScreen = "live:terminal:screen"
 
 	typeSnapshot  = "live:snapshot"
 	typeEnded     = "live:ended"
@@ -53,8 +55,10 @@ const (
 	viewPresenter = "presenter"
 )
 
-// hubConfig sets the rules of each message and the limits of the room (SPEC-051 RN-05). The pointer, the strokes and the typing
-// arrive about 30 times per second; the server takes up to 35 per second from each emitter and gives each viewer the latest every 30 ms.
+// hubConfig sets the rules of each message and the limits of the room (SPEC-051 RN-05). The pointer and the strokes arrive
+// about 30 times per second; the server takes up to 35 per second from each emitter and gives each viewer the latest every 30 ms. The
+// screen of the terminal (up to 10 per second) is a whole picture, so the latest is all a viewer needs, and its frame has its own limit
+// (SPEC-056).
 func hubConfig() hub.Config {
 	const kib = 1 << 10
 	return hub.Config{
@@ -64,11 +68,10 @@ func hubConfig() hub.Config {
 			typeModeSwitch:  {MaxBytes: kib, ControllerOnly: true},
 			typeModuleFocus: {MaxBytes: kib, ControllerOnly: true},
 			// the stage is the presenter window's (SPEC-055 RN-02)
-			typeCursorMove:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
-			typeCanvasDraw:    {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
-			typeTerminalInput: {MaxBytes: 4 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
-			typeTerminalSync:  {MaxBytes: 1024 * kib, ControllerOnly: true, Kind: viewPresenter},
-			typeStageBlank:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter},
+			typeCursorMove:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
+			typeCanvasDraw:     {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
+			typeTerminalScreen: {MaxBytes: 256 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
+			typeStageBlank:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter},
 			// the waiting room and the hands are the panel's
 			typeHandModerate:       {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 			typeAdmissionAccept:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
@@ -93,6 +96,12 @@ type wsHandler struct{ h *Handler }
 func sessionOf(room string) uuid.UUID {
 	id, _ := uuid.Parse(room)
 	return id
+}
+
+// isObject tells whether the JSON value is an object (the caller already knows it is valid JSON).
+func isObject(raw json.RawMessage) bool {
+	raw = bytes.TrimSpace(raw)
+	return len(raw) > 0 && raw[0] == '{'
 }
 
 func mustMarshal(v any) json.RawMessage {
@@ -169,8 +178,14 @@ func (w wsHandler) snapshot(ctx context.Context, room, kind string) (hub.Message
 	return hub.Message{Type: typeSnapshot, Data: mustMarshal(body)}, nil
 }
 
+// Dropped writes the audit entry of a message the hub discarded: a message over the limit of its type is rejected, like one whose body is
+// wrong; the others (type, role, window, rate) are dropped.
 func (w wsHandler) Dropped(room string, who hub.Identity, msgType, reason string) {
-	w.h.log.Warn("classroom message dropped", zap.String("room", room), zap.String("userId", who.UserID),
+	event := "classroom message dropped"
+	if reason == "too-large" {
+		event = "classroom message rejected"
+	}
+	w.h.log.Warn(event, zap.String("room", room), zap.String("userId", who.UserID),
 		zap.String("role", string(who.Role)), zap.String("type", msgType), zap.String("reason", reason))
 }
 
@@ -271,11 +286,16 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 			return
 		}
 		relay()
-	case typeTerminalInput:
-		svc.RememberTerminalInput(session, msg.Data)
-		relay()
-	case typeTerminalSync:
-		svc.RememberTerminalSync(session, msg.Data)
+	case typeTerminalScreen:
+		// the server does not read the picture: it only checks that it is an object, keeps the latest and passes it on
+		var d struct {
+			Screen json.RawMessage `json:"screen"`
+		}
+		if err := json.Unmarshal(msg.Data, &d); err != nil || !isObject(d.Screen) {
+			w.reject(room, who, msg, errors.New("the message needs the screen as an object"))
+			return
+		}
+		svc.RememberTerminalScreen(session, d.Screen)
 		relay()
 	case typeStageBlank:
 		var d struct {
