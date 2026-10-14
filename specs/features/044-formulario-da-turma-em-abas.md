@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Implementada |
+| **Status** | Aprovada |
 | **Data de criação** | 14/10/2026 |
-| **Última revisão** | 14/10/2026 (prévia do calendário aprovada) |
+| **Última revisão** | 14/10/2026 (calendário real na configuração, Opção A) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Frontend |
@@ -30,14 +30,17 @@ Além disso, a sugestão da quantidade de aulas de um encontro divide a duraçã
 2. As informações da turma e os horários ficam em abas separadas.
 3. A sugestão de aulas por encontro usa 60 minutos por aula.
 4. O botão de salvar continua único e salva todas as abas de uma vez.
-5. Na aba Horários, o docente vê **como as aulas ficam no calendário**, de acordo com os horários que marcou e com as datas de início e fim da turma, antes de salvar.
+5. Na aba Horários, o docente vê **como as aulas ficam no calendário**, de acordo com os horários que marcou e com as datas de início e fim da turma, com os feriados.
+6. Na tela de configuração de uma turma salva, o docente cancela, ajusta e inclui aulas direto nesse calendário.
 
 ### 2.1. Fora de escopo (Non-Goals)
 
 - Mudar campos, validações, textos de erro ou contrato de API do formulário.
 - Salvar cada aba separadamente ou criar rotas por aba.
 - Mudar o limite de 1 a 8 aulas por encontro.
-- Gravar ou editar aulas pela prévia, ou mostrar feriados e eventos nela.
+- Editar eventos e períodos especiais na tela de configuração.
+- Cancelar, ajustar ou incluir aula antes de a turma existir.
+- Endpoint novo no backend: tudo usa a API da SPEC-042.
 - Recalcular a quantidade de aulas de turmas já salvas.
 - Alterar o backend ou `frontend/src/engine/core/`.
 
@@ -67,17 +70,26 @@ Regras de interface:
 - No celular, a lista de abas rola na horizontal, com alvos de toque de no mínimo 44 px (SPEC-043).
 - Cores só dos tokens semânticos de `_tokens.scss`; tema claro e escuro.
 
-#### 3.1.2. Prévia do calendário na aba Horários
+#### 3.1.2. Calendário na aba Horários
 
-Abaixo do editor de encontros, a aba Horários mostra um calendário mensal com as aulas que os encontros marcados vão gerar (SPEC-042, RN-01):
+Abaixo do editor de encontros, a aba Horários mostra um calendário mensal. Ele tem dois modos, conforme a turma já exista:
 
-- vai da **data de início** à **data de fim** da turma, informadas na aba Informações; o calendário abre no mês do início e permite ir e voltar entre os meses da vigência, sem sair dela (os botões de mês anterior e seguinte ficam desabilitados nos limites);
-- cada dia da vigência que cai num dia da semana com encontro mostra um marcador com o horário e a quantidade de aulas, na cor da turma;
-- atualiza na hora, sem salvar, quando o docente liga ou desliga um dia, muda horário ou quantidade de aulas, ou muda as datas;
-- é só leitura: não cria, não edita e não apaga aula;
-- sem datas válidas (vazias ou início depois do fim), mostra uma mensagem pedindo as datas na aba Informações; sem encontros, mostra a mensagem de que ainda não há horários;
-- feriados e recessos não entram na prévia (ver P-03);
-- no celular, o calendário ocupa a largura da tela e os marcadores continuam legíveis; cores só dos tokens, nos temas claro e escuro.
+**Turma nova (`/app/classes/new`): prévia só de leitura.**
+
+- Vai da **data de início** à **data de fim** informadas na aba Informações; abre no mês do início e navega só dentro da vigência (botões de mês desabilitados nos limites).
+- Cada dia da vigência cujo dia da semana tem encontro mostra um marcador com horário e quantidade de aulas, na cor da turma.
+- Atualiza na hora, sem salvar, ao mexer nos encontros ou nas datas.
+- Mostra os **feriados e recessos** do servidor nos dias em que caem (nome do feriado no dia). Uma aula que cai num feriado continua marcada, como na SPEC-042 (RN-03).
+- Sem datas válidas ou sem encontros, mostra a mensagem correspondente.
+- Não permite cancelar, ajustar nem incluir aula: as aulas só existem depois de criar a turma.
+
+**Turma salva (`/app/classes/{id}/settings`): calendário real da turma.**
+
+- É o calendário da agenda (SPEC-042), com feriados, recessos, aulas e seus estados.
+- Ao selecionar um dia, o docente pode, como na agenda: **cancelar a aula** (informando o motivo), **ajustar a aula** (horário, quantidade de aulas, modalidade, sala ou link) ou **reverter** um ajuste; e **incluir uma aula avulsa** no dia (SPEC-042, RN-04 e RN-05).
+- Os eventos e os períodos especiais não são editados aqui, só na agenda da turma: os botões que dependem deles não aparecem.
+- As aulas vêm do servidor; por isso, mudar os encontros no editor só aparece no calendário depois de **aplicar os horários**: um botão "Aplicar horários ao calendário", abaixo do editor, salva os encontros da turma (SPEC-042, RN-01 e RN-02) e recarrega o calendário. Um aviso ao lado do botão explica isso quando há mudança ainda não aplicada.
+- Cores só dos tokens, nos temas claro e escuro; no celular, usa a largura da tela.
 
 #### 3.1.3. Aula de 60 minutos
 
@@ -114,6 +126,12 @@ Não se aplica nesta spec: nenhum endpoint muda.
 - [ ] **CA-10** (evento): QUANDO o docente muda um encontro ou uma das datas, O SISTEMA DEVE atualizar a prévia sem salvar a turma.
 - [ ] **CA-11** (ubíquo): A prévia NÃO DEVE mostrar dias fora da vigência nem permitir navegar para meses fora dela.
 - [ ] **CA-12** (estado): ENQUANTO as datas forem inválidas ou não houver encontros, a prévia DEVE mostrar a mensagem correspondente em vez do calendário.
+- [ ] **CA-15** (estado): ENQUANTO a turma é nova, a prévia DEVE mostrar o nome dos feriados e recessos nos dias em que caem, mantendo o marcador da aula que cai neles.
+- [ ] **CA-16** (estado): ENQUANTO a turma é salva, a aba Horários DEVE mostrar o calendário real da turma, com feriados, em vez da prévia.
+- [ ] **CA-17** (evento): QUANDO o docente seleciona um dia com aula no calendário da turma salva e escolhe alterar, O SISTEMA DEVE abrir o formulário da aula, no qual pode cancelá-la com motivo, ajustá-la ou revertê-la, e recarregar o calendário.
+- [ ] **CA-18** (evento): QUANDO o docente seleciona um dia e escolhe incluir aula avulsa, O SISTEMA DEVE abrir o formulário, criar a aula nesse dia e recarregar o calendário.
+- [ ] **CA-19** (evento): QUANDO o docente aciona "Aplicar horários ao calendário", O SISTEMA DEVE salvar os encontros da turma e recarregar o calendário; SE houver mudança não aplicada, ENTÃO DEVE avisar que o calendário ainda mostra os horários salvos.
+- [ ] **CA-20** (ubíquo): O calendário da turma salva, na tela de configuração, NÃO DEVE mostrar botões de evento nem de período especial.
 - [ ] **CA-13** (evento): QUANDO o docente muda a quantidade de aulas de um encontro, O SISTEMA DEVE ajustar o horário de fim para início mais 60 minutos por aula, sem passar das 23:59.
 - [ ] **CA-14** (ubíquo): Os horários padrão de um encontro novo DEVEM respeitar a regra de 60 minutos por aula (início 08:20 com 2 aulas termina às 10:20; o horário adicionado depois começa 20 minutos após o fim do anterior).
 - [ ] **CA-08** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens semânticos, nos temas claro e escuro.
@@ -137,6 +155,13 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
   - mudar o horário ou ligar outro dia atualiza os marcadores sem chamar `onSubmit`. Cobre CA-10.
   - dias fora da vigência não têm marcador e os botões de mês ficam desabilitados nos limites da vigência. Cobre CA-11.
   - sem datas, início depois do fim, ou sem encontros, mostra a mensagem. Cobre CA-12.
+  - na turma nova, o nome do feriado aparece no dia e a aula do mesmo dia segue marcada. Cobre CA-15.
+- **Frontend, `ClassSessionsCalendar.test.tsx` e `ClassForm.test.tsx` (turma salva):**
+  - com `classId`, a aba Horários mostra o calendário real (feriados) e não a prévia. Cobre CA-16.
+  - alterar uma aula: cancelar com motivo, ajustar horário, e recarregar. Cobre CA-17.
+  - incluir aula avulsa no dia selecionado. Cobre CA-18.
+  - "Aplicar horários ao calendário" salva os encontros e recarrega; aviso de mudança não aplicada. Cobre CA-19.
+  - não há botões de evento nem de período. Cobre CA-20.
 - **Manual:** conferir as abas em 360 px de largura e nos dois temas; rodar `npm run lint`. Cobre CA-03 e CA-08.
 - **Cobertura:** acima de 80% no escopo da spec.
 
@@ -162,3 +187,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `Clas
 | 14/10/2026 | Aruna Architect | Novo requisito do Tech Lead: prévia do calendário na aba Horários (3.1.2, CA-09 a CA-12); renumera a aula de 60 minutos para 3.1.3; volta a Rascunho com P-03 e P-04 |
 | 14/10/2026 | Aruna Architect | Tech Lead mandou implementar a prévia; P-03 (não descontar feriados) e P-04 (mensal) resolvidas com as recomendações; status Aprovada |
 | 14/10/2026 | Implementador | Implementada: abas, prévia do calendário, regra de 60 minutos nos dois sentidos (CA-13, CA-14) e correção do salvamento dos horários (SPEC-042) |
+| 14/10/2026 | Aruna Architect | Tech Lead escolheu a Opção A: turma nova com prévia (agora com feriados) e turma salva com o calendário real (cancelar, ajustar, incluir aula avulsa); CA-15 a CA-20; volta a Aprovada |
