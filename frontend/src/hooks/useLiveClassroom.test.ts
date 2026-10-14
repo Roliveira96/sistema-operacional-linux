@@ -445,6 +445,251 @@ describe("useLiveClassroom", () => {
     });
   });
 
+  // SPEC-057: the scroll of the slide and of the material and the divider of the module follow the teacher
+  describe("the stage view", () => {
+    const view = (over: Partial<{ slideScroll: number; materialScroll: number; split: number | null }> = {}) => ({ slideScroll: 0.25, materialScroll: 0.5, split: 0.6, ...over });
+    const scrolls = (sent: Array<{ type: string; data: unknown }>) => sent.filter((m) => m.type === "live:stage:scroll");
+
+    // CA-08: who comes in, or connects again, sees where the teacher is without waiting for him
+    it("starts with nothing scrolled and the default divider, and takes the view from the snapshot", () => {
+      const { result, socket } = setup("student");
+      expect(result.current.stageView).toEqual({ slideScroll: 0, materialScroll: 0, split: null });
+      act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
+      expect(result.current.stageView).toEqual({ slideScroll: 0.25, materialScroll: 0.5, split: 0.6 });
+    });
+
+    it("takes the default view from a snapshot that has none, or has a divider that is null", () => {
+      const { result, socket } = setup("student");
+      act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
+      act(() => socket().receive("live:snapshot", snapshot()));
+      expect(result.current.stageView).toEqual({ slideScroll: 0, materialScroll: 0, split: null });
+      act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ split: null }) } as never)));
+      expect(result.current.stageView.split).toBeNull();
+    });
+
+    // CA-04, CA-07
+    it("follows the scroll of the slide, the scroll of the material and the divider", () => {
+      const { result, socket } = setup("student");
+      act(() => socket().receive("live:snapshot", snapshot()));
+      act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 0.4 }));
+      expect(result.current.stageView).toEqual({ slideScroll: 0.4, materialScroll: 0, split: null });
+      act(() => socket().receive("live:stage:scroll", { pane: "material", y: 0.75 }));
+      expect(result.current.stageView).toEqual({ slideScroll: 0.4, materialScroll: 0.75, split: null });
+      act(() => socket().receive("live:stage:split", { ratio: 0.35 }));
+      expect(result.current.stageView).toEqual({ slideScroll: 0.4, materialScroll: 0.75, split: 0.35 });
+    });
+
+    it("does not take what is not a scroll or a divider", () => {
+      const { result, socket } = setup("student");
+      act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
+      const same = result.current.stageView;
+      expect(same).toEqual({ slideScroll: 0.25, materialScroll: 0.5, split: 0.6 });
+      for (const data of [{ pane: "other", y: 0.1 }, { pane: "slide", y: "x" }, { pane: "slide", y: Number.NaN }, { pane: "slide" }, {}, null]) {
+        act(() => socket().receive("live:stage:scroll", data));
+      }
+      for (const data of [{ ratio: "x" }, { ratio: Number.NaN }, {}, null]) act(() => socket().receive("live:stage:split", data));
+      expect(result.current.stageView).toEqual(same);
+    });
+
+    it("keeps the scroll between 0 and 1 and the divider between 0.2 and 0.8", () => {
+      const { result, socket } = setup("student");
+      act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 3 }));
+      expect(result.current.stageView.slideScroll).toBe(1);
+      act(() => socket().receive("live:stage:scroll", { pane: "material", y: -2 }));
+      expect(result.current.stageView.materialScroll).toBe(0);
+      act(() => socket().receive("live:stage:split", { ratio: 0.95 }));
+      expect(result.current.stageView.split).toBe(0.8);
+      act(() => socket().receive("live:stage:split", { ratio: 0.01 }));
+      expect(result.current.stageView.split).toBe(0.2);
+    });
+
+    // CA-05: the server tells no restart, each client does it
+    it("takes the scroll of the slide back to the top when the slide changes, and leaves the others alone", () => {
+      const { result, socket } = setup("student");
+      act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
+      act(() => socket().receive("live:slide:change", { slide: 3 }));
+      expect(result.current.stageView).toEqual({ slideScroll: 0, materialScroll: 0.5, split: 0.6 });
+    });
+
+    it("takes the scroll of the material back to the top when the module changes, and keeps it when it does not", () => {
+      const { result, socket } = setup("student");
+      act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1", stageView: view() } as never)));
+      act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-1" }));
+      expect(result.current.stageView).toEqual({ slideScroll: 0.25, materialScroll: 0.5, split: 0.6 });
+      act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-2" }));
+      expect(result.current.stageView).toEqual({ slideScroll: 0.25, materialScroll: 0, split: 0.6 });
+    });
+
+    it("takes the scroll of the material back to the top when the teacher goes to the slides and back to a module", () => {
+      const { result, socket } = setup("student");
+      act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1", stageView: view() } as never)));
+      act(() => socket().receive("live:mode:switch", { mode: "SLIDES" }));
+      act(() => socket().receive("live:stage:scroll", { pane: "material", y: 0.9 }));
+      act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-1" }));
+      expect(result.current.stageView.materialScroll).toBe(0);
+    });
+
+    it("applies the restart to the teacher's own screen when he changes the slide or the module", () => {
+      const { result, socket } = setup("teacher", "presenter");
+      act(() => socket().handlers.onOpen());
+      act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
+      act(() => result.current.changeSlide(4));
+      expect(result.current.stageView.slideScroll).toBe(0);
+      act(() => result.current.switchMode("MODULE", "m-9"));
+      expect(result.current.stageView.materialScroll).toBe(0);
+    });
+
+    describe("sending", () => {
+      function presenter() {
+        const h = setup("teacher", "presenter");
+        act(() => h.socket().handlers.onOpen());
+        return h;
+      }
+
+      // CA-09: only the presentation window sends
+      it("lets only the presentation window send the scroll and the divider", () => {
+        const panel = setup("teacher", "panel");
+        const panelSocket = panel.socket();
+        act(() => panelSocket.handlers.onOpen());
+        act(() => panel.result.current.sendStageScroll("slide", 0.5));
+        act(() => panel.result.current.sendStageScroll("material", 0.5));
+        act(() => panel.result.current.sendStageSplit(0.5));
+        const student = setup("student");
+        const studentSocket = student.socket();
+        act(() => studentSocket.handlers.onOpen());
+        act(() => student.result.current.sendStageScroll("slide", 0.5));
+        act(() => student.result.current.sendStageSplit(0.5));
+        const lost = presenter();
+        const lostSocket = lost.socket();
+        act(() => lostSocket.receive("live:control:revoked", {}));
+        act(() => lost.result.current.sendStageScroll("slide", 0.5));
+        act(() => lost.result.current.sendStageSplit(0.5));
+        act(() => vi.advanceTimersByTime(1000));
+        for (const sent of [panelSocket.sent, studentSocket.sent, lostSocket.sent]) expect(sent).toEqual([]);
+      });
+
+      it("sends the scroll of the slide, the scroll of the material and the divider as the contract says", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.5));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "slide", y: 0.5 } });
+        act(() => result.current.sendStageScroll("material", 0.25));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "material", y: 0.25 } });
+        act(() => result.current.sendStageSplit(0.4));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:split", data: { ratio: 0.4 } });
+      });
+
+      // CA-04: at most every 100 ms, and the last position always gets there
+      it("sends at once, then at most every 100 ms, and the last position always arrives", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.1));
+        expect(scrolls(socket().sent)).toHaveLength(1);
+        act(() => vi.advanceTimersByTime(30));
+        act(() => result.current.sendStageScroll("slide", 0.2));
+        act(() => vi.advanceTimersByTime(30));
+        act(() => result.current.sendStageScroll("slide", 0.3));
+        expect(scrolls(socket().sent)).toHaveLength(1);
+        act(() => vi.advanceTimersByTime(39));
+        expect(scrolls(socket().sent)).toHaveLength(1);
+        act(() => vi.advanceTimersByTime(1));
+        expect(scrolls(socket().sent).map((m) => m.data)).toEqual([{ pane: "slide", y: 0.1 }, { pane: "slide", y: 0.3 }]);
+        act(() => vi.advanceTimersByTime(500));
+        expect(scrolls(socket().sent)).toHaveLength(2);
+      });
+
+      it("sends at once when the last one went more than 100 ms ago", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.1));
+        act(() => vi.advanceTimersByTime(150));
+        act(() => result.current.sendStageScroll("slide", 0.2));
+        expect(scrolls(socket().sent)).toHaveLength(2);
+      });
+
+      it("sends only what changed", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.5));
+        expect(scrolls(socket().sent)).toHaveLength(1);
+        // Away and back to the value that already went out, before the wait is over: nothing new to tell.
+        act(() => result.current.sendStageScroll("slide", 0.6));
+        act(() => result.current.sendStageScroll("slide", 0.5));
+        act(() => vi.advanceTimersByTime(300));
+        expect(scrolls(socket().sent)).toHaveLength(1);
+        // The same value again, long after.
+        act(() => result.current.sendStageScroll("slide", 0.5));
+        act(() => vi.advanceTimersByTime(300));
+        expect(scrolls(socket().sent)).toHaveLength(1);
+      });
+
+      it("does not hold one scroll back for another: the slide, the material and the divider go on their own", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.1));
+        act(() => result.current.sendStageScroll("material", 0.2));
+        act(() => result.current.sendStageSplit(0.3));
+        expect(socket().sent.map((m) => m.type)).toEqual(["live:stage:scroll", "live:stage:scroll", "live:stage:split"]);
+      });
+
+      it("sends the divider the same way, every 100 ms at most and only when it changed", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageSplit(0.3));
+        act(() => result.current.sendStageSplit(0.31));
+        act(() => result.current.sendStageSplit(0.32));
+        expect(socket().sent).toHaveLength(1);
+        act(() => vi.advanceTimersByTime(100));
+        expect(socket().sent.map((m) => m.data)).toEqual([{ ratio: 0.3 }, { ratio: 0.32 }]);
+        act(() => result.current.sendStageSplit(0.32));
+        act(() => vi.advanceTimersByTime(300));
+        expect(socket().sent).toHaveLength(2);
+      });
+
+      // The server brings the slide scroll back to 0 at the change, so a position of the old slide must never reach the new one
+      it("drops a position of the old slide that was waiting when the slide changes, and counts 0 as told", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.5));
+        act(() => result.current.sendStageScroll("slide", 0.7));
+        act(() => result.current.changeSlide(2));
+        act(() => vi.advanceTimersByTime(300));
+        expect(scrolls(socket().sent).map((m) => m.data)).toEqual([{ pane: "slide", y: 0.5 }]);
+        // The page is at the top, as the server has it: telling 0 is nothing new.
+        act(() => result.current.sendStageScroll("slide", 0));
+        act(() => vi.advanceTimersByTime(300));
+        expect(scrolls(socket().sent)).toHaveLength(1);
+        act(() => result.current.sendStageScroll("slide", 0.2));
+        act(() => vi.advanceTimersByTime(300));
+        expect(scrolls(socket().sent).at(-1)!.data).toEqual({ pane: "slide", y: 0.2 });
+      });
+
+      it("drops a position of the old slide when the other window changes the slide", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.5));
+        act(() => result.current.sendStageScroll("slide", 0.7));
+        act(() => socket().receive("live:slide:change", { slide: 3 }));
+        act(() => vi.advanceTimersByTime(300));
+        expect(scrolls(socket().sent)).toHaveLength(1);
+      });
+
+      it("drops a position of the old module when the module changes", () => {
+        const { result, socket } = presenter();
+        act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1" } as never)));
+        act(() => result.current.sendStageScroll("material", 0.5));
+        act(() => result.current.sendStageScroll("material", 0.7));
+        act(() => result.current.switchMode("MODULE", "m-2"));
+        act(() => vi.advanceTimersByTime(300));
+        expect(scrolls(socket().sent).map((m) => m.data)).toEqual([{ pane: "material", y: 0.5 }]);
+        act(() => result.current.sendStageScroll("material", 0.5));
+        expect(scrolls(socket().sent)).toHaveLength(2);
+      });
+
+      it("leaves no timer behind when the window goes away", () => {
+        const { result, unmount } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.1));
+        act(() => result.current.sendStageScroll("slide", 0.2));
+        act(() => result.current.sendStageSplit(0.3));
+        act(() => result.current.sendStageSplit(0.4));
+        unmount();
+        expect(vi.getTimerCount()).toBe(0);
+      });
+    });
+  });
+
   // Defect found in use: with the screen mounted twice (React Strict Mode in development, or a quick reload) the first connection was
   // closed but its messages and its close still reached the screen, so the teacher was made passive and the connection was reopened.
   describe("a connection that was replaced", () => {

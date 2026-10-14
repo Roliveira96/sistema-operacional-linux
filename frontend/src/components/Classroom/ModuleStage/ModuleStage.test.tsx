@@ -1,7 +1,8 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import { classroomService, type LiveModuleContent } from "@/services/classroomService";
+import { StageScale } from "../FixedStage/FixedStage";
 import { ModuleStage } from "./ModuleStage";
 
 const topic = vi.fn();
@@ -28,6 +29,7 @@ const module_: LiveModuleContent = {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   topic.mockClear();
   vi.restoreAllMocks();
 });
@@ -74,6 +76,144 @@ describe("ModuleStage", () => {
     expect(get).toHaveBeenCalledTimes(1);
     view.rerender(<ModuleStage classId="c-1" moduleId="m-2" role="student" moduleFocusBlockId={null} terminal={terminal} />);
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+  });
+
+  // SPEC-057 CA-07, CA-10: the scroll of the material and the divider follow the teacher, and only he moves them
+  describe("the scroll of the material and the divider", () => {
+    const stageView = { slideScroll: 0.2, materialScroll: 0.6, split: 0.55 };
+
+    it("gives the study screen where the teacher is: the scroll of the material and the divider", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} stageView={stageView} />);
+      await screen.findByTestId("topic");
+      expect(topic.mock.lastCall![0].live).toMatchObject({ materialScroll: 0.6, split: 0.55 });
+    });
+
+    it("lets the teacher tell the scroll of the material and the divider, straight, and gives the student no way to", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const onMaterialScroll = vi.fn();
+      const onSplit = vi.fn();
+      const view = render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} stageView={stageView} onMaterialScroll={onMaterialScroll} onSplit={onSplit} />);
+      await screen.findByTestId("topic");
+      expect(topic.mock.lastCall![0].live.onMaterialScroll).toBe(onMaterialScroll);
+      expect(topic.mock.lastCall![0].live.onSplit).toBe(onSplit);
+      view.rerender(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} stageView={stageView} onMaterialScroll={onMaterialScroll} onSplit={onSplit} />);
+      expect(topic.mock.lastCall![0].live.onMaterialScroll).toBeUndefined();
+      expect(topic.mock.lastCall![0].live.onSplit).toBeUndefined();
+    });
+
+    it("leaves the scroll and the divider to the study screen's own default when the room tells nothing", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} />);
+      await screen.findByTestId("topic");
+      expect(topic.mock.lastCall![0].live.materialScroll).toBeUndefined();
+      expect(topic.mock.lastCall![0].live.split).toBeUndefined();
+    });
+  });
+
+  // SPEC-057 CA-07: the pointer of the teacher is shown on the module, as a percentage of the stage
+  describe("the pointer of the teacher", () => {
+    const wrapper = () => screen.getByTestId("topic").parentElement as HTMLElement;
+    const rectOf = (el: Element, r: { left: number; top: number; width: number; height: number }) =>
+      vi.spyOn(el, "getBoundingClientRect").mockReturnValue({ ...r, right: r.left + r.width, bottom: r.top + r.height, x: r.left, y: r.top, toJSON: () => ({}) });
+    const stageRect = { left: 0, top: 0, width: 1920, height: 1080 };
+
+    it("shows the student the plain pointer, and the laser as a highlight, at a percentage of the stage", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const view = render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} cursor={{ x: 30, y: 40, laser: false, visible: true }} />);
+      await screen.findByTestId("topic");
+      const pointer = wrapper().querySelector("[data-pointer]") as HTMLElement;
+      expect([pointer.style.left, pointer.style.top]).toEqual(["30%", "40%"]);
+      expect(wrapper().querySelector("[data-laser]")).toBeNull();
+      view.rerender(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} cursor={{ x: 70, y: 10, laser: true, visible: true }} />);
+      const laser = wrapper().querySelector("[data-laser]") as HTMLElement;
+      expect([laser.style.left, laser.style.top]).toEqual(["70%", "10%"]);
+      expect(wrapper().querySelector("[data-pointer]")).toBeNull();
+    });
+
+    it("hides the pointer when the teacher has left the stage, or there is none", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const view = render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} cursor={{ x: 30, y: 40, laser: false, visible: false }} />);
+      await screen.findByTestId("topic");
+      expect(wrapper().querySelector("[data-pointer]")).toBeNull();
+      view.rerender(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} cursor={null} />);
+      expect(wrapper().querySelector("[data-pointer], [data-laser]")).toBeNull();
+    });
+
+    it("sends the mouse of the teacher as a percentage of the stage of 1920 x 1080", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const onCursor = vi.fn();
+      render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onCursor={onCursor} />);
+      await screen.findByTestId("topic");
+      rectOf(wrapper(), stageRect);
+      fireEvent.mouseMove(wrapper(), { clientX: 480, clientY: 270 });
+      expect(onCursor).toHaveBeenLastCalledWith(25, 25, false, true);
+    });
+
+    it("sends the same point from a window that shows the stage smaller", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const onCursor = vi.fn();
+      render(
+        <StageScale.Provider value={0.5}>
+          <ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onCursor={onCursor} laser />
+        </StageScale.Provider>,
+      );
+      await screen.findByTestId("topic");
+      rectOf(wrapper(), { left: 100, top: 50, width: 960, height: 540 });
+      fireEvent.mouseMove(wrapper(), { clientX: 580, clientY: 320 });
+      expect(onCursor).toHaveBeenLastCalledWith(50, 50, true, true);
+    });
+
+    it("keeps the point inside the stage", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const onCursor = vi.fn();
+      render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onCursor={onCursor} />);
+      await screen.findByTestId("topic");
+      rectOf(wrapper(), stageRect);
+      fireEvent.mouseMove(wrapper(), { clientX: 5000, clientY: -40 });
+      expect(onCursor).toHaveBeenLastCalledWith(100, 0, false, true);
+    });
+
+    it("sends at most every 33 ms, the last position always arrives, and the pointer goes away with the mouse", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const onCursor = vi.fn();
+      render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onCursor={onCursor} />);
+      await screen.findByTestId("topic");
+      rectOf(wrapper(), stageRect);
+      vi.useFakeTimers();
+      fireEvent.mouseMove(wrapper(), { clientX: 192, clientY: 108 });
+      act(() => vi.advanceTimersByTime(10));
+      fireEvent.mouseMove(wrapper(), { clientX: 384, clientY: 216 });
+      act(() => vi.advanceTimersByTime(10));
+      fireEvent.mouseMove(wrapper(), { clientX: 960, clientY: 540 });
+      expect(onCursor).toHaveBeenCalledTimes(1);
+      act(() => vi.advanceTimersByTime(14));
+      expect(onCursor).toHaveBeenCalledTimes(2);
+      expect(onCursor).toHaveBeenLastCalledWith(50, 50, false, true);
+      fireEvent.mouseLeave(wrapper());
+      expect(onCursor).toHaveBeenLastCalledWith(0, 0, false, false);
+    });
+
+    it("turns the pointer into the highlight at once when the laser is turned on, even if the mouse is still", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const onCursor = vi.fn();
+      const view = render(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onCursor={onCursor} />);
+      await screen.findByTestId("topic");
+      rectOf(wrapper(), stageRect);
+      fireEvent.mouseMove(wrapper(), { clientX: 960, clientY: 540 });
+      view.rerender(<ModuleStage classId="c-1" role="teacher" moduleFocusBlockId={null} terminal={terminal} onCursor={onCursor} laser />);
+      expect(onCursor).toHaveBeenLastCalledWith(50, 50, true, true);
+    });
+
+    it("sends nothing from a student, even when given the way to", async () => {
+      vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+      const onCursor = vi.fn();
+      render(<ModuleStage classId="c-1" role="student" moduleFocusBlockId={null} terminal={terminal} onCursor={onCursor} />);
+      await screen.findByTestId("topic");
+      fireEvent.mouseMove(wrapper(), { clientX: 960, clientY: 540 });
+      fireEvent.mouseLeave(wrapper());
+      expect(onCursor).not.toHaveBeenCalled();
+    });
   });
 
   it("tells when the module cannot be loaded", async () => {
