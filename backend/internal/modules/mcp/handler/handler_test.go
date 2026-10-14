@@ -27,6 +27,8 @@ import (
 type env struct {
 	f      *mcptest.Fake
 	g      *mcptest.Grading
+	students    *mcptest.Students
+	enrollments *mcptest.Enrollments
 	srv    *httptest.Server
 	logs   *observer.ObservedLogs
 	people map[string]authn.Principal
@@ -59,7 +61,8 @@ func start(t *testing.T, withAuth bool) *env {
 		c.Request = c.Request.WithContext(authn.WithPrincipal(c.Request.Context(), p))
 	}
 	e.g = mcptest.NewGrading(f)
-	svc := service.New(f, f, mcptest.Exercises{F: f}, mcptest.Versions{F: f}, f, log).WithGrading(e.g)
+	e.students, e.enrollments = mcptest.NewStudents(), mcptest.NewEnrollments()
+	svc := service.New(f, f, mcptest.Exercises{F: f}, mcptest.Versions{F: f}, f, log).WithGrading(e.g).WithStudents(e.students, e.enrollments)
 	r := gin.New()
 	handler.New(svc, authenticate, log).Register(r)
 	e.srv = httptest.NewServer(r)
@@ -130,7 +133,7 @@ func TestListsExactlyTheToolsOfTheSpec(t *testing.T) { // CA-01, CA-12, CA-20
 	}
 	want := []string{"list_modules", "get_module", "create_module", "update_module_metadata", "archive_module", "append_content_blocks",
 		"update_content_block", "replace_content_blocks", "set_module_setup", "create_module_exercise", "update_module_exercise",
-		"set_exercise_setup", "validate_module", "list_module_versions", "list_pending_answers", "get_answer", "suggest_grade"}
+		"set_exercise_setup", "validate_module", "list_module_versions", "list_pending_answers", "get_answer", "suggest_grade", "create_students"}
 	assert.Len(t, got, len(want))
 	for _, name := range want {
 		require.Contains(t, got, name)
@@ -432,4 +435,24 @@ func TestCorrectionThroughTheTools(t *testing.T) {
 	mustFail(t, other, "get_answer", obj{"answerId": answer}, "answer-not-found")
 	mustFail(t, other, "suggest_grade", obj{"answerId": answer, "score": 100, "reason": "x"}, "answer-not-found")
 	mustFail(t, other, "list_pending_answers", obj{"moduleId": mid.String()}, "module-not-found")
+}
+
+// SPEC-045 CA-02, CA-03, CA-04 and CA-07: create_students through the real protocol; a student cannot even connect.
+func TestCreateStudentsTool(t *testing.T) {
+	e := start(t, true)
+	cs := e.connect(t, "teacher")
+	class := e.enrollments.AddClass(e.people["teacher"].UserID)
+
+	out := mustOK(t, cs, "create_students", obj{"classId": class.String(), "students": []obj{
+		{"academicId": "2026001", "email": "a1@teste.local", "name": "Aluno Um"},
+		{"academicId": "x", "email": "a2@teste.local"},
+	}})
+	assert.Len(t, out["created"], 1)
+	rejected := out["rejected"].([]any)
+	require.Len(t, rejected, 1)
+	assert.Equal(t, "invalid-academic-id", rejected[0].(map[string]any)["type"])
+	assert.EqualValues(t, 1, out["enrollment"].(map[string]any)["enrolled"])
+
+	mustFail(t, cs, "create_students", obj{"students": []obj{}}, "validation-error")
+	mustFail(t, cs, "create_students", obj{"students": []obj{{"academicId": "2026002", "email": "b@teste.local", "unknown": 1}}}, "validation-error")
 }

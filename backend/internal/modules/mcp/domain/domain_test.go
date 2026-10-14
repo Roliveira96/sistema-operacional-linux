@@ -20,7 +20,7 @@ func TestCanUse(t *testing.T) {
 
 func TestCatalogIsWellFormedAndHasNoPublishTool(t *testing.T) { // CA-12, CA-20
 	specs := domain.Catalog()
-	assert.Len(t, specs, 17)
+	assert.Len(t, specs, 18)
 	seen := map[string]bool{}
 	writes := 0
 	for _, s := range specs {
@@ -35,12 +35,12 @@ func TestCatalogIsWellFormedAndHasNoPublishTool(t *testing.T) { // CA-12, CA-20
 		if s.Write {
 			writes++
 		}
-		if s.Write && s.Name != domain.ToolArchiveModule && s.Name != domain.ToolUpdateModuleMetadata {
+		if s.Write && s.Name != domain.ToolArchiveModule && s.Name != domain.ToolUpdateModuleMetadata && s.Name != domain.ToolCreateStudents {
 			assert.Contains(t, s.Description, "web app", "content tools say publishing is in the web app: %s", s.Name)
 		}
 	}
-	assert.Equal(t, 11, writes)
-	assert.Equal(t, 17, len(domain.Names()))
+	assert.Equal(t, 12, writes)
+	assert.Equal(t, 18, len(domain.Names()))
 }
 
 func TestToolErrors(t *testing.T) {
