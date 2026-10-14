@@ -1,0 +1,438 @@
+// Package handler exposes the live classroom over HTTP and WebSocket (SPEC-051, section 5).
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/url"
+	"strconv"
+	"unicode/utf8"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
+
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/service"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/hub"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/problem"
+)
+
+// Service is what the handler uses from the service.
+type Service interface {
+	StartSession(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.StartInput) (domain.LiveClassroomSession, bool, error)
+	EndSession(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (domain.LiveClassroomSession, error)
+	UploadDeck(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.UploadInput) (service.DeckView, error)
+	GetActive(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Active, error)
+	ListSessions(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]service.SessionSummary, error)
+	SaveNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, content string) (domain.LiveClassroomNote, error)
+	GetNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (domain.LiveClassroomNote, error)
+
+	Connect(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Connection, error)
+	Snapshot(ctx context.Context, sessionID uuid.UUID) (service.Active, error)
+	ChangeSlide(ctx context.Context, sessionID uuid.UUID, slide int) error
+	SwitchMode(ctx context.Context, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error
+	RememberDrawing(sessionID uuid.UUID, raw json.RawMessage)
+	RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage)
+	RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage)
+	RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.HandRaiseEntry, error)
+	LowerHand(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.HandRaiseEntry, error)
+	ModerateHand(ctx context.Context, sessionID uuid.UUID, studentID *uuid.UUID) ([]domain.HandRaiseEntry, error)
+	TeacherPresence(ctx context.Context, sessionID uuid.UUID) error
+}
+
+// Options are the settings of the handler.
+type Options struct {
+	// AllowedOrigins are the origins that may open the WebSocket, such as the address of the frontend. With none, the origin must be
+	// the address the request was sent to.
+	AllowedOrigins []string
+	// AnyOrigin accepts every origin; only for local development, where the page may come by the address or by localhost.
+	AnyOrigin bool
+}
+
+// Handler serves the routes of the live classroom.
+type Handler struct {
+	svc      Service
+	auth     authn.Validator
+	log      *zap.Logger
+	hub      *hub.Hub
+	upgrader websocket.Upgrader
+}
+
+// New creates the handler and the hub of its rooms.
+func New(svc Service, auth authn.Validator, log *zap.Logger, opts Options) *Handler {
+	h := &Handler{svc: svc, auth: auth, log: log}
+	h.upgrader = websocket.Upgrader{CheckOrigin: originChecker(opts)}
+	h.hub = hub.New(hubConfig(), wsHandler{h}, log)
+	return h
+}
+
+// originChecker accepts a request with no origin (not a browser), an allowed origin, or an origin on the same host.
+func originChecker(opts Options) func(r *http.Request) bool {
+	return func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" || opts.AnyOrigin {
+			return true
+		}
+		for _, a := range opts.AllowedOrigins {
+			if a == origin {
+				return true
+			}
+		}
+		u, err := url.Parse(origin)
+		return len(opts.AllowedOrigins) == 0 && err == nil && u.Host == r.Host
+	}
+}
+
+// Register wires the routes under /api/v1.
+func (h *Handler) Register(r gin.IRouter) {
+	g := r.Group("", authn.Required(h.auth), authn.PasswordChanged())
+	g.POST("/classes/:id/live/start", h.start)
+	g.POST("/classes/:id/live/sessions/:sessionId/end", h.end)
+	g.POST("/classes/:id/live/decks", h.upload)
+	g.GET("/classes/:id/live/active", h.active)
+	g.GET("/classes/:id/live/sessions", h.sessions)
+	g.PUT("/classes/:id/live/sessions/:sessionId/notes", h.saveNote)
+	g.GET("/classes/:id/live/sessions/:sessionId/notes", h.getNote)
+	g.GET("/classes/:id/live/ws", h.connect)
+}
+
+// CloseRoom tells everyone in the room that the lesson ended, and disconnects them.
+func (h *Handler) CloseRoom(sessionID uuid.UUID) {
+	h.hub.Close(sessionID.String(), hub.Message{Type: typeEnded})
+}
+
+// ControllerConnected tells whether the teacher is connected to the room.
+func (h *Handler) ControllerConnected(sessionID uuid.UUID) bool {
+	return h.hub.ControllerConnected(sessionID.String())
+}
+
+// ---- JSON ----
+
+func sessionJSON(s domain.LiveClassroomSession) gin.H {
+	return gin.H{
+		"id": s.ID, "classId": s.ClassID, "title": s.Title, "classSessionId": s.ClassSessionID, "status": s.Status,
+		"displayMode": s.DisplayMode, "currentSlide": s.CurrentSlide, "startedAt": s.StartedAt, "endedAt": s.EndedAt,
+	}
+}
+
+func deckJSON(v service.DeckView) gin.H {
+	return gin.H{"id": v.Deck.ID, "title": v.Deck.Title, "pageCount": v.Deck.PageCount, "downloadUrl": v.DownloadURL}
+}
+
+func handsJSON(entries []domain.HandRaiseEntry) []gin.H {
+	out := make([]gin.H, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, gin.H{"studentId": e.StudentID, "name": e.Name, "requestedAt": e.RequestedAt})
+	}
+	return out
+}
+
+// activeBody is the state of an open room, for the REST answer and for the snapshot of a new connection.
+func activeBody(a service.Active, online int) gin.H {
+	drawings := a.Drawings
+	if drawings == nil {
+		drawings = []json.RawMessage{}
+	}
+	entries := a.Terminal.Entries
+	if entries == nil {
+		entries = []json.RawMessage{}
+	}
+	body := gin.H{
+		"hasActiveSession": true,
+		"session":          sessionJSON(a.Session),
+		"displayMode":      a.Session.DisplayMode,
+		"currentSlide":     a.Session.CurrentSlide,
+		"activeModuleId":   a.Session.ActiveModuleID,
+		"activeDeck":       nil,
+		"recentDrawings":   drawings,
+		"terminal":         gin.H{"input": a.Terminal.Input, "entries": entries, "state": a.Terminal.State},
+		"handRaises":       handsJSON(a.HandRaises),
+		"onlineCount":      online,
+	}
+	if a.Deck != nil {
+		body["activeDeck"] = deckJSON(*a.Deck)
+	}
+	return body
+}
+
+// ---- REST ----
+
+func requestOf(c *gin.Context) (service.Actor, uuid.UUID, bool) {
+	p, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return service.Actor{}, uuid.Nil, false
+	}
+	classID, ok := uuidParam(c, c.Param("id"), "id")
+	if !ok {
+		return service.Actor{}, uuid.Nil, false
+	}
+	return service.Actor{UserID: p.UserID, Role: p.Role}, classID, true
+}
+
+func uuidParam(c *gin.Context, raw, name string) (uuid.UUID, bool) {
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		fail(c, problem.BadRequest("invalid-uuid", "The "+name+" parameter is invalid."))
+		return uuid.Nil, false
+	}
+	return id, true
+}
+
+func optionalUUID(c *gin.Context, raw *string, name string) (*uuid.UUID, bool) {
+	if raw == nil || *raw == "" {
+		return nil, true
+	}
+	id, ok := uuidParam(c, *raw, name)
+	if !ok {
+		return nil, false
+	}
+	return &id, true
+}
+
+func (h *Handler) start(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		Title           string  `json:"title"`
+		ClassSessionID  *string `json:"classSessionId"`
+		DeckID          *string `json:"deckId"`
+		InitialModuleID *string `json:"initialModuleId"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, problem.BadRequest("malformed-request", "Invalid request payload."))
+		return
+	}
+	in := service.StartInput{Title: req.Title}
+	var okLinks [3]bool
+	in.ClassSessionID, okLinks[0] = optionalUUID(c, req.ClassSessionID, "classSessionId")
+	in.DeckID, okLinks[1] = optionalUUID(c, req.DeckID, "deckId")
+	in.InitialModuleID, okLinks[2] = optionalUUID(c, req.InitialModuleID, "initialModuleId")
+	if !okLinks[0] || !okLinks[1] || !okLinks[2] {
+		return
+	}
+	session, created, err := h.svc.StartSession(c.Request.Context(), actor, classID, in)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	c.JSON(status, sessionJSON(session))
+}
+
+func (h *Handler) end(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	sessionID, ok := uuidParam(c, c.Param("sessionId"), "sessionId")
+	if !ok {
+		return
+	}
+	session, err := h.svc.EndSession(c.Request.Context(), actor, classID, sessionID)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": session.ID, "status": session.Status, "endedAt": session.EndedAt})
+}
+
+func (h *Handler) upload(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, domain.MaxDeckBytes+(1<<20))
+	if err := c.Request.ParseMultipartForm(8 << 20); err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			fail(c, toProblem(domain.ErrFileTooLarge))
+			return
+		}
+		fail(c, problem.BadRequest("malformed-request", "Invalid multipart payload."))
+		return
+	}
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		fail(c, toProblem(&domain.FieldError{Field: "file", Err: domain.ErrInvalidPDF}))
+		return
+	}
+	defer file.Close()
+	pages, err := strconv.Atoi(c.Request.FormValue("pageCount"))
+	if err != nil {
+		fail(c, toProblem(&domain.FieldError{Field: "pageCount", Err: domain.ErrInvalidPDF}))
+		return
+	}
+	view, err := h.svc.UploadDeck(c.Request.Context(), actor, classID, service.UploadInput{
+		Title: c.Request.FormValue("title"), PageCount: pages, Size: header.Size, File: file,
+	})
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	body := deckJSON(view)
+	body["createdAt"] = view.Deck.CreatedAt
+	c.JSON(http.StatusCreated, body)
+}
+
+func (h *Handler) active(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	a, err := h.svc.GetActive(c.Request.Context(), actor, classID)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	if !a.Found {
+		c.JSON(http.StatusOK, gin.H{"hasActiveSession": false})
+		return
+	}
+	c.JSON(http.StatusOK, activeBody(a, h.hub.Online(a.Session.ID.String())))
+}
+
+func (h *Handler) sessions(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	list, err := h.svc.ListSessions(c.Request.Context(), actor, classID)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	out := make([]gin.H, 0, len(list))
+	for _, item := range list {
+		s := item.Session
+		out = append(out, gin.H{
+			"id": s.ID, "title": s.Title, "status": s.Status, "startedAt": s.StartedAt, "endedAt": s.EndedAt,
+			"durationMinutes": item.DurationMinutes, "classSessionId": s.ClassSessionID, "hasNotes": item.HasNotes,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"sessions": out})
+}
+
+func (h *Handler) saveNote(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	sessionID, ok := uuidParam(c, c.Param("sessionId"), "sessionId")
+	if !ok {
+		return
+	}
+	var req struct {
+		Content *string `json:"content" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, problem.BadRequest("malformed-request", "Invalid request payload."))
+		return
+	}
+	note, err := h.svc.SaveNote(c.Request.Context(), actor, classID, sessionID, *req.Content)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"sessionId": sessionID, "savedLength": utf8.RuneCountInString(note.Content), "updatedAt": note.UpdatedAt})
+}
+
+func (h *Handler) getNote(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	sessionID, ok := uuidParam(c, c.Param("sessionId"), "sessionId")
+	if !ok {
+		return
+	}
+	note, err := h.svc.GetNote(c.Request.Context(), actor, classID, sessionID)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"sessionId": sessionID, "content": note.Content, "updatedAt": note.UpdatedAt})
+}
+
+// connect checks who may enter the room and, if so, upgrades the request to a WebSocket and serves it until it ends.
+func (h *Handler) connect(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	conn, err := h.svc.Connect(c.Request.Context(), actor, classID)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	ws, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return // the upgrader has already answered
+	}
+	role := hub.Viewer
+	if conn.Controller {
+		role = hub.Controller
+	}
+	if err := h.hub.Serve(c.Request.Context(), ws, conn.Session.ID.String(), hub.Identity{UserID: actor.UserID.String(), Role: role}); err != nil {
+		h.log.Debug("classroom connection ended", zap.String("userId", actor.UserID.String()), zap.Error(err))
+	}
+}
+
+// ---- problems ----
+
+func toProblem(err error) *problem.Problem {
+	var fe *domain.FieldError
+	withField := func(p *problem.Problem) *problem.Problem {
+		if errors.As(err, &fe) {
+			return p.WithExtension("field", fe.Field)
+		}
+		return p
+	}
+	switch {
+	case errors.Is(err, domain.ErrInvalidTitle):
+		return withField(problem.BadRequest("validation-error", err.Error()))
+	case errors.Is(err, domain.ErrInvalidPDF):
+		return withField(problem.BadRequest("invalid-pdf", err.Error()))
+	case errors.Is(err, domain.ErrContentTooLong):
+		return problem.BadRequest("content-too-long", err.Error())
+	case errors.Is(err, domain.ErrInvalidSlide), errors.Is(err, domain.ErrInvalidMode):
+		return problem.BadRequest("validation-error", err.Error())
+	case errors.Is(err, domain.ErrFileTooLarge):
+		return problem.PayloadTooLarge(err.Error())
+	case errors.Is(err, domain.ErrForbidden):
+		return problem.Forbidden("forbidden", err.Error())
+	case errors.Is(err, domain.ErrClassNotFound):
+		return problem.NotFound("class-not-found", err.Error())
+	case errors.Is(err, domain.ErrSessionNotFound):
+		return problem.NotFound("session-not-found", err.Error())
+	case errors.Is(err, domain.ErrDeckNotFound):
+		return problem.NotFound("deck-not-found", err.Error())
+	case errors.Is(err, domain.ErrClassSessionNotFound):
+		return problem.NotFound("class-session-not-found", err.Error())
+	case errors.Is(err, domain.ErrModuleNotFound):
+		return problem.NotFound("module-not-found", err.Error())
+	case errors.Is(err, domain.ErrNotesNotFound):
+		return problem.NotFound("notes-not-found", err.Error())
+	case errors.Is(err, domain.ErrClassArchived):
+		return problem.Conflict("class-archived", err.Error())
+	case errors.Is(err, domain.ErrDeckLimit):
+		return problem.Conflict("deck-limit-exceeded", err.Error())
+	default:
+		return problem.Internal()
+	}
+}
+
+func fail(c *gin.Context, p *problem.Problem) {
+	_ = c.Error(p)
+	c.Abort()
+}

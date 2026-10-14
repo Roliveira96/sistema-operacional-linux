@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -77,6 +78,16 @@ func (s *Storage) PutObject(ctx context.Context, objectKey string, reader io.Rea
 		return fmt.Errorf("put object %s: %w", objectKey, err)
 	}
 	return nil
+}
+
+// PresignedGetURL returns a temporary address that lets whoever has it read the object, valid for ttl (SPEC-051: the decks of the live
+// classroom are not public; each student asks for a fresh address).
+func (s *Storage) PresignedGetURL(ctx context.Context, objectKey string, ttl time.Duration) (string, error) {
+	u, err := s.client.PresignedGetObject(ctx, s.bucket, objectKey, ttl, nil)
+	if err != nil {
+		return "", fmt.Errorf("sign object %s: %w", objectKey, err)
+	}
+	return u.String(), nil
 }
 
 // GetObjectURL returns a URL to access the object key.

@@ -24,6 +24,9 @@ import (
 	classlinkhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/handler"
 	classlinkrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/repository"
 	classlinkservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/service"
+	classroomhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/handler"
+	classroomrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/repository"
+	classroomservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/service"
 	contentdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	contenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/handler"
 	contentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/repository"
@@ -181,11 +184,23 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	scheduleHandler := schedulehandler.New(scheduleService, auth)
 	classLinkHandler := classlinkhandler.New(classlinkservice.New(classlinkrepository.New(db)), auth)
 
+	// The live classroom (SPEC-051): its realtime hub lives in memory, and a room left without its teacher is ended by the scheduler.
+	classroomService := classroomservice.New(classroomrepository.New(db), store, time.Now)
+	classroomHandler := classroomhandler.New(classroomService, auth, log, classroomhandler.Options{
+		AllowedOrigins: []string{cfg.Auth.PublicURL},
+		AnyOrigin:      cfg.IsDevelopment(),
+	})
+	classroomService.WithOnEnded(classroomHandler.CloseRoom)
+	classroomSweep := func(ctx context.Context, _ time.Time) error {
+		_, err := classroomService.EndAbandoned(ctx, classroomHandler.ControllerConnected)
+		return err
+	}
+
 	classRepo := classgrouprepository.New(db)
 	classService := classgroupservice.New(classRepo).WithScheduleHook(scheduleService)
 	classHandler := classgrouphandler.New(classService, auth).WithUserNames(classService)
 
-	if err := startScheduler(ctx, db, smtp, scheduleService, log); err != nil {
+	if err := startScheduler(ctx, db, smtp, scheduleService, classroomSweep, log); err != nil {
 		return err
 	}
 
@@ -263,6 +278,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		studentHandler,
 		scheduleHandler,
 		classLinkHandler,
+		classroomHandler,
 	)
 	mcpOAuthHandler.RegisterRoot(engine)
 	mcpHandler.Register(engine)
@@ -285,7 +301,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 }
 
 // startScheduler registers the periodic jobs of the schedule (SPEC-042) and runs them in the background until ctx ends.
-func startScheduler(ctx context.Context, db *database.DB, sender mailer.Sender, schedule *scheduleservice.Service, log *zap.Logger) error {
+func startScheduler(ctx context.Context, db *database.DB, sender mailer.Sender, schedule *scheduleservice.Service, classroomSweep func(context.Context, time.Time) error, log *zap.Logger) error {
 	sqlDB, err := db.SQL()
 	if err != nil {
 		return err
@@ -300,6 +316,7 @@ func startScheduler(ctx context.Context, db *database.DB, sender mailer.Sender, 
 	jobs.Add(scheduler.Task{Name: "enrollment-agendas", Every: 5 * time.Minute, Run: schedule.SendEnrollmentAgendas})
 	jobs.Add(scheduler.Task{Name: "weekly-digest", Every: 15 * time.Minute, Run: schedule.SendWeeklyDigest})
 	jobs.Add(scheduler.Task{Name: "national-holidays", Every: 24 * time.Hour, Run: schedule.RefreshNationalHolidays})
+	jobs.Add(scheduler.Task{Name: "classroom-safety-net", Every: 10 * time.Minute, Run: classroomSweep})
 	go jobs.Start(ctx, 30*time.Second)
 	return nil
 }

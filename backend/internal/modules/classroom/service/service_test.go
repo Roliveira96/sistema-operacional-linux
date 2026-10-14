@@ -69,7 +69,9 @@ func (f *fakeRepo) ClassSessionBelongsToClass(_ context.Context, id, classID uui
 	c, ok := f.classSessions[id]
 	return ok && c == classID, nil
 }
-func (f *fakeRepo) ModuleExists(_ context.Context, id uuid.UUID) (bool, error) { return f.modules[id], nil }
+func (f *fakeRepo) ModuleExists(_ context.Context, id uuid.UUID) (bool, error) {
+	return f.modules[id], nil
+}
 
 func (f *fakeRepo) FindActiveSession(_ context.Context, classID uuid.UUID) (domain.LiveClassroomSession, error) {
 	for _, s := range f.sessions {

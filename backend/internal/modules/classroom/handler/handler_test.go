@@ -126,7 +126,9 @@ func (f *fakeService) Connect(_ context.Context, a service.Actor, _ uuid.UUID) (
 	}
 	return service.Connection{Session: f.session, Controller: a.Role == authn.RoleTeacher || a.Role == authn.RoleAdmin}, nil
 }
-func (f *fakeService) Snapshot(context.Context, uuid.UUID) (service.Active, error) { return f.active, nil }
+func (f *fakeService) Snapshot(context.Context, uuid.UUID) (service.Active, error) {
+	return f.active, nil
+}
 func (f *fakeService) ChangeSlide(_ context.Context, _ uuid.UUID, slide int) error {
 	f.mu.Lock()
 	f.slides = append(f.slides, slide)
@@ -179,14 +181,14 @@ func (f *fakeService) TeacherPresence(context.Context, uuid.UUID) error {
 }
 
 type world struct {
-	srv     *httptest.Server
-	svc     *fakeService
-	h       *handler.Handler
-	logs    *observer.ObservedLogs
-	class   uuid.UUID
-	session domain.LiveClassroomSession
-	teacher authn.Principal
-	student authn.Principal
+	srv      *httptest.Server
+	svc      *fakeService
+	h        *handler.Handler
+	logs     *observer.ObservedLogs
+	class    uuid.UUID
+	session  domain.LiveClassroomSession
+	teacher  authn.Principal
+	student  authn.Principal
 	stranger authn.Principal
 }
 
@@ -208,7 +210,9 @@ func setup(t *testing.T) *world {
 	return w
 }
 
-func (w *world) path(suffix string) string { return "/api/v1/classes/" + w.class.String() + "/live" + suffix }
+func (w *world) path(suffix string) string {
+	return "/api/v1/classes/" + w.class.String() + "/live" + suffix
+}
 
 func (w *world) call(t *testing.T, token, method, path string, body any) (int, map[string]any) {
 	t.Helper()
@@ -418,11 +422,11 @@ func TestActiveRoute(t *testing.T) {
 	w := setup(t)
 	deckID := uuid.New()
 	w.svc.active = service.Active{
-		Found:   true,
-		Session: w.session,
-		Deck:    &service.DeckView{Deck: domain.SlideDeck{Model: database.Model{ID: deckID}, Title: "Slides", PageCount: 9}, DownloadURL: "https://files.test/d?ttl=900"},
-		Drawings: []json.RawMessage{json.RawMessage(`{"path":[1,2]}`)},
-		Terminal: service.TerminalState{Input: json.RawMessage(`{"line":"ls"}`), Entries: []json.RawMessage{json.RawMessage(`{"line":"pwd"}`)}, State: json.RawMessage(`{"fs":1}`)},
+		Found:      true,
+		Session:    w.session,
+		Deck:       &service.DeckView{Deck: domain.SlideDeck{Model: database.Model{ID: deckID}, Title: "Slides", PageCount: 9}, DownloadURL: "https://files.test/d?ttl=900"},
+		Drawings:   []json.RawMessage{json.RawMessage(`{"path":[1,2]}`)},
+		Terminal:   service.TerminalState{Input: json.RawMessage(`{"line":"ls"}`), Entries: []json.RawMessage{json.RawMessage(`{"line":"pwd"}`)}, State: json.RawMessage(`{"fs":1}`)},
 		HandRaises: []domain.HandRaiseEntry{{StudentID: w.student.UserID, Name: "Ana", RequestedAt: time.Date(2026, 10, 14, 19, 5, 0, 0, time.UTC)}},
 	}
 	code, body := w.call(t, "student", http.MethodGet, w.path("/active"), nil)
@@ -634,7 +638,11 @@ func TestTeacherControlsAreBroadcast(t *testing.T) {
 	assert.JSONEq(t, `{"terminal":1,"line":"ls -l"}`, string(readUntil(t, student, "live:terminal:input").Data))
 	sendMsg(t, teacher, "live:terminal:sync", `{"terminal":1,"line":"ls -l","output":"total 0","state":{"fs":2}}`)
 	assert.JSONEq(t, `{"terminal":1,"line":"ls -l","output":"total 0","state":{"fs":2}}`, string(readUntil(t, student, "live:terminal:sync").Data))
-	eventually(t, func() bool { w.svc.mu.Lock(); defer w.svc.mu.Unlock(); return len(w.svc.syncs) == 1 && len(w.svc.input) >= 1 })
+	eventually(t, func() bool {
+		w.svc.mu.Lock()
+		defer w.svc.mu.Unlock()
+		return len(w.svc.syncs) == 1 && len(w.svc.input) >= 1
+	})
 
 	nothingMore(t, teacher, "live:slide:change", "live:cursor:move", "live:terminal:sync")
 }
