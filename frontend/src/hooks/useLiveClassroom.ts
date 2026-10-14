@@ -61,7 +61,7 @@ interface State {
 const initial: State = {
   room: { mode: "SLIDES", slide: 1, moduleId: null, moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: null, online: 0 },
   terminal: { screen: null },
-  stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null },
+  stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: {} },
   hands: [],
   admission: null,
   admissions: { waiting: [], admitted: [] },
@@ -116,6 +116,17 @@ function readSelection(value: unknown): StageSelection | null {
   return null;
 }
 
+/** The terminals the stage has (SPEC-057 CA-23). */
+const isTerminal = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 3;
+
+/** Where the teacher has each terminal: the places of terminals 1 to 3 and nothing else; a terminal that is not in it is at the end. */
+function readTerminalScroll(value: unknown): Record<string, number> {
+  const places: Record<string, number> = {};
+  if (!record(value)) return places;
+  for (const key of ["1", "2", "3"]) if (finite(value[key])) places[key] = unit(value[key]);
+  return places;
+}
+
 /** The view of a snapshot; a server that tells none, or tells nonsense, leaves the stage at its start. */
 function readStageView(view: Partial<StageView> | null | undefined): StageView {
   return {
@@ -125,6 +136,7 @@ function readStageView(view: Partial<StageView> | null | undefined): StageView {
     split: ratio(view?.split),
     zoom: finite(view?.zoom) ? clampZoom(view.zoom) : 1,
     selection: readSelection(view?.selection),
+    terminalScroll: readTerminalScroll(view?.terminalScroll),
   };
 }
 
@@ -163,6 +175,11 @@ function apply(state: State, message: LiveMessage): State {
       return { ...state, room: { ...state.room, slide: Number(data.slide) || 1, strokes: [] }, stageView: { ...state.stageView, slideScroll: 0, slideScrollX: 0 } };
     case "live:stage:scroll": {
       if (!finite(data.y)) return state;
+      if (data.pane === "terminal") {
+        // Each terminal has its own place; a terminal the stage does not have changes nothing.
+        if (!isTerminal(data.terminal)) return state;
+        return { ...state, stageView: { ...state.stageView, terminalScroll: { ...state.stageView.terminalScroll, [String(data.terminal)]: unit(data.y) } } };
+      }
       if (data.pane === "material") return { ...state, stageView: { ...state.stageView, materialScroll: unit(data.y) } };
       if (data.pane !== "slide" || (data.x !== undefined && !finite(data.x))) return state;
       // The slide is also scrolled sideways, with the zoom; a message with no sideways place says the page is at the left.
@@ -195,7 +212,8 @@ function apply(state: State, message: LiveMessage): State {
         // The pointer is a percentage of the page on the slides and of the stage on the module, so the old one means nothing in the new mode.
         room: { ...state.room, mode: data.mode as LiveMode, moduleId, moduleFocusBlockId: null, cursor: null },
         // The server tells nothing when it clears the selection: it does so with the scroll of the material, when the module is another one.
-        stageView: moduleId === state.room.moduleId ? state.stageView : { ...state.stageView, materialScroll: 0, selection: null },
+        // The new module has new terminals, which start at the end.
+        stageView: moduleId === state.room.moduleId ? state.stageView : { ...state.stageView, materialScroll: 0, selection: null, terminalScroll: {} },
       };
     }
     case "live:module:focus":
@@ -380,7 +398,13 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
       if (onStage) socket.current?.send(type, data);
     };
   });
-  const paces = useRef<{ slide: Pace<readonly [number, number]>; material: Pace<number>; split: Pace<number>; selection: Pace<StageSelection | null> } | null>(null);
+  const paces = useRef<{
+    slide: Pace<readonly [number, number]>;
+    material: Pace<number>;
+    split: Pace<number>;
+    selection: Pace<StageSelection | null>;
+    terminals: Record<1 | 2 | 3, Pace<number>>;
+  } | null>(null);
   useEffect(() => {
     const made = {
       // The sideways place goes only when the page is not at the left: a message with none says so, and the material has none.
@@ -389,6 +413,12 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
         (a, b) => a[0] === b[0] && a[1] === b[1],
       ),
       material: createPace<number>((y) => deliver.current("live:stage:scroll", { pane: "material", y })),
+      // Each terminal has its own pace and its own place, and the history is at the end until the teacher scrolls it.
+      terminals: {
+        1: createPace<number>((y) => deliver.current("live:stage:scroll", { pane: "terminal", terminal: 1, y })),
+        2: createPace<number>((y) => deliver.current("live:stage:scroll", { pane: "terminal", terminal: 2, y })),
+        3: createPace<number>((y) => deliver.current("live:stage:scroll", { pane: "terminal", terminal: 3, y })),
+      },
       split: createPace<number>((ratio) => deliver.current("live:stage:split", { ratio })),
       // Only the fields of the contract go out, and clearing is its own form.
       selection: createPace<StageSelection | null>(
@@ -397,7 +427,7 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
       ),
     };
     paces.current = made;
-    return () => Object.values(made).forEach((pace) => pace.cancel());
+    return () => [made.slide, made.material, made.split, made.selection, ...Object.values(made.terminals)].forEach((pace) => pace.cancel());
   }, []);
   // The server brings the scroll back to 0 at a new slide, and the scroll of the material and the selection at a new module, and so does the client:
   // a position or a selection of the old one never goes to the new.
@@ -405,6 +435,7 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
   useEffect(() => {
     paces.current?.material.reset(0);
     paces.current?.selection.reset(null);
+    for (const pace of Object.values(paces.current?.terminals ?? {})) pace.reset(1);
   }, [state.room.moduleId]);
 
   return {
@@ -434,6 +465,10 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
     },
     /** The zoom of the teacher, from 1 to 2; it is also applied to his own stage. Only the presenter window changes it (SPEC-057). */
     sendStageZoom: (zoom: number) => onStage && emit("live:stage:zoom", { zoom: clampZoom(zoom) }),
+    /** Where the teacher scrolled the history of a terminal (1 to 3), as a fraction of what can be scrolled; 1 is the end. Only the presenter window tells it (SPEC-057). */
+    sendTerminalScroll: (terminal: number, y: number) => {
+      if (onStage && isTerminal(terminal)) paces.current?.terminals[terminal as 1 | 2 | 3].push(unit(y));
+    },
     /** The text the teacher selected, or null when he cleared it; the server does not echo it, and the teacher has the real selection (SPEC-057). */
     sendStageSelection: (selection: StageSelection | null) => {
       if (onStage) paces.current?.selection.push(selection);

@@ -27,8 +27,9 @@ export interface LiveClassroomProps {
  * The live classroom of the student, in the style of a video call (SPEC-057 CA-13): the stage takes the whole window but a strip of controls at the
  * bottom, which never covers it; the hand, the notes and the full screen are on the strip, and the notes open in a column beside the stage, which is
  * fit to what is left. Nothing is over the stage. The stage is the fixed box the teacher sees, only smaller or bigger, and the student moves nothing of
- * it: the scroll, the divider, the zoom, the mouse and the selection are the teacher's. The student waits for the teacher to accept him (SPEC-051,
- * section 3.1; SPEC-054). The teacher has the panel and the presentation window (SPEC-055).
+ * it: the scroll, the divider, the zoom, the mouse and the selection are the teacher's. Inside the stage there is nothing the teacher's stage has not
+ * (SPEC-057 CA-22): what is only the student's, the loss of the connection, is told in the strip, and the connecting takes the place of the content.
+ * The student waits for the teacher to accept him (SPEC-051, section 3.1; SPEC-054). The teacher has the panel and the presentation window (SPEC-055).
  */
 export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) {
   const router = useRouter();
@@ -134,11 +135,6 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
                 stageView={live.stageView}
               />
             )}
-            {live.ready && !live.connected && (
-              <p className={styles.notice} role="status">
-                {m.room.reconnecting}
-              </p>
-            )}
             {room.blank && <div className={styles.blank} role="status" aria-label={m.room.blank} />}
           </FixedStage>
         </div>
@@ -156,6 +152,11 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
           <span className={styles.meta} role="timer" aria-label={m.room.timer}>
             {elapsed(now - new Date(session.startedAt).getTime())}
           </span>
+          {live.ready && !live.connected && (
+            <span className={styles.lost} role="status">
+              {m.room.reconnecting}
+            </span>
+          )}
           <span className={styles.meta}>{m.room.online(room.online)}</span>
           <span className={styles.meta}>{mode === "SLIDES" ? m.room.modeSlides : m.room.modeModule}</span>
           {mode === "SLIDES" && room.deck && <span className={styles.meta}>{m.slides.position(slideOf, room.deck.pageCount)}</span>}

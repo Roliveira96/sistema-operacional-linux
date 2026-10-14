@@ -60,14 +60,26 @@ function draw(node: unknown, depth: number, drawing: Drawing): Node[] {
   return [element];
 }
 
-/** What the picture does not carry, and the layout of the terminal needs: how many terminals each window body holds, and the end of every screen. */
+/** What the picture does not carry, and the layout of the terminal needs: how many terminals each window body holds. */
 function arrange(root: HTMLElement) {
   for (const body of root.querySelectorAll<HTMLElement>(".janela-corpo")) {
     // The side-by-side layout divides the body by this count, which the real window sets with a style; here it is counted, not taken from the tree.
     const terminals = Array.from(body.children).filter((child) => child.classList.contains("term")).length;
     body.style.setProperty("--quantidade", String(terminals));
   }
-  for (const screen of root.querySelectorAll<HTMLElement>(".term-tela")) screen.scrollTop = screen.scrollHeight;
+}
+
+/**
+ * Puts the history of each terminal where the teacher has it: at the same fraction of what can be scrolled, and at the end for a terminal the teacher
+ * has not scrolled, or has scrolled back to the end, which also follows the output that comes (SPEC-057 CA-23). The terminals are counted in the order the
+ * window has them, as the teacher's window counts them.
+ */
+function place(root: HTMLElement, scroll: Record<string, number> | undefined) {
+  const terminals = Array.from(root.querySelectorAll(".term"));
+  for (const screen of root.querySelectorAll<HTMLElement>(".term-tela")) {
+    const where = scroll?.[String(Math.max(1, terminals.indexOf(screen.closest(".term") as Element) + 1))];
+    screen.scrollTop = where === undefined || !Number.isFinite(where) || where >= 1 ? screen.scrollHeight : Math.max(0, where) * Math.max(0, screen.scrollHeight - screen.clientHeight);
+  }
 }
 
 export interface TerminalMirrorProps {
@@ -75,13 +87,15 @@ export interface TerminalMirrorProps {
   screen: ScreenElement | null;
   /** The text the teacher selected: when it is in the terminal, the stretch is marked on the copy, and again at every new picture (SPEC-057). */
   selection?: StageSelection | null;
+  /** Where the teacher has the history of each terminal, by number, as a fraction of what can be scrolled; a terminal that is not in it is at the end. */
+  scroll?: Record<string, number>;
 }
 
 /**
  * The student's copy of the teacher's terminal window (SPEC-056): the whole window as the teacher sees it, tabs and editors included, drawn from
  * the picture the room delivers, in an inert container, with the stylesheet of the terminal. It never mounts the engine and never runs anything.
  */
-export function TerminalMirror({ screen, selection }: TerminalMirrorProps) {
+export function TerminalMirror({ screen, selection, scroll }: TerminalMirrorProps) {
   const host = useRef<HTMLDivElement>(null);
   const runs = useRef<TextRun[]>([]);
 
@@ -98,6 +112,11 @@ export function TerminalMirror({ screen, selection }: TerminalMirrorProps) {
     arrange(root);
   }, [screen]);
 
+  // The places of the terminals are put again at every picture, which has new screens, and when the teacher scrolls.
+  useEffect(() => {
+    if (host.current) place(host.current, scroll);
+  }, [screen, scroll]);
+
   // The mark goes on after the picture is drawn, and off before the next one replaces it, so it is always on the text that is there.
   useEffect(() => {
     if (!selection || selection.pane !== "terminal") return;
@@ -107,13 +126,12 @@ export function TerminalMirror({ screen, selection }: TerminalMirrorProps) {
 
   return (
     <section className={styles.view}>
-      <p className={styles.note}>{m.readOnly}</p>
+      <div ref={host} className={styles.window} data-testid="terminal-mirror" inert />
       {!screen && (
         <p className={styles.note} role="status">
           {m.loading}
         </p>
       )}
-      <div ref={host} className={styles.window} data-testid="terminal-mirror" inert />
     </section>
   );
 }

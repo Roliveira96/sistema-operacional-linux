@@ -65,6 +65,8 @@ export interface StageView {
   split: number | null;
   zoom: number;
   selection: StageSelection | null;
+  /** Where the teacher has the history of each terminal, by number ("1" to "3"), as a fraction of what can be scrolled; a terminal that is not in it is at the end. */
+  terminalScroll: Record<string, number>;
 }
 
 export interface LiveTerminalState {

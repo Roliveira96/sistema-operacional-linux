@@ -28,9 +28,9 @@ const picture: ScreenElement = { tag: "div", attrs: { class: "janela" }, childre
 /** What is not in the flow of the stage: the notices that sit over it, and the pointer of the teacher. */
 const OVER = "[role='status'], [role='alert'], [data-pointer], [data-laser]";
 
-/** The tag and the classes of an element, as they can be compared: the student's only has `follower`, which says that nobody scrolls it. */
+/** The tag and the classes of an element, as they can be compared: the student's only has `follower` and `fixedDivider`, which say that nobody scrolls or moves it. */
 const nameOf = (el: Element) =>
-  `${el.tagName.toLowerCase()}.${(el.getAttribute("class") ?? "").split(/\s+/).filter((name) => name && name !== "follower").join(".")}`;
+  `${el.tagName.toLowerCase()}.${(el.getAttribute("class") ?? "").split(/\s+/).filter((name) => name && name !== "follower" && name !== "fixedDivider").join(".")}`;
 
 /** What the browser puts in the flow, in a way that can be compared: the tag and class of an element, and its children. */
 function flowOf(el: Element): unknown {

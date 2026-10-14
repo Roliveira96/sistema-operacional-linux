@@ -39,6 +39,8 @@ export interface ModuleStageProps {
   onSplit?(ratio: number): void;
   /** The text the teacher selects in the material or in the terminal, or null when he clears it (SPEC-057 CA-20). */
   onSelection?(selection: StageSelection | null): void;
+  /** The teacher scrolls the history of a terminal: its number and the place; 1 is the end (SPEC-057 CA-23). */
+  onTerminalScroll?(terminal: number, y: number): void;
 }
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: LiveModuleContent };
@@ -47,7 +49,7 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: 
  * The module of the live class: the study screen of the module in the live-class mode (SPEC-055 CA-13), drawn in the stage. Only the teacher can send:
  * the picture of his terminal, his reading, the scroll of the material, the divider, his mouse and the text he selects (SPEC-057).
  */
-export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection }: ModuleStageProps) {
+export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection, onTerminalScroll }: ModuleStageProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const scale = useStageScale();
   const zoom = useStageZoom();
@@ -101,11 +103,14 @@ export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, termi
           split: stageView?.split,
           // The teacher has the real selection; the student has only the mark of the teacher's.
           selection: teacher ? undefined : stageView?.selection,
+          // The same for where each terminal is scrolled: the teacher has the real scroll, the student's copy follows it.
+          terminalScroll: teacher ? undefined : stageView?.terminalScroll,
           onRead: teacher ? onFocusBlock : undefined,
           onScreen: teacher ? onScreen : undefined,
           onMaterialScroll: teacher ? onMaterialScroll : undefined,
           onSplit: teacher ? onSplit : undefined,
           onSelection: teacher ? onSelection : undefined,
+          onTerminalScroll: teacher ? onTerminalScroll : undefined,
         }}
       />
       {/* The teacher sees his own mouse, not the point that stands for it; the laser tells him it is on. */}

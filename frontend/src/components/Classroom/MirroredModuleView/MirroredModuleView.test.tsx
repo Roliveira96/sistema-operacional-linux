@@ -187,7 +187,7 @@ describe("MirroredModuleView", () => {
       const start = css.indexOf(`.${name} {`);
       return css
         .slice(start, css.indexOf("}", start))
-        .split("\n")
+        .split(/\r?\n/)
         .slice(1)
         .map((line) => line.replace(/\/\/.*$/, "").trim())
         .filter((line) => line && !line.startsWith("user-select"))

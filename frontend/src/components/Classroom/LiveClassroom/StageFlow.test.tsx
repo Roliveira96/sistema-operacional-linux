@@ -325,7 +325,7 @@ describe("the module, from the teacher's window to the student's", () => {
     const tela = (view: RenderResult) => $(view, ".term-tela");
     const scrollTo = (el: HTMLElement, top: number) => {
       el.scrollTop = top;
-      el.dispatchEvent(new Event("scroll"));
+      act(() => void el.dispatchEvent(new Event("scroll")));
     };
 
     it("shows the student the screen of the terminal of the teacher, at the end", async () => {

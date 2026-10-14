@@ -1,14 +1,20 @@
 // The terminal fills the pane of the stage, as on the study screen, so it is as tall for the teacher as for the student (SPEC-057).
 .view {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-3);
   min-width: 0;
   min-height: 0;
 }
 
+// What the terminal says about itself is over the window and not in the flow, so nothing moves the window from where it is for the teacher
+// and for the student (SPEC-057 CA-22).
 .note {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-3);
+  z-index: 1;
   margin: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);

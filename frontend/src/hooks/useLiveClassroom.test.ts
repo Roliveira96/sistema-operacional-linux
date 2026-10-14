@@ -891,10 +891,24 @@ describe("useLiveClassroom", () => {
 
         it("keeps the terminal and the place inside what the server takes", () => {
           const { result, socket } = presenter();
+          act(() => result.current.sendTerminalScroll(1, -7));
+          expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "terminal", terminal: 1, y: 0 } });
+          act(() => vi.advanceTimersByTime(150));
           act(() => result.current.sendTerminalScroll(1, 7));
           expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "terminal", terminal: 1, y: 1 } });
           for (const terminal of [0, 4, 1.5, Number.NaN]) act(() => result.current.sendTerminalScroll(terminal, 0.5));
-          expect(terminalScrolls(socket().sent)).toHaveLength(1);
+          expect(terminalScrolls(socket().sent)).toHaveLength(2);
+        });
+
+        it("does not tell the end when the terminal has not been scrolled: the end is where the history starts, and the room has it", () => {
+          const { result, socket } = presenter();
+          act(() => result.current.sendTerminalScroll(1, 1));
+          act(() => vi.advanceTimersByTime(300));
+          expect(terminalScrolls(socket().sent)).toEqual([]);
+          act(() => result.current.sendTerminalScroll(1, 0.4));
+          act(() => vi.advanceTimersByTime(300));
+          act(() => result.current.sendTerminalScroll(1, 1));
+          expect(terminalScrolls(socket().sent).at(-1)).toEqual({ pane: "terminal", terminal: 1, y: 1 });
         });
 
         it("sends at once, then at most every 100 ms, the last place always arrives, and only what changed", () => {

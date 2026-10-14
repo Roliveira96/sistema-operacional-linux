@@ -1289,7 +1289,6 @@ export const messages = {
     terminal: {
       loading: "Carregando o terminal…",
       error: "Não foi possível abrir o terminal.",
-      readOnly: "Você acompanha o terminal do professor. O teclado fica travado.",
     },
     hands: {
       title: "Mãos levantadas",

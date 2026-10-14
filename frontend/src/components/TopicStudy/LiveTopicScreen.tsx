@@ -47,6 +47,10 @@ export interface TopicLive {
   selection?: StageSelection | null;
   /** The teacher selects text in the material or in the terminal, or clears the selection: null (SPEC-057 CA-20). */
   onSelection?(selection: StageSelection | null): void;
+  /** The teacher scrolls the history of a terminal: its number and the place as a fraction of what can be scrolled; 1 is the end (SPEC-057 CA-23). */
+  onTerminalScroll?(terminal: number, y: number): void;
+  /** Where the teacher has the history of each terminal, by number, which the student's copy follows (SPEC-057 CA-23). */
+  terminalScroll?: Record<string, number>;
 }
 
 // Nothing here plays: the material is read, and the terminal is the one of the class.
@@ -86,7 +90,7 @@ function blockUnderReading(panel: HTMLElement): string | null {
  * teacher's, and the student only follows them (SPEC-057).
  */
 export function LiveTopicScreen({ live }: { live: TopicLive }) {
-  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, onRead, onScreen, onMaterialScroll, onSplit, onSelection } = live;
+  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, terminalScroll, onRead, onScreen, onMaterialScroll, onSplit, onSelection, onTerminalScroll } = live;
   const teacher = role === "teacher";
   const script = useMemo(() => buildTopicScript(module.blocks), [module.blocks]);
   const panel = useRef<HTMLDivElement>(null);
@@ -266,6 +270,8 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
               locator.current = found;
             }}
             selection={teacher ? undefined : selection}
+            onTerminalScroll={teacher ? onTerminalScroll : undefined}
+            terminalScroll={teacher ? undefined : terminalScroll}
           />
         </div>
       </main>

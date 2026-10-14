@@ -196,16 +196,15 @@ export function PresenterStage({ classId }: PresenterStageProps) {
               onMaterialScroll={(y) => live.sendStageScroll("material", y)}
               onSplit={live.sendStageSplit}
               onSelection={live.sendStageSelection}
+              onTerminalScroll={live.sendTerminalScroll}
             />
           )}
 
-          {room.blank && (
-            <div className={styles.blank} role="status" aria-label={p.blank}>
-              <p className={styles.blankNotice}>{p.blankOn}</p>
-            </div>
-          )}
+          {/* As empty as the students' blank screen: what the teacher needs to know about it is outside the stage (SPEC-057 CA-22). */}
+          {room.blank && <div className={styles.blank} role="status" aria-label={p.blank} />}
         </FixedStage>
       </div>
+      {room.blank && <p className={styles.notice}>{p.blankOn}</p>}
 
       {!live.connected && (
         <p className={styles.connection} role="status" aria-label={p.connection}>

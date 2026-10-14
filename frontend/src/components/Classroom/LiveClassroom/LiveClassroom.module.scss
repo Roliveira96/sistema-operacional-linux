@@ -140,6 +140,14 @@
   gap: var(--space-2);
 }
 
+// The loss of the connection, told in the strip: the stage is the same for the student as for the teacher, so it is not told in the stage.
+.lost {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-danger);
+  white-space: nowrap;
+}
+
 .handState {
   display: flex;
   align-items: center;
