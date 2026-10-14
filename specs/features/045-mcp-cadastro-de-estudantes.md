@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-045 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada) |
 | **Autor** | Aruna Architect |
@@ -123,3 +123,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: cadastrar estudantes pelo MCP.
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao mandar fazer o cadastro de estudantes pelo MCP |
+| 14/10/2026 | Implementador | Implementada: ferramenta `create_students`, porta `Students`/`Enrollments`, fakes em `mcptest` e ligação em `cmd/api/main.go`. Os testes ficaram vermelhos por não compilar (símbolos ainda inexistentes) |

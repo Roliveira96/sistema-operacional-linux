@@ -36,7 +36,7 @@ A API REST já cobre todo o fluxo de autoria (SPEC-010, 019, 021, 022, 023). A l
 
 ### 2.1. Fora de escopo (Non-Goals)
 
-- Ferramentas para turmas, estudantes, provas, notas e auditoria acadêmica. Exceção: a sugestão de nota das respostas descritivas (SPEC-039), que nunca vale como nota; confirmar a nota segue só na interface web. Turmas ainda não foram implementadas no fluxo de módulos; ficam para spec futura (decisão do Tech Lead, 10/10/2026).
+- Ferramentas para turmas, estudantes, provas, notas e auditoria acadêmica (o cadastro de estudantes foi incluído pela SPEC-045). Exceção: a sugestão de nota das respostas descritivas (SPEC-039), que nunca vale como nota; confirmar a nota segue só na interface web. Turmas ainda não foram implementadas no fluxo de módulos; ficam para spec futura (decisão do Tech Lead, 10/10/2026).
 - Executar comandos de shell no servidor (D-02).
 - Frontend do MCP além de emitir e revogar tokens e da tela de consentimento do login OAuth.
 - Refresh token, escopos por ferramenta e login OAuth de terceiros que não sejam clientes MCP locais (D-12, D-13).

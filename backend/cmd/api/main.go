@@ -212,9 +212,6 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	// The correction of descriptive answers (SPEC-039): the teacher confirms on the web, the agent suggests through the MCP.
 	grading := practiceservice.NewGrading(practiceRepo, contentExercises)
 	gradingHandler := practicehandler.NewGrading(grading, auth)
-	mcpHandler := mcphandler.New(
-		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log).WithGrading(grading),
-		authn.RequiredBearerWith(auth, bearer), log)
 	practiceHandler := practicehandler.New(
 		practiceservice.New(contentReader, practiceRepo), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
@@ -232,6 +229,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		Mailer:  dispatcher,
 	})
 	studentHandler := studenthandler.New(studentService, auth)
+	mcpHandler := mcphandler.New(
+		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log).
+			WithGrading(grading).WithStudents(studentService, classService),
+		authn.RequiredBearerWith(auth, bearer), log)
 
 	checker := health.NewChecker(health.DefaultTimeout,
 		health.Check{Name: "postgres", Critical: true, Ping: db.Ping},
