@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-054 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
-| **Última revisão** | 14/10/2026 (aprovada) |
+| **Última revisão** | 14/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -160,3 +160,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: sala de espera com aceitar e tela
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao decidir a sala de espera e a tela dividida |
+| 14/10/2026 | Implementador | Implementada. Formato das mensagens que a spec não fixava e que ficou definido no backend: `live:admission:state {status}`; `live:admission:queue {waiting[], admitted[]}` com itens `{studentId, name, requestedAt}`; `live:admission:accept {studentId}`, `accept-all {}` e `remove {studentId}`; `live:admission:request {}` (o estudante removido pede para voltar); `live:terminal:broadcast {enabled}`; `live:module:focus {blockId}`; o snapshot ganha `moduleId`, `moduleFocusBlockId`, `terminalBroadcast` e, ao docente, `admissions`; `GET /live/module` devolve `moduleId`, `title`, `blocks`, `scenario` e `setup`. Desvios: a Tela da turma usa uma segunda instância espelho do terminal; não há pré-visualização privada de módulo ainda não publicado; ao ligar a transmissão do terminal o estado chega aos alunos no comando seguinte; anotações de aulas já encerradas e anteriores a esta spec não exigem admissão. Limitação conhecida: o terminal do módulo parte do `scenario`, sem as camadas de `setup` que a tela de estudo aplica (exigiria mudar o `MirroredModuleView`) |
