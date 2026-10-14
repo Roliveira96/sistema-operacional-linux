@@ -114,7 +114,7 @@ func start(t *testing.T, cfg hub.Config, relay bool) *env {
 		if r.URL.Query().Get("role") == "controller" {
 			role = hub.Controller
 		}
-		e.errs <- h.Serve(r.Context(), conn, r.URL.Query().Get("room"), hub.Identity{UserID: r.URL.Query().Get("user"), Role: role})
+		e.errs <- h.Serve(r.Context(), conn, r.URL.Query().Get("room"), hub.Identity{UserID: r.URL.Query().Get("user"), Role: role, Waiting: r.URL.Query().Get("waiting") == "1", Meta: r.URL.Query().Get("meta")})
 	}))
 	t.Cleanup(e.srv.Close)
 	return e
