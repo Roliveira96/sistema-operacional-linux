@@ -61,6 +61,49 @@ describe("MirroredModuleView", () => {
     expect(second).toHaveBeenCalledTimes(1);
   });
 
+  // SPEC-057 CA-20: with each picture the window gives the locator of its text, so the teacher's selection can be told over that text
+  it("passes on the locator that comes with the picture, apart from the picture", async () => {
+    const onScreen = vi.fn();
+    const onLocator = vi.fn();
+    render(<MirroredModuleView role="teacher" terminal={empty} onScreen={onScreen} onLocator={onLocator} />);
+    await waitFor(() => expect(windows).toHaveLength(1));
+    const picture = tree("ls");
+    const locator = { offsetOf: () => 0, terminalOf: () => 1 };
+    (callbacks!.onScreen as (tree: ScreenElement, locator: unknown) => void)(picture, locator);
+    expect(onScreen).toHaveBeenCalledWith(picture);
+    expect(onLocator).toHaveBeenCalledWith(locator);
+  });
+
+  it("tells the locator to the latest handler, and works with no handler for it", async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const view = render(<MirroredModuleView role="teacher" terminal={empty} onScreen={vi.fn()} onLocator={first} />);
+    await waitFor(() => expect(windows).toHaveLength(1));
+    view.rerender(<MirroredModuleView role="teacher" terminal={empty} onScreen={vi.fn()} onLocator={second} />);
+    const locator = { offsetOf: () => 0, terminalOf: () => 1 };
+    (callbacks!.onScreen as (tree: ScreenElement, locator: unknown) => void)(tree("a"), locator);
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith(locator);
+    view.rerender(<MirroredModuleView role="teacher" terminal={empty} />);
+    expect(() => (callbacks!.onScreen as (tree: ScreenElement, locator: unknown) => void)(tree("b"), locator)).not.toThrow();
+  });
+
+  // CA-20, CA-21: the student marks the stretch the teacher selected on the copy of the terminal
+  it("marks on the student's copy the stretch of the terminal that the teacher selected, and not one of the material", () => {
+    const registry = new Map<string, { ranges: Range[] }>();
+    vi.stubGlobal("CSS", { ...CSS, highlights: registry });
+    vi.stubGlobal("Highlight", class { ranges: Range[]; constructor(...ranges: Range[]) { this.ranges = ranges; } });
+    try {
+      const picked = { pane: "terminal" as const, terminal: 1, start: 0, end: 3 };
+      const view = render(<MirroredModuleView role="student" terminal={{ screen: tree("tela do professor") }} selection={picked} />);
+      expect(registry.get("teacher-terminal")!.ranges[0]!.toString()).toBe("tel");
+      view.rerender(<MirroredModuleView role="student" terminal={{ screen: tree("tela do professor") }} selection={{ pane: "material", start: { block: "b", offset: 0 }, end: { block: "b", offset: 2 } }} />);
+      expect(registry.has("teacher-terminal")).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("does not ask the teacher's terminal for what was typed or run, which is no longer sent", async () => {
     render(<MirroredModuleView role="teacher" terminal={empty} onScreen={vi.fn()} />);
     await waitFor(() => expect(windows).toHaveLength(1));

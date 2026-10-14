@@ -447,22 +447,23 @@ describe("useLiveClassroom", () => {
 
   // SPEC-057: the scroll of the slide and of the material and the divider of the module follow the teacher
   describe("the stage view", () => {
-    const view = (over: Partial<{ slideScroll: number; materialScroll: number; split: number | null }> = {}) => ({ slideScroll: 0.25, materialScroll: 0.5, split: 0.6, ...over });
+    const NONE = { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null };
+    const view = (over: Record<string, unknown> = {}) => ({ slideScroll: 0.25, slideScrollX: 0.1, materialScroll: 0.5, split: 0.6, zoom: 1.5, selection: null, ...over });
     const scrolls = (sent: Array<{ type: string; data: unknown }>) => sent.filter((m) => m.type === "live:stage:scroll");
 
     // CA-08: who comes in, or connects again, sees where the teacher is without waiting for him
     it("starts with nothing scrolled and the default divider, and takes the view from the snapshot", () => {
       const { result, socket } = setup("student");
-      expect(result.current.stageView).toEqual({ slideScroll: 0, materialScroll: 0, split: null });
+      expect(result.current.stageView).toEqual(NONE);
       act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
-      expect(result.current.stageView).toEqual({ slideScroll: 0.25, materialScroll: 0.5, split: 0.6 });
+      expect(result.current.stageView).toEqual(view());
     });
 
     it("takes the default view from a snapshot that has none, or has a divider that is null", () => {
       const { result, socket } = setup("student");
       act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
       act(() => socket().receive("live:snapshot", snapshot()));
-      expect(result.current.stageView).toEqual({ slideScroll: 0, materialScroll: 0, split: null });
+      expect(result.current.stageView).toEqual(NONE);
       act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ split: null }) } as never)));
       expect(result.current.stageView.split).toBeNull();
     });
@@ -472,18 +473,18 @@ describe("useLiveClassroom", () => {
       const { result, socket } = setup("student");
       act(() => socket().receive("live:snapshot", snapshot()));
       act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 0.4 }));
-      expect(result.current.stageView).toEqual({ slideScroll: 0.4, materialScroll: 0, split: null });
+      expect(result.current.stageView).toEqual({ ...NONE, slideScroll: 0.4 });
       act(() => socket().receive("live:stage:scroll", { pane: "material", y: 0.75 }));
-      expect(result.current.stageView).toEqual({ slideScroll: 0.4, materialScroll: 0.75, split: null });
+      expect(result.current.stageView).toEqual({ ...NONE, slideScroll: 0.4, materialScroll: 0.75 });
       act(() => socket().receive("live:stage:split", { ratio: 0.35 }));
-      expect(result.current.stageView).toEqual({ slideScroll: 0.4, materialScroll: 0.75, split: 0.35 });
+      expect(result.current.stageView).toEqual({ ...NONE, slideScroll: 0.4, materialScroll: 0.75, split: 0.35 });
     });
 
     it("does not take what is not a scroll or a divider", () => {
       const { result, socket } = setup("student");
       act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
       const same = result.current.stageView;
-      expect(same).toEqual({ slideScroll: 0.25, materialScroll: 0.5, split: 0.6 });
+      expect(same).toEqual(view());
       for (const data of [{ pane: "other", y: 0.1 }, { pane: "slide", y: "x" }, { pane: "slide", y: Number.NaN }, { pane: "slide" }, {}, null]) {
         act(() => socket().receive("live:stage:scroll", data));
       }
@@ -508,16 +509,16 @@ describe("useLiveClassroom", () => {
       const { result, socket } = setup("student");
       act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
       act(() => socket().receive("live:slide:change", { slide: 3 }));
-      expect(result.current.stageView).toEqual({ slideScroll: 0, materialScroll: 0.5, split: 0.6 });
+      expect(result.current.stageView).toEqual(view({ slideScroll: 0, slideScrollX: 0 }));
     });
 
     it("takes the scroll of the material back to the top when the module changes, and keeps it when it does not", () => {
       const { result, socket } = setup("student");
       act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1", stageView: view() } as never)));
       act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-1" }));
-      expect(result.current.stageView).toEqual({ slideScroll: 0.25, materialScroll: 0.5, split: 0.6 });
+      expect(result.current.stageView).toEqual(view());
       act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-2" }));
-      expect(result.current.stageView).toEqual({ slideScroll: 0.25, materialScroll: 0, split: 0.6 });
+      expect(result.current.stageView).toEqual(view({ materialScroll: 0 }));
     });
 
     it("keeps the scroll of the material when the teacher goes to the slides and back to the same module, as the server does", () => {
@@ -541,6 +542,334 @@ describe("useLiveClassroom", () => {
       expect(result.current.stageView.slideScroll).toBe(0);
       act(() => result.current.switchMode("MODULE", "m-9"));
       expect(result.current.stageView.materialScroll).toBe(0);
+    });
+
+    // CA-17: with the zoom the page rolls both ways, and the horizontal place is the teacher's too
+    describe("the horizontal scroll of the slide", () => {
+      it("follows the horizontal place the teacher tells with the vertical one, and takes it as 0 when it is not told", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 0.4, x: 0.3 }));
+        expect(result.current.stageView).toMatchObject({ slideScroll: 0.4, slideScrollX: 0.3 });
+        act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 0.5 }));
+        expect(result.current.stageView).toMatchObject({ slideScroll: 0.5, slideScrollX: 0 });
+      });
+
+      it("keeps the horizontal place between 0 and 1, and does not take a message with a horizontal place that is not a number", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 0.1, x: 7 }));
+        expect(result.current.stageView.slideScrollX).toBe(1);
+        act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 0.2, x: -1 }));
+        expect(result.current.stageView.slideScrollX).toBe(0);
+        act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 0.3, x: 0.6 }));
+        for (const x of ["a", Number.NaN, null]) act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 0.9, x }));
+        expect(result.current.stageView).toMatchObject({ slideScroll: 0.3, slideScrollX: 0.6 });
+      });
+
+      it("has no horizontal place for the material", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:stage:scroll", { pane: "slide", y: 0.1, x: 0.4 }));
+        act(() => socket().receive("live:stage:scroll", { pane: "material", y: 0.7, x: 0.9 }));
+        expect(result.current.stageView).toMatchObject({ slideScroll: 0.1, slideScrollX: 0.4, materialScroll: 0.7 });
+      });
+
+      it("takes the horizontal place of the snapshot, and 0 when it has none", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ slideScrollX: 0.8 }) } as never)));
+        expect(result.current.stageView.slideScrollX).toBe(0.8);
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: { slideScroll: 0.2, materialScroll: 0, split: null } } as never)));
+        expect(result.current.stageView.slideScrollX).toBe(0);
+      });
+
+      it("goes back to the left with the top when the slide changes", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
+        act(() => socket().receive("live:slide:change", { slide: 3 }));
+        expect(result.current.stageView).toMatchObject({ slideScroll: 0, slideScrollX: 0 });
+      });
+    });
+
+    // CA-15, CA-18: the zoom of the teacher, which the students only follow
+    describe("the zoom", () => {
+      it("starts at 100%, takes the zoom from the snapshot, and follows the teacher", () => {
+        const { result, socket } = setup("student");
+        expect(result.current.stageView.zoom).toBe(1);
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ zoom: 1.75 }) } as never)));
+        expect(result.current.stageView.zoom).toBe(1.75);
+        act(() => socket().receive("live:stage:zoom", { zoom: 1.25 }));
+        expect(result.current.stageView.zoom).toBe(1.25);
+      });
+
+      it("takes 100% from a snapshot that has no zoom", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ zoom: 2 }) } as never)));
+        act(() => socket().receive("live:snapshot", snapshot()));
+        expect(result.current.stageView.zoom).toBe(1);
+      });
+
+      it("keeps the zoom between 1 and 2, and does not take what is not a number", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:stage:zoom", { zoom: 9 }));
+        expect(result.current.stageView.zoom).toBe(2);
+        act(() => socket().receive("live:stage:zoom", { zoom: 0.2 }));
+        expect(result.current.stageView.zoom).toBe(1);
+        act(() => socket().receive("live:stage:zoom", { zoom: 1.5 }));
+        for (const data of [{ zoom: "x" }, { zoom: Number.NaN }, { zoom: null }, {}, null]) act(() => socket().receive("live:stage:zoom", data));
+        expect(result.current.stageView.zoom).toBe(1.5);
+      });
+
+      it("is not taken back to 100% by a new slide, a new module, or a new mode", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1", stageView: view({ zoom: 1.5 }) } as never)));
+        act(() => socket().receive("live:slide:change", { slide: 4 }));
+        act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-2" }));
+        act(() => socket().receive("live:mode:switch", { mode: "SLIDES" }));
+        expect(result.current.stageView.zoom).toBe(1.5);
+      });
+
+      it("has no way for a student to change it", () => {
+        const student = setup("student");
+        act(() => student.socket().handlers.onOpen());
+        act(() => student.result.current.sendStageZoom(1.5));
+        expect(student.socket().sent).toEqual([]);
+        expect(student.result.current.stageView.zoom).toBe(1);
+      });
+    });
+
+    // CA-20, CA-21: the stretch of text the teacher selected, which is marked on the screens of the students
+    describe("the selection of the teacher", () => {
+      const material = { pane: "material", start: { block: "b-1", offset: 2 }, end: { block: "b-2", offset: 5 } };
+      const terminal = { pane: "terminal", terminal: 2, start: 10, end: 14 };
+
+      it("starts with no selection, and takes the one of the snapshot, for who comes in or connects again", () => {
+        const { result, socket } = setup("student");
+        expect(result.current.stageView.selection).toBeNull();
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ selection: material }) } as never)));
+        expect(result.current.stageView.selection).toEqual(material);
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view({ selection: terminal }) } as never)));
+        expect(result.current.stageView.selection).toEqual(terminal);
+        act(() => socket().receive("live:snapshot", snapshot({ stageView: view() } as never)));
+        expect(result.current.stageView.selection).toBeNull();
+      });
+
+      it("follows the selection of the material and of the terminal, and the one that clears it", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:stage:selection", material));
+        expect(result.current.stageView.selection).toEqual(material);
+        act(() => socket().receive("live:stage:selection", terminal));
+        expect(result.current.stageView.selection).toEqual(terminal);
+        act(() => socket().receive("live:stage:selection", { clear: true }));
+        expect(result.current.stageView.selection).toBeNull();
+      });
+
+      it("does not take a selection that is not well formed", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:stage:selection", material));
+        const bad = [
+          null,
+          {},
+          { clear: false },
+          { pane: "other", start: 0, end: 1 },
+          { pane: "material" },
+          { pane: "material", start: { block: "b", offset: 1 } },
+          { pane: "material", start: { block: "", offset: 1 }, end: { block: "b", offset: 2 } },
+          { pane: "material", start: { block: "b", offset: -1 }, end: { block: "b", offset: 2 } },
+          { pane: "material", start: { block: "b", offset: 1.5 }, end: { block: "b", offset: 2 } },
+          { pane: "material", start: { block: 7, offset: 1 }, end: { block: "b", offset: 2 } },
+          { pane: "terminal", terminal: 0, start: 1, end: 2 },
+          { pane: "terminal", terminal: 4, start: 1, end: 2 },
+          { pane: "terminal", terminal: 1, start: 5, end: 2 },
+          { pane: "terminal", terminal: 1, start: "a", end: 2 },
+          { pane: "terminal", terminal: 1, start: 1, end: Number.NaN },
+          { pane: "terminal", terminal: 1, start: -1, end: 2 },
+        ];
+        for (const data of bad) act(() => socket().receive("live:stage:selection", data));
+        expect(result.current.stageView.selection).toEqual(material);
+      });
+
+      it("is cleared when the module changes, and kept when it does not, or when the slide changes", () => {
+        const { result, socket } = setup("student");
+        act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1", stageView: view({ selection: material }) } as never)));
+        act(() => socket().receive("live:slide:change", { slide: 3 }));
+        act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-1" }));
+        expect(result.current.stageView.selection).toEqual(material);
+        act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-2" }));
+        expect(result.current.stageView.selection).toBeNull();
+      });
+
+      describe("sending", () => {
+        function presenter() {
+          const h = setup("teacher", "presenter");
+          act(() => h.socket().handlers.onOpen());
+          return h;
+        }
+        const selections = (sent: Array<{ type: string; data: unknown }>) => sent.filter((m) => m.type === "live:stage:selection").map((m) => m.data);
+
+        it("lets only the presentation window tell it", () => {
+          const panel = setup("teacher", "panel");
+          const panelSocket = panel.socket();
+          act(() => panelSocket.handlers.onOpen());
+          act(() => panel.result.current.sendStageSelection(material as never));
+          const student = setup("student");
+          const studentSocket = student.socket();
+          act(() => studentSocket.handlers.onOpen());
+          act(() => student.result.current.sendStageSelection(material as never));
+          const lost = presenter();
+          const lostSocket = lost.socket();
+          act(() => lostSocket.receive("live:control:revoked", {}));
+          act(() => lost.result.current.sendStageSelection(material as never));
+          act(() => vi.advanceTimersByTime(1000));
+          for (const sent of [panelSocket.sent, studentSocket.sent, lostSocket.sent]) expect(sent).toEqual([]);
+        });
+
+        it("tells the selection as the contract says, and the clear as {clear: true}", () => {
+          const { result, socket } = presenter();
+          act(() => result.current.sendStageSelection(material as never));
+          expect(socket().sent.at(-1)).toEqual({ type: "live:stage:selection", data: material });
+          act(() => vi.advanceTimersByTime(150));
+          act(() => result.current.sendStageSelection(terminal as never));
+          expect(socket().sent.at(-1)).toEqual({ type: "live:stage:selection", data: terminal });
+          act(() => vi.advanceTimersByTime(150));
+          act(() => result.current.sendStageSelection(null));
+          expect(socket().sent.at(-1)).toEqual({ type: "live:stage:selection", data: { clear: true } });
+        });
+
+        it("tells at most ten a second while the teacher drags, and the last one always arrives", () => {
+          const { result, socket } = presenter();
+          const at = (end: number) => ({ pane: "terminal", terminal: 1, start: 0, end });
+          act(() => result.current.sendStageSelection(at(1) as never));
+          for (let end = 2; end <= 9; end++) {
+            act(() => vi.advanceTimersByTime(10));
+            act(() => result.current.sendStageSelection(at(end) as never));
+          }
+          expect(selections(socket().sent)).toHaveLength(1);
+          act(() => vi.advanceTimersByTime(100));
+          expect(selections(socket().sent)).toEqual([at(1), at(9)]);
+        });
+
+        it("tells only what changed, and nothing to clear when there is nothing selected", () => {
+          const { result, socket } = presenter();
+          act(() => result.current.sendStageSelection(null));
+          act(() => result.current.sendStageSelection(material as never));
+          act(() => vi.advanceTimersByTime(200));
+          act(() => result.current.sendStageSelection({ ...material } as never));
+          act(() => vi.advanceTimersByTime(200));
+          expect(selections(socket().sent)).toEqual([material]);
+          act(() => result.current.sendStageSelection(null));
+          act(() => vi.advanceTimersByTime(200));
+          act(() => result.current.sendStageSelection(null));
+          act(() => vi.advanceTimersByTime(200));
+          expect(selections(socket().sent)).toEqual([material, { clear: true }]);
+        });
+
+        it("drops a selection that was waiting when the module changes, which the server clears, and counts it as told", () => {
+          const { result, socket } = presenter();
+          act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", moduleId: "m-1" } as never)));
+          act(() => result.current.sendStageSelection(material as never));
+          act(() => result.current.sendStageSelection(terminal as never));
+          act(() => result.current.switchMode("MODULE", "m-2"));
+          act(() => vi.advanceTimersByTime(300));
+          expect(selections(socket().sent)).toEqual([material]);
+          // The room has no selection now: telling that it is cleared is nothing new.
+          act(() => result.current.sendStageSelection(null));
+          act(() => vi.advanceTimersByTime(300));
+          expect(selections(socket().sent)).toEqual([material]);
+        });
+
+        it("does not show his own selection to himself: the teacher has the real one", () => {
+          const { result } = presenter();
+          act(() => result.current.sendStageSelection(material as never));
+          expect(result.current.stageView.selection).toBeNull();
+        });
+
+        it("leaves no timer behind when the window goes away", () => {
+          const { result, unmount } = presenter();
+          act(() => result.current.sendStageSelection(material as never));
+          act(() => result.current.sendStageSelection(terminal as never));
+          unmount();
+          expect(vi.getTimerCount()).toBe(0);
+        });
+      });
+    });
+
+    describe("sending the zoom and the horizontal place", () => {
+      function presenter() {
+        const h = setup("teacher", "presenter");
+        act(() => h.socket().handlers.onOpen());
+        return h;
+      }
+
+      it("sends the zoom as the contract says, and shows it on the teacher's own stage", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageZoom(1.25));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:zoom", data: { zoom: 1.25 } });
+        expect(result.current.stageView.zoom).toBe(1.25);
+      });
+
+      it("keeps the zoom it sends between 1 and 2", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageZoom(5));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:zoom", data: { zoom: 2 } });
+        act(() => result.current.sendStageZoom(Number.NaN));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:zoom", data: { zoom: 1 } });
+      });
+
+      it("lets only the presentation window change the zoom", () => {
+        const panel = setup("teacher", "panel");
+        const panelSocket = panel.socket();
+        act(() => panelSocket.handlers.onOpen());
+        act(() => panel.result.current.sendStageZoom(1.5));
+        const lost = presenter();
+        const lostSocket = lost.socket();
+        act(() => lostSocket.receive("live:control:revoked", {}));
+        act(() => lost.result.current.sendStageZoom(1.5));
+        expect(panelSocket.sent).toEqual([]);
+        expect(lostSocket.sent).toEqual([]);
+        expect(panel.result.current.stageView.zoom).toBe(1);
+      });
+
+      it("sends the horizontal place with the vertical one, and leaves it out when it is 0", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.5, 0.25));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "slide", y: 0.5, x: 0.25 } });
+        act(() => vi.advanceTimersByTime(150));
+        act(() => result.current.sendStageScroll("slide", 0.6, 0));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "slide", y: 0.6 } });
+        act(() => vi.advanceTimersByTime(150));
+        act(() => result.current.sendStageScroll("slide", 0.7));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "slide", y: 0.7 } });
+      });
+
+      it("tells a change of the horizontal place alone, at the same pace, and only when one of the two changed", () => {
+        const { result, socket } = presenter();
+        const scrolls = () => socket().sent.filter((m) => m.type === "live:stage:scroll");
+        act(() => result.current.sendStageScroll("slide", 0.5, 0.2));
+        act(() => result.current.sendStageScroll("slide", 0.5, 0.4));
+        act(() => result.current.sendStageScroll("slide", 0.5, 0.6));
+        expect(scrolls()).toHaveLength(1);
+        act(() => vi.advanceTimersByTime(100));
+        expect(scrolls().at(-1)!.data).toEqual({ pane: "slide", y: 0.5, x: 0.6 });
+        act(() => result.current.sendStageScroll("slide", 0.5, 0.6));
+        act(() => vi.advanceTimersByTime(300));
+        expect(scrolls()).toHaveLength(2);
+      });
+
+      it("takes the horizontal place of the material as none", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("material", 0.5, 0.9));
+        expect(socket().sent.at(-1)).toEqual({ type: "live:stage:scroll", data: { pane: "material", y: 0.5 } });
+      });
+
+      it("drops a position of the old slide, horizontal one included, when the slide changes", () => {
+        const { result, socket } = presenter();
+        act(() => result.current.sendStageScroll("slide", 0.5, 0.2));
+        act(() => result.current.sendStageScroll("slide", 0.7, 0.9));
+        act(() => result.current.changeSlide(2));
+        act(() => vi.advanceTimersByTime(300));
+        expect(socket().sent.filter((m) => m.type === "live:stage:scroll")).toHaveLength(1);
+        act(() => result.current.sendStageScroll("slide", 0, 0));
+        act(() => vi.advanceTimersByTime(300));
+        expect(socket().sent.filter((m) => m.type === "live:stage:scroll")).toHaveLength(1);
+      });
     });
 
     // The pointer is a percentage of the page on the slides and of the stage on the module, so it means nothing in the other mode

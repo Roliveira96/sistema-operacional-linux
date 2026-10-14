@@ -216,4 +216,109 @@ describe("TerminalMirror", () => {
     expect(style).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(style).not.toMatch(/\brgba?\(/);
   });
+
+  // SPEC-057 CA-20, CA-21: the text the teacher selected is marked on the copy, by offsets over the text of the picture, and the copy stays unselectable
+  describe("the selection of the teacher", () => {
+    const lines = (...texts: string[]) => el("div", { class: "janela" }, el("div", { class: "term-linhas" }, ...texts.map((text) => el("div", { class: "term-linha" }, text))));
+    const pick = (start: number, end: number, terminal = 1) => ({ pane: "terminal" as const, terminal, start, end });
+
+    function highlightApi() {
+      const registry = new Map<string, { ranges: Range[] }>();
+      vi.stubGlobal("CSS", { ...CSS, highlights: registry });
+      vi.stubGlobal(
+        "Highlight",
+        class {
+          ranges: Range[];
+          constructor(...ranges: Range[]) {
+            this.ranges = ranges;
+          }
+        },
+      );
+      return registry;
+    }
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("marks the characters between the offsets, across lines", () => {
+      const registry = highlightApi();
+      render(<TerminalMirror screen={lines("alfa", "beta")} selection={pick(2, 6)} />);
+      expect(registry.get("teacher-terminal")!.ranges.map((range) => range.toString())).toEqual(["fabe"]);
+    });
+
+    it("marks a stretch inside one line, and does not change what is drawn", () => {
+      const registry = highlightApi();
+      render(<TerminalMirror screen={lines("alfa", "beta")} selection={pick(5, 7)} />);
+      expect(registry.get("teacher-terminal")!.ranges[0]!.toString()).toBe("et");
+      expect(window_().textContent).toBe("alfabeta");
+    });
+
+    it("counts the text of a tag that is not allowed, which the copy keeps, and not the text it never draws", () => {
+      const registry = highlightApi();
+      const tree = el("div", { class: "janela" }, "ab", el("blink", null, "cd"), el("br", null, "XX"), "ef");
+      render(<TerminalMirror screen={tree} selection={pick(2, 4)} />);
+      expect(registry.get("teacher-terminal")!.ranges[0]!.toString()).toBe("cd");
+      // The text that is not drawn still counts, as it does for the teacher, so what is after it is where the teacher has it.
+      cleanup();
+      const other = highlightApi();
+      render(<TerminalMirror screen={tree} selection={pick(6, 8)} />);
+      expect(other.get("teacher-terminal")!.ranges[0]!.toString()).toBe("ef");
+    });
+
+    it("marks again, on the new text, at every new screen", () => {
+      const registry = highlightApi();
+      const view = render(<TerminalMirror screen={lines("alfa")} selection={pick(1, 3)} />);
+      const first = registry.get("teacher-terminal")!.ranges[0]!;
+      expect(first.toString()).toBe("lf");
+      view.rerender(<TerminalMirror screen={lines("zzzzz", "outra")} selection={pick(1, 3)} />);
+      const second = registry.get("teacher-terminal")!.ranges[0]!;
+      expect(second.toString()).toBe("zz");
+      expect(second).not.toBe(first);
+      expect(window_().contains(second.startContainer)).toBe(true);
+    });
+
+    it("follows the selection when the teacher changes it, and takes the mark away when he clears it or goes to the material", () => {
+      const registry = highlightApi();
+      const tree = lines("alfa", "beta");
+      const view = render(<TerminalMirror screen={tree} selection={pick(0, 2)} />);
+      expect(registry.get("teacher-terminal")!.ranges[0]!.toString()).toBe("al");
+      view.rerender(<TerminalMirror screen={tree} selection={pick(4, 8)} />);
+      expect(registry.get("teacher-terminal")!.ranges[0]!.toString()).toBe("beta");
+      view.rerender(<TerminalMirror screen={tree} selection={null} />);
+      expect(registry.has("teacher-terminal")).toBe(false);
+      view.rerender(<TerminalMirror screen={tree} selection={pick(0, 2)} />);
+      view.rerender(<TerminalMirror screen={tree} selection={{ pane: "material", start: { block: "b", offset: 0 }, end: { block: "b", offset: 3 } }} />);
+      expect(registry.has("teacher-terminal")).toBe(false);
+    });
+
+    it("takes the mark away when the copy goes away", () => {
+      const registry = highlightApi();
+      const view = render(<TerminalMirror screen={lines("alfa")} selection={pick(0, 2)} />);
+      view.unmount();
+      expect(registry.has("teacher-terminal")).toBe(false);
+    });
+
+    it("marks nothing when the offsets are outside the text, or when there is no screen yet", () => {
+      const registry = highlightApi();
+      const view = render(<TerminalMirror screen={lines("alfa")} selection={pick(50, 60)} />);
+      expect(registry.has("teacher-terminal")).toBe(false);
+      view.rerender(<TerminalMirror screen={null} selection={pick(0, 2)} />);
+      expect(registry.has("teacher-terminal")).toBe(false);
+    });
+
+    it("has marks that do not change the text when the browser has no highlight", () => {
+      vi.stubGlobal("CSS", { escape: CSS.escape });
+      const view = render(<TerminalMirror screen={lines("alfa", "beta")} selection={pick(2, 6)} />);
+      const marks = [...window_().querySelectorAll("mark[data-teacher-selection]")];
+      expect(marks.map((mark) => mark.textContent).join("")).toBe("fabe");
+      expect(window_().textContent).toBe("alfabeta");
+      view.rerender(<TerminalMirror screen={lines("alfa", "beta")} selection={null} />);
+      expect(window_().querySelector("mark")).toBeNull();
+      expect(window_().textContent).toBe("alfabeta");
+    });
+
+    it("keeps the copy inert and with no selection of its own", () => {
+      render(<TerminalMirror screen={lines("alfa")} selection={pick(0, 2)} />);
+      expect(window_().hasAttribute("inert")).toBe(true);
+      expect(style).toMatch(/user-select:\s*none/);
+    });
+  });
 });

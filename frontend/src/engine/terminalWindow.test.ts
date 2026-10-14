@@ -447,6 +447,89 @@ describe("picture of the screen for the live classroom (SPEC-056)", () => {
     expect(onScreen).toHaveBeenCalledTimes(count);
   });
 
+  // SPEC-057 CA-20, CA-21: what the teacher selects is told in characters over the text of the picture, so the window gives, with each picture, how
+  // to turn a point of its DOM into an offset in that text.
+  describe("the locator of the text of the picture", () => {
+    const locatorOf = (onScreen: ReturnType<typeof vi.fn>) => onScreen.mock.calls.at(-1)![1] as { offsetOf(node: Node, offset: number): number | null; terminalOf(node: Node): number | null };
+    const textNodeOf = (element: Element) => element.firstChild as Text;
+    const treeText = (tree: ScreenElement) => textOf(tree);
+
+    it("comes with every picture", async () => {
+      const { onScreen } = await mountScreen();
+      const locator = locatorOf(onScreen);
+      expect(typeof locator.offsetOf).toBe("function");
+      expect(typeof locator.terminalOf).toBe("function");
+    });
+
+    it("turns a point of a text node of the window into an offset in the text of the picture", async () => {
+      const { onScreen, last, line, lines } = await mountScreen();
+      line("alfa");
+      line("beta");
+      line("gama");
+      await vi.waitFor(() => expect(treeText(last())).toContain("gama"));
+      const text = treeText(last());
+      const locator = locatorOf(onScreen);
+      const beta = [...lines().querySelectorAll(".term-linha")].find((el) => el.textContent === "beta")!;
+      expect(locator.offsetOf(textNodeOf(beta), 0)).toBe(text.indexOf("beta"));
+      expect(locator.offsetOf(textNodeOf(beta), 3)).toBe(text.indexOf("beta") + 3);
+    });
+
+    it("counts the text of a tag that is out of the list, which the picture keeps", async () => {
+      const { onScreen, last, lines } = await mountScreen();
+      const div = document.createElement("div");
+      div.className = "term-linha";
+      div.innerHTML = "ab<a>cd</a>ef";
+      lines().appendChild(div);
+      await vi.waitFor(() => expect(treeText(last())).toContain("abcdef"));
+      const text = treeText(last());
+      const anchor = div.querySelector("a")!;
+      expect(locatorOf(onScreen).offsetOf(textNodeOf(anchor), 1)).toBe(text.indexOf("abcdef") + 3);
+    });
+
+    it("counts only what the picture kept, after the children cut from the start", async () => {
+      const { onScreen, last, line, lines } = await mountScreen();
+      for (let i = 0; i < 1000; i++) line(`linha-${i}`);
+      await vi.waitFor(() => expect(treeText(last())).toContain("linha-999"));
+      const text = treeText(last());
+      const locator = locatorOf(onScreen);
+      const all = [...lines().querySelectorAll(".term-linha")];
+      const kept = all.find((el) => el.textContent === "linha-700")!;
+      expect(locator.offsetOf(textNodeOf(kept), 2)).toBe(text.indexOf("linha-700") + 2);
+      // A line that was cut is before everything the picture has.
+      const first = text.indexOf("linha-600");
+      expect(locator.offsetOf(textNodeOf(all[10]!), 2)).toBeLessThanOrEqual(first);
+      expect(locator.offsetOf(textNodeOf(all.at(-1)!), 5)).toBe(text.indexOf("linha-999") + 5);
+    });
+
+    it("tells the number of the terminal a point is in", async () => {
+      const { container, onScreen, last } = await mountScreen();
+      const body = container.querySelector(".janela-corpo")!;
+      const second = document.createElement("div");
+      second.className = "term";
+      second.innerHTML = '<div class="term-tela"><div class="term-linhas"><div class="term-linha">segundo-terminal</div></div></div>';
+      body.appendChild(second);
+      await vi.waitFor(() => expect(treeText(last())).toContain("segundo-terminal"));
+      const locator = locatorOf(onScreen);
+      const firstLine = container.querySelector(".term .term-linha, .term .term-linhas")!;
+      expect(locator.terminalOf(firstLine)).toBe(1);
+      expect(locator.terminalOf(second.querySelector(".term-linha")!.firstChild!)).toBe(2);
+      expect(locator.terminalOf(document.body)).toBeNull();
+    });
+
+    it("is made again with each picture, so it follows the text that is on the window now", async () => {
+      const { onScreen, last, line, lines } = await mountScreen();
+      line("primeira");
+      await vi.waitFor(() => expect(treeText(last())).toContain("primeira"));
+      const before = locatorOf(onScreen);
+      line("segunda");
+      await vi.waitFor(() => expect(treeText(last())).toContain("segunda"));
+      const after = locatorOf(onScreen);
+      expect(after).not.toBe(before);
+      const second = [...lines().querySelectorAll(".term-linha")].find((el) => el.textContent === "segunda")!;
+      expect(after.offsetOf(textNodeOf(second), 0)).toBe(treeText(last()).indexOf("segunda"));
+    });
+  });
+
   // The copy by commands is gone: the window no longer tells what is typed, nor offers the calls that applied it to a copy.
   it("has no calls for the copy by commands any more", async () => {
     const { win } = await mountScreen();

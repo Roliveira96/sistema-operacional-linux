@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StageScale } from "../FixedStage/FixedStage";
+import { STAGE_HEIGHT, STAGE_WIDTH } from "../FixedStage/stage";
 import { SlidePresenter, type SlidePresenterProps } from "./SlidePresenter";
 import type { PdfLoader } from "./pdfRenderer";
 
@@ -226,13 +228,25 @@ describe("SlidePresenter", () => {
     });
   });
 
-  // SPEC-057 CA-01, CA-04 to CA-06, CA-10: the page is drawn in the stage of 1920 px; a taller page scrolls inside it, by the teacher only
-  describe("in the stage of 1920 x 1080", () => {
-    /** The sizes the browser would compute; jsdom has none. `content` is the height of the page, `view` the height of the stage. */
-    function layout(content: number, view = 1080) {
-      const sizes = { content, view };
-      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => sizes.content);
-      vi.spyOn(Element.prototype, "clientHeight", "get").mockImplementation(() => sizes.view);
+  // SPEC-057 CA-01, CA-04 to CA-06, CA-10: the page is drawn in the stage; a taller page scrolls inside it, by the teacher only
+  describe("in the fixed stage", () => {
+    const W = STAGE_WIDTH;
+    const H = STAGE_HEIGHT;
+    // A page twice as tall as the stage, as the browser would size it.
+    const TALL = 2 * H;
+
+    /**
+     * The sizes the browser would compute; jsdom has none. `contentH` and `contentW` are the size of the page, `viewH` the height of the stage and
+     * `areaW` its width; `gutter` is the width of the scroll bar, which the area does not have for its content.
+     */
+    function layout(over: { contentH?: number; contentW?: number; viewH?: number; areaW?: number; gutter?: number }) {
+      const sizes = { contentH: H, viewH: H, areaW: W, gutter: 0, contentW: over.contentW ?? over.areaW ?? W, ...over };
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => sizes.contentH);
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
+        return this.hasAttribute("data-sheet") ? sizes.contentW : sizes.areaW;
+      });
+      vi.spyOn(Element.prototype, "clientHeight", "get").mockImplementation(() => sizes.viewH);
+      vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(() => sizes.areaW - sizes.gutter);
       return sizes;
     }
     const areaEl = () => screen.getByRole("group", { name: "Palco da apresentação" });
@@ -245,25 +259,98 @@ describe("SlidePresenter", () => {
     function setupAt(scale: number) {
       const { loader, render: renderPage } = fakeLoader();
       const props: SlidePresenterProps = { deck, slide: 2, canControl: true, cursor: null, strokes: [], onSlide: vi.fn(), onCursor: vi.fn(), onDraw: vi.fn(), onClear: vi.fn(), onScroll: vi.fn(), loader };
-      render(
+      const view = render(
         <StageScale.Provider value={scale}>
           <SlidePresenter {...props} />
         </StageScale.Provider>,
       );
-      return { props, renderPage };
+      return { props, renderPage, view };
     }
 
     it("draws the page as wide as the stage, whatever the window is", async () => {
       const { renderPage } = setup();
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
-      expect(renderPage.mock.calls.at(-1)![2]).toBe(1920);
+      expect(STAGE_WIDTH).toBe(1280);
+      expect(renderPage.mock.calls.at(-1)![2]).toBe(1280);
     });
 
-    it("draws the page as wide as the room the stage gives it, a scroll bar included", async () => {
-      vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(1903);
+    it("draws the page as wide as the room the stage gives it, less the scroll bar", async () => {
+      layout({ contentH: H, gutter: 17 });
       const { renderPage } = setup();
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
-      expect(renderPage.mock.calls.at(-1)![2]).toBe(1903);
+      expect(renderPage.mock.calls.at(-1)![2]).toBe(W - 17);
+    });
+
+    // CA-17: with the zoom the stage is narrower than the page, which keeps the width of the base stage and rolls sideways
+    it("draws the page with the width of the base stage at any zoom, less the scroll bar, even when the stage is narrower", async () => {
+      layout({ contentH: H, areaW: W / 2, gutter: 17 });
+      const { renderPage } = setupAt(2);
+      await waitFor(() => expect(renderPage).toHaveBeenCalled());
+      expect(renderPage.mock.calls.at(-1)![2]).toBe(W - 17);
+    });
+
+    // The page must stay sharp when the stage is shown bigger than it is, on a big window or on the projector
+    describe("the sharpness of the page", () => {
+      const density = (renderPage: ReturnType<typeof fakeLoader>["render"]) => renderPage.mock.calls.at(-1)![3];
+
+      afterEach(() => {
+        vi.unstubAllGlobals();
+      });
+
+      it("draws the page with as many pixels as the screen shows it with: the scale of the stage times the pixels of the display", async () => {
+        vi.stubGlobal("devicePixelRatio", 2);
+        const { renderPage } = setupAt(0.5);
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect(density(renderPage)).toBe(1);
+      });
+
+      it("draws a page bigger than its width in pixels when the stage is enlarged, as on the projector", async () => {
+        vi.stubGlobal("devicePixelRatio", 1);
+        const { renderPage } = setupAt(1.5);
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect(density(renderPage)).toBe(1.5);
+      });
+
+      it("takes the display at 1 when the browser does not tell", async () => {
+        vi.stubGlobal("devicePixelRatio", undefined);
+        const { renderPage } = setupAt(1);
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect(density(renderPage)).toBe(1);
+      });
+
+      it("rounds the density up in steps of a quarter, so a small change of the window does not draw the page again", async () => {
+        vi.stubGlobal("devicePixelRatio", 1);
+        const { renderPage, view, props } = setupAt(1.1);
+        await waitFor(() => expect(renderPage).toHaveBeenCalledTimes(1));
+        expect(density(renderPage)).toBe(1.25);
+        view.rerender(
+          <StageScale.Provider value={1.2}>
+            <SlidePresenter {...props} />
+          </StageScale.Provider>,
+        );
+        await act(async () => undefined);
+        expect(renderPage).toHaveBeenCalledTimes(1);
+      });
+
+      it("draws the page again, sharper, when the window grows past a step", async () => {
+        vi.stubGlobal("devicePixelRatio", 1);
+        const { renderPage, view, props } = setupAt(1);
+        await waitFor(() => expect(renderPage).toHaveBeenCalledTimes(1));
+        view.rerender(
+          <StageScale.Provider value={2}>
+            <SlidePresenter {...props} />
+          </StageScale.Provider>,
+        );
+        await waitFor(() => expect(renderPage).toHaveBeenCalledTimes(2));
+        expect(density(renderPage)).toBe(2);
+      });
+
+      it("does not ask for more than three times the width, whatever the screen", async () => {
+        vi.stubGlobal("devicePixelRatio", 3);
+        const { renderPage } = setupAt(2);
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect(density(renderPage)).toBe(3);
+      });
     });
 
     it("keeps the page, the strokes and the pointer in one sheet, so they scroll together", async () => {
@@ -288,72 +375,72 @@ describe("SlidePresenter", () => {
     });
 
     it("tells the place of the teacher in the page as a fraction of what can be scrolled", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { props, renderPage } = setup();
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
-      areaEl().scrollTop = 540;
+      areaEl().scrollTop = H / 2;
       fireEvent.scroll(areaEl());
-      expect(props.onScroll).toHaveBeenLastCalledWith(0.5);
-      areaEl().scrollTop = 1080;
+      expect(props.onScroll).toHaveBeenLastCalledWith(0.5, 0);
+      areaEl().scrollTop = H;
       fireEvent.scroll(areaEl());
-      expect(props.onScroll).toHaveBeenLastCalledWith(1);
+      expect(props.onScroll).toHaveBeenLastCalledWith(1, 0);
     });
 
     it("tells 0 when the page fits in the stage", async () => {
-      layout(1080);
+      layout({ contentH: H });
       const { props, renderPage } = setup();
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
       fireEvent.scroll(areaEl());
-      expect(props.onScroll).toHaveBeenLastCalledWith(0);
+      expect(props.onScroll).toHaveBeenLastCalledWith(0, 0);
     });
 
     it("never tells a scroll from a student, nor from the window that is only watching", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { props, renderPage } = setup({ canControl: false });
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
-      areaEl().scrollTop = 540;
+      areaEl().scrollTop = H / 2;
       fireEvent.scroll(areaEl());
       fireEvent.wheel(areaEl(), { deltaY: 300 });
       expect(props.onScroll).not.toHaveBeenCalled();
     });
 
     it("shows the student the place the teacher is at, moving the sheet and not the student's own scroll", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { renderPage } = setup({ canControl: false, scroll: 0.5 });
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
-      expect(sheetEl().style.transform).toBe("translateY(-540px)");
+      expect(sheetEl().style.transform).toBe(`translate(0px, ${-H / 2}px)`);
       expect(areaEl().scrollTop).toBe(0);
     });
 
     it("follows the teacher as he scrolls, and goes back to the top", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { props, renderPage, rerender } = setup({ canControl: false, scroll: 0.25 });
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
-      expect(sheetEl().style.transform).toBe("translateY(-270px)");
+      expect(sheetEl().style.transform).toBe(`translate(0px, ${-H / 4}px)`);
       rerender(<SlidePresenter {...props} canControl={false} scroll={1} />);
-      expect(sheetEl().style.transform).toBe("translateY(-1080px)");
+      expect(sheetEl().style.transform).toBe(`translate(0px, ${-H}px)`);
       rerender(<SlidePresenter {...props} canControl={false} scroll={0} />);
-      expect(sheetEl().style.transform).toBe("translateY(0px)");
+      expect(sheetEl().style.transform).toBe("translate(0px, 0px)");
     });
 
     it("places the scroll again when the page is drawn, because only then it is as tall as it is", async () => {
-      const sizes = layout(1080);
+      const sizes = layout({ contentH: H });
       const { renderPage } = setup({ canControl: false, scroll: 0.5 });
-      sizes.content = 2160;
+      sizes.contentH = TALL;
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
-      await waitFor(() => expect(sheetEl().style.transform).toBe("translateY(-540px)"));
+      await waitFor(() => expect(sheetEl().style.transform).toBe(`translate(0px, ${-H / 2}px)`));
     });
 
     it("puts the teacher back where the room says, when he comes in or connects again", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { renderPage } = setup({ scroll: 0.5 });
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
-      expect(areaEl().scrollTop).toBe(540);
+      expect(areaEl().scrollTop).toBe(H / 2);
     });
 
     // CA-05
     it("goes back to the top when the slide changes, for the teacher and for the student", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const teacher = setup({ slide: 2, scroll: 0 });
       await waitFor(() => expect(teacher.renderPage).toHaveBeenCalled());
       areaEl().scrollTop = 700;
@@ -363,71 +450,195 @@ describe("SlidePresenter", () => {
 
       const student = setup({ canControl: false, slide: 2, scroll: 0.5 });
       await waitFor(() => expect(student.renderPage).toHaveBeenCalled());
-      expect(sheetEl().style.transform).toBe("translateY(-540px)");
+      expect(sheetEl().style.transform).toBe(`translate(0px, ${-H / 2}px)`);
       student.rerender(<SlidePresenter {...student.props} canControl={false} slide={3} scroll={0} />);
-      expect(sheetEl().style.transform).toBe("translateY(0px)");
+      expect(sheetEl().style.transform).toBe("translate(0px, 0px)");
     });
 
     // CA-06: the pointer and the strokes are percentages of the whole page, with the scroll and the scale taken into account
     it("sends the pointer as a percentage of the whole page, counting what is scrolled", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { props, renderPage } = setup();
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
       await act(async () => undefined);
-      rectOf(areaEl(), { left: 0, top: 0, width: 1920, height: 1080 });
-      rectOf(sheetEl(), { left: 0, top: -540, width: 1920, height: 2160 });
-      areaEl().scrollTop = 540;
-      fireEvent.mouseMove(areaEl(), { clientX: 960, clientY: 540 });
-      // Half way across, and 540 + 540 = 1080 of the 2160 of the page.
+      rectOf(areaEl(), { left: 0, top: 0, width: W, height: H });
+      rectOf(sheetEl(), { left: 0, top: -H / 2, width: W, height: TALL });
+      areaEl().scrollTop = H / 2;
+      fireEvent.mouseMove(areaEl(), { clientX: W / 2, clientY: H / 2 });
+      // Half way across, and H/2 + H/2 = H of the 2H of the page.
       expect(props.onCursor).toHaveBeenLastCalledWith(50, 50, false, true);
     });
 
     it("sends the same percentage from a window that shows the stage smaller", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { props, renderPage } = setupAt(0.5);
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
       await act(async () => undefined);
-      rectOf(areaEl(), { left: 100, top: 50, width: 960, height: 540 });
-      rectOf(sheetEl(), { left: 100, top: -220, width: 960, height: 1080 });
-      areaEl().scrollTop = 540;
-      fireEvent.mouseMove(areaEl(), { clientX: 580, clientY: 320 });
+      rectOf(areaEl(), { left: 100, top: 50, width: W / 2, height: H / 2 });
+      rectOf(sheetEl(), { left: 100, top: 50 - H / 4, width: W / 2, height: H });
+      areaEl().scrollTop = H / 2;
+      fireEvent.mouseMove(areaEl(), { clientX: 100 + W / 4, clientY: 50 + H / 4 });
       expect(props.onCursor).toHaveBeenLastCalledWith(50, 50, false, true);
     });
 
+    it("sends the same percentage from a window that shows the stage bigger", async () => {
+      layout({ contentH: TALL });
+      const { props, renderPage } = setupAt(1.5);
+      await waitFor(() => expect(renderPage).toHaveBeenCalled());
+      await act(async () => undefined);
+      rectOf(areaEl(), { left: 0, top: 0, width: W * 1.5, height: H * 1.5 });
+      rectOf(sheetEl(), { left: 0, top: 0, width: W * 1.5, height: TALL * 1.5 });
+      fireEvent.mouseMove(areaEl(), { clientX: W * 0.75, clientY: H * 0.75 });
+      expect(props.onCursor).toHaveBeenLastCalledWith(50, 25, false, true);
+    });
+
+    // CA-17: the two ways of rolling
+    describe("rolling both ways with the zoom", () => {
+      const WIDE = 2 * W;
+
+      it("lets the teacher roll the page sideways too, which is as wide as the base stage while the stage is narrower", async () => {
+        layout({ contentH: TALL, contentW: WIDE, areaW: W });
+        const { props, renderPage } = setup();
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect(areaEl().classList.contains("follower")).toBe(false);
+        areaEl().scrollTop = H / 2;
+        areaEl().scrollLeft = W / 2;
+        fireEvent.scroll(areaEl());
+        expect(props.onScroll).toHaveBeenLastCalledWith(0.5, 0.5);
+        areaEl().scrollLeft = W;
+        fireEvent.scroll(areaEl());
+        expect(props.onScroll).toHaveBeenLastCalledWith(0.5, 1);
+      });
+
+      it("tells 0 sideways when the page is not wider than the stage", async () => {
+        layout({ contentH: TALL });
+        const { props, renderPage } = setup();
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        areaEl().scrollTop = H / 2;
+        fireEvent.scroll(areaEl());
+        expect(props.onScroll).toHaveBeenLastCalledWith(0.5, 0);
+      });
+
+      it("shows the student the horizontal place of the teacher with the vertical one, moving the sheet in both directions", async () => {
+        layout({ contentH: TALL, contentW: WIDE, areaW: W });
+        const { renderPage } = setup({ canControl: false, scroll: 0.5, scrollX: 0.25 });
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect(sheetEl().style.transform).toBe(`translate(${-W / 4}px, ${-H / 2}px)`);
+        expect([areaEl().scrollTop, areaEl().scrollLeft]).toEqual([0, 0]);
+      });
+
+      it("follows the horizontal place as the teacher rolls, and goes back to the left with the top", async () => {
+        layout({ contentH: TALL, contentW: WIDE, areaW: W });
+        const { props, renderPage, rerender } = setup({ canControl: false, scroll: 0.5, scrollX: 0.25 });
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        rerender(<SlidePresenter {...props} canControl={false} scroll={0.5} scrollX={1} />);
+        expect(sheetEl().style.transform).toBe(`translate(${-W}px, ${-H / 2}px)`);
+        rerender(<SlidePresenter {...props} canControl={false} slide={3} scroll={0} scrollX={0} />);
+        expect(sheetEl().style.transform).toBe("translate(0px, 0px)");
+      });
+
+      it("puts the teacher back at the horizontal place the room says, when he connects again", async () => {
+        layout({ contentH: TALL, contentW: WIDE, areaW: W });
+        const { renderPage } = setup({ scroll: 0.5, scrollX: 0.5 });
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect([areaEl().scrollTop, areaEl().scrollLeft]).toEqual([H / 2, W / 2]);
+      });
+
+      it("lets the area of the teacher roll both ways and keeps nothing for the student to roll", () => {
+        const file = "./SlidePresenter.module.scss";
+        const css = readFileSync(new URL(file, import.meta.url), "utf8");
+        expect(css).toMatch(/\.area\s*\{[^}]*overflow:\s*auto/);
+        expect(css).toMatch(/&\.follower\s*\{[^}]*overflow:\s*hidden/);
+      });
+
+      // CA-06: the pointer is still a point of the page, with the zoom, the two rolls and the scale
+      it("sends the pointer as a percentage of the whole page with the zoom, the two rolls and the scale of the window", async () => {
+        layout({ contentH: TALL, contentW: W, areaW: W / 2 });
+        const { props, renderPage } = setupAt(2);
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        await act(async () => undefined);
+        // The stage is W/2 x H/2 in logical pixels and the window shows it twice as big: the area is W x H on the screen and the page 2W x 4H.
+        rectOf(areaEl(), { left: 0, top: 0, width: W, height: H });
+        rectOf(sheetEl(), { left: -W / 2, top: -H / 2, width: 2 * W, height: 4 * H });
+        areaEl().scrollLeft = W / 4;
+        areaEl().scrollTop = H / 4;
+        fireEvent.mouseMove(areaEl(), { clientX: W / 2, clientY: H / 2 });
+        // Half way across the page of width W, and H/2 of the 2H of it.
+        expect(props.onCursor).toHaveBeenLastCalledWith(50, 25, false, true);
+      });
+    });
+
+    // CA-19: the teacher sees his own mouse, and not the point that stands for it; the laser and the strokes are for both
+    describe("the pointer drawn for the teacher", () => {
+      it("is not drawn on the screen of the teacher: only his mouse is there", async () => {
+        const { renderPage, container } = setup({ canControl: true, cursor: { x: 30, y: 40, laser: false, visible: true } });
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect(container.querySelector("[data-pointer]")).toBeNull();
+        expect(container.querySelector("[data-laser]")).toBeNull();
+      });
+
+      it("is drawn on the screen of the student", async () => {
+        const { renderPage, container } = setup({ canControl: false, cursor: { x: 30, y: 40, laser: false, visible: true } });
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect(container.querySelector("[data-pointer]")).not.toBeNull();
+      });
+
+      it("shows the laser to the teacher as well, to tell him it is on", async () => {
+        const { renderPage, container } = setup({ canControl: true, cursor: { x: 30, y: 40, laser: true, visible: true } });
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        const laser = container.querySelector("[data-laser]") as HTMLElement;
+        expect([laser.style.left, laser.style.top]).toEqual(["30%", "40%"]);
+      });
+
+      it("shows the strokes of the pen to the teacher too", async () => {
+        const { renderPage, container } = setup({ canControl: true, strokes: [{ path: [[1, 1], [2, 2]] }] });
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        expect(container.querySelectorAll("polyline")).toHaveLength(1);
+      });
+
+      it("keeps the student's pointer shown when it was the teacher who moved it away and back", async () => {
+        const { renderPage, container, rerender, props } = setup({ canControl: false, cursor: { x: 1, y: 2, laser: false, visible: true } });
+        await waitFor(() => expect(renderPage).toHaveBeenCalled());
+        rerender(<SlidePresenter {...props} canControl={false} cursor={{ x: 1, y: 2, laser: false, visible: false }} />);
+        expect(container.querySelector("[data-pointer]")).toBeNull();
+        rerender(<SlidePresenter {...props} canControl={false} cursor={{ x: 5, y: 6, laser: false, visible: true }} />);
+        expect(container.querySelector("[data-pointer]")).not.toBeNull();
+      });
+    });
+
     it("draws with the pen in percentages of the whole page, counting what is scrolled", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { props, renderPage } = setup({ pen: true, bare: true });
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
       await act(async () => undefined);
-      rectOf(areaEl(), { left: 0, top: 0, width: 1920, height: 1080 });
-      rectOf(sheetEl(), { left: 0, top: -540, width: 1920, height: 2160 });
-      areaEl().scrollTop = 540;
-      fireEvent.mouseDown(areaEl(), { clientX: 192, clientY: 0 });
-      fireEvent.mouseUp(areaEl(), { clientX: 1920, clientY: 1080 });
+      rectOf(areaEl(), { left: 0, top: 0, width: W, height: H });
+      rectOf(sheetEl(), { left: 0, top: -H / 2, width: W, height: TALL });
+      areaEl().scrollTop = H / 2;
+      fireEvent.mouseDown(areaEl(), { clientX: W / 10, clientY: 0 });
+      fireEvent.mouseUp(areaEl(), { clientX: W, clientY: H });
       const path = vi.mocked(props.onDraw).mock.calls.flatMap((call) => call[0]);
       expect(path[0]).toEqual([10, 25]);
       expect(path.at(-1)).toEqual([100, 75]);
     });
 
     it("puts the pointer where the page is under the mouse when the page moves and the mouse does not", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { props, renderPage } = setup();
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
-      await act(async () => undefined);
-      rectOf(areaEl(), { left: 0, top: 0, width: 1920, height: 1080 });
-      rectOf(sheetEl(), { left: 0, top: 0, width: 1920, height: 2160 });
+      rectOf(areaEl(), { left: 0, top: 0, width: W, height: H });
+      rectOf(sheetEl(), { left: 0, top: 0, width: W, height: TALL });
       vi.useFakeTimers();
-      fireEvent.mouseMove(areaEl(), { clientX: 960, clientY: 540 });
+      fireEvent.mouseMove(areaEl(), { clientX: W / 2, clientY: H / 2 });
       expect(props.onCursor).toHaveBeenLastCalledWith(50, 25, false, true);
       act(() => vi.advanceTimersByTime(50));
-      areaEl().scrollTop = 540;
+      areaEl().scrollTop = H / 2;
       fireEvent.scroll(areaEl());
       act(() => vi.advanceTimersByTime(50));
       expect(props.onCursor).toHaveBeenLastCalledWith(50, 50, false, true);
     });
 
     it("does not make a pointer out of a scroll when the mouse is not over the stage", async () => {
-      layout(2160);
+      layout({ contentH: TALL });
       const { props, renderPage } = setup();
       await waitFor(() => expect(renderPage).toHaveBeenCalled());
       fireEvent.mouseMove(areaEl(), { clientX: 10, clientY: 10 });

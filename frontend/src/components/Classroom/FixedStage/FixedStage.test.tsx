@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FixedStage, StagePointer, StageScale, useStageScale } from "./FixedStage";
+import { FixedStage, StagePointer, StageScale, StageZoom, useStageScale, useStageZoom } from "./FixedStage";
+import { STAGE_HEIGHT as H, STAGE_WIDTH as W } from "./stage";
 
 // The path goes through a variable on purpose: Vite rewrites `new URL("./literal", import.meta.url)` as an asset address.
 const styleOf = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -44,16 +45,20 @@ function Scale() {
   return <output data-testid="scale">{useStageScale()}</output>;
 }
 
-// SPEC-057 CA-01: the same 1920 x 1080 stage for everybody, fit to the window of each one
+function Zoom() {
+  return <output data-testid="zoom">{useStageZoom()}</output>;
+}
+
+// SPEC-057 CA-01: the same 1280 x 720 stage for everybody, fit to the window of each one
 describe("FixedStage", () => {
-  it("draws what is inside in a box of 1920 x 1080 logical pixels", () => {
+  it("draws what is inside in a box of 1280 x 720 logical pixels", () => {
     render(
       <FixedStage>
         <p>lâmina</p>
       </FixedStage>,
     );
-    expect(box().style.width).toBe("1920px");
-    expect(box().style.height).toBe("1080px");
+    expect(box().style.width).toBe("1280px");
+    expect(box().style.height).toBe("720px");
     expect(box().contains(screen.getByText("lâmina"))).toBe(true);
   });
 
@@ -61,14 +66,14 @@ describe("FixedStage", () => {
     render(<FixedStage>x</FixedStage>);
     expect(FakeObserver.all).toHaveLength(1);
     expect(FakeObserver.all[0]!.watched).toEqual([area()]);
-    resize(960, 1080);
+    resize(W / 2, H);
     expect(box().style.transform).toBe("scale(0.5)");
     expect(css).toMatch(/transform-origin:\s*top left/);
   });
 
   it("takes the height as the limit when the room is short and wide", () => {
     render(<FixedStage>x</FixedStage>);
-    resize(3000, 540);
+    resize(W * 3, H / 2);
     expect(box().style.transform).toBe("scale(0.5)");
   });
 
@@ -76,8 +81,8 @@ describe("FixedStage", () => {
     render(<FixedStage>x</FixedStage>);
     resize(1000, 1000);
     const frame = box().parentElement!;
-    expect(frame.style.width).toBe(`${1920 * (1000 / 1920)}px`);
-    expect(frame.style.height).toBe(`${1080 * (1000 / 1920)}px`);
+    expect(frame.style.width).toBe(`${W * (1000 / W)}px`);
+    expect(frame.style.height).toBe(`${H * (1000 / W)}px`);
     expect(area().contains(frame)).toBe(true);
     expect(css).toMatch(/align-items:\s*center/);
     expect(css).toMatch(/justify-content:\s*center/);
@@ -100,11 +105,11 @@ describe("FixedStage", () => {
     const field = screen.getByLabelText("campo") as HTMLInputElement;
     fireEvent.change(field, { target: { value: "digitado" } });
     const before = box().style.transform;
-    resize(1920, 1080);
+    resize(W, H);
     expect(box().style.transform).toBe("scale(1)");
     expect(box().style.transform).not.toBe(before);
-    resize(2560, 1440);
-    expect(box().style.transform).toBe(`scale(${2560 / 1920})`);
+    resize(1920, 1080);
+    expect(box().style.transform).toBe(`scale(${1920 / W})`);
     // The same elements stayed: nothing was mounted again.
     expect(screen.getByLabelText("campo")).toBe(field);
     expect(field.value).toBe("digitado");
@@ -140,7 +145,7 @@ describe("FixedStage", () => {
       </FixedStage>,
     );
     expect(screen.getByTestId("scale").textContent).toBe("1");
-    resize(960, 540);
+    resize(W / 2, H / 2);
     expect(screen.getByTestId("scale").textContent).toBe("0.5");
   });
 
@@ -159,6 +164,89 @@ describe("FixedStage", () => {
   it("does not read the size of the window in its style", () => {
     expect(css).not.toMatch(/\d(vh|vw|dvh|dvw)\b/);
     expect(css).not.toMatch(/@media/);
+  });
+});
+
+// SPEC-057 CA-15, CA-16, CA-18: the zoom of the teacher shrinks the stage in logical pixels, and the scale fits it to the window all the same
+describe("FixedStage with zoom", () => {
+  it("is as big as the base stage with no zoom", () => {
+    render(<FixedStage>x</FixedStage>);
+    resize(W, H);
+    expect([box().style.width, box().style.height, box().style.transform]).toEqual([`${W}px`, `${H}px`, "scale(1)"]);
+  });
+
+  it("draws the stage smaller in logical pixels, by the zoom, and scales it up to fill the window", () => {
+    render(<FixedStage zoom={2}>x</FixedStage>);
+    resize(W, H);
+    expect([box().style.width, box().style.height, box().style.transform]).toEqual([`${W / 2}px`, `${H / 2}px`, "scale(2)"]);
+    expect(box().parentElement!.style.width).toBe(`${W}px`);
+    expect(box().parentElement!.style.height).toBe(`${H}px`);
+  });
+
+  it("takes the smaller of the two ratios of the smaller stage, so nothing is cut", () => {
+    render(<FixedStage zoom={1.25}>x</FixedStage>);
+    resize(1000, 1000);
+    const scale = Math.min(1000 / (W / 1.25), 1000 / (H / 1.25));
+    expect(box().style.transform).toBe(`scale(${scale})`);
+    expect(box().style.width).toBe(`${W / 1.25}px`);
+  });
+
+  it("changes the zoom without loading the class again, and the scale is worked out again", () => {
+    const view = render(
+      <FixedStage zoom={1}>
+        <input aria-label="campo" />
+      </FixedStage>,
+    );
+    resize(W, H);
+    const field = screen.getByLabelText("campo") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "digitado" } });
+    view.rerender(
+      <FixedStage zoom={1.5}>
+        <input aria-label="campo" />
+      </FixedStage>,
+    );
+    expect(box().style.transform).toBe("scale(1.5)");
+    expect(screen.getByLabelText("campo")).toBe(field);
+    expect(field.value).toBe("digitado");
+  });
+
+  it("tells the zoom to what is drawn inside, and 1 to what is outside of any stage", () => {
+    const view = render(
+      <FixedStage zoom={1.75}>
+        <Zoom />
+      </FixedStage>,
+    );
+    expect(screen.getByTestId("zoom").textContent).toBe("1.75");
+    view.unmount();
+    render(<Zoom />);
+    expect(screen.getByTestId("zoom").textContent).toBe("1");
+    cleanup();
+    render(
+      <StageZoom.Provider value={2}>
+        <Zoom />
+      </StageZoom.Provider>,
+    );
+    expect(screen.getByTestId("zoom").textContent).toBe("2");
+  });
+
+  it("takes a zoom that makes no sense as 100%", () => {
+    render(<FixedStage zoom={Number.NaN}>x</FixedStage>);
+    resize(W, H);
+    expect(box().style.width).toBe(`${W}px`);
+  });
+});
+
+// The marks of the text the teacher selected (SPEC-057 CA-20, CA-21) are painted with the highlight of the browser, with a token for the color
+describe("the highlight of the selection of the teacher", () => {
+  it("is styled for the material and for the terminal with tokens, and with no color written in the style", () => {
+    expect(css).toMatch(/::highlight\(teacher-material\)/);
+    expect(css).toMatch(/::highlight\(teacher-terminal\)/);
+    expect(css).toMatch(/::highlight\([^)]*\)[^{]*\{[^}]*background-color:\s*var\(--color-/);
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+  });
+
+  it("styles the fallback mark, so the text keeps its place when the browser has no highlight", () => {
+    expect(css).toMatch(/mark\[data-teacher-selection\]|\.mark/);
   });
 });
 

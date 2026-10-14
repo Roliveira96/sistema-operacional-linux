@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
@@ -10,7 +11,7 @@ vi.mock("@/components/Classroom/MirroredModuleView/MirroredModuleView", async ()
   return {
     MirroredModuleView: (p: { role: string; initialState?: unknown; onScreen?: () => void }) => {
       mirrored(p);
-      return React.createElement("div", { "data-testid": "terminal", "data-role": p.role });
+      return React.createElement("div", { "data-testid": "terminal", "data-role": p.role }, React.createElement("span", { "data-testid": "terminal-text" }, "linha do terminal"));
     },
   };
 });
@@ -356,27 +357,27 @@ describe("TopicStudy in the live-class mode", () => {
     it("shows the student the place of the teacher, moving the material and not the student's own scroll", () => {
       layout();
       study({ role: "student", materialScroll: 0.5 });
-      expect(contentEl().style.transform).toBe("translateY(-900px)");
+      expect(contentEl().style.transform).toBe("translate(0px, -900px)");
       expect(panelEl().scrollTop).toBe(0);
     });
 
     it("follows the teacher as the room changes the scroll, and goes back to the top", () => {
       layout();
       const { view, full } = study({ role: "student", materialScroll: 0.25 });
-      expect(contentEl().style.transform).toBe("translateY(-450px)");
+      expect(contentEl().style.transform).toBe("translate(0px, -450px)");
       view.rerender(<TopicStudy moduleId="m-1" backHref="" live={{ ...full, materialScroll: 1 }} />);
-      expect(contentEl().style.transform).toBe("translateY(-1800px)");
+      expect(contentEl().style.transform).toBe("translate(0px, -1800px)");
       view.rerender(<TopicStudy moduleId="m-1" backHref="" live={{ ...full, materialScroll: 0 }} />);
-      expect(contentEl().style.transform).toBe("translateY(0px)");
+      expect(contentEl().style.transform).toBe("translate(0px, 0px)");
     });
 
     it("places the place of the teacher again when the divider moves, because the text breaks in other lines", () => {
       const sizes = layout();
       const { view, full } = study({ role: "student", materialScroll: 0.5, split: 0.4 });
-      expect(contentEl().style.transform).toBe("translateY(-900px)");
+      expect(contentEl().style.transform).toBe("translate(0px, -900px)");
       sizes.content = 3000;
       view.rerender(<TopicStudy moduleId="m-1" backHref="" live={{ ...full, materialScroll: 0.5, split: 0.6 }} />);
-      expect(contentEl().style.transform).toBe("translateY(-1200px)");
+      expect(contentEl().style.transform).toBe("translate(0px, -1200px)");
     });
 
     it("puts the teacher back where the room says, when he comes in or connects again", () => {
@@ -415,5 +416,201 @@ describe("TopicStudy in the live-class mode", () => {
       expect(onMaterialScroll).toHaveBeenCalled();
     });
   });
-});
 
+  // SPEC-057 CA-16: the layout is drawn in the stage, so the rules that answer to the width of the window do not apply to it
+  describe("the layout in the stage", () => {
+    const file = "./TopicStudy.module.scss";
+    const css = readFileSync(new URL(file, import.meta.url), "utf8");
+
+    it("keeps the material and the terminal side by side, with the divider, whatever the window: the rules for narrow windows do not apply to the live screen", () => {
+      const live = css.slice(css.indexOf(".screen.live {"));
+      expect(live).toMatch(/\.split\s*\{[^}]*grid-template-columns:\s*var\(--split-columns/);
+      expect(live).toMatch(/\.divider\s*\{[^}]*display:\s*block/);
+      expect(live).toMatch(/overflow:\s*hidden/);
+    });
+
+    it("makes the material and the terminal the same for everybody: the live screen does not use the size of the window", () => {
+      const live = css.slice(css.indexOf(".screen.live {"), css.indexOf(".invite {"));
+      expect(live).not.toMatch(/\d(vh|vw|dvh|dvw)\b/);
+      expect(live).not.toMatch(/@media/);
+    });
+
+    it("has a divider the student cannot use, a material the student cannot select, and marks for the selection of the teacher", () => {
+      expect(css).toMatch(/\.fixedDivider\s*\{[^}]*pointer-events:\s*none/);
+      expect(css).toMatch(/user-select:\s*none/);
+    });
+  });
+
+  // SPEC-057 CA-20, CA-21: the stretch of text the teacher selects is told by block and characters, and the student marks it
+  describe("the selection of the teacher", () => {
+    const panelEl = () => screen.getByRole("main").querySelector("[data-live-panel]") as HTMLElement;
+    const block = (id: string) => panelEl().querySelector(`[data-block="${id}"]`) as HTMLElement;
+    const textIn = (id: string) => block(id).querySelector("p")!.firstChild as Text;
+    const select = (from: [Node, number], to: [Node, number]) => {
+      const range = document.createRange();
+      range.setStart(...from);
+      range.setEnd(...to);
+      const selection = document.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.dispatchEvent(new Event("selectionchange"));
+    };
+    const unselect = () => {
+      document.getSelection()!.removeAllRanges();
+      document.dispatchEvent(new Event("selectionchange"));
+    };
+    afterEach(() => {
+      document.getSelection()?.removeAllRanges();
+      vi.unstubAllGlobals();
+    });
+
+    function highlightApi() {
+      const registry = new Map<string, { ranges: Range[] }>();
+      vi.stubGlobal("CSS", { ...CSS, highlights: registry });
+      vi.stubGlobal("Highlight", class { ranges: Range[]; constructor(...ranges: Range[]) { this.ranges = ranges; } });
+      return registry;
+    }
+
+    describe("the one who selects: the teacher", () => {
+      it("tells the block and the characters of the text he selects in the material", () => {
+        const onSelection = vi.fn();
+        study({ role: "teacher", onSelection });
+        select([textIn("b-2"), 0], [textIn("b-2"), 6]);
+        expect(onSelection).toHaveBeenLastCalledWith({ pane: "material", start: { block: "b-2", offset: 0 }, end: { block: "b-2", offset: 6 } });
+      });
+
+      it("tells the first and the last block of a selection across blocks", () => {
+        const onSelection = vi.fn();
+        study({ role: "teacher", onSelection });
+        select([textIn("b-1"), 3], [textIn("b-3"), 4]);
+        expect(onSelection).toHaveBeenLastCalledWith({ pane: "material", start: { block: "b-1", offset: 3 }, end: { block: "b-3", offset: 4 } });
+      });
+
+      it("tells that there is no selection when he clears it, or when it is empty, or when it is outside of the material and of the terminal", () => {
+        const onSelection = vi.fn();
+        study({ role: "teacher", onSelection });
+        select([textIn("b-1"), 1], [textIn("b-1"), 4]);
+        expect(onSelection).toHaveBeenLastCalledWith(expect.objectContaining({ pane: "material" }));
+        unselect();
+        expect(onSelection).toHaveBeenLastCalledWith(null);
+        select([textIn("b-1"), 2], [textIn("b-1"), 2]);
+        expect(onSelection).toHaveBeenLastCalledWith(null);
+        const outside = document.createElement("p");
+        outside.textContent = "fora da tela de estudo";
+        document.body.append(outside);
+        select([outside.firstChild!, 0], [outside.firstChild!, 4]);
+        expect(onSelection).toHaveBeenLastCalledWith(null);
+        outside.remove();
+      });
+
+      it("tells the terminal, the characters and the number of the terminal, over the text of the last picture", () => {
+        const onSelection = vi.fn();
+        study({ role: "teacher", onSelection });
+        const locator = {
+          offsetOf: (node: Node, offset: number) => (node.textContent === "linha do terminal" ? 100 + offset : null),
+          terminalOf: () => 2,
+        };
+        act(() => (mirrored.mock.lastCall![0] as { onLocator(l: unknown): void }).onLocator(locator));
+        const text = screen.getByTestId("terminal-text").firstChild!;
+        select([text, 6], [text, 9]);
+        expect(onSelection).toHaveBeenLastCalledWith({ pane: "terminal", terminal: 2, start: 106, end: 109 });
+      });
+
+      it("tells nothing about a selection in the terminal while the picture has not come, which says where the text is", () => {
+        const onSelection = vi.fn();
+        study({ role: "teacher", onSelection });
+        const text = screen.getByTestId("terminal-text").firstChild!;
+        select([text, 6], [text, 9]);
+        expect(onSelection).toHaveBeenLastCalledWith(null);
+      });
+
+      it("uses the locator of the latest picture", () => {
+        const onSelection = vi.fn();
+        study({ role: "teacher", onSelection });
+        const make = (base: number) => ({ offsetOf: (_node: Node, offset: number) => base + offset, terminalOf: () => 1 });
+        const text = screen.getByTestId("terminal-text").firstChild!;
+        act(() => (mirrored.mock.lastCall![0] as { onLocator(l: unknown): void }).onLocator(make(0)));
+        act(() => (mirrored.mock.lastCall![0] as { onLocator(l: unknown): void }).onLocator(make(50)));
+        select([text, 1], [text, 4]);
+        expect(onSelection).toHaveBeenLastCalledWith({ pane: "terminal", terminal: 1, start: 51, end: 54 });
+      });
+
+      it("stops listening when the screen goes away", () => {
+        const onSelection = vi.fn();
+        const { view } = study({ role: "teacher", onSelection });
+        view.unmount();
+        onSelection.mockClear();
+        document.dispatchEvent(new Event("selectionchange"));
+        expect(onSelection).not.toHaveBeenCalled();
+      });
+
+      it("keeps working when nobody listens", () => {
+        study({ role: "teacher" });
+        expect(() => select([textIn("b-1"), 1], [textIn("b-1"), 4])).not.toThrow();
+      });
+    });
+
+    describe("the one who follows: the student", () => {
+      it("tells nothing when something is selected, and has no selection of his own to keep", () => {
+        const onSelection = vi.fn();
+        study({ role: "student", onSelection });
+        select([textIn("b-1"), 1], [textIn("b-1"), 4]);
+        expect(onSelection).not.toHaveBeenCalled();
+        expect(panelEl().classList.contains("follower")).toBe(true);
+      });
+
+      it("marks the stretch of the material that the teacher selected", () => {
+        const registry = highlightApi();
+        study({ role: "student", selection: { pane: "material", start: { block: "b-1", offset: 0 }, end: { block: "b-2", offset: 6 } } });
+        expect(registry.get("teacher-material")!.ranges.map((range) => range.toString())).toEqual(["Primeiro blocoSegund"]);
+      });
+
+      it("follows the selection when the teacher changes it, and takes the mark away when he clears it", () => {
+        const registry = highlightApi();
+        const { view, full } = study({ role: "student", selection: { pane: "material", start: { block: "b-2", offset: 0 }, end: { block: "b-2", offset: 6 } } });
+        expect(registry.get("teacher-material")!.ranges[0]!.toString()).toBe("Segund");
+        view.rerender(<TopicStudy moduleId="m-1" backHref="" live={{ ...full, selection: { pane: "material", start: { block: "b-3", offset: 0 }, end: { block: "b-3", offset: 7 } } }} />);
+        expect(registry.get("teacher-material")!.ranges[0]!.toString()).toBe("Terceiro");
+        view.rerender(<TopicStudy moduleId="m-1" backHref="" live={{ ...full, selection: null }} />);
+        expect(registry.has("teacher-material")).toBe(false);
+      });
+
+      it("does not mark the material for a selection of the terminal, which goes to the copy of the terminal", () => {
+        const registry = highlightApi();
+        study({ role: "student", selection: { pane: "terminal", terminal: 1, start: 0, end: 4 } });
+        expect(registry.has("teacher-material")).toBe(false);
+        expect(mirrored.mock.lastCall![0].selection).toEqual({ pane: "terminal", terminal: 1, start: 0, end: 4 });
+      });
+
+      it("marks nothing for a block that is not on the screen", () => {
+        const registry = highlightApi();
+        study({ role: "student", selection: { pane: "material", start: { block: "b-9", offset: 0 }, end: { block: "b-9", offset: 4 } } });
+        expect(registry.has("teacher-material")).toBe(false);
+      });
+
+      it("takes the mark away when the screen goes away", () => {
+        const registry = highlightApi();
+        const { view } = study({ role: "student", selection: { pane: "material", start: { block: "b-1", offset: 0 }, end: { block: "b-1", offset: 4 } } });
+        expect(registry.has("teacher-material")).toBe(true);
+        view.unmount();
+        expect(registry.has("teacher-material")).toBe(false);
+      });
+
+      it("marks it with marks that do not change the text when the browser has no highlight", () => {
+        vi.stubGlobal("CSS", { escape: CSS.escape });
+        const { view, full } = study({ role: "student", selection: { pane: "material", start: { block: "b-2", offset: 0 }, end: { block: "b-2", offset: 6 } } });
+        const text = panelEl().textContent;
+        expect([...panelEl().querySelectorAll("mark[data-teacher-selection]")].map((mark) => mark.textContent).join("")).toBe("Segund");
+        expect(panelEl().textContent).toBe(text);
+        view.rerender(<TopicStudy moduleId="m-1" backHref="" live={{ ...full, selection: null }} />);
+        expect(panelEl().querySelector("mark")).toBeNull();
+      });
+
+      it("does not mark the material for the teacher: he has the real selection", () => {
+        const registry = highlightApi();
+        study({ role: "teacher", selection: { pane: "material", start: { block: "b-1", offset: 0 }, end: { block: "b-1", offset: 4 } } });
+        expect(registry.has("teacher-material")).toBe(false);
+      });
+    });
+  });
+});

@@ -19,18 +19,19 @@ vi.mock("../SlidePresenter/SlidePresenter", async () => {
     laser?: boolean;
     pen?: boolean;
     scroll?: number;
+    scrollX?: number;
     onSlide(n: number): void;
     onCursor(x: number, y: number, l: boolean): void;
     onDraw(p: Array<[number, number]>): void;
-    onScroll?(y: number): void;
+    onScroll?(y: number, x: number): void;
   };
   return {
     SlidePresenter: (p: P) => {
       slides(p);
       return React.createElement(
         "div",
-        { "data-testid": "slides", "data-slide": p.slide, "data-bare": String(p.bare), "data-laser": String(p.laser), "data-pen": String(p.pen), "data-scroll": String(p.scroll) },
-        React.createElement("button", { onClick: () => p.onScroll?.(0.5) }, "mock-scroll"),
+        { "data-testid": "slides", "data-slide": p.slide, "data-bare": String(p.bare), "data-laser": String(p.laser), "data-pen": String(p.pen), "data-scroll": String(p.scroll), "data-scroll-x": String(p.scrollX) },
+        React.createElement("button", { onClick: () => p.onScroll?.(0.5, 0.25) }, "mock-scroll"),
         React.createElement("button", { onClick: () => p.onCursor(1, 2, true) }, "mock-cursor"),
         React.createElement("button", { onClick: () => p.onDraw([[1, 1], [2, 2]]) }, "mock-draw"),
       );
@@ -44,6 +45,7 @@ vi.mock("../ModuleStage/ModuleStage", async () => {
     moduleFocusBlockId: string | null;
     laser?: boolean;
     stageView?: { materialScroll: number; split: number | null };
+    onSelection?: (selection: unknown) => void;
     onFocusBlock?: (id: string) => void;
     onScreen?: (tree: unknown) => void;
     onCursor?: (x: number, y: number, laser: boolean) => void;
@@ -64,6 +66,7 @@ vi.mock("../ModuleStage/ModuleStage", async () => {
         },
         React.createElement("button", { onClick: () => p.onMaterialScroll?.(0.3) }, "mock-material-scroll"),
         React.createElement("button", { onClick: () => p.onSplit?.(0.6) }, "mock-split"),
+        React.createElement("button", { onClick: () => p.onSelection?.({ pane: "terminal", terminal: 1, start: 0, end: 2 }) }, "mock-selection"),
         React.createElement("button", { onClick: () => p.onCursor?.(10, 20, false) }, "mock-module-cursor"),
         React.createElement("button", { onClick: () => p.onScreen?.({ tag: "div", attrs: { class: "janela" } }) }, "mock-screen"),
         React.createElement("button", { onClick: () => p.onFocusBlock?.("b-9") }, "mock-read"),
@@ -76,14 +79,14 @@ const deck = { id: "d", title: "t", pageCount: 5, downloadUrl: "https://x" };
 
 const actions = () => ({
   changeSlide: vi.fn(), moveCursor: vi.fn(), draw: vi.fn(), clearDrawings: vi.fn(), switchMode: vi.fn(), sendTerminalScreen: vi.fn(),
-  focusBlock: vi.fn(), setBlank: vi.fn(), sendStageScroll: vi.fn(), sendStageSplit: vi.fn(),
+  focusBlock: vi.fn(), setBlank: vi.fn(), sendStageScroll: vi.fn(), sendStageSplit: vi.fn(), sendStageZoom: vi.fn(), sendStageSelection: vi.fn(),
 });
 
 function live(over: Record<string, unknown> = {}, room: Record<string, unknown> = {}) {
   const value = {
     room: { mode: "SLIDES", slide: 2, moduleId: "m-1", moduleFocusBlockId: null, deck, strokes: [], cursor: null, online: 5, blank: false, ...room },
     terminal: { screen: null },
-    stageView: { slideScroll: 0, materialScroll: 0, split: null },
+    stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null },
     ready: true,
     ended: false,
     passive: false,
@@ -421,15 +424,16 @@ describe("PresenterStage", () => {
   // CA-04: the scroll of the slide goes to the class; CA-07: so do the scroll of the material and the divider of the module
   describe("the scroll and the divider", () => {
     it("gives the slides the scroll of the room, and tells the class the scroll of the teacher", () => {
-      const l = live({ stageView: { slideScroll: 0.4, materialScroll: 0, split: null } });
+      const l = live({ stageView: { slideScroll: 0.4, slideScrollX: 0.3, materialScroll: 0, split: null, zoom: 1, selection: null } });
       render(<PresenterStage classId="c-1" session={session} />);
       expect(screen.getByTestId("slides").getAttribute("data-scroll")).toBe("0.4");
+      expect(screen.getByTestId("slides").getAttribute("data-scroll-x")).toBe("0.3");
       fireEvent.click(screen.getByRole("button", { name: "mock-scroll" }));
-      expect(l.sendStageScroll).toHaveBeenCalledWith("slide", 0.5);
+      expect(l.sendStageScroll).toHaveBeenCalledWith("slide", 0.5, 0.25);
     });
 
     it("gives the module the scroll of the material and the divider of the room, and tells the class what the teacher does with them", () => {
-      const l = live({ stageView: { slideScroll: 0, materialScroll: 0.7, split: 0.6 } }, { mode: "MODULE" });
+      const l = live({ stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0.7, split: 0.6, zoom: 1, selection: null } }, { mode: "MODULE" });
       render(<PresenterStage classId="c-1" session={session} />);
       const module_ = screen.getByTestId("module");
       expect(module_.getAttribute("data-material-scroll")).toBe("0.7");
@@ -470,6 +474,152 @@ describe("PresenterStage", () => {
       key("p");
       key("c");
       expect(l.clearDrawings).not.toHaveBeenCalled();
+    });
+  });
+
+
+  // SPEC-057 CA-14: the stage takes the whole window, with no margin and no strip, and the toolbar only shows when the mouse moves
+  describe("the stage on the whole window", () => {
+    const styles = styleOf("./PresenterStage.module.scss");
+    const rule = (name: string) => styles.slice(styles.indexOf(`.${name} {`), styles.indexOf("}", styles.indexOf(`.${name} {`)));
+
+    it("is the window itself: fixed to all four sides, with nothing around the room of the stage", () => {
+      expect(rule("stage")).toMatch(/position:\s*fixed/);
+      expect(rule("stage")).toMatch(/inset:\s*0/);
+      expect(rule("content")).not.toMatch(/padding|margin|border/);
+    });
+
+    it("has the room of the stage as the only thing in the flow, and the toolbar, the notices and the tip over it, not beside it", () => {
+      live();
+      render(<PresenterStage classId="c-1" session={session} />);
+      const root = screen.getByTestId("presenter-stage");
+      const flow = [...root.children].filter((child) => !["toolbar", "note", "status", "alert"].includes(child.getAttribute("role") ?? ""));
+      expect(flow).toHaveLength(1);
+      expect(flow[0]!.contains(screen.getByTestId("fixed-stage"))).toBe(true);
+      expect(rule("toolbar")).toMatch(/position:\s*absolute/);
+      expect(rule("tip")).toMatch(/position:\s*absolute/);
+    });
+
+    it("shows the toolbar only when the mouse moves, and it goes away by itself", () => {
+      live();
+      render(<PresenterStage classId="c-1" session={session} />);
+      act(() => void vi.advanceTimersByTime(4000));
+      expect(screen.queryByRole("toolbar")).toBeNull();
+      fireEvent.mouseMove(screen.getByTestId("presenter-stage"));
+      expect(screen.getByRole("toolbar")).toBeDefined();
+    });
+  });
+
+  // SPEC-057 CA-15, CA-16: the zoom of the teacher
+  describe("the zoom", () => {
+    const zoomView = (zoom: number) => ({ slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom, selection: null });
+
+    it("draws the stage smaller by the zoom, in the same box the students have", () => {
+      live({ stageView: zoomView(2) });
+      render(<PresenterStage classId="c-1" session={session} />);
+      expect(screen.getByTestId("stage-box").style.width).toBe("640px");
+      expect(screen.getByTestId("stage-box").style.height).toBe("360px");
+    });
+
+    it("has Diminuir and Aumentar on the toolbar with the zoom as it is, for the slides and for the module", () => {
+      live({ stageView: zoomView(1.25) });
+      const view = render(<PresenterStage classId="c-1" session={session} />);
+      let bar = within(screen.getByRole("toolbar"));
+      expect(bar.getByRole("button", { name: "Diminuir" }).getAttribute("title")).toBe("Diminuir (-)");
+      expect(bar.getByRole("button", { name: "Aumentar" }).getAttribute("title")).toBe("Aumentar (+)");
+      expect(bar.getByRole("button", { name: "125%" })).toBeDefined();
+      live({ stageView: zoomView(1.75) }, { mode: "MODULE" });
+      view.rerender(<PresenterStage classId="c-1" session={session} />);
+      bar = within(screen.getByRole("toolbar"));
+      expect(bar.getByRole("button", { name: "175%" })).toBeDefined();
+    });
+
+    it("goes one level up and one level down with the buttons, and back to 100% with the value", () => {
+      const l = live({ stageView: zoomView(1.25) });
+      render(<PresenterStage classId="c-1" session={session} />);
+      const bar = within(screen.getByRole("toolbar"));
+      fireEvent.click(bar.getByRole("button", { name: "Aumentar" }));
+      expect(l.sendStageZoom).toHaveBeenLastCalledWith(1.5);
+      fireEvent.click(bar.getByRole("button", { name: "Diminuir" }));
+      expect(l.sendStageZoom).toHaveBeenLastCalledWith(1);
+      fireEvent.click(bar.getByRole("button", { name: "125%" }));
+      expect(l.sendStageZoom).toHaveBeenLastCalledWith(1);
+    });
+
+    it("cannot go below 100% nor above 200%: the button is off at each end", () => {
+      live({ stageView: zoomView(1) });
+      const view = render(<PresenterStage classId="c-1" session={session} />);
+      expect((screen.getByRole("button", { name: "Diminuir" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name: "Aumentar" }) as HTMLButtonElement).disabled).toBe(false);
+      live({ stageView: zoomView(2) });
+      view.rerender(<PresenterStage classId="c-1" session={session} />);
+      expect((screen.getByRole("button", { name: "Aumentar" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name: "Diminuir" }) as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it("zooms with + and -, and goes back to 100% with 0", () => {
+      const l = live({ stageView: zoomView(1.5) });
+      render(<PresenterStage classId="c-1" session={session} />);
+      key("+");
+      expect(l.sendStageZoom).toHaveBeenLastCalledWith(1.75);
+      key("-");
+      expect(l.sendStageZoom).toHaveBeenLastCalledWith(1.25);
+      key("0");
+      expect(l.sendStageZoom).toHaveBeenLastCalledWith(1);
+    });
+
+    it("zooms the same way on the module", () => {
+      const l = live({ stageView: zoomView(1) }, { mode: "MODULE" });
+      render(<PresenterStage classId="c-1" session={session} />);
+      key("+");
+      expect(l.sendStageZoom).toHaveBeenLastCalledWith(1.25);
+      fireEvent.click(within(screen.getByRole("toolbar")).getByRole("button", { name: "Aumentar" }));
+      expect(l.sendStageZoom).toHaveBeenLastCalledWith(1.25);
+    });
+
+    it("leaves the zoom keys to the terminal and to the fields, and to the browser with Ctrl, Alt or Meta", () => {
+      const l = live({ stageView: zoomView(1.25) }, { mode: "MODULE" });
+      render(<PresenterStage classId="c-1" session={session} />);
+      const term = document.createElement("div");
+      term.className = "term";
+      const input = document.createElement("input");
+      term.appendChild(input);
+      document.body.appendChild(term);
+      for (const k of ["+", "-", "0"]) fireEvent.keyDown(input, { key: k });
+      key("+", { ctrlKey: true });
+      key("-", { metaKey: true });
+      key("0", { altKey: true });
+      expect(l.sendStageZoom).not.toHaveBeenCalled();
+      term.remove();
+    });
+
+    it("has the zoom keys in the list of shortcuts, and in the tip of the first time", () => {
+      live();
+      render(<PresenterStage classId="c-1" session={session} />);
+      expect(screen.getByRole("note", { name: "Dica de atalhos" }).textContent).toMatch(/zoom/i);
+      key("?");
+      const items = within(screen.getByRole("dialog", { name: "Atalhos do teclado" }))
+        .getAllByRole("listitem")
+        .map((li) => li.textContent ?? "");
+      expect(items.some((text) => text.includes("+") && /zoom/i.test(text))).toBe(true);
+      expect(items.some((text) => text.startsWith("0") && text.includes("100%"))).toBe(true);
+    });
+
+    it("does not let a window that lost the control change the zoom", () => {
+      const l = live({ stageView: zoomView(1), passive: true, canControl: false });
+      render(<PresenterStage classId="c-1" session={session} />);
+      key("+");
+      expect(l.sendStageZoom).not.toHaveBeenCalled();
+    });
+  });
+
+  // CA-20: the selection of the teacher goes to the class
+  describe("the selection", () => {
+    it("tells the class the text the teacher selects on the module", () => {
+      const l = live({}, { mode: "MODULE" });
+      render(<PresenterStage classId="c-1" session={session} />);
+      fireEvent.click(screen.getByRole("button", { name: "mock-selection" }));
+      expect(l.sendStageSelection).toHaveBeenCalledWith({ pane: "terminal", terminal: 1, start: 0, end: 2 });
     });
   });
 
