@@ -16,6 +16,7 @@ import {
   type LiveSocketHandlers,
   type LiveStroke,
   type LiveView,
+  type MyHand,
   type StageSelection,
   type StageView,
 } from "@/services/classroomService";
@@ -45,7 +46,11 @@ interface State {
   terminal: LiveTerminal;
   /** Where the teacher is: the scroll of the slide and of the material and the divider (SPEC-057). */
   stageView: StageView;
+  /** The teacher asked the students to go full screen (SPEC-059). It is kept apart from the view, which is what the teacher has on his own screen. */
+  fullscreen: boolean;
   hands: HandRaiseItem[];
+  /** The student's own hand and doubt, as the room gave them and as he changed them since; null for the teacher and until the room says (SPEC-058). */
+  myHand: MyHand | null;
   /** Where the student stands; null until the server says (SPEC-054 CA-01). */
   admission: AdmissionState | null;
   admissions: LiveAdmissions;
@@ -62,7 +67,9 @@ const initial: State = {
   room: { mode: "SLIDES", slide: 1, moduleId: null, moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: null, online: 0 },
   terminal: { screen: null },
   stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: {} },
+  fullscreen: false,
   hands: [],
+  myHand: null,
   admission: null,
   admissions: { waiting: [], admitted: [] },
   startedAt: null,
@@ -127,6 +134,12 @@ function readTerminalScroll(value: unknown): Record<string, number> {
   return places;
 }
 
+/** The hand of the student as a snapshot tells it; null when it tells none, and a hand that is down when it tells nonsense. */
+function readMyHand(value: unknown): MyHand | null {
+  if (!record(value)) return null;
+  return { raised: value.raised === true, question: typeof value.question === "string" ? value.question : "" };
+}
+
 /** The view of a snapshot; a server that tells none, or tells nonsense, leaves the stage at its start. */
 function readStageView(view: Partial<StageView> | null | undefined): StageView {
   return {
@@ -167,7 +180,9 @@ function apply(state: State, message: LiveMessage): State {
         },
         terminal: { screen: s.terminal?.screen ?? null },
         stageView: readStageView(s.stageView),
+        fullscreen: s.stageView?.fullscreen === true,
         hands: s.handRaises ?? [],
+        myHand: readMyHand(s.myHand),
       };
     }
     // The server tells no restart: a new slide starts at the top, and a new module (SPEC-057 CA-05).
@@ -192,6 +207,9 @@ function apply(state: State, message: LiveMessage): State {
       const selection = readSelection(data);
       return selection ? { ...state, stageView: { ...state.stageView, selection } } : state;
     }
+    // The request for the full screen of the students is on or off, as the teacher left it; only a boolean says which (SPEC-059).
+    case "live:stage:fullscreen":
+      return typeof data.enabled === "boolean" ? { ...state, fullscreen: data.enabled } : state;
     case "live:stage:split": {
       const split = ratio(data.ratio);
       return split === null ? state : { ...state, stageView: { ...state.stageView, split } };
@@ -236,6 +254,11 @@ function apply(state: State, message: LiveMessage): State {
         : state;
     case "live:hand:queue":
       return { ...state, hands: (data.queue as HandRaiseItem[]) ?? [] };
+    // What the student sends about his own hand, which the server does not echo: his screen keeps it (SPEC-058).
+    case "live:hand:raise":
+      return { ...state, myHand: { raised: true, question: typeof data.question === "string" ? data.question : "" } };
+    case "live:hand:lower":
+      return { ...state, myHand: { raised: false, question: "" } };
     case "live:presence":
       return {
         ...state,
@@ -440,6 +463,10 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
 
   return {
     ...state,
+    /** How many hands are up, for the header of the module. */
+    handCount: state.hands.length,
+    /** The teacher asked the students to go full screen (SPEC-059). */
+    fullscreenRequested: state.fullscreen,
     connected,
     canControl,
     changeSlide: (slide: number) => emit("live:slide:change", { slide }),
@@ -493,7 +520,20 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
     },
     /** A student removed from the class asks to come in again. */
     requestEntry: () => sendOnly("live:admission:request", {}),
-    raiseHand: () => sendOnly("live:hand:raise", {}),
-    lowerHand: () => sendOnly("live:hand:lower", {}),
+    /**
+     * Raises the hand with one call and, when there is a doubt, with it; with the hand already up it only changes the doubt, and with no text it takes
+     * the doubt away (SPEC-058). The text goes trimmed, as the server keeps it.
+     */
+    raiseHand: (question = "") => {
+      const text = question.trim();
+      sendOnly("live:hand:raise", text ? { question: text } : {});
+      dispatch({ kind: "local", message: { type: "live:hand:raise", data: { question: text } } });
+    },
+    lowerHand: () => {
+      sendOnly("live:hand:lower", {});
+      dispatch({ kind: "local", message: { type: "live:hand:lower", data: {} } });
+    },
+    /** Asks the students to go full screen, or stops asking; either window of the teacher does it, and the server tells the other (SPEC-059). */
+    sendStageFullscreen: (enabled: boolean) => emit("live:stage:fullscreen", { enabled }),
   };
 }

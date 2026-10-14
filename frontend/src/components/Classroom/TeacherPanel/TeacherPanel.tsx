@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { messages } from "@/messages/pt-BR";
@@ -17,6 +17,7 @@ import styles from "./TeacherPanel.module.scss";
 
 const m = messages.classroom;
 const t = m.teacher;
+const sf = m.studentsFullscreen;
 
 const SOUND_KEY = "live-arrival-sound";
 const readSound = () => {
@@ -73,6 +74,7 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
   const [blocked, setBlocked] = useState<string | null>(null);
   const [seenPresenter, setSeenPresenter] = useState(false);
   const popup = useRef<Window | null>(null);
+  const fullscreenHint = useId();
   const back = `/app/classes/${classId}`;
   const startedAt = new Date(live.startedAt ?? session.startedAt).getTime();
 
@@ -371,6 +373,24 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
                 {m.room.pickModule}
               </p>
             )}
+
+            {/* The request that puts the students in full screen (SPEC-059): the state is the room's, so the panel and the presentation window agree. */}
+            <div className={styles.row}>
+              <Button
+                variant={live.fullscreenRequested ? "primary" : "secondary"}
+                size="sm"
+                aria-pressed={live.fullscreenRequested}
+                aria-describedby={fullscreenHint}
+                disabled={!live.canControl}
+                onClick={() => live.sendStageFullscreen(!live.fullscreenRequested)}
+              >
+                {sf.label}
+              </Button>
+              <span className={styles.state}>{live.fullscreenRequested ? sf.on : sf.off}</span>
+            </div>
+            <p id={fullscreenHint} className={styles.hint}>
+              {sf.hint}
+            </p>
 
             {mode === "MODULE" && content && (
               <label className={styles.row}>

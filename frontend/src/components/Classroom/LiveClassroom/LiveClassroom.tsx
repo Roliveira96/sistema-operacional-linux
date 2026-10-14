@@ -9,11 +9,13 @@ import { messages } from "@/messages/pt-BR";
 import type { LiveSession } from "@/services/classroomService";
 import { elapsed } from "../elapsed";
 import { FixedStage } from "../FixedStage/FixedStage";
+import { HandQuestion } from "../HandQuestion/HandQuestion";
 import { ModuleStage } from "../ModuleStage/ModuleStage";
 import { SlidePresenter } from "../SlidePresenter/SlidePresenter";
 import { StudentNotesPanel } from "../StudentNotesPanel/StudentNotesPanel";
 import { WaitingRoom } from "../WaitingRoom/WaitingRoom";
 import styles from "./LiveClassroom.module.scss";
+import { useRequestedFullscreen } from "./useRequestedFullscreen";
 
 const m = messages.classroom;
 
@@ -29,7 +31,10 @@ export interface LiveClassroomProps {
  * fit to what is left. Nothing is over the stage. The stage is the fixed box the teacher sees, only smaller or bigger, and the student moves nothing of
  * it: the scroll, the divider, the zoom, the mouse and the selection are the teacher's. Inside the stage there is nothing the teacher's stage has not
  * (SPEC-057 CA-22): what is only the student's, the loss of the connection, is told in the strip, and the connecting takes the place of the content.
- * The student waits for the teacher to accept him (SPEC-051, section 3.1; SPEC-054). The teacher has the panel and the presentation window (SPEC-055).
+ * The hand goes up with one click and no text; once it is up, the doubt (optional) is written in the strip itself, never over the stage (SPEC-058).
+ * When the teacher asks for the full screen the room goes into focus mode at once, with the stage over the whole window, and tries the full screen of the
+ * browser, which may want a gesture of the student first (SPEC-059). The student waits for the teacher to accept him (SPEC-051, section 3.1; SPEC-054).
+ * The teacher has the panel and the presentation window (SPEC-055).
  */
 export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) {
   const router = useRouter();
@@ -38,7 +43,18 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   const [joinedAt] = useState(() => Date.now());
   const [notes, setNotes] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLElement>(null);
   const back = `/app/classes/${classId}`;
+
+  // The teacher asked for the full screen: the room goes into focus mode and tries the full screen of the browser (SPEC-059).
+  const requested = live.fullscreenRequested;
+  const fullscreen = useRequestedFullscreen(frame, requested);
+  // The stage has the whole window in focus mode, so the column of notes closes when the request comes; the student can open it again.
+  const [focused, setFocused] = useState(false);
+  if (requested !== focused) {
+    setFocused(requested);
+    if (requested) setNotes(false);
+  }
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -97,7 +113,7 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   const raised = place >= 0;
 
   return (
-    <main className={styles.live}>
+    <main ref={frame} className={styles.live} data-focus={requested ? "true" : undefined}>
       <div className={styles.body}>
         <div ref={stage} className={styles.stage}>
           <FixedStage zoom={live.stageView.zoom}>
@@ -133,6 +149,8 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
                 terminal={live.terminal}
                 cursor={room.cursor}
                 stageView={live.stageView}
+                startedAt={live.startedAt ?? session.startedAt}
+                handCount={live.handCount}
               />
             )}
             {room.blank && <div className={styles.blank} role="status" aria-label={m.room.blank} />}
@@ -169,12 +187,20 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
               <span className={styles.meta}>{m.hands.position(place + 1)}</span>
             </span>
           )}
-          <Button variant={raised ? "primary" : "secondary"} size="sm" aria-pressed={raised} onClick={raised ? live.lowerHand : live.raiseHand}>
+          {/* The doubt goes in the strip, with the hand: nothing opens over the material (SPEC-058 CA-04). */}
+          {raised && <HandQuestion saved={live.myHand?.question ?? ""} onSend={(question) => live.raiseHand(question)} />}
+          <Button variant={raised ? "primary" : "secondary"} size="sm" aria-pressed={raised} onClick={() => (raised ? live.lowerHand() : live.raiseHand())}>
             {raised ? m.hands.lower : m.hands.raise}
           </Button>
           <Button variant={notes ? "primary" : "secondary"} size="sm" aria-expanded={notes} onClick={() => setNotes(!notes)}>
             {m.room.notesToggle}
           </Button>
+          {/* The browser did not let the room into the full screen, or the student left it, while the teacher asks for it: one click does it (SPEC-059 CA-03, CA-04). */}
+          {requested && fullscreen.supported && !fullscreen.inFullscreen && (
+            <Button variant="primary" size="sm" data-attention="true" onClick={() => fullscreen.enter()}>
+              {m.room.fullscreenRequested}
+            </Button>
+          )}
           <Button variant="secondary" size="sm" title={`${m.room.fullscreen} (F)`} onClick={toggleFullscreen}>
             {m.room.fullscreen}
           </Button>

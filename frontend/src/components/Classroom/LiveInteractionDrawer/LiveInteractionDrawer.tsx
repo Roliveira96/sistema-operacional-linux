@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/Button/Button";
 import { messages } from "@/messages/pt-BR";
 import type { HandRaiseItem } from "@/services/classroomService";
+import { useMinuteClock } from "../useMinuteClock";
 import styles from "./LiveInteractionDrawer.module.scss";
 
 const m = messages.classroom.hands;
@@ -21,9 +22,13 @@ export interface LiveInteractionDrawerProps {
   children?: ReactNode;
 }
 
-/** The side of the live classroom: the raised hands for the teacher, the button to raise the hand for the student (SPEC-051 CA-08, CA-09). */
+/**
+ * The side of the live classroom: the raised hands for the teacher, each with the name, how long ago and the doubt that came with it (SPEC-058), and
+ * the button to raise the hand for the student (SPEC-051 CA-08, CA-09).
+ */
 export function LiveInteractionDrawer({ role, userId, hands, onRaise, onLower, onModerate, children }: LiveInteractionDrawerProps) {
   const place = hands.findIndex((hand) => hand.studentId === userId);
+  const now = useMinuteClock();
   return (
     <aside className={styles.drawer}>
       {role === "teacher" ? (
@@ -38,7 +43,16 @@ export function LiveInteractionDrawer({ role, userId, hands, onRaise, onLower, o
               <ol className={styles.list}>
                 {hands.map((hand) => (
                   <li key={hand.studentId} className={styles.item}>
-                    <span className={styles.name}>{hand.name}</span>
+                    <span className={styles.who}>
+                      <span className={styles.name}>{hand.name}</span>
+                      <span className={styles.muted}>{m.since(Math.max(0, Math.floor((now - new Date(hand.requestedAt).getTime()) / 60_000)))}</span>
+                      {/* The doubt of the student is text: React writes it as such, so no HTML in it ever runs (SPEC-058 CA-06). */}
+                      {hand.question && (
+                        <span className={styles.question} data-testid="hand-question">
+                          {hand.question}
+                        </span>
+                      )}
+                    </span>
                     <Button variant="secondary" size="sm" aria-label={m.lowerOne(hand.name)} onClick={() => onModerate(hand.studentId)}>
                       {m.lower}
                     </Button>

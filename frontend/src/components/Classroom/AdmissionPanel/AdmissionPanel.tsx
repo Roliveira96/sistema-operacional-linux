@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { messages } from "@/messages/pt-BR";
 import type { AdmissionEntry } from "@/services/classroomService";
+import { useMinuteClock } from "../useMinuteClock";
 import styles from "./AdmissionPanel.module.scss";
 
 const m = messages.classroom.admission;
@@ -15,16 +16,6 @@ export interface AdmissionPanelProps {
   onAcceptAll(): void;
   /** Declines who waits, or removes who is in the class. */
   onRemove(studentId: string): void;
-}
-
-/** The clock of the panel, so the waits go up while it stays open. */
-function useMinuteClock(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(tick);
-  }, []);
-  return now;
 }
 
 /** The waiting room and the list of who is in the class, for the teacher (SPEC-054 CA-06). */

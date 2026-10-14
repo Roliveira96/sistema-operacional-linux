@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { LiveHeaderStatus } from "@/components/Classroom/LiveHeaderStatus/LiveHeaderStatus";
 import { MirroredModuleView } from "@/components/Classroom/MirroredModuleView/MirroredModuleView";
 import { placeContent, scrollFraction } from "@/components/Classroom/FixedStage/stage";
 import { MATERIAL_HIGHLIGHT, materialRangeOf, materialSelectionOf, showHighlight, terminalSelectionOf } from "@/components/Classroom/selection/selection";
@@ -51,6 +52,10 @@ export interface TopicLive {
   onTerminalScroll?(terminal: number, y: number): void;
   /** Where the teacher has the history of each terminal, by number, which the student's copy follows (SPEC-057 CA-23). */
   terminalScroll?: Record<string, number>;
+  /** When the class began, as the room tells it: with it the header shows the time of the class and the raised hands (SPEC-058). Without it, only the title. */
+  startedAt?: string | null;
+  /** How many hands are up, for the header; 0 when the room does not say (SPEC-058). */
+  handCount?: number;
 }
 
 // Nothing here plays: the material is read, and the terminal is the one of the class.
@@ -90,7 +95,7 @@ function blockUnderReading(panel: HTMLElement): string | null {
  * teacher's, and the student only follows them (SPEC-057).
  */
 export function LiveTopicScreen({ live }: { live: TopicLive }) {
-  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, terminalScroll, onRead, onScreen, onMaterialScroll, onSplit, onSelection, onTerminalScroll } = live;
+  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, terminalScroll, startedAt, handCount = 0, onRead, onScreen, onMaterialScroll, onSplit, onSelection, onTerminalScroll } = live;
   const teacher = role === "teacher";
   const script = useMemo(() => buildTopicScript(module.blocks), [module.blocks]);
   const panel = useRef<HTMLDivElement>(null);
@@ -234,6 +239,8 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
         <div className={styles.title}>
           <h1 className={styles.name}>{module.title}</h1>
         </div>
+        {/* The time of the class and the raised hands, the same for the teacher and for the students (SPEC-058 CA-01). */}
+        {startedAt && <LiveHeaderStatus startedAt={startedAt} hands={handCount} />}
       </header>
 
       <main

@@ -126,3 +126,11 @@
     text-align: center;
   }
 }
+
+// The state of the request for the full screen of the students, beside its button (SPEC-059).
+.state {
+  align-self: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}

@@ -14,6 +14,7 @@ import styles from "./PresenterStage.module.scss";
 
 const m = messages.classroom;
 const p = m.present;
+const sf = m.studentsFullscreen;
 
 /** How long the toolbar stays after the mouse stops, and how long the full-screen hint stays. */
 const TOOLBAR_MS = 3000;
@@ -39,7 +40,7 @@ export interface PresenterStageProps {
  * SPEC-056). The stage is the fixed box the students see, so the teacher sees exactly what they see, on the whole window; the scroll of the slide and
  * of the material, the divider, the zoom, the mouse and the text he selects go to them (SPEC-057).
  */
-export function PresenterStage({ classId }: PresenterStageProps) {
+export function PresenterStage({ classId, session }: PresenterStageProps) {
   const live = useLiveClassroom({ classId, role: "teacher", view: "presenter" });
   const { room } = live;
   const [laser, setLaser] = useState(false);
@@ -68,6 +69,7 @@ export function PresenterStage({ classId }: PresenterStageProps) {
   const mode = room.mode;
   const total = room.deck?.pageCount ?? 0;
   const zoom = live.stageView.zoom;
+  const studentsFullscreen = live.fullscreenRequested;
   const slides = mode === "SLIDES" && room.deck !== null;
 
   const goto = (slide: number) => {
@@ -190,6 +192,8 @@ export function PresenterStage({ classId }: PresenterStageProps) {
               cursor={room.cursor}
               laser={laser}
               stageView={live.stageView}
+              startedAt={live.startedAt ?? session.startedAt}
+              handCount={live.handCount}
               onFocusBlock={live.focusBlock}
               onScreen={live.sendTerminalScreen}
               onCursor={live.moveCursor}
@@ -270,6 +274,18 @@ export function PresenterStage({ classId }: PresenterStageProps) {
           <Button variant="secondary" size="sm" title={`${p.fullscreen} (F)`} onClick={toggleFullscreen}>
             {p.fullscreen}
           </Button>
+          {/* The request that puts the students in full screen (SPEC-059): the state is the room's, so this window and the panel always agree. */}
+          <Button
+            variant={studentsFullscreen ? "primary" : "secondary"}
+            size="sm"
+            aria-pressed={studentsFullscreen}
+            title={`${sf.label}: ${sf.hint}`}
+            disabled={!live.canControl}
+            onClick={() => live.sendStageFullscreen(!studentsFullscreen)}
+          >
+            {sf.label}
+          </Button>
+          <span className={styles.state}>{studentsFullscreen ? sf.on : sf.off}</span>
           <Button variant={room.blank ? "primary" : "secondary"} size="sm" title={`${p.blank} (B)`} onClick={() => live.setBlank(!room.blank)}>
             {p.blank}
           </Button>

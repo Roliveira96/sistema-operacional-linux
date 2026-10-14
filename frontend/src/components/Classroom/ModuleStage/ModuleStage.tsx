@@ -41,6 +41,10 @@ export interface ModuleStageProps {
   onSelection?(selection: StageSelection | null): void;
   /** The teacher scrolls the history of a terminal: its number and the place; 1 is the end (SPEC-057 CA-23). */
   onTerminalScroll?(terminal: number, y: number): void;
+  /** When the class began, as the room tells it, for the time of the class in the header of the module (SPEC-058). */
+  startedAt?: string | null;
+  /** How many hands are up, for the header of the module (SPEC-058). */
+  handCount?: number;
 }
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: LiveModuleContent };
@@ -49,7 +53,7 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: 
  * The module of the live class: the study screen of the module in the live-class mode (SPEC-055 CA-13), drawn in the stage. Only the teacher can send:
  * the picture of his terminal, his reading, the scroll of the material, the divider, his mouse and the text he selects (SPEC-057).
  */
-export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection, onTerminalScroll }: ModuleStageProps) {
+export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection, onTerminalScroll, startedAt, handCount }: ModuleStageProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const scale = useStageScale();
   const zoom = useStageZoom();
@@ -105,6 +109,9 @@ export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, termi
           selection: teacher ? undefined : stageView?.selection,
           // The same for where each terminal is scrolled: the teacher has the real scroll, the student's copy follows it.
           terminalScroll: teacher ? undefined : stageView?.terminalScroll,
+          // What the header of the module tells is the same for both (SPEC-058).
+          startedAt,
+          handCount,
           onRead: teacher ? onFocusBlock : undefined,
           onScreen: teacher ? onScreen : undefined,
           onMaterialScroll: teacher ? onMaterialScroll : undefined,

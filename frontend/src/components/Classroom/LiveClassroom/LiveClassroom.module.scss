@@ -68,6 +68,12 @@
   color: var(--color-text-body);
 }
 
+// Focus mode, when the teacher asks for the full screen (SPEC-059): the stage has the whole window, over the menu and the header of the platform, whatever
+// level they are at (the bar of the signed-in area is at 100). The strip stays.
+.live[data-focus="true"] {
+  z-index: 1000;
+}
+
 // The stage and, when the notes are open, their column: side by side, taking all the room the strip leaves.
 .body {
   display: flex;
@@ -116,6 +122,11 @@
   min-width: 0;
 }
 
+// What does not fit beside the buttons is cut, not laid over them (the buttons take what they need when the hand is up, SPEC-058).
+.info {
+  overflow: hidden;
+}
+
 .leave {
   justify-content: flex-end;
 }
@@ -131,10 +142,12 @@
   white-space: nowrap;
 }
 
+// The buttons, and the doubt of the raised hand (SPEC-058): they give way before the title and wrap in a narrow window, so the strip never runs over.
 .actions {
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
   flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
@@ -146,6 +159,28 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-danger);
   white-space: nowrap;
+}
+
+// The button of one click that goes into the full screen the teacher asked for: it pulses until the student is in it, and does not for who asks for less motion.
+.controls [data-attention="true"] {
+  animation: attention-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes attention-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--color-accent-glow);
+  }
+
+  50% {
+    box-shadow: 0 0 0 0.5rem transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .controls [data-attention="true"] {
+    animation: none;
+  }
 }
 
 .handState {

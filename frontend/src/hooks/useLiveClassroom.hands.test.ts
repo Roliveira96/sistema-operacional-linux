@@ -37,7 +37,7 @@ const snapshot = (over: Record<string, unknown> = {}): LiveSnapshot =>
 
 function setup(role: "teacher" | "student", window?: "panel" | "presenter") {
   FakeLive.all = [];
-  const connect = vi.fn((_classId: string, handlers: Handlers, _view?: string) => new FakeLive(handlers));
+  const connect = vi.fn((_classId: string, handlers: Handlers) => new FakeLive(handlers));
   const view = renderHook(() => useLiveClassroom({ classId: "c-1", role, view: window, connect: connect as never }));
   const socket = () => FakeLive.all.at(-1)!;
   return { ...view, socket };
@@ -156,10 +156,8 @@ describe("useLiveClassroom, the full screen asked of the students", () => {
   it("is off until the room says it is on, and takes it from every snapshot", () => {
     const { result, socket } = setup("student");
     expect(result.current.fullscreenRequested).toBe(false);
-    expect(result.current.stageView.fullscreen).toBe(false);
     act(() => socket().receive("live:snapshot", snapshot({ stageView: { fullscreen: true } })));
     expect(result.current.fullscreenRequested).toBe(true);
-    expect(result.current.stageView.fullscreen).toBe(true);
     act(() => socket().receive("live:snapshot", snapshot({ stageView: { fullscreen: false } })));
     expect(result.current.fullscreenRequested).toBe(false);
   });

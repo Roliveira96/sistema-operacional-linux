@@ -36,7 +36,18 @@ export interface HandRaiseItem {
   studentId: string;
   name: string;
   requestedAt: string;
+  /** The doubt that came with the hand, empty with none (SPEC-058). Only the panel of the teacher gets it: the students and the presentation window do not. */
+  question?: string;
 }
+
+/** The hand of the student himself and his doubt, which the room gives back at every connection so his screen can show them again (SPEC-058 CA-07). */
+export interface MyHand {
+  raised: boolean;
+  question: string;
+}
+
+/** The longest doubt that goes with a hand, in characters and not in bytes, as the server takes it (SPEC-058). */
+export const HAND_QUESTION_MAX = 300;
 
 /** The mouse of the teacher on the stage: percentages, of the whole page on the slides and of the stage on the module (SPEC-057). */
 export interface LiveCursor {
@@ -56,7 +67,8 @@ export type StageSelection =
 
 /**
  * Where the teacher is on the stage (SPEC-057): the scroll of the slide down and sideways and of the material, as fractions of what can be scrolled;
- * the part of the stage the material takes (null: the default of the layout); the zoom, from 1 to 2; and the text he selected (null: none).
+ * the part of the stage the material takes (null: the default of the layout); the zoom, from 1 to 2; the text he selected (null: none); and whether
+ * he asked the students to go full screen (SPEC-059).
  */
 export interface StageView {
   slideScroll: number;
@@ -67,6 +79,8 @@ export interface StageView {
   selection: StageSelection | null;
   /** Where the teacher has the history of each terminal, by number ("1" to "3"), as a fraction of what can be scrolled; a terminal that is not in it is at the end. */
   terminalScroll: Record<string, number>;
+  /** The teacher asked the students to go full screen (SPEC-059); absent is the same as off. */
+  fullscreen?: boolean;
 }
 
 export interface LiveTerminalState {
@@ -111,6 +125,8 @@ export interface LiveSnapshot {
   stageBlank?: boolean;
   /** Where the teacher is on the stage (SPEC-057). */
   stageView?: StageView;
+  /** Only the student gets this: his own hand and doubt (SPEC-058). */
+  myHand?: MyHand;
   /** Only the panel of the teacher gets these (SPEC-055 RN-05). */
   admissions?: LiveAdmissions;
   startedAt?: string;
