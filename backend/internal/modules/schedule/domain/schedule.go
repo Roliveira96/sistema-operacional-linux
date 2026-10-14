@@ -279,6 +279,12 @@ type ClassSession struct {
 	PeriodID       *uuid.UUID
 	OnHoliday      bool
 	ReminderSentAt *time.Time
+	// The content of the lesson (SPEC-053): HasContent keeps it from being dropped when the weekly lessons are regenerated.
+	Topic       *string
+	Description *string
+	ModuleID    *uuid.UUID
+	DeckID      *uuid.UUID
+	HasContent  bool
 }
 
 // TableName maps ClassSession to its table.

@@ -206,6 +206,8 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 
 	moduleRepo := coursemodulerepository.New(db)
 	moduleService := coursemoduleservice.New(moduleRepo)
+	// A lesson can point to a presentation and to a teaching module (SPEC-053 RN-04).
+	scheduleService.WithContentRefs(scheduleDecks{classroom: classroomService}, scheduleModules{modules: moduleService})
 	moduleHandler := coursemodulehandler.New(moduleService, auth)
 	contentReader := contentservice.NewReader(moduleService, contentrepository.New(db))
 	contentHandler := contenthandler.New(contentReader, auth)

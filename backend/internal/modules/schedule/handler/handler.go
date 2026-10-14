@@ -23,6 +23,8 @@ type ScheduleService interface {
 	ReplaceMeetings(ctx context.Context, actor service.Actor, classID uuid.UUID, meetings []domain.WeeklyMeeting) ([]domain.WeeklyMeeting, error)
 	UpdateSession(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, change service.SessionChange) (domain.ClassSession, error)
 	RevertSession(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (domain.ClassSession, error)
+	SaveContent(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, in service.ContentInput) (service.SessionContent, error)
+	Content(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (service.SessionContent, error)
 	CreateExtraSession(ctx context.Context, actor service.Actor, classID uuid.UUID, session domain.ClassSession) (domain.ClassSession, error)
 	DeleteExtraSession(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) error
 	CreateEvent(ctx context.Context, actor service.Actor, classID uuid.UUID, event domain.ClassEvent) (domain.ClassEvent, error)
@@ -59,6 +61,8 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.PATCH("/classes/:id/sessions/:sessionId", h.updateSession)
 	g.DELETE("/classes/:id/sessions/:sessionId", h.deleteSession)
 	g.DELETE("/classes/:id/sessions/:sessionId/override", h.revertSession)
+	g.PUT("/classes/:id/sessions/:sessionId/content", h.saveContent)
+	g.GET("/classes/:id/sessions/:sessionId/content", h.content)
 	g.POST("/classes/:id/events", h.createEvent)
 	g.PATCH("/classes/:id/events/:eventId", h.updateEvent)
 	g.DELETE("/classes/:id/events/:eventId", h.deleteEvent)
@@ -106,6 +110,8 @@ type sessionJSON struct {
 	ChangeReason *string    `json:"changeReason,omitempty"`
 	PeriodID     *uuid.UUID `json:"periodId,omitempty"`
 	OnHoliday    bool       `json:"onHoliday"`
+	Topic        *string    `json:"topic,omitempty"`
+	HasContent   bool       `json:"hasContent"`
 }
 
 type eventJSON struct {
@@ -182,7 +188,7 @@ func toSessionJSON(s domain.ClassSession) sessionJSON {
 	return sessionJSON{ID: s.ID, ClassID: s.ClassID, MeetingID: s.MeetingID, Date: formatDate(s.Date), StartTime: s.StartTime.String(),
 		EndTime: s.EndTime.String(), LessonCount: s.LessonCount, Mode: string(s.Mode), Room: s.Room, OnlineURL: s.OnlineURL,
 		Status: string(s.Status), Origin: string(s.Origin), Overridden: s.Overridden, ChangeReason: s.ChangeReason,
-		PeriodID: s.PeriodID, OnHoliday: s.OnHoliday}
+		PeriodID: s.PeriodID, OnHoliday: s.OnHoliday, Topic: s.Topic, HasContent: s.HasContent}
 }
 
 func toEventJSON(e domain.ClassEvent) eventJSON {
@@ -414,6 +420,14 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("not-extra-session", err.Error())
 	case errors.Is(err, domain.ErrNationalLocked):
 		return problem.Conflict("national-holiday-locked", err.Error())
+	case errors.Is(err, domain.ErrInvalidSessionContent):
+		return withField(problem.BadRequest("invalid-session-content", err.Error()))
+	case errors.Is(err, domain.ErrContentTooLong):
+		return withField(problem.BadRequest("content-too-long", err.Error()))
+	case errors.Is(err, domain.ErrDeckNotFound):
+		return problem.NotFound("deck-not-found", err.Error())
+	case errors.Is(err, domain.ErrModuleNotFound):
+		return problem.NotFound("module-not-found", err.Error())
 	case errors.Is(err, domain.ErrForbidden):
 		return problem.Forbidden("forbidden", err.Error())
 	case errors.Is(err, domain.ErrClassNotFound):

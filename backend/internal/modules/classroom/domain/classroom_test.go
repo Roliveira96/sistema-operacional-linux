@@ -108,7 +108,7 @@ func TestSessionEnd(t *testing.T) {
 }
 
 func TestLimitsOfTheSpec(t *testing.T) {
-	assert.Equal(t, 20, domain.MaxDecksPerClass)
+	assert.Equal(t, 100, domain.MaxDecksPerClass) // SPEC-053 RN-07
 	assert.Equal(t, 100, domain.MaxPages)
 	assert.Equal(t, 12*time.Hour, domain.SafetyNet)
 	assert.Equal(t, 15*time.Minute, domain.DownloadURLTTL)
