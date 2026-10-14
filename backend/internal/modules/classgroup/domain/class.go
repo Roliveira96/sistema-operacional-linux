@@ -53,6 +53,11 @@ type ClassGroup struct {
 	InviteLinkEnd            *time.Time
 	Status                   ClassStatus
 	ArchiveReason            *string
+	// Who and when (SPEC-049): the author of the creation and of the last update, and the archiving.
+	CreatedBy  uuid.UUID
+	UpdatedBy  uuid.UUID
+	ArchivedAt *time.Time
+	ArchivedBy *uuid.UUID
 }
 
 // TableName maps ClassGroup to the "classes" table.

@@ -202,6 +202,8 @@ func (s *Service) CreateClass(ctx context.Context, teacherID uuid.UUID, input Cr
 		InviteLinkStart:         input.InviteLinkStart,
 		InviteLinkEnd:           input.InviteLinkEnd,
 		Status:                  status,
+		CreatedBy:               teacherID,
+		UpdatedBy:               teacherID,
 	}
 
 	if err := s.repo.CreateClass(ctx, &class, input.InitialStudentIDs, now); err != nil {
@@ -342,6 +344,8 @@ func (s *Service) UpdateClass(ctx context.Context, teacherID, classID uuid.UUID,
 	validityChanged := !class.StartDate.Equal(startDate) || !class.EndDate.Equal(endDate)
 	class.StartDate = startDate
 	class.EndDate = endDate
+	class.UpdatedBy = teacherID
+	class.UpdatedAt = s.now()
 	if err := s.repo.UpdateClass(ctx, &class); err != nil {
 		return domain.ClassGroup{}, err
 	}
@@ -368,13 +372,34 @@ func (s *Service) ArchiveClass(ctx context.Context, teacherID, classID uuid.UUID
 		return domain.ClassGroup{}, domain.ErrArchiveReasonRequired
 	}
 
+	now := s.now()
 	class.Status = domain.ClassStatusArchived
 	class.ArchiveReason = &trimmedReason
+	class.ArchivedAt = &now
+	class.ArchivedBy = &teacherID
+	class.UpdatedBy = teacherID
+	class.UpdatedAt = now
 
 	if err := s.repo.UpdateClass(ctx, &class); err != nil {
 		return domain.ClassGroup{}, err
 	}
 	return class, nil
+}
+
+// UserNames returns the display names of the users, for the history of a class (SPEC-049 RN-04). A user that cannot be read is
+// left out.
+func (s *Service) UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	names := make(map[uuid.UUID]string, len(ids))
+	for _, id := range uniqueIDs(ids) {
+		name, err := s.repo.FindUserName(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if name != nil && *name != "" {
+			names[id] = *name
+		}
+	}
+	return names, nil
 }
 
 // JoinByToken processes a student join request via invite token.

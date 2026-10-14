@@ -33,11 +33,23 @@ type ClassService interface {
 	GetMyClass(ctx context.Context, studentID, classID uuid.UUID) (service.StudentClassView, error)
 }
 
+// UserNamer reads the display names of users, for the history of a class (SPEC-049 RN-04).
+type UserNamer interface {
+	UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
+}
+
 // Handler manages class-related HTTP requests.
 type Handler struct {
-	svc  ClassService
-	auth authn.Validator
-	now  func() time.Time
+	svc   ClassService
+	auth  authn.Validator
+	now   func() time.Time
+	namer UserNamer
+}
+
+// WithUserNames makes the detail of a class carry the names of who created, updated and archived it.
+func (h *Handler) WithUserNames(n UserNamer) *Handler {
+	h.namer = n
+	return h
 }
 
 // New creates a new ClassGroup HTTP handler.
@@ -119,6 +131,14 @@ type classResponse struct {
 	IsExpiringSoon          bool       `json:"isExpiringSoon"`
 	CreatedAt               time.Time  `json:"createdAt"`
 	UpdatedAt               time.Time  `json:"updatedAt"`
+	CreatedBy               uuid.UUID  `json:"createdBy"`
+	UpdatedBy               uuid.UUID  `json:"updatedBy"`
+	ArchivedAt              *time.Time `json:"archivedAt,omitempty"`
+	ArchivedBy              *uuid.UUID `json:"archivedBy,omitempty"`
+	// The names only come with the detail of a class (SPEC-049 RN-04).
+	CreatedByName  string `json:"createdByName,omitempty"`
+	UpdatedByName  string `json:"updatedByName,omitempty"`
+	ArchivedByName string `json:"archivedByName,omitempty"`
 }
 
 type classSummaryResponse struct {
@@ -158,7 +178,32 @@ func (h *Handler) toClassResponse(c domain.ClassGroup) classResponse {
 		IsExpiringSoon:          c.IsExpiringSoon(h.now()),
 		CreatedAt:               c.CreatedAt,
 		UpdatedAt:               c.UpdatedAt,
+		CreatedBy:               c.CreatedBy,
+		UpdatedBy:               c.UpdatedBy,
+		ArchivedAt:              c.ArchivedAt,
+		ArchivedBy:              c.ArchivedBy,
 	}
+}
+
+// withNames adds the names of who created, updated and archived the class, when a namer is set (SPEC-049 RN-04).
+func (h *Handler) withNames(ctx context.Context, c domain.ClassGroup, res classResponse) classResponse {
+	if h.namer == nil {
+		return res
+	}
+	ids := []uuid.UUID{c.CreatedBy, c.UpdatedBy}
+	if c.ArchivedBy != nil {
+		ids = append(ids, *c.ArchivedBy)
+	}
+	names, err := h.namer.UserNames(ctx, ids)
+	if err != nil {
+		return res
+	}
+	res.CreatedByName = names[c.CreatedBy]
+	res.UpdatedByName = names[c.UpdatedBy]
+	if c.ArchivedBy != nil {
+		res.ArchivedByName = names[*c.ArchivedBy]
+	}
+	return res
 }
 
 func (h *Handler) createClass(c *gin.Context) {
@@ -352,7 +397,7 @@ func (h *Handler) getClass(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, h.toClassResponse(class))
+	c.JSON(http.StatusOK, h.withNames(c.Request.Context(), class, h.toClassResponse(class)))
 }
 
 type updateClassRequest struct {

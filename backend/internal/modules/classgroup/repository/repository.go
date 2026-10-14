@@ -63,6 +63,13 @@ func New(db *database.DB) *Repository {
 func (r *Repository) CreateClass(ctx context.Context, class *domain.ClassGroup, initialStudentIDs []uuid.UUID, now time.Time) error {
 	return r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
 		conn := r.db.Conn(txCtx)
+		// The service sets the author (SPEC-049 RN-01); a class saved without one is authored by its teacher.
+		if class.CreatedBy == uuid.Nil {
+			class.CreatedBy = class.TeacherID
+		}
+		if class.UpdatedBy == uuid.Nil {
+			class.UpdatedBy = class.TeacherID
+		}
 		if err := conn.Create(class).Error; err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {

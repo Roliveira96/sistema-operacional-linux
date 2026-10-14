@@ -183,7 +183,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 
 	classRepo := classgrouprepository.New(db)
 	classService := classgroupservice.New(classRepo).WithScheduleHook(scheduleService)
-	classHandler := classgrouphandler.New(classService, auth)
+	classHandler := classgrouphandler.New(classService, auth).WithUserNames(classService)
 
 	if err := startScheduler(ctx, db, smtp, scheduleService, log); err != nil {
 		return err
