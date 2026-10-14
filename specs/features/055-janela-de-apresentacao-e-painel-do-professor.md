@@ -37,6 +37,7 @@ A SPEC-054 deu ao professor uma tela dividida: "Minha tela", privada, e "Tela da
 - Lâmina privada (preparar a próxima lâmina sem a turma ver), "Mostrar para a turma", "Seguir a turma", "Minha tela", "Tela da turma" e a chave "Transmitir o terminal": saem.
 - Terminal no painel administrativo: o terminal fica só na janela de apresentação.
 - Anotações do professor, bate-papo, e gravação da aula.
+- Prática individual dentro da aula (desafios, progresso e respostas a exercícios no modo Módulo).
 - Mais de uma janela de apresentação e mais de um painel ao mesmo tempo (a mais nova de cada tipo substitui a anterior).
 
 ## 3. Proposta de Solução (Proposed Solution)
@@ -55,10 +56,12 @@ A SPEC-054 deu ao professor uma tela dividida: "Minha tela", privada, e "Tela da
 **Janela de apresentação (`/app/classes/:classId/live/present`).** O palco, em tela cheia, sem menus nem painéis, no tema escuro:
 
 - **Lâminas:** a lâmina atual, grande, com o laser e a caneta do professor; setas e barra de espaço trocam de lâmina; **Tela cheia** (a janela pede a tela cheia ao navegador e mostra a dica da tecla Esc).
-- **Módulo:** o conteúdo do módulo e o terminal na máquina do módulo. **O professor digita no terminal da janela de apresentação e tudo vai aos alunos na hora**, a digitação, o comando e a saída, sem chave nem espera.
+- **Módulo, no estilo da tela de estudo (`/materials/:id`):** o palco usa o **mesmo visual da tela de estudo do módulo** (SPEC-016): o material à esquerda, com os mesmos blocos, tipografia e estilos, e o terminal à direita, com a divisória arrastável entre os dois. **O professor digita no terminal da janela de apresentação e tudo vai aos alunos na hora**, a digitação, o comando e a saída, sem chave nem espera. O bloco em foco fica destacado e à vista.
 - Mostra apenas o palco; nenhum dado administrativo. Um indicador discreto avisa se a conexão caiu.
 
-**Aluno.** A tela do estudante não muda (sala de espera, palco, mão levantada, anotações).
+**Aluno.** A tela do estudante mantém a sala de espera, a mão levantada e as anotações. No modo Módulo, o palco do estudante tem o **mesmo visual da tela de estudo do módulo** (material à esquerda, terminal à direita), em modo de acompanhamento: o material em só leitura, com o bloco em foco do professor destacado e levado à vista, e o terminal espelhado, de teclado bloqueado.
+
+**Modo "aula ao vivo" da tela de estudo.** Para isso, a tela de estudo do módulo (`TopicStudy`) ganha um **modo de aula ao vivo**, opcional: sem ele, nada muda. Nesse modo ela mostra só o material e o terminal, sem o que é de prática individual: sem a aba de desafios, sem marcas de conclusão e progresso, sem resposta a exercícios, sem leitor por voz e sem o link de voltar; o terminal é o da aula (o do professor, que transmite, ou o espelho do estudante) e o conteúdo e o cenário vêm da sala.
 
 Botões do padrão `Button`, tema único escuro, só tokens, alvos de 44 px, teclado, textos no arquivo de mensagens.
 
@@ -107,6 +110,7 @@ Sem mudança nos endpoints REST.
 - [ ] **CA-09** (evento): QUANDO a janela de apresentação entra, sai ou é substituída, O SISTEMA DEVE avisar o painel do novo estado.
 - [ ] **CA-10** (evento): QUANDO o professor encerra a aula pelo painel, O SISTEMA DEVE encerrá-la para todos, inclusive a janela de apresentação; fechar só uma das janelas NÃO DEVE encerrar a aula.
 - [ ] **CA-11** (ubíquo): A tela dividida, "Minha tela", "Tela da turma", a lâmina privada e a chave "Transmitir o terminal" NÃO DEVEM mais existir.
+- [ ] **CA-13** (ubíquo): No modo Módulo, a janela de apresentação e a tela do estudante DEVEM ter o mesmo visual da tela de estudo do módulo (`/materials/:id`): material à esquerda e terminal à direita, com a divisória arrastável, sem desafios, progresso, resposta a exercícios, leitor por voz nem link de voltar; e a tela de estudo comum, fora da aula, NÃO DEVE mudar.
 - [ ] **CA-12** (ubíquo): As duas janelas DEVEM usar o tema único escuro, só tokens, alvos de 44 px e navegação por teclado.
 
 ## 8. Plano de Testes (Test Plan)
@@ -116,6 +120,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 - **Backend, `platform/hub`:** `TestTwoTeacherViews_DoNotRevokeEachOther`, `TestNewViewOfTheSameKindReplacesTheOld` (CA-07); `TestTeacherMessagesReachTheOtherView` (CA-06); `TestStageMessagesOnlyFromThePresenter` e `TestAdminMessagesOnlyFromThePanel` (CA-08); `TestPresenterStateIsSentToThePanel` (CA-09).
 - **Backend, `classroom/handler` e `service`:** a conexão com `view` (`panel`, `presenter`, ausente e inválido); o instantâneo de cada janela (CA-01, CA-09); o terminal sempre guardado e transmitido sem chave (CA-05); `live:terminal:broadcast` deixa de existir (CA-11); encerrar pelo painel encerra as duas janelas e fechar uma não encerra (CA-10).
 - **Frontend:** `TeacherPanel` (tempo de aula, resumo e contagens, sala de espera, lista, mãos, miniaturas e troca de modo e módulo, Encerrar aula; CA-01, CA-03, CA-10); botão de abrir a janela de apresentação (CA-02); `PresenterStage` (palco sem menus, tela cheia, teclado, laser, caneta e terminal enviando na hora; CA-04, CA-05); as duas janelas refletindo a troca de lâmina e de modo (CA-06); a janela substituída em modo passivo (CA-07); ausência da tela dividida, da lâmina privada e da chave (CA-11); tema, alvos e teclado (CA-12).
+- **Frontend (CA-13):** o modo de aula ao vivo do `TopicStudy` mostra o material e o terminal no layout da tela de estudo, sem desafios, progresso, respostas nem leitor por voz; o professor transmite e o estudante espelha, com o bloco em foco; e **todos os testes existentes do `TopicStudy` e das páginas de estudo continuam verdes sem alteração** (a tela comum não muda).
 - **Manual:** abrir o painel no monitor do professor e a apresentação no projetor; passar lâminas por uma e pela outra e ver as duas acompanharem; digitar no terminal da apresentação e ver o aluno acompanhar na hora; conferir o cronômetro e as contagens; fechar a janela de apresentação e ver o painel avisar.
 - **Cobertura:** acima de 80% no escopo (`go test -cover` e Vitest).
 
@@ -123,7 +128,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
 1. **Pré-leitura obrigatória:** `AI_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `GLOSSARY.md`, SPEC-051, SPEC-054 e esta; `platform/hub`, `classroom/handler/ws.go`, `components/Classroom/*` (em especial `LiveClassroom`, `TeacherSplitView`, `SlidePresenter`, `MirroredModuleView`, `ModuleStage`), `hooks/useLiveClassroom.ts` e `app/app/classes/[id]/live/page.tsx`.
 2. **Ordem de execução:** testes vermelhos e commit `test`; hub e handler (as duas visões, as regras de quem envia o quê, o terminal sempre transmitido, presença, instantâneos); frontend (painel, janela de apresentação, remoção da tela dividida e da chave); mensagens.
-3. **Arquivos a criar ou alterar:** `backend/internal/platform/hub/**`; `backend/internal/modules/classroom/**`; `frontend/src/services/classroomService.ts`; `frontend/src/hooks/useLiveClassroom.ts`; `frontend/src/components/Classroom/**` (novos `TeacherPanel` e `PresenterStage`; sai `TeacherSplitView`; ajustes em `LiveClassroom`, `SlidePresenter`, `MirroredModuleView`, `ModuleStage`, `AdmissionPanel`, `LiveInteractionDrawer`); `frontend/src/app/app/classes/[id]/live/page.tsx` e `frontend/src/app/app/classes/[id]/live/present/page.tsx` (novo) com seus `.module.scss`; `frontend/src/messages/pt-BR.ts`; `specs/features/054-sala-de-espera-e-visao-do-professor.md` (nota de que a tela dividida foi substituída por esta spec).
+3. **Arquivos a criar ou alterar:** `backend/internal/platform/hub/**`; `backend/internal/modules/classroom/**`; `frontend/src/services/classroomService.ts`; `frontend/src/hooks/useLiveClassroom.ts`; `frontend/src/components/TopicStudy/**` (só o modo opcional de aula ao vivo, sem mudar o uso comum; `engine/core` fica intocado); `frontend/src/components/Classroom/**` (novos `TeacherPanel` e `PresenterStage`; sai `TeacherSplitView`; ajustes em `LiveClassroom`, `SlidePresenter`, `MirroredModuleView`, `ModuleStage`, `AdmissionPanel`, `LiveInteractionDrawer`); `frontend/src/app/app/classes/[id]/live/page.tsx` e `frontend/src/app/app/classes/[id]/live/present/page.tsx` (novo) com seus `.module.scss`; `frontend/src/messages/pt-BR.ts`; `specs/features/054-sala-de-espera-e-visao-do-professor.md` (nota de que a tela dividida foi substituída por esta spec).
 4. **Definição de pronto:** CA marcados, testes verdes, nenhuma violação da `ARCHITECTURE.md`, status `Implementada`.
 
 ## 10. Pendências para aprovação
@@ -137,3 +142,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: o professor interage na janela de
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao decidir a janela de apresentação e o painel do professor |
+| 14/10/2026 | Aruna Architect | Pedido do Tech Lead: o modo Módulo da turma deve ter o mesmo estilo da tela de estudo (`/materials/:id`). Acrescentados o modo opcional de aula ao vivo do `TopicStudy` e o CA-13 |
