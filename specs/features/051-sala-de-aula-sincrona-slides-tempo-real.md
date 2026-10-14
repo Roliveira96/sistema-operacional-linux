@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-051 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
-| **Última revisão** | 14/10/2026 (aprovada pelo Tech Lead) |
+| **Última revisão** | 14/10/2026 (implementada) |
 | **Autor** | Autoria externa, trazida pelo Tech Lead (texto original); formato, revisão e decisões por Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -16,7 +16,7 @@
 | **Substitui** | Nenhuma |
 | **Fontes canônicas** | Spec trazida pelo Tech Lead em 14/10/2026 (arquivo `14-10-26-spec-sala-de-aula-sincrona-slides-tempo-real.md`), em duas versões, e as decisões do Tech Lead de 14/10/2026 sobre o ciclo de vida da sala, a sala única por turma, a fluidez do movimento e a digitação espelhada |
 
-> **Estado:** Aprovada pelo Tech Lead em 14/10/2026, com a seção 10 vazia. Pode ser implementada, seguindo o fluxo da seção 4 do `AI_INSTRUCTIONS.md` (testes vermelhos primeiro).
+> **Estado:** Implementada em 14/10/2026 (backend e frontend). Falta a verificação manual da seção 8 em navegador, com docente e estudantes.
 
 ---
 
@@ -322,3 +322,4 @@ Nenhuma. As decisões do Tech Lead de 14/10/2026 estão incorporadas, e a P-Q1 f
 | 14/10/2026 | Aruna Architect | Segunda versão do autor aplicada; correções de conformidade (migração `00030`, `platform/problem`, hub em `platform/hub/`); CA-14 a CA-16; pendências P-O1 a P-O5 |
 | 14/10/2026 | Aruna Architect | Decisões do Tech Lead aplicadas: iniciar e encerrar a aula a qualquer hora, sair e voltar à mesma aula, com rede de segurança de 12 horas (no lugar dos 15 minutos); uma aula ativa por turma, com índice único parcial e a seção "Aula ao vivo" na página da turma; fluidez de cerca de 30 quadros por segundo (teto de 35 por segundo no servidor) para o ponteiro, os traços e a digitação espelhada; adaptador do terminal informa a linha, a saída e o estado (P-O1); `GET .../live/sessions` (P-O2); mensagens do servidor `live:snapshot`, `live:ended`, `live:control:revoked`, `live:presence` e `live:hand:queue` (P-O3); validação dos vínculos com 404 (P-O4); limites e tamanhos de mensagem no servidor (P-O5). CA-01, CA-06, CA-07, CA-12, CA-14 e CA-15 reescritos e CA-17 a CA-20 acrescentados. Nova confirmação P-Q1 |
 | 14/10/2026 | Aruna Architect | Aprovada pelo Tech Lead; P-Q1 confirmada; "reabrir" esclarecido (voltar à mesma aula ativa); status Aprovada |
+| 14/10/2026 | Implementador | Implementada. Backend: migração `00030`, `platform/hub`, módulo `classroom` e `PresignedGetURL` em `platform/storage`. Frontend: adaptador do terminal (digitação lida por fora do `engine/core`, sem usar a autorização da P-Q1), serviço, hook, componentes e a seção "Aula ao vivo". Desvios: o espelho mostra só o terminal, sem embutir o `TopicStudy`; o seletor de módulo de ensino não foi feito (o modo MODULE usa o módulo informado); a rede de segurança de 12 horas usa `updated_at` como "visto com o docente"; ping a cada 30 s nas conexões ociosas |
