@@ -87,6 +87,13 @@ type fakeService struct {
 	scrolls []string // "slide:0.25"
 	splits  []float64
 	stage   service.StageView
+
+	// the horizontal scroll of the slide and the zoom of the stage (SPEC-057 CA-15 to CA-18)
+	scrollXs []float64
+	zooms    []float64
+
+	// the selection of text of the teacher the handler asked to keep: "none" for the clear message (SPEC-057 CA-20, CA-21)
+	selections []string
 }
 
 func (f *fakeService) record(s string) {
@@ -225,6 +232,51 @@ func (f *fakeService) SetStageSplit(_ uuid.UUID, ratio float64) {
 	f.stage.Split = &ratio
 }
 
+func (f *fakeService) SetStageScrollX(_ uuid.UUID, x float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.scrollXs = append(f.scrollXs, x)
+	f.stage.SlideScrollX = x
+}
+
+func (f *fakeService) SetStageZoom(_ uuid.UUID, zoom float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.zooms = append(f.zooms, zoom)
+	f.stage.Zoom = zoom
+}
+
+// SetStageSelection keeps the last selection; no selection (nil) is the clear message.
+func (f *fakeService) SetStageSelection(_ uuid.UUID, selection json.RawMessage) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if selection == nil {
+		f.selections = append(f.selections, "none")
+	} else {
+		f.selections = append(f.selections, string(selection))
+	}
+	f.stage.Selection = selection
+}
+
+func (f *fakeService) keptSelections() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.selections...)
+}
+
+// keptScrollXs and keptZooms are what the handler asked to keep, in order.
+func (f *fakeService) keptScrollXs() []float64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]float64(nil), f.scrollXs...)
+}
+
+func (f *fakeService) keptZooms() []float64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]float64(nil), f.zooms...)
+}
+
 // keptScrolls and keptSplits are what the handler asked to keep, in order.
 func (f *fakeService) keptScrolls() []string {
 	f.mu.Lock()
@@ -284,6 +336,7 @@ func setup(t *testing.T) *world {
 	w.session = domain.LiveClassroomSession{Model: database.Model{ID: uuid.New()}, ClassID: w.class, TeacherID: w.teacher.UserID, Title: "Aula",
 		DisplayMode: domain.ModeSlides, CurrentSlide: 2, Status: domain.StatusActive, StartedAt: time.Date(2026, 10, 14, 19, 0, 0, 0, time.UTC)}
 	w.svc.session = w.session
+	w.svc.stage = service.StageView{Zoom: 1} // the stage starts at 100%, as in the real service (SPEC-057)
 	w.svc.active = service.Active{Found: true, Session: w.session}
 	w.people = val.people
 	w.h = handler.New(w.svc, val, zap.New(core), handler.Options{})
