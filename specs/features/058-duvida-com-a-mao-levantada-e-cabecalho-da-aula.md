@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-058 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada pelo pedido do Tech Lead) |
 | **Autor** | Aruna Architect |
@@ -112,3 +112,4 @@ O Tech Lead pediu o cabeçalho com tempo e mãos e a dúvida opcional por texto;
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido do Tech Lead; os limites e a visibilidade da dúvida ficam para a revisão dele |
+| 14/10/2026 | Aruna Architect | Implementada (backend `893985e`, `91d0740`; frontend `97e7bab`, `d261ca9`). Desvios: a coluna tem `CHECK` de 300 caracteres; a tabela é `live_hand_raises`; o limite do quadro da mão foi a 4 KiB; "Dúvida enviada" é otimista (o servidor não confirma); a dúvida é apagada ao baixar a mão, então o histórico não guarda o texto; o relógio usa a hora local da máquina; sem verificação no navegador |

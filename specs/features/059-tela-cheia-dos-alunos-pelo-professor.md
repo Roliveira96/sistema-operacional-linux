@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-059 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (solução em dois passos confirmada pelo Tech Lead) |
 | **Autor** | Aruna Architect |
@@ -112,3 +112,4 @@ Nenhuma. O Tech Lead confirmou em 14/10/2026 a solução em dois passos (modo fo
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido do Tech Lead; a solução em dois passos fica para a revisão dele |
 | 14/10/2026 | Aruna Architect | O Tech Lead confirmou a solução em dois passos; pendências encerradas |
+| 14/10/2026 | Aruna Architect | Implementada (backend `ba0dcf9`, `57399b1`; frontend `97e7bab`, `d261ca9`). Desvios: o estado fica em `fullscreenRequested` no hook, fora de `stageView`; a tela cheia pedida usa o `main` da sala (para manter a faixa de controles); as anotações se fecham quando o pedido chega; sem verificação do `requestFullscreen` real no navegador |
