@@ -57,7 +57,8 @@ const (
 
 // hubConfig sets the rules of each message and the limits of the room (SPEC-051 RN-05). The pointer and the strokes arrive
 // about 30 times per second; the server takes up to 35 per second from each emitter and gives each viewer the latest every 30 ms. The
-// screen of the terminal (up to 10 per second) is a whole picture, so the latest is all a viewer needs, and its frame has its own limit
+// screen of the terminal is a whole picture, so the latest is all a viewer needs and it is not counted in that budget (the pointer would
+// use it up and the last screen would be lost); the window of the presenter sends at most 10 per second, and the frame has its own limit
 // (SPEC-056).
 func hubConfig() hub.Config {
 	const kib = 1 << 10
@@ -70,7 +71,7 @@ func hubConfig() hub.Config {
 			// the stage is the presenter window's (SPEC-055 RN-02)
 			typeCursorMove:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
 			typeCanvasDraw:     {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
-			typeTerminalScreen: {MaxBytes: 256 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
+			typeTerminalScreen: {MaxBytes: 256 * kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			typeStageBlank:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter},
 			// the waiting room and the hands are the panel's
 			typeHandModerate:       {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
