@@ -116,5 +116,13 @@ describe("ClassCard", () => {
       expect(link.getAttribute("href")).not.toMatch(/\/members$/);
     }
   });
-});
 
+  // SPEC-046 CA-01 and CA-02
+  it.each(["ACTIVE", "DRAFT", "ARCHIVED"] as const)("has a Visualizar link to the class page, before Configurações (%s)", (status) => {
+    render(<ClassCard classGroup={{ ...mockClass, status }} />);
+    const view = screen.getByRole("link", { name: /Visualizar/i });
+    expect(view.getAttribute("href")).toBe("/app/classes/c-1");
+    const settings = screen.getByRole("link", { name: /Configurações/i });
+    expect(view.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
