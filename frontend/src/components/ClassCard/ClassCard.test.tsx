@@ -169,4 +169,49 @@ describe("ClassCard", () => {
     expect(header?.contains(screen.getByRole("button", { name: "Arquivar" }))).toBe(true);
     expect(container.querySelector("footer")?.contains(screen.getByRole("link", { name: "Configurações" }))).toBe(false);
   });
+
+  // SPEC-050 CA-06: the action to delete, or when it will be possible
+  const DAY = 24 * 60 * 60 * 1000;
+  const archivedFor = (days: number): ClassSummary => ({
+    ...mockClass,
+    status: "ARCHIVED",
+    isExpiringSoon: false,
+    archivedAt: new Date(Date.now() - days * DAY).toISOString(),
+  });
+
+  it("offers to delete a class archived for 30 days or more", () => {
+    const onDelete = vi.fn();
+    render(<ClassCard classGroup={archivedFor(31)} onDelete={onDelete} />);
+    const action = screen.getByRole("button", { name: "Excluir" });
+    expect(action.getAttribute("title")).toBe("Excluir");
+    expect(action.getAttribute("data-icon")).toBe("true");
+    expect(action.getAttribute("data-variant")).toBe("ghost");
+    fireEvent.click(action);
+    expect(onDelete).toHaveBeenCalledWith("c-1");
+    expect(screen.queryByText(/Pode ser excluída a partir de/)).toBeNull();
+  });
+
+  it("tells from when a class archived for less than 30 days can be deleted, without the action", () => {
+    render(<ClassCard classGroup={archivedFor(10)} onDelete={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+    const date = new Date(Date.now() + 20 * DAY).toLocaleDateString("pt-BR");
+    expect(screen.getByText(`Pode ser excluída a partir de ${date}`)).toBeDefined();
+  });
+
+  it("has neither the action nor the date for an active or draft class, or an archived one without the date", () => {
+    for (const status of ["ACTIVE", "DRAFT"] as const) {
+      const { unmount } = render(<ClassCard classGroup={{ ...mockClass, status, archivedAt: new Date(Date.now() - 90 * DAY).toISOString() }} onDelete={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+      expect(screen.queryByText(/Pode ser excluída a partir de/)).toBeNull();
+      unmount();
+    }
+    render(<ClassCard classGroup={{ ...mockClass, status: "ARCHIVED", archivedAt: undefined }} onDelete={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+    expect(screen.queryByText(/Pode ser excluída a partir de/)).toBeNull();
+  });
+
+  it("does not offer to delete when there is no handler", () => {
+    render(<ClassCard classGroup={archivedFor(40)} />);
+    expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+  });
 });

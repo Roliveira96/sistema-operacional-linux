@@ -52,4 +52,11 @@ describe("ButtonLink", () => {
     expect(icon.getAttribute("data-icon")).toBe("true");
     expect(icon.getAttribute("title")).toBe("Configurações");
   });
+
+describe("Button danger (SPEC-050)", () => {
+  it("accepts the danger variant, for the actions that remove something", () => {
+    render(<Button variant="danger">Excluir turma</Button>);
+    expect(screen.getByRole("button", { name: "Excluir turma" }).getAttribute("data-variant")).toBe("danger");
+  });
+});
 });

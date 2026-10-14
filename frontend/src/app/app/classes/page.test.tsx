@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { classService, type ListClassesResult } from "@/services/classService";
+import { ApiProblemError } from "@/services/httpClient";
 import ClassesPage from "./page";
 
 afterEach(() => {
@@ -123,5 +124,50 @@ describe("ClassesPage", () => {
       expect(screen.getByText("Nenhuma turma encontrada.")).toBeDefined();
     });
   });
-});
 
+  // SPEC-050 CA-06 and CA-07: deleting an archived class of 30 days or more
+  const archivedLongAgo: ListClassesResult = {
+    ...mockListResult,
+    items: [
+      {
+        ...mockListResult.items[0]!,
+        id: "class-9",
+        name: "Turma antiga",
+        status: "ARCHIVED",
+        archivedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
+  };
+
+  it("opens the delete dialog, deletes and takes the class off the list", async () => {
+    const list = vi
+      .spyOn(classService, "listClasses")
+      .mockResolvedValueOnce(archivedLongAgo)
+      .mockResolvedValue({ ...archivedLongAgo, items: [], totalCount: 0 });
+    const del = vi.spyOn(classService, "deleteClass").mockResolvedValue(undefined);
+    render(<ClassesPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Excluir" }));
+    expect(screen.getByRole("dialog", { name: /Excluir turma: Turma antiga/ })).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Excluir turma" }));
+
+    await waitFor(() => expect(del).toHaveBeenCalledWith("class-9"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await screen.findByText("Turma excluída.")).toBeDefined();
+    await waitFor(() => expect(screen.queryByText("Turma antiga")).toBeNull());
+    expect(list.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("shows the refusal of the server in the dialog and keeps the class", async () => {
+    vi.spyOn(classService, "listClasses").mockResolvedValue(archivedLongAgo);
+    vi.spyOn(classService, "deleteClass").mockRejectedValue(new ApiProblemError({ type: "class-not-deletable", status: 409 }, 409));
+    render(<ClassesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Excluir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Excluir turma" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Esta turma ainda não pode ser excluída.");
+    expect(screen.getByRole("dialog")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("Turma antiga")).toBeDefined();
+  });
+});

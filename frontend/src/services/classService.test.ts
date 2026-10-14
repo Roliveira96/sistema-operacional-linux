@@ -135,4 +135,11 @@ describe("classService", () => {
     vi.mocked(fakeClient.get).mockRejectedValueOnce(notFound);
     await expect(service.getMyClass("c-2")).rejects.toBe(notFound);
   });
+
+  // SPEC-050
+  it("deletes a class", async () => {
+    vi.mocked(fakeClient.delete).mockResolvedValueOnce(undefined);
+    await service.deleteClass("class-1");
+    expect(fakeClient.delete).toHaveBeenCalledWith("/classes/class-1");
+  });
 });
