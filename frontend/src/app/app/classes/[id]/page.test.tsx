@@ -418,4 +418,44 @@ describe("ClassPage (SPEC-041)", () => {
     expect(screen.queryByRole("button", { name: "Conteúdo da aula" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Iniciar aula ao vivo" })).toBeNull();
   });
+
+  // SPEC-053 CA-14: the notice of the live class in the Agenda tab, for the student too
+  it("tells the student, in the Agenda tab, that the live class is going on, with the way in", async () => {
+    asRole("STUDENT");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id, name: theClass.name, courseCode: theClass.courseCode, semester: theClass.semester, status: "ACTIVE",
+      summary: "", syllabus: "", institutionalGuidelines: "", startDate: theClass.startDate, endDate: theClass.endDate,
+      scheduleDescription: "", enableVirtualClassroom: false,
+    });
+    vi.spyOn(classroomService, "getActive").mockResolvedValue({
+      hasActiveSession: true,
+      session: { id: "live-1", classId: "c-1", title: "Aula de hoje", classSessionId: "s-21", status: "ACTIVE", displayMode: "SLIDES", currentSlide: 1, startedAt: "2026-10-21T11:00:00Z" },
+      displayMode: "SLIDES", currentSlide: 1, activeDeck: null, recentDrawings: [],
+      terminal: { line: "", history: [], state: null }, handRaises: [], onlineCount: 3,
+    } as never);
+    render(<ClassPage params={params} />);
+
+    expect(await screen.findByText("Aula ao vivo em andamento: Aula de hoje")).toBeDefined();
+    expect(screen.getByRole("link", { name: "Entrar na aula" }).getAttribute("href")).toBe("/app/classes/c-1/live");
+
+    fireEvent.click(await screen.findByRole("button", { name: /^quarta-feira, 21 de outubro/ }));
+    const panel = screen.getByRole("region", { name: "quarta-feira, 21 de outubro de 2026" });
+    expect(within(panel).getByText("Ao vivo agora")).toBeDefined();
+    expect(within(panel).getByRole("link", { name: "Entrar na aula ao vivo" }).getAttribute("href")).toBe("/app/classes/c-1/live");
+  });
+
+  it("shows no notice of a live class when there is none", async () => {
+    asRole("STUDENT");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id, name: theClass.name, courseCode: theClass.courseCode, semester: theClass.semester, status: "ACTIVE",
+      summary: "", syllabus: "", institutionalGuidelines: "", startDate: theClass.startDate, endDate: theClass.endDate,
+      scheduleDescription: "", enableVirtualClassroom: false,
+    });
+    vi.spyOn(classroomService, "getActive").mockResolvedValue({ hasActiveSession: false });
+    render(<ClassPage params={params} />);
+    await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ });
+    expect(screen.queryByText(/Aula ao vivo em andamento/)).toBeNull();
+  });
 });

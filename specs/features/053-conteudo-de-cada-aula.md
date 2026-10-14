@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-053 |
-| **Status** | Implementada |
+| **Status** | Aprovada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
@@ -55,6 +55,8 @@ A aula ao vivo (SPEC-051) é iniciada só pela visão geral, sem ligação com a
 **Ver o conteúdo (todos).** O painel da aula mostra, quando houver: o tema (também no marcador do dia, no lugar do código da disciplina), a descrição, os links como ligações que abrem em outra aba (`rel="noopener noreferrer"`), o módulo (para o estudante, uma ligação para o módulo) e a apresentação (**Ver apresentação**, que abre o PDF por endereço assinado). Aula sem conteúdo continua como hoje.
 
 **Aula ao vivo a partir da aula (professor e administrador).** O painel da aula ganha **Iniciar aula ao vivo**: inicia a sala com o tema como título (ou o nome da disciplina se não houver tema), o módulo e a apresentação da aula, ligada a ela (`classSessionId`); se já existe aula ativa na turma, leva a ela. O botão "Iniciar aula" da visão geral continua para a aula avulsa.
+
+**Entrar na aula ao vivo pela agenda (todos).** Quando a turma tem aula ao vivo ativa, a aba Agenda mostra, acima do calendário, o aviso **Aula ao vivo em andamento: *título*** com o botão **Entrar na aula**, para o estudante e para o professor. Se a aula ao vivo está ligada a uma aula do calendário, o painel dessa aula mostra a marca **Ao vivo agora** e o botão **Entrar na aula ao vivo** (para o professor, **Voltar para a aula ao vivo**, no lugar de "Iniciar aula ao vivo"). Os botões levam à sala (`/app/classes/:id/live`).
 
 Botões do padrão `Button`, tema único escuro, só tokens, alvos de 44 px, textos no arquivo de mensagens.
 
@@ -146,6 +148,7 @@ Tabela nova `class_session_links`:
 - [ ] **CA-10** (ubíquo): O painel da aula DEVE mostrar o conteúdo a quem lê (tema, descrição, links que abrem em outra aba com `rel="noopener noreferrer"`, módulo e apresentação), e o tema DEVE aparecer no marcador do dia.
 - [ ] **CA-11** (evento): QUANDO o professor aciona "Iniciar aula ao vivo" no painel de uma aula, O SISTEMA DEVE iniciar a sala ligada a essa aula, com o tema como título, o módulo e a apresentação da aula; SE já há aula ativa, ENTÃO DEVE levar a ela.
 - [ ] **CA-13** (evento): QUANDO o professor abre o diálogo de conteúdo, O SISTEMA DEVE listar as apresentações da turma (do mais recente para o mais antigo) para ele escolher; só a docente dona e o administrador podem listar.
+- [ ] **CA-14** (estado): ENQUANTO a turma tem aula ao vivo ativa, a aba Agenda DEVE mostrar o aviso com o título e o botão "Entrar na aula" (estudante e professor), e o painel da aula ligada a ela DEVE mostrar "Ao vivo agora" e o botão de entrar (no professor, "Voltar para a aula ao vivo", sem "Iniciar aula ao vivo"); nas outras aulas, nada muda.
 - [ ] **CA-12** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens.
 
 ## 8. Plano de Testes (Test Plan)
@@ -159,6 +162,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 - **Backend, `classroom` (lista):** `TestListDecks` (ordem, só da turma, papéis e 403 e 404) no serviço e no handler. Cobre CA-13.
 - **Backend, `classroom` (limite):** `TestUploadDeck_SuccessAndMaxLimit` passa a testar 100. Cobre CA-08.
 - **Frontend, serviço e componentes:** diálogo "Conteúdo da aula" (campos, salvar, erros junto do campo, envio de PDF com validação no navegador) cobre CA-09; painel da aula (mostra o conteúdo, tema no marcador) cobre CA-10; "Iniciar aula ao vivo" cobre CA-11, para docente e sem o botão para estudante.
+- **Frontend (CA-14):** `ClassCalendar` mostra a marca e o botão só na aula ligada à sala ativa, para estudante e professor; a página da turma mostra o aviso na aba Agenda e some quando não há aula ativa.
 - **Manual:** na aba Horários, abrir a aula de segunda e a de terça, dar um conteúdo diferente a cada uma, enviar um PDF, entrar como estudante e ver cada conteúdo, e iniciar a aula ao vivo a partir da aula do dia.
 - **Cobertura:** acima de 80% no escopo (`go test -cover` e Vitest).
 
@@ -182,3 +186,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: tema, descrição, links, módulo
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao decidir o conteúdo de cada aula e o início da aula ao vivo pela aula do dia |
 | 14/10/2026 | Aruna Architect | Falha de contrato achada na implementação: o diálogo precisa listar as apresentações da turma, e não havia endpoint. Acrescentados `GET /live/decks` e o CA-13 |
 | 14/10/2026 | Implementador | Implementada. Desvios: coluna `has_content` em `class_sessions` (para manter as aulas com conteúdo na regeneração e trazer `hasContent` sem consulta extra); portas `Decks` e `Modules` do `schedule` implementadas por adaptadores em `cmd/api/content_refs.go`; módulo que o leitor não pode usar sai da leitura sem erro (na gravação dá 404), e módulos privados por turma não aparecem ao estudante; os botões novos do painel da aula usam o estilo `navBtn` dos vizinhos, não o componente `Button`; aula cancelada não mostra "Iniciar aula ao vivo". O teste do limite de apresentações da SPEC-051 passou de 20 para 100 |
+| 14/10/2026 | Aruna Architect | Falha achada em uso: o estudante abria a aula na agenda e não tinha como entrar na aula ao vivo, porque o botão só existia na visão geral e a spec só previa "Iniciar" para o professor. Acrescentados o aviso na Agenda, a marca e o botão no painel da aula (CA-14); volta a Aprovada |

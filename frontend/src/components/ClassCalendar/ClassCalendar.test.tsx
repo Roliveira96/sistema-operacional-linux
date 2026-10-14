@@ -275,4 +275,38 @@ describe("ClassCalendar", () => {
       expect(screen.queryByRole("button", { name: "Iniciar aula ao vivo" })).toBeNull();
     });
   });
+
+  // SPEC-053 CA-14: entering the live class from the lesson that is live
+  describe("live class of a lesson", () => {
+    it("offers to enter the live class on the lesson that is live, to a student", async () => {
+      setup({ liveClassSessionId: "s-21", liveHref: "/app/classes/c-1/live" });
+      fireEvent.click(await screen.findByRole("button", { name: /^quarta-feira, 21 de outubro/ }));
+      const panel = screen.getByRole("region", { name: "quarta-feira, 21 de outubro de 2026" });
+      expect(within(panel).getByText("Ao vivo agora")).toBeDefined();
+      expect(within(panel).getByRole("link", { name: "Entrar na aula ao vivo" }).getAttribute("href")).toBe("/app/classes/c-1/live");
+
+      fireEvent.click(screen.getByRole("button", { name: /^segunda-feira, 26 de outubro/ }));
+      const other = screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" });
+      expect(within(other).queryByText("Ao vivo agora")).toBeNull();
+      expect(within(other).queryByRole("link", { name: "Entrar na aula ao vivo" })).toBeNull();
+    });
+
+    it("gives the teacher a way back to the live class instead of starting another", async () => {
+      setup({ editable: true, onStartLive: vi.fn(), liveClassSessionId: "s-21", liveHref: "/app/classes/c-1/live" });
+      fireEvent.click(await screen.findByRole("button", { name: /^quarta-feira, 21 de outubro/ }));
+      const panel = screen.getByRole("region", { name: "quarta-feira, 21 de outubro de 2026" });
+      expect(within(panel).getByRole("link", { name: "Voltar para a aula ao vivo" }).getAttribute("href")).toBe("/app/classes/c-1/live");
+      expect(within(panel).queryByRole("button", { name: "Iniciar aula ao vivo" })).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: /^segunda-feira, 26 de outubro/ }));
+      const other = screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" });
+      expect(within(other).getByRole("button", { name: "Iniciar aula ao vivo" })).toBeDefined();
+    });
+
+    it("shows nothing about the live class when no lesson is live", async () => {
+      setup({ liveHref: "/app/classes/c-1/live" });
+      fireEvent.click(await screen.findByRole("button", { name: /^quarta-feira, 21 de outubro/ }));
+      expect(screen.queryByText("Ao vivo agora")).toBeNull();
+    });
+  });
 });
