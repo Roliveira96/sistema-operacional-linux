@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ClassForm } from "@/components/ClassForm/ClassForm";
 import { messages } from "@/messages/pt-BR";
 import { classService, type ClassGroup, type CreateClassPayload } from "@/services/classService";
+import { scheduleService, type Meeting } from "@/services/scheduleService";
 import styles from "./page.module.scss";
 
 export default function ClassSettingsPage({
@@ -16,6 +17,7 @@ export default function ClassSettingsPage({
 
   const [id, setId] = useState<string | null>(null);
   const [classData, setClassData] = useState<ClassGroup | null>(null);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,10 +34,11 @@ export default function ClassSettingsPage({
   useEffect(() => {
     if (!id) return;
     let active = true;
-    void classService
-      .getClass(id)
-      .then((data) => {
-        if (active) setClassData(data);
+    void Promise.all([classService.getClass(id), scheduleService.getMeetings(id).catch(() => [] as Meeting[])])
+      .then(([data, saved]) => {
+        if (!active) return;
+        setClassData(data);
+        setMeetings(saved);
       })
       .catch(() => {
         if (active) setClassData(null);
@@ -48,11 +51,13 @@ export default function ClassSettingsPage({
     };
   }, [id]);
 
-  const handleSubmit = async (payload: CreateClassPayload) => {
+  const handleSubmit = async (payload: CreateClassPayload, edited?: Meeting[]) => {
     if (!id) return;
     setIsSubmitting(true);
     try {
       await classService.updateClass(id, payload);
+      // The editor sends nothing when every meeting was removed, which clears the saved ones (SPEC-042 RN-01).
+      if (edited?.length || meetings.length) await scheduleService.replaceMeetings(id, edited ?? []);
       router.push("/app/classes");
     } finally {
       setIsSubmitting(false);
@@ -76,6 +81,7 @@ export default function ClassSettingsPage({
 
       <ClassForm
         initialData={classData}
+        initialMeetings={meetings}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
         submitLabel={messages.classes.form.submitSave}
