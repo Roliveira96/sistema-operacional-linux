@@ -543,16 +543,17 @@ export function ClassForm({
               className={styles.colorRadiogroup}
             >
               {Object.entries(messages.schedule.colors).map(([cKey, cLabel]) => (
-                <label key={cKey} className={styles.colorRadioLabel}>
+                <label key={cKey} className={styles.colorSwatch} title={cLabel}>
                   <input
                     type="radio"
                     role="radio"
                     name="classColor"
                     value={cKey}
+                    aria-label={cLabel}
                     checked={color === cKey}
                     onChange={() => setColor(cKey)}
                   />
-                  <span>{cLabel}</span>
+                  <span className={styles.swatchDot} data-color={cKey} aria-hidden="true" />
                 </label>
               ))}
             </div>
