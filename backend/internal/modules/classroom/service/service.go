@@ -701,8 +701,9 @@ func (s *Service) ChangeSlide(ctx context.Context, sessionID uuid.UUID, slide in
 }
 
 // SwitchMode saves the mode of the room; the module mode needs a module the teacher can use (SPEC-054 RN-06). Going back to the slides
-// keeps the module of the lesson; choosing another module drops the block in focus, puts the scroll of the material back to the top and
-// clears the selection of text, which was of the module that left (SPEC-057).
+// keeps the module of the lesson; choosing another module drops the block in focus, puts the scroll of the material and of the terminals
+// back (the terminal of the lesson is created again with each module) and clears the selection of text, which was of the module that
+// left (SPEC-057).
 func (s *Service) SwitchMode(ctx context.Context, actor Actor, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error {
 	if !domain.ValidMode(mode) {
 		return domain.ErrInvalidMode
@@ -722,6 +723,7 @@ func (s *Service) SwitchMode(ctx context.Context, actor Actor, sessionID uuid.UU
 			s.live.setFocus(sessionID, "")
 			s.live.resetScroll(sessionID, domain.PaneMaterial)
 			s.live.setSelection(sessionID, nil)
+			s.live.resetTerminalScroll(sessionID)
 		}
 		session.ActiveModuleID = moduleID
 	}
@@ -856,8 +858,8 @@ func (s *Service) SetStageSplit(sessionID uuid.UUID, ratio float64) {
 }
 
 // SetTerminalScroll keeps how far the teacher scrolled the history of one terminal (1 to 3), for who comes in later: one position for
-// each terminal. A new slide or a new module does not put it back, since the terminals of the lesson are the same through all of it
-// (SPEC-057 CA-23). The caller checked it with domain.ValidTerminalScroll.
+// each terminal. A new slide does not put it back; a new module does (SwitchMode), since the terminal of the lesson is created again with
+// each module (SPEC-057 CA-23). The caller checked it with domain.ValidTerminalScroll.
 func (s *Service) SetTerminalScroll(sessionID uuid.UUID, terminal int, y float64) {
 	s.live.setTerminalScroll(sessionID, terminal, y)
 }

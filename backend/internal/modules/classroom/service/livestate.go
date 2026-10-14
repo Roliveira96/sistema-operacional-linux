@@ -34,7 +34,7 @@ type liveState struct {
 // it was checked when it came in.
 //
 // TerminalScroll is the position of the history of each terminal (1 to 3) that the teacher scrolled, by the number of the terminal: only
-// the terminals that were scrolled are there, and the terminals of the lesson are the same through all of it, so it is never put back.
+// the terminals that were scrolled are there. The terminals are created again with each module, so another module puts them back ({}).
 type StageView struct {
 	SlideScroll    float64
 	SlideScrollX   float64
@@ -132,6 +132,13 @@ func (l *liveStates) setTerminalScroll(id uuid.UUID, terminal int, y float64) {
 	}
 	l.mu.Lock()
 	l.of(id).stage.TerminalScroll[terminal] = y
+	l.mu.Unlock()
+}
+
+// resetTerminalScroll forgets the position of every terminal.
+func (l *liveStates) resetTerminalScroll(id uuid.UUID) {
+	l.mu.Lock()
+	l.of(id).stage.TerminalScroll = map[int]float64{}
 	l.mu.Unlock()
 }
 
