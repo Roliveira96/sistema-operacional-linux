@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-056 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada pelo pedido de correção do Tech Lead; desenho a revisar) |
 | **Autor** | Aruna Architect |
@@ -123,3 +123,4 @@ O Tech Lead pediu a correção ("o que é mostrado no terminal do professor não
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido de correção do Tech Lead; o desenho (espelhar a tela) fica para a revisão dele |
+| 14/10/2026 | Aruna Architect | Implementada (commits `878a1d5`, `014a9af`, `959bcbf`, `5ee0354`, `0137996`, `0af6526`). Desvios: a tela fica fora do limite de taxa do emitente (o cursor a descartava); `live.terminal.screen` no hook, não em `room`; tag fora da lista é removida mantendo o conteúdo; criado `engine/terminalScreen.ts`; o cursor do aluno aparece só em contorno; sem verificação no navegador |
