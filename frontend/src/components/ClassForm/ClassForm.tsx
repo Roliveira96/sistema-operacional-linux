@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { MeetingsEditor, validateMeetingDrafts, type MeetingDraft } from "@/components/MeetingsEditor/MeetingsEditor";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import { messages } from "@/messages/pt-BR";
@@ -41,6 +41,24 @@ const FIELD_ORDER = [
 ] as const;
 type Field = (typeof FIELD_ORDER)[number];
 type FieldErrors = Partial<Record<Field, string>>;
+
+/** The tabs of the form, in order (SPEC-044, section 3.1.1). */
+const TABS = ["info", "schedule", "content", "enrollment"] as const;
+type Tab = (typeof TABS)[number];
+
+/** The tab that holds each field. */
+const TAB_OF_FIELD: Record<Field, Tab> = {
+  name: "info",
+  courseCode: "info",
+  semester: "info",
+  summary: "info",
+  startDate: "info",
+  endDate: "info",
+  syllabus: "content",
+  institutionalGuidelines: "content",
+  inviteStart: "enrollment",
+  inviteEnd: "enrollment",
+};
 
 /** The element that takes the focus when a field has an error. */
 const FIELD_IDS: Record<Field, string> = {
@@ -152,11 +170,57 @@ export function ClassForm({
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+
+  const baseId = useId();
+  const [activeTab, setActiveTab] = useState<Tab>("info");
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ info: null, schedule: null, content: null, enrollment: null });
+  const tabId = (t: Tab) => `${baseId}-tab-${t}`;
+  const panelId = (t: Tab) => `${baseId}-panel-${t}`;
+
+  // The field to focus once its tab is on screen (a hidden panel cannot take the focus).
+  const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
+  useEffect(() => {
+    if (focusRequest) document.getElementById(focusRequest.id)?.focus();
+  }, [focusRequest]);
+
   const showErrors = (found: FieldErrors) => {
     setErrors(found);
     const first = FIELD_ORDER.find((f) => found[f]);
-    if (first) document.getElementById(FIELD_IDS[first])?.focus();
+    if (first) {
+      setActiveTab(TAB_OF_FIELD[first]);
+      setFocusRequest({ id: FIELD_IDS[first] });
+    }
   };
+
+  const tabHasError = (t: Tab) =>
+    FIELD_ORDER.some((f) => TAB_OF_FIELD[f] === t && errors[f]) || (t === "schedule" && Object.keys(meetingErrors).length > 0);
+
+  const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, t: Tab) => {
+    const at = TABS.indexOf(t);
+    let next: number | null = null;
+    if (e.key === "ArrowRight") next = Math.min(at + 1, TABS.length - 1);
+    else if (e.key === "ArrowLeft") next = Math.max(at - 1, 0);
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = TABS.length - 1;
+    if (next === null) return;
+    e.preventDefault();
+    const target = TABS[next]!;
+    setActiveTab(target);
+    tabRefs.current[target]?.focus();
+  };
+
+  /** A panel of a tab; the inactive ones stay mounted, only hidden, so nothing typed is lost. */
+  const panel = (t: Tab, children: ReactNode) => (
+    <div
+      role="tabpanel"
+      id={panelId(t)}
+      aria-labelledby={tabId(t)}
+      hidden={activeTab !== t}
+      className={styles.panel}
+    >
+      {children}
+    </div>
+  );
 
   const validate = (): FieldErrors => {
     const found: FieldErrors = {};
@@ -189,6 +253,7 @@ export function ClassForm({
       const mErrors = validateMeetingDrafts(meetings);
       if (Object.keys(mErrors).length > 0) {
         setMeetingErrors(mErrors);
+        setActiveTab("schedule");
         return;
       }
     }
@@ -276,8 +341,36 @@ export function ClassForm({
         </div>
       )}
 
-      <fieldset className={styles.group}>
-        <legend className={styles.legend}>{m.groups.identification}</legend>
+      <div role="tablist" aria-label={m.tabsLabel} className={styles.tabs}>
+        {TABS.map((t) => (
+          <button
+            key={t}
+            ref={(el) => {
+              tabRefs.current[t] = el;
+            }}
+            type="button"
+            role="tab"
+            id={tabId(t)}
+            aria-selected={activeTab === t}
+            aria-controls={panelId(t)}
+            tabIndex={activeTab === t ? 0 : -1}
+            data-invalid={tabHasError(t) ? "true" : undefined}
+            className={`${styles.tab} ${activeTab === t ? styles.tabActive : ""}`}
+            onClick={() => setActiveTab(t)}
+            onKeyDown={(e) => onTabKeyDown(e, t)}
+          >
+            {m.tabs[t]}
+            {tabHasError(t) && (
+              <span aria-hidden="true" className={styles.errorIcon} title={m.tabHasError}>
+                !
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {panel(
+        "info",
         <div className={styles.grid}>
           <div className={`${styles.field} ${styles.fullWidth}`}>
             <label htmlFor="className" className={styles.label}>
@@ -351,12 +444,6 @@ export function ClassForm({
             </span>
             {errorOf("summary")}
           </div>
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend className={styles.legend}>{m.groups.schedule}</legend>
-        <div className={styles.grid}>
           <div className={styles.field}>
             <label htmlFor="startDate" className={styles.label}>
               {m.startDateLabel} {required}
@@ -410,7 +497,12 @@ export function ClassForm({
             </div>
             <span className={styles.help}>{messages.schedule.colorHelp}</span>
           </div>
+        </div>,
+      )}
 
+      {panel(
+        "schedule",
+        <div className={styles.grid}>
           <div className={`${styles.field} ${styles.fullWidth}`}>
             <MeetingsEditor
               value={meetings}
@@ -453,11 +545,12 @@ export function ClassForm({
               {m.enableVirtualHelp}
             </span>
           </div>
-        </div>
-      </fieldset>
+        </div>,
+      )}
 
-      <fieldset className={styles.group}>
-        <legend className={styles.legend}>{m.groups.content}</legend>
+      {panel(
+        "content",
+        <>
         <div id="syllabus-field" className={styles.field} tabIndex={-1}>
           <span className={styles.label} aria-hidden="true">
             {m.contentSyllabusLabel}
@@ -487,10 +580,12 @@ export function ClassForm({
           />
           {errorOf("institutionalGuidelines")}
         </div>
-      </fieldset>
+        </>,
+      )}
 
-      <fieldset className={styles.group}>
-        <legend className={styles.legend}>{m.groups.enrollment}</legend>
+      {panel(
+        "enrollment",
+        <>
         <div className={styles.field}>
           <label className={styles.checkboxGroup}>
             <input
@@ -539,7 +634,8 @@ export function ClassForm({
             </div>
           </div>
         )}
-      </fieldset>
+        </>,
+      )}
 
       <div className={styles.actions}>
         <Link href={cancelHref} className={styles.cancel}>

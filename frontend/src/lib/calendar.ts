@@ -41,10 +41,13 @@ export function minutesOf(time: string): number {
   return h * 60 + m;
 }
 
-/** Lessons of 50 minutes in a time range, from 1 to 8 (SPEC-042, section 3.1.1). */
+/** The default length of a lesson, in minutes (SPEC-044). */
+const LESSON_MINUTES = 60;
+
+/** Lessons of 60 minutes in a time range, from 1 to 8 (SPEC-044, section 3.1.2). */
 export function suggestLessons(start: string, end: string): number {
   const minutes = minutesOf(end) - minutesOf(start);
-  return Math.min(8, Math.max(1, Math.floor(minutes / 50)));
+  return Math.min(8, Math.max(1, Math.floor(minutes / LESSON_MINUTES)));
 }
 
 /** Whether s is an https address. */

@@ -11,31 +11,52 @@
   box-shadow: var(--shadow-sm);
 }
 
-// One section of the form (SPEC-041, section 3.1.4).
-.group {
+// Tabs of the form (SPEC-044, section 3.1.1): the strip scrolls sideways on narrow screens.
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  min-height: 2.75rem;
+  padding: 0.6rem 1rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+
+  @include mixins.focusable;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.tabActive {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+// The content of one tab.
+.panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
-  margin: 0;
-  padding: 0 0 var(--space-5);
-  border: 0;
-  border-bottom: 1px solid var(--color-hairline);
 
-  &:last-of-type {
-    padding-bottom: 0;
-    border-bottom: 0;
+  &[hidden] {
+    display: none;
   }
-}
-
-.legend {
-  margin-bottom: var(--space-3);
-  padding: 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
 }
 
 .grid {

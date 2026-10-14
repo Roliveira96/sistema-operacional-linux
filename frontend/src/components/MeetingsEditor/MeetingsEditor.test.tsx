@@ -32,9 +32,9 @@ describe("MeetingsEditor", () => {
     expect((screen.getByLabelText("Aulas (Segunda-feira)") as HTMLInputElement).value).toBe("2");
 
     fireEvent.change(screen.getByLabelText("Fim (Segunda-feira)"), { target: { value: "11:40" } });
-    expect((screen.getByLabelText("Aulas (Segunda-feira)") as HTMLInputElement).value).toBe("4");
-    expect(screen.getByText("4 horas-aula por semana")).toBeDefined();
-    expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ weekday: 1, startTime: "08:20", endTime: "11:40", lessonCount: 4, mode: "IN_PERSON" })]);
+    expect((screen.getByLabelText("Aulas (Segunda-feira)") as HTMLInputElement).value).toBe("3");
+    expect(screen.getByText("3 horas-aula por semana")).toBeDefined();
+    expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ weekday: 1, startTime: "08:20", endTime: "11:40", lessonCount: 3, mode: "IN_PERSON" })]);
   });
 
   it("asks for an https link when online and shows the room only in person", () => {

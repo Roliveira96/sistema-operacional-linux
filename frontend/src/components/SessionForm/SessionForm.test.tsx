@@ -61,11 +61,11 @@ describe("SessionForm", () => {
     expect(screen.getByRole("dialog", { name: "Incluir aula avulsa" })).toBeDefined();
     expect((screen.getByLabelText("Data") as HTMLInputElement).value).toBe("2026-10-24");
     fireEvent.change(screen.getByLabelText("Fim"), { target: { value: "11:40" } });
-    expect((screen.getByLabelText("Quantidade de aulas") as HTMLInputElement).value).toBe("4");
+    expect((screen.getByLabelText("Quantidade de aulas") as HTMLInputElement).value).toBe("3");
     fireEvent.change(screen.getByLabelText("Sala"), { target: { value: "Lab 3" } });
     fireEvent.click(screen.getByRole("button", { name: "Incluir aula" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect(onSubmit.mock.lastCall?.[0]).toMatchObject({ date: "2026-10-24", startTime: "08:20", endTime: "11:40", lessonCount: 4, room: "Lab 3", mode: "IN_PERSON" });
+    expect(onSubmit.mock.lastCall?.[0]).toMatchObject({ date: "2026-10-24", startTime: "08:20", endTime: "11:40", lessonCount: 3, room: "Lab 3", mode: "IN_PERSON" });
     expect(screen.queryByLabelText("Cancelada")).toBeNull();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).toHaveBeenCalled();

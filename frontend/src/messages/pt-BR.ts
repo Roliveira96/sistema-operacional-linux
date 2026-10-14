@@ -280,12 +280,14 @@ export const messages = {
       successUpdate: "Turma atualizada com sucesso!",
       newSubtitle: "Preencha os dados da disciplina. Depois de criar, você adiciona os estudantes na página da turma.",
       requiredMark: "obrigatório",
-      groups: {
-        identification: "Identificação",
-        schedule: "Vigência e encontros",
+      tabsLabel: "Seções do formulário da turma",
+      tabs: {
+        info: "Informações",
+        schedule: "Horários",
         content: "Conteúdo",
         enrollment: "Ingresso",
       },
+      tabHasError: "há campos com problema",
       summaryLabel: "Resumo da disciplina",
       summaryPlaceholder: "Em 2 ou 3 frases, apresente a disciplina aos estudantes.",
       summaryHelp: "Aparece no card da turma e no topo da página da turma.",

@@ -116,6 +116,7 @@ describe("ClassForm (SPEC-041)", () => {
   // CA-11
   it("edits the syllabus and the guidelines in the formatted editor, without the image button", () => {
     render(<ClassForm onSubmit={vi.fn()} initialData={{ syllabus: "<p>Processos</p>" }} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Conteúdo" }));
     expect(screen.getByRole("textbox", { name: "Ementa" }).textContent).toContain("Processos");
     expect(screen.getByRole("textbox", { name: "Diretrizes institucionais" })).toBeDefined();
     expect(screen.queryByRole("button", { name: "Inserir imagem" })).toBeNull();
