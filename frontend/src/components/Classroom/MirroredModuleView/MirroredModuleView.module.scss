@@ -1,5 +1,7 @@
+// The terminal fills the pane of the stage, as on the study screen, so it is as tall for the teacher as for the student (SPEC-057).
 .view {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
@@ -30,9 +32,16 @@
   --fonte: var(--font-sans);
   --fonte-codigo: var(--font-terminal);
 
+  flex: 1;
   min-width: 0;
   min-height: 24rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+}
+
+// The element the terminal window is mounted in: it takes all of the box, so the window is as tall as the student's copy of it, which has no such
+// element (SPEC-057).
+.host {
+  height: 100%;
 }

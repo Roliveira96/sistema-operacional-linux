@@ -9,10 +9,11 @@
   color: var(--color-text-body);
 }
 
+// The room of the fixed stage: all of the window, with the dark of the theme where the stage of 1920 x 1080 does not reach (SPEC-057).
 .content {
+  position: relative;
   flex: 1;
   min-height: 0;
-  padding: var(--space-3);
   overflow: hidden;
 }
 
@@ -62,7 +63,7 @@
   transform: translateX(-50%);
 }
 
-// The blank screen: the class sees nothing; the teacher sees the same, with how to come back.
+// The blank screen, drawn in the stage like the rest: the class sees nothing; the teacher sees the same, with how to come back.
 .blank {
   position: absolute;
   inset: 0;
@@ -73,8 +74,8 @@
 }
 
 .blankNotice {
-  margin: 0 0 var(--space-6);
-  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-lg);
   color: var(--color-text-secondary);
 }
 

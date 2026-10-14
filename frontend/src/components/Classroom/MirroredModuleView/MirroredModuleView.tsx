@@ -37,6 +37,7 @@ function TeacherTerminal({ initialState, onScreen }: Pick<MirroredModuleViewProp
     if (!parent) return;
     // Each mount gets its own element, so the first mount of React Strict Mode does not wipe the second.
     const container = document.createElement("div");
+    container.className = styles.host ?? "";
     parent.appendChild(container);
     let cancelled = false;
     let win: Awaited<ReturnType<typeof mountTerminalWindow>> | null = null;

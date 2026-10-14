@@ -8,6 +8,7 @@ import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { messages } from "@/messages/pt-BR";
 import type { LiveSession } from "@/services/classroomService";
 import { elapsed } from "../elapsed";
+import { FixedStage } from "../FixedStage/FixedStage";
 import { LiveInteractionDrawer } from "../LiveInteractionDrawer/LiveInteractionDrawer";
 import { ModuleStage } from "../ModuleStage/ModuleStage";
 import { SlidePresenter } from "../SlidePresenter/SlidePresenter";
@@ -25,7 +26,9 @@ export interface LiveClassroomProps {
 
 /**
  * The live classroom of the student: the bar, the stage that follows the teacher, and the side of the hand and the notes. The student waits
- * for the teacher to accept him (SPEC-051, section 3.1; SPEC-054). The teacher has the panel and the presentation window (SPEC-055).
+ * for the teacher to accept him (SPEC-051, section 3.1; SPEC-054). The teacher has the panel and the presentation window (SPEC-055). The stage is
+ * the fixed box of 1920 x 1080 the teacher sees, only smaller or bigger; the scroll, the divider and the mouse are his, and the student moves nothing
+ * (SPEC-057).
  */
 export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) {
   const router = useRouter();
@@ -69,6 +72,7 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
 
   const room = live.room;
   const mode = room.mode;
+  const slideOf = room.deck ? Math.min(Math.max(room.slide, 1), Math.max(room.deck.pageCount, 1)) : 0;
 
   return (
     <main className={styles.room}>
@@ -79,6 +83,7 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
         </span>
         <span className={styles.meta}>{m.room.online(room.online)}</span>
         <span className={styles.meta}>{mode === "SLIDES" ? m.room.modeSlides : m.room.modeModule}</span>
+        {mode === "SLIDES" && room.deck && <span className={styles.meta}>{m.slides.position(slideOf, room.deck.pageCount)}</span>}
         <Button variant="ghost" size="sm" aria-expanded={side} onClick={() => setSide(!side)}>
           {m.room.notesToggle}
         </Button>
@@ -99,27 +104,39 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
       )}
 
       <div className={`${styles.body} ${side ? styles.withSide : ""}`}>
-        <div className={`${styles.stage} ${mode === "MODULE" ? styles.moduleStage : ""}`}>
-          {mode === "SLIDES" ? (
-            room.deck ? (
-              <SlidePresenter
-                deck={room.deck}
-                slide={room.slide}
-                canControl={false}
-                cursor={room.cursor}
-                strokes={room.strokes}
-                onSlide={live.changeSlide}
-                onCursor={live.moveCursor}
-                onDraw={live.draw}
-                onClear={live.clearDrawings}
-              />
+        <div className={styles.stage}>
+          <FixedStage>
+            {mode === "SLIDES" ? (
+              room.deck ? (
+                <SlidePresenter
+                  bare
+                  deck={room.deck}
+                  slide={room.slide}
+                  canControl={false}
+                  cursor={room.cursor}
+                  strokes={room.strokes}
+                  scroll={live.stageView.slideScroll}
+                  onSlide={live.changeSlide}
+                  onCursor={live.moveCursor}
+                  onDraw={live.draw}
+                  onClear={live.clearDrawings}
+                />
+              ) : (
+                <p className={styles.status}>{m.room.noDeck}</p>
+              )
             ) : (
-              <p className={styles.status}>{m.room.noDeck}</p>
-            )
-          ) : (
-            <ModuleStage classId={classId} moduleId={room.moduleId} role="student" moduleFocusBlockId={room.moduleFocusBlockId} terminal={live.terminal} />
-          )}
-          {room.blank && <div className={styles.blank} role="status" aria-label={m.room.blank} />}
+              <ModuleStage
+                classId={classId}
+                moduleId={room.moduleId}
+                role="student"
+                moduleFocusBlockId={room.moduleFocusBlockId}
+                terminal={live.terminal}
+                cursor={room.cursor}
+                stageView={live.stageView}
+              />
+            )}
+            {room.blank && <div className={styles.blank} role="status" aria-label={m.room.blank} />}
+          </FixedStage>
         </div>
 
         {side && (

@@ -38,6 +38,24 @@ export interface HandRaiseItem {
   requestedAt: string;
 }
 
+/** The mouse of the teacher on the stage: percentages, of the whole page on the slides and of the stage on the module (SPEC-057). */
+export interface LiveCursor {
+  x: number;
+  y: number;
+  laser: boolean;
+  visible: boolean;
+}
+
+/**
+ * Where the teacher is on the stage (SPEC-057): the scroll of the slide and of the material, as fractions of what can be scrolled, and the part of
+ * the stage the material takes (null: the default of the layout).
+ */
+export interface StageView {
+  slideScroll: number;
+  materialScroll: number;
+  split: number | null;
+}
+
 export interface LiveTerminalState {
   /** The last picture of the teacher's terminal window, or null while he has sent none (SPEC-056). */
   screen: ScreenElement | null;
@@ -78,6 +96,8 @@ export interface LiveSnapshot {
   moduleFocusBlockId?: string | null;
   /** The teacher keeps the stage blank (SPEC-055 CA-17). */
   stageBlank?: boolean;
+  /** Where the teacher is on the stage (SPEC-057). */
+  stageView?: StageView;
   /** Only the panel of the teacher gets these (SPEC-055 RN-05). */
   admissions?: LiveAdmissions;
   startedAt?: string;

@@ -6,6 +6,7 @@ import { Button } from "@/components/Button/Button";
 import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { messages } from "@/messages/pt-BR";
 import type { LiveSession } from "@/services/classroomService";
+import { FixedStage } from "../FixedStage/FixedStage";
 import { ModuleStage } from "../ModuleStage/ModuleStage";
 import { SlidePresenter } from "../SlidePresenter/SlidePresenter";
 import styles from "./PresenterStage.module.scss";
@@ -34,7 +35,8 @@ export interface PresenterStageProps {
 /**
  * The presentation window of the teacher: only the stage, full of the screen, to be dragged to the projector. The laser, the pen and the picture
  * of the terminal screen go to the class at once, and the toolbar and the keys do what the teacher does most (SPEC-055 sections 3.1 and 3.3;
- * SPEC-056).
+ * SPEC-056). The stage is the fixed box of 1920 x 1080 the students see, so the teacher sees exactly what they see; the scroll of the slide and of
+ * the material, the divider and the mouse go to them (SPEC-057).
  */
 export function PresenterStage({ classId }: PresenterStageProps) {
   const live = useLiveClassroom({ classId, role: "teacher", view: "presenter" });
@@ -111,6 +113,7 @@ export function PresenterStage({ classId }: PresenterStageProps) {
       if (key === "m") return swapStage();
       if (key === "f") return toggleFullscreen();
       if (key === "b") return live.setBlank(!room.blank);
+      if (key === "l" && (slides || mode === "MODULE")) return setLaser((on) => !on);
       if (!slides) return;
       if (key === "ArrowRight" || key === " ") {
         event.preventDefault();
@@ -118,8 +121,7 @@ export function PresenterStage({ classId }: PresenterStageProps) {
       } else if (key === "ArrowLeft") {
         event.preventDefault();
         goto(room.slide - 1);
-      } else if (key === "l") setLaser((on) => !on);
-      else if (key === "p") setPen((on) => !on);
+      } else if (key === "p") setPen((on) => !on);
       else if (key === "c") live.clearDrawings();
     };
   });
@@ -145,43 +147,53 @@ export function PresenterStage({ classId }: PresenterStageProps) {
   return (
     <div className={styles.stage} data-testid="presenter-stage" onMouseMove={showToolbar}>
       <div className={styles.content}>
-        {mode === "SLIDES" ? (
-          room.deck ? (
-            <SlidePresenter
-              bare
-              deck={room.deck}
-              slide={room.slide}
-              canControl={live.canControl}
-              cursor={room.cursor}
-              strokes={room.strokes}
-              laser={laser}
-              pen={pen}
-              onSlide={live.changeSlide}
-              onCursor={live.moveCursor}
-              onDraw={live.draw}
-              onClear={live.clearDrawings}
-            />
+        <FixedStage>
+          {mode === "SLIDES" ? (
+            room.deck ? (
+              <SlidePresenter
+                bare
+                deck={room.deck}
+                slide={room.slide}
+                canControl={live.canControl}
+                cursor={room.cursor}
+                strokes={room.strokes}
+                laser={laser}
+                pen={pen}
+                scroll={live.stageView.slideScroll}
+                onSlide={live.changeSlide}
+                onCursor={live.moveCursor}
+                onDraw={live.draw}
+                onClear={live.clearDrawings}
+                onScroll={(y) => live.sendStageScroll("slide", y)}
+              />
+            ) : (
+              <p className={styles.notice}>{m.room.noDeck}</p>
+            )
           ) : (
-            <p className={styles.notice}>{m.room.noDeck}</p>
-          )
-        ) : (
-          <ModuleStage
-            classId={classId}
-            moduleId={room.moduleId}
-            role="teacher"
-            moduleFocusBlockId={room.moduleFocusBlockId}
-            terminal={live.terminal}
-            onFocusBlock={live.focusBlock}
-            onScreen={live.sendTerminalScreen}
-          />
-        )}
-      </div>
+            <ModuleStage
+              classId={classId}
+              moduleId={room.moduleId}
+              role="teacher"
+              moduleFocusBlockId={room.moduleFocusBlockId}
+              terminal={live.terminal}
+              cursor={room.cursor}
+              laser={laser}
+              stageView={live.stageView}
+              onFocusBlock={live.focusBlock}
+              onScreen={live.sendTerminalScreen}
+              onCursor={live.moveCursor}
+              onMaterialScroll={(y) => live.sendStageScroll("material", y)}
+              onSplit={live.sendStageSplit}
+            />
+          )}
 
-      {room.blank && (
-        <div className={styles.blank} role="status" aria-label={p.blank}>
-          <p className={styles.blankNotice}>{p.blankOn}</p>
-        </div>
-      )}
+          {room.blank && (
+            <div className={styles.blank} role="status" aria-label={p.blank}>
+              <p className={styles.blankNotice}>{p.blankOn}</p>
+            </div>
+          )}
+        </FixedStage>
+      </div>
 
       {!live.connected && (
         <p className={styles.connection} role="status" aria-label={p.connection}>
@@ -215,9 +227,15 @@ export function PresenterStage({ classId }: PresenterStageProps) {
               <Button variant="secondary" size="sm" title={`${p.next} (→)`} disabled={room.slide >= total} onClick={() => goto(room.slide + 1)}>
                 {p.next}
               </Button>
-              <Button variant={laser ? "primary" : "secondary"} size="sm" aria-pressed={laser} title={`${p.laser} (L)`} onClick={() => setLaser(!laser)}>
-                {p.laser}
-              </Button>
+            </>
+          )}
+          {(slides || mode === "MODULE") && (
+            <Button variant={laser ? "primary" : "secondary"} size="sm" aria-pressed={laser} title={`${p.laser} (L)`} onClick={() => setLaser(!laser)}>
+              {p.laser}
+            </Button>
+          )}
+          {slides && (
+            <>
               <Button variant={pen ? "primary" : "secondary"} size="sm" aria-pressed={pen} title={`${p.pen} (P)`} onClick={() => setPen(!pen)}>
                 {p.pen}
               </Button>

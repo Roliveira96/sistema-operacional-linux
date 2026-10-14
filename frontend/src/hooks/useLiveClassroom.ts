@@ -7,6 +7,7 @@ import {
   type AdmissionState,
   type HandRaiseItem,
   type LiveAdmissions,
+  type LiveCursor,
   type LiveDeck,
   type LiveMessage,
   type LiveMode,
@@ -15,6 +16,7 @@ import {
   type LiveSocketHandlers,
   type LiveStroke,
   type LiveView,
+  type StageView,
 } from "@/services/classroomService";
 
 export interface LiveRoomState {
@@ -27,7 +29,7 @@ export interface LiveRoomState {
   blank: boolean;
   deck: LiveDeck | null;
   strokes: LiveStroke[];
-  cursor: { x: number; y: number; laser: boolean; visible: boolean } | null;
+  cursor: LiveCursor | null;
   online: number;
 }
 
@@ -39,6 +41,8 @@ export interface LiveTerminal {
 interface State {
   room: LiveRoomState;
   terminal: LiveTerminal;
+  /** Where the teacher is: the scroll of the slide and of the material and the divider (SPEC-057). */
+  stageView: StageView;
   hands: HandRaiseItem[];
   /** Where the student stands; null until the server says (SPEC-054 CA-01). */
   admission: AdmissionState | null;
@@ -55,6 +59,7 @@ interface State {
 const initial: State = {
   room: { mode: "SLIDES", slide: 1, moduleId: null, moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: null, online: 0 },
   terminal: { screen: null },
+  stageView: { slideScroll: 0, materialScroll: 0, split: null },
   hands: [],
   admission: null,
   admissions: { waiting: [], admitted: [] },
@@ -67,6 +72,21 @@ const initial: State = {
 
 /** The most strokes kept on screen, so a long class does not grow without end. */
 const MAX_STROKES = 500;
+
+/** The scroll and the divider go out at most this often (SPEC-057 section 3.1). */
+const STAGE_SEND_MS = 100;
+/** The part of the stage the material can take (SPEC-057 section 5). */
+const SPLIT_MIN = 0.2;
+const SPLIT_MAX = 0.8;
+
+const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const unit = (value: unknown) => (finite(value) ? Math.min(1, Math.max(0, value)) : 0);
+const ratio = (value: unknown) => (finite(value) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, value)) : null);
+
+/** The view of a snapshot; a server that tells none, or tells nonsense, leaves the stage at its start. */
+function readStageView(view: Partial<StageView> | null | undefined): StageView {
+  return { slideScroll: unit(view?.slideScroll), materialScroll: unit(view?.materialScroll), split: ratio(view?.split) };
+}
 
 type Action = { kind: "message"; message: LiveMessage } | { kind: "local"; message: LiveMessage };
 
@@ -94,11 +114,22 @@ function apply(state: State, message: LiveMessage): State {
           online: s.onlineCount ?? 0,
         },
         terminal: { screen: s.terminal?.screen ?? null },
+        stageView: readStageView(s.stageView),
         hands: s.handRaises ?? [],
       };
     }
+    // The server tells no restart: a new slide starts at the top, and a new module (SPEC-057 CA-05).
     case "live:slide:change":
-      return { ...state, room: { ...state.room, slide: Number(data.slide) || 1, strokes: [] } };
+      return { ...state, room: { ...state.room, slide: Number(data.slide) || 1, strokes: [] }, stageView: { ...state.stageView, slideScroll: 0 } };
+    case "live:stage:scroll": {
+      if (!finite(data.y) || (data.pane !== "slide" && data.pane !== "material")) return state;
+      const key = data.pane === "slide" ? "slideScroll" : "materialScroll";
+      return { ...state, stageView: { ...state.stageView, [key]: unit(data.y) } };
+    }
+    case "live:stage:split": {
+      const split = ratio(data.ratio);
+      return split === null ? state : { ...state, stageView: { ...state.stageView, split } };
+    }
     case "live:cursor:move":
       return { ...state, room: { ...state.room, cursor: { x: Number(data.x), y: Number(data.y), laser: Boolean(data.laser), visible: data.visible !== false } } };
     case "live:canvas:draw": {
@@ -106,11 +137,17 @@ function apply(state: State, message: LiveMessage): State {
       const strokes = [...state.room.strokes, data as LiveStroke].slice(-MAX_STROKES);
       return { ...state, room: { ...state.room, strokes } };
     }
-    case "live:mode:switch":
+    case "live:mode:switch": {
+      // Going back to the slides says no module, but the room keeps its module (the snapshot says so), and so does the scroll of its material: the
+      // server restarts that scroll only when the module is another one (SPEC-057).
+      const moduleId = (data.moduleId as string | undefined) ?? (data.mode === "SLIDES" ? state.room.moduleId : null);
       return {
         ...state,
-        room: { ...state.room, mode: data.mode as LiveMode, moduleId: (data.moduleId as string | undefined) ?? null, moduleFocusBlockId: null },
+        // The pointer is a percentage of the page on the slides and of the stage on the module, so the old one means nothing in the new mode.
+        room: { ...state.room, mode: data.mode as LiveMode, moduleId, moduleFocusBlockId: null, cursor: null },
+        stageView: moduleId === state.room.moduleId ? state.stageView : { ...state.stageView, materialScroll: 0 },
       };
+    }
     case "live:module:focus":
       return { ...state, room: { ...state.room, moduleFocusBlockId: (data.blockId as string | undefined) ?? null } };
     case "live:stage:blank":
@@ -147,6 +184,50 @@ function apply(state: State, message: LiveMessage): State {
 }
 
 const reducer = (state: State, action: Action): State => apply(state, action.message);
+
+/** Sends a number at once, then at most every `STAGE_SEND_MS` with the last one, and never what the room already has (SPEC-057 section 3.1). */
+interface Pace {
+  push(value: number): void;
+  /** The room is known to be at `value` (a new slide starts at the top): what was waiting is dropped, and `value` is not told again. */
+  reset(value: number): void;
+  cancel(): void;
+}
+
+function createPace(send: (value: number) => void): Pace {
+  let sent: number | undefined;
+  let last = -Infinity;
+  let pending = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const flush = () => {
+    timer = undefined;
+    if (pending === sent) return;
+    sent = pending;
+    last = Date.now();
+    send(pending);
+  };
+  return {
+    push(value) {
+      pending = value;
+      const wait = last + STAGE_SEND_MS - Date.now();
+      if (wait > 0) {
+        timer ??= setTimeout(flush, wait);
+        return;
+      }
+      clearTimeout(timer);
+      flush();
+    },
+    reset(value) {
+      clearTimeout(timer);
+      timer = undefined;
+      sent = value;
+      pending = value;
+    },
+    cancel() {
+      clearTimeout(timer);
+      timer = undefined;
+    },
+  };
+}
 
 type Connect = (classId: string, handlers: LiveSocketHandlers, view?: LiveView) => LiveSocket;
 
@@ -234,6 +315,28 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
   );
   const sendOnly = useCallback((type: string, data: unknown) => socket.current?.send(type, data), []);
 
+  // The scroll of the slide, the scroll of the material and the divider, each at its own pace (SPEC-057). What goes out is sent by the latest render,
+  // so a window that lost the control sends nothing even if a position was waiting.
+  const deliver = useRef<(type: string, data: unknown) => void>(() => undefined);
+  useEffect(() => {
+    deliver.current = (type, data) => {
+      if (onStage) socket.current?.send(type, data);
+    };
+  });
+  const paces = useRef<{ slide: Pace; material: Pace; split: Pace } | null>(null);
+  useEffect(() => {
+    const made = {
+      slide: createPace((y) => deliver.current("live:stage:scroll", { pane: "slide", y })),
+      material: createPace((y) => deliver.current("live:stage:scroll", { pane: "material", y })),
+      split: createPace((ratio) => deliver.current("live:stage:split", { ratio })),
+    };
+    paces.current = made;
+    return () => Object.values(made).forEach((pace) => pace.cancel());
+  }, []);
+  // The server brings the scroll back to 0 at a new slide and at a new module, and so does the client: a position of the old one never goes to the new.
+  useEffect(() => paces.current?.slide.reset(0), [state.room.slide]);
+  useEffect(() => paces.current?.material.reset(0), [state.room.moduleId]);
+
   return {
     ...state,
     connected,
@@ -249,6 +352,15 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
       if (!onStage) return;
       lastScreen.current = screen;
       sendOnly("live:terminal:screen", { screen });
+    },
+    /** Where the teacher scrolled the slide or the material, as a fraction of what can be scrolled; only the presenter window tells it (SPEC-057). */
+    sendStageScroll: (pane: "slide" | "material", y: number) => {
+      if (onStage) paces.current?.[pane].push(unit(y));
+    },
+    /** The part of the stage the material takes, from 0.2 to 0.8; only the presenter window tells it (SPEC-057). */
+    sendStageSplit: (value: number) => {
+      const split = ratio(value);
+      if (onStage && split !== null) paces.current?.split.push(split);
     },
     moderate: (studentId?: string) => {
       if (onPanel) sendOnly("live:hand:moderate", studentId ? { studentId } : { all: true });
