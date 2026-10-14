@@ -206,7 +206,8 @@ describe("PresenterStage", () => {
       expect(l.clearDrawings).toHaveBeenCalledTimes(1);
       fireEvent.click(bar.getByRole("button", { name: "Módulo" }));
       expect(l.switchMode).toHaveBeenLastCalledWith("MODULE", "m-1");
-      fireEvent.click(bar.getByRole("button", { name: "Tela preta" }));
+      expect(bar.getByRole("button", { name: "Tela de espera" }).getAttribute("title")).toBe("Tela de espera (B)");
+      fireEvent.click(bar.getByRole("button", { name: "Tela de espera" }));
       expect(l.setBlank).toHaveBeenLastCalledWith(true);
       fireEvent.click(bar.getByRole("button", { name: "Tela cheia" }));
       expect(document.documentElement.requestFullscreen).toHaveBeenCalledTimes(1);
@@ -301,6 +302,7 @@ describe("PresenterStage", () => {
         .getAllByRole("listitem")
         .map((li) => li.textContent ?? "");
       for (const start of ["Setas e espaço", "L", "P", "C", "M", "F", "B", "?"]) expect(items.some((text) => text.startsWith(start))).toBe(true);
+      expect(items.find((text) => text.startsWith("B"))).toContain("tela de espera");
       key("Escape");
       expect(screen.queryByRole("dialog")).toBeNull();
     });
@@ -339,30 +341,96 @@ describe("PresenterStage", () => {
     });
   });
 
-  // CA-17: the blank screen
-  describe("the blank screen", () => {
+  // SPEC-061 CA-01, CA-02, CA-05, CA-06: the waiting screen takes the place of the blank screen of the SPEC-055 (CA-17)
+  describe("the waiting screen", () => {
+    const started = { ...session, title: "Permissões de arquivos", startedAt: "2026-10-14T10:00:00Z" };
+    const cover = () => screen.getByRole("status", { name: "Tela de espera" });
+
     it("turns on and off with B, and with the button", () => {
       const l = live();
       const view = render(<PresenterStage classId="c-1" session={session} />);
       key("b");
       expect(l.setBlank).toHaveBeenLastCalledWith(true);
+      fireEvent.click(within(screen.getByRole("toolbar")).getByRole("button", { name: "Tela de espera" }));
+      expect(l.setBlank).toHaveBeenCalledTimes(2);
+      expect(l.setBlank).toHaveBeenLastCalledWith(true);
       live({}, { blank: true });
       view.rerender(<PresenterStage classId="c-1" session={session} />);
+      const on = vi.mocked(useLiveClassroom).mock.results.at(-1)!.value;
       key("B");
-      expect(vi.mocked(useLiveClassroom).mock.results.at(-1)!.value.setBlank).toHaveBeenLastCalledWith(false);
+      expect(on.setBlank).toHaveBeenLastCalledWith(false);
+      fireEvent.click(within(screen.getByRole("toolbar")).getByRole("button", { name: "Tela de espera" }));
+      expect(on.setBlank).toHaveBeenCalledTimes(2);
+      expect(on.setBlank).toHaveBeenLastCalledWith(false);
     });
 
-    it("covers the stage with black for the teacher too, with a discreet notice of how to come back", () => {
+    it("covers the stage with the waiting screen for the teacher too, with a discreet notice of how to come back", () => {
       live({}, { blank: true });
       render(<PresenterStage classId="c-1" session={session} />);
-      expect(screen.getByRole("status", { name: "Tela preta" })).toBeDefined();
-      expect(screen.getByText("Tela preta ligada. Aperte B para voltar.")).toBeDefined();
+      expect(cover()).toBeDefined();
+      expect(screen.getByText("Tela de espera ligada. Aperte B para voltar.")).toBeDefined();
     });
 
-    it("shows no cover while the screen is not blank", () => {
+    it("shows no cover while the screen is not on", () => {
       live();
       render(<PresenterStage classId="c-1" session={session} />);
-      expect(screen.queryByRole("status", { name: "Tela preta" })).toBeNull();
+      expect(screen.queryByRole("status", { name: "Tela de espera" })).toBeNull();
+      expect(screen.queryByText("A aula já vai continuar")).toBeNull();
+    });
+
+    it("shows the title of the class and the time since it began, running second by second", () => {
+      vi.setSystemTime(new Date("2026-10-14T11:05:30Z"));
+      live({}, { blank: true });
+      render(<PresenterStage classId="c-1" session={started} />);
+      expect(within(cover()).getByText("Permissões de arquivos")).toBeDefined();
+      expect(within(cover()).getByText("01:05:30")).toBeDefined();
+      expect(within(cover()).getByText("A aula já vai continuar")).toBeDefined();
+      act(() => void vi.advanceTimersByTime(1000));
+      expect(within(cover()).getByText("01:05:31")).toBeDefined();
+    });
+
+    it("counts from the start the room tells, which is the one of the last snapshot", () => {
+      vi.setSystemTime(new Date("2026-10-14T11:05:30Z"));
+      live({ startedAt: "2026-10-14T10:30:00Z" }, { blank: true });
+      render(<PresenterStage classId="c-1" session={started} />);
+      expect(within(cover()).getByText("00:35:30")).toBeDefined();
+    });
+
+    it("says 'Aula ao vivo' when the class has no title", () => {
+      live({}, { blank: true });
+      render(<PresenterStage classId="c-1" session={{ ...started, title: "" }} />);
+      expect(within(cover()).getByText("Aula ao vivo")).toBeDefined();
+    });
+
+    it("keeps the slides under it, and gives them back as they were, with no new load", () => {
+      const scrolled = { stageView: { slideScroll: 0.4, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: {} } };
+      live(scrolled, { slide: 4 });
+      const view = render(<PresenterStage classId="c-1" session={started} />);
+      const before = screen.getByTestId("slides");
+      live(scrolled, { slide: 4, blank: true });
+      view.rerender(<PresenterStage classId="c-1" session={started} />);
+      expect(cover()).toBeDefined();
+      expect(screen.getByTestId("slides")).toBe(before);
+      live(scrolled, { slide: 4 });
+      view.rerender(<PresenterStage classId="c-1" session={started} />);
+      expect(screen.queryByRole("status", { name: "Tela de espera" })).toBeNull();
+      expect(screen.getByTestId("slides")).toBe(before);
+      expect([before.getAttribute("data-slide"), before.getAttribute("data-scroll")]).toEqual(["4", "0.4"]);
+    });
+
+    it("keeps the module and its terminal under it, and gives them back as they were", () => {
+      live({}, { mode: "MODULE", moduleFocusBlockId: "b-2" });
+      const view = render(<PresenterStage classId="c-1" session={started} />);
+      const before = screen.getByTestId("module");
+      live({}, { mode: "MODULE", moduleFocusBlockId: "b-2", blank: true });
+      view.rerender(<PresenterStage classId="c-1" session={started} />);
+      expect(cover()).toBeDefined();
+      expect(screen.getByTestId("module")).toBe(before);
+      live({}, { mode: "MODULE", moduleFocusBlockId: "b-2" });
+      view.rerender(<PresenterStage classId="c-1" session={started} />);
+      expect(screen.queryByRole("status", { name: "Tela de espera" })).toBeNull();
+      expect(screen.getByTestId("module")).toBe(before);
+      expect(before.getAttribute("data-focus")).toBe("b-2");
     });
   });
 
@@ -405,24 +473,27 @@ describe("PresenterStage", () => {
       expect(screen.getByTestId("fixed-stage").contains(screen.getByTestId("module"))).toBe(true);
     });
 
-    it("covers the stage with the blank screen from inside it, and keeps the toolbar, the tip and the notices outside", () => {
+    it("covers the stage with the waiting screen from inside it, and keeps the toolbar, the tip and the notices outside", () => {
       live({}, { blank: true });
       render(<PresenterStage classId="c-1" session={session} />);
       const stage = screen.getByTestId("fixed-stage");
-      expect(stage.contains(screen.getByRole("status", { name: "Tela preta" }))).toBe(true);
+      expect(stage.contains(screen.getByRole("status", { name: "Tela de espera" }))).toBe(true);
       expect(stage.contains(screen.getByRole("toolbar"))).toBe(false);
       expect(stage.contains(screen.getByRole("note", { name: "Dica de atalhos" }))).toBe(false);
     });
 
     // CA-22: inside the stage the teacher has what the students have, and nothing else
-    it("covers the stage with a blank screen as empty as the students', and keeps the hint of how to come back outside of it", () => {
+    it("covers the stage with the waiting screen the students have, the last thing of the stage, and keeps the hint of how to come back outside of it", () => {
       live({}, { blank: true });
       render(<PresenterStage classId="c-1" session={session} />);
       const stage = screen.getByTestId("fixed-stage");
-      const cover = screen.getByRole("status", { name: "Tela preta" });
+      const cover = screen.getByRole("status", { name: "Tela de espera" });
       expect(stage.contains(cover)).toBe(true);
-      expect(cover.textContent).toBe("");
-      expect(stage.contains(screen.getByText("Tela preta ligada. Aperte B para voltar."))).toBe(false);
+      expect(screen.getByTestId("stage-box").lastElementChild).toBe(cover);
+      expect(cover.getAttribute("style")).toBeNull();
+      expect(cover.textContent).toContain("Permissões");
+      expect(cover.textContent).toContain("A aula já vai continuar");
+      expect(stage.contains(screen.getByText("Tela de espera ligada. Aperte B para voltar."))).toBe(false);
     });
 
     it("keeps the connection indicator and the notices outside of the stage", () => {

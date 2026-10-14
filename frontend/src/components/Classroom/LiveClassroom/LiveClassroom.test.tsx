@@ -131,15 +131,100 @@ describe("LiveClassroom", () => {
     expect(screen.queryByTestId("slides")).toBeNull();
   });
 
-  // SPEC-055 CA-17: the blank screen
-  it("covers the stage with an empty screen while the teacher keeps it blank", () => {
+  // SPEC-061 CA-01: the waiting screen takes the place of the blank screen of the SPEC-055 (CA-17)
+  it("covers the stage with the waiting screen while the teacher keeps it on", () => {
     live({ canControl: false, room: { mode: "SLIDES", slide: 2, moduleId: null, moduleFocusBlockId: null, blank: true, deck: { id: "d", title: "t", pageCount: 5, downloadUrl: "https://x" }, strokes: [], cursor: null, online: 5 } });
     const view = render(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
-    expect(screen.getByRole("status", { name: "Tela preta" })).toBeDefined();
+    expect(screen.getByRole("status", { name: "Tela de espera" })).toBeDefined();
     live({ canControl: false });
     view.rerender(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
-    expect(screen.queryByRole("status", { name: "Tela preta" })).toBeNull();
+    expect(screen.queryByRole("status", { name: "Tela de espera" })).toBeNull();
     expect(screen.getByTestId("slides")).toBeDefined();
+  });
+
+  // SPEC-061 CA-02, CA-04, CA-05: what the student sees in the waiting screen, and what comes back when it goes
+  describe("the waiting screen", () => {
+    const deck = { id: "d", title: "t", pageCount: 5, downloadUrl: "https://x" };
+    const slidesRoom = (over: Record<string, unknown> = {}) => ({ mode: "SLIDES", slide: 2, moduleId: null, moduleFocusBlockId: null, blank: true, deck, strokes: [], cursor: null, online: 5, ...over });
+    const moduleRoom = (over: Record<string, unknown> = {}) => ({ mode: "MODULE", slide: 1, moduleId: "m-1", moduleFocusBlockId: "b-2", blank: true, deck: null, strokes: [], cursor: null, online: 2, ...over });
+    const cover = () => within(screen.getByTestId("fixed-stage")).getByRole("status", { name: "Tela de espera" });
+    const mount = (over: Partial<LiveSession> = {}) => render(<LiveClassroom classId="c-1" userId="u-1" session={{ ...session, ...over }} />);
+
+    it("shows the title of the class, the time since it began and the line that the class will go on, all inside the stage", () => {
+      live({ canControl: false, room: slidesRoom() });
+      mount();
+      expect(within(cover()).getByText("Permissões")).toBeDefined();
+      expect(within(cover()).getByText(/^01:0[5-6]:\d\d$/)).toBeDefined();
+      expect(within(cover()).getByText("A aula já vai continuar")).toBeDefined();
+    });
+
+    it("counts from the start the room tells, which is the one of the last snapshot", () => {
+      live({ canControl: false, room: slidesRoom(), startedAt: new Date(Date.now() - 2 * 3_600_000).toISOString() });
+      mount();
+      expect(within(cover()).getByText(/^02:00:\d\d$/)).toBeDefined();
+    });
+
+    it("says 'Aula ao vivo' when the class has no title", () => {
+      live({ canControl: false, room: slidesRoom() });
+      mount({ title: "" });
+      expect(within(cover()).getByText("Aula ao vivo")).toBeDefined();
+    });
+
+    it("is not a second timer for the screen reader: the strip keeps the only one", () => {
+      live({ canControl: false, room: slidesRoom() });
+      mount();
+      expect(screen.getAllByRole("timer")).toHaveLength(1);
+      expect(cover().contains(screen.getByRole("timer"))).toBe(false);
+    });
+
+    it("shows at once to the student who comes in, or comes back, while it is on", () => {
+      live({ canControl: false, ready: false, connected: false });
+      const view = mount();
+      expect(screen.queryByRole("status", { name: "Tela de espera" })).toBeNull();
+      live({ canControl: false, ready: true, connected: true, room: slidesRoom() });
+      view.rerender(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
+      expect(cover()).toBeDefined();
+      expect(within(cover()).getByText("Permissões")).toBeDefined();
+    });
+
+    it("keeps the slides under it, and gives them back as they were, with no new load", () => {
+      live({ canControl: false, room: slidesRoom({ blank: false, slide: 4 }) });
+      const view = mount();
+      const before = screen.getByTestId("slides");
+      live({ canControl: false, room: slidesRoom({ slide: 4 }) });
+      view.rerender(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
+      expect(cover()).toBeDefined();
+      expect(screen.getByTestId("slides")).toBe(before);
+      live({ canControl: false, room: slidesRoom({ blank: false, slide: 4 }) });
+      view.rerender(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
+      expect(screen.queryByRole("status", { name: "Tela de espera" })).toBeNull();
+      expect(screen.getByTestId("slides")).toBe(before);
+      expect(before.getAttribute("data-slide")).toBe("4");
+    });
+
+    it("keeps the module under it, and gives it back as it was, with no new load", () => {
+      live({ canControl: false, room: moduleRoom({ blank: false }) });
+      const view = mount();
+      const before = screen.getByTestId("module");
+      live({ canControl: false, room: moduleRoom() });
+      view.rerender(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
+      expect(cover()).toBeDefined();
+      expect(screen.getByTestId("module")).toBe(before);
+      live({ canControl: false, room: moduleRoom({ blank: false }) });
+      view.rerender(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
+      expect(screen.queryByRole("status", { name: "Tela de espera" })).toBeNull();
+      expect(screen.getByTestId("module")).toBe(before);
+      expect(before.getAttribute("data-focus")).toBe("b-2");
+    });
+
+    it("leaves the strip as it is: the hand, the notes and the leave button are still there", () => {
+      live({ canControl: false, room: slidesRoom() });
+      mount();
+      expect(cover()).toBeDefined();
+      const strip = screen.getByRole("toolbar", { name: "Controles da aula" });
+      for (const name of ["Levantar a mão", "Anotações", "Tela cheia", "Sair da sala"]) expect(within(strip).getByRole("button", { name })).toBeDefined();
+      expect(screen.getByTestId("fixed-stage").contains(strip)).toBe(false);
+    });
   });
 
   it("says when the class has no presentation", () => {
@@ -231,12 +316,13 @@ describe("LiveClassroom", () => {
       expect(stage.contains(screen.getByTestId("notes"))).toBe(false);
     });
 
-    it("draws the module inside the stage too, and the blank screen over it", () => {
+    it("draws the module inside the stage too, and the waiting screen over it", () => {
       live({ canControl: false, room: { mode: "MODULE", slide: 1, moduleId: "m-1", moduleFocusBlockId: null, blank: true, deck: null, strokes: [], cursor: null, online: 2 } });
       render(<LiveClassroom classId="c-1" userId="u-1" session={session} />);
       const stage = screen.getByTestId("fixed-stage");
       expect(stage.contains(screen.getByTestId("module"))).toBe(true);
-      expect(stage.contains(screen.getByRole("status", { name: "Tela preta" }))).toBe(true);
+      expect(stage.contains(screen.getByRole("status", { name: "Tela de espera" }))).toBe(true);
+      expect(screen.getByTestId("stage-box").lastElementChild).toBe(screen.getByRole("status", { name: "Tela de espera" }));
     });
 
     it("tells where the slide is in the bar, because the stage has no bar of its own", () => {
