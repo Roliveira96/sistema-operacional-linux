@@ -27,9 +27,39 @@ export interface CommandResult {
   output: string;
 }
 
+/** A piece of what a terminal printed, with the class that colors it (SPEC-051). */
+export interface ScreenSegment {
+  text: string;
+  className?: string;
+}
+
+/** The line a terminal is waiting for a command on, at every key (SPEC-051). */
+export interface TerminalInputEvent {
+  terminal: number;
+  line: string;
+}
+
+/** A command that ended: what was typed, what it printed and the machine after it (SPEC-051). */
+export interface TerminalCommandEvent {
+  terminal: number;
+  line: string;
+  /** What the command printed, without the prompt and the echo of the line. */
+  output: string;
+  status: number | null;
+  /** Everything the terminal printed from the prompt on, with its colors, to be printed again on a copy. */
+  segments: ScreenSegment[];
+  user: string;
+  cwd: string;
+  state: unknown;
+}
+
 export interface TerminalWindowCallbacks {
   /** Called after every command with the serialized machine. */
   onCommand(snapshot: unknown): void;
+  /** Called at every key typed on a command line, and when the line is empty again (SPEC-051). A password is never reported. */
+  onInput?(event: TerminalInputEvent): void;
+  /** Called when a command ends, typed or sent by run() (SPEC-051). */
+  onCommandDone?(event: TerminalCommandEvent): void;
 }
 
 export interface TerminalWindow {
@@ -63,6 +93,14 @@ export interface TerminalWindow {
   exportJson(name: string): void;
   /** Opens the file picker and loads the chosen machine. Rejects on an invalid file. */
   importJson(): Promise<void>;
+  /** Makes the window a read-only copy: no focus and no keyboard, so only the calls below change what it shows (SPEC-051). */
+  setReadOnly(on: boolean): void;
+  /** Shows `line` as what is being typed on the command line of the terminal, without running it (SPEC-051). */
+  showInput(terminal: number, line: string): Promise<void>;
+  /** Prints what another terminal printed and leaves the command line empty, without running anything (SPEC-051). */
+  printScreen(terminal: number, segments: ScreenSegment[]): Promise<void>;
+  /** Puts the machine of another window under this one, keeping the screen, and the folder of the terminal that ran the command (SPEC-051). */
+  syncMachine(state: unknown, terminal?: { terminal: number; cwd: string }): Promise<void>;
   destroy(): void;
 }
 
@@ -82,6 +120,13 @@ export function cleanOutput(printed: string, command: string): string {
   const prompt = /^\S+@\S+:\S*[#$]\s*$/;
   while (lines.length > 0 && (lines[lines.length - 1]!.trim() === "" || prompt.test(lines[lines.length - 1]!))) lines.pop();
   return lines.join("\n");
+}
+
+/** The machine as it goes to a copy of the window: the passwords of the accounts stay behind, a copy never logs in (SPEC-051). */
+function withoutPasswords(state: unknown): unknown {
+  const machine = state as { contas?: { usuarios?: Array<Record<string, unknown>> } };
+  if (!machine.contas?.usuarios) return state;
+  return { ...machine, contas: { ...machine.contas, usuarios: machine.contas.usuarios.map((user) => ({ ...user, senha: null })) } };
 }
 
 const PREPARING_MESSAGE = "Preparando máquina…\n";
@@ -153,6 +198,86 @@ export async function mountTerminalWindow(
     terminais: Array<TerminalInternals | null>;
   }
 
+  // SPEC-051: the teacher's terminals tell what is typed and what ends. It is read from outside the legacy code: the methods of each
+  // terminal are wrapped, so nothing of src/engine/core changes. The typing is only reported on a command line, never at a password prompt.
+  interface WatchedTerminal extends TerminalInternals {
+    escrever(text: string, className?: string): void;
+  }
+  const watched = new WeakSet<object>();
+  const watchTerminals = () => {
+    if (!callbacks.onInput && !callbacks.onCommandDone) return;
+    for (const internal of (window3 as unknown as WindowInternals).terminais) {
+      if (!internal || watched.has(internal)) continue;
+      watched.add(internal);
+      const terminal = internal as unknown as WatchedTerminal;
+
+      let collecting: ScreenSegment[] | null = null;
+      const write = terminal.escrever;
+      terminal.escrever = function (this: unknown, text: string, className?: string) {
+        collecting?.push(className ? { text, className } : { text });
+        write.call(terminal, text, className);
+      };
+
+      let lastLine = "";
+      // After a password the legacy terminal may keep it in the buffer until the next line (when the answers come from a script), so
+      // nothing is reported from the moment a hidden answer was typed until the buffer is empty again.
+      let hiding = false;
+      const render = terminal.renderizarEntrada;
+      terminal.renderizarEntrada = function () {
+        render.call(terminal);
+        const hidden = terminal.estado !== "comando" && (terminal as unknown as { oculto: boolean }).oculto;
+        if (hidden) hiding = true;
+        if (hiding && terminal.estado === "comando" && terminal.buffer === "") hiding = false;
+        if (hiding || terminal.estado !== "comando" || terminal.buffer === lastLine) return;
+        lastLine = terminal.buffer;
+        callbacks.onInput?.({ terminal: terminal.numero, line: lastLine });
+      };
+
+      const send = terminal.enviarComando;
+      terminal.enviarComando = async function () {
+        const line = terminal.buffer;
+        collecting = [];
+        try {
+          await send.call(terminal);
+        } finally {
+          const segments = collecting ?? [];
+          collecting = null;
+          const frame = terminal.sessao?.atual();
+          if (frame) {
+            callbacks.onCommandDone?.({
+              terminal: terminal.numero,
+              line,
+              output: cleanOutput(segments.map((segment) => segment.text).join(""), line),
+              status: frame.escopo.ultimoStatus,
+              segments,
+              user: frame.usuario.nome,
+              cwd: frame.cwd,
+              state: withoutPasswords(Serializador.paraJson(machine)),
+            });
+          }
+        }
+      };
+    }
+  };
+  watchTerminals();
+  // A terminal opened by the buttons of the window is watched as soon as it appears.
+  const observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(watchTerminals);
+  observer?.observe(container, { childList: true, subtree: true });
+
+  // SPEC-051: a read-only copy takes no focus and no key; the capture listeners keep the events from reaching the legacy terminal.
+  let readOnly = false;
+  for (const name of ["keydown", "keypress", "beforeinput", "paste", "mousedown"]) {
+    container.addEventListener(
+      name,
+      (event) => {
+        if (!readOnly) return;
+        event.stopPropagation();
+        event.preventDefault();
+      },
+      true,
+    );
+  }
+
   let instant = false;
   const execute = async (step: TerminalStep): Promise<CommandResult> => {
       const login = step.login ? { usuario: step.login.user, senha: step.login.password } : undefined;
@@ -160,6 +285,7 @@ export async function mountTerminalWindow(
         executarAutomatico(command: string, answers?: string[]): Promise<void>;
         escrever(text: string, className?: string): void;
       };
+      watchTerminals();
       const before = terminal.sessao?.historico.length ?? 0;
 
       // Everything the command prints goes through escrever, so it is collected there while it runs.
@@ -326,7 +452,42 @@ export async function mountTerminalWindow(
       notify();
     },
 
+    setReadOnly(on) {
+      readOnly = on;
+      container.toggleAttribute("inert", on);
+    },
+
+    async showInput(number, line) {
+      const terminal = (await window3.obter(number)) as unknown as TerminalInternals;
+      if (terminal.estado !== "comando") return;
+      terminal.buffer = line;
+      terminal.cursor = line.length;
+      terminal.renderizarEntrada();
+    },
+
+    async printScreen(number, segments) {
+      const terminal = (await window3.obter(number)) as unknown as WatchedTerminal;
+      for (const segment of segments) terminal.escrever(segment.text, segment.className);
+      terminal.buffer = "";
+      terminal.cursor = 0;
+      terminal.renderizarEntrada();
+    },
+
+    async syncMachine(state, where) {
+      await (this as unknown as TerminalWindow).swapMachine(state);
+      if (!where) return;
+      const terminal = (window3 as unknown as WindowInternals).terminais[where.terminal - 1];
+      const frame = terminal?.sessao?.atual();
+      if (!terminal || !frame) return;
+      // The folder of the terminal that ran the command, when the machine has it, so the prompt on the copy is the same.
+      if ((machine as unknown as { fs: { obter(path: string): { ehDiretorio(): boolean } | undefined } }).fs.obter(where.cwd)?.ehDiretorio()) {
+        frame.cwd = where.cwd;
+        terminal.renderizarEntrada();
+      }
+    },
+
     destroy() {
+      observer?.disconnect();
       window3.destruir();
       container.innerHTML = "";
     },

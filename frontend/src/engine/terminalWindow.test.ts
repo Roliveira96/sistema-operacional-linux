@@ -177,12 +177,16 @@ describe("terminal window for the live classroom (SPEC-051)", () => {
     await win.execute({ command: "passwd", answers: ["segredo-secreto", "segredo-secreto"] });
     const everything = JSON.stringify([onInput.mock.calls, onCommandDone.mock.calls]);
     expect(everything).not.toContain("segredo-secreto");
+    // The machine that goes along has no password of any account.
+    const state = onCommandDone.mock.calls.at(-1)![0].state as { contas: { usuarios: { senha: string | null }[] } };
+    expect(state.contas.usuarios.length).toBeGreaterThan(0);
+    expect(state.contas.usuarios.every((user) => user.senha === null)).toBe(true);
   });
 
   // Covers CA-07: a terminal opened later (another tab of the window) is watched too.
   it("watches the other terminals of the window", async () => {
     const { container, win, onCommandDone } = await mountLive();
-    await win.run({ command: "echo no-dois", terminal: 2 });
+    await win.run({ command: "echo no-dois", terminal: 2, login: { user: "ricardo", password: "123" } });
     expect(container.querySelectorAll(".janela-aba").length).toBeGreaterThan(1);
     expect(onCommandDone.mock.calls.at(-1)![0]).toMatchObject({ terminal: 2, line: "echo no-dois" });
   });
