@@ -198,6 +198,34 @@ func TestTerminalScreen_TheLatestAlwaysArrivesInOrder(t *testing.T) {
 	assert.JSONEq(t, `{"tag":"div","children":["n5"]}`, w.svc.keptScreens()[4])
 }
 
+// Covers SPEC-056 CA-03: the screen is not counted in the rate limit of its emitter; with the pointer of the teacher using up the budget
+// of the second, the last screen still reaches the students, so they do not stay with an old one.
+func TestTerminalScreen_NotHeldBackByTheCursorRate(t *testing.T) {
+	w := setup(t)
+	presenter := w.dialView(t, "teacher", "presenter")
+	student := w.dial(t, "student")
+	readUntil(t, presenter, "live:snapshot")
+	readUntil(t, student, "live:snapshot")
+
+	for i := 0; i < 60; i++ {
+		sendMsg(t, presenter, "live:cursor:move", `{"x":1,"y":2}`)
+	}
+	sendMsg(t, presenter, screenMessage, numbered(1))
+
+	got := false
+	for i := 0; i < 100 && !got; i++ {
+		if m := readMsg(t, student); m.Type == screenMessage {
+			assert.Equal(t, 1, screenNumber(t, m))
+			got = true
+		}
+	}
+	assert.True(t, got, "the screen did not reach the student")
+	eventually(t, func() bool { return len(w.svc.keptScreens()) == 1 })
+	reasons := droppedReasons(w)
+	assert.Contains(t, reasons, "live:cursor:move:rate-limit", "the budget of the second was really used up")
+	assert.NotContains(t, reasons, screenMessage+":rate-limit")
+}
+
 // Covers SPEC-056 CA-05: who comes in, or comes back, gets the current screen in the snapshot, whatever the window: student, panel and
 // presenter; and a new presenter window does not erase it. The REST state of the room has it too.
 func TestTerminalScreen_TheSnapshotsCarryTheCurrentScreen(t *testing.T) {
