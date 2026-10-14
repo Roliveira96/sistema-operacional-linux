@@ -6,11 +6,12 @@ import { MirroredModuleView } from "./MirroredModuleView";
 
 vi.mock("@/engine/terminalWindow", () => ({ mountTerminalWindow: vi.fn() }));
 
-const windows: ReturnType<typeof fakeWindow>[] = [];
+type FakeWindow = Record<"setSpeed" | "setReadOnly" | "showInput" | "printScreen" | "syncMachine" | "destroy", ReturnType<typeof vi.fn>>;
+const windows: FakeWindow[] = [];
 let callbacks: TerminalWindowCallbacks | null = null;
 
-function fakeWindow() {
-  const w = {
+function fakeWindow(): FakeWindow {
+  const w: FakeWindow = {
     setSpeed: vi.fn(),
     setReadOnly: vi.fn(),
     showInput: vi.fn().mockResolvedValue(undefined),

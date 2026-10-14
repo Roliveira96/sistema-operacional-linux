@@ -1,14 +1,17 @@
+import { readFileSync } from "node:fs";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { classroomService, type LiveSession } from "@/services/classroomService";
 import { LiveClassroom } from "./LiveClassroom";
-import liveClassroomStyles from "./LiveClassroom.module.scss?raw";
-import liveClassPanelStyles from "../LiveClassPanel/LiveClassPanel.module.scss?raw";
-import drawerStyles from "../LiveInteractionDrawer/LiveInteractionDrawer.module.scss?raw";
-import mirroredStyles from "../MirroredModuleView/MirroredModuleView.module.scss?raw";
-import slideStyles from "../SlidePresenter/SlidePresenter.module.scss?raw";
-import notesStyles from "../StudentNotesPanel/StudentNotesPanel.module.scss?raw";
+
+const styleOf = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const liveClassroomStyles = styleOf("./LiveClassroom.module.scss");
+const liveClassPanelStyles = styleOf("../LiveClassPanel/LiveClassPanel.module.scss");
+const drawerStyles = styleOf("../LiveInteractionDrawer/LiveInteractionDrawer.module.scss");
+const mirroredStyles = styleOf("../MirroredModuleView/MirroredModuleView.module.scss");
+const slideStyles = styleOf("../SlidePresenter/SlidePresenter.module.scss");
+const notesStyles = styleOf("../StudentNotesPanel/StudentNotesPanel.module.scss");
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));

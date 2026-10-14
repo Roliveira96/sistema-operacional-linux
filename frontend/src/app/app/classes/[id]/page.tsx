@@ -6,6 +6,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { AddStudentsDialog } from "@/components/AddStudentsDialog/AddStudentsDialog";
 import { ClassCalendar } from "@/components/ClassCalendar/ClassCalendar";
 import { ClassLinks } from "@/components/ClassLinks/ClassLinks";
+import { LiveClassPanel } from "@/components/Classroom/LiveClassPanel/LiveClassPanel";
 import { ClassMembersTable } from "@/components/ClassMembersTable/ClassMembersTable";
 import { EventForm } from "@/components/EventForm/EventForm";
 import { InviteLinkCard } from "@/components/InviteLinkCard/InviteLinkCard";
@@ -116,11 +117,12 @@ function RichSection({ id, icon, title, html }: { id: string; icon: ReactNode; t
   );
 }
 
-function Overview({ data, editableLinks, history }: { data: Presentation; editableLinks: boolean; history?: ClassGroup }) {
+function Overview({ data, editableLinks, history, role }: { data: Presentation; editableLinks: boolean; history?: ClassGroup; role: "teacher" | "student" }) {
   const progress = validityProgress(data.startDate, data.endDate, new Date());
   return (
     <div className={styles.overview}>
       <div className={styles.mainColumn}>
+        <LiveClassPanel classId={data.id} role={role} archived={data.status === "ARCHIVED"} />
         <ClassLinks classId={data.id} editable={editableLinks} />
         <RichSection id="syllabus-title" icon={<IconBook />} title={m.syllabus} html={data.syllabus} />
         <RichSection id="guidelines-title" icon={<IconShield />} title={m.guidelines} html={data.institutionalGuidelines} />
@@ -560,7 +562,12 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
 
       <div role="tabpanel" className={styles.tabPanel}>
         {tab === "overview" ? (
-          <Overview data={data} editableLinks={!isStudent && data.status !== "ARCHIVED"} history={isStudent ? undefined : (classData ?? undefined)} />
+          <Overview
+            data={data}
+            editableLinks={!isStudent && data.status !== "ARCHIVED"}
+            history={isStudent ? undefined : (classData ?? undefined)}
+            role={isStudent ? "student" : "teacher"}
+          />
         ) : tab === "schedule" ? (
           <ClassCalendar
             load={loadCalendar}
