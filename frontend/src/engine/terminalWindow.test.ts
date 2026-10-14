@@ -366,9 +366,20 @@ describe("picture of the screen for the live classroom (SPEC-056)", () => {
     expect(byClass(last(), "b")[0]!.attrs?.value).toBeUndefined();
   });
 
-  it("never shows what is typed at a password prompt", async () => {
-    const { win, onScreen } = await mountScreen();
-    await win.execute({ command: "passwd", answers: ["segredo-secreto", "segredo-secreto"] });
+  // The teacher types the password: the terminal draws nothing of it, and neither does the picture, at any moment.
+  it("never shows what the teacher types at a password prompt", async () => {
+    const { container, onScreen, last } = await mountScreen();
+    const screen = type(container, "passwd");
+    key(screen, "Enter");
+    await vi.waitFor(() => expect(textOf(last())).toContain("Nova senha:"));
+    type(container, "segredo-secreto");
+    await sleep(250);
+    expect(textOf(last())).toContain("Nova senha:");
+    key(screen, "Enter");
+    await vi.waitFor(() => expect(textOf(last())).toContain("Redigite a nova senha:"));
+    type(container, "segredo-secreto");
+    key(screen, "Enter");
+    await vi.waitFor(() => expect(textOf(last())).toContain("senha atualizada com sucesso"));
     await sleep(250);
     expect(JSON.stringify(onScreen.mock.calls)).not.toContain("segredo-secreto");
   });

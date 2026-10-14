@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import type { TerminalCommandEvent, TerminalInputEvent } from "@/engine/terminalWindow";
+import type { ScreenElement } from "@/engine/terminalScreen";
 import {
   openLiveSocket,
   type AdmissionState,
@@ -32,11 +32,8 @@ export interface LiveRoomState {
 }
 
 export interface LiveTerminal {
-  input: TerminalInputEvent | null;
-  entries: TerminalCommandEvent[];
-  state: unknown;
-  /** Grows at every command, so a screen that mirrors it knows when to apply the machine. */
-  revision: number;
+  /** The last picture of the teacher's terminal window, which the student's copy draws; null until one comes (SPEC-056). */
+  screen: ScreenElement | null;
 }
 
 interface State {
@@ -57,7 +54,7 @@ interface State {
 
 const initial: State = {
   room: { mode: "SLIDES", slide: 1, moduleId: null, moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: null, online: 0 },
-  terminal: { input: null, entries: [], state: null, revision: 0 },
+  terminal: { screen: null },
   hands: [],
   admission: null,
   admissions: { waiting: [], admitted: [] },
@@ -96,12 +93,7 @@ function apply(state: State, message: LiveMessage): State {
           cursor: null,
           online: s.onlineCount ?? 0,
         },
-        terminal: {
-          input: s.terminal?.input ?? null,
-          entries: s.terminal?.entries ?? [],
-          state: s.terminal?.state ?? null,
-          revision: state.terminal.revision + 1,
-        },
+        terminal: { screen: s.terminal?.screen ?? null },
         hands: s.handRaises ?? [],
       };
     }
@@ -132,15 +124,11 @@ function apply(state: State, message: LiveMessage): State {
         ...state,
         admissions: { waiting: (data.waiting as LiveAdmissions["waiting"]) ?? [], admitted: (data.admitted as LiveAdmissions["admitted"]) ?? [] },
       };
-    case "live:terminal:input":
-      return { ...state, terminal: { ...state.terminal, input: data as unknown as TerminalInputEvent } };
-    case "live:terminal:sync": {
-      const entry = data as unknown as TerminalCommandEvent;
-      return {
-        ...state,
-        terminal: { input: null, entries: [...state.terminal.entries, entry].slice(-200), state: entry.state, revision: state.terminal.revision + 1 },
-      };
-    }
+    case "live:terminal:screen":
+      // Only a tree is taken; anything else leaves the screen as it was.
+      return typeof data.screen === "object" && data.screen !== null && !Array.isArray(data.screen)
+        ? { ...state, terminal: { screen: data.screen as ScreenElement } }
+        : state;
     case "live:hand:queue":
       return { ...state, hands: (data.queue as HandRaiseItem[]) ?? [] };
     case "live:presence":
@@ -187,7 +175,9 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
   const [connected, setConnected] = useState(false);
   const socket = useRef<LiveSocket | null>(null);
   const finished = useRef(false);
-
+  // The last picture the presenter window told: the server keeps it in memory only and a message sent while the socket is not open is lost, so it
+  // is told again at every connection (SPEC-056 section 4).
+  const lastScreen = useRef<ScreenElement | null>(null);
 
   useEffect(() => {
     finished.current = state.ended;
@@ -205,6 +195,7 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
         onOpen: () => {
           if (!active) return;
           wait = RETRY_FIRST_MS;
+          if (kind === "presenter" && lastScreen.current) socket.current?.send("live:terminal:screen", { screen: lastScreen.current });
           setConnected(true);
         },
         onMessage: (message) => {
@@ -253,8 +244,12 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
     clearDrawings: () => onStage && emit("live:canvas:draw", { clear: true }),
     setBlank: (blank: boolean) => onStage && emit("live:stage:blank", { blank }),
     switchMode: (mode: LiveMode, moduleId?: string) => emit("live:mode:switch", moduleId ? { mode, moduleId } : { mode }),
-    sendTerminalInput: (event: TerminalInputEvent) => onStage && emit("live:terminal:input", event),
-    sendTerminalSync: (event: TerminalCommandEvent) => onStage && emit("live:terminal:sync", event),
+    /** The picture of the presenter window's terminal, at every change; the server does not echo it, and the teacher has the real terminal. */
+    sendTerminalScreen: (screen: ScreenElement) => {
+      if (!onStage) return;
+      lastScreen.current = screen;
+      sendOnly("live:terminal:screen", { screen });
+    },
     moderate: (studentId?: string) => {
       if (onPanel) sendOnly("live:hand:moderate", studentId ? { studentId } : { all: true });
     },

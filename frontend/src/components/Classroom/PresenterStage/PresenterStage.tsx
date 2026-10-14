@@ -32,8 +32,9 @@ export interface PresenterStageProps {
 }
 
 /**
- * The presentation window of the teacher: only the stage, full of the screen, to be dragged to the projector. The laser, the pen, the typing
- * and the commands go to the class at once, and the toolbar and the keys do what the teacher does most (SPEC-055 sections 3.1 and 3.3).
+ * The presentation window of the teacher: only the stage, full of the screen, to be dragged to the projector. The laser, the pen and the picture
+ * of the terminal screen go to the class at once, and the toolbar and the keys do what the teacher does most (SPEC-055 sections 3.1 and 3.3;
+ * SPEC-056).
  */
 export function PresenterStage({ classId }: PresenterStageProps) {
   const live = useLiveClassroom({ classId, role: "teacher", view: "presenter" });
@@ -171,8 +172,7 @@ export function PresenterStage({ classId }: PresenterStageProps) {
             moduleFocusBlockId={room.moduleFocusBlockId}
             terminal={live.terminal}
             onFocusBlock={live.focusBlock}
-            onInput={live.sendTerminalInput}
-            onSync={live.sendTerminalSync}
+            onScreen={live.sendTerminalScreen}
           />
         )}
       </div>

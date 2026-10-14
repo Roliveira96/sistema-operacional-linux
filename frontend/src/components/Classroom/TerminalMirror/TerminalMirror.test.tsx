@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScreenElement, ScreenNode } from "@/engine/terminalScreen";
 import { TerminalMirror } from "./TerminalMirror";
 
-const style = readFileSync(new URL("./TerminalMirror.module.scss", import.meta.url), "utf8");
+// The path goes through a variable on purpose: Vite rewrites `new URL("./literal", import.meta.url)` as an asset address.
+const styleOf = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const style = styleOf("./TerminalMirror.module.scss");
 
 type Attrs = Record<string, string | boolean>;
 const el = (tag: string, attrs: Attrs | null, ...children: ScreenNode[]): ScreenElement => ({

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { TopicStudy } from "@/components/TopicStudy/TopicStudy";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
-import type { TerminalCommandEvent, TerminalInputEvent } from "@/engine/terminalWindow";
+import type { ScreenElement } from "@/engine/terminalScreen";
 import { messages } from "@/messages/pt-BR";
 import { classroomService, type LiveModuleContent } from "@/services/classroomService";
 import styles from "./ModuleStage.module.scss";
@@ -20,14 +20,14 @@ export interface ModuleStageProps {
   terminal: LiveTerminal;
   /** The teacher's reading puts a block in focus. */
   onFocusBlock?(blockId: string): void;
-  onInput?(event: TerminalInputEvent): void;
-  onSync?(event: TerminalCommandEvent): void;
+  /** The teacher's terminal tells the picture of its window. */
+  onScreen?(tree: ScreenElement): void;
 }
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: LiveModuleContent };
 
 /** The module of the live class: the study screen of the module in the live-class mode (SPEC-055 CA-13). Only the teacher can send. */
-export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onInput, onSync }: ModuleStageProps) {
+export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen }: ModuleStageProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
@@ -68,8 +68,7 @@ export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, termi
           terminal,
           focusBlockId: moduleFocusBlockId,
           onRead: teacher ? onFocusBlock : undefined,
-          onInput: teacher ? onInput : undefined,
-          onSync: teacher ? onSync : undefined,
+          onScreen: teacher ? onScreen : undefined,
         }}
       />
     </div>

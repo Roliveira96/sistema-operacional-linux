@@ -21,7 +21,15 @@
   font-size: var(--font-size-sm);
 }
 
+// The stylesheet of the terminal comes from the engine and reads these variables, mapped from the design tokens as the study screen does (SPEC-056:
+// the student's copy looks the same).
 .window {
+  --terminal-fundo: var(--color-terminal-bg);
+  --terminal-texto: var(--color-terminal-text);
+  --laranja: var(--color-ubuntu-orange);
+  --fonte: var(--font-sans);
+  --fonte-codigo: var(--font-terminal);
+
   min-width: 0;
   min-height: 24rem;
   border: 1px solid var(--color-border);

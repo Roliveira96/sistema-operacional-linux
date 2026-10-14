@@ -1,0 +1,28 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+// The stylesheet of the terminal comes from the engine and reads these variables; they are the ones the study screen maps from the design tokens.
+.window {
+  --terminal-fundo: var(--color-terminal-bg);
+  --terminal-texto: var(--color-terminal-text);
+  --laranja: var(--color-ubuntu-orange);
+  --fonte: var(--font-sans);
+  --fonte-codigo: var(--font-terminal);
+
+  min-width: 0;
+  min-height: 24rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}

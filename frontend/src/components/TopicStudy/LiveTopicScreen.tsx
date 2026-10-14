@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { MirroredModuleView } from "@/components/Classroom/MirroredModuleView/MirroredModuleView";
-import type { TerminalCommandEvent, TerminalInputEvent } from "@/engine/terminalWindow";
+import type { ScreenElement } from "@/engine/terminalScreen";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import type { TopicPlayer } from "@/hooks/useTopicPlayer";
 import { clampSplit, loadSplit, saveSplit, SPLIT } from "@/lib/machineStorage";
@@ -31,8 +31,8 @@ export interface TopicLive {
   focusBlockId: string | null;
   /** The teacher reads: the block that is under his eyes. */
   onRead?(blockId: string): void;
-  onInput?(event: TerminalInputEvent): void;
-  onSync?(event: TerminalCommandEvent): void;
+  /** The teacher's terminal tells the picture of its window (SPEC-056). */
+  onScreen?(tree: ScreenElement): void;
 }
 
 // Nothing here plays: the material is read, and the terminal is the one of the class.
@@ -70,7 +70,7 @@ function blockUnderReading(panel: HTMLElement): string | null {
  * divider (SPEC-016), and nothing of the study alone: no challenges, no marks, no voice, no way back (SPEC-055 CA-13).
  */
 export function LiveTopicScreen({ live }: { live: TopicLive }) {
-  const { module, role, terminal, focusBlockId, onRead, onInput, onSync } = live;
+  const { module, role, terminal, focusBlockId, onRead, onScreen } = live;
   const script = useMemo(() => buildTopicScript(module.blocks), [module.blocks]);
   const panel = useRef<HTMLDivElement>(null);
   const split = useRef<HTMLElement>(null);
@@ -169,7 +169,7 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
           onKeyDown={dividerKeys}
         />
         <div className={styles.livePane}>
-          <MirroredModuleView key={module.moduleId} role={role} terminal={terminal} initialState={module.scenario} onInput={onInput} onSync={onSync} />
+          <MirroredModuleView key={module.moduleId} role={role} terminal={terminal} initialState={module.scenario} onScreen={onScreen} />
         </div>
       </main>
     </div>

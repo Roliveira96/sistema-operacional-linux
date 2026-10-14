@@ -7,6 +7,7 @@ import { addEngineBinaries, registerEngineCommands } from "./commands";
 import type { CommandRegistry } from "./commands/types";
 import { addProcessBinaries, registerProcessCommands } from "./processes/register";
 import { processSnapshot, watchEnded } from "./processes/snapshot";
+import { loadTerminalStyle, SCREEN_ATTRS, SCREEN_TAGS, type ScreenAttrs, type ScreenElement, type ScreenNode } from "./terminalScreen";
 
 /** One command of a script, as stored in the COMMAND content blocks. */
 export interface TerminalStep {
@@ -27,39 +28,14 @@ export interface CommandResult {
   output: string;
 }
 
-/** A piece of what a terminal printed, with the class that colors it (SPEC-051). */
-export interface ScreenSegment {
-  text: string;
-  className?: string;
-}
-
-/** The line a terminal is waiting for a command on, at every key (SPEC-051). */
-export interface TerminalInputEvent {
-  terminal: number;
-  line: string;
-}
-
-/** A command that ended: what was typed, what it printed and the machine after it (SPEC-051). */
-export interface TerminalCommandEvent {
-  terminal: number;
-  line: string;
-  /** What the command printed, without the prompt and the echo of the line. */
-  output: string;
-  status: number | null;
-  /** Everything the terminal printed from the prompt on, with its colors, to be printed again on a copy. */
-  segments: ScreenSegment[];
-  user: string;
-  cwd: string;
-  state: unknown;
-}
-
 export interface TerminalWindowCallbacks {
   /** Called after every command with the serialized machine. */
   onCommand(snapshot: unknown): void;
-  /** Called at every key typed on a command line, and when the line is empty again (SPEC-051). A password is never reported. */
-  onInput?(event: TerminalInputEvent): void;
-  /** Called when a command ends, typed or sent by run() (SPEC-051). */
-  onCommandDone?(event: TerminalCommandEvent): void;
+  /**
+   * Called with the picture of the whole window as soon as it mounts and at every change: at most once every 100 ms and only when it changed
+   * (SPEC-056). Only the teacher's window asks for it, to send it to the class.
+   */
+  onScreen?(tree: ScreenElement): void;
 }
 
 export interface TerminalWindow {
@@ -93,14 +69,6 @@ export interface TerminalWindow {
   exportJson(name: string): void;
   /** Opens the file picker and loads the chosen machine. Rejects on an invalid file. */
   importJson(): Promise<void>;
-  /** Makes the window a read-only copy: no focus and no keyboard, so only the calls below change what it shows (SPEC-051). */
-  setReadOnly(on: boolean): void;
-  /** Shows `line` as what is being typed on the command line of the terminal, without running it (SPEC-051). */
-  showInput(terminal: number, line: string): Promise<void>;
-  /** Prints what another terminal printed and leaves the command line empty, without running anything (SPEC-051). */
-  printScreen(terminal: number, segments: ScreenSegment[]): Promise<void>;
-  /** Puts the machine of another window under this one, keeping the screen, and the folder of the terminal that ran the command (SPEC-051). */
-  syncMachine(state: unknown, terminal?: { terminal: number; cwd: string }): Promise<void>;
   destroy(): void;
 }
 
@@ -122,13 +90,6 @@ export function cleanOutput(printed: string, command: string): string {
   return lines.join("\n");
 }
 
-/** The machine as it goes to a copy of the window: the passwords of the accounts stay behind, a copy never logs in (SPEC-051). */
-function withoutPasswords(state: unknown): unknown {
-  const machine = state as { contas?: { usuarios?: Array<Record<string, unknown>> } };
-  if (!machine.contas?.usuarios) return state;
-  return { ...machine, contas: { ...machine.contas, usuarios: machine.contas.usuarios.map((user) => ({ ...user, senha: null })) } };
-}
-
 const PREPARING_MESSAGE = "Preparando máquina…\n";
 const PREPARING_PAUSE_MS = 700;
 const processTable = (machine: unknown) => (machine as { processos: { listar(): Array<{ encerrado: boolean }> } }).processos.listar();
@@ -137,6 +98,124 @@ const processTable = (machine: unknown) => (machine as { processos: { listar(): 
 const SETTLE_MS = 300;
 const SETTLE_STEP_MS = 10;
 const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+/** The picture is delivered at most this often (SPEC-056). */
+const SCREEN_INTERVAL_MS = 100;
+/** The message of the picture stays under this size, a little below the limit of the server (256 KB). */
+const SCREEN_MAX_BYTES = 200_000;
+/** The most text kept in one text node or one field of the picture. */
+const SCREEN_MAX_TEXT = 20_000;
+/** The most children kept in an element, from the end, and the smaller values tried when the message is still too big. */
+const SCREEN_CHILD_LIMITS = [400, 200, 100, 50, 25, 12, 6, 3, 1];
+/** What `{"screen":` and `}` add around the tree in the message. */
+const SCREEN_ENVELOPE_BYTES = 11;
+
+const clip = (text: string) => (text.length > SCREEN_MAX_TEXT ? text.slice(0, SCREEN_MAX_TEXT) : text);
+const byteLength = (text: string) => new TextEncoder().encode(text).length;
+
+/** A password or hidden field, or any field inside something hidden: its value is never copied (SPEC-056 CA-06). */
+function isSecret(field: Element): boolean {
+  const type = (field.getAttribute("type") ?? "").toLowerCase();
+  return type === "password" || type === "hidden" || field.closest("[hidden]") !== null;
+}
+
+/** The last `limit` children of an element, copied; a tag out of the list is left and what it holds takes its place. */
+function copyChildren(parent: Element, limit: number): ScreenNode[] {
+  const copied: ScreenNode[] = [];
+  for (const node of Array.from(parent.childNodes).slice(-limit)) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent) copied.push(clip(node.textContent));
+    } else if (node instanceof Element) {
+      copied.push(...copyElement(node, limit));
+    }
+  }
+  return copied.slice(-limit);
+}
+
+/** An element as a node of the picture, with the attributes of the list only; a field gives its live value, which is a property, not an attribute. */
+function copyElement(element: Element, limit: number): ScreenNode[] {
+  const tag = element.tagName.toLowerCase();
+  if (!SCREEN_TAGS.has(tag)) return copyChildren(element, limit);
+  const attrs: ScreenAttrs = {};
+  for (const name of SCREEN_ATTRS) {
+    if (name === "value") continue;
+    if (name === "hidden") {
+      if (element.hasAttribute("hidden")) attrs.hidden = true;
+    } else {
+      const value = element.getAttribute(name);
+      if (value) attrs[name] = value;
+    }
+  }
+  const field = tag === "textarea" || tag === "input";
+  if (field && !isSecret(element)) {
+    const value = (element as HTMLInputElement).value;
+    if (value) attrs.value = clip(value);
+  }
+  const node: ScreenElement = { tag };
+  if (Object.keys(attrs).length > 0) node.attrs = attrs;
+  // A field is its value, and a line break is empty: the text inside them is not shown.
+  if (!field && tag !== "br") {
+    const children = copyChildren(element, limit);
+    if (children.length > 0) node.children = children;
+  }
+  return [node];
+}
+
+/** The picture of the window, with its children cut from the start until the message fits the limit. */
+function pictureOf(root: Element): { tree: ScreenElement; json: string } {
+  let picture = { tree: { tag: "div" } as ScreenElement, json: "" };
+  for (const limit of SCREEN_CHILD_LIMITS) {
+    const tree = copyElement(root, limit)[0] as ScreenElement;
+    picture = { tree, json: JSON.stringify(tree) };
+    if (byteLength(picture.json) + SCREEN_ENVELOPE_BYTES <= SCREEN_MAX_BYTES) break;
+  }
+  return picture;
+}
+
+/**
+ * Delivers the picture of the window to `deliver` as soon as this runs and whenever the window changes (SPEC-056): at most once every 100 ms (the
+ * first change at once, the ones that follow together at the end of the interval) and only when it is not the same as the last one. Changes are
+ * seen by a MutationObserver (children, text, class and hidden) and by the keys and the input events, because what is typed in a textarea or an
+ * input changes no node of the DOM. Returns what stops it.
+ */
+function watchScreen(container: HTMLElement, deliver: (tree: ScreenElement) => void): () => void {
+  let last = "";
+  let sentAt = Number.NEGATIVE_INFINITY;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+
+  const send = () => {
+    timer = undefined;
+    if (stopped) return;
+    sentAt = Date.now();
+    const root = container.querySelector(".janela");
+    if (!root) return;
+    const { tree, json } = pictureOf(root);
+    if (json === last) return;
+    last = json;
+    deliver(tree);
+  };
+  const schedule = () => {
+    if (stopped || timer !== undefined) return;
+    // The cap keeps a clock that went back from holding the delivery for longer than the interval.
+    const wait = Math.min(sentAt + SCREEN_INTERVAL_MS - Date.now(), SCREEN_INTERVAL_MS);
+    if (wait <= 0) send();
+    else timer = setTimeout(send, wait);
+  };
+
+  const observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(schedule);
+  observer?.observe(container, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden"] });
+  const events = ["keydown", "keyup", "input"];
+  for (const name of events) container.addEventListener(name, schedule);
+  schedule();
+
+  return () => {
+    stopped = true;
+    clearTimeout(timer);
+    observer?.disconnect();
+    for (const name of events) container.removeEventListener(name, schedule);
+  };
+}
 
 /** Mounts the terminal window in container, on the machine of snapshot (null for the default one). */
 export async function mountTerminalWindow(
@@ -150,7 +229,7 @@ export async function mountTerminalWindow(
     import("@engine-core/terminal/JanelaDeTerminais"),
     import("@engine-core/app/ArmazemDeMaquinas"),
     import("@engine-core/shell/Shell"),
-    import("@engine-core/estilos/terminal.css"),
+    loadTerminalStyle(),
   ]);
   // SPEC-028: the commands the engine does not have yet are registered by the adapter, without touching legacy/.
   registerEngineCommands(Shell.obterRegistro() as unknown as CommandRegistry);
@@ -172,7 +251,6 @@ export async function mountTerminalWindow(
 
   /** The legacy terminal keeps these as plain (TypeScript-private) fields. */
   interface TerminalInternals {
-    numero: number;
     maquina: typeof machine;
     sessao: {
       atual(): {
@@ -198,85 +276,8 @@ export async function mountTerminalWindow(
     terminais: Array<TerminalInternals | null>;
   }
 
-  // SPEC-051: the teacher's terminals tell what is typed and what ends. It is read from outside the legacy code: the methods of each
-  // terminal are wrapped, so nothing of src/engine/core changes. The typing is only reported on a command line, never at a password prompt.
-  interface WatchedTerminal extends TerminalInternals {
-    escrever(text: string, className?: string): void;
-  }
-  const watched = new WeakSet<object>();
-  const watchTerminals = () => {
-    if (!callbacks.onInput && !callbacks.onCommandDone) return;
-    for (const internal of (window3 as unknown as WindowInternals).terminais) {
-      if (!internal || watched.has(internal)) continue;
-      watched.add(internal);
-      const terminal = internal as unknown as WatchedTerminal;
-
-      let collecting: ScreenSegment[] | null = null;
-      const write = terminal.escrever;
-      terminal.escrever = function (this: unknown, text: string, className?: string) {
-        collecting?.push(className ? { text, className } : { text });
-        write.call(terminal, text, className);
-      };
-
-      let lastLine = "";
-      // After a password the legacy terminal may keep it in the buffer until the next line (when the answers come from a script), so
-      // nothing is reported from the moment a hidden answer was typed until the buffer is empty again.
-      let hiding = false;
-      const render = terminal.renderizarEntrada;
-      terminal.renderizarEntrada = function () {
-        render.call(terminal);
-        const hidden = terminal.estado !== "comando" && (terminal as unknown as { oculto: boolean }).oculto;
-        if (hidden) hiding = true;
-        if (hiding && terminal.estado === "comando" && terminal.buffer === "") hiding = false;
-        if (hiding || terminal.estado !== "comando" || terminal.buffer === lastLine) return;
-        lastLine = terminal.buffer;
-        callbacks.onInput?.({ terminal: terminal.numero, line: lastLine });
-      };
-
-      const send = terminal.enviarComando;
-      terminal.enviarComando = async function () {
-        const line = terminal.buffer;
-        collecting = [];
-        try {
-          await send.call(terminal);
-        } finally {
-          const segments = collecting ?? [];
-          collecting = null;
-          const frame = terminal.sessao?.atual();
-          if (frame) {
-            callbacks.onCommandDone?.({
-              terminal: terminal.numero,
-              line,
-              output: cleanOutput(segments.map((segment) => segment.text).join(""), line),
-              status: frame.escopo.ultimoStatus,
-              segments,
-              user: frame.usuario.nome,
-              cwd: frame.cwd,
-              state: withoutPasswords(Serializador.paraJson(machine)),
-            });
-          }
-        }
-      };
-    }
-  };
-  watchTerminals();
-  // A terminal opened by the buttons of the window is watched as soon as it appears.
-  const observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(watchTerminals);
-  observer?.observe(container, { childList: true, subtree: true });
-
-  // SPEC-051: a read-only copy takes no focus and no key; the capture listeners keep the events from reaching the legacy terminal.
-  let readOnly = false;
-  for (const name of ["keydown", "keypress", "beforeinput", "paste", "mousedown"]) {
-    container.addEventListener(
-      name,
-      (event) => {
-        if (!readOnly) return;
-        event.stopPropagation();
-        event.preventDefault();
-      },
-      true,
-    );
-  }
+  // SPEC-056: the teacher's window tells the class its whole screen. The legacy code is only read from outside, never changed.
+  const stopScreen = callbacks.onScreen ? watchScreen(container, callbacks.onScreen) : null;
 
   let instant = false;
   const execute = async (step: TerminalStep): Promise<CommandResult> => {
@@ -285,7 +286,6 @@ export async function mountTerminalWindow(
         executarAutomatico(command: string, answers?: string[]): Promise<void>;
         escrever(text: string, className?: string): void;
       };
-      watchTerminals();
       const before = terminal.sessao?.historico.length ?? 0;
 
       // Everything the command prints goes through escrever, so it is collected there while it runs.
@@ -452,42 +452,8 @@ export async function mountTerminalWindow(
       notify();
     },
 
-    setReadOnly(on) {
-      readOnly = on;
-      container.toggleAttribute("inert", on);
-    },
-
-    async showInput(number, line) {
-      const terminal = (await window3.obter(number)) as unknown as TerminalInternals;
-      if (terminal.estado !== "comando") return;
-      terminal.buffer = line;
-      terminal.cursor = line.length;
-      terminal.renderizarEntrada();
-    },
-
-    async printScreen(number, segments) {
-      const terminal = (await window3.obter(number)) as unknown as WatchedTerminal;
-      for (const segment of segments) terminal.escrever(segment.text, segment.className);
-      terminal.buffer = "";
-      terminal.cursor = 0;
-      terminal.renderizarEntrada();
-    },
-
-    async syncMachine(state, where) {
-      await (this as unknown as TerminalWindow).swapMachine(state);
-      if (!where) return;
-      const terminal = (window3 as unknown as WindowInternals).terminais[where.terminal - 1];
-      const frame = terminal?.sessao?.atual();
-      if (!terminal || !frame) return;
-      // The folder of the terminal that ran the command, when the machine has it, so the prompt on the copy is the same.
-      if ((machine as unknown as { fs: { obter(path: string): { ehDiretorio(): boolean } | undefined } }).fs.obter(where.cwd)?.ehDiretorio()) {
-        frame.cwd = where.cwd;
-        terminal.renderizarEntrada();
-      }
-    },
-
     destroy() {
-      observer?.disconnect();
+      stopScreen?.();
       window3.destruir();
       container.innerHTML = "";
     },

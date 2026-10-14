@@ -1,5 +1,5 @@
 import type { ContentBlock } from "./contentService";
-import type { TerminalCommandEvent, TerminalInputEvent } from "@/engine/terminalWindow";
+import type { ScreenElement } from "@/engine/terminalScreen";
 import { httpClient, type HttpClient } from "./httpClient";
 
 // Live classroom API client and socket (SPEC-051, section 5).
@@ -39,12 +39,8 @@ export interface HandRaiseItem {
 }
 
 export interface LiveTerminalState {
-  /** The line the teacher is typing, as the last event told. */
-  input: TerminalInputEvent | null;
-  /** The last commands, with what they printed. */
-  entries: TerminalCommandEvent[];
-  /** The machine after the last command. */
-  state: unknown;
+  /** The last picture of the teacher's terminal window, or null while he has sent none (SPEC-056). */
+  screen: ScreenElement | null;
 }
 
 /** The whole state of an open room: the answer of "active" and the first message of every connection (RN-07). */
