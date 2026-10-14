@@ -109,15 +109,6 @@ function IconArchive() {
   );
 }
 
-function IconArrowRight() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="12 5 19 12 12 19" />
-    </svg>
-  );
-}
-
 export interface ClassCardProps {
   classGroup: ClassSummary;
   onArchive?: (id: string) => void;
@@ -142,20 +133,20 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
         ? styles.draft
         : styles.archived;
 
+  const hasPending = classGroup.totalPendingRequests > 0;
+
   return (
     <article className={styles.card} aria-label={classGroup.name}>
       <div className={`${styles.accentBar} ${statusClass}`} aria-hidden="true" />
 
       <header className={styles.header}>
         <div className={styles.headerTop}>
-          <div className={styles.courseBadge}>
+          <span className={styles.meta}>
             <span className={styles.courseIcon} aria-hidden="true">
               <IconGraduationCap />
             </span>
-            <span className={styles.meta}>
-              {classGroup.courseCode} • {classGroup.semester}
-            </span>
-          </div>
+            {classGroup.courseCode} • {classGroup.semester}
+          </span>
 
           <span className={`${styles.badge} ${statusClass}`}>
             <span className={styles.statusDot} aria-hidden="true" />
@@ -181,70 +172,57 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
           <span className={styles.alertIcon} aria-hidden="true">
             <IconAlertTriangle />
           </span>
-          <div className={styles.alertContent}>
-            <span className={styles.alertText}>{messages.classes.expiringAlert}</span>
-            <Link href={`/app/classes/${classGroup.id}/settings`} className={styles.extendLink}>
-              {messages.classes.extendValidityAction} &rarr;
-            </Link>
-          </div>
+          <span className={styles.alertText}>{messages.classes.expiringAlert}</span>
+          <Link href={`/app/classes/${classGroup.id}/settings`} className={styles.extendLink}>
+            {messages.classes.extendValidityAction} &rarr;
+          </Link>
         </div>
       )}
 
       <div className={styles.body}>
-        {classGroup.scheduleDescription && (
-          <div className={styles.scheduleRow}>
-            <span className={styles.scheduleIcon} aria-hidden="true">
-              <IconClock />
-            </span>
-            <span className={styles.scheduleText}>
-              <strong>{messages.classes.card.schedule}:</strong> {classGroup.scheduleDescription}
-            </span>
-          </div>
-        )}
-
-        <div className={styles.counters}>
-          <div className={styles.counterItem}>
-            <div className={styles.counterIconWrapper} aria-hidden="true">
+        <div className={styles.stats}>
+          <span className={styles.stat}>
+            <span className={styles.statIcon} aria-hidden="true">
               <IconUsers />
-            </div>
-            <div className={styles.counterInfo}>
-              <span className={styles.counterLabel}>{messages.classes.card.activeStudents}:</span>
-              <strong className={styles.counterValue}>{classGroup.totalActiveStudents}</strong>
-            </div>
-          </div>
+            </span>
+            <span className={styles.statLabel}>{messages.classes.card.activeStudents}:</span>
+            <strong className={styles.statValue}>{classGroup.totalActiveStudents}</strong>
+          </span>
 
           <Link
             href={`/app/classes/${classGroup.id}?tab=students`}
-            className={`${styles.counterItem} ${styles.counterClickable} ${
-              classGroup.totalPendingRequests > 0 ? styles.counterPendingAttention : ""
-            }`}
-            title={classGroup.totalPendingRequests > 0 ? "Ver solicitações pendentes" : undefined}
+            className={styles.stat}
+            data-attention={hasPending ? "true" : undefined}
+            title={hasPending ? "Ver solicitações pendentes" : undefined}
           >
-            <div className={styles.counterIconWrapper} aria-hidden="true">
+            <span className={styles.statIcon} aria-hidden="true">
               <IconUserCheck />
-              {classGroup.totalPendingRequests > 0 && <span className={styles.attentionDot} />}
-            </div>
-            <div className={styles.counterInfo}>
-              <span className={styles.counterLabel}>{messages.classes.card.pendingRequests}:</span>
-              <strong className={styles.counterValue}>{classGroup.totalPendingRequests}</strong>
-            </div>
+            </span>
+            <span className={styles.statLabel}>{messages.classes.card.pendingRequests}:</span>
+            <strong className={styles.statValue}>{classGroup.totalPendingRequests}</strong>
           </Link>
         </div>
 
-        <div className={styles.inviteArea}>
-          <div
-            className={`${styles.inviteStatus} ${classGroup.enableInviteLink ? styles.activeLink : ""}`}
-          >
-            <span className={styles.inviteIcon} aria-hidden="true">
-              <IconLink />
+        {classGroup.scheduleDescription && (
+          <p className={styles.infoLine}>
+            <span className={styles.statIcon} aria-hidden="true">
+              <IconClock />
             </span>
-            <span className={styles.inviteStatusText}>
-              {classGroup.enableInviteLink
-                ? messages.classes.inviteLink.active
-                : messages.classes.inviteLink.inactive}
+            <span className={styles.infoText}>
+              <strong>{messages.classes.card.schedule}:</strong> {classGroup.scheduleDescription}
             </span>
-          </div>
+          </p>
+        )}
 
+        <div className={styles.infoLine}>
+          <span className={styles.statIcon} aria-hidden="true">
+            <IconLink />
+          </span>
+          <span
+            className={`${styles.infoText} ${classGroup.enableInviteLink ? styles.inviteOn : styles.inviteOff}`}
+          >
+            {classGroup.enableInviteLink ? messages.classes.inviteLink.active : messages.classes.inviteLink.inactive}
+          </span>
           {classGroup.enableInviteLink && classGroup.inviteLinkToken && (
             <button
               type="button"
@@ -255,45 +233,45 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
               <span className={styles.buttonIcon} aria-hidden="true">
                 {copied ? <IconCheck /> : <IconCopy />}
               </span>
-              <span className={styles.copyButtonText}>
-                {copied ? messages.classes.inviteLink.copySuccess : messages.classes.inviteLink.copyButton}
-              </span>
+              <span>{copied ? messages.classes.inviteLink.copySuccess : messages.classes.inviteLink.copyButton}</span>
             </button>
           )}
         </div>
       </div>
 
       <footer className={styles.footer}>
-        <Link href={`/app/classes/${classGroup.id}?tab=students`} className={styles.linkActionPrimary}>
-          <IconUsers />
-          <span>{messages.classes.card.addStudents}</span>
-          <IconArrowRight />
-        </Link>
-
-        <div className={styles.secondaryActions}>
-          <Link href={`/app/classes/${classGroup.id}`} className={styles.linkAction} title={messages.classes.card.view}>
+        <div className={styles.mainActions}>
+          <Link href={`/app/classes/${classGroup.id}`} className={styles.primaryAction} data-primary="true">
             <IconEye />
             <span>{messages.classes.card.view}</span>
           </Link>
+          <Link href={`/app/classes/${classGroup.id}?tab=students`} className={styles.secondaryAction}>
+            <IconUsers />
+            <span>{messages.classes.card.addStudents}</span>
+          </Link>
+        </div>
 
+        <div className={styles.iconActions}>
           <Link
             href={`/app/classes/${classGroup.id}/settings`}
-            className={styles.linkAction}
+            className={styles.iconAction}
             title={messages.classes.card.manage}
+            data-icon-only="true"
           >
             <IconSettings />
-            <span>{messages.classes.card.manage}</span>
+            <span className={styles.srOnly}>{messages.classes.card.manage}</span>
           </Link>
 
           {classGroup.status !== "ARCHIVED" && onArchive && (
             <button
               type="button"
-              className={styles.archiveButton}
+              className={`${styles.iconAction} ${styles.iconActionDanger}`}
               onClick={() => onArchive(classGroup.id)}
               title={messages.classes.card.archive}
+              data-icon-only="true"
             >
               <IconArchive />
-              <span>{messages.classes.card.archive}</span>
+              <span className={styles.srOnly}>{messages.classes.card.archive}</span>
             </button>
           )}
         </div>
@@ -301,4 +279,3 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
     </article>
   );
 }
-

@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-047 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada) |
 | **Autor** | Aruna Architect |
@@ -101,3 +101,4 @@ Nenhuma.
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo Tech Lead ao pedir a melhoria do visual do card |
+| 14/10/2026 | Implementador | Implementada: cabeçalho com situação, faixa de informações sem caixas, Visualizar como ação principal e Configurações e Arquivar como botões de ícone |

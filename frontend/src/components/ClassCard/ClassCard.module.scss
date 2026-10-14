@@ -1,9 +1,11 @@
 @use "@/styles/mixins" as mixins;
 
+// Card of a class in the list (SPEC-047): identification and state on top, a light strip of facts, then the actions.
 .card {
   position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -22,7 +24,7 @@
 }
 
 .accentBar {
-  height: 4px;
+  height: 3px;
   width: 100%;
 
   &.active {
@@ -39,87 +41,82 @@
 }
 
 .header {
-  padding: var(--space-4) var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-5) var(--space-5) 0;
 }
 
 .headerTop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.courseBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.courseIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-brand-badge-bg);
-  border: 1px solid var(--color-border);
-  color: var(--color-brand-badge-text);
-  flex-shrink: 0;
+  gap: var(--space-3);
 }
 
 .meta {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
   font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
 }
 
+.courseIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-brand-badge-bg);
+  color: var(--color-brand-badge-text);
+}
+
+// The state of the class: a dot and a word, not a loud outlined tag.
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: 2px var(--space-2);
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-pill);
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
 
   &.active {
     background-color: var(--color-success-subtle);
     color: var(--color-success);
-    border: 1px solid var(--color-success);
   }
 
   &.draft {
     background-color: var(--color-warning-subtle);
     color: var(--color-warning);
-    border: 1px solid var(--color-warning);
   }
 
   &.archived {
     background-color: var(--color-surface-sunken);
     color: var(--color-text-secondary);
-    border: 1px solid var(--color-border);
   }
 }
 
 .statusDot {
-  width: 6px;
-  height: 6px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: var(--radius-pill);
   background-color: currentcolor;
 }
 
 .title {
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 700;
-  line-height: 1.35;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
@@ -128,45 +125,49 @@
   text-decoration: none;
   transition: color var(--duration-fast);
 
+  @include mixins.focusable;
+
   &:hover {
     color: var(--color-accent);
   }
 }
 
+.summary {
+  @include mixins.truncate(2);
+
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
 .expiringAlert {
-  margin: var(--space-3) var(--space-4) 0;
-  padding: var(--space-2) var(--space-3);
-  background-color: var(--color-warning-subtle);
-  border: 1px solid var(--color-warning);
-  border-radius: var(--radius-sm);
   display: flex;
-  gap: var(--space-2);
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-4) var(--space-5) 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-warning-subtle);
   color: var(--color-warning);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-xs);
 }
 
 .alertIcon {
+  display: inline-flex;
   flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.alertContent {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
 }
 
 .alertText {
-  line-height: 1.35;
+  flex: 1 1 8rem;
+  line-height: 1.4;
 }
 
 .extendLink {
-  font-weight: 600;
-  text-decoration: underline;
+  font-weight: var(--font-weight-semibold);
   color: inherit;
-  align-self: flex-start;
+  text-decoration: underline;
 
   &:hover {
     opacity: 0.85;
@@ -174,170 +175,112 @@
 }
 
 .body {
-  padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   flex-grow: 1;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
-.scheduleRow {
+// The numbers, in a row and without boxes.
+.stats {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+}
+
+.stat {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 0.8125rem;
+  min-height: 1.5rem;
   color: var(--color-text-secondary);
-  background-color: var(--color-surface-sunken);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-}
-
-.scheduleIcon {
-  display: flex;
-  align-items: center;
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
-}
-
-.scheduleText {
-  @include mixins.truncate;
-
-  strong {
-    color: var(--color-text-primary);
-    font-weight: 600;
-  }
-}
-
-.counters {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
-}
-
-.counterItem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background-color: var(--color-surface-sunken);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
   text-decoration: none;
-  color: inherit;
-  transition:
-    background-color var(--duration-fast),
-    border-color var(--duration-fast);
 
-  &.counterClickable:hover {
-    background-color: var(--color-surface);
-    border-color: var(--color-border-strong);
+  // A stat that is a link looks like one only when it asks for attention or on hover.
+  &:is(a):hover {
+    color: var(--color-text-primary);
   }
 
-  &.counterPendingAttention {
+  &[data-attention="true"] {
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-pill);
     background-color: var(--color-warning-subtle);
-    border-color: var(--color-warning);
     color: var(--color-warning);
 
-    strong {
+    .statValue {
       color: var(--color-warning);
     }
   }
+
+  @include mixins.focusable;
 }
 
-.counterIconWrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
+.statIcon {
+  display: inline-flex;
   flex-shrink: 0;
 }
 
-.attentionDot {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-warning);
-}
-
-.counterInfo {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.counterLabel {
-  font-size: 0.6875rem;
-  color: var(--color-text-secondary);
+.statLabel {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.counterValue {
-  font-size: 1.125rem;
-  font-weight: 700;
+.statValue {
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  line-height: 1.2;
 }
 
-.inviteArea {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-sunken);
-  border: 1px dashed var(--color-border);
-  font-size: 0.8125rem;
-}
-
-.inviteStatus {
+.infoLine {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
   color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.infoText {
+  @include mixins.truncate;
+
   min-width: 0;
 
-  &.activeLink {
-    color: var(--color-success);
-    font-weight: 500;
+  strong {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
   }
 }
 
-.inviteIcon {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
+.inviteOn {
+  color: var(--color-success);
 }
 
-.inviteStatusText {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.inviteOff {
+  color: var(--color-text-secondary);
 }
 
 .copyButton {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  font-size: 0.75rem;
-  font-weight: 600;
-  background-color: var(--color-surface);
+  flex-shrink: 0;
+  min-height: 2rem;
+  margin-left: auto;
+  padding: 0 var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  background-color: transparent;
   color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  flex-shrink: 0;
   transition:
     background-color var(--duration-fast),
     border-color var(--duration-fast);
+
+  @include mixins.focusable;
 
   &:hover {
     background-color: var(--color-surface-raised);
@@ -346,105 +289,117 @@
 
   &.copied {
     background-color: var(--color-success-subtle);
-    color: var(--color-success);
     border-color: var(--color-success);
+    color: var(--color-success);
   }
 }
 
 .buttonIcon {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.copyButtonText {
-  white-space: nowrap;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: inline-flex;
 }
 
 .footer {
-  margin-top: auto;
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--color-border);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  background-color: var(--color-surface-sunken);
+  gap: var(--space-3);
+  margin-top: auto;
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-hairline);
 }
 
-.linkActionPrimary {
+.mainActions {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+// One main action, one supporting action (SPEC-047, CA-01).
+.primaryAction,
+.secondaryAction {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition:
+    background-color var(--duration-fast),
+    border-color var(--duration-fast);
+
+  @include mixins.focusable;
+}
+
+.primaryAction {
   background-color: var(--color-accent);
   color: var(--color-accent-contrast);
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  transition: background-color var(--duration-fast);
 
   &:hover {
     background-color: var(--color-accent-hover);
   }
 }
 
-.secondaryActions {
+.secondaryAction {
+  border-color: var(--color-border);
+  background-color: transparent;
+  color: var(--color-text-primary);
+
+  &:hover {
+    background-color: var(--color-surface-raised);
+    border-color: var(--color-border-strong);
+  }
+}
+
+.iconActions {
   display: flex;
   align-items: center;
   gap: var(--space-1);
 }
 
-.linkAction {
+// Icon actions: 44 px to touch, named for screen readers and with a tip.
+.iconAction {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  font-size: 0.8125rem;
-  font-weight: 500;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: transparent;
   color: var(--color-text-secondary);
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition:
-    color var(--duration-fast),
-    background-color var(--duration-fast);
-
-  &:hover {
-    color: var(--color-text-primary);
-    background-color: var(--color-surface);
-  }
-}
-
-.archiveButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-danger);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background-color var(--duration-fast);
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+
+  @include mixins.focusable;
 
   &:hover {
-    background-color: var(--color-danger-subtle);
+    background-color: var(--color-surface-raised);
+    color: var(--color-text-primary);
   }
 }
 
+.iconActionDanger:hover {
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
 
-// Summary of the class (SPEC-041): two lines at most, the full text in the title.
-.summary {
-  margin: var(--space-2) 0 0;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-body);
-  color: var(--color-text-secondary);
-
-  @include mixins.truncate(2);
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
