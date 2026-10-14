@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArchiveClassModal } from "@/components/ArchiveClassModal/ArchiveClassModal";
-import { Button } from "@/components/Button/Button";
+import { ButtonLink } from "@/components/Button/ButtonLink";
 import { ClassCard } from "@/components/ClassCard/ClassCard";
 import { messages } from "@/messages/pt-BR";
 import { classService, type ClassSummary } from "@/services/classService";
@@ -95,14 +95,10 @@ export default function ClassesPage() {
           <p className={styles.subtitle}>{messages.classes.subtitle}</p>
         </div>
 
-        <Link href="/app/classes/new" className={styles.newClassAction}>
-          <Button variant="primary">
-            <span className={styles.buttonContent}>
-              <IconPlus />
-              <span>{messages.classes.newClass}</span>
-            </span>
-          </Button>
-        </Link>
+        <ButtonLink href="/app/classes/new" variant="primary">
+          <IconPlus />
+          <span>{messages.classes.newClass}</span>
+        </ButtonLink>
       </header>
 
       <section className={styles.filters} aria-label="Filtros de turmas">

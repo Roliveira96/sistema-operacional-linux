@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Button } from "@/components/Button/Button";
+import { ButtonLink } from "@/components/Button/ButtonLink";
 import { messages } from "@/messages/pt-BR";
 import type { ClassSummary } from "@/services/classService";
 import styles from "./ClassCard.module.scss";
@@ -224,55 +226,39 @@ export function ClassCard({ classGroup, onArchive }: ClassCardProps) {
             {classGroup.enableInviteLink ? messages.classes.inviteLink.active : messages.classes.inviteLink.inactive}
           </span>
           {classGroup.enableInviteLink && classGroup.inviteLinkToken && (
-            <button
-              type="button"
-              className={`${styles.copyButton} ${copied ? styles.copied : ""}`}
-              onClick={handleCopyLink}
-              title={messages.classes.inviteLink.copyButton}
-            >
+            <Button variant="secondary" size="sm" onClick={handleCopyLink} title={messages.classes.inviteLink.copyButton} className={styles.copyButton}>
               <span className={styles.buttonIcon} aria-hidden="true">
                 {copied ? <IconCheck /> : <IconCopy />}
               </span>
               <span>{copied ? messages.classes.inviteLink.copySuccess : messages.classes.inviteLink.copyButton}</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       <footer className={styles.footer}>
         <div className={styles.mainActions}>
-          <Link href={`/app/classes/${classGroup.id}`} className={styles.primaryAction} data-primary="true">
+          <ButtonLink href={`/app/classes/${classGroup.id}`} variant="primary">
             <IconEye />
             <span>{messages.classes.card.view}</span>
-          </Link>
-          <Link href={`/app/classes/${classGroup.id}?tab=students`} className={styles.secondaryAction}>
+          </ButtonLink>
+          <ButtonLink href={`/app/classes/${classGroup.id}?tab=students`} variant="secondary">
             <IconUsers />
             <span>{messages.classes.card.addStudents}</span>
-          </Link>
+          </ButtonLink>
         </div>
 
         <div className={styles.iconActions}>
-          <Link
-            href={`/app/classes/${classGroup.id}/settings`}
-            className={styles.iconAction}
-            title={messages.classes.card.manage}
-            data-icon-only="true"
-          >
+          <ButtonLink href={`/app/classes/${classGroup.id}/settings`} variant="ghost" icon title={messages.classes.card.manage}>
             <IconSettings />
             <span className={styles.srOnly}>{messages.classes.card.manage}</span>
-          </Link>
+          </ButtonLink>
 
           {classGroup.status !== "ARCHIVED" && onArchive && (
-            <button
-              type="button"
-              className={`${styles.iconAction} ${styles.iconActionDanger}`}
-              onClick={() => onArchive(classGroup.id)}
-              title={messages.classes.card.archive}
-              data-icon-only="true"
-            >
+            <Button variant="ghost" icon onClick={() => onArchive(classGroup.id)} title={messages.classes.card.archive}>
               <IconArchive />
               <span className={styles.srOnly}>{messages.classes.card.archive}</span>
-            </button>
+            </Button>
           )}
         </div>
       </footer>

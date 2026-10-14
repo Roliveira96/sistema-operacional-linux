@@ -260,38 +260,10 @@
   color: var(--color-text-secondary);
 }
 
+// The copy button is a Button; it only sits at the end of its line.
 .copyButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
   flex-shrink: 0;
-  min-height: 2rem;
   margin-left: auto;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: transparent;
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition:
-    background-color var(--duration-fast),
-    border-color var(--duration-fast);
-
-  @include mixins.focusable;
-
-  &:hover {
-    background-color: var(--color-surface-raised);
-    border-color: var(--color-border-strong);
-  }
-
-  &.copied {
-    background-color: var(--color-success-subtle);
-    border-color: var(--color-success);
-    color: var(--color-success);
-  }
 }
 
 .buttonIcon {
@@ -316,80 +288,10 @@
   gap: var(--space-2);
 }
 
-// One main action, one supporting action (SPEC-047, CA-01).
-.primaryAction,
-.secondaryAction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-height: 2.75rem;
-  padding: 0 var(--space-4);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
-  transition:
-    background-color var(--duration-fast),
-    border-color var(--duration-fast);
-
-  @include mixins.focusable;
-}
-
-.primaryAction {
-  background-color: var(--color-accent);
-  color: var(--color-accent-contrast);
-
-  &:hover {
-    background-color: var(--color-accent-hover);
-  }
-}
-
-.secondaryAction {
-  border-color: var(--color-border);
-  background-color: transparent;
-  color: var(--color-text-primary);
-
-  &:hover {
-    background-color: var(--color-surface-raised);
-    border-color: var(--color-border-strong);
-  }
-}
-
 .iconActions {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-}
-
-// Icon actions: 44 px to touch, named for screen readers and with a tip.
-.iconAction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border: 0;
-  border-radius: var(--radius-md);
-  background-color: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition:
-    background-color var(--duration-fast),
-    color var(--duration-fast);
-
-  @include mixins.focusable;
-
-  &:hover {
-    background-color: var(--color-surface-raised);
-    color: var(--color-text-primary);
-  }
-}
-
-.iconActionDanger:hover {
-  background-color: var(--color-danger-subtle);
-  color: var(--color-danger);
 }
 
 .srOnly {
