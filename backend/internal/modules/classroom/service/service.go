@@ -398,9 +398,8 @@ type Active struct {
 	Drawings   []json.RawMessage
 	Terminal   TerminalState
 	HandRaises []domain.HandRaiseEntry
-	// ModuleFocusBlockID is the block of the module the teacher put in focus; TerminalBroadcast tells whether his terminal is on the air.
+	// ModuleFocusBlockID is the block of the module the teacher put in focus.
 	ModuleFocusBlockID string
-	TerminalBroadcast  bool
 }
 
 // GetActive returns the open room of the class with its state, with a renewed address for the deck (RN-07).
@@ -446,7 +445,7 @@ func (s *Service) stateOf(ctx context.Context, session domain.LiveClassroomSessi
 		return Active{}, err
 	}
 	a.HandRaises = hands
-	a.ModuleFocusBlockID, a.TerminalBroadcast = s.live.published(session.ID)
+	a.ModuleFocusBlockID = s.live.focus(session.ID)
 	return a, nil
 }
 
@@ -823,23 +822,23 @@ func (s *Service) RememberDrawing(sessionID uuid.UUID, raw json.RawMessage) {
 	s.live.drawing(sessionID, raw)
 }
 
-// RememberTerminalInput keeps the line the teacher is typing. It reports whether the terminal is being broadcast: when it is not, the
-// line is private, nothing is kept and the room is not to be told (SPEC-054 RN-04).
-func (s *Service) RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage) bool {
-	return s.live.input(sessionID, raw)
+// RememberTerminalInput keeps the line the teacher is typing; the terminal of the teacher is always broadcast (SPEC-055 RN-04).
+func (s *Service) RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage) {
+	s.live.input(sessionID, raw)
 }
 
-// RememberTerminalSync keeps a command of the teacher with its output, and the machine it left, while the terminal is being broadcast.
-func (s *Service) RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage) bool {
-	return s.live.sync(sessionID, raw)
+// RememberTerminalSync keeps a command of the teacher with its output, and the machine it left.
+func (s *Service) RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage) {
+	s.live.sync(sessionID, raw)
 }
 
-// SetTerminalBroadcast turns the broadcast of the terminal of the teacher on or off. Off, it forgets what the terminal kept.
-func (s *Service) SetTerminalBroadcast(sessionID uuid.UUID, on bool) {
-	s.live.setBroadcast(sessionID, on)
+// SetStageBlank puts the stage on the black screen or takes it off; it lasts until it is turned off, a new presenter window takes
+// over, or the lesson ends (SPEC-055).
+func (s *Service) SetStageBlank(sessionID uuid.UUID, on bool) {
+	s.live.setBlank(sessionID, on)
 }
 
-// TerminalBroadcasting tells whether the terminal of the teacher is on the air.
-func (s *Service) TerminalBroadcasting(sessionID uuid.UUID) bool {
-	return s.live.broadcasting(sessionID)
+// StageBlank tells whether the stage is on the black screen.
+func (s *Service) StageBlank(sessionID uuid.UUID) bool {
+	return s.live.isBlank(sessionID)
 }

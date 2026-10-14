@@ -173,17 +173,15 @@ func (f *fakeService) RememberDrawing(_ uuid.UUID, raw json.RawMessage) {
 	f.drawings = append(f.drawings, string(raw))
 	f.mu.Unlock()
 }
-func (f *fakeService) RememberTerminalInput(_ uuid.UUID, raw json.RawMessage) bool {
+func (f *fakeService) RememberTerminalInput(_ uuid.UUID, raw json.RawMessage) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.input = append(f.input, string(raw))
-	return true
 }
-func (f *fakeService) RememberTerminalSync(_ uuid.UUID, raw json.RawMessage) bool {
+func (f *fakeService) RememberTerminalSync(_ uuid.UUID, raw json.RawMessage) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.syncs = append(f.syncs, string(raw))
-	return true
 }
 func (f *fakeService) RaiseHand(_ context.Context, _ uuid.UUID, student uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	f.record("raise")

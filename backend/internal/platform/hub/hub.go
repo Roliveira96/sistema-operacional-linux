@@ -37,6 +37,8 @@ type Identity struct {
 	// Waiting is a connection that was not admitted to the room yet: it gets its snapshot and only the messages of the rules that
 	// AllowWaiting, and receives none of the broadcasts (SPEC-054 RN-01, RN-02).
 	Waiting bool
+	// Kind tells the windows of one controller apart (SPEC-055): a new controller connection replaces only the older one of its own kind.
+	Kind string
 	// Meta is an opaque label the application attaches to the connection (the hub does not read it).
 	Meta string
 }
@@ -53,6 +55,8 @@ type Rule struct {
 	MaxBytes int
 	// ControllerOnly drops the message when its sender is not the controller.
 	ControllerOnly bool
+	// Kind, when set, drops the message unless its sender connected with this kind (SPEC-055 RN-02).
+	Kind string
 	// Limited counts the message against the rate limit of its sender.
 	Limited bool
 	// Coalesce gives the viewers only the latest message of the type in each CoalesceEvery.
@@ -143,6 +147,8 @@ type conn struct {
 	mu        sync.Mutex
 	role      Role
 	waiting   bool
+	revoked   bool // replaced by a newer controller of its kind: passive, and not counted as a viewer
+	kind      string
 	meta      string
 	ready     bool
 	closed    bool
@@ -158,7 +164,7 @@ type conn struct {
 func (c *conn) identity() Identity {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return Identity{UserID: c.userID, ConnID: c.id, Role: c.role, Waiting: c.waiting, Meta: c.meta}
+	return Identity{UserID: c.userID, ConnID: c.id, Role: c.role, Waiting: c.waiting, Kind: c.kind, Meta: c.meta}
 }
 
 // deliver queues a message for the connection. Before the snapshot went out, it waits behind it.
@@ -259,7 +265,7 @@ func (c *conn) closeLocked() {
 
 // Serve runs a connection in the room until it ends. The first message it sends is the snapshot of the handler.
 func (h *Hub) Serve(ctx context.Context, ws *websocket.Conn, roomID string, who Identity) error {
-	c := &conn{id: uuid.NewString(), userID: who.UserID, ws: ws, out: make(chan Message, outBuffer), role: who.Role, waiting: who.Waiting, meta: who.Meta}
+	c := &conn{id: uuid.NewString(), userID: who.UserID, ws: ws, out: make(chan Message, outBuffer), role: who.Role, waiting: who.Waiting, kind: who.Kind, meta: who.Meta}
 	var replaced *conn
 
 	h.mu.Lock()
@@ -288,8 +294,8 @@ func (h *Hub) Serve(ctx context.Context, ws *websocket.Conn, roomID string, who 
 	if who.Role == Controller {
 		for _, other := range r.conns {
 			other.mu.Lock()
-			if other.role == Controller {
-				other.role = Viewer
+			if other.role == Controller && other.kind == who.Kind {
+				other.role, other.revoked = Viewer, true
 				replaced = other
 			}
 			other.mu.Unlock()
@@ -322,7 +328,7 @@ func (r *room) count(role Role) int {
 	n := 0
 	for _, c := range r.conns {
 		c.mu.Lock()
-		if c.role == role && !c.waiting {
+		if c.role == role && !c.waiting && !c.revoked {
 			n++
 		}
 		c.mu.Unlock()
@@ -417,6 +423,8 @@ func (h *Hub) readLoop(ctx context.Context, roomID string, c *conn) {
 			h.h.Dropped(roomID, who, msg.Type, "not-admitted")
 		case rule.ControllerOnly && who.Role != Controller:
 			h.h.Dropped(roomID, who, msg.Type, "not-controller")
+		case rule.Kind != "" && who.Kind != rule.Kind:
+			h.h.Dropped(roomID, who, msg.Type, "wrong-view")
 		case rule.Limited && !h.allow(c):
 			h.h.Dropped(roomID, who, msg.Type, "rate-limit")
 		default:
@@ -491,6 +499,31 @@ func (h *Hub) SendToController(roomID string, msg Message) {
 			c.deliver(msg)
 		}
 	}
+}
+
+// SendToKind sends the message to the controller connections of one kind (a window of the teacher), if there are any.
+func (h *Hub) SendToKind(roomID, kind string, msg Message) {
+	for _, c := range h.members(roomID) {
+		if c.isController(kind) {
+			c.deliver(msg)
+		}
+	}
+}
+
+// KindConnected tells whether the room has a live controller connection of the kind.
+func (h *Hub) KindConnected(roomID, kind string) bool {
+	for _, c := range h.members(roomID) {
+		if c.isController(kind) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *conn) isController(kind string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.role == Controller && c.kind == kind
 }
 
 func (h *Hub) members(roomID string) []*conn {

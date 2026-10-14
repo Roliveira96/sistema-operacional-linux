@@ -32,10 +32,13 @@ const (
 	typeAdmissionRemove    = "live:admission:remove"
 	typeAdmissionRequest   = "live:admission:request"
 	typeModuleFocus        = "live:module:focus"
-	typeTerminalBroadcast  = "live:terminal:broadcast"
 
 	typeAdmissionState = "live:admission:state"
 	typeAdmissionQueue = "live:admission:queue"
+
+	// SPEC-055: the black screen of the stage, and the state of the presenter window for the panel
+	typeStageBlank     = "live:stage:blank"
+	typePresenterState = "live:presenter:state"
 
 	typeSnapshot  = "live:snapshot"
 	typeEnded     = "live:ended"
@@ -44,28 +47,37 @@ const (
 	typeHandQueue = "live:hand:queue"
 )
 
+// The two windows of the teacher (SPEC-055 RN-01), the value of the `view` parameter of the connection.
+const (
+	viewPanel     = "panel"
+	viewPresenter = "presenter"
+)
+
 // hubConfig sets the rules of each message and the limits of the room (SPEC-051 RN-05). The pointer, the strokes and the typing
 // arrive about 30 times per second; the server takes up to 35 per second from each emitter and gives each viewer the latest every 30 ms.
 func hubConfig() hub.Config {
 	const kib = 1 << 10
 	return hub.Config{
 		Rules: map[string]hub.Rule{
-			typeSlideChange:   {MaxBytes: kib, ControllerOnly: true},
-			typeCursorMove:    {MaxBytes: kib, ControllerOnly: true, Limited: true, Coalesce: true},
-			typeCanvasDraw:    {MaxBytes: 16 * kib, ControllerOnly: true, Limited: true},
-			typeModeSwitch:    {MaxBytes: kib, ControllerOnly: true},
-			typeTerminalInput: {MaxBytes: 4 * kib, ControllerOnly: true, Limited: true, Coalesce: true},
-			typeTerminalSync:  {MaxBytes: 1024 * kib, ControllerOnly: true},
-			typeHandModerate:  {MaxBytes: kib, ControllerOnly: true},
-			typeHandRaise:     {MaxBytes: kib},
-			typeHandLower:     {MaxBytes: kib},
+			// the slide, the mode and the focus come from either window of the teacher
+			typeSlideChange: {MaxBytes: kib, ControllerOnly: true},
+			typeModeSwitch:  {MaxBytes: kib, ControllerOnly: true},
+			typeModuleFocus: {MaxBytes: kib, ControllerOnly: true},
+			// the stage is the presenter window's (SPEC-055 RN-02)
+			typeCursorMove:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
+			typeCanvasDraw:    {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
+			typeTerminalInput: {MaxBytes: 4 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
+			typeTerminalSync:  {MaxBytes: 1024 * kib, ControllerOnly: true, Kind: viewPresenter},
+			typeStageBlank:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter},
+			// the waiting room and the hands are the panel's
+			typeHandModerate:       {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeAdmissionAccept:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeAdmissionAcceptAll: {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeAdmissionRemove:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 
-			typeAdmissionAccept:    {MaxBytes: kib, ControllerOnly: true},
-			typeAdmissionAcceptAll: {MaxBytes: kib, ControllerOnly: true},
-			typeAdmissionRemove:    {MaxBytes: kib, ControllerOnly: true},
-			typeAdmissionRequest:   {MaxBytes: kib, Limited: true, AllowWaiting: true},
-			typeModuleFocus:        {MaxBytes: kib, ControllerOnly: true},
-			typeTerminalBroadcast:  {MaxBytes: kib, ControllerOnly: true},
+			typeHandRaise:        {MaxBytes: kib},
+			typeHandLower:        {MaxBytes: kib},
+			typeAdmissionRequest: {MaxBytes: kib, Limited: true, AllowWaiting: true},
 		},
 		MaxViewers:    100,
 		MaxWaiting:    200,
@@ -108,25 +120,51 @@ func (w wsHandler) Snapshot(ctx context.Context, room string, who hub.Identity) 
 		}
 		return admissionState(status), nil
 	}
-	return w.snapshot(ctx, room, who.Role == hub.Controller)
+	kind := ""
+	if who.Role == hub.Controller {
+		kind = who.Kind
+	}
+	if kind == viewPresenter {
+		w.takeOverStage(room, who)
+	}
+	return w.snapshot(ctx, room, kind)
+}
+
+// takeOverStage ends the black screen when a new presenter window takes over; the others are told (SPEC-055).
+func (w wsHandler) takeOverStage(room string, who hub.Identity) {
+	session := sessionOf(room)
+	if !w.h.svc.StageBlank(session) {
+		return
+	}
+	w.h.svc.SetStageBlank(session, false)
+	w.h.hub.Broadcast(room, hub.Message{Type: typeStageBlank, Data: mustMarshal(map[string]bool{"blank": false})}, who.ConnID)
 }
 
 func admissionState(status string) hub.Message {
 	return hub.Message{Type: typeAdmissionState, Data: mustMarshal(map[string]string{"status": status})}
 }
 
-func (w wsHandler) snapshot(ctx context.Context, room string, withAdmissions bool) (hub.Message, error) {
+// snapshot is the state of the room for a connection of the kind: the panel also gets the waiting room, the start of the lesson and
+// the state of the presenter window; the presenter gets the stage only; a student gets the room (SPEC-055 RN-05).
+func (w wsHandler) snapshot(ctx context.Context, room, kind string) (hub.Message, error) {
 	a, err := w.h.svc.Snapshot(ctx, sessionOf(room))
 	if err != nil {
 		return hub.Message{}, err
 	}
 	body := activeBody(a, w.h.hub.Online(room))
-	if withAdmissions {
+	body["stageBlank"] = w.h.svc.StageBlank(sessionOf(room))
+	switch kind {
+	case viewPanel:
 		adm, err := w.h.svc.Admissions(ctx, sessionOf(room))
 		if err != nil {
 			return hub.Message{}, err
 		}
 		body["admissions"] = admissionsBody(adm)
+		body["startedAt"] = a.Session.StartedAt
+		body["presenterConnected"] = w.h.hub.KindConnected(room, viewPresenter)
+	case viewPresenter:
+		delete(body, "handRaises")
+		delete(body, "onlineCount")
 	}
 	return hub.Message{Type: typeSnapshot, Data: mustMarshal(body)}, nil
 }
@@ -137,6 +175,9 @@ func (w wsHandler) Dropped(room string, who hub.Identity, msgType, reason string
 }
 
 func (w wsHandler) Joined(room string, who hub.Identity) {
+	if who.Kind == viewPresenter {
+		w.presenterState(room)
+	}
 	switch {
 	case who.Waiting:
 		w.queue(context.Background(), room) // the teacher sees the new student in the waiting room
@@ -146,6 +187,9 @@ func (w wsHandler) Joined(room string, who hub.Identity) {
 }
 
 func (w wsHandler) Left(room string, who hub.Identity) {
+	if who.Kind == viewPresenter {
+		w.presenterState(room) // the truth of the room, so a replaced window leaving does not close the presenter
+	}
 	switch {
 	case who.Waiting:
 		// who waits is not online in the room; the line only changes when the teacher decides
@@ -166,11 +210,18 @@ func (w wsHandler) queue(ctx context.Context, room string) {
 		w.h.log.Warn("classroom admissions not read", zap.String("room", room), zap.Error(err))
 		return
 	}
-	w.h.hub.SendToController(room, hub.Message{Type: typeAdmissionQueue, Data: mustMarshal(admissionsBody(adm))})
+	w.sendQueue(room, adm)
+}
+
+// presenterState tells the panel whether the presenter window is connected.
+func (w wsHandler) presenterState(room string) {
+	connected := w.h.hub.KindConnected(room, viewPresenter)
+	w.h.hub.SendToKind(room, viewPanel, hub.Message{Type: typePresenterState, Data: mustMarshal(map[string]bool{"connected": connected})})
 }
 
 func (w wsHandler) presence(room string) {
-	w.h.hub.Broadcast(room, hub.Message{Type: typePresence, Data: mustMarshal(map[string]int{"online": w.h.hub.Online(room)})}, "")
+	body := map[string]any{"online": w.h.hub.Online(room), "presenterConnected": w.h.hub.KindConnected(room, viewPresenter)}
+	w.h.hub.Broadcast(room, hub.Message{Type: typePresence, Data: mustMarshal(body)}, "")
 }
 
 func (w wsHandler) reject(room string, who hub.Identity, msg hub.Message, err error) {
@@ -221,22 +272,20 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 		}
 		relay()
 	case typeTerminalInput:
-		if svc.RememberTerminalInput(session, msg.Data) {
-			relay()
-		}
+		svc.RememberTerminalInput(session, msg.Data)
+		relay()
 	case typeTerminalSync:
-		if svc.RememberTerminalSync(session, msg.Data) {
-			relay()
-		}
-	case typeTerminalBroadcast:
+		svc.RememberTerminalSync(session, msg.Data)
+		relay()
+	case typeStageBlank:
 		var d struct {
-			Enabled bool `json:"enabled"`
+			Blank *bool `json:"blank"`
 		}
-		if err := json.Unmarshal(msg.Data, &d); err != nil {
-			w.reject(room, who, msg, err)
+		if err := json.Unmarshal(msg.Data, &d); err != nil || d.Blank == nil {
+			w.reject(room, who, msg, errors.New("the message needs the blank flag"))
 			return
 		}
-		svc.SetTerminalBroadcast(session, d.Enabled)
+		svc.SetStageBlank(session, *d.Blank)
 		relay()
 	case typeModuleFocus:
 		var d struct {
@@ -322,7 +371,7 @@ func (w wsHandler) release(ctx context.Context, room string, student uuid.UUID) 
 	id := student.String()
 	w.h.hub.SendTo(room, id, admissionState(domain.AdmissionAdmitted))
 	w.h.hub.SetWaiting(room, id, false)
-	snap, err := w.snapshot(ctx, room, false)
+	snap, err := w.snapshot(ctx, room, "")
 	if err != nil {
 		w.h.log.Warn("classroom snapshot of the admitted not sent", zap.String("room", room), zap.String("userId", id), zap.Error(err))
 		return
@@ -332,7 +381,7 @@ func (w wsHandler) release(ctx context.Context, room string, student uuid.UUID) 
 }
 
 func (w wsHandler) sendQueue(room string, adm service.Admissions) {
-	w.h.hub.SendToController(room, hub.Message{Type: typeAdmissionQueue, Data: mustMarshal(admissionsBody(adm))})
+	w.h.hub.SendToKind(room, viewPanel, hub.Message{Type: typeAdmissionQueue, Data: mustMarshal(admissionsBody(adm))})
 }
 
 // hands changes the queue of raised hands and sends the new queue to the whole room.

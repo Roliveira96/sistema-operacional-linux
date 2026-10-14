@@ -39,11 +39,10 @@ type Service interface {
 	SwitchMode(ctx context.Context, actor service.Actor, sessionID uuid.UUID, mode string, moduleID *uuid.UUID) error
 	FocusModuleBlock(ctx context.Context, sessionID uuid.UUID, blockID string) error
 	RememberDrawing(sessionID uuid.UUID, raw json.RawMessage)
-	// RememberTerminalInput and RememberTerminalSync report whether the terminal is on the air; if not, the message is not passed on.
-	RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage) bool
-	RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage) bool
-	SetTerminalBroadcast(sessionID uuid.UUID, on bool)
-	TerminalBroadcasting(sessionID uuid.UUID) bool
+	RememberTerminalInput(sessionID uuid.UUID, raw json.RawMessage)
+	RememberTerminalSync(sessionID uuid.UUID, raw json.RawMessage)
+	SetStageBlank(sessionID uuid.UUID, on bool)
+	StageBlank(sessionID uuid.UUID) bool
 	ModuleOfRoom(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.ModuleView, error)
 
 	AdmissionState(ctx context.Context, sessionID, studentID uuid.UUID) (string, error)
@@ -165,7 +164,6 @@ func activeBody(a service.Active, online int) gin.H {
 		"activeModuleId":     a.Session.ActiveModuleID,
 		"moduleId":           a.Session.ActiveModuleID,
 		"moduleFocusBlockId": a.ModuleFocusBlockID,
-		"terminalBroadcast":  a.TerminalBroadcast,
 		"activeDeck":         nil,
 		"recentDrawings":     drawings,
 		"terminal":           gin.H{"input": a.Terminal.Input, "entries": entries, "state": a.Terminal.State},
@@ -441,6 +439,18 @@ func (h *Handler) connect(c *gin.Context) {
 		fail(c, toProblem(err))
 		return
 	}
+	// The teacher side connects as the panel (default) or the presenter window (SPEC-055 RN-01); a student ignores the parameter.
+	kind := ""
+	if conn.Controller {
+		switch kind = c.Query("view"); kind {
+		case "":
+			kind = viewPanel
+		case viewPanel, viewPresenter:
+		default:
+			fail(c, problem.BadRequest("invalid-view", "The view parameter must be panel or presenter."))
+			return
+		}
+	}
 	ws, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return // the upgrader has already answered
@@ -450,7 +460,7 @@ func (h *Handler) connect(c *gin.Context) {
 		role = hub.Controller
 	}
 	if err := h.hub.Serve(c.Request.Context(), ws, conn.Session.ID.String(), hub.Identity{
-		UserID: actor.UserID.String(), Role: role, Meta: actor.Role, Waiting: !conn.Controller && conn.Admission != domain.AdmissionAdmitted,
+		UserID: actor.UserID.String(), Role: role, Kind: kind, Meta: actor.Role, Waiting: !conn.Controller && conn.Admission != domain.AdmissionAdmitted,
 	}); err != nil {
 		h.log.Debug("classroom connection ended", zap.String("userId", actor.UserID.String()), zap.Error(err))
 	}
