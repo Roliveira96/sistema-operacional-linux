@@ -38,7 +38,7 @@ describe("TeacherSplitView", () => {
 
   // CA-14: only tokens, never a color written in the style
   it("uses only the color tokens", () => {
-    const css = readFileSync(new URL("./TeacherSplitView.module.scss", import.meta.url), "utf8");
+    const css = readFileSync("src/components/Classroom/TeacherSplitView/TeacherSplitView.module.scss", "utf8");
     expect(css.length).toBeGreaterThan(0);
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(css).not.toMatch(/\brgba?\(/);

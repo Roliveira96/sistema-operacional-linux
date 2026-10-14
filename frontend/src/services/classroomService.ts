@@ -1,3 +1,4 @@
+import type { ContentBlock } from "./contentService";
 import type { TerminalCommandEvent, TerminalInputEvent } from "@/engine/terminalWindow";
 import { httpClient, type HttpClient } from "./httpClient";
 
@@ -47,12 +48,40 @@ export interface LiveTerminalState {
 }
 
 /** The whole state of an open room: the answer of "active" and the first message of every connection (RN-07). */
+/** Where a student stands in a live class: waiting for the teacher, accepted, or removed (SPEC-054). */
+export type AdmissionState = "WAITING" | "ADMITTED" | "REMOVED";
+
+export interface AdmissionEntry {
+  studentId: string;
+  name: string;
+  requestedAt?: string;
+}
+
+/** Who waits and who is in the class, as the teacher sees it (SPEC-054 CA-06). */
+export interface LiveAdmissions {
+  waiting: AdmissionEntry[];
+  admitted: AdmissionEntry[];
+}
+
+/** The module of the live class: its blocks and the first machine of its terminal (SPEC-054, section 5). */
+export interface LiveModuleContent {
+  moduleId: string;
+  title: string;
+  blocks: ContentBlock[];
+  scenario: unknown;
+}
+
 export interface LiveSnapshot {
   hasActiveSession: true;
   session: LiveSession;
   displayMode: LiveMode;
   currentSlide: number;
   activeModuleId?: string | null;
+  moduleId?: string | null;
+  moduleFocusBlockId?: string | null;
+  terminalBroadcast?: boolean;
+  /** Only the teacher gets it. */
+  admissions?: LiveAdmissions;
   activeDeck: LiveDeck | null;
   recentDrawings: LiveStroke[];
   terminal: LiveTerminalState;
@@ -110,6 +139,7 @@ export function createClassroomService(client: HttpClient = httpClient) {
     },
     listDecks: async (classId: string) => (await client.get<{ decks: DeckSummary[] }>(`${live(classId)}/decks`)).decks,
     getActive: (classId: string) => client.get<ActiveRoom>(`${live(classId)}/active`),
+    getLiveModule: (classId: string) => client.get<LiveModuleContent>(`${live(classId)}/module`),
     listSessions: async (classId: string) =>
       (await client.get<{ sessions: LiveSessionSummary[] }>(`${live(classId)}/sessions`)).sessions,
     saveNotes: (classId: string, sessionId: string, content: string) =>

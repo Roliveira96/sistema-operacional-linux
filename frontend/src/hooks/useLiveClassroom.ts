@@ -4,7 +4,9 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { TerminalCommandEvent, TerminalInputEvent } from "@/engine/terminalWindow";
 import {
   openLiveSocket,
+  type AdmissionState,
   type HandRaiseItem,
+  type LiveAdmissions,
   type LiveDeck,
   type LiveMessage,
   type LiveMode,
@@ -18,6 +20,10 @@ export interface LiveRoomState {
   mode: LiveMode;
   slide: number;
   moduleId: string | null;
+  /** The block of the module the teacher put in focus (SPEC-054). */
+  moduleFocusBlockId: string | null;
+  /** Whether the teacher sends his terminal to the class; off until he says (SPEC-054 CA-10). */
+  terminalBroadcast: boolean;
   deck: LiveDeck | null;
   strokes: LiveStroke[];
   cursor: { x: number; y: number; laser: boolean } | null;
@@ -36,15 +42,20 @@ interface State {
   room: LiveRoomState;
   terminal: LiveTerminal;
   hands: HandRaiseItem[];
+  /** Where the student stands; null until the server says (SPEC-054 CA-01). */
+  admission: AdmissionState | null;
+  admissions: LiveAdmissions;
   ready: boolean;
   ended: boolean;
   passive: boolean;
 }
 
 const initial: State = {
-  room: { mode: "SLIDES", slide: 1, moduleId: null, deck: null, strokes: [], cursor: null, online: 0 },
+  room: { mode: "SLIDES", slide: 1, moduleId: null, moduleFocusBlockId: null, terminalBroadcast: false, deck: null, strokes: [], cursor: null, online: 0 },
   terminal: { input: null, entries: [], state: null, revision: 0 },
   hands: [],
+  admission: null,
+  admissions: { waiting: [], admitted: [] },
   ready: false,
   ended: false,
   passive: false,
@@ -63,10 +74,14 @@ function apply(state: State, message: LiveMessage): State {
       return {
         ...state,
         ready: true,
+        admission: "ADMITTED",
+        admissions: s.admissions ?? state.admissions,
         room: {
           mode: s.displayMode,
           slide: s.currentSlide,
-          moduleId: s.activeModuleId ?? null,
+          moduleId: s.moduleId ?? s.activeModuleId ?? null,
+          moduleFocusBlockId: s.moduleFocusBlockId ?? null,
+          terminalBroadcast: s.terminalBroadcast ?? false,
           deck: s.activeDeck ?? null,
           strokes: s.recentDrawings ?? [],
           cursor: null,
@@ -91,7 +106,21 @@ function apply(state: State, message: LiveMessage): State {
       return { ...state, room: { ...state.room, strokes } };
     }
     case "live:mode:switch":
-      return { ...state, room: { ...state.room, mode: data.mode as LiveMode, moduleId: (data.moduleId as string | undefined) ?? null } };
+      return {
+        ...state,
+        room: { ...state.room, mode: data.mode as LiveMode, moduleId: (data.moduleId as string | undefined) ?? null, moduleFocusBlockId: null },
+      };
+    case "live:module:focus":
+      return { ...state, room: { ...state.room, moduleFocusBlockId: (data.blockId as string | undefined) ?? null } };
+    case "live:terminal:broadcast":
+      return { ...state, room: { ...state.room, terminalBroadcast: Boolean(data.on) } };
+    case "live:admission:state":
+      return { ...state, admission: data.state as AdmissionState };
+    case "live:admission:queue":
+      return {
+        ...state,
+        admissions: { waiting: (data.waiting as LiveAdmissions["waiting"]) ?? [], admitted: (data.admitted as LiveAdmissions["admitted"]) ?? [] },
+      };
     case "live:terminal:input":
       return { ...state, terminal: { ...state.terminal, input: data as unknown as TerminalInputEvent } };
     case "live:terminal:sync": {
@@ -139,6 +168,7 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
   const socket = useRef<LiveSocket | null>(null);
   const alive = useRef(true);
   const finished = useRef(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     finished.current = state.ended;
@@ -172,7 +202,7 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
       clearTimeout(timer);
       socket.current?.close();
     };
-  }, [classId, connect]);
+  }, [classId, connect, attempt]);
 
   const canControl = role === "teacher" && !state.passive;
   const emit = useCallback(
@@ -199,6 +229,19 @@ export function useLiveClassroom({ classId, role, connect = openLiveSocket }: Us
     moderate: (studentId?: string) => {
       if (canControl) sendOnly("live:hand:moderate", studentId ? { studentId } : { all: true });
     },
+    focusBlock: (blockId: string) => emit("live:module:focus", { blockId }),
+    setTerminalBroadcast: (on: boolean) => emit("live:terminal:broadcast", { on }),
+    acceptStudent: (studentId: string) => {
+      if (canControl) sendOnly("live:admission:accept", { studentId });
+    },
+    acceptAll: () => {
+      if (canControl) sendOnly("live:admission:accept-all", {});
+    },
+    removeStudent: (studentId: string) => {
+      if (canControl) sendOnly("live:admission:remove", { studentId });
+    },
+    /** Opens a new connection, which is how a student removed from the class asks to come in again. */
+    reconnect: () => setAttempt((n) => n + 1),
     raiseHand: () => sendOnly("live:hand:raise", {}),
     lowerHand: () => sendOnly("live:hand:lower", {}),
   };

@@ -17,6 +17,8 @@ export interface MirroredModuleViewProps {
   role: "teacher" | "student";
   /** What the teacher is doing at the terminal, as the room tells it. */
   terminal: LiveTerminal;
+  /** The machine the terminal starts on, the one of the module (SPEC-054 CA-11); the default machine when not given. */
+  initialState?: unknown;
   /** The teacher's terminal reports what he types, and what he runs. */
   onInput?(event: TerminalInputEvent): void;
   onSync?(event: TerminalCommandEvent): void;
@@ -29,8 +31,10 @@ const sameCommand = (a: TerminalCommandEvent, b: TerminalCommandEvent) => a.term
  * student's is a read-only copy: it shows the teacher typing, prints each command with its output and applies the machine, and never runs
  * anything by itself.
  */
-export function MirroredModuleView({ role, terminal, onInput, onSync }: MirroredModuleViewProps) {
+export function MirroredModuleView({ role, terminal, initialState, onInput, onSync }: MirroredModuleViewProps) {
   const host = useRef<HTMLDivElement>(null);
+  // Read once, when the terminal is mounted: a new module mounts a new view.
+  const startOn = useRef(initialState);
   const [win, setWin] = useState<TerminalWindow | null>(null);
   const [failed, setFailed] = useState(false);
   const callbacks = useRef({ onInput, onSync });
@@ -49,7 +53,7 @@ export function MirroredModuleView({ role, terminal, onInput, onSync }: Mirrored
     const teacher = role === "teacher";
     mountTerminalWindow(
       container,
-      null,
+      startOn.current ?? null,
       teacher
         ? {
             onCommand: () => undefined,

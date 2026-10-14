@@ -1,0 +1,62 @@
+@use "@/styles/mixins" as mixins;
+
+// My screen and the Class screen: side by side on wide screens, one over the other on narrow ones (SPEC-054 CA-07).
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+
+  @include mixins.from("lg") {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+
+  &.alone {
+    @include mixins.from("lg") {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+  }
+}
+
+.mine,
+.klass {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+}
+
+// The class screen is set apart: it is what the class sees, not what the teacher uses.
+.klass {
+  background-color: var(--color-surface-sunken);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.klassBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.seen {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+}
+
+.count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}

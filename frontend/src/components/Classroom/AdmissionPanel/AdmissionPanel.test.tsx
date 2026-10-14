@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString();
 const ana: AdmissionEntry = { studentId: "u-1", name: "Ana", requestedAt: minutesAgo(5) };
-const bruno: AdmissionEntry = { studentId: "u-2", name: "Bruno", requestedAt: minutesAgo(1) };
+const bruno: AdmissionEntry = { studentId: "u-2", name: "Bruno", requestedAt: minutesAgo(0.5) };
 const carla: AdmissionEntry = { studentId: "u-3", name: "Carla" };
 
 function setup(waiting: AdmissionEntry[], admitted: AdmissionEntry[] = []) {
