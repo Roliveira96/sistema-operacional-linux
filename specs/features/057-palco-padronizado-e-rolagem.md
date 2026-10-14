@@ -27,7 +27,7 @@ Hoje o palco ocupa o tamanho da janela de cada pessoa. O professor, no projetor,
 
 ## 2. Objetivos (Goals)
 
-- Um **palco de tamanho fixo e lógico** (**1920 × 1080**, proporção 16:9, a do projetor), desenhado do mesmo jeito para o professor e para todos os alunos, e **ajustado por escala** à janela de cada um, com faixas escuras nas sobras. Quem vê, vê a mesma coisa, só maior ou menor.
+- Um **palco de tamanho fixo e lógico** (**1280 × 720**, proporção 16:9, a do projetor), desenhado do mesmo jeito para o professor e para todos os alunos, e **ajustado por escala** à janela de cada um, com faixas escuras nas sobras. Quem vê, vê a mesma coisa, só maior ou menor.
 - **Rolagem** da lâmina que passa da altura do palco, controlada pelo professor e acompanhada pelos alunos.
 - O ponteiro, a caneta, a rolagem do material e a divisória do módulo **correspondem** nas duas pontas.
 
@@ -42,8 +42,8 @@ Hoje o palco ocupa o tamanho da janela de cada pessoa. O professor, no projetor,
 
 ### 3.1. Frontend (Next.js & SCSS Modules)
 
-- **Componente `FixedStage`** (em `components/Classroom/`): um contêiner de **1920 × 1080 px lógicos** com `transform: scale(s)`, `transform-origin: top left`, centrado na área disponível, onde `s = min(largura disponível / 1920, altura disponível / 1080)`. Mede a área com `ResizeObserver` e recalcula ao redimensionar, ao entrar e sair da tela cheia. As sobras ficam com a cor de fundo do tema (token). Tudo o que é do palco (lâmina, módulo, terminal, ponteiro, traços, tela preta) é desenhado **dentro** dele, em pixels lógicos; o resto da página (cabeçalho, barra de ferramentas, notas, avisos) fica **fora**.
-- **Lâminas.** A página do PDF é desenhada com a largura do palco (1920) e alta o quanto for; uma página mais alta que 1080 **rola dentro do palco** (`overflow-y: auto` na área da lâmina). A barra de rolagem aparece só para o professor; para o aluno a área é rolada pelo professor. Traços e ponteiro continuam em **percentual da página inteira** (altura total, não só a parte visível), então batem mesmo com a rolagem. Mudar de lâmina volta a rolagem ao topo.
+- **Componente `FixedStage`** (em `components/Classroom/`): um contêiner de **1280 × 720 px lógicos** com `transform: scale(s)`, `transform-origin: top left`, centrado na área disponível, onde `s = min(largura disponível / 1280, altura disponível / 720)`. Mede a área com `ResizeObserver` e recalcula ao redimensionar, ao entrar e sair da tela cheia. As sobras ficam com a cor de fundo do tema (token). Tudo o que é do palco (lâmina, módulo, terminal, ponteiro, traços, tela preta) é desenhado **dentro** dele, em pixels lógicos; o resto da página (cabeçalho, barra de ferramentas, notas, avisos) fica **fora**.
+- **Lâminas.** A página do PDF é desenhada com a largura do palco (1280) e alta o quanto for; uma página mais alta que 720 **rola dentro do palco** (`overflow-y: auto` na área da lâmina). A barra de rolagem aparece só para o professor; para o aluno a área é rolada pelo professor. Traços e ponteiro continuam em **percentual da página inteira** (altura total, não só a parte visível), então batem mesmo com a rolagem. Mudar de lâmina volta a rolagem ao topo.
 - **Módulo** (`TopicStudyLive`). O layout da tela de estudo é desenhado no palco fixo, igual para todos. A rolagem do **material** e a **posição da divisória** acompanham o professor. O **ponteiro** passa a ser mostrado também no módulo, em percentual do palco (0 a 100 em x e y), com o laser como destaque (como nas lâminas).
 - **Envio.** A janela de apresentação envia `live:stage:scroll` (a cada 100 ms no máximo, só se mudou) quando o professor rola a lâmina ou o material, e `live:stage:split` quando solta ou arrasta a divisória. O aluno aplica os valores sem interpolar além da transição de 100 ms.
 - **Palco do aluno o maior possível, no estilo do Google Meet.** Na sala do aluno não há cabeçalho nem margens: o palco ocupa **toda a janela**, menos uma **faixa de controles fixa embaixo** (uns 56 px, que **nunca cobre** o material). A faixa leva, à esquerda, o título, o tempo e quantos estão online; ao centro, os botões **Levantar a mão** (com o estado "mão levantada" visível), **Anotações** e **Tela cheia** (também a tecla F); à direita, **Sair**. As **anotações abrem numa coluna ao lado** (uns 320 px), e o palco **se reajusta** ao espaço que sobra, sem ficar coberto; fechadas, o palco volta a ocupar tudo. Nenhum painel, menu ou aviso fica por cima do palco (só a tela preta do professor e o aviso de "aguardando" cobrem, por serem o próprio palco). A escala é a maior que cabe, sem cortar nada.
@@ -71,14 +71,14 @@ Nenhuma tabela e nenhuma migração: o estado de rolagem e divisória fica em me
 
 ## 6. Impacto e Riscos (Impact & Risks)
 
-- **Texto pequeno em telas pequenas.** O palco 1920 × 1080 num notebook de 1366 px de largura fica a 71%; num celular, bem menor. Mitigação: é o preço de todos verem o mesmo; a sala fica utilizável e o aluno pode usar o zoom do navegador ou a tela cheia. Layout próprio para celular é fora de escopo.
+- **Texto pequeno em telas pequenas.** Por isso o palco é de **1280 × 720** e não de 1920 × 1080: num notebook de 1366 px de largura a escala é de cerca de 107%, e o texto fica nítido e grande (com 1920 ficaria a 71%, pequeno demais para ler); num projetor Full HD, 150%. Em celular em pé o palco ainda fica pequeno (fora de escopo).
 - **Conflito com a SPEC-056** (mesmos componentes e mesmo arquivo `ws.go`). Mitigação: esta spec só é implementada depois da SPEC-056.
 - **Desfoque do texto escalado.** O `transform: scale` pode deixar a fonte levemente borrada em escalas quebradas. Mitigação: aceita; o terminal e o texto são vetoriais e a lâmina é desenhada em alta resolução.
 - **Posição do mouse com escala.** As coordenadas do mouse precisam dividir pela escala. Mitigação: um único auxiliar (`toStagePoint`) usado por lâmina e módulo, com teste.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): O palco DEVE ter 1920 × 1080 px lógicos para o professor e para todos os alunos, ajustado por escala à janela de cada um, centrado, com faixas escuras nas sobras e sem cortar nem deformar.
+- [ ] **CA-01** (ubíquo): O palco DEVE ter 1280 × 720 px lógicos para o professor e para todos os alunos, ajustado por escala à janela de cada um, centrado, com faixas escuras nas sobras e sem cortar nem deformar.
 - [ ] **CA-02** (evento): QUANDO a janela muda de tamanho ou entra ou sai da tela cheia, O SISTEMA DEVE recalcular a escala sem recarregar a aula.
 - [ ] **CA-03** (ubíquo): O texto do material e as colunas do terminal DEVEM quebrar do mesmo jeito para o professor e para os alunos, qualquer que seja o tamanho da janela de cada um.
 - [ ] **CA-04** (estado): ENQUANTO a página da lâmina for mais alta que o palco, O SISTEMA DEVE permitir ao professor rolar a lâmina dentro do palco e DEVE mostrar a mesma posição aos alunos em até 300 ms.
@@ -98,7 +98,7 @@ Nenhuma tabela e nenhuma migração: o estado de rolagem e divisória fica em me
 Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
 - **Backend, `platform/hub` e `classroom`:** as duas mensagens só do `presenter`, validadas, repassadas sem eco, guardadas e entregues nos instantâneos (CA-08, CA-09); a rolagem da lâmina volta a 0 na troca de lâmina e a do material, na troca de módulo (CA-05).
-- **Frontend, `FixedStage`:** escala de `min(L/1920, A/1080)`, centragem e faixas; recálculo no redimensionamento (CA-01, CA-02); `toStagePoint` divide pela escala e soma a rolagem (CA-06).
+- **Frontend, `FixedStage`:** escala de `min(L/1280, A/720)`, centragem e faixas; recálculo no redimensionamento (CA-01, CA-02); `toStagePoint` divide pela escala e soma a rolagem (CA-06).
 - **Frontend, lâmina:** rolagem dentro do palco quando a página é alta; o professor envia `live:stage:scroll` limitado a 100 ms; o aluno aplica a posição e não rola sozinho (CA-04, CA-10); traços e ponteiro em percentual da página inteira (CA-06); a troca de lâmina volta ao topo (CA-05).
 - **Frontend, módulo:** o ponteiro aparece no módulo; a rolagem do material e a divisória seguem o professor e o aluno não as move; o instantâneo as restaura (CA-07, CA-08, CA-10).
 - **Regressão:** os testes existentes do `TopicStudy`, de `/materials/:id` e do painel passam sem alteração (CA-11).
@@ -114,7 +114,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
 ## 10. Pendências para aprovação
 
-O Tech Lead pediu o palco igual para todos e a rolagem; a escolha de **1920 × 1080 com escala para caber**, e não uma resolução por dispositivo, é da Aruna e deve ser revisada. Alternativa descartada: tamanho fluido com regras de quebra iguais (não garante a mesma tela). Fica aberto, para depois: layout próprio para celular.
+O Tech Lead pediu o palco igual para todos e a rolagem; a escolha de **1280 × 720 com escala para caber** (e não 1920 × 1080, que deixa o texto pequeno demais no notebook do aluno), e não uma resolução por dispositivo, é da Aruna e deve ser revisada. Alternativa descartada: tamanho fluido com regras de quebra iguais (não garante a mesma tela). Fica aberto, para depois: layout próprio para celular.
 
 ---
 
@@ -125,3 +125,4 @@ O Tech Lead pediu o palco igual para todos e a rolagem; a escolha de **1920 × 1
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido do Tech Lead; a resolução fica para a revisão dele |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: a tela do aluno deve ser maior, com o scroll do professor refletido e nada cortado. Acrescentados o palco do aluno ocupando a área toda, com anotações em gaveta e tela cheia, e o CA-13 |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead ("como o Meet"): o menu de levantar a mão não pode ficar em cima do material, e a visualização do aluno e do professor deve aproveitar o espaço. CA-13 corrigido (faixa de controles fixa embaixo, anotações em coluna lateral que reajusta o palco, nada por cima) e CA-14 novo (palco do professor na janela inteira) |
+| 14/10/2026 | Aruna Architect | Pedido do Tech Lead: a tela do aluno fica pequena demais para ler. Palco trocado de 1920 × 1080 para 1280 × 720 (mesma proporção, texto cerca de 1,5 vez maior na tela do aluno); a largura e a altura ficam em uma constante só |
