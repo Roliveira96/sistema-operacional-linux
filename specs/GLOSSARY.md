@@ -48,6 +48,7 @@ Regras:
 | Anotações da aula | `LiveClassroomNote` (tabela `live_classroom_notes`) | Caderno privativo do estudante durante a sala ao vivo | `Notes` sozinho | Proposto (SPEC-051) |
 | Sala de espera | `LiveClassroomAdmission` (tabela `live_classroom_admissions`) | Situação do estudante numa aula ao vivo (`WAITING`, `ADMITTED`, `REMOVED`): só o aceito pelo professor vê a aula | `Lobby`, `Approval` | Proposto (SPEC-054) |
 | Espelho do terminal | `TerminalMirror` | Cópia somente leitura da tela do terminal do professor na aula ao vivo, desenhada pelo aluno a partir de uma árvore segura de tags (`live:terminal:screen`) | `Terminal remoto`, `Replay` | Proposto (SPEC-056) |
+| Palco | `FixedStage` | Área fixa de 1920 × 1080 px lógicos onde a aula ao vivo é desenhada, ajustada por escala à janela de cada pessoa, para o professor e os alunos verem a mesma tela | `Viewport`, `Canvas` | Proposto (SPEC-057) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 
