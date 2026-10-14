@@ -45,6 +45,8 @@ type Service struct {
 	exercises Exercises
 	versions  Versions
 	grading   Grading
+	students    Students
+	enrollments Enrollments
 	limiter   Limiter
 	san       *contentdomain.HTMLSanitizer
 	log       *zap.Logger

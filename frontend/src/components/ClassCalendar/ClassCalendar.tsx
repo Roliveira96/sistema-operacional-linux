@@ -317,7 +317,7 @@ export function ClassCalendar({
             </div>
           )}
 
-          {editable && (
+          {editable && onSelectPeriod && (
             <div>
               {isSelecting ? (
                 <button
@@ -449,6 +449,7 @@ export function ClassCalendar({
                 className={`${styles.dayCell} ${!isCurrentMonth ? styles.otherMonth : ""}`}
                 aria-label={ariaLabel}
                 aria-current={isToday ? "date" : undefined}
+                data-on-holiday={dayHolidays.length > 0 ? "true" : undefined}
                 onClick={() => handleDayClick(day)}
                 onKeyDown={(e) => handleDayKeyDown(idx, e)}
               >
@@ -568,20 +569,24 @@ export function ClassCalendar({
             <h3 className={styles.dayPanelTitle}>{selectedDayPanelTitle}</h3>
             {editable && (
               <div className={styles.panelActions}>
-                <button
-                  type="button"
-                  className={styles.actionBtn}
-                  onClick={() => onAddSession?.(selectedDayIso!)}
-                >
-                  {messages.schedule.calendar.addSession}
-                </button>
-                <button
-                  type="button"
-                  className={styles.actionBtn}
-                  onClick={() => onAddEvent?.(selectedDayIso!)}
-                >
-                  {messages.schedule.calendar.addEvent}
-                </button>
+                {onAddSession && (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onAddSession(selectedDayIso!)}
+                  >
+                    {messages.schedule.calendar.addSession}
+                  </button>
+                )}
+                {onAddEvent && (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onAddEvent(selectedDayIso!)}
+                  >
+                    {messages.schedule.calendar.addEvent}
+                  </button>
+                )}
               </div>
             )}
           </div>

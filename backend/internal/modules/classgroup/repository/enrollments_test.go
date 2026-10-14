@@ -136,11 +136,11 @@ func TestMigration00025_ConvertsPlainTextToParagraphs(t *testing.T) {
 	env := newEnrollEnv(t)
 	conn := env.db.Conn(env.ctx)
 	plain, html, empty := uuid.New(), uuid.New(), uuid.New()
-	insert := `INSERT INTO classes (id, teacher_id, name, course_code, semester, syllabus, institutional_guidelines, start_date, end_date, status, created_at, updated_at)
-        VALUES (?, ?, 'SO', ?, '2026/2', ?, ?, NOW(), NOW(), 'ACTIVE', NOW(), NOW())`
-	require.NoError(t, conn.Exec(insert, plain, env.teacher.ID, "A1", "Linha 1\nLinha 2\n\nBloco <2> & co", "Frequência 75%").Error)
-	require.NoError(t, conn.Exec(insert, html, env.teacher.ID, "A2", "<p>Já é HTML</p>", "").Error)
-	require.NoError(t, conn.Exec(insert, empty, env.teacher.ID, "A3", nil, nil).Error)
+	insert := `INSERT INTO classes (id, teacher_id, name, course_code, semester, syllabus, institutional_guidelines, start_date, end_date, status, created_at, updated_at, created_by, updated_by)
+        VALUES (?, ?, 'SO', ?, '2026/2', ?, ?, NOW(), NOW(), 'ACTIVE', NOW(), NOW(), ?, ?)`
+	require.NoError(t, conn.Exec(insert, plain, env.teacher.ID, "A1", "Linha 1\nLinha 2\n\nBloco <2> & co", "Frequência 75%", env.teacher.ID, env.teacher.ID).Error)
+	require.NoError(t, conn.Exec(insert, html, env.teacher.ID, "A2", "<p>Já é HTML</p>", "", env.teacher.ID, env.teacher.ID).Error)
+	require.NoError(t, conn.Exec(insert, empty, env.teacher.ID, "A3", nil, nil, env.teacher.ID, env.teacher.ID).Error)
 
 	require.NoError(t, conn.Exec(migration00025Conversion(t)).Error)
 

@@ -11,31 +11,52 @@
   box-shadow: var(--shadow-sm);
 }
 
-// One section of the form (SPEC-041, section 3.1.4).
-.group {
+// Tabs of the form (SPEC-044, section 3.1.1): the strip scrolls sideways on narrow screens.
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  min-height: 2.75rem;
+  padding: 0.6rem 1rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+
+  @include mixins.focusable;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.tabActive {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+// The content of one tab.
+.panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
-  margin: 0;
-  padding: 0 0 var(--space-5);
-  border: 0;
-  border-bottom: 1px solid var(--color-hairline);
 
-  &:last-of-type {
-    padding-bottom: 0;
-    border-bottom: 0;
+  &[hidden] {
+    display: none;
   }
-}
-
-.legend {
-  margin-bottom: var(--space-3);
-  padding: 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
 }
 
 .grid {
@@ -280,11 +301,81 @@
   padding: var(--space-2) 0;
 }
 
-.colorRadioLabel {
-  display: flex;
+// A dot per color, no name written (SPEC-044, CA-23): the chosen one has a ring, so color is not the only sign.
+.colorSwatch {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-body);
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
   cursor: pointer;
+
+  input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+}
+
+.swatchDot {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
+  background-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-surface);
+  transition:
+    transform var(--duration-fast),
+    border-color var(--duration-fast);
+
+  .colorSwatch:hover & {
+    transform: scale(1.1);
+  }
+
+  .colorSwatch input:checked + & {
+    border-color: var(--color-text-primary);
+    box-shadow:
+      0 0 0 2px var(--color-surface),
+      0 0 0 4px var(--color-text-primary);
+  }
+
+  .colorSwatch input:focus-visible + & {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 4px;
+  }
+
+  &[data-color="orange"] {
+    background-color: var(--color-class-orange);
+  }
+
+  &[data-color="blue"] {
+    background-color: var(--color-class-blue);
+  }
+
+  &[data-color="green"] {
+    background-color: var(--color-class-green);
+  }
+
+  &[data-color="purple"] {
+    background-color: var(--color-class-purple);
+  }
+
+  &[data-color="pink"] {
+    background-color: var(--color-class-pink);
+  }
+
+  &[data-color="teal"] {
+    background-color: var(--color-class-teal);
+  }
+
+  &[data-color="yellow"] {
+    background-color: var(--color-class-yellow);
+  }
+
+  &[data-color="red"] {
+    background-color: var(--color-class-red);
+  }
 }

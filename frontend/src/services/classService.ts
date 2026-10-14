@@ -26,6 +26,27 @@ export interface ClassGroup {
   isExpiringSoon: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Who and when (SPEC-049). The names come only with the detail of a class. */
+  createdBy?: string;
+  updatedBy?: string;
+  archivedAt?: string;
+  archivedBy?: string;
+  createdByName?: string;
+  updatedByName?: string;
+  archivedByName?: string;
+}
+
+/** A link of a class: a name and an https address the teacher publishes (SPEC-048). */
+export interface ClassLinkItem {
+  id: string;
+  name: string;
+  url: string;
+  position: number;
+}
+
+export interface ClassLinkInput {
+  name: string;
+  url: string;
 }
 
 export interface ClassSummary extends ClassGroup {
@@ -151,6 +172,10 @@ export function createClassService(client: HttpClient = httpClient) {
     enrollStudents: (classId: string, studentIds: string[]) =>
       client.post<EnrollStudentsResult>(`/classes/${classId}/enrollments`, { studentIds }),
     getClass: (id: string) => client.get<ClassGroup>(`/classes/${id}`),
+    deleteClass: (id: string) => client.delete<void>(`/classes/${id}`),
+    getLinks: async (classId: string) => (await client.get<{ links: ClassLinkItem[] }>(`/classes/${classId}/links`)).links,
+    replaceLinks: async (classId: string, links: ClassLinkInput[]) =>
+      (await client.put<{ links: ClassLinkItem[] }>(`/classes/${classId}/links`, { links })).links,
     createClass: (payload: CreateClassPayload) => client.post<ClassGroup>("/classes", payload),
     updateClass: (id: string, payload: UpdateClassPayload) => client.patch<ClassGroup>(`/classes/${id}`, payload),
     archiveClass: (id: string, reason: string) => client.post<ClassGroup>(`/classes/${id}/archive`, { reason }),

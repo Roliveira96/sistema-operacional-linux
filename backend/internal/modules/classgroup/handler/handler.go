@@ -25,6 +25,7 @@ type ClassService interface {
 	GetClass(ctx context.Context, teacherID, classID uuid.UUID) (domain.ClassGroup, error)
 	UpdateClass(ctx context.Context, teacherID, classID uuid.UUID, input service.UpdateClassInput) (domain.ClassGroup, error)
 	ArchiveClass(ctx context.Context, teacherID, classID uuid.UUID, reason string) (domain.ClassGroup, error)
+	DeleteClass(ctx context.Context, teacherID, classID uuid.UUID) error
 	JoinByToken(ctx context.Context, studentID uuid.UUID, token string) (service.JoinResult, error)
 	ListMembers(ctx context.Context, teacherID, classID uuid.UUID, status string) ([]repository.EnrollmentWithUser, error)
 	ModerateMember(ctx context.Context, teacherID, classID, enrollmentID uuid.UUID, approve bool, rejectionReason *string) (domain.Enrollment, error)
@@ -33,11 +34,23 @@ type ClassService interface {
 	GetMyClass(ctx context.Context, studentID, classID uuid.UUID) (service.StudentClassView, error)
 }
 
+// UserNamer reads the display names of users, for the history of a class (SPEC-049 RN-04).
+type UserNamer interface {
+	UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
+}
+
 // Handler manages class-related HTTP requests.
 type Handler struct {
-	svc  ClassService
-	auth authn.Validator
-	now  func() time.Time
+	svc   ClassService
+	auth  authn.Validator
+	now   func() time.Time
+	namer UserNamer
+}
+
+// WithUserNames makes the detail of a class carry the names of who created, updated and archived it.
+func (h *Handler) WithUserNames(n UserNamer) *Handler {
+	h.namer = n
+	return h
 }
 
 // New creates a new ClassGroup HTTP handler.
@@ -73,6 +86,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	teacherGroup.GET("/:id", h.getClass)
 	teacherGroup.PATCH("/:id", h.updateClass)
 	teacherGroup.POST("/:id/archive", h.archiveClass)
+	teacherGroup.DELETE("/:id", h.deleteClass)
 	teacherGroup.GET("/:id/members", h.listMembers)
 	teacherGroup.POST("/:id/members/:memberId/moderate", h.moderateMember)
 	teacherGroup.POST("/:id/enrollments", h.enrollStudents)
@@ -119,6 +133,14 @@ type classResponse struct {
 	IsExpiringSoon          bool       `json:"isExpiringSoon"`
 	CreatedAt               time.Time  `json:"createdAt"`
 	UpdatedAt               time.Time  `json:"updatedAt"`
+	CreatedBy               uuid.UUID  `json:"createdBy"`
+	UpdatedBy               uuid.UUID  `json:"updatedBy"`
+	ArchivedAt              *time.Time `json:"archivedAt,omitempty"`
+	ArchivedBy              *uuid.UUID `json:"archivedBy,omitempty"`
+	// The names only come with the detail of a class (SPEC-049 RN-04).
+	CreatedByName  string `json:"createdByName,omitempty"`
+	UpdatedByName  string `json:"updatedByName,omitempty"`
+	ArchivedByName string `json:"archivedByName,omitempty"`
 }
 
 type classSummaryResponse struct {
@@ -158,7 +180,51 @@ func (h *Handler) toClassResponse(c domain.ClassGroup) classResponse {
 		IsExpiringSoon:          c.IsExpiringSoon(h.now()),
 		CreatedAt:               c.CreatedAt,
 		UpdatedAt:               c.UpdatedAt,
+		CreatedBy:               c.CreatedBy,
+		UpdatedBy:               c.UpdatedBy,
+		ArchivedAt:              c.ArchivedAt,
+		ArchivedBy:              c.ArchivedBy,
 	}
+}
+
+// withNames adds the names of who created, updated and archived the class, when a namer is set (SPEC-049 RN-04).
+func (h *Handler) withNames(ctx context.Context, c domain.ClassGroup, res classResponse) classResponse {
+	if h.namer == nil {
+		return res
+	}
+	ids := []uuid.UUID{c.CreatedBy, c.UpdatedBy}
+	if c.ArchivedBy != nil {
+		ids = append(ids, *c.ArchivedBy)
+	}
+	names, err := h.namer.UserNames(ctx, ids)
+	if err != nil {
+		return res
+	}
+	res.CreatedByName = names[c.CreatedBy]
+	res.UpdatedByName = names[c.UpdatedBy]
+	if c.ArchivedBy != nil {
+		res.ArchivedByName = names[*c.ArchivedBy]
+	}
+	return res
+}
+
+// deleteClass deletes an archived class of 30 days or more (SPEC-050).
+func (h *Handler) deleteClass(c *gin.Context) {
+	principal, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+	classID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		fail(c, problem.BadRequest("invalid-uuid", "The class ID parameter is invalid."))
+		return
+	}
+	if err := h.svc.DeleteClass(c.Request.Context(), principal.UserID, classID); err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *Handler) createClass(c *gin.Context) {
@@ -352,7 +418,7 @@ func (h *Handler) getClass(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, h.toClassResponse(class))
+	c.JSON(http.StatusOK, h.withNames(c.Request.Context(), class, h.toClassResponse(class)))
 }
 
 type updateClassRequest struct {
@@ -737,6 +803,13 @@ func toProblem(err error) *problem.Problem {
 		return problem.New(http.StatusUnprocessableEntity, "archive-reason-required", err.Error())
 	case errors.Is(err, domain.ErrClassConflict):
 		return problem.Conflict("class-conflict", err.Error())
+	case errors.Is(err, domain.ErrClassNotDeletable):
+		p := problem.Conflict("class-not-deletable", err.Error())
+		var nd *domain.NotDeletableError
+		if errors.As(err, &nd) && nd.After != nil {
+			p = p.WithExtension("deletableAfter", nd.After.UTC().Format(time.RFC3339))
+		}
+		return p
 	case errors.Is(err, domain.ErrClassNotFound):
 		return problem.NotFound("class-not-found", err.Error())
 	case errors.Is(err, domain.ErrForbidden):

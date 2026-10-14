@@ -260,3 +260,12 @@
   }
 }
 
+// Message after an action on a class, such as deleting it (SPEC-050).
+.notice {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+  font-size: var(--font-size-sm);
+}

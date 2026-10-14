@@ -21,6 +21,9 @@ import (
 	classgrouphandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/handler"
 	classgrouprepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/repository"
 	classgroupservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classgroup/service"
+	classlinkhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/handler"
+	classlinkrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/repository"
+	classlinkservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/service"
 	contentdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/domain"
 	contenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/handler"
 	contentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/content/repository"
@@ -176,10 +179,11 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	// The schedule of the classes (SPEC-042): its e-mails wait in the outbox and the scheduler delivers them.
 	scheduleService := scheduleservice.New(schedulerepository.New(db), time.Now, cfg.Auth.PublicURL)
 	scheduleHandler := schedulehandler.New(scheduleService, auth)
+	classLinkHandler := classlinkhandler.New(classlinkservice.New(classlinkrepository.New(db)), auth)
 
 	classRepo := classgrouprepository.New(db)
 	classService := classgroupservice.New(classRepo).WithScheduleHook(scheduleService)
-	classHandler := classgrouphandler.New(classService, auth)
+	classHandler := classgrouphandler.New(classService, auth).WithUserNames(classService)
 
 	if err := startScheduler(ctx, db, smtp, scheduleService, log); err != nil {
 		return err
@@ -212,9 +216,6 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	// The correction of descriptive answers (SPEC-039): the teacher confirms on the web, the agent suggests through the MCP.
 	grading := practiceservice.NewGrading(practiceRepo, contentExercises)
 	gradingHandler := practicehandler.NewGrading(grading, auth)
-	mcpHandler := mcphandler.New(
-		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log).WithGrading(grading),
-		authn.RequiredBearerWith(auth, bearer), log)
 	practiceHandler := practicehandler.New(
 		practiceservice.New(contentReader, practiceRepo), auth,
 		ratelimit.New(30, time.Minute), ratelimit.New(120, time.Minute))
@@ -232,6 +233,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		Mailer:  dispatcher,
 	})
 	studentHandler := studenthandler.New(studentService, auth)
+	mcpHandler := mcphandler.New(
+		mcpservice.New(moduleService, contentAuthor, contentExercises, contentVersions, authoringLimiter, log).
+			WithGrading(grading).WithStudents(studentService, classService),
+		authn.RequiredBearerWith(auth, bearer), log)
 
 	checker := health.NewChecker(health.DefaultTimeout,
 		health.Check{Name: "postgres", Critical: true, Ping: db.Ping},
@@ -257,6 +262,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		ttsHandler,
 		studentHandler,
 		scheduleHandler,
+		classLinkHandler,
 	)
 	mcpOAuthHandler.RegisterRoot(engine)
 	mcpHandler.Register(engine)

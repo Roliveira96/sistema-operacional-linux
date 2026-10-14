@@ -218,4 +218,119 @@ describe("ClassPage (SPEC-041)", () => {
     expect(await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ })).toBeDefined();
     expect(screen.queryByRole("button", { name: "Selecionar período" })).toBeNull();
   });
+
+  // SPEC-048 CA-09 and CA-10: the links of the class on the overview
+  it("shows the links section with the form to the teacher and read-only to the student", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    const getLinks = vi.spyOn(classService, "getLinks").mockResolvedValue([{ id: "l-1", name: "Link do Meet", url: "https://meet.google.com/abc", position: 0 }]);
+    render(<ClassPage params={params} />);
+    expect(await screen.findByRole("heading", { name: "Links da turma" })).toBeDefined();
+    expect(getLinks).toHaveBeenCalledWith("c-1");
+    expect(await screen.findByRole("button", { name: "Adicionar link" })).toBeDefined();
+    cleanup();
+
+    asRole("STUDENT");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id,
+      name: theClass.name,
+      courseCode: theClass.courseCode,
+      semester: theClass.semester,
+      status: theClass.status,
+      summary: "",
+      syllabus: "",
+      institutionalGuidelines: "",
+      startDate: theClass.startDate,
+      endDate: theClass.endDate,
+      scheduleDescription: "",
+      enableVirtualClassroom: false,
+      teacherName: "Profa. Sediane",
+    });
+    render(<ClassPage params={params} />);
+    expect(await screen.findByRole("link", { name: /Link do Meet/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Adicionar link" })).toBeNull();
+  });
+
+  // SPEC-048 CA-09: an archived class only shows the links
+  it("does not let the teacher edit the links of an archived class", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue({ ...theClass, status: "ARCHIVED" });
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    vi.spyOn(classService, "getLinks").mockResolvedValue([{ id: "l-1", name: "Link do Meet", url: "https://meet.google.com/abc", position: 0 }]);
+    render(<ClassPage params={params} />);
+    expect(await screen.findByRole("link", { name: /Link do Meet/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Adicionar link" })).toBeNull();
+  });
+
+  // SPEC-049 CA-07: the history of the class for the teacher
+  it("shows who created, updated and archived the class, with when, to the teacher", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue({
+      ...theClass,
+      status: "ARCHIVED",
+      archiveReason: "Semestre encerrado",
+      createdAt: "2026-10-01T15:00:00Z",
+      updatedAt: "2026-10-05T15:00:00Z",
+      archivedAt: "2026-10-06T15:00:00Z",
+      createdBy: "u-1",
+      updatedBy: "u-2",
+      archivedBy: "u-3",
+      createdByName: "Ana Souza",
+      updatedByName: "Bruno Lima",
+      archivedByName: "Carla Dias",
+    });
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    vi.spyOn(classService, "getLinks").mockResolvedValue([]);
+    render(<ClassPage params={params} />);
+
+    expect(await screen.findByRole("heading", { name: "Histórico" })).toBeDefined();
+    expect(screen.getByText(/Criada por Ana Souza em 01\/10\/2026/)).toBeDefined();
+    expect(screen.getByText(/Atualizada por Bruno Lima em 05\/10\/2026/)).toBeDefined();
+    expect(screen.getByText(/Arquivada por Carla Dias em 06\/10\/2026/)).toBeDefined();
+    expect(screen.getByText(/Motivo: Semestre encerrado/)).toBeDefined();
+  });
+
+  // SPEC-049: a class never updated and not archived shows only the creation; an author that cannot be read is told so
+  it("shows only the creation of a class that was never updated, and tells a removed user", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue({
+      ...theClass,
+      createdAt: "2026-10-01T15:00:00Z",
+      updatedAt: "2026-10-01T15:00:00Z",
+      createdBy: "u-9",
+      updatedBy: "u-9",
+    });
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    vi.spyOn(classService, "getLinks").mockResolvedValue([]);
+    render(<ClassPage params={params} />);
+
+    expect(await screen.findByText(/Criada por Usuário removido em 01\/10\/2026/)).toBeDefined();
+    expect(screen.queryByText(/Atualizada por/)).toBeNull();
+    expect(screen.queryByText(/Arquivada por/)).toBeNull();
+  });
+
+  // SPEC-049 CA-07: the student does not see the history
+  it("does not show the history to a student", async () => {
+    asRole("STUDENT");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id,
+      name: theClass.name,
+      courseCode: theClass.courseCode,
+      semester: theClass.semester,
+      status: theClass.status,
+      summary: "",
+      syllabus: "",
+      institutionalGuidelines: "",
+      startDate: theClass.startDate,
+      endDate: theClass.endDate,
+      scheduleDescription: "",
+      enableVirtualClassroom: false,
+      teacherName: "Profa. Sediane",
+    });
+    vi.spyOn(classService, "getLinks").mockResolvedValue([]);
+    render(<ClassPage params={params} />);
+    await screen.findByRole("heading", { level: 1, name: "Sistemas Operacionais" });
+    expect(screen.queryByRole("heading", { name: "Histórico" })).toBeNull();
+  });
 });

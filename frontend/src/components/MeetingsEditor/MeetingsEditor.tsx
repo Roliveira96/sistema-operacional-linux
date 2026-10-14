@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef } from "react";
-import { isHttpsUrl, minutesOf, suggestLessons } from "@/lib/calendar";
+import { endAfterLessons, isHttpsUrl, minutesOf, suggestLessons } from "@/lib/calendar";
 import { messages } from "@/messages/pt-BR";
 import type { Mode } from "@/services/scheduleService";
 import styles from "./MeetingsEditor.module.scss";
@@ -75,7 +75,7 @@ export function MeetingsEditor({ value, errors = {}, onChange }: MeetingsEditorP
         key: `${baseId}-${weekday}-${nextKeyId.current}`,
         weekday,
         startTime: "08:20",
-        endTime: "10:00",
+        endTime: endAfterLessons("08:20", 2),
         lessonCount: 2,
         mode: "IN_PERSON",
       };
@@ -86,18 +86,12 @@ export function MeetingsEditor({ value, errors = {}, onChange }: MeetingsEditorP
   const addTime = (weekday: number) => {
     const existing = value.filter((m) => m.weekday === weekday);
     const last = existing[existing.length - 1];
-    let startTime = "10:20";
-    let endTime = "12:00";
+    let startTime = "10:40";
     if (last) {
-      const endMin = minutesOf(last.endTime);
-      const startMin = endMin + 20;
-      const hours = Math.floor(startMin / 60);
-      const mins = startMin % 60;
-      const endHours = Math.floor((startMin + 100) / 60);
-      const endMins = (startMin + 100) % 60;
-      startTime = `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-      endTime = `${String(endHours).padStart(2, "0")}:${String(endMins).padStart(2, "0")}`;
+      const startMin = Math.min(23 * 60 + 59, minutesOf(last.endTime) + 20);
+      startTime = `${String(Math.floor(startMin / 60)).padStart(2, "0")}:${String(startMin % 60).padStart(2, "0")}`;
     }
+    const endTime = endAfterLessons(startTime, 2);
     nextKeyId.current += 1;
     const newDraft: MeetingDraft = {
       key: `${baseId}-${weekday}-${nextKeyId.current}`,
@@ -119,7 +113,9 @@ export function MeetingsEditor({ value, errors = {}, onChange }: MeetingsEditorP
     const current = next[index]!;
     const updated = { ...current, ...updates };
 
-    if ("startTime" in updates || "endTime" in updates) {
+    if (updates.lessonCount !== undefined && updates.lessonCount >= 1) {
+      updated.endTime = endAfterLessons(updated.startTime, updated.lessonCount);
+    } else if ("startTime" in updates || "endTime" in updates) {
       if (minutesOf(updated.endTime) > minutesOf(updated.startTime)) {
         updated.lessonCount = suggestLessons(updated.startTime, updated.endTime);
       }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { AddStudentsDialog } from "@/components/AddStudentsDialog/AddStudentsDialog";
 import { ClassCalendar } from "@/components/ClassCalendar/ClassCalendar";
+import { ClassLinks } from "@/components/ClassLinks/ClassLinks";
 import { ClassMembersTable } from "@/components/ClassMembersTable/ClassMembersTable";
 import { EventForm } from "@/components/EventForm/EventForm";
 import { InviteLinkCard } from "@/components/InviteLinkCard/InviteLinkCard";
@@ -115,11 +116,12 @@ function RichSection({ id, icon, title, html }: { id: string; icon: ReactNode; t
   );
 }
 
-function Overview({ data }: { data: Presentation }) {
+function Overview({ data, editableLinks, history }: { data: Presentation; editableLinks: boolean; history?: ClassGroup }) {
   const progress = validityProgress(data.startDate, data.endDate, new Date());
   return (
     <div className={styles.overview}>
       <div className={styles.mainColumn}>
+        <ClassLinks classId={data.id} editable={editableLinks} />
         <RichSection id="syllabus-title" icon={<IconBook />} title={m.syllabus} html={data.syllabus} />
         <RichSection id="guidelines-title" icon={<IconShield />} title={m.guidelines} html={data.institutionalGuidelines} />
       </div>
@@ -155,8 +157,36 @@ function Overview({ data }: { data: Presentation }) {
             </DetailRow>
           )}
         </dl>
+        {history && <History data={history} />}
       </aside>
     </div>
+  );
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
+
+/** Who created, updated and archived the class, and when, for the teacher and the administrator (SPEC-049). */
+function History({ data }: { data: ClassGroup }) {
+  const h = m.history;
+  const wasUpdated = new Date(data.updatedAt).getTime() - new Date(data.createdAt).getTime() > 1000;
+  return (
+    <section aria-labelledby="history-title" className={styles.history}>
+      <h3 id="history-title" className={styles.historyTitle}>
+        {h.title}
+      </h3>
+      <ul className={styles.historyList}>
+        <li>{h.created(data.createdByName || h.removedUser, formatDateTime(data.createdAt))}</li>
+        {wasUpdated && <li>{h.updated(data.updatedByName || h.removedUser, formatDateTime(data.updatedAt))}</li>}
+        {data.archivedAt && (
+          <li>
+            {h.archived(data.archivedByName || h.removedUser, formatDateTime(data.archivedAt))}
+            {data.archiveReason && <span className={styles.historyReason}>{h.reason(data.archiveReason)}</span>}
+          </li>
+        )}
+      </ul>
+    </section>
   );
 }
 
@@ -530,7 +560,7 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
 
       <div role="tabpanel" className={styles.tabPanel}>
         {tab === "overview" ? (
-          <Overview data={data} />
+          <Overview data={data} editableLinks={!isStudent && data.status !== "ARCHIVED"} history={isStudent ? undefined : (classData ?? undefined)} />
         ) : tab === "schedule" ? (
           <ClassCalendar
             load={loadCalendar}

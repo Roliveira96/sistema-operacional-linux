@@ -5,16 +5,18 @@ import { useState } from "react";
 import { ClassForm } from "@/components/ClassForm/ClassForm";
 import { messages } from "@/messages/pt-BR";
 import { classService, type CreateClassPayload } from "@/services/classService";
+import { scheduleService, type Meeting } from "@/services/scheduleService";
 import styles from "./page.module.scss";
 
 export default function NewClassPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (payload: CreateClassPayload) => {
+  const handleSubmit = async (payload: CreateClassPayload, meetings?: Meeting[]) => {
     setIsSubmitting(true);
     try {
       const created = await classService.createClass(payload);
+      if (meetings?.length) await scheduleService.replaceMeetings(created.id, meetings);
       // SPEC-041 CA-01: the next step after creating is adding the students.
       router.push(`/app/classes/${created.id}?tab=students&created=1`);
     } finally {
@@ -31,6 +33,7 @@ export default function NewClassPage() {
 
       <ClassForm
         onSubmit={handleSubmit}
+        loadHolidays={scheduleService.holidays}
         isSubmitting={isSubmitting}
         submitLabel={messages.classes.form.submitCreate}
         submittingLabel={messages.classes.form.submittingCreate}

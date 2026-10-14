@@ -25,10 +25,11 @@ describe("calendar helpers (SPEC-042)", () => {
     expect(isoDate(addMonths(new Date(2026, 0, 31), -1))).toBe("2025-12-01");
   });
 
-  it("suggests the number of lessons by the duration, from 1 to 8 (50 min each)", () => {
+  it("suggests the number of lessons by the duration, from 1 to 8 (60 min each, SPEC-044)", () => {
     expect(minutesOf("08:20")).toBe(500);
-    expect(suggestLessons("08:20", "10:00")).toBe(2);
-    expect(suggestLessons("19:00", "22:30")).toBe(4);
+    expect(suggestLessons("08:00", "10:00")).toBe(2);
+    expect(suggestLessons("08:20", "10:00")).toBe(1);
+    expect(suggestLessons("19:00", "22:00")).toBe(3);
     expect(suggestLessons("08:00", "08:20")).toBe(1);
     expect(suggestLessons("07:00", "23:00")).toBe(8);
     expect(suggestLessons("10:00", "09:00")).toBe(1);

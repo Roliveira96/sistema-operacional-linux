@@ -37,6 +37,8 @@ const (
 	ToolListPendingAnswers = "list_pending_answers"
 	ToolGetAnswer          = "get_answer"
 	ToolSuggestGrade       = "suggest_grade"
+	// The registration of students (SPEC-045): the agent creates students and enrolls them in a class.
+	ToolCreateStudents = "create_students"
 )
 
 // Error types (the same slugs the REST layer uses in its RFC 7807 problems).

@@ -150,12 +150,13 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 1px;
   background-color: var(--color-border);
 }
 
 .dayCell {
+  min-width: 0;
   min-height: 5.5rem;
   padding: var(--space-2);
   background-color: var(--color-surface);
@@ -170,6 +171,16 @@
 
   &:hover {
     background-color: var(--color-surface-raised);
+  }
+
+  // A holiday or recess day stands out in red (SPEC-044, CA-21).
+  &[data-on-holiday="true"] {
+    background-color: var(--color-danger-subtle);
+
+    .dayNumber {
+      color: var(--color-danger);
+      font-weight: var(--font-weight-bold);
+    }
   }
 
   &:focus-visible {
@@ -211,6 +222,7 @@
 }
 
 .badge {
+  min-width: 0;
   font-size: var(--font-size-xs);
   padding: 1px 4px;
   border-radius: var(--radius-sm);
@@ -221,8 +233,8 @@
 }
 
 .badgeHoliday {
-  color: var(--color-warning);
-  background-color: var(--color-warning-subtle);
+  color: var(--color-danger);
+  background-color: var(--color-danger-faint);
 }
 
 .badgeMilestone {

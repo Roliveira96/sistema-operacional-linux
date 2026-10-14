@@ -63,6 +63,13 @@ func New(db *database.DB) *Repository {
 func (r *Repository) CreateClass(ctx context.Context, class *domain.ClassGroup, initialStudentIDs []uuid.UUID, now time.Time) error {
 	return r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
 		conn := r.db.Conn(txCtx)
+		// The service sets the author (SPEC-049 RN-01); a class saved without one is authored by its teacher.
+		if class.CreatedBy == uuid.Nil {
+			class.CreatedBy = class.TeacherID
+		}
+		if class.UpdatedBy == uuid.Nil {
+			class.UpdatedBy = class.TeacherID
+		}
 		if err := conn.Create(class).Error; err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
@@ -313,6 +320,18 @@ func (r *Repository) UpdateClass(ctx context.Context, class *domain.ClassGroup) 
 		return domain.ErrClassConflict
 	}
 	return err
+}
+
+// DeleteClass soft deletes the class and records who did it, in one transaction (SPEC-050 RN-03). The enrollments and the other
+// records of the class stay as they are.
+func (r *Repository) DeleteClass(ctx context.Context, class *domain.ClassGroup, actorID uuid.UUID) error {
+	return r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
+		conn := r.db.Conn(txCtx)
+		if err := conn.Model(&domain.ClassGroup{}).Where("id = ?", class.ID).Update("deleted_by", actorID).Error; err != nil {
+			return err
+		}
+		return conn.Delete(&domain.ClassGroup{}, "id = ?", class.ID).Error
+	})
 }
 
 // CreateEnrollment inserts a student enrollment record.

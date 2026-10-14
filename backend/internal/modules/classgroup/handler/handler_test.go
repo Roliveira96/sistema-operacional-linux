@@ -58,6 +58,8 @@ type fakeService struct {
 	myClass      service.StudentClassView
 	myClassErr   error
 	createInput  *service.CreateClassInput
+	deleteErr    error // SPEC-050
+	deleted      []uuid.UUID
 }
 
 func newFakeService() *fakeService {
@@ -215,6 +217,15 @@ func (f *fakeService) ModerateMember(ctx context.Context, teacherID, classID, en
 		RejectionReason: rejectionReason,
 		DecidedAt:       &now,
 	}, nil
+}
+
+// DeleteClass records the call and returns deleteErr when set (SPEC-050).
+func (f *fakeService) DeleteClass(ctx context.Context, teacherID, classID uuid.UUID) error {
+	if f.deleteErr != nil {
+		return f.deleteErr
+	}
+	f.deleted = append(f.deleted, classID)
+	return nil
 }
 
 func (f *fakeService) ListMyClasses(ctx context.Context, userID uuid.UUID, role string) (repository.MyClassesResult, error) {

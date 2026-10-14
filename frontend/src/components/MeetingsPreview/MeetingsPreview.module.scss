@@ -1,0 +1,167 @@
+@use "@/styles/mixins" as mixins;
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.notice {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-transform: capitalize;
+}
+
+.nav {
+  min-height: 2.75rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+
+  @include mixins.focusable;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+}
+
+.weekday {
+  padding: var(--space-1);
+  background: var(--color-surface);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 3.5rem;
+  min-width: 0;
+  padding: var(--space-1);
+  background: var(--color-surface);
+}
+
+// A holiday or recess day stands out in red (SPEC-044, CA-21).
+.day[data-on-holiday="true"] {
+  background: var(--color-danger-subtle);
+
+  .dayNumber {
+    color: var(--color-danger);
+    font-weight: var(--font-weight-bold);
+  }
+}
+
+.otherMonth {
+  opacity: 0.55;
+}
+
+.outOfTerm {
+  background: var(--color-surface-sunken);
+  opacity: 0.4;
+}
+
+.dayNumber {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.holiday {
+  display: block;
+  overflow: hidden;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-faint);
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marker {
+  display: block;
+  overflow: hidden;
+  padding: 1px 4px;
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &[data-color="orange"] {
+    border-left-color: var(--color-class-orange);
+  }
+
+  &[data-color="blue"] {
+    border-left-color: var(--color-class-blue);
+  }
+
+  &[data-color="green"] {
+    border-left-color: var(--color-class-green);
+  }
+
+  &[data-color="purple"] {
+    border-left-color: var(--color-class-purple);
+  }
+
+  &[data-color="pink"] {
+    border-left-color: var(--color-class-pink);
+  }
+
+  &[data-color="teal"] {
+    border-left-color: var(--color-class-teal);
+  }
+
+  &[data-color="yellow"] {
+    border-left-color: var(--color-class-yellow);
+  }
+
+  &[data-color="red"] {
+    border-left-color: var(--color-class-red);
+  }
+}

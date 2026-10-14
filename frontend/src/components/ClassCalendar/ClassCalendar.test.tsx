@@ -159,4 +159,21 @@ describe("ClassCalendar", () => {
     rerender(<ClassCalendar load={load} initialMonth={new Date(2026, 9, 1)} today={today} reloadKey={1} />);
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
   });
+
+  // SPEC-044 CA-20: an action only shows when its handler is given
+  it("hides the event and period actions when there is no handler for them", async () => {
+    setup({ editable: true, onEditSession: vi.fn(), onAddSession: vi.fn() });
+    fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ }));
+    const panel = screen.getByRole("region", { name: "segunda-feira, 19 de outubro de 2026" });
+    expect(within(panel).getByRole("button", { name: "Incluir aula avulsa" })).toBeDefined();
+    expect(within(panel).queryByRole("button", { name: "Incluir evento" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Selecionar período" })).toBeNull();
+  });
+
+  // SPEC-044 CA-21: the day of a holiday is marked, to be highlighted in red
+  it("marks the cell of a holiday day", async () => {
+    setup();
+    expect((await screen.findByRole("button", { name: /^segunda-feira, 12 de outubro/ })).getAttribute("data-on-holiday")).toBe("true");
+    expect(dayButton(/^terça-feira, 13 de outubro/).getAttribute("data-on-holiday")).toBeNull();
+  });
 });

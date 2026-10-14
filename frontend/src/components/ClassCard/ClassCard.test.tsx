@@ -116,5 +116,102 @@ describe("ClassCard", () => {
       expect(link.getAttribute("href")).not.toMatch(/\/members$/);
     }
   });
-});
 
+  // SPEC-046 CA-01 (its CA-02, the order before Configurações, is replaced by SPEC-047 CA-07)
+  it.each(["ACTIVE", "DRAFT", "ARCHIVED"] as const)("has a Visualizar link to the class page (%s)", (status) => {
+    render(<ClassCard classGroup={{ ...mockClass, status }} />);
+    expect(screen.getByRole("link", { name: /Visualizar/i }).getAttribute("href")).toBe("/app/classes/c-1");
+  });
+
+  // SPEC-047 CA-01 and CA-06: Visualizar is the main action and every action follows the pattern of button
+  it("puts Visualizar first as the primary button and gives each action its variant", () => {
+    render(<ClassCard classGroup={mockClass} onArchive={vi.fn()} />);
+    const view = screen.getByRole("link", { name: /Visualizar/i });
+    const add = screen.getByRole("link", { name: /Adicionar estudantes/i });
+    expect(view.getAttribute("data-variant")).toBe("primary");
+    expect(add.getAttribute("data-variant")).toBe("secondary");
+    expect(view.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Copiar/i }).getAttribute("data-variant")).toBe("secondary");
+    expect(screen.getByRole("button", { name: /Copiar/i }).getAttribute("data-size")).toBe("sm");
+    expect(screen.getByRole("link", { name: "Configurações" }).getAttribute("data-variant")).toBe("ghost");
+    expect(screen.getByRole("button", { name: "Arquivar" }).getAttribute("data-variant")).toBe("ghost");
+  });
+
+  // SPEC-047 CA-02: the icon actions keep a name and a tip
+  it("gives the icon actions a name and a tip", () => {
+    render(<ClassCard classGroup={mockClass} onArchive={vi.fn()} />);
+    for (const name of ["Configurações", "Arquivar"]) {
+      const action = screen.getByRole(name === "Arquivar" ? "button" : "link", { name });
+      expect(action.getAttribute("title")).toBe(name);
+      expect(action.getAttribute("data-icon")).toBe("true");
+    }
+  });
+
+  // SPEC-047 CA-03: the pending requests stand out only when there are some
+  it("marks the pending requests only when there are some", () => {
+    const { rerender } = render(<ClassCard classGroup={{ ...mockClass, totalPendingRequests: 3 }} />);
+    const pending = () => screen.getByRole("link", { name: /Ingressos pendentes/i });
+    expect(pending().getAttribute("data-attention")).toBe("true");
+    expect(pending().getAttribute("href")).toBe("/app/classes/c-1?tab=students");
+    rerender(<ClassCard classGroup={{ ...mockClass, totalPendingRequests: 0 }} />);
+    expect(pending().getAttribute("data-attention")).toBeNull();
+  });
+
+  // SPEC-047 CA-07: the two main buttons share a line; the icon actions are in the header
+  it("keeps Visualizar and Adicionar estudantes in the same row and the icon actions in the header", () => {
+    const { container } = render(<ClassCard classGroup={mockClass} onArchive={vi.fn()} />);
+    const view = screen.getByRole("link", { name: /Visualizar/i });
+    const add = screen.getByRole("link", { name: /Adicionar estudantes/i });
+    expect(view.parentElement).toBe(add.parentElement);
+    expect(view.parentElement?.parentElement?.tagName).toBe("FOOTER");
+    const header = container.querySelector("header");
+    expect(header?.contains(screen.getByRole("link", { name: "Configurações" }))).toBe(true);
+    expect(header?.contains(screen.getByRole("button", { name: "Arquivar" }))).toBe(true);
+    expect(container.querySelector("footer")?.contains(screen.getByRole("link", { name: "Configurações" }))).toBe(false);
+  });
+
+  // SPEC-050 CA-06: the action to delete, or when it will be possible
+  const DAY = 24 * 60 * 60 * 1000;
+  const archivedFor = (days: number): ClassSummary => ({
+    ...mockClass,
+    status: "ARCHIVED",
+    isExpiringSoon: false,
+    archivedAt: new Date(Date.now() - days * DAY).toISOString(),
+  });
+
+  it("offers to delete a class archived for 30 days or more", () => {
+    const onDelete = vi.fn();
+    render(<ClassCard classGroup={archivedFor(31)} onDelete={onDelete} />);
+    const action = screen.getByRole("button", { name: "Excluir" });
+    expect(action.getAttribute("title")).toBe("Excluir");
+    expect(action.getAttribute("data-icon")).toBe("true");
+    expect(action.getAttribute("data-variant")).toBe("ghost");
+    fireEvent.click(action);
+    expect(onDelete).toHaveBeenCalledWith("c-1");
+    expect(screen.queryByText(/Pode ser excluída a partir de/)).toBeNull();
+  });
+
+  it("tells from when a class archived for less than 30 days can be deleted, without the action", () => {
+    render(<ClassCard classGroup={archivedFor(10)} onDelete={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+    const date = new Date(Date.now() + 20 * DAY).toLocaleDateString("pt-BR");
+    expect(screen.getByText(`Pode ser excluída a partir de ${date}`)).toBeDefined();
+  });
+
+  it("has neither the action nor the date for an active or draft class, or an archived one without the date", () => {
+    for (const status of ["ACTIVE", "DRAFT"] as const) {
+      const { unmount } = render(<ClassCard classGroup={{ ...mockClass, status, archivedAt: new Date(Date.now() - 90 * DAY).toISOString() }} onDelete={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+      expect(screen.queryByText(/Pode ser excluída a partir de/)).toBeNull();
+      unmount();
+    }
+    render(<ClassCard classGroup={{ ...mockClass, status: "ARCHIVED", archivedAt: undefined }} onDelete={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+    expect(screen.queryByText(/Pode ser excluída a partir de/)).toBeNull();
+  });
+
+  it("does not offer to delete when there is no handler", () => {
+    render(<ClassCard classGroup={archivedFor(40)} />);
+    expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+  });
+});

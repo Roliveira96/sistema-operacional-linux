@@ -40,6 +40,7 @@ Regras:
 | Moderação (deferir / indeferir) | `approve` / `reject` | Decisão docente sobre um pedido de matrícula feito por link | `accept`, `deny` | Canônico |
 | Remanejamento | `Transfer` | Mudança do estudante de uma turma para outra, com rastreabilidade | `Move`, `Migration` | Canônico |
 | Link de convite | `InviteLink` | URL compartilhável para pedir matrícula na turma | `JoinLink` | Canônico |
+| Link da turma | `ClassLink` (tabela `class_links`) | Endereço https com nome que a docente publica na turma, como o da sala do Meet ou o do conteúdo. Não confundir com o link de convite | `InviteLink` (é o link de matrícula), `Resource`, `Bookmark` | Proposto (SPEC-048) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 
