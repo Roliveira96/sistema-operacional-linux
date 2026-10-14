@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-051 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 14/10/2026 |
-| **Última revisão** | 14/10/2026 (decisões do Tech Lead sobre P-O1 a P-O5 aplicadas; resta a confirmação P-Q1) |
+| **Última revisão** | 14/10/2026 (aprovada pelo Tech Lead) |
 | **Autor** | Autoria externa, trazida pelo Tech Lead (texto original); formato, revisão e decisões por Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -16,7 +16,7 @@
 | **Substitui** | Nenhuma |
 | **Fontes canônicas** | Spec trazida pelo Tech Lead em 14/10/2026 (arquivo `14-10-26-spec-sala-de-aula-sincrona-slides-tempo-real.md`), em duas versões, e as decisões do Tech Lead de 14/10/2026 sobre o ciclo de vida da sala, a sala única por turma, a fluidez do movimento e a digitação espelhada |
 
-> **Estado:** Rascunho. Pela regra do repositório (`AI_INSTRUCTIONS.md`, seção 4), só se implementa depois de a seção 10 ficar vazia e de o Tech Lead aprovar. Todas as pendências anteriores foram decididas; resta a confirmação P-Q1, que o Tech Lead confirma ao aprovar a spec.
+> **Estado:** Aprovada pelo Tech Lead em 14/10/2026, com a seção 10 vazia. Pode ser implementada, seguindo o fluxo da seção 4 do `AI_INSTRUCTIONS.md` (testes vermelhos primeiro).
 
 ---
 
@@ -308,11 +308,7 @@ Escritos antes da implementação e rodados vermelhos primeiro (SPEC-038).
 
 ## 10. Pendências para aprovação
 
-As pendências P-O1 a P-O5 foram decididas pelo Tech Lead (14/10/2026) e estão incorporadas: o adaptador do terminal passa a informar a linha, a saída e o estado (P-O1); a lista das aulas (P-O2); as mensagens do servidor, incluindo o `live:snapshot` (P-O3); a aula ativa única por turma, garantida no banco, com a validação dos vínculos (P-O4); e os limites no servidor, com o ponteiro e a digitação a cerca de 30 quadros por segundo e o teto de 35 por segundo (P-O5). Resta uma confirmação.
-
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-Q1 | **Como o adaptador lê a digitação.** A digitação espelhada exige saber, a cada tecla, o que o docente digitou. O terminal (`engine/core/terminal/TerminalUbuntu.ts`) trata o teclado por dentro, e o `engine/core` só pode ser alterado com spec que autorize (`AI_INSTRUCTIONS.md`, seção 5). | Fazer a leitura **no adaptador**, por fora do `engine/core`: ouvir o teclado e observar o texto da linha do terminal na tela (o que o terminal já mostra, sem senhas). Se isso não bastar, esta spec autoriza **um aviso mínimo, só de notificação**, no `engine/core/terminal/`, sem mudar o comportamento, coberto pelos testes de conformidade (SPEC-030). Ao aprovar a spec, o Tech Lead confirma essa autorização. |
+Nenhuma. As decisões do Tech Lead de 14/10/2026 estão incorporadas, e a P-Q1 foi confirmada com a aprovação: o adaptador do terminal lê a digitação por fora do `engine/core` e, se não bastar, esta spec autoriza um aviso mínimo, só de notificação, em `engine/core/terminal/`, coberto pelos testes de conformidade (SPEC-030). "Reabrir" significa voltar à mesma aula enquanto ela está ativa; uma aula encerrada fica encerrada.
 
 ---
 
@@ -325,3 +321,4 @@ As pendências P-O1 a P-O5 foram decididas pelo Tech Lead (14/10/2026) e estão 
 | 14/10/2026 | Aruna Architect | Parecer do autor sobre P-01 a P-14 incorporado; pendências P-N01 a P-N06 |
 | 14/10/2026 | Aruna Architect | Segunda versão do autor aplicada; correções de conformidade (migração `00030`, `platform/problem`, hub em `platform/hub/`); CA-14 a CA-16; pendências P-O1 a P-O5 |
 | 14/10/2026 | Aruna Architect | Decisões do Tech Lead aplicadas: iniciar e encerrar a aula a qualquer hora, sair e voltar à mesma aula, com rede de segurança de 12 horas (no lugar dos 15 minutos); uma aula ativa por turma, com índice único parcial e a seção "Aula ao vivo" na página da turma; fluidez de cerca de 30 quadros por segundo (teto de 35 por segundo no servidor) para o ponteiro, os traços e a digitação espelhada; adaptador do terminal informa a linha, a saída e o estado (P-O1); `GET .../live/sessions` (P-O2); mensagens do servidor `live:snapshot`, `live:ended`, `live:control:revoked`, `live:presence` e `live:hand:queue` (P-O3); validação dos vínculos com 404 (P-O4); limites e tamanhos de mensagem no servidor (P-O5). CA-01, CA-06, CA-07, CA-12, CA-14 e CA-15 reescritos e CA-17 a CA-20 acrescentados. Nova confirmação P-Q1 |
+| 14/10/2026 | Aruna Architect | Aprovada pelo Tech Lead; P-Q1 confirmada; "reabrir" esclarecido (voltar à mesma aula ativa); status Aprovada |
