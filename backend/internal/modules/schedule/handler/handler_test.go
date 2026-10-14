@@ -45,6 +45,10 @@ type fakeService struct {
 	prefs    service.Preferences
 	year     int
 	calendar service.Calendar
+	// SPEC-053
+	sessionID    uuid.UUID
+	savedContent service.ContentInput
+	content      service.SessionContent
 }
 
 func (f *fakeService) Meetings(ctx context.Context, a service.Actor, classID uuid.UUID) ([]domain.WeeklyMeeting, error) {
@@ -60,6 +64,17 @@ func (f *fakeService) ReplaceMeetings(ctx context.Context, a service.Actor, clas
 func (f *fakeService) UpdateSession(ctx context.Context, a service.Actor, classID, sessionID uuid.UUID, c service.SessionChange) (domain.ClassSession, error) {
 	f.actor, f.classID, f.change = a, classID, c
 	return f.session, f.err
+}
+
+// SaveContent records the content sent and answers with the content set in the test (SPEC-053).
+func (f *fakeService) SaveContent(ctx context.Context, a service.Actor, classID, sessionID uuid.UUID, in service.ContentInput) (service.SessionContent, error) {
+	f.actor, f.classID, f.sessionID, f.savedContent = a, classID, sessionID, in
+	return f.content, f.err
+}
+
+func (f *fakeService) Content(ctx context.Context, a service.Actor, classID, sessionID uuid.UUID) (service.SessionContent, error) {
+	f.actor, f.classID, f.sessionID = a, classID, sessionID
+	return f.content, f.err
 }
 
 func (f *fakeService) RevertSession(ctx context.Context, a service.Actor, classID, sessionID uuid.UUID) (domain.ClassSession, error) {

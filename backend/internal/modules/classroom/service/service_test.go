@@ -401,7 +401,8 @@ func TestStartSession_RejectsForeignLinks(t *testing.T) {
 	assert.Equal(t, domain.ModeModule, s.DisplayMode)
 }
 
-// Covers SPEC-051 CA-03, CA-04 and RN-04: the deck goes to the storage, with a signed address of 15 minutes, up to 20 per class.
+// Covers SPEC-051 CA-03, CA-04 and RN-04: the deck goes to the storage, with a signed address of 15 minutes, up to 100 per class
+// (SPEC-053 RN-07).
 func TestUploadDeck_SuccessAndMaxLimit(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
@@ -421,8 +422,9 @@ func TestUploadDeck_SuccessAndMaxLimit(t *testing.T) {
 		require.NoError(t, err)
 	}
 	_, err = w.svc.UploadDeck(ctx, w.teacher, w.class, service.UploadInput{Title: "d", PageCount: 1, Size: 109, File: bytes.NewReader(pdfBytes())})
-	assert.ErrorIs(t, err, domain.ErrDeckLimit, "the 21st")
-	assert.Len(t, w.store.puts, 20, "nothing stored for the refused one")
+	assert.ErrorIs(t, err, domain.ErrDeckLimit, "the 101st")
+	assert.Len(t, w.store.puts, 100, "nothing stored for the refused one")
+	assert.Equal(t, 100, domain.MaxDecksPerClass)
 }
 
 // Covers SPEC-051 CA-02 and section 5.3: who may upload and what the server checks.
@@ -812,4 +814,23 @@ func TestListSessions_ActiveFirstAndDetails(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrForbidden)
 	_, err = w.svc.ListSessions(ctx, w.teacher, uuid.New())
 	assert.ErrorIs(t, err, domain.ErrClassNotFound)
+}
+
+// Covers SPEC-053 RN-04 and RN-06: a presentation of the class, with a signed address of 15 minutes; one of another class is not found.
+func TestDeckOfClass(t *testing.T) {
+	w := setup(t)
+	ctx := context.Background()
+	view, err := w.svc.UploadDeck(ctx, w.teacher, w.class, service.UploadInput{Title: "Slides", PageCount: 5, Size: 109, File: bytes.NewReader(pdfBytes())})
+	require.NoError(t, err)
+
+	got, err := w.svc.DeckOfClass(ctx, w.class, view.Deck.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Slides", got.Deck.Title)
+	assert.Equal(t, 5, got.Deck.PageCount)
+	assert.Contains(t, got.DownloadURL, "ttl=900")
+
+	_, err = w.svc.DeckOfClass(ctx, uuid.New(), view.Deck.ID)
+	assert.ErrorIs(t, err, domain.ErrDeckNotFound, "a deck of another class")
+	_, err = w.svc.DeckOfClass(ctx, w.class, uuid.New())
+	assert.ErrorIs(t, err, domain.ErrDeckNotFound, "a deck that does not exist")
 }
