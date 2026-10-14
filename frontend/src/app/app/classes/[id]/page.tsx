@@ -11,6 +11,7 @@ import { ClassMembersTable } from "@/components/ClassMembersTable/ClassMembersTa
 import { EventForm } from "@/components/EventForm/EventForm";
 import { InviteLinkCard } from "@/components/InviteLinkCard/InviteLinkCard";
 import { PeriodForm } from "@/components/PeriodForm/PeriodForm";
+import { SessionContentForm } from "@/components/SessionContentForm/SessionContentForm";
 import { SessionForm } from "@/components/SessionForm/SessionForm";
 import { StudentFormModal } from "@/components/StudentFormModal/StudentFormModal";
 import { StudentImportCsvModal } from "@/components/StudentImportCsvModal/StudentImportCsvModal";
@@ -25,6 +26,7 @@ import {
   scheduleService,
   type Session,
   type SessionInput,
+  startLiveFromSession,
   type SpecialPeriod,
 } from "@/services/scheduleService";
 import { ApiProblemError } from "@/services/httpClient";
@@ -263,6 +265,8 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
   const [calendarReload, setCalendarReload] = useState(0);
   const [cachedCalendar, setCachedCalendar] = useState<CalendarData | null>(null);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [contentSession, setContentSession] = useState<Session | null>(null);
+  const [liveError, setLiveError] = useState(false);
   const [extraSessionDate, setExtraSessionDate] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<ClassEvent | null>(null);
   const [eventDate, setEventDate] = useState<string | null>(null);
@@ -283,6 +287,17 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
     },
     [id],
   );
+
+  const loadContent = useCallback((s: Session) => scheduleService.getSessionContent(id ?? "", s.id), [id]);
+
+  const handleStartLive = (s: Session, className: string) => {
+    if (!id) return;
+    setLiveError(false);
+    startLiveFromSession(id, s, className).then(
+      () => router.push(`/app/classes/${id}/live`),
+      () => setLiveError(true),
+    );
+  };
 
   const handleUpdateSession = async (payload: SessionInput) => {
     if (!id || !editingSession) return;
@@ -521,6 +536,11 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
           {feedback}
         </div>
       )}
+      {liveError && (
+        <div className={styles.problem} role="alert">
+          {messages.classroom.panel.errors.start}
+        </div>
+      )}
 
       <div className={styles.tabs} role="tablist">
         <button
@@ -575,6 +595,9 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             settingsHref={!isStudent ? `/app/classes/${id}/settings` : undefined}
             reloadKey={calendarReload}
             onEditSession={(s) => setEditingSession(s)}
+            loadContent={loadContent}
+            onEditContent={(s) => setContentSession(s)}
+            onStartLive={handleStartLive}
             onAddSession={(d) => setExtraSessionDate(d)}
             onAddEvent={(d) => setEventDate(d)}
             onEditEvent={(e) => setEditingEvent(e)}
@@ -649,6 +672,15 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
 
       {!isStudent && (
         <>
+          {contentSession && id && (
+            <SessionContentForm
+              classId={id}
+              session={contentSession}
+              onSaved={() => setCalendarReload((n) => n + 1)}
+              onClose={() => setContentSession(null)}
+            />
+          )}
+
           {editingSession && (
             <SessionForm
               mode="edit"
