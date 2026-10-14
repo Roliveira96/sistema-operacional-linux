@@ -52,6 +52,7 @@ type fakeService struct {
 	active   service.Active
 	summary  []service.SessionSummary
 	deck     service.DeckView
+	decks    []domain.SlideDeck
 	note     domain.LiveClassroomNote
 	connErr  error
 	queue    []domain.HandRaiseEntry
@@ -101,6 +102,11 @@ func (f *fakeService) UploadDeck(_ context.Context, a service.Actor, _ uuid.UUID
 	f.actor, f.upload = a, service.UploadInput{Title: in.Title, PageCount: in.PageCount, Size: in.Size}
 	f.uploaded, _ = io.ReadAll(in.File)
 	return f.deck, f.err
+}
+// ListDecks answers with the decks set in the test (SPEC-053).
+func (f *fakeService) ListDecks(_ context.Context, a service.Actor, _ uuid.UUID) ([]domain.SlideDeck, error) {
+	f.actor = a
+	return f.decks, f.err
 }
 func (f *fakeService) GetActive(_ context.Context, a service.Actor, _ uuid.UUID) (service.Active, error) {
 	f.actor = a
@@ -771,4 +777,41 @@ func TestPresenceAndTeacherLeaving(t *testing.T) {
 	_ = teacher.Close()
 	eventually(t, func() bool { return w.svc.called("presence") >= 1 })
 	eventually(t, func() bool { return !w.h.ControllerConnected(w.session.ID) })
+}
+
+// Covers SPEC-053 CA-13 and section 5: the list of the presentations of the class, without the address to download.
+func TestListDecksRoute(t *testing.T) {
+	w := setup(t)
+	first, second := uuid.New(), uuid.New()
+	w.svc.decks = []domain.SlideDeck{
+		{Model: database.Model{ID: first, CreatedAt: time.Date(2026, 10, 14, 18, 0, 0, 0, time.UTC)}, Title: "Slides", PageCount: 12, ObjectKey: "classes/x/decks/a.pdf"},
+		{Model: database.Model{ID: second, CreatedAt: time.Date(2026, 10, 13, 18, 0, 0, 0, time.UTC)}, Title: "Antiga", PageCount: 3, ObjectKey: "classes/x/decks/b.pdf"},
+	}
+	code, body := w.call(t, "teacher", http.MethodGet, w.path("/decks"), nil)
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, w.teacher.UserID, w.svc.actor.UserID)
+	decks := body["decks"].([]any)
+	require.Len(t, decks, 2)
+	head := decks[0].(map[string]any)
+	assert.Equal(t, first.String(), head["id"])
+	assert.Equal(t, "Slides", head["title"])
+	assert.EqualValues(t, 12, head["pageCount"])
+	assert.Equal(t, "2026-10-14T18:00:00Z", head["createdAt"])
+	assert.NotContains(t, head, "downloadUrl", "the list has no address to download")
+	assert.NotContains(t, head, "objectKey")
+	assert.Equal(t, second.String(), decks[1].(map[string]any)["id"])
+
+	w.svc.decks = nil
+	code, body = w.call(t, "teacher", http.MethodGet, w.path("/decks"), nil)
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, []any{}, body["decks"], "an empty list, not null")
+
+	w.svc.err = domain.ErrForbidden
+	code, body = w.call(t, "student", http.MethodGet, w.path("/decks"), nil)
+	assert.Equal(t, http.StatusForbidden, code)
+	assert.Equal(t, "forbidden", body["type"])
+	w.svc.err = domain.ErrClassNotFound
+	code, body = w.call(t, "teacher", http.MethodGet, w.path("/decks"), nil)
+	assert.Equal(t, http.StatusNotFound, code)
+	assert.Equal(t, "class-not-found", body["type"])
 }

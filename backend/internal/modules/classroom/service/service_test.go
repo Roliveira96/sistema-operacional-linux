@@ -163,6 +163,17 @@ func (f *fakeRepo) CountDecks(_ context.Context, classID uuid.UUID) (int64, erro
 	}
 	return n, nil
 }
+// ListDecks lists the decks of the class, newest first (SPEC-053).
+func (f *fakeRepo) ListDecks(_ context.Context, classID uuid.UUID) ([]domain.SlideDeck, error) {
+	out := []domain.SlideDeck{}
+	for _, d := range f.decks {
+		if d.ClassID == classID {
+			out = append(out, d)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
 func (f *fakeRepo) CreateDeck(_ context.Context, d *domain.SlideDeck) error {
 	if d.ID == uuid.Nil {
 		d.ID = uuid.New()
@@ -833,4 +844,42 @@ func TestDeckOfClass(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrDeckNotFound, "a deck of another class")
 	_, err = w.svc.DeckOfClass(ctx, w.class, uuid.New())
 	assert.ErrorIs(t, err, domain.ErrDeckNotFound, "a deck that does not exist")
+}
+
+// Covers SPEC-053 CA-13: the owner teacher and an administrator list the presentations of the class, newest first; nobody else does.
+func TestListDecks(t *testing.T) {
+	w := setup(t)
+	ctx := context.Background()
+	addDeck := func(class uuid.UUID, title string, at time.Time) domain.SlideDeck {
+		d := domain.SlideDeck{ClassID: class, UploadedBy: w.teacher.UserID, Title: title, PageCount: 3, ObjectKey: "k/" + title + ".pdf"}
+		d.ID, d.CreatedAt = uuid.New(), at
+		require.NoError(t, w.repo.CreateDeck(ctx, &d))
+		return d
+	}
+	addDeck(w.class, "primeira", w.now.Add(-48*time.Hour))
+	addDeck(w.class, "terceira", w.now)
+	addDeck(w.class, "segunda", w.now.Add(-24*time.Hour))
+	elsewhere := uuid.New()
+	w.repo.classes[elsewhere] = service.ClassInfo{ID: elsewhere, TeacherID: w.teacher.UserID}
+	addDeck(elsewhere, "de outra turma", w.now)
+
+	for _, actor := range []service.Actor{w.teacher, w.admin} {
+		list, err := w.svc.ListDecks(ctx, actor, w.class)
+		require.NoError(t, err)
+		require.Len(t, list, 3)
+		assert.Equal(t, []string{"terceira", "segunda", "primeira"}, []string{list[0].Title, list[1].Title, list[2].Title})
+	}
+
+	_, err := w.svc.ListDecks(ctx, w.other, w.class)
+	assert.ErrorIs(t, err, domain.ErrForbidden, "a teacher of another class")
+	_, err = w.svc.ListDecks(ctx, w.student, w.class)
+	assert.ErrorIs(t, err, domain.ErrForbidden, "a student")
+	_, err = w.svc.ListDecks(ctx, w.teacher, uuid.New())
+	assert.ErrorIs(t, err, domain.ErrClassNotFound)
+
+	empty := uuid.New()
+	w.repo.classes[empty] = service.ClassInfo{ID: empty, TeacherID: w.teacher.UserID}
+	list, err := w.svc.ListDecks(ctx, w.teacher, empty)
+	require.NoError(t, err)
+	assert.Empty(t, list)
 }
