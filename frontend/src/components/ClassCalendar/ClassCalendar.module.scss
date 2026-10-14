@@ -418,6 +418,12 @@
   background-color: var(--color-accent-subtle);
 }
 
+.tagLive {
+  color: var(--color-danger);
+  background-color: var(--color-danger-faint);
+  font-weight: var(--font-weight-bold);
+}
+
 .tagOverridden {
   color: var(--color-warning);
   background-color: var(--color-warning-subtle);

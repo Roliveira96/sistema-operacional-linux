@@ -33,6 +33,9 @@ export interface ClassCalendarProps {
   onEditContent?: (session: Session) => void;
   /** Starts the live class from the lesson; gets the name of the class, the title when the lesson has no topic (SPEC-053 CA-11). */
   onStartLive?: (session: Session, className: string) => void;
+  /** The lesson linked to the live class that is going on, and where the live class is (SPEC-053 CA-14). */
+  liveClassSessionId?: string | null;
+  liveHref?: string;
 }
 
 /** What a lesson covers: topic, description, links, module and presentation, for whoever reads the lesson (SPEC-053, 3.1). */
@@ -113,6 +116,8 @@ export function ClassCalendar({
   loadContent,
   onEditContent,
   onStartLive,
+  liveClassSessionId,
+  liveHref,
 }: ClassCalendarProps) {
   const [currentDate, setCurrentDate] = useState<Date>(
     new Date(initialMonth.getFullYear(), initialMonth.getMonth(), 1),
@@ -711,6 +716,11 @@ export function ClassCalendar({
                           {messages.schedule.calendar.onlineBadge}
                         </span>
                       )}
+                      {liveHref && s.id === liveClassSessionId && (
+                        <span className={`${styles.tag} ${styles.tagLive}`}>
+                          {messages.schedule.calendar.liveNow}
+                        </span>
+                      )}
                       {s.origin === "EXTRA" && (
                         <span className={`${styles.tag} ${styles.tagExtra}`}>
                           {messages.schedule.calendar.extraBadge}
@@ -760,7 +770,12 @@ export function ClassCalendar({
                         {messages.schedule.calendar.editContent}
                       </button>
                     )}
-                    {editable && onStartLive && s.status !== "CANCELED" && (
+                    {liveHref && s.id === liveClassSessionId && (
+                      <Link href={liveHref} className={styles.navBtn}>
+                        {editable ? messages.schedule.calendar.backToLive : messages.schedule.calendar.enterLive}
+                      </Link>
+                    )}
+                    {editable && onStartLive && s.status !== "CANCELED" && s.id !== liveClassSessionId && (
                       <button
                         type="button"
                         className={styles.navBtn}

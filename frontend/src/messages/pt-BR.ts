@@ -338,6 +338,8 @@ export const messages = {
       },
     },
     page: {
+      liveBanner: (title: string) => `Aula ao vivo em andamento: ${title}`,
+      enterLiveBanner: "Entrar na aula",
       overviewTab: "Visão geral",
       studentsTab: "Estudantes",
       settings: "Configurações",
@@ -572,6 +574,9 @@ export const messages = {
       editSession: "Alterar esta aula",
       editContent: "Conteúdo da aula",
       startLive: "Iniciar aula ao vivo",
+      liveNow: "Ao vivo agora",
+      enterLive: "Entrar na aula ao vivo",
+      backToLive: "Voltar para a aula ao vivo",
       contentLoadError: "Não foi possível carregar o conteúdo da aula.",
       viewDeck: "Ver apresentação",
       addSession: "Incluir aula avulsa",

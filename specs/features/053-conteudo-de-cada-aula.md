@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-053 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
@@ -187,3 +187,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: tema, descrição, links, módulo
 | 14/10/2026 | Aruna Architect | Falha de contrato achada na implementação: o diálogo precisa listar as apresentações da turma, e não havia endpoint. Acrescentados `GET /live/decks` e o CA-13 |
 | 14/10/2026 | Implementador | Implementada. Desvios: coluna `has_content` em `class_sessions` (para manter as aulas com conteúdo na regeneração e trazer `hasContent` sem consulta extra); portas `Decks` e `Modules` do `schedule` implementadas por adaptadores em `cmd/api/content_refs.go`; módulo que o leitor não pode usar sai da leitura sem erro (na gravação dá 404), e módulos privados por turma não aparecem ao estudante; os botões novos do painel da aula usam o estilo `navBtn` dos vizinhos, não o componente `Button`; aula cancelada não mostra "Iniciar aula ao vivo". O teste do limite de apresentações da SPEC-051 passou de 20 para 100 |
 | 14/10/2026 | Aruna Architect | Falha achada em uso: o estudante abria a aula na agenda e não tinha como entrar na aula ao vivo, porque o botão só existia na visão geral e a spec só previa "Iniciar" para o professor. Acrescentados o aviso na Agenda, a marca e o botão no painel da aula (CA-14); volta a Aprovada |
+| 14/10/2026 | Implementador | CA-14 implementado: aviso da aula ao vivo na aba Agenda e, no painel da aula ligada à sala ativa, a marca "Ao vivo agora" e o botão de entrar ("Voltar para a aula ao vivo" para o professor). A página só consulta a sala ativa na aba Agenda, e uma falha da consulta apenas esconde o aviso |
