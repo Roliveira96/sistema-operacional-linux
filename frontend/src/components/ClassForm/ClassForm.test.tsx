@@ -500,12 +500,16 @@ describe("ClassForm (SPEC-044)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Terça-feira" }));
     expect(screen.getByText(/ainda mostra os horários salvos/)).toBeDefined();
+    // CA-22: the days just marked show on a live preview above the real calendar
+    expect(screen.getByRole("region", { name: "Prévia dos horários ainda não aplicados" })).toBeDefined();
+    expect(container.querySelectorAll("[data-marker]").length).toBeGreaterThanOrEqual(4);
     const before = calendar.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Aplicar horários ao calendário" }));
     await waitFor(() => expect(onApplyMeetings).toHaveBeenCalledTimes(1));
     expect(onApplyMeetings.mock.lastCall?.[0]).toEqual([expect.objectContaining({ weekday: 2, startTime: "08:20", endTime: "10:20" })]);
     await waitFor(() => expect(calendar.mock.calls.length).toBeGreaterThan(before));
     await waitFor(() => expect(screen.queryByText(/ainda mostra os horários salvos/)).toBeNull());
+    expect(screen.queryByRole("region", { name: "Prévia dos horários ainda não aplicados" })).toBeNull();
   });
 
   // CA-16
