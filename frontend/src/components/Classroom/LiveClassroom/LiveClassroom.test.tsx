@@ -65,7 +65,7 @@ const session: LiveSession = { id: "s-1", classId: "c-1", title: "Permissões", 
 const actions = () => ({
   changeSlide: vi.fn(), moveCursor: vi.fn(), draw: vi.fn(), clearDrawings: vi.fn(), switchMode: vi.fn(), sendTerminalInput: vi.fn(), sendTerminalSync: vi.fn(),
   moderate: vi.fn(), raiseHand: vi.fn(), lowerHand: vi.fn(),
-  acceptStudent: vi.fn(), acceptAll: vi.fn(), removeStudent: vi.fn(), focusBlock: vi.fn(), setTerminalBroadcast: vi.fn(), reconnect: vi.fn(),
+  acceptStudent: vi.fn(), acceptAll: vi.fn(), removeStudent: vi.fn(), focusBlock: vi.fn(), setTerminalBroadcast: vi.fn(), requestEntry: vi.fn(),
 });
 
 function live(over: Record<string, unknown> = {}) {
@@ -236,7 +236,7 @@ describe("LiveClassroom", () => {
       render(<LiveClassroom classId="c-1" role="student" userId="u-1" session={session} />);
       expect(screen.getByText("O professor retirou você da aula")).toBeDefined();
       fireEvent.click(screen.getByRole("button", { name: "Pedir para entrar de novo" }));
-      expect(l.reconnect).toHaveBeenCalledTimes(1);
+      expect(l.requestEntry).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -196,14 +196,14 @@ describe("useLiveClassroom", () => {
     it("knows the student waits, is in the class or was removed", () => {
       const { result, socket } = setup("student");
       expect(result.current.admission).toBeNull();
-      act(() => socket().receive("live:admission:state", { state: "WAITING" }));
+      act(() => socket().receive("live:admission:state", { status: "WAITING" }));
       expect(result.current.admission).toBe("WAITING");
       expect(result.current.ready).toBe(false);
-      act(() => socket().receive("live:admission:state", { state: "ADMITTED" }));
+      act(() => socket().receive("live:admission:state", { status: "ADMITTED" }));
       act(() => socket().receive("live:snapshot", snapshot()));
       expect(result.current.admission).toBe("ADMITTED");
       expect(result.current.ready).toBe(true);
-      act(() => socket().receive("live:admission:state", { state: "REMOVED" }));
+      act(() => socket().receive("live:admission:state", { status: "REMOVED" }));
       expect(result.current.admission).toBe("REMOVED");
     });
 
@@ -236,14 +236,15 @@ describe("useLiveClassroom", () => {
       expect(student.socket().sent).toEqual([]);
     });
 
-    it("asks to come in again by opening a new connection", () => {
+    it("asks to come in again with a request message, without reconnecting", () => {
       const { result, socket, connect } = setup("student");
       act(() => socket().handlers.onOpen());
-      act(() => socket().receive("live:admission:state", { state: "REMOVED" }));
-      const first = socket();
-      act(() => result.current.reconnect());
-      expect(first.closed).toBe(true);
-      expect(connect).toHaveBeenCalledTimes(2);
+      act(() => socket().receive("live:admission:state", { status: "REMOVED" }));
+      act(() => result.current.requestEntry());
+      expect(socket().sent.at(-1)).toEqual({ type: "live:admission:request", data: {} });
+      expect(connect).toHaveBeenCalledTimes(1);
+      act(() => socket().receive("live:admission:state", { status: "WAITING" }));
+      expect(result.current.admission).toBe("WAITING");
     });
   });
 
@@ -257,7 +258,7 @@ describe("useLiveClassroom", () => {
       expect(result.current.room).toMatchObject({ mode: "MODULE", moduleId: "m-3", moduleFocusBlockId: "b-2", terminalBroadcast: true });
       act(() => socket().receive("live:module:focus", { blockId: "b-5" }));
       expect(result.current.room.moduleFocusBlockId).toBe("b-5");
-      act(() => socket().receive("live:terminal:broadcast", { on: false }));
+      act(() => socket().receive("live:terminal:broadcast", { enabled: false }));
       expect(result.current.room.terminalBroadcast).toBe(false);
       act(() => socket().receive("live:mode:switch", { mode: "MODULE", moduleId: "m-4" }));
       expect(result.current.room.moduleFocusBlockId).toBeNull();
@@ -277,7 +278,7 @@ describe("useLiveClassroom", () => {
       expect(socket().sent.at(-1)).toEqual({ type: "live:module:focus", data: { blockId: "b-7" } });
       expect(result.current.room.moduleFocusBlockId).toBe("b-7");
       act(() => result.current.setTerminalBroadcast(true));
-      expect(socket().sent.at(-1)).toEqual({ type: "live:terminal:broadcast", data: { on: true } });
+      expect(socket().sent.at(-1)).toEqual({ type: "live:terminal:broadcast", data: { enabled: true } });
       expect(result.current.room.terminalBroadcast).toBe(true);
     });
 
