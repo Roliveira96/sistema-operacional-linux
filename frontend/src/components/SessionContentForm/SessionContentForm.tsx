@@ -61,7 +61,8 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
   const [links, setLinks] = useState<Link[]>([]);
   const [moduleId, setModuleId] = useState("");
   const [deckId, setDeckId] = useState("");
-  const [decks, setDecks] = useState<Option[]>([]);
+  const [classDecks, setClassDecks] = useState<Option[]>([]);
+  const [uploaded, setUploaded] = useState<Option[]>([]);
   const [linkName, setLinkName] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
 
@@ -89,7 +90,6 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
         setLinks(loaded.links.map((l) => ({ name: l.name, url: l.url })));
         setModuleId(loaded.module?.id ?? "");
         setDeckId(loaded.deck?.id ?? "");
-        setDecks(loaded.deck ? [{ id: loaded.deck.id, title: loaded.deck.title }] : []);
         setLoadFailed(false);
       },
       () => active && setLoadFailed(true),
@@ -110,6 +110,18 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
     };
   }, []);
 
+  // The presentations of the class, the most recent first (SPEC-053 CA-13).
+  useEffect(() => {
+    let active = true;
+    classroomService.listDecks(classId).then(
+      (res) => active && setClassDecks(res.map((d) => ({ id: d.id, title: d.title }))),
+      () => undefined,
+    );
+    return () => {
+      active = false;
+    };
+  }, [classId]);
+
   const retry = () => {
     setLoadFailed(false);
     setAttempt((n) => n + 1);
@@ -117,6 +129,12 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
 
   // The module of the lesson may not be among the ones listed (it can be of another teacher): keep it as an option.
   const moduleOptions = content?.module && !modules.some((x) => x.id === content.module?.id) ? [...modules, content.module] : modules;
+
+  // The list, plus the one of the lesson and the ones sent here when the list did not bring them yet.
+  const deckOptions = [...classDecks];
+  for (const extra of [...(content?.deck ? [{ id: content.deck.id, title: content.deck.title }] : []), ...uploaded]) {
+    if (!deckOptions.some((d) => d.id === extra.id)) deckOptions.push(extra);
+  }
 
   const addLink = () => {
     const name = linkName.trim();
@@ -152,7 +170,7 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
     try {
       const title = file.name.replace(/\.pdf$/i, "").trim().slice(0, 120) || file.name;
       const deck = await classroomService.uploadDeck(classId, file, title, pageCount);
-      setDecks((prev) => [...prev.filter((d) => d.id !== deck.id), { id: deck.id, title: deck.title }]);
+      setUploaded((prev) => [...prev.filter((d) => d.id !== deck.id), { id: deck.id, title: deck.title }]);
       setDeckId(deck.id);
     } catch (err) {
       fail(err instanceof ApiProblemError && err.type === "deck-limit-exceeded" ? pdf.deckLimit : m.errors.upload);
@@ -327,7 +345,7 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
               </label>
               <select id={`${baseId}-deck`} className={styles.input} value={deckId} onChange={(e) => setDeckId(e.target.value)}>
                 <option value="">{m.deckNone}</option>
-                {decks.map((x) => (
+                {deckOptions.map((x) => (
                   <option key={x.id} value={x.id}>
                     {x.title}
                   </option>

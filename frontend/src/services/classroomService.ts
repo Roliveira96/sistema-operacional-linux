@@ -73,6 +73,14 @@ export interface LiveSessionSummary {
   hasNotes?: boolean;
 }
 
+/** A presentation of the class, as the list gives it (SPEC-053 CA-13). */
+export interface DeckSummary {
+  id: string;
+  title: string;
+  pageCount: number;
+  createdAt: string;
+}
+
 export interface StartSessionInput {
   title: string;
   classSessionId?: string;
@@ -100,6 +108,7 @@ export function createClassroomService(client: HttpClient = httpClient) {
       form.set("pageCount", String(pageCount));
       return client.post<LiveDeck>(`${live(classId)}/decks`, form);
     },
+    listDecks: async (classId: string) => (await client.get<{ decks: DeckSummary[] }>(`${live(classId)}/decks`)).decks,
     getActive: (classId: string) => client.get<ActiveRoom>(`${live(classId)}/active`),
     listSessions: async (classId: string) =>
       (await client.get<{ sessions: LiveSessionSummary[] }>(`${live(classId)}/sessions`)).sessions,
