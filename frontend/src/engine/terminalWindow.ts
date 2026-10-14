@@ -7,7 +7,7 @@ import { addEngineBinaries, registerEngineCommands } from "./commands";
 import type { CommandRegistry } from "./commands/types";
 import { addProcessBinaries, registerProcessCommands } from "./processes/register";
 import { processSnapshot, watchEnded } from "./processes/snapshot";
-import { loadTerminalStyle, SCREEN_ATTRS, SCREEN_TAGS, type ScreenAttrs, type ScreenElement, type ScreenNode } from "./terminalScreen";
+import { loadTerminalStyle, offsetAt, SCREEN_ATTRS, SCREEN_TAGS, type ScreenAttrs, type ScreenElement, type ScreenLocator, type ScreenNode, type TextRun } from "./terminalScreen";
 
 /** One command of a script, as stored in the COMMAND content blocks. */
 export interface TerminalStep {
@@ -33,9 +33,10 @@ export interface TerminalWindowCallbacks {
   onCommand(snapshot: unknown): void;
   /**
    * Called with the picture of the whole window as soon as it mounts and at every change: at most once every 100 ms and only when it changed
-   * (SPEC-056). Only the teacher's window asks for it, to send it to the class.
+   * (SPEC-056). Only the teacher's window asks for it, to send it to the class. With the picture comes the locator of its text, which tells where
+   * a point of the window is in that text, for the selection of the teacher to go to the class (SPEC-057).
    */
-  onScreen?(tree: ScreenElement): void;
+  onScreen?(tree: ScreenElement, locator: ScreenLocator): void;
 }
 
 export interface TerminalWindow {
@@ -119,12 +120,25 @@ function isSecret(field: Element): boolean {
   return type === "password" || type === "hidden" || field.closest("[hidden]") !== null;
 }
 
+/** A text of the picture, with the text node of the window it was copied from. */
+interface TextPiece {
+  text: string;
+  source: Text;
+}
+
+/** An element of the picture while it is made: the children can be pieces of text that know where they came from. */
+interface Draft {
+  tag: string;
+  attrs?: ScreenAttrs;
+  children?: Array<Draft | TextPiece>;
+}
+
 /** The last `limit` children of an element, copied; a tag out of the list is left and what it holds takes its place. */
-function copyChildren(parent: Element, limit: number): ScreenNode[] {
-  const copied: ScreenNode[] = [];
+function copyChildren(parent: Element, limit: number): Array<Draft | TextPiece> {
+  const copied: Array<Draft | TextPiece> = [];
   for (const node of Array.from(parent.childNodes).slice(-limit)) {
     if (node.nodeType === Node.TEXT_NODE) {
-      if (node.textContent) copied.push(clip(node.textContent));
+      if (node.textContent) copied.push({ text: clip(node.textContent), source: node as Text });
     } else if (node instanceof Element) {
       copied.push(...copyElement(node, limit));
     }
@@ -133,7 +147,7 @@ function copyChildren(parent: Element, limit: number): ScreenNode[] {
 }
 
 /** An element as a node of the picture, with the attributes of the list only; a field gives its live value, which is a property, not an attribute. */
-function copyElement(element: Element, limit: number): ScreenNode[] {
+function copyElement(element: Element, limit: number): Array<Draft | TextPiece> {
   const tag = element.tagName.toLowerCase();
   if (!SCREEN_TAGS.has(tag)) return copyChildren(element, limit);
   const attrs: ScreenAttrs = {};
@@ -151,7 +165,7 @@ function copyElement(element: Element, limit: number): ScreenNode[] {
     const value = (element as HTMLInputElement).value;
     if (value) attrs.value = clip(value);
   }
-  const node: ScreenElement = { tag };
+  const node: Draft = { tag };
   if (Object.keys(attrs).length > 0) node.attrs = attrs;
   // A field is its value, and a line break is empty: the text inside them is not shown.
   if (!field && tag !== "br") {
@@ -161,15 +175,49 @@ function copyElement(element: Element, limit: number): ScreenNode[] {
   return [node];
 }
 
+/**
+ * The picture as it will be sent, and where each text of it started in the window. The offsets are worked out here, on what is left after the
+ * children were cut, so they count the text of the picture and nothing the cut took away (SPEC-057).
+ */
+function finish(draft: Draft): { tree: ScreenElement; runs: TextRun[] } {
+  const runs: TextRun[] = [];
+  let at = 0;
+  const walk = (node: Draft | TextPiece): ScreenNode => {
+    if ("text" in node) {
+      runs.push({ node: node.source, start: at, length: node.text.length });
+      at += node.text.length;
+      return node.text;
+    }
+    const out: ScreenElement = { tag: node.tag };
+    if (node.attrs) out.attrs = node.attrs;
+    if (node.children) out.children = node.children.map(walk);
+    return out;
+  };
+  return { tree: walk(draft) as ScreenElement, runs };
+}
+
 /** The picture of the window, with its children cut from the start until the message fits the limit. */
-function pictureOf(root: Element): { tree: ScreenElement; json: string } {
-  let picture = { tree: { tag: "div" } as ScreenElement, json: "" };
+function pictureOf(root: Element): { tree: ScreenElement; json: string; runs: TextRun[] } {
+  let picture = { tree: { tag: "div" } as ScreenElement, json: "", runs: [] as TextRun[] };
   for (const limit of SCREEN_CHILD_LIMITS) {
-    const tree = copyElement(root, limit)[0] as ScreenElement;
-    picture = { tree, json: JSON.stringify(tree) };
+    const { tree, runs } = finish(copyElement(root, limit)[0] as Draft);
+    picture = { tree, json: JSON.stringify(tree), runs };
     if (byteLength(picture.json) + SCREEN_ENVELOPE_BYTES <= SCREEN_MAX_BYTES) break;
   }
   return picture;
+}
+
+/** The locator of the text of one picture: it answers for the text nodes the picture was made from, and for nothing else. */
+function locatorOf(container: HTMLElement, runs: TextRun[]): ScreenLocator {
+  return {
+    offsetOf: (node, offset) => offsetAt(runs, node, offset),
+    terminalOf(node) {
+      const term = (node instanceof Element ? node : node.parentElement)?.closest(".term");
+      if (!term || !container.contains(term)) return null;
+      const number = Array.from(container.querySelectorAll(".term")).indexOf(term);
+      return number < 0 ? null : number + 1;
+    },
+  };
 }
 
 /**
@@ -178,7 +226,7 @@ function pictureOf(root: Element): { tree: ScreenElement; json: string } {
  * seen by a MutationObserver (children, text, class and hidden) and by the keys and the input events, because what is typed in a textarea or an
  * input changes no node of the DOM. Returns what stops it.
  */
-function watchScreen(container: HTMLElement, deliver: (tree: ScreenElement) => void): () => void {
+function watchScreen(container: HTMLElement, deliver: (tree: ScreenElement, locator: ScreenLocator) => void): () => void {
   let last = "";
   let sentAt = Number.NEGATIVE_INFINITY;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -190,10 +238,10 @@ function watchScreen(container: HTMLElement, deliver: (tree: ScreenElement) => v
     sentAt = Date.now();
     const root = container.querySelector(".janela");
     if (!root) return;
-    const { tree, json } = pictureOf(root);
+    const { tree, json, runs } = pictureOf(root);
     if (json === last) return;
     last = json;
-    deliver(tree);
+    deliver(tree, locatorOf(container, runs));
   };
   const schedule = () => {
     if (stopped || timer !== undefined) return;

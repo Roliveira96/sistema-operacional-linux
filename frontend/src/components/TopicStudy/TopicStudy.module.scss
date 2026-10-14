@@ -349,6 +349,9 @@
   .livePanel.follower {
     overflow-y: hidden;
 
+    // The student has no selection of his own: what is marked is what the teacher selected.
+    user-select: none;
+
     .liveContent {
       transition: transform 100ms linear;
     }

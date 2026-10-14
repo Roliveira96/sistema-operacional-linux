@@ -29,18 +29,19 @@
   color: var(--color-danger);
 }
 
-// The page, the strokes and the pointer sit in one sheet, so they move together and the percentages are of the whole page.
+// The page, the strokes and the pointer sit in one sheet, so they move together and the percentages are of the whole page. The sheet is as wide as the
+// page, which with the zoom is wider than the area.
 .sheet {
   position: relative;
-  width: 100%;
+  width: max-content;
 }
 
-// The area of the page: a page taller than the stage scrolls inside it. The bar is kept on both sides, so the page is as wide for the one who scrolls
-// as for the one who does not.
+// The area of the page: a page taller or wider than the stage scrolls inside it. The bar is kept on both sides, so the page is as wide for the one who
+// scrolls as for the one who does not.
 .area {
   width: 100%;
   height: 100%;
-  overflow: hidden auto;
+  overflow: auto;
   scrollbar-gutter: stable;
   background-color: var(--color-surface-sunken);
   line-height: 0;
@@ -53,7 +54,7 @@
 
   // Nobody scrolls the page of the student (SPEC-057 CA-10): the page is moved by what the teacher does, with a transition of 100 ms.
   &.follower {
-    overflow-y: hidden;
+    overflow: hidden;
 
     .sheet {
       transition: transform 100ms linear;

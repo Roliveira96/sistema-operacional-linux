@@ -47,13 +47,24 @@ export interface LiveCursor {
 }
 
 /**
- * Where the teacher is on the stage (SPEC-057): the scroll of the slide and of the material, as fractions of what can be scrolled, and the part of
- * the stage the material takes (null: the default of the layout).
+ * The stretch of text the teacher selected (SPEC-057). On the material it is told by block (`data-block`) and by characters in the text of the block;
+ * on the terminal, by the number of the terminal and by characters over the text of the last picture of the window. Exactly these fields, no more.
+ */
+export type StageSelection =
+  | { pane: "material"; start: { block: string; offset: number }; end: { block: string; offset: number } }
+  | { pane: "terminal"; terminal: number; start: number; end: number };
+
+/**
+ * Where the teacher is on the stage (SPEC-057): the scroll of the slide down and sideways and of the material, as fractions of what can be scrolled;
+ * the part of the stage the material takes (null: the default of the layout); the zoom, from 1 to 2; and the text he selected (null: none).
  */
 export interface StageView {
   slideScroll: number;
+  slideScrollX: number;
   materialScroll: number;
   split: number | null;
+  zoom: number;
+  selection: StageSelection | null;
 }
 
 export interface LiveTerminalState {

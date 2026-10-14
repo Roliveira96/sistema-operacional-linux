@@ -23,8 +23,11 @@
   --fonte-codigo: var(--font-terminal);
 
   flex: 1;
+
+  // The copy has no selection of its own: what is marked on it is what the teacher selected (SPEC-057).
+  user-select: none;
   min-width: 0;
-  min-height: 24rem;
+  min-height: 12rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;

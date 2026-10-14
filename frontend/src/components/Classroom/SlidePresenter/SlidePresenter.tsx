@@ -27,8 +27,10 @@ export interface SlidePresenterProps {
   onClear(): void;
   /** Where the teacher is in the page, from 0 to 1 of what can be scrolled (SPEC-057): the student follows it, and the teacher is put back there. */
   scroll?: number;
-  /** The teacher scrolls the page inside the stage; the position is a fraction of what can be scrolled. */
-  onScroll?(y: number): void;
+  /** The same, sideways: with the zoom the page is wider than the stage. */
+  scrollX?: number;
+  /** The teacher scrolls the page inside the stage; the positions, down and sideways, are fractions of what can be scrolled. */
+  onScroll?(y: number, x: number): void;
   loader?: PdfLoader;
   /** The presentation window has its own toolbar and keys (SPEC-055 CA-16): no bar, no keys here, and the laser and the pen come from it. */
   bare?: boolean;
@@ -38,9 +40,18 @@ export interface SlidePresenterProps {
 
 type Point = [number, number];
 
+/** The most pixels the page is drawn with for each logical pixel: a 4K projector showing the stage three times its size. */
+const MAX_DENSITY = 3;
+
+/** How many pixels the page is drawn with for each logical one: as many as the screen shows it with, in steps of a quarter so a small change of the window does not draw it again. */
+function densityOf(scale: number): number {
+  return Math.min(MAX_DENSITY, Math.ceil(scale * (window.devicePixelRatio || 1) * 4) / 4);
+}
+
 /**
- * The slides of the live classroom (SPEC-051, section 3.1): drawn from the PDF in the browser, as wide as the stage, with the laser and the pen of
- * the teacher on top. A page taller than the stage scrolls inside it, and only the teacher scrolls (SPEC-057).
+ * The slides of the live classroom (SPEC-051, section 3.1): drawn from the PDF in the browser, as wide as the base stage and sharp at the size the
+ * screen shows them, with the laser and the pen of the teacher on top. A page taller or wider than the stage (the zoom makes the stage smaller)
+ * scrolls inside it, and only the teacher scrolls (SPEC-057).
  */
 export function SlidePresenter({
   deck,
@@ -49,6 +60,7 @@ export function SlidePresenter({
   cursor,
   strokes,
   scroll = 0,
+  scrollX = 0,
   onSlide,
   onCursor,
   onDraw,
@@ -60,6 +72,7 @@ export function SlidePresenter({
   pen: penProp,
 }: SlidePresenterProps) {
   const scale = useStageScale();
+  const density = densityOf(scale);
   const area = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -91,23 +104,24 @@ export function SlidePresenter({
     };
   }, [loader, deck.downloadUrl]);
 
-  // The page is drawn as wide as the room the stage gives it (the 1920 of the stage, less the scroll bar), and as tall as it is.
+  // The page is drawn as wide as the base stage, less the scroll bar, at any zoom, and as tall as it is; with as many pixels as the screen shows it with.
   useEffect(() => {
     if (!pdf || !canvas.current) return;
     let stale = false;
-    pdf.render(current, canvas.current, area.current?.clientWidth || STAGE_WIDTH).then(
+    const gutter = area.current ? Math.max(0, area.current.offsetWidth - area.current.clientWidth) : 0;
+    pdf.render(current, canvas.current, STAGE_WIDTH - gutter, density).then(
       () => !stale && setDrawn((n) => n + 1),
       () => !stale && setFailed(true),
     );
     return () => {
       stale = true;
     };
-  }, [pdf, current]);
+  }, [pdf, current, density]);
 
-  // The page is put where the room says: at the top at every slide, and again once it is drawn, because only then it is as tall as it is.
+  // The page is put where the room says: at the top at every slide, and again once it is drawn, because only then it is as big as it is.
   useEffect(() => {
-    if (area.current && sheet.current) placeContent(area.current, sheet.current, scroll, !canControl);
-  }, [scroll, current, drawn, canControl]);
+    if (area.current && sheet.current) placeContent(area.current, sheet.current, scroll, !canControl, scrollX);
+  }, [scroll, scrollX, current, drawn, canControl]);
 
   // The pen goes out at the same pace as the pointer. The handlers read the latest props through a ref.
   const send = useRef({ onDraw });
@@ -190,7 +204,7 @@ export function SlidePresenter({
   // The teacher scrolls: the class is told where, and the pointer follows what is now under the mouse, even if the mouse is still.
   const scrolled = () => {
     if (!canControl || !area.current || !sheet.current) return;
-    onScroll?.(scrollFraction(area.current, sheet.current));
+    onScroll?.(scrollFraction(area.current, sheet.current, "y"), scrollFraction(area.current, sheet.current, "x"));
     if (lastMouse.current && !points.current) {
       const [x, y] = where(lastMouse.current);
       pointer.move(x, y);
@@ -231,7 +245,8 @@ export function SlidePresenter({
                 <polyline key={index} points={stroke.path!.map((point) => point.join(",")).join(" ")} />
               ))}
           </svg>
-          {cursor?.visible && <StagePointer x={cursor.x} y={cursor.y} laser={cursor.laser} />}
+          {/* The teacher sees his own mouse, not the point that stands for it; the laser tells him it is on. */}
+          {cursor?.visible && (cursor.laser || !canControl) && <StagePointer x={cursor.x} y={cursor.y} laser={cursor.laser} />}
         </div>
       </div>
 

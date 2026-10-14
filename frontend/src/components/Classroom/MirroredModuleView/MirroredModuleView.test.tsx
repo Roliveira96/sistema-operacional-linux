@@ -32,6 +32,7 @@ afterEach(() => {
 });
 
 const empty: LiveTerminal = { screen: null };
+const locator = { offsetOf: () => 0, terminalOf: () => 1 };
 const tree = (text: string): ScreenElement => ({
   tag: "div",
   attrs: { class: "janela" },
@@ -46,7 +47,7 @@ describe("MirroredModuleView", () => {
     await waitFor(() => expect(windows).toHaveLength(1));
     expect(callbacks!.onScreen).toBeTypeOf("function");
     const picture = tree("ls");
-    callbacks!.onScreen!(picture);
+    callbacks!.onScreen!(picture, locator);
     expect(onScreen).toHaveBeenCalledWith(picture);
   });
 
@@ -56,7 +57,7 @@ describe("MirroredModuleView", () => {
     const view = render(<MirroredModuleView role="teacher" terminal={empty} onScreen={first} />);
     await waitFor(() => expect(windows).toHaveLength(1));
     view.rerender(<MirroredModuleView role="teacher" terminal={empty} onScreen={second} />);
-    callbacks!.onScreen!(tree("pwd"));
+    callbacks!.onScreen!(tree("pwd"), locator);
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledTimes(1);
   });
@@ -68,7 +69,6 @@ describe("MirroredModuleView", () => {
     render(<MirroredModuleView role="teacher" terminal={empty} onScreen={onScreen} onLocator={onLocator} />);
     await waitFor(() => expect(windows).toHaveLength(1));
     const picture = tree("ls");
-    const locator = { offsetOf: () => 0, terminalOf: () => 1 };
     (callbacks!.onScreen as (tree: ScreenElement, locator: unknown) => void)(picture, locator);
     expect(onScreen).toHaveBeenCalledWith(picture);
     expect(onLocator).toHaveBeenCalledWith(locator);
@@ -80,7 +80,6 @@ describe("MirroredModuleView", () => {
     const view = render(<MirroredModuleView role="teacher" terminal={empty} onScreen={vi.fn()} onLocator={first} />);
     await waitFor(() => expect(windows).toHaveLength(1));
     view.rerender(<MirroredModuleView role="teacher" terminal={empty} onScreen={vi.fn()} onLocator={second} />);
-    const locator = { offsetOf: () => 0, terminalOf: () => 1 };
     (callbacks!.onScreen as (tree: ScreenElement, locator: unknown) => void)(tree("a"), locator);
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledWith(locator);

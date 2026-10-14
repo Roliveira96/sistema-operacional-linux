@@ -7,6 +7,7 @@ import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { messages } from "@/messages/pt-BR";
 import type { LiveSession } from "@/services/classroomService";
 import { FixedStage } from "../FixedStage/FixedStage";
+import { stepZoom } from "../FixedStage/stage";
 import { ModuleStage } from "../ModuleStage/ModuleStage";
 import { SlidePresenter } from "../SlidePresenter/SlidePresenter";
 import styles from "./PresenterStage.module.scss";
@@ -35,8 +36,8 @@ export interface PresenterStageProps {
 /**
  * The presentation window of the teacher: only the stage, full of the screen, to be dragged to the projector. The laser, the pen and the picture
  * of the terminal screen go to the class at once, and the toolbar and the keys do what the teacher does most (SPEC-055 sections 3.1 and 3.3;
- * SPEC-056). The stage is the fixed box of 1920 x 1080 the students see, so the teacher sees exactly what they see; the scroll of the slide and of
- * the material, the divider and the mouse go to them (SPEC-057).
+ * SPEC-056). The stage is the fixed box the students see, so the teacher sees exactly what they see, on the whole window; the scroll of the slide and
+ * of the material, the divider, the zoom, the mouse and the text he selects go to them (SPEC-057).
  */
 export function PresenterStage({ classId }: PresenterStageProps) {
   const live = useLiveClassroom({ classId, role: "teacher", view: "presenter" });
@@ -66,6 +67,7 @@ export function PresenterStage({ classId }: PresenterStageProps) {
 
   const mode = room.mode;
   const total = room.deck?.pageCount ?? 0;
+  const zoom = live.stageView.zoom;
   const slides = mode === "SLIDES" && room.deck !== null;
 
   const goto = (slide: number) => {
@@ -79,6 +81,11 @@ export function PresenterStage({ classId }: PresenterStageProps) {
     } else if (room.deck) live.switchMode("SLIDES");
     else setNotice(m.room.noDeck);
   };
+  // The zoom is the teacher's; the students only follow it. A window that lost the control does not change it.
+  const zoomTo = (next: number) => {
+    if (live.canControl) live.sendStageZoom(next);
+  };
+  const zoomBy = (direction: 1 | -1) => zoomTo(stepZoom(zoom, direction));
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
       void document.exitFullscreen();
@@ -110,6 +117,9 @@ export function PresenterStage({ classId }: PresenterStageProps) {
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
       if (key === "Escape") return setShortcuts(false);
       if (key === "?") return setShortcuts((open) => !open);
+      if (key === "+" || key === "=") return zoomBy(1);
+      if (key === "-") return zoomBy(-1);
+      if (key === "0") return zoomTo(1);
       if (key === "m") return swapStage();
       if (key === "f") return toggleFullscreen();
       if (key === "b") return live.setBlank(!room.blank);
@@ -147,7 +157,7 @@ export function PresenterStage({ classId }: PresenterStageProps) {
   return (
     <div className={styles.stage} data-testid="presenter-stage" onMouseMove={showToolbar}>
       <div className={styles.content}>
-        <FixedStage>
+        <FixedStage zoom={zoom}>
           {mode === "SLIDES" ? (
             room.deck ? (
               <SlidePresenter
@@ -160,11 +170,12 @@ export function PresenterStage({ classId }: PresenterStageProps) {
                 laser={laser}
                 pen={pen}
                 scroll={live.stageView.slideScroll}
+                scrollX={live.stageView.slideScrollX}
                 onSlide={live.changeSlide}
                 onCursor={live.moveCursor}
                 onDraw={live.draw}
                 onClear={live.clearDrawings}
-                onScroll={(y) => live.sendStageScroll("slide", y)}
+                onScroll={(y, x) => live.sendStageScroll("slide", y, x)}
               />
             ) : (
               <p className={styles.notice}>{m.room.noDeck}</p>
@@ -184,6 +195,7 @@ export function PresenterStage({ classId }: PresenterStageProps) {
               onCursor={live.moveCursor}
               onMaterialScroll={(y) => live.sendStageScroll("material", y)}
               onSplit={live.sendStageSplit}
+              onSelection={live.sendStageSelection}
             />
           )}
 
@@ -244,6 +256,15 @@ export function PresenterStage({ classId }: PresenterStageProps) {
               </Button>
             </>
           )}
+          <Button variant="secondary" size="sm" title={`${p.zoomOut} (-)`} disabled={!live.canControl || zoom <= 1} onClick={() => zoomBy(-1)}>
+            {p.zoomOut}
+          </Button>
+          <Button variant="ghost" size="sm" title={`${p.zoomReset} (0)`} disabled={!live.canControl} onClick={() => zoomTo(1)}>
+            {p.zoomValue(zoom)}
+          </Button>
+          <Button variant="secondary" size="sm" title={`${p.zoomIn} (+)`} disabled={!live.canControl || zoom >= 2} onClick={() => zoomBy(1)}>
+            {p.zoomIn}
+          </Button>
           <Button variant="secondary" size="sm" title={`${mode === "SLIDES" ? p.toModule : p.toSlides} (M)`} onClick={swapStage}>
             {mode === "SLIDES" ? p.toModule : p.toSlides}
           </Button>

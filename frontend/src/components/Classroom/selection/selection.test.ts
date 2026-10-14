@@ -167,8 +167,8 @@ describe("terminalSelectionOf", () => {
   it("keeps the number of the terminal between 1 and 3", () => {
     const node = textNode("ls");
     const offsets = { "ls:0": 0, "ls:2": 2 };
-    expect(terminalSelectionOf(locator(offsets, 7), rangeIn(node, 0, 2))!.terminal).toBe(3);
-    expect(terminalSelectionOf(locator(offsets, 0), rangeIn(node, 0, 2))!.terminal).toBe(1);
+    expect(terminalSelectionOf(locator(offsets, 7), rangeIn(node, 0, 2))).toMatchObject({ terminal: 3 });
+    expect(terminalSelectionOf(locator(offsets, 0), rangeIn(node, 0, 2))).toMatchObject({ terminal: 1 });
   });
 
   it("tells nothing when the place is not in a terminal, or not in the picture, or there is no text between", () => {
@@ -231,7 +231,7 @@ describe("showHighlight", () => {
     const { root, textOf, range } = material();
     const text = root.textContent;
     const node = textOf("b-2", "Segundo");
-    const hide = showHighlight("teacher-terminal", [range([node, 2], [node, 6])]);
+    const hide = showHighlight("teacher-terminal", [range([node, 2], [node, 7])]);
     expect(root.querySelector("mark")!.textContent).toBe("gundo");
     expect(root.textContent).toBe(text);
     hide();

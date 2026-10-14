@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { MirroredModuleView } from "@/components/Classroom/MirroredModuleView/MirroredModuleView";
 import { placeContent, scrollFraction } from "@/components/Classroom/FixedStage/stage";
-import type { ScreenElement } from "@/engine/terminalScreen";
+import { MATERIAL_HIGHLIGHT, materialRangeOf, materialSelectionOf, showHighlight, terminalSelectionOf } from "@/components/Classroom/selection/selection";
+import type { ScreenElement, ScreenLocator } from "@/engine/terminalScreen";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import type { TopicPlayer } from "@/hooks/useTopicPlayer";
 import { clampSplit, SPLIT } from "@/lib/machineStorage";
 import { topicAccentVars } from "@/lib/moduleVisual";
 import { buildTopicScript } from "@/lib/topicScript";
 import { contentMessages as m } from "@/messages/content.pt-BR";
-import type { LiveModuleContent } from "@/services/classroomService";
+import type { LiveModuleContent, StageSelection } from "@/services/classroomService";
 import { LessonPanel } from "./LessonPanel";
 import styles from "./TopicStudy.module.scss";
 
@@ -42,6 +43,10 @@ export interface TopicLive {
   onMaterialScroll?(y: number): void;
   /** The teacher moves the divider; `ratio` is the part of the stage the material takes (SPEC-057). */
   onSplit?(ratio: number): void;
+  /** The text the teacher selected: the student marks it, on the material and on the copy of the terminal (SPEC-057 CA-20, CA-21). */
+  selection?: StageSelection | null;
+  /** The teacher selects text in the material or in the terminal, or clears the selection: null (SPEC-057 CA-20). */
+  onSelection?(selection: StageSelection | null): void;
 }
 
 // Nothing here plays: the material is read, and the terminal is the one of the class.
@@ -77,16 +82,19 @@ function blockUnderReading(panel: HTMLElement): string | null {
 /**
  * The study screen of the module in the live class: the material on the left and the terminal of the class on the right, with the same
  * divider (SPEC-016), and nothing of the study alone: no challenges, no marks, no voice, no way back (SPEC-055 CA-13). It is drawn in the stage of
- * 1920 x 1080, so it is the same for everybody; the scroll of the material and the divider are the teacher's, and the student only follows them
- * (SPEC-057).
+ * 1280 x 720 (smaller by the zoom), so it is the same for everybody; the scroll of the material, the divider and the selection of text are the
+ * teacher's, and the student only follows them (SPEC-057).
  */
 export function LiveTopicScreen({ live }: { live: TopicLive }) {
-  const { module, role, terminal, focusBlockId, materialScroll = 0, split, onRead, onScreen, onMaterialScroll, onSplit } = live;
+  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, onRead, onScreen, onMaterialScroll, onSplit, onSelection } = live;
   const teacher = role === "teacher";
   const script = useMemo(() => buildTopicScript(module.blocks), [module.blocks]);
   const panel = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const columns = useRef<HTMLElement>(null);
+  const pane = useRef<HTMLDivElement>(null);
+  // How to find a point of the teacher's terminal in the text of the last picture he told, as the terminal tells it with each picture.
+  const locator = useRef<ScreenLocator | null>(null);
   const [dragging, setDragging] = useState(false);
 
   // The divider is where the room says, from the start: the screen keeps no preference of its own, because the others would not have it. The
@@ -137,6 +145,33 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
     if (!dividerMoved.current) dividerMoved.current = true;
     else if (teacher) reportScroll();
   }, [studyPercent, teacher, reportScroll]);
+
+  // The teacher's selection goes to the class, from the material and from the terminal alike, at every change of it; the room paces and filters
+  // what goes out. A selection that is in neither, or is empty, is the same as none (SPEC-057 CA-20).
+  const tellSelection = useRef(onSelection);
+  useEffect(() => {
+    tellSelection.current = onSelection;
+  });
+  useEffect(() => {
+    if (!teacher) return;
+    const changed = () => {
+      const picked = document.getSelection();
+      const range = picked && picked.rangeCount > 0 && !picked.isCollapsed ? picked.getRangeAt(0) : null;
+      let selected: StageSelection | null = null;
+      if (range && panel.current?.contains(range.commonAncestorContainer)) selected = materialSelectionOf(panel.current, range);
+      else if (range && locator.current && pane.current?.contains(range.commonAncestorContainer)) selected = terminalSelectionOf(locator.current, range);
+      tellSelection.current?.(selected);
+    };
+    document.addEventListener("selectionchange", changed);
+    return () => document.removeEventListener("selectionchange", changed);
+  }, [teacher]);
+
+  // The student marks on the material what the teacher selected, again when the module changes; the terminal has its own mark.
+  useEffect(() => {
+    if (teacher || !selection || selection.pane !== "material" || !panel.current) return;
+    const range = materialRangeOf(panel.current, selection);
+    if (range) return showHighlight(MATERIAL_HIGHLIGHT, [range]);
+  }, [teacher, selection, script]);
 
   // The focus follows what the teacher reads, once he stops (SPEC-055 CA-18).
   const reading = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -220,8 +255,18 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
           className={`${styles.divider} ${teacher ? "" : styles.fixedDivider}`}
           {...hands}
         />
-        <div className={styles.livePane}>
-          <MirroredModuleView key={module.moduleId} role={role} terminal={terminal} initialState={module.scenario} onScreen={onScreen} />
+        <div ref={pane} className={styles.livePane}>
+          <MirroredModuleView
+            key={module.moduleId}
+            role={role}
+            terminal={terminal}
+            initialState={module.scenario}
+            onScreen={onScreen}
+            onLocator={(found) => {
+              locator.current = found;
+            }}
+            selection={teacher ? undefined : selection}
+          />
         </div>
       </main>
     </div>

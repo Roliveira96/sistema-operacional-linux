@@ -5,10 +5,10 @@ import { TopicStudy } from "@/components/TopicStudy/TopicStudy";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import type { ScreenElement } from "@/engine/terminalScreen";
 import { messages } from "@/messages/pt-BR";
-import { classroomService, type LiveCursor, type LiveModuleContent, type StageView } from "@/services/classroomService";
+import { classroomService, type LiveCursor, type LiveModuleContent, type StageSelection, type StageView } from "@/services/classroomService";
 import { type CursorSend, useCursorSender } from "../cursorSender";
-import { StagePointer, useStageScale } from "../FixedStage/FixedStage";
-import { percentOf, STAGE_HEIGHT, STAGE_WIDTH, toStagePoint } from "../FixedStage/stage";
+import { StagePointer, useStageScale, useStageZoom } from "../FixedStage/FixedStage";
+import { percentOf, stageSize, toStagePoint } from "../FixedStage/stage";
 import styles from "./ModuleStage.module.scss";
 
 const m = messages.classroom.moduleStage;
@@ -37,17 +37,20 @@ export interface ModuleStageProps {
   onMaterialScroll?(y: number): void;
   /** The teacher moves the divider between the material and the terminal. */
   onSplit?(ratio: number): void;
+  /** The text the teacher selects in the material or in the terminal, or null when he clears it (SPEC-057 CA-20). */
+  onSelection?(selection: StageSelection | null): void;
 }
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: LiveModuleContent };
 
 /**
  * The module of the live class: the study screen of the module in the live-class mode (SPEC-055 CA-13), drawn in the stage. Only the teacher can send:
- * the picture of his terminal, his reading, the scroll of the material, the divider and his mouse (SPEC-057).
+ * the picture of his terminal, his reading, the scroll of the material, the divider, his mouse and the text he selects (SPEC-057).
  */
-export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit }: ModuleStageProps) {
+export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection }: ModuleStageProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const scale = useStageScale();
+  const zoom = useStageZoom();
   const stage = useRef<HTMLDivElement>(null);
   const pointer = useCursorSender(onCursor ?? (() => undefined), laser);
 
@@ -78,10 +81,11 @@ export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, termi
   }
 
   const teacher = role === "teacher";
-  // The mouse is a percentage of the stage of 1920 x 1080, whatever the size of the window.
+  // The mouse is a percentage of the stage, whatever the size of the window and the zoom of the teacher.
   const mouseMove = (event: MouseEvent) => {
     const point = toStagePoint(event, stage.current!, scale);
-    pointer.move(percentOf(point.x, STAGE_WIDTH), percentOf(point.y, STAGE_HEIGHT));
+    const size = stageSize(zoom);
+    pointer.move(percentOf(point.x, size.width), percentOf(point.y, size.height));
   };
   return (
     <div ref={stage} className={styles.stage} onMouseMove={teacher ? mouseMove : undefined} onMouseLeave={teacher ? pointer.leave : undefined}>
@@ -95,13 +99,17 @@ export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, termi
           focusBlockId: moduleFocusBlockId,
           materialScroll: stageView?.materialScroll,
           split: stageView?.split,
+          // The teacher has the real selection; the student has only the mark of the teacher's.
+          selection: teacher ? undefined : stageView?.selection,
           onRead: teacher ? onFocusBlock : undefined,
           onScreen: teacher ? onScreen : undefined,
           onMaterialScroll: teacher ? onMaterialScroll : undefined,
           onSplit: teacher ? onSplit : undefined,
+          onSelection: teacher ? onSelection : undefined,
         }}
       />
-      {cursor?.visible && <StagePointer x={cursor.x} y={cursor.y} laser={cursor.laser} />}
+      {/* The teacher sees his own mouse, not the point that stands for it; the laser tells him it is on. */}
+      {cursor?.visible && (cursor.laser || !teacher) && <StagePointer x={cursor.x} y={cursor.y} laser={cursor.laser} />}
     </div>
   );
 }

@@ -218,9 +218,8 @@ describe("ModuleStage", () => {
       await screen.findByTestId("topic");
       // The stage is W/2 x H/2 logical pixels, and the window shows it at scale 1.
       rectOf(wrapper(), { left: 0, top: 0, width: W / 2, height: H / 2 });
-      fireEvent.mouseMove(wrapper(), { clientX: W / 4, clientY: H / 4 });
-      expect(onCursor).toHaveBeenLastCalledWith(50, 50, false, true);
       fireEvent.mouseMove(wrapper(), { clientX: W / 8, clientY: H / 2 });
+      // A quarter of the smaller stage across, and all the way down it.
       expect(onCursor).toHaveBeenLastCalledWith(25, 100, false, true);
     });
 

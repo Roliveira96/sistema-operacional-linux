@@ -562,14 +562,16 @@ describe("TopicStudy in the live-class mode", () => {
       it("marks the stretch of the material that the teacher selected", () => {
         const registry = highlightApi();
         study({ role: "student", selection: { pane: "material", start: { block: "b-1", offset: 0 }, end: { block: "b-2", offset: 6 } } });
-        expect(registry.get("teacher-material")!.ranges.map((range) => range.toString())).toEqual(["Primeiro blocoSegund"]);
+        // What lies between the two blocks, the title of the card, is in the stretch as it is in the selection the teacher made.
+        const [stretch] = registry.get("teacher-material")!.ranges.map((range) => range.toString());
+        expect(stretch).toMatch(/^Primeiro bloco.*Segund$/);
       });
 
       it("follows the selection when the teacher changes it, and takes the mark away when he clears it", () => {
         const registry = highlightApi();
         const { view, full } = study({ role: "student", selection: { pane: "material", start: { block: "b-2", offset: 0 }, end: { block: "b-2", offset: 6 } } });
         expect(registry.get("teacher-material")!.ranges[0]!.toString()).toBe("Segund");
-        view.rerender(<TopicStudy moduleId="m-1" backHref="" live={{ ...full, selection: { pane: "material", start: { block: "b-3", offset: 0 }, end: { block: "b-3", offset: 7 } } }} />);
+        view.rerender(<TopicStudy moduleId="m-1" backHref="" live={{ ...full, selection: { pane: "material", start: { block: "b-3", offset: 0 }, end: { block: "b-3", offset: 8 } } }} />);
         expect(registry.get("teacher-material")!.ranges[0]!.toString()).toBe("Terceiro");
         view.rerender(<TopicStudy moduleId="m-1" backHref="" live={{ ...full, selection: null }} />);
         expect(registry.has("teacher-material")).toBe(false);
