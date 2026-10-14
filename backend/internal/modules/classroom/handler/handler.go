@@ -44,6 +44,7 @@ type Service interface {
 	StageBlank(sessionID uuid.UUID) bool
 	SetStageScroll(sessionID uuid.UUID, pane string, y float64)
 	SetStageScrollX(sessionID uuid.UUID, x float64)
+	SetTerminalScroll(sessionID uuid.UUID, terminal int, y float64)
 	SetStageSplit(sessionID uuid.UUID, ratio float64)
 	SetStageZoom(sessionID uuid.UUID, zoom float64)
 	SetStageSelection(sessionID uuid.UUID, selection json.RawMessage)
@@ -167,11 +168,16 @@ func myHand(entries []domain.HandRaiseEntry, student string) gin.H {
 }
 
 // stageViewJSON is how the teacher left the stage: the scroll of each pane (the slide sideways too), the divider (null while he has not
-// moved it), the zoom and the selected text (null while there is none) (SPEC-057).
+// moved it), the zoom, the selected text (null while there is none) and the scroll of each terminal that he scrolled, by its number as
+// the key ("1" to "3"), an empty object while none was (SPEC-057).
 func stageViewJSON(v service.StageView) gin.H {
+	terminals := make(map[string]float64, len(v.TerminalScroll))
+	for terminal, y := range v.TerminalScroll {
+		terminals[strconv.Itoa(terminal)] = y
+	}
 	return gin.H{
 		"slideScroll": v.SlideScroll, "slideScrollX": v.SlideScrollX, "materialScroll": v.MaterialScroll, "split": v.Split,
-		"zoom": v.Zoom, "selection": v.Selection,
+		"zoom": v.Zoom, "selection": v.Selection, "terminalScroll": terminals,
 	}
 }
 

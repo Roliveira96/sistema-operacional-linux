@@ -259,6 +259,12 @@ func ValidStageScroll(pane string, y float64) bool {
 	return (pane == PaneSlide || pane == PaneMaterial) && y >= 0 && y <= 1
 }
 
+// ValidTerminalScroll tells whether the scroll is of one of the three terminals of the lesson (the same ones of the selection of text) and
+// is a finite fraction from 0 to 1 of what that screen can scroll (SPEC-057 CA-23).
+func ValidTerminalScroll(terminal int, y float64) bool {
+	return terminal >= MinSelectionTerminal && terminal <= MaxSelectionTerminal && y >= 0 && y <= 1
+}
+
 // ValidStageScrollX tells whether the horizontal scroll is a finite fraction from 0 to 1 of a pane that has one: only the slide does.
 func ValidStageScrollX(pane string, x float64) bool { return pane == PaneSlide && x >= 0 && x <= 1 }
 

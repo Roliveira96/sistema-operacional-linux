@@ -59,8 +59,12 @@ type Rule struct {
 	Kind string
 	// Limited counts the message against the rate limit of its sender.
 	Limited bool
-	// Coalesce gives the viewers only the latest message of the type in each CoalesceEvery.
+	// Coalesce gives the viewers only the latest message of the type in each CoalesceEvery, or of each key when CoalesceKey is set.
 	Coalesce bool
+	// CoalesceKey, when set, tells what the latest message is the latest of: messages of the type with different keys keep a place of their
+	// own in the window, and only the ones with the same key are merged (the scroll of each pane and of each terminal). Without it, the type
+	// is the key.
+	CoalesceKey func(Message) string
 	// AllowWaiting lets a connection that is waiting to be admitted send the message; any other type from it is dropped.
 	AllowWaiting bool
 }
@@ -188,8 +192,8 @@ func (c *conn) deliver(msg Message) {
 	}
 }
 
-// coalesce keeps only the latest message of each type until the window ends.
-func (c *conn) coalesce(msg Message, every time.Duration) {
+// coalesce keeps only the latest message of each key until the window ends.
+func (c *conn) coalesce(key string, msg Message, every time.Duration) {
 	c.mu.Lock()
 	if c.closed {
 		c.mu.Unlock()
@@ -198,7 +202,7 @@ func (c *conn) coalesce(msg Message, every time.Duration) {
 	if c.coalesced == nil {
 		c.coalesced = map[string]Message{}
 	}
-	c.coalesced[msg.Type] = msg
+	c.coalesced[key] = msg
 	if c.timer == nil {
 		c.timer = time.AfterFunc(every, c.flushCoalesced)
 	}
@@ -210,13 +214,13 @@ func (c *conn) flushCoalesced() {
 	batch := c.coalesced
 	c.coalesced, c.timer = nil, nil
 	c.mu.Unlock()
-	types := make([]string, 0, len(batch))
-	for t := range batch {
-		types = append(types, t)
+	keys := make([]string, 0, len(batch))
+	for k := range batch {
+		keys = append(keys, k)
 	}
-	sort.Strings(types)
-	for _, t := range types {
-		c.deliver(batch[t])
+	sort.Strings(keys)
+	for _, k := range keys {
+		c.deliver(batch[k])
 	}
 }
 
@@ -456,12 +460,18 @@ func (h *Hub) Broadcast(roomID string, msg Message, except string) {
 // gets what: the queue of raised hands has the questions for the panel only). It follows the rule of the type like Broadcast, and the
 // connections that wait to be admitted are never asked and never get it.
 func (h *Hub) BroadcastTo(roomID string, msg Message, include func(Identity) bool) {
+	rule := h.cfg.Rules[msg.Type]
+	coalesces := rule.Coalesce && h.cfg.CoalesceEvery > 0
+	key := msg.Type // what the message is the latest of: its type, or the type and the key of the rule
+	if coalesces && rule.CoalesceKey != nil {
+		key += "|" + rule.CoalesceKey(msg)
+	}
 	for _, c := range h.members(roomID) {
 		if c.isWaiting() || !include(c.identity()) {
 			continue
 		}
-		if h.cfg.Rules[msg.Type].Coalesce && h.cfg.CoalesceEvery > 0 {
-			c.coalesce(msg, h.cfg.CoalesceEvery)
+		if coalesces {
+			c.coalesce(key, msg, h.cfg.CoalesceEvery)
 			continue
 		}
 		c.deliver(msg)

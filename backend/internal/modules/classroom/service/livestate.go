@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"sync"
 
 	"github.com/google/uuid"
@@ -31,6 +32,9 @@ type liveState struct {
 // also sideways), the divider of the module as the fraction of the width that the material takes (nil is the default of the layout), the
 // zoom (1 is 100%) and the text he selected (the last selection in its JSON form, nil for none). The server does not read the selection:
 // it was checked when it came in.
+//
+// TerminalScroll is the position of the history of each terminal (1 to 3) that the teacher scrolled, by the number of the terminal: only
+// the terminals that were scrolled are there, and the terminals of the lesson are the same through all of it, so it is never put back.
 type StageView struct {
 	SlideScroll    float64
 	SlideScrollX   float64
@@ -38,10 +42,13 @@ type StageView struct {
 	Split          *float64
 	Zoom           float64
 	Selection      json.RawMessage
+	TerminalScroll map[int]float64
 }
 
-// defaultStageView is the stage that nobody touched: at the top, no divider chosen, at 100%, nothing selected.
-func defaultStageView() StageView { return StageView{Zoom: domain.MinZoom} }
+// defaultStageView is the stage that nobody touched: at the top, no divider chosen, at 100%, nothing selected, no terminal scrolled.
+func defaultStageView() StageView {
+	return StageView{Zoom: domain.MinZoom, TerminalScroll: map[int]float64{}}
+}
 
 type liveStates struct {
 	mu    sync.Mutex
@@ -116,6 +123,16 @@ func (l *liveStates) setSplit(id uuid.UUID, ratio float64) {
 	l.mu.Unlock()
 }
 
+// setTerminalScroll keeps the position of one terminal; a terminal the lesson does not have changes nothing.
+func (l *liveStates) setTerminalScroll(id uuid.UUID, terminal int, y float64) {
+	if terminal < domain.MinSelectionTerminal || terminal > domain.MaxSelectionTerminal {
+		return
+	}
+	l.mu.Lock()
+	l.of(id).stage.TerminalScroll[terminal] = y
+	l.mu.Unlock()
+}
+
 func (l *liveStates) setScrollX(id uuid.UUID, x float64) {
 	l.mu.Lock()
 	l.of(id).stage.SlideScrollX = x
@@ -163,6 +180,7 @@ func (l *liveStates) stageView(id uuid.UUID) StageView {
 		view.Split = &ratio
 	}
 	view.Selection = bytes.Clone(view.Selection)
+	view.TerminalScroll = maps.Clone(view.TerminalScroll)
 	return view
 }
 

@@ -855,6 +855,13 @@ func (s *Service) SetStageSplit(sessionID uuid.UUID, ratio float64) {
 	s.live.setSplit(sessionID, ratio)
 }
 
+// SetTerminalScroll keeps how far the teacher scrolled the history of one terminal (1 to 3), for who comes in later: one position for
+// each terminal. A new slide or a new module does not put it back, since the terminals of the lesson are the same through all of it
+// (SPEC-057 CA-23). The caller checked it with domain.ValidTerminalScroll.
+func (s *Service) SetTerminalScroll(sessionID uuid.UUID, terminal int, y float64) {
+	s.live.setTerminalScroll(sessionID, terminal, y)
+}
+
 // SetStageScrollX keeps how far the teacher scrolled the slide sideways, which goes with its vertical scroll. The caller checked it with
 // domain.ValidStageScrollX.
 func (s *Service) SetStageScrollX(sessionID uuid.UUID, x float64) {

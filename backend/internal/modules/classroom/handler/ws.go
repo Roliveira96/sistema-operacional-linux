@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -83,7 +84,7 @@ func hubConfig() hub.Config {
 			typeCanvasDraw:     {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
 			typeTerminalScreen: {MaxBytes: 256 * kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			typeStageBlank:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter},
-			typeStageScroll:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
+			typeStageScroll:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true, CoalesceKey: scrollKey},
 			typeStageSplit:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			typeStageZoom:      {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			typeStageSelection: {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
@@ -112,6 +113,44 @@ type wsHandler struct{ h *Handler }
 func sessionOf(room string) uuid.UUID {
 	id, _ := uuid.Parse(room)
 	return id
+}
+
+// scrollData is the data of live:stage:scroll. Pointers tell a field that is missing from a 0.
+type scrollData struct {
+	Pane     *string  `json:"pane"`
+	Y        *float64 `json:"y"`
+	X        *float64 `json:"x"`
+	Terminal *int     `json:"terminal"`
+}
+
+// valid checks the message: a pane that has a scroll and a position from 0 to 1; the terminal pane names its terminal (1 to 3), and no
+// other pane takes one; only the slide has an x, from 0 to 1 (an x with another pane is rejected, not ignored). SPEC-057.
+func (d scrollData) valid() bool {
+	if d.Pane == nil || d.Y == nil {
+		return false
+	}
+	if *d.Pane == domain.PaneTerminal {
+		if d.Terminal == nil || !domain.ValidTerminalScroll(*d.Terminal, *d.Y) {
+			return false
+		}
+	} else if d.Terminal != nil || !domain.ValidStageScroll(*d.Pane, *d.Y) {
+		return false
+	}
+	return d.X == nil || domain.ValidStageScrollX(*d.Pane, *d.X)
+}
+
+// scrollKey is what a scroll message is the latest of in the window of the hub: its pane, and for the terminals the terminal too, so that
+// scrolling several of them at once does not lose the position of any.
+func scrollKey(msg hub.Message) string {
+	var d struct {
+		Pane     string `json:"pane"`
+		Terminal int    `json:"terminal"`
+	}
+	_ = json.Unmarshal(msg.Data, &d) // a message that does not read was rejected before it got here
+	if d.Pane == domain.PaneTerminal {
+		return d.Pane + strconv.Itoa(d.Terminal)
+	}
+	return d.Pane
 }
 
 // isObject tells whether the JSON value is an object (the caller already knows it is valid JSON).
@@ -317,25 +356,23 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 		svc.RememberTerminalScreen(session, d.Screen)
 		relay()
 	case typeStageScroll:
-		// pointers tell a missing field from a 0; the domain checks the pane and the range. Only the slide has x (the material is rejected
-		// with one, not ignored), and with no x the slide is at the left: the message says the whole position of the pane.
-		var d struct {
-			Pane *string  `json:"pane"`
-			Y    *float64 `json:"y"`
-			X    *float64 `json:"x"`
-		}
-		if err := json.Unmarshal(msg.Data, &d); err != nil || d.Pane == nil || d.Y == nil || !domain.ValidStageScroll(*d.Pane, *d.Y) ||
-			(d.X != nil && !domain.ValidStageScrollX(*d.Pane, *d.X)) {
-			w.reject(room, who, msg, errors.New("the message needs a known pane, a position from 0 to 1 and, for the slide only, an x from 0 to 1"))
+		var d scrollData
+		if err := json.Unmarshal(msg.Data, &d); err != nil || !d.valid() {
+			w.reject(room, who, msg, errors.New("the message needs a known pane, a position from 0 to 1, the terminal (1 to 3) for the terminal only and an x from 0 to 1 for the slide only"))
 			return
 		}
-		svc.SetStageScroll(session, *d.Pane, *d.Y)
-		if *d.Pane == domain.PaneSlide {
-			x := 0.0
+		switch *d.Pane {
+		case domain.PaneTerminal:
+			svc.SetTerminalScroll(session, *d.Terminal, *d.Y)
+		case domain.PaneSlide:
+			svc.SetStageScroll(session, *d.Pane, *d.Y)
+			x := 0.0 // with no x the slide is at the left: the message says the whole position of the pane
 			if d.X != nil {
 				x = *d.X
 			}
 			svc.SetStageScrollX(session, x)
+		default:
+			svc.SetStageScroll(session, *d.Pane, *d.Y)
 		}
 		relay()
 	case typeStageZoom:
