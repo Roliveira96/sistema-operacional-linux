@@ -93,4 +93,19 @@ describe("MeetingsPreview (SPEC-044)", () => {
     expect(day?.querySelector("[data-marker]")).not.toBeNull();
     expect(container.querySelector('[data-date="2026-10-13"] [data-holiday]')).toBeNull();
   });
+
+  // CA-21
+  it("marks the cell of a holiday day, to be highlighted in red", () => {
+    const { container } = render(
+      <MeetingsPreview
+        startDate="2026-10-05"
+        endDate="2026-10-31"
+        meetings={[monday]}
+        color="blue"
+        holidays={[{ id: "h-1", date: "2026-10-12", name: "Nossa Senhora Aparecida", scope: "NATIONAL", active: true }]}
+      />,
+    );
+    expect(container.querySelector('[data-date="2026-10-12"]')?.getAttribute("data-on-holiday")).toBe("true");
+    expect(container.querySelector('[data-date="2026-10-13"]')?.getAttribute("data-on-holiday")).toBeNull();
+  });
 });

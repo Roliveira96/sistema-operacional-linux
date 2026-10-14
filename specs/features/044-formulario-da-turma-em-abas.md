@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-044 |
-| **Status** | Implementada |
+| **Status** | Aprovada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (calendário real na configuração, Opção A) |
 | **Autor** | Aruna Architect |
@@ -132,6 +132,7 @@ Não se aplica nesta spec: nenhum endpoint muda.
 - [ ] **CA-18** (evento): QUANDO o docente seleciona um dia e escolhe incluir aula avulsa, O SISTEMA DEVE abrir o formulário, criar a aula nesse dia e recarregar o calendário.
 - [ ] **CA-19** (evento): QUANDO o docente aciona "Aplicar horários ao calendário", O SISTEMA DEVE salvar os encontros da turma e recarregar o calendário; SE houver mudança não aplicada, ENTÃO DEVE avisar que o calendário ainda mostra os horários salvos.
 - [ ] **CA-20** (ubíquo): O calendário da turma salva, na tela de configuração, NÃO DEVE mostrar botões de evento nem de período especial.
+- [ ] **CA-21** (estado): ENQUANTO um dia é feriado ou recesso, a célula desse dia, na prévia e no calendário da turma, DEVE ser destacada em vermelho (cor `danger` dos tokens), e o nome do feriado DEVE ficar contido na célula, sem alargar a grade nem quebrar o formulário.
 - [ ] **CA-13** (evento): QUANDO o docente muda a quantidade de aulas de um encontro, O SISTEMA DEVE ajustar o horário de fim para início mais 60 minutos por aula, sem passar das 23:59.
 - [ ] **CA-14** (ubíquo): Os horários padrão de um encontro novo DEVEM respeitar a regra de 60 minutos por aula (início 08:20 com 2 aulas termina às 10:20; o horário adicionado depois começa 20 minutos após o fim do anterior).
 - [ ] **CA-08** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens semânticos, nos temas claro e escuro.
@@ -162,6 +163,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
   - incluir aula avulsa no dia selecionado. Cobre CA-18.
   - "Aplicar horários ao calendário" salva os encontros e recarrega; aviso de mudança não aplicada. Cobre CA-19.
   - não há botões de evento nem de período. Cobre CA-20.
+- **Frontend (CA-21):** a célula de feriado recebe a marca `data-on-holiday` na prévia e no `ClassCalendar`. O destaque vermelho e a contenção do nome são estilo, conferidos no roteiro manual.
 - **Manual:** conferir as abas em 360 px de largura e nos dois temas; rodar `npm run lint`. Cobre CA-03 e CA-08.
 - **Cobertura:** acima de 80% no escopo da spec.
 
@@ -189,3 +191,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `Clas
 | 14/10/2026 | Implementador | Implementada: abas, prévia do calendário, regra de 60 minutos nos dois sentidos (CA-13, CA-14) e correção do salvamento dos horários (SPEC-042) |
 | 14/10/2026 | Aruna Architect | Tech Lead escolheu a Opção A: turma nova com prévia (agora com feriados) e turma salva com o calendário real (cancelar, ajustar, incluir aula avulsa); CA-15 a CA-20; volta a Aprovada |
 | 14/10/2026 | Implementador | Implementada a Opção A: feriados na prévia, calendário real na configuração (cancelar, ajustar, incluir aula avulsa) e botão Aplicar horários; testes alterados depois do vermelho: seleção de situação por rádio em `ClassSessionsCalendar.test.tsx` e o teste da tela de configuração, que passou a esperar o calendário real (CA-16) |
+| 14/10/2026 | Aruna Architect | Pedido do Tech Lead: dia de feriado em vermelho nos dois calendários e nome contido na célula (CA-21) |

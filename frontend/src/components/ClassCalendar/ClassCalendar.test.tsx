@@ -169,4 +169,11 @@ describe("ClassCalendar", () => {
     expect(within(panel).queryByRole("button", { name: "Incluir evento" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Selecionar período" })).toBeNull();
   });
+
+  // SPEC-044 CA-21: the day of a holiday is marked, to be highlighted in red
+  it("marks the cell of a holiday day", async () => {
+    setup();
+    expect((await screen.findByRole("button", { name: /^segunda-feira, 12 de outubro/ })).getAttribute("data-on-holiday")).toBe("true");
+    expect(dayButton(/^terça-feira, 13 de outubro/).getAttribute("data-on-holiday")).toBeNull();
+  });
 });
