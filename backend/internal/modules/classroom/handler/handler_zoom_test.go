@@ -281,7 +281,7 @@ func TestStageZoom_TheSnapshotsCarryTheCurrentZoomAndScrollX(t *testing.T) {
 		}
 	}
 	eventually(t, func() bool { return len(w.svc.keptZooms()) == 1 && len(w.svc.keptScrollXs()) == 1 })
-	want := `{"slideScroll":0.4,"slideScrollX":0.6,"materialScroll":0,"split":null,"zoom":1.5,"selection":null,"terminalScroll":{}}`
+	want := `{"slideScroll":0.4,"slideScrollX":0.6,"materialScroll":0,"split":null,"zoom":1.5,"selection":null,"terminalScroll":{},"fullscreen":false}`
 
 	assert.JSONEq(t, want, mustJSON(snapshotOf(t, w.dialView(t, "student", ""))["stageView"]), "a student who comes in later")
 	assert.JSONEq(t, want, mustJSON(snapshotOf(t, w.dialView(t, "teacher2", "panel"))["stageView"]), "the panel that opens later")
@@ -314,5 +314,5 @@ func TestStageZoom_TheAcceptedStudentGetsTheCurrentZoom(t *testing.T) {
 	require.Equal(t, "live:snapshot", snap.Type)
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(snap.Data, &body))
-	assert.JSONEq(t, `{"slideScroll":0.2,"slideScrollX":0.9,"materialScroll":0,"split":null,"zoom":1.75,"selection":null,"terminalScroll":{}}`, mustJSON(body["stageView"]))
+	assert.JSONEq(t, `{"slideScroll":0.2,"slideScrollX":0.9,"materialScroll":0,"split":null,"zoom":1.75,"selection":null,"terminalScroll":{},"fullscreen":false}`, mustJSON(body["stageView"]))
 }

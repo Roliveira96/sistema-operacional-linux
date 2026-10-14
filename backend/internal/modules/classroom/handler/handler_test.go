@@ -97,6 +97,9 @@ type fakeService struct {
 
 	// the scroll of each terminal the handler asked to keep, "1:0.25" (SPEC-057 CA-23)
 	terminalScrolls []string
+
+	// the full screen of the students the handler asked to keep, in order (SPEC-059)
+	fullscreens []bool
 }
 
 func (f *fakeService) record(s string) {
@@ -277,6 +280,20 @@ func (f *fakeService) SetTerminalScroll(_ uuid.UUID, terminal int, y float64) {
 		}
 	}
 	f.stage.TerminalScroll = next
+}
+
+// SetStageFullscreen keeps whether the teacher asked the students to go full screen.
+func (f *fakeService) SetStageFullscreen(_ uuid.UUID, on bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.fullscreens = append(f.fullscreens, on)
+	f.stage.Fullscreen = on
+}
+
+func (f *fakeService) keptFullscreens() []bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]bool(nil), f.fullscreens...)
 }
 
 func (f *fakeService) keptTerminalScrolls() []string {

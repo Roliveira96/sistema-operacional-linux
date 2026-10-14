@@ -24,7 +24,7 @@ const (
 
 // the view of a stage nobody touched: the scrolls at 0, no divider, 100%, no selection (the zoom, the horizontal scroll and the selection
 // came with CA-15 to CA-21)
-const noStageView = `{"slideScroll":0,"slideScrollX":0,"materialScroll":0,"split":null,"zoom":1,"selection":null,"terminalScroll":{}}`
+const noStageView = `{"slideScroll":0,"slideScrollX":0,"materialScroll":0,"split":null,"zoom":1,"selection":null,"terminalScroll":{},"fullscreen":false}`
 
 // stageFrame is a raw frame of a stage message with exactly size bytes, padded inside the data.
 func stageFrame(t *testing.T, typ, data string, size int) []byte {
@@ -327,7 +327,7 @@ func TestStageView_TheSnapshotsCarryTheCurrentView(t *testing.T) {
 		}
 	}
 	eventually(t, func() bool { return len(w.svc.keptScrolls()) == 3 && len(w.svc.keptSplits()) == 1 })
-	want := `{"slideScroll":0.45,"slideScrollX":0,"materialScroll":0.7,"split":0.35,"zoom":1,"selection":null,"terminalScroll":{}}`
+	want := `{"slideScroll":0.45,"slideScrollX":0,"materialScroll":0.7,"split":0.35,"zoom":1,"selection":null,"terminalScroll":{},"fullscreen":false}`
 
 	assert.JSONEq(t, want, mustJSON(snapshotOf(t, w.dialView(t, "student", ""))["stageView"]), "a student who comes in later")
 	assert.JSONEq(t, want, mustJSON(snapshotOf(t, w.dialView(t, "teacher2", "panel"))["stageView"]), "the panel that opens later")
@@ -362,7 +362,7 @@ func TestStageView_TheAcceptedStudentGetsTheCurrentView(t *testing.T) {
 	require.Equal(t, "live:snapshot", snap.Type)
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(snap.Data, &body))
-	assert.JSONEq(t, `{"slideScroll":0.2,"slideScrollX":0,"materialScroll":0.6,"split":0.3,"zoom":1,"selection":null,"terminalScroll":{}}`, mustJSON(body["stageView"]))
+	assert.JSONEq(t, `{"slideScroll":0.2,"slideScrollX":0,"materialScroll":0.6,"split":0.3,"zoom":1,"selection":null,"terminalScroll":{},"fullscreen":false}`, mustJSON(body["stageView"]))
 }
 
 // Covers SPEC-057 CA-05 (transport): the new slide and the new module reach everybody by their own messages, and the server invents no
