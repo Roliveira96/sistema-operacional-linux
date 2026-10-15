@@ -1,0 +1,21 @@
+// The button of the notices and, when the browser does not allow them, the reason as a text beside it (SPEC-064). In the strip of the student the text
+// sits by the button; in the side column of the teacher the button takes the line, as the one of the sound does, and the text goes under it.
+.toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.button {
+  flex: 1 1 auto;
+}
+
+.hint {
+  max-width: 18rem;
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-body);
+  color: var(--color-text-secondary);
+}

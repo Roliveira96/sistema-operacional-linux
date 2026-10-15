@@ -79,3 +79,11 @@ a {
 ::highlight(narration-spoken) {
   color: var(--color-text-secondary);
 }
+
+// The text the teacher selected, marked on the screen of the student (SPEC-057 CA-20): the material and the terminal in the same color. These rules are here
+// because the build renames the name inside ::highlight() of a CSS Module, and the browser registers the highlights with the plain names.
+::highlight(teacher-material),
+::highlight(teacher-terminal) {
+  background-color: var(--color-orange-line);
+  color: var(--color-text-primary);
+}

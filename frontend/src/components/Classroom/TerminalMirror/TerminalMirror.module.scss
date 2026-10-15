@@ -1,0 +1,40 @@
+// The terminal fills the pane of the stage, as on the study screen, so it is as tall for the teacher as for the student (SPEC-057).
+.view {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+// What the terminal says about itself is over the window and not in the flow, so nothing moves the window from where it is for the teacher
+// and for the student (SPEC-057 CA-22).
+.note {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-3);
+  z-index: 1;
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+// The stylesheet of the terminal comes from the engine and reads these variables; they are the ones the study screen maps from the design tokens.
+.window {
+  --terminal-fundo: var(--color-terminal-bg);
+  --terminal-texto: var(--color-terminal-text);
+  --laranja: var(--color-ubuntu-orange);
+  --fonte: var(--font-sans);
+  --fonte-codigo: var(--font-terminal);
+
+  flex: 1;
+
+  // The copy has no selection of its own: what is marked on it is what the teacher selected (SPEC-057).
+  user-select: none;
+  min-width: 0;
+  min-height: 12rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}

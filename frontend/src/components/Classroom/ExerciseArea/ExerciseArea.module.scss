@@ -1,0 +1,162 @@
+@use "@/styles/mixins" as mixins;
+
+// The area of the exercise is in the place of the stage, in the room and outside the fixed box of 1280 x 720, over the stage, which stays mounted
+// under it (SPEC-065 3.3). So it is in the full screen too, the stage of the others does not change, and the doubt (z-index 2) covers it.
+.area {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-4);
+  background-color: var(--color-bg);
+  color: var(--color-text-body);
+
+  // The student looks at the lesson: the area keeps its terminal open and is only out of sight.
+  &[hidden] {
+    display: none;
+  }
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.title {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+// The level is told by its word, and the color only repeats it.
+.level {
+  padding: 1px var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+
+  &[data-difficulty="EASY"] {
+    border-color: var(--color-success);
+    color: var(--color-success);
+  }
+
+  &[data-difficulty="HARD"] {
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+  }
+}
+
+.clock {
+  font-size: var(--font-size-md);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.progress {
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+// The statement and the terminal side by side, or one over the other in a narrow window.
+.body {
+  display: grid;
+  flex: 1;
+  grid-template-rows: minmax(0, 0.4fr) minmax(0, 0.6fr);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  min-height: 0;
+
+  @include mixins.from("lg") {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
+.statement {
+  min-height: 0;
+  padding: var(--space-4);
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+
+  @include mixins.focusable;
+}
+
+// What the server said of the machine of the student, and the end of the exercise: written words, so the color is not what tells it.
+.feedback {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+
+  strong {
+    margin-right: var(--space-2);
+    color: var(--color-success);
+  }
+
+  &[role="alert"] {
+    border-color: var(--color-danger-line);
+    background-color: var(--color-danger-subtle);
+    color: var(--color-danger);
+  }
+}
+
+.note,
+.error {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.note {
+  color: var(--color-text-secondary);
+}
+
+.error {
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
+
+// The end of the exercise, told over the stage that the student is back at, and closed by him.
+.toast {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100% - var(--space-8));
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-pop);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  transform: translateX(-50%);
+}
+
+.mine {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+}

@@ -34,6 +34,13 @@ type Identity struct {
 	UserID string
 	ConnID string
 	Role   Role
+	// Waiting is a connection that was not admitted to the room yet: it gets its snapshot and only the messages of the rules that
+	// AllowWaiting, and receives none of the broadcasts (SPEC-054 RN-01, RN-02).
+	Waiting bool
+	// Kind tells the windows of one controller apart (SPEC-055): a new controller connection replaces only the older one of its own kind.
+	Kind string
+	// Meta is an opaque label the application attaches to the connection (the hub does not read it).
+	Meta string
 }
 
 // Message is what travels on the wire: a type and its data.
@@ -48,10 +55,18 @@ type Rule struct {
 	MaxBytes int
 	// ControllerOnly drops the message when its sender is not the controller.
 	ControllerOnly bool
+	// Kind, when set, drops the message unless its sender connected with this kind (SPEC-055 RN-02).
+	Kind string
 	// Limited counts the message against the rate limit of its sender.
 	Limited bool
-	// Coalesce gives the viewers only the latest message of the type in each CoalesceEvery.
+	// Coalesce gives the viewers only the latest message of the type in each CoalesceEvery, or of each key when CoalesceKey is set.
 	Coalesce bool
+	// CoalesceKey, when set, tells what the latest message is the latest of: messages of the type with different keys keep a place of their
+	// own in the window, and only the ones with the same key are merged (the scroll of each pane and of each terminal). Without it, the type
+	// is the key.
+	CoalesceKey func(Message) string
+	// AllowWaiting lets a connection that is waiting to be admitted send the message; any other type from it is dropped.
+	AllowWaiting bool
 }
 
 // Config sets the limits of the hub.
@@ -59,6 +74,8 @@ type Config struct {
 	Rules map[string]Rule
 	// MaxViewers is how many viewers a room takes; 0 is no limit. The controller does not count.
 	MaxViewers int
+	// MaxWaiting is how many connections a room takes in the waiting room, apart from the viewers; 0 is no limit.
+	MaxWaiting int
 	// RatePerSecond is how many Limited messages an emitter may send in a second; 0 is no limit.
 	RatePerSecond int
 	// CoalesceEvery is the window of the Coalesce rules.
@@ -133,6 +150,10 @@ type conn struct {
 
 	mu        sync.Mutex
 	role      Role
+	waiting   bool
+	revoked   bool // replaced by a newer controller of its kind: passive, and not counted as a viewer
+	kind      string
+	meta      string
 	ready     bool
 	closed    bool
 	pending   []Message
@@ -147,7 +168,7 @@ type conn struct {
 func (c *conn) identity() Identity {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return Identity{UserID: c.userID, ConnID: c.id, Role: c.role}
+	return Identity{UserID: c.userID, ConnID: c.id, Role: c.role, Waiting: c.waiting, Kind: c.kind, Meta: c.meta}
 }
 
 // deliver queues a message for the connection. Before the snapshot went out, it waits behind it.
@@ -171,8 +192,8 @@ func (c *conn) deliver(msg Message) {
 	}
 }
 
-// coalesce keeps only the latest message of each type until the window ends.
-func (c *conn) coalesce(msg Message, every time.Duration) {
+// coalesce keeps only the latest message of each key until the window ends.
+func (c *conn) coalesce(key string, msg Message, every time.Duration) {
 	c.mu.Lock()
 	if c.closed {
 		c.mu.Unlock()
@@ -181,7 +202,7 @@ func (c *conn) coalesce(msg Message, every time.Duration) {
 	if c.coalesced == nil {
 		c.coalesced = map[string]Message{}
 	}
-	c.coalesced[msg.Type] = msg
+	c.coalesced[key] = msg
 	if c.timer == nil {
 		c.timer = time.AfterFunc(every, c.flushCoalesced)
 	}
@@ -193,13 +214,13 @@ func (c *conn) flushCoalesced() {
 	batch := c.coalesced
 	c.coalesced, c.timer = nil, nil
 	c.mu.Unlock()
-	types := make([]string, 0, len(batch))
-	for t := range batch {
-		types = append(types, t)
+	keys := make([]string, 0, len(batch))
+	for k := range batch {
+		keys = append(keys, k)
 	}
-	sort.Strings(types)
-	for _, t := range types {
-		c.deliver(batch[t])
+	sort.Strings(keys)
+	for _, k := range keys {
+		c.deliver(batch[k])
 	}
 }
 
@@ -248,7 +269,7 @@ func (c *conn) closeLocked() {
 
 // Serve runs a connection in the room until it ends. The first message it sends is the snapshot of the handler.
 func (h *Hub) Serve(ctx context.Context, ws *websocket.Conn, roomID string, who Identity) error {
-	c := &conn{id: uuid.NewString(), userID: who.UserID, ws: ws, out: make(chan Message, outBuffer), role: who.Role}
+	c := &conn{id: uuid.NewString(), userID: who.UserID, ws: ws, out: make(chan Message, outBuffer), role: who.Role, waiting: who.Waiting, kind: who.Kind, meta: who.Meta}
 	var replaced *conn
 
 	h.mu.Lock()
@@ -257,7 +278,14 @@ func (h *Hub) Serve(ctx context.Context, ws *websocket.Conn, roomID string, who 
 		r = &room{conns: map[string]*conn{}}
 		h.rooms[roomID] = r
 	}
-	if who.Role == Viewer && h.cfg.MaxViewers > 0 && r.count(Viewer) >= h.cfg.MaxViewers {
+	full := false
+	switch {
+	case who.Waiting:
+		full = h.cfg.MaxWaiting > 0 && r.countWaiting() >= h.cfg.MaxWaiting
+	case who.Role == Viewer:
+		full = h.cfg.MaxViewers > 0 && r.count(Viewer) >= h.cfg.MaxViewers
+	}
+	if full {
 		empty := len(r.conns) == 0
 		if empty {
 			delete(h.rooms, roomID)
@@ -270,8 +298,8 @@ func (h *Hub) Serve(ctx context.Context, ws *websocket.Conn, roomID string, who 
 	if who.Role == Controller {
 		for _, other := range r.conns {
 			other.mu.Lock()
-			if other.role == Controller {
-				other.role = Viewer
+			if other.role == Controller && other.kind == who.Kind {
+				other.role, other.revoked = Viewer, true
 				replaced = other
 			}
 			other.mu.Unlock()
@@ -303,8 +331,25 @@ func (h *Hub) Serve(ctx context.Context, ws *websocket.Conn, roomID string, who 
 func (r *room) count(role Role) int {
 	n := 0
 	for _, c := range r.conns {
+		if c.counts(role) {
+			n++
+		}
+	}
+	return n
+}
+
+// counts tells whether the connection is one of the admitted of the role: not waiting, and not a window that another one replaced.
+func (c *conn) counts(role Role) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.role == role && !c.waiting && !c.revoked
+}
+
+func (r *room) countWaiting() int {
+	n := 0
+	for _, c := range r.conns {
 		c.mu.Lock()
-		if c.role == role {
+		if c.waiting {
 			n++
 		}
 		c.mu.Unlock()
@@ -383,8 +428,12 @@ func (h *Hub) readLoop(ctx context.Context, roomID string, c *conn) {
 			h.h.Dropped(roomID, who, msg.Type, "unknown-type")
 		case len(raw) > rule.MaxBytes:
 			h.h.Dropped(roomID, who, msg.Type, "too-large")
+		case who.Waiting && !rule.AllowWaiting:
+			h.h.Dropped(roomID, who, msg.Type, "not-admitted")
 		case rule.ControllerOnly && who.Role != Controller:
 			h.h.Dropped(roomID, who, msg.Type, "not-controller")
+		case rule.Kind != "" && who.Kind != rule.Kind:
+			h.h.Dropped(roomID, who, msg.Type, "wrong-view")
 		case rule.Limited && !h.allow(c):
 			h.h.Dropped(roomID, who, msg.Type, "rate-limit")
 		default:
@@ -409,16 +458,94 @@ func (h *Hub) allow(c *conn) bool {
 // Broadcast sends the message to everyone in the room but the connection `except`. A message whose rule coalesces reaches each
 // connection as the latest of the window.
 func (h *Hub) Broadcast(roomID string, msg Message, except string) {
+	h.BroadcastTo(roomID, msg, func(who Identity) bool { return who.ConnID != except })
+}
+
+// BroadcastTo sends the message to the connections of the room that `include` picks, by their identity (the application decides who
+// gets what: the queue of raised hands has the questions for the panel only). It follows the rule of the type like Broadcast, and the
+// connections that wait to be admitted are never asked and never get it.
+func (h *Hub) BroadcastTo(roomID string, msg Message, include func(Identity) bool) {
+	rule := h.cfg.Rules[msg.Type]
+	coalesces := rule.Coalesce && h.cfg.CoalesceEvery > 0
+	key := msg.Type // what the message is the latest of: its type, or the type and the key of the rule
+	if coalesces && rule.CoalesceKey != nil {
+		key += "|" + rule.CoalesceKey(msg)
+	}
 	for _, c := range h.members(roomID) {
-		if c.id == except {
+		if c.isWaiting() || !include(c.identity()) {
 			continue
 		}
-		if h.cfg.Rules[msg.Type].Coalesce && h.cfg.CoalesceEvery > 0 {
-			c.coalesce(msg, h.cfg.CoalesceEvery)
+		if coalesces {
+			c.coalesce(key, msg, h.cfg.CoalesceEvery)
 			continue
 		}
 		c.deliver(msg)
 	}
+}
+
+func (c *conn) isWaiting() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.waiting
+}
+
+// SendTo sends the message to the connections of one user in the room, even when they are waiting.
+func (h *Hub) SendTo(roomID, userID string, msg Message) {
+	for _, c := range h.members(roomID) {
+		if c.userID == userID {
+			c.deliver(msg)
+		}
+	}
+}
+
+// SetWaiting admits (false) or sends back to the waiting room (true) the connections of one user. Whoever is admitted starts to
+// receive the broadcasts, so the application sends the snapshot with SendTo before it calls this.
+func (h *Hub) SetWaiting(roomID, userID string, waiting bool) {
+	for _, c := range h.members(roomID) {
+		if c.userID != userID {
+			continue
+		}
+		c.mu.Lock()
+		c.waiting = waiting
+		c.mu.Unlock()
+	}
+}
+
+// SendToController sends the message to the controller of the room, if there is one.
+func (h *Hub) SendToController(roomID string, msg Message) {
+	for _, c := range h.members(roomID) {
+		c.mu.Lock()
+		isController := c.role == Controller
+		c.mu.Unlock()
+		if isController {
+			c.deliver(msg)
+		}
+	}
+}
+
+// SendToKind sends the message to the controller connections of one kind (a window of the teacher), if there are any.
+func (h *Hub) SendToKind(roomID, kind string, msg Message) {
+	for _, c := range h.members(roomID) {
+		if c.isController(kind) {
+			c.deliver(msg)
+		}
+	}
+}
+
+// KindConnected tells whether the room has a live controller connection of the kind.
+func (h *Hub) KindConnected(roomID, kind string) bool {
+	for _, c := range h.members(roomID) {
+		if c.isController(kind) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *conn) isController(kind string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.role == Controller && c.kind == kind
 }
 
 func (h *Hub) members(roomID string) []*conn {
@@ -457,6 +584,21 @@ func (h *Hub) Online(roomID string) int {
 		return r.count(Viewer)
 	}
 	return 0
+}
+
+// OnlineUsers lists the users of the admitted viewers of the room, each one once (two tabs of a student are one student) and in order. The
+// waiting, the controller and a window that another one replaced are not in it. It is never nil.
+func (h *Hub) OnlineUsers(roomID string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, c := range h.members(roomID) {
+		if c.counts(Viewer) && !seen[c.userID] {
+			seen[c.userID] = true
+			out = append(out, c.userID)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ControllerConnected tells whether the room has its controller.

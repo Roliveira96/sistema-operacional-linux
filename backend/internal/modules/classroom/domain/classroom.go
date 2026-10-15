@@ -24,6 +24,11 @@ const (
 	HandPending  = "PENDING"
 	HandAnswered = "ANSWERED"
 	HandLowered  = "LOWERED"
+
+	// The situation of a student in the waiting room of a live classroom (SPEC-054).
+	AdmissionWaiting  = "WAITING"
+	AdmissionAdmitted = "ADMITTED"
+	AdmissionRemoved  = "REMOVED"
 )
 
 // Limits (SPEC-051 sections 3.2 and 5).
@@ -34,6 +39,7 @@ const (
 	MaxDeckBytes      = 25 << 20
 	MaxNoteLength     = 20000
 	MaxListedSessions = 50
+	MaxBlockIDLength  = 64
 
 	// SafetyNet is how long a room may stay open without its teacher before it is ended by itself (RN-03).
 	SafetyNet = 12 * time.Hour
@@ -62,6 +68,11 @@ var (
 	ErrNotesNotFound        = errors.New("no notes of the student in this live classroom")
 	ErrDeckLimit            = errors.New("the class already has 100 presentations")
 	ErrActiveSessionExists  = errors.New("the class already has a live classroom open")
+	ErrInvalidBlock         = errors.New("the block must have an id of up to 64 characters")
+	ErrNotAdmitted          = errors.New("the teacher has not admitted you to this live classroom")
+	ErrAdmissionNotFound    = errors.New("the student is not waiting in this live classroom")
+	ErrNoActiveSession      = errors.New("the class has no live classroom open")
+	ErrModuleNotSelected    = errors.New("the live classroom has not chosen a module yet")
 )
 
 // FieldError tells which field broke a rule. It matches the sentinel it wraps.
@@ -127,7 +138,8 @@ type SlideDeck struct {
 // TableName maps SlideDeck to its table.
 func (SlideDeck) TableName() string { return "slide_decks" }
 
-// LiveHandRaise is a request to speak of a student, in the queue of a room.
+// LiveHandRaise is a request to speak of a student, in the queue of a room. Question is the doubt that came with it (SPEC-058), nil for
+// none; it is erased when the hand goes down.
 type LiveHandRaise struct {
 	database.Model
 	SessionID   uuid.UUID
@@ -135,16 +147,19 @@ type LiveHandRaise struct {
 	Status      string
 	RequestedAt time.Time
 	ResolvedAt  *time.Time
+	Question    *string
 }
 
 // TableName maps LiveHandRaise to its table.
 func (LiveHandRaise) TableName() string { return "live_hand_raises" }
 
-// HandRaiseEntry is a pending hand of the queue, with the name of the student.
+// HandRaiseEntry is a pending hand of the queue, with the name of the student and his question ("" with none). Only the teacher reads the
+// question (SPEC-058).
 type HandRaiseEntry struct {
 	StudentID   uuid.UUID
 	Name        string
 	RequestedAt time.Time
+	Question    string
 }
 
 // LiveClassroomNote is the private notebook of a student in a room.
@@ -157,6 +172,28 @@ type LiveClassroomNote struct {
 
 // TableName maps LiveClassroomNote to its table.
 func (LiveClassroomNote) TableName() string { return "live_classroom_notes" }
+
+// LiveClassroomAdmission is the situation of a student in the waiting room of a room: the teacher decides, per room (SPEC-054 RN-02).
+type LiveClassroomAdmission struct {
+	database.Model
+	SessionID   uuid.UUID
+	StudentID   uuid.UUID
+	Status      string
+	RequestedAt time.Time
+	DecidedAt   *time.Time
+	DecidedBy   *uuid.UUID
+}
+
+// TableName maps LiveClassroomAdmission to its table.
+func (LiveClassroomAdmission) TableName() string { return "live_classroom_admissions" }
+
+// AdmissionEntry is a student of the waiting room or of the admitted, with his name.
+type AdmissionEntry struct {
+	StudentID   uuid.UUID
+	Name        string
+	Status      string
+	RequestedAt time.Time
+}
 
 // NormalizeTitle trims the title and checks its length (SPEC-051 section 5.1).
 func NormalizeTitle(raw string) (string, error) {
@@ -201,3 +238,38 @@ func ValidMode(mode string) bool { return mode == ModeSlides || mode == ModeModu
 func ValidSlide(slide, pageCount int) bool {
 	return slide >= 1 && (pageCount == 0 || slide <= pageCount)
 }
+
+// The panes of the stage that the teacher scrolls (the terminal is one more, for the selection of text), the range of the divider of the
+// module, as a fraction of the width of the stage that the material takes, and the range of the zoom, 1 being 100% (SPEC-057).
+const (
+	PaneSlide    = "slide"
+	PaneMaterial = "material"
+	PaneTerminal = "terminal"
+
+	MinSplit = 0.2
+	MaxSplit = 0.8
+
+	MinZoom = 1.0
+	MaxZoom = 2.0
+)
+
+// ValidStageScroll tells whether the scroll is of a pane of the stage and is a finite fraction from 0 to 1 of what can be scrolled.
+// NaN fails every comparison, so it is out; the range leaves out the infinities.
+func ValidStageScroll(pane string, y float64) bool {
+	return (pane == PaneSlide || pane == PaneMaterial) && y >= 0 && y <= 1
+}
+
+// ValidTerminalScroll tells whether the scroll is of one of the three terminals of the lesson (the same ones of the selection of text) and
+// is a finite fraction from 0 to 1 of what that screen can scroll (SPEC-057 CA-23).
+func ValidTerminalScroll(terminal int, y float64) bool {
+	return terminal >= MinSelectionTerminal && terminal <= MaxSelectionTerminal && y >= 0 && y <= 1
+}
+
+// ValidStageScrollX tells whether the horizontal scroll is a finite fraction from 0 to 1 of a pane that has one: only the slide does.
+func ValidStageScrollX(pane string, x float64) bool { return pane == PaneSlide && x >= 0 && x <= 1 }
+
+// ValidStageSplit tells whether the divider is a finite fraction of the width of the stage from MinSplit to MaxSplit.
+func ValidStageSplit(ratio float64) bool { return ratio >= MinSplit && ratio <= MaxSplit }
+
+// ValidStageZoom tells whether the zoom is a finite number from MinZoom to MaxZoom.
+func ValidStageZoom(zoom float64) bool { return zoom >= MinZoom && zoom <= MaxZoom }

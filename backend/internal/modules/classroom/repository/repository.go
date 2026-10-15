@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -177,53 +178,57 @@ func (r *Repository) FindDeck(ctx context.Context, id uuid.UUID) (domain.SlideDe
 
 // ---- raised hands ----
 
-// RaiseHand puts the student in the queue, unless a hand of his is already waiting.
-// ponytail: check and insert are two statements, so a double click could queue twice; a partial unique index when it shows up.
-func (r *Repository) RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID, now time.Time) error {
-	var n int64
+// RaiseHand puts the student in the queue with his question ("" is none, kept as null). A hand of his that is already waiting only takes
+// the new question: it stays one hand, in its place.
+// ponytail: update and insert are two statements, so a double click could queue twice; a partial unique index when it shows up.
+func (r *Repository) RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID, question string, now time.Time) error {
+	var text *string
+	if question != "" {
+		text = &question
+	}
 	conn := r.db.Conn(ctx)
-	if err := conn.Model(&domain.LiveHandRaise{}).Where("session_id = ? AND student_id = ? AND status = ?", sessionID, studentID, domain.HandPending).Count(&n).Error; err != nil {
-		return err
+	waiting := conn.Model(&domain.LiveHandRaise{}).Where("session_id = ? AND student_id = ? AND status = ?", sessionID, studentID, domain.HandPending).
+		Update("question", text)
+	if waiting.Error != nil || waiting.RowsAffected > 0 {
+		return waiting.Error
 	}
-	if n > 0 {
-		return nil
-	}
-	return conn.Create(&domain.LiveHandRaise{SessionID: sessionID, StudentID: studentID, Status: domain.HandPending, RequestedAt: now}).Error
+	return conn.Create(&domain.LiveHandRaise{SessionID: sessionID, StudentID: studentID, Status: domain.HandPending, RequestedAt: now, Question: text}).Error
 }
 
 type handRow struct {
 	StudentID   uuid.UUID `gorm:"column:student_id"`
 	Name        string    `gorm:"column:name"`
 	RequestedAt time.Time `gorm:"column:requested_at"`
+	Question    string    `gorm:"column:question"`
 }
 
-// ListHandRaises returns the waiting hands, first in first served, with the name of each student.
+// ListHandRaises returns the waiting hands, first in first served, with the name of each student and his question ("" with none).
 func (r *Repository) ListHandRaises(ctx context.Context, sessionID uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	var rows []handRow
 	err := r.db.Conn(ctx).Table("live_hand_raises h").
-		Select("h.student_id, COALESCE(u.name, u.email) AS name, h.requested_at").
+		Select("h.student_id, COALESCE(u.name, u.email) AS name, h.requested_at, COALESCE(h.question, '') AS question").
 		Joins("INNER JOIN users u ON u.id = h.student_id").
 		Where("h.session_id = ? AND h.status = ? AND h.deleted_at IS NULL", sessionID, domain.HandPending).
 		Order("h.requested_at, h.id").Scan(&rows).Error
 	out := make([]domain.HandRaiseEntry, len(rows))
 	for i, row := range rows {
-		out[i] = domain.HandRaiseEntry{StudentID: row.StudentID, Name: row.Name, RequestedAt: row.RequestedAt}
+		out[i] = domain.HandRaiseEntry{StudentID: row.StudentID, Name: row.Name, RequestedAt: row.RequestedAt, Question: row.Question}
 	}
 	return out, err
 }
 
-// ResolveHand closes the waiting hand of the student with the status (answered or lowered).
+// ResolveHand closes the waiting hand of the student with the status (answered or lowered), and erases his question.
 func (r *Repository) ResolveHand(ctx context.Context, sessionID, studentID uuid.UUID, status string, now time.Time) error {
 	return r.db.Conn(ctx).Model(&domain.LiveHandRaise{}).
 		Where("session_id = ? AND student_id = ? AND status = ?", sessionID, studentID, domain.HandPending).
-		Updates(map[string]any{"status": status, "resolved_at": now}).Error
+		Updates(map[string]any{"status": status, "resolved_at": now, "question": nil}).Error
 }
 
-// ResolveAllHands lowers every waiting hand of the room.
+// ResolveAllHands lowers every waiting hand of the room, and erases their questions.
 func (r *Repository) ResolveAllHands(ctx context.Context, sessionID uuid.UUID, now time.Time) error {
 	return r.db.Conn(ctx).Model(&domain.LiveHandRaise{}).
 		Where("session_id = ? AND status = ?", sessionID, domain.HandPending).
-		Updates(map[string]any{"status": domain.HandLowered, "resolved_at": now}).Error
+		Updates(map[string]any{"status": domain.HandLowered, "resolved_at": now, "question": nil}).Error
 }
 
 // ---- notes ----
@@ -252,4 +257,96 @@ func (r *Repository) FindNote(ctx context.Context, sessionID, studentID uuid.UUI
 	var note domain.LiveClassroomNote
 	err := r.db.Conn(ctx).Where("session_id = ? AND student_id = ?", sessionID, studentID).First(&note).Error
 	return note, notFound(err, domain.ErrNotesNotFound)
+}
+
+// ---- chat of the lesson (SPEC-063) ----
+
+// CreateChatMessage inserts a message of the chat. The room, the sender and the student exist, and the rules of who writes where hold,
+// by the constraints of the table.
+func (r *Repository) CreateChatMessage(ctx context.Context, m *domain.LiveChatMessage) error {
+	return r.db.Conn(ctx).Create(m).Error
+}
+
+// ListChatMessages returns the last `limit` messages of the room, oldest first. With no student it is the panel's reading, every message;
+// with one, it is that student's: the messages for everybody and the ones of his own conversation.
+func (r *Repository) ListChatMessages(ctx context.Context, sessionID uuid.UUID, student *uuid.UUID, limit int) ([]domain.LiveChatMessage, error) {
+	query := r.db.Conn(ctx).Where("session_id = ?", sessionID)
+	if student != nil {
+		query = query.Where("(student_id IS NULL OR student_id = ?)", *student)
+	}
+	var out []domain.LiveChatMessage
+	if err := query.Order("created_at DESC, id DESC").Limit(limit).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	slices.Reverse(out) // read newest first so that the limit keeps the last ones; the caller wants them oldest first
+	return out, nil
+}
+
+// ---- waiting room (SPEC-054) ----
+
+// FindAdmission returns the situation of the student in the room, or ErrAdmissionNotFound.
+func (r *Repository) FindAdmission(ctx context.Context, sessionID, studentID uuid.UUID) (domain.LiveClassroomAdmission, error) {
+	var a domain.LiveClassroomAdmission
+	err := r.db.Conn(ctx).Where("session_id = ? AND student_id = ?", sessionID, studentID).First(&a).Error
+	return a, notFound(err, domain.ErrAdmissionNotFound)
+}
+
+// UpsertAdmission sets the situation of the student in the room: it creates the row the first time and changes it after. Waiting
+// puts the student at the end of the line and clears the decision; any other status records who decided and when.
+func (r *Repository) UpsertAdmission(ctx context.Context, sessionID, studentID uuid.UUID, status string, now time.Time, decidedBy *uuid.UUID) (domain.LiveClassroomAdmission, error) {
+	var a domain.LiveClassroomAdmission
+	err := r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
+		conn := r.db.Conn(txCtx)
+		err := conn.Where("session_id = ? AND student_id = ?", sessionID, studentID).First(&a).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			a = domain.LiveClassroomAdmission{SessionID: sessionID, StudentID: studentID, RequestedAt: now}
+		} else if err != nil {
+			return err
+		}
+		a.Status = status
+		if status == domain.AdmissionWaiting {
+			a.RequestedAt, a.DecidedAt, a.DecidedBy = now, nil, nil
+		} else {
+			a.DecidedAt, a.DecidedBy = &now, decidedBy
+		}
+		return conn.Save(&a).Error
+	})
+	return a, err
+}
+
+type admissionRow struct {
+	StudentID   uuid.UUID `gorm:"column:student_id"`
+	Name        string    `gorm:"column:name"`
+	Status      string    `gorm:"column:status"`
+	RequestedAt time.Time `gorm:"column:requested_at"`
+}
+
+// ListAdmissions returns who waits and who was admitted, in the order of the request, with the name of each student. The removed are left out.
+func (r *Repository) ListAdmissions(ctx context.Context, sessionID uuid.UUID) ([]domain.AdmissionEntry, error) {
+	var rows []admissionRow
+	err := r.db.Conn(ctx).Table("live_classroom_admissions a").
+		Select("a.student_id, COALESCE(u.name, u.email) AS name, a.status, a.requested_at").
+		Joins("INNER JOIN users u ON u.id = a.student_id").
+		Where("a.session_id = ? AND a.status IN ? AND a.deleted_at IS NULL", sessionID, []string{domain.AdmissionWaiting, domain.AdmissionAdmitted}).
+		Order("a.requested_at, a.id").Scan(&rows).Error
+	out := make([]domain.AdmissionEntry, len(rows))
+	for i, row := range rows {
+		out[i] = domain.AdmissionEntry{StudentID: row.StudentID, Name: row.Name, Status: row.Status, RequestedAt: row.RequestedAt}
+	}
+	return out, err
+}
+
+// AdmitAllWaiting admits every student who waits and returns who they are.
+func (r *Repository) AdmitAllWaiting(ctx context.Context, sessionID uuid.UUID, now time.Time, decidedBy *uuid.UUID) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	err := r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
+		conn := r.db.Conn(txCtx)
+		if err := conn.Model(&domain.LiveClassroomAdmission{}).Where("session_id = ? AND status = ?", sessionID, domain.AdmissionWaiting).
+			Pluck("student_id", &ids).Error; err != nil || len(ids) == 0 {
+			return err
+		}
+		return conn.Model(&domain.LiveClassroomAdmission{}).Where("session_id = ? AND student_id IN ?", sessionID, ids).
+			Updates(map[string]any{"status": domain.AdmissionAdmitted, "decided_at": now, "decided_by": decidedBy}).Error
+	})
+	return ids, err
 }

@@ -166,9 +166,9 @@ func TestHandRaises(t *testing.T) {
 	s := e.session(e.class.ID, e.now)
 	require.NoError(t, e.repo.CreateSession(e.ctx, &s))
 
-	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, bruno.ID, e.now.Add(time.Second)))
-	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, e.student.ID, e.now.Add(2*time.Second)))
-	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, bruno.ID, e.now.Add(3*time.Second)), "again: nothing new")
+	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, bruno.ID, "", e.now.Add(time.Second)))
+	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, e.student.ID, "", e.now.Add(2*time.Second)))
+	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, bruno.ID, "", e.now.Add(3*time.Second)), "again: nothing new")
 
 	queue, err := e.repo.ListHandRaises(e.ctx, s.ID)
 	require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestHandRaises(t *testing.T) {
 	require.Len(t, queue, 1)
 	assert.Equal(t, "Ana", queue[0].Name)
 
-	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, bruno.ID, e.now.Add(2*time.Minute)))
+	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, bruno.ID, "", e.now.Add(2*time.Minute)))
 	queue, _ = e.repo.ListHandRaises(e.ctx, s.ID)
 	assert.Equal(t, []string{"Ana", "Bruno"}, []string{queue[0].Name, queue[1].Name}, "Bruno is at the end now")
 
@@ -234,7 +234,7 @@ func TestSoftDeleteKeepsNotesAndHandRaises(t *testing.T) {
 	require.NoError(t, e.repo.CreateSession(e.ctx, &s))
 	_, err := e.repo.SaveNote(e.ctx, s.ID, e.student.ID, "guardar")
 	require.NoError(t, err)
-	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, e.student.ID, e.now))
+	require.NoError(t, e.repo.RaiseHand(e.ctx, s.ID, e.student.ID, "", e.now))
 
 	require.NoError(t, e.db.Conn(e.ctx).Delete(&domain.LiveClassroomSession{}, "id = ?", s.ID).Error)
 	_, err = e.repo.FindSession(e.ctx, s.ID)

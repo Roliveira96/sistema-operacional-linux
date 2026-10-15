@@ -1,0 +1,129 @@
+// The presentation window: the stage fills the screen, over the menus of the signed-in area (SPEC-055 section 3.1).
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  color: var(--color-text-body);
+}
+
+// The room of the fixed stage: all of the window, with the dark of the theme where the stage of 1920 x 1080 does not reach (SPEC-057).
+.content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.notice {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--color-overlay);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  transform: translateX(-50%);
+}
+
+.link {
+  color: var(--color-accent);
+}
+
+// The connection that dropped: small, at the corner, so it does not get in front of the class.
+.connection {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+}
+
+.toolbar {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 50%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  max-width: 95%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-overlay);
+  transform: translateX(-50%);
+}
+
+.tip {
+  position: absolute;
+  bottom: var(--space-12, 4rem);
+  left: 50%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 90%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  transform: translateX(-50%);
+}
+
+.dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  transform: translate(-50%, -50%);
+}
+
+.dialogTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.keys {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  kbd {
+    display: inline-block;
+    min-width: 2rem;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-sunken);
+    font-family: var(--font-mono);
+    text-align: center;
+  }
+}
+
+// The state of the request for the full screen of the students, beside its button (SPEC-059).
+.state {
+  align-self: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}

@@ -57,6 +57,36 @@ describe("ClassSettingsPage", () => {
     });
   });
 
+  it("submits update with changed courseCode and semester", async () => {
+    vi.spyOn(classService, "getClass").mockResolvedValueOnce(mockClass);
+    const updateSpy = vi.spyOn(classService, "updateClass").mockResolvedValueOnce(mockClass);
+
+    render(<ClassSettingsPage params={Promise.resolve({ id: "class-123" })} />);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("SO34E")).toBeDefined();
+    });
+
+    const codeInput = screen.getByDisplayValue("SO34E");
+    fireEvent.change(codeInput, { target: { value: "SO35F" } });
+
+    const semesterInput = screen.getByDisplayValue("2026/2");
+    fireEvent.change(semesterInput, { target: { value: "2027/1" } });
+
+    fireEvent.click(screen.getByText("Salvar Alterações"));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledWith(
+        "class-123",
+        expect.objectContaining({
+          courseCode: "SO35F",
+          semester: "2027/1",
+        }),
+      );
+      expect(pushMock).toHaveBeenCalledWith("/app/classes");
+    });
+  });
+
   // SPEC-042: the form of a saved class starts from its meetings and saves them again.
   it("loads the saved meetings into the form and saves the changed ones", async () => {
     vi.spyOn(classService, "getClass").mockResolvedValueOnce(mockClass);

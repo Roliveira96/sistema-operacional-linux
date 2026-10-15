@@ -61,6 +61,15 @@ describe("classroomService", () => {
     expect((await service.getNotes("c-1", "s-1")).content).toBe("abc");
     expect(client.get).toHaveBeenLastCalledWith("/classes/c-1/live/sessions/s-1/notes");
   });
+
+  // SPEC-065: the conference of the exercise of the live class, on the server
+  it("sends the state of the machine of the student to be conferred, and gives back the verdict", async () => {
+    vi.mocked(client.post).mockResolvedValueOnce({ passed: true, completedAt: "2026-10-14T10:01:00Z", elapsedSeconds: 60, points: 12 });
+    const snapshot = { formato: "exame-so/maquina", versao: 1 };
+    const verdict = await service.submitExercise("c-1", "r-1", snapshot);
+    expect(client.post).toHaveBeenCalledWith("/classes/c-1/live/exercise/submit", { runId: "r-1", snapshot });
+    expect(verdict).toEqual({ passed: true, completedAt: "2026-10-14T10:01:00Z", elapsedSeconds: 60, points: 12 });
+  });
 });
 
 class FakeSocket {
@@ -88,6 +97,16 @@ describe("live socket", () => {
     expect(liveSocketUrl("c-1", { protocol: "https:", host: "aulas.exemplo.br" })).toBe("wss://aulas.exemplo.br/api/v1/classes/c-1/live/ws");
   });
 
+  // SPEC-055 RN-01: the window of the teacher goes in the address
+  it("tells the window of the teacher in the address, and only when there is one", () => {
+    const where = { protocol: "http:", host: "localhost:3010" };
+    expect(liveSocketUrl("c-1", where, "presenter")).toBe("ws://localhost:3010/api/v1/classes/c-1/live/ws?view=presenter");
+    expect(liveSocketUrl("c-1", where, "panel")).toBe("ws://localhost:3010/api/v1/classes/c-1/live/ws?view=panel");
+    expect(liveSocketUrl("c-1", where)).toBe("ws://localhost:3010/api/v1/classes/c-1/live/ws");
+    openLiveSocket("c-1", { onOpen: vi.fn(), onMessage: vi.fn(), onClose: vi.fn() }, (url) => new FakeSocket(url) as unknown as WebSocket, "presenter");
+    expect(FakeSocket.last.url).toContain("/live/ws?view=presenter");
+  });
+
   it("sends and receives messages as { type, data }", () => {
     const handlers = { onOpen: vi.fn(), onMessage: vi.fn(), onClose: vi.fn() };
     const socket = openLiveSocket("c-1", handlers, (url) => new FakeSocket(url) as unknown as WebSocket);
@@ -113,5 +132,14 @@ describe("live socket", () => {
     const socket = openLiveSocket("c-1", { onOpen: vi.fn(), onMessage: vi.fn(), onClose: vi.fn() }, (url) => new FakeSocket(url) as unknown as WebSocket);
     socket.send("live:hand:raise", {});
     expect(FakeSocket.last.sent).toEqual([]);
+  });
+
+  // SPEC-054, section 5: the module of the room, for the teacher and for the admitted student
+  it("reads the module of the room, with its blocks and the first machine of its terminal", async () => {
+    const http: HttpClient = { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
+    const module_ = { moduleId: "m-1", title: "Permissões", blocks: [], scenario: { n: 1 } };
+    vi.mocked(http.get).mockResolvedValueOnce(module_);
+    expect(await createClassroomService(http).getLiveModule("c-1")).toEqual(module_);
+    expect(http.get).toHaveBeenCalledWith("/classes/c-1/live/module");
   });
 });

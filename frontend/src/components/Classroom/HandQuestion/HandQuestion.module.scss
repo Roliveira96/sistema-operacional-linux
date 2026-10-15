@@ -1,0 +1,44 @@
+@use "@/styles/mixins" as mixins;
+
+// The doubt of the raised hand, in the strip of the student: one line, so the strip keeps its height and nothing is over the stage (SPEC-058).
+.question {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.field {
+  flex: 0 1 18rem;
+  min-width: 8rem;
+  height: 2rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+
+  @include mixins.focusable;
+
+  &::placeholder {
+    color: var(--color-text-secondary);
+  }
+}
+
+.count {
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.sent {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+  white-space: nowrap;
+}

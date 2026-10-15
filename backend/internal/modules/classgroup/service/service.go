@@ -63,6 +63,8 @@ type CreateClassInput struct {
 // UpdateClassInput defines parameters for updating an existing class.
 type UpdateClassInput struct {
 	Name                    *string
+	CourseCode              *string
+	Semester                *string
 	Summary                 *string
 	Color                   *string
 	Syllabus                *string
@@ -304,6 +306,12 @@ func (s *Service) UpdateClass(ctx context.Context, teacherID, classID uuid.UUID,
 
 	if input.Name != nil {
 		class.Name = strings.TrimSpace(*input.Name)
+	}
+	if input.CourseCode != nil {
+		class.CourseCode = strings.TrimSpace(*input.CourseCode)
+	}
+	if input.Semester != nil {
+		class.Semester = strings.TrimSpace(*input.Semester)
 	}
 	if input.Color != nil {
 		color, err := domain.NormalizeColor(*input.Color)

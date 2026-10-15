@@ -1,5 +1,6 @@
 @use "@/styles/mixins" as mixins;
 
+// The room of a student who waits, or whose class ended: a page of the signed-in area.
 .room {
   display: flex;
   flex-direction: column;
@@ -35,46 +36,7 @@
   font-size: var(--font-size-sm);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
-}
-
-.modes {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.status {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-sunken);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.error {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background-color: var(--color-danger-subtle);
-  color: var(--color-danger);
-  font-size: var(--font-size-sm);
-}
-
-.body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-
-  @include mixins.from("lg") {
-    &.withSide {
-      grid-template-columns: minmax(0, 1fr) 20rem;
-    }
-  }
-}
-
-.stage {
-  min-width: 0;
+  white-space: nowrap;
 }
 
 .ended {
@@ -92,4 +54,184 @@
   font-weight: var(--font-weight-semibold);
 
   @include mixins.focusable;
+}
+
+// The live room of the student, in the style of a video call (SPEC-057 CA-13): it is the window, over the menus of the signed-in area, and it holds
+// only the stage and a strip of controls.
+.live {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  color: var(--color-text-body);
+}
+
+// Focus mode, when the teacher asks for the full screen (SPEC-059): the stage has the whole window, over the menu and the header of the platform, whatever
+// level they are at (the bar of the signed-in area is at 100). The strip stays.
+.live[data-focus="true"] {
+  z-index: 1000;
+}
+
+// The stage and, when the notes are open, their column: side by side, taking all the room the strip leaves.
+.body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+// The room the fixed stage is fit into: all that is left of the width, and the whole height. The stage is the same for everybody, only smaller or
+// bigger, with the dark of the theme where it does not fill the room.
+.stage {
+  // The modal of the doubt covers it, inside it, so it is in the full screen too (SPEC-062).
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+// The notes or the conversation beside the stage, not over it: the stage is fit to what is left.
+.side {
+  display: flex;
+  flex: 0 0 20rem;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-4);
+  overflow-y: auto;
+  border-left: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+// The strip of controls: fixed at the bottom, in the flow under the stage, so it never covers it.
+.controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 3.5rem;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.info,
+.leave {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+// What does not fit beside the buttons is cut, not laid over them (the buttons take what they need when the hand is up, SPEC-058).
+.info {
+  overflow: hidden;
+}
+
+.leave {
+  justify-content: flex-end;
+}
+
+.name {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The buttons, and the doubt of the raised hand (SPEC-058): they give way before the title and wrap in a narrow window, so the strip never runs over.
+.actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+// The loss of the connection, told in the strip: the stage is the same for the student as for the teacher, so it is not told in the stage.
+.lost {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-danger);
+  white-space: nowrap;
+}
+
+// The button of one click that goes into the full screen the teacher asked for: it pulses until the student is in it, and does not for who asks for less motion.
+.controls [data-attention="true"] {
+  animation: attention-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes attention-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--color-accent-glow);
+  }
+
+  50% {
+    box-shadow: 0 0 0 0.5rem transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .controls [data-attention="true"] {
+    animation: none;
+  }
+}
+
+// The number of new messages of the teacher on the button of the conversation: it is a text, so the color is not what tells it.
+.badge {
+  display: inline-block;
+  min-width: 1.25rem;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.25rem;
+  text-align: center;
+}
+
+// The time left of the exercise in the strip, which the student sees whichever he is looking at, the exercise or the lesson (SPEC-065).
+.exerciseClock {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.handState {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.handUp {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-warning);
+  white-space: nowrap;
+}
+
+// What the stage tells about itself: it is drawn in the stage, so it is part of it and covers nothing else.
+.notice {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--color-overlay);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  transform: translateX(-50%);
 }

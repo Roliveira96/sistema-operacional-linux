@@ -35,15 +35,24 @@ type fakeRepo struct {
 	decks    map[uuid.UUID]domain.SlideDeck
 	hands    []handRow
 	notes    map[[2]uuid.UUID]domain.LiveClassroomNote
+	// admissions are the rows of the waiting room, by (session, student) (SPEC-054).
+	admissions map[[2]uuid.UUID]*domain.LiveClassroomAdmission
 
 	// race makes the next CreateSession lose to a session that another request just created.
 	race bool
+	// raises counts the calls of RaiseHand, to tell that a refused question never got to the repository (SPEC-058).
+	raises int
+	// chat is the messages of the chat of the lesson, in the order they were saved (SPEC-063).
+	chat []domain.LiveChatMessage
+	// exercise is the rounds and the results of the exercise of the lesson (SPEC-065).
+	exercise exerciseStore
 }
 
 type handRow struct {
 	session, student uuid.UUID
 	status           string
 	at               time.Time
+	question         string // SPEC-058: the doubt that came with the hand; closing the hand erases it
 }
 
 func newRepo() *fakeRepo {
@@ -51,7 +60,7 @@ func newRepo() *fakeRepo {
 		classes: map[uuid.UUID]service.ClassInfo{}, students: map[uuid.UUID]map[uuid.UUID]bool{}, studentNames: map[uuid.UUID]string{},
 		classSessions: map[uuid.UUID]uuid.UUID{}, modules: map[uuid.UUID]bool{},
 		sessions: map[uuid.UUID]domain.LiveClassroomSession{}, decks: map[uuid.UUID]domain.SlideDeck{},
-		notes: map[[2]uuid.UUID]domain.LiveClassroomNote{},
+		notes: map[[2]uuid.UUID]domain.LiveClassroomNote{}, admissions: map[[2]uuid.UUID]*domain.LiveClassroomAdmission{},
 	}
 }
 
@@ -163,6 +172,7 @@ func (f *fakeRepo) CountDecks(_ context.Context, classID uuid.UUID) (int64, erro
 	}
 	return n, nil
 }
+
 // ListDecks lists the decks of the class, newest first (SPEC-053).
 func (f *fakeRepo) ListDecks(_ context.Context, classID uuid.UUID) ([]domain.SlideDeck, error) {
 	out := []domain.SlideDeck{}
@@ -189,20 +199,23 @@ func (f *fakeRepo) FindDeck(_ context.Context, id uuid.UUID) (domain.SlideDeck, 
 	return d, nil
 }
 
-func (f *fakeRepo) RaiseHand(_ context.Context, session, student uuid.UUID, now time.Time) error {
-	for _, h := range f.hands {
+// RaiseHand queues the hand with its question; a hand that is already up only takes the new question, and keeps its place (SPEC-058).
+func (f *fakeRepo) RaiseHand(_ context.Context, session, student uuid.UUID, question string, now time.Time) error {
+	f.raises++
+	for i, h := range f.hands {
 		if h.session == session && h.student == student && h.status == domain.HandPending {
+			f.hands[i].question = question
 			return nil
 		}
 	}
-	f.hands = append(f.hands, handRow{session, student, domain.HandPending, now})
+	f.hands = append(f.hands, handRow{session, student, domain.HandPending, now, question})
 	return nil
 }
 func (f *fakeRepo) ListHandRaises(_ context.Context, session uuid.UUID) ([]domain.HandRaiseEntry, error) {
 	var out []domain.HandRaiseEntry
 	for _, h := range f.hands {
 		if h.session == session && h.status == domain.HandPending {
-			out = append(out, domain.HandRaiseEntry{StudentID: h.student, Name: f.studentNames[h.student], RequestedAt: h.at})
+			out = append(out, domain.HandRaiseEntry{StudentID: h.student, Name: f.studentNames[h.student], RequestedAt: h.at, Question: h.question})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].RequestedAt.Before(out[j].RequestedAt) })
@@ -211,7 +224,7 @@ func (f *fakeRepo) ListHandRaises(_ context.Context, session uuid.UUID) ([]domai
 func (f *fakeRepo) ResolveHand(_ context.Context, session, student uuid.UUID, status string, _ time.Time) error {
 	for i, h := range f.hands {
 		if h.session == session && h.student == student && h.status == domain.HandPending {
-			f.hands[i].status = status
+			f.hands[i].status, f.hands[i].question = status, ""
 		}
 	}
 	return nil
@@ -219,7 +232,7 @@ func (f *fakeRepo) ResolveHand(_ context.Context, session, student uuid.UUID, st
 func (f *fakeRepo) ResolveAllHands(_ context.Context, session uuid.UUID, _ time.Time) error {
 	for i, h := range f.hands {
 		if h.session == session && h.status == domain.HandPending {
-			f.hands[i].status = domain.HandLowered
+			f.hands[i].status, f.hands[i].question = domain.HandLowered, ""
 		}
 	}
 	return nil
@@ -567,9 +580,9 @@ func TestActiveSession_ReturnsSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, w.svc.ChangeSlide(ctx, s.ID, 4))
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"path":[1,2]}`))
-	w.svc.RememberTerminalInput(s.ID, json.RawMessage(`{"line":"ls -"}`))
-	w.svc.RememberTerminalSync(s.ID, json.RawMessage(`{"terminal":1,"line":"ls","output":"a b","state":{"fs":1}}`))
-	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
+	w.svc.RememberTerminalScreen(s.ID, json.RawMessage(`{"tag":"div","children":["$ ls"]}`))
+	w.admit(s.ID, w.student.UserID)
+	_, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID, "")
 	require.NoError(t, err)
 
 	for _, who := range []service.Actor{w.student, w.teacher, w.admin} {
@@ -581,9 +594,7 @@ func TestActiveSession_ReturnsSnapshot(t *testing.T) {
 		require.NotNil(t, a.Deck)
 		assert.Contains(t, a.Deck.DownloadURL, "ttl=900", "a renewed address each time")
 		assert.Len(t, a.Drawings, 1)
-		assert.JSONEq(t, `{"line":"ls -"}`, string(a.Terminal.Input))
-		require.Len(t, a.Terminal.Entries, 1)
-		assert.JSONEq(t, `{"fs":1}`, string(a.Terminal.State))
+		assert.JSONEq(t, `{"tag":"div","children":["$ ls"]}`, string(a.TerminalScreen), "SPEC-056 CA-05: the screen of the teacher")
 		require.Len(t, a.HandRaises, 1)
 		assert.Equal(t, "Ana", a.HandRaises[0].Name)
 	}
@@ -596,23 +607,21 @@ func TestActiveSession_ReturnsSnapshot(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrClassNotFound)
 }
 
-// Covers SPEC-051 CA-14 and RN-07: the snapshot keeps the last 200 terminal entries and clears the strokes of the slide that was left.
-func TestSnapshotKeepsTheTerminalHistoryAndClearsStrokes(t *testing.T) {
+// Covers SPEC-051 CA-14 and RN-07, and SPEC-056 CA-05: the snapshot keeps only the last terminal screen, and clears the strokes of the
+// slide that was left.
+func TestSnapshotKeepsTheLastTerminalScreenAndClearsStrokes(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
 	s := w.start(t)
 	for i := 1; i <= 250; i++ {
-		w.svc.RememberTerminalSync(s.ID, json.RawMessage(fmt.Sprintf(`{"terminal":1,"line":"cmd %d","state":{"n":%d}}`, i, i)))
+		w.svc.RememberTerminalScreen(s.ID, json.RawMessage(fmt.Sprintf(`{"tag":"div","children":["screen %d"]}`, i)))
 	}
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"path":[1]}`))
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"path":[2]}`))
 
 	snap, err := w.svc.Snapshot(ctx, s.ID)
 	require.NoError(t, err)
-	require.Len(t, snap.Terminal.Entries, 200)
-	assert.Contains(t, string(snap.Terminal.Entries[199]), "cmd 250")
-	assert.Contains(t, string(snap.Terminal.Entries[0]), "cmd 51")
-	assert.JSONEq(t, `{"n":250}`, string(snap.Terminal.State))
+	assert.JSONEq(t, `{"tag":"div","children":["screen 250"]}`, string(snap.TerminalScreen), "only the last screen, no history")
 	assert.Len(t, snap.Drawings, 2)
 
 	w.svc.RememberDrawing(s.ID, json.RawMessage(`{"clear":true}`))
@@ -642,15 +651,15 @@ func TestChangeSlideAndSwitchMode(t *testing.T) {
 
 	module := uuid.New()
 	w.repo.modules[module] = true
-	require.NoError(t, w.svc.SwitchMode(ctx, s.ID, domain.ModeModule, &module))
+	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &module))
 	assert.Equal(t, domain.ModeModule, w.repo.sessions[s.ID].DisplayMode)
 	assert.Equal(t, &module, w.repo.sessions[s.ID].ActiveModuleID)
-	require.NoError(t, w.svc.SwitchMode(ctx, s.ID, domain.ModeSlides, nil))
+	require.NoError(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeSlides, nil))
 	assert.Equal(t, domain.ModeSlides, w.repo.sessions[s.ID].DisplayMode)
-	assert.ErrorIs(t, w.svc.SwitchMode(ctx, s.ID, "VIDEO", nil), domain.ErrInvalidMode)
+	assert.ErrorIs(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, "VIDEO", nil), domain.ErrInvalidMode)
 	ghost := uuid.New()
-	assert.ErrorIs(t, w.svc.SwitchMode(ctx, s.ID, domain.ModeModule, &ghost), domain.ErrModuleNotFound)
-	assert.ErrorIs(t, w.svc.SwitchMode(ctx, s.ID, domain.ModeModule, nil), domain.ErrModuleNotFound, "the module mode needs a module")
+	assert.ErrorIs(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, &ghost), domain.ErrModuleNotFound)
+	assert.ErrorIs(t, w.svc.SwitchMode(ctx, w.teacher, s.ID, domain.ModeModule, nil), domain.ErrModuleNotFound, "the module mode needs a module")
 
 	w.now = w.now.Add(time.Hour)
 	_, err = w.svc.EndSession(ctx, w.teacher, w.class, s.ID)
@@ -676,6 +685,7 @@ func TestConnect(t *testing.T) {
 	c, err = w.svc.Connect(ctx, w.student, w.class)
 	require.NoError(t, err)
 	assert.False(t, c.Controller)
+	assert.Equal(t, domain.AdmissionWaiting, c.Admission, "a student comes in waiting (SPEC-054 RN-01)")
 
 	for _, who := range []service.Actor{w.other, w.outside} {
 		_, err = w.svc.Connect(ctx, who, w.class)
@@ -692,6 +702,7 @@ func TestHandRaiseQueueAndModeration(t *testing.T) {
 	third := service.Actor{UserID: uuid.New(), Role: authn.RoleStudent}
 	w.repo.studentNames[second.UserID] = "Bruno"
 	w.repo.studentNames[third.UserID] = "Carla"
+	w.admit(s.ID, w.student.UserID, second.UserID, third.UserID)
 
 	names := func(q []domain.HandRaiseEntry) []string {
 		out := make([]string, len(q))
@@ -700,17 +711,17 @@ func TestHandRaiseQueueAndModeration(t *testing.T) {
 		}
 		return out
 	}
-	q, err := w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
+	q, err := w.svc.RaiseHand(ctx, s.ID, w.student.UserID, "")
 	require.NoError(t, err)
 	w.now = w.now.Add(time.Second)
-	_, err = w.svc.RaiseHand(ctx, s.ID, second.UserID)
+	_, err = w.svc.RaiseHand(ctx, s.ID, second.UserID, "")
 	require.NoError(t, err)
 	w.now = w.now.Add(time.Second)
-	q, err = w.svc.RaiseHand(ctx, s.ID, third.UserID)
+	q, err = w.svc.RaiseHand(ctx, s.ID, third.UserID, "")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"Ana", "Bruno", "Carla"}, names(q), "first in, first served")
 
-	q, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID)
+	q, err = w.svc.RaiseHand(ctx, s.ID, w.student.UserID, "")
 	require.NoError(t, err)
 	assert.Len(t, q, 3, "raising twice does not duplicate")
 
@@ -741,6 +752,7 @@ func TestStudentNotes_SaveAndRetrieve(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
 	s := w.start(t)
+	w.admit(s.ID, w.student.UserID)
 
 	n, err := w.svc.SaveNote(ctx, w.student, w.class, s.ID, "processos e threads")
 	require.NoError(t, err)
@@ -752,6 +764,7 @@ func TestStudentNotes_SaveAndRetrieve(t *testing.T) {
 	// Another student of the class has his own notebook.
 	friend := service.Actor{UserID: uuid.New(), Role: authn.RoleStudent}
 	w.repo.students[w.class][friend.UserID] = true
+	w.admit(s.ID, friend.UserID)
 	_, err = w.svc.GetNote(ctx, friend, w.class, s.ID)
 	assert.ErrorIs(t, err, domain.ErrNotesNotFound)
 	_, err = w.svc.SaveNote(ctx, friend, w.class, s.ID, "do amigo")

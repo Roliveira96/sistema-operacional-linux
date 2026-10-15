@@ -1,0 +1,133 @@
+// The waiting screen of the stage (SPEC-061): it covers all of it, over what the stage draws (the slides and the pointer of the teacher are at 6 and 5),
+// and it is the same for the teacher and for every student. The sizes are in logical pixels or in percentages of the stage, so it looks the same for everybody.
+.screen {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--color-accent-subtle) 0%, var(--color-bg) 50%, var(--color-info-subtle) 100%);
+  color: var(--color-text-primary);
+}
+
+// The soft blobs of color. They are painted once, as gradients that fade out, so nothing needs a blur; they are the only thing that moves.
+.blobs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+// A blob drifts and breathes with transform and opacity only, never with its place or its size, so the browser does it on its own, off the main thread.
+// Each one brings its color, its place, how far it goes, how long it takes and where in the drift it starts (a negative delay), so they do not move together.
+.blob {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: 60%;
+  aspect-ratio: 1;
+  background: radial-gradient(circle at center, var(--tint) 0%, transparent 68%);
+  opacity: 0.45;
+  will-change: transform, opacity;
+  animation: drift var(--duration) ease-in-out var(--delay) infinite alternate;
+}
+
+.orange {
+  --tint: var(--color-accent);
+  --x: -15%;
+  --y: -25%;
+  --dx: 20%;
+  --dy: 24%;
+  --duration: 28s;
+  --delay: 0s;
+}
+
+.blue {
+  --tint: var(--color-info);
+  --x: 55%;
+  --y: -30%;
+  --dx: -22%;
+  --dy: 26%;
+  --duration: 34s;
+  --delay: -9s;
+}
+
+.green {
+  --tint: var(--color-success);
+  --x: -10%;
+  --y: 45%;
+  --dx: 24%;
+  --dy: -18%;
+  --duration: 31s;
+  --delay: -14s;
+}
+
+.amber {
+  --tint: var(--color-warning);
+  --x: 50%;
+  --y: 40%;
+  --dx: -20%;
+  --dy: -24%;
+  --duration: 37s;
+  --delay: -21s;
+}
+
+// The keyframes live in the same file as the animation that uses them: CSS Modules renames the two together only inside one file.
+@keyframes drift {
+  from {
+    opacity: 0.35;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  to {
+    opacity: 0.6;
+    transform: translate3d(var(--dx), var(--dy), 0) scale(1.18);
+  }
+}
+
+// For who asks for less motion the blobs stay where they start, as a still gradient; the clock is not a style, and keeps running.
+@media (prefers-reduced-motion: reduce) {
+  .blob {
+    animation: none;
+    will-change: auto;
+  }
+}
+
+.content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  max-width: 80%;
+  text-align: center;
+  text-shadow: 0 0.125rem 1.5rem var(--color-bg);
+}
+
+.title {
+  max-width: 100%;
+  margin: 0;
+  font-size: calc(var(--font-size-xl) * 2);
+  font-weight: var(--font-weight-black);
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+}
+
+// The time of the class: numbers of the same width, so the digits do not dance as it runs.
+.clock {
+  margin: 0;
+  font-size: calc(var(--font-size-xl) * 3);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--color-text-primary);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-primary);
+}

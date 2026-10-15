@@ -3,8 +3,11 @@
 /** A PDF open to be drawn page by page. */
 export interface PdfPageRenderer {
   pageCount: number;
-  /** Draws the page (from 1) on the canvas, as wide as `width` CSS pixels. */
-  render(page: number, canvas: HTMLCanvasElement, width: number): Promise<void>;
+  /**
+   * Draws the page (from 1) on the canvas, as wide as `width` CSS pixels and with `density` pixels for each of them (the pixels of the display by
+   * default). A drawing that is still on its way on the same canvas is stopped, so the page can be drawn again, sharper, without them piling up.
+   */
+  render(page: number, canvas: HTMLCanvasElement, width: number, density?: number): Promise<void>;
   destroy(): void;
 }
 
@@ -34,18 +37,28 @@ export const pdfLoader: PdfLoader = {
     const lib = await pdfjs();
     const task = lib.getDocument({ url });
     const doc = await task.promise;
+    let running: { cancel(): void } | null = null;
     return {
       pageCount: doc.numPages,
-      async render(page, canvas, width) {
+      async render(page, canvas, width, density = window.devicePixelRatio || 1) {
         const pdfPage = await doc.getPage(page);
+        running?.cancel();
         const base = pdfPage.getViewport({ scale: 1 });
-        const ratio = window.devicePixelRatio || 1;
-        const viewport = pdfPage.getViewport({ scale: (width / base.width) * ratio });
+        const viewport = pdfPage.getViewport({ scale: (width / base.width) * density });
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
-        canvas.style.width = `${Math.floor(viewport.width / ratio)}px`;
-        canvas.style.height = `${Math.floor(viewport.height / ratio)}px`;
-        await pdfPage.render({ canvas, viewport }).promise;
+        canvas.style.width = `${Math.floor(viewport.width / density)}px`;
+        canvas.style.height = `${Math.floor(viewport.height / density)}px`;
+        const drawing = pdfPage.render({ canvas, viewport });
+        running = drawing;
+        try {
+          await drawing.promise;
+        } catch (error) {
+          // A drawing that was stopped for a newer one is not a failure of the page.
+          if (!(error instanceof lib.RenderingCancelledException)) throw error;
+        } finally {
+          if (running === drawing) running = null;
+        }
       },
       destroy() {
         void task.destroy();

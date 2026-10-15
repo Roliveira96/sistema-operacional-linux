@@ -4,77 +4,85 @@ import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from
 import { Button } from "@/components/Button/Button";
 import { messages } from "@/messages/pt-BR";
 import type { LiveStroke } from "@/services/classroomService";
+import { FRAME_MS, throttle, useCursorSender, type Throttle } from "../cursorSender";
+import { StagePointer, useStageScale } from "../FixedStage/FixedStage";
+import { percentOf, placeContent, scrollFraction, STAGE_WIDTH, toStagePoint } from "../FixedStage/stage";
 import { pdfLoader, type PdfLoader, type PdfPageRenderer } from "./pdfRenderer";
 import styles from "./SlidePresenter.module.scss";
 
 const m = messages.classroom.slides;
-
-/** The pointer and the pen go out about 30 times a second (SPEC-051 CA-06). */
-export const FRAME_MS = 33;
 
 export interface SlidePresenterProps {
   deck: { downloadUrl: string; pageCount: number };
   slide: number;
   /** The teacher moves the slides and draws on them; a student only follows. */
   canControl: boolean;
-  cursor: { x: number; y: number; laser: boolean } | null;
+  /** The mouse of the teacher: always a pointer, and a highlighted one when the laser is on. Percentages of the whole page. */
+  cursor: { x: number; y: number; laser: boolean; visible: boolean } | null;
   strokes: LiveStroke[];
   onSlide(slide: number): void;
-  onCursor(x: number, y: number, laser: boolean): void;
-  /** A piece of a stroke, in percentages of the slide. */
+  onCursor(x: number, y: number, laser: boolean, visible?: boolean): void;
+  /** A piece of a stroke, in percentages of the whole page. */
   onDraw(path: Array<[number, number]>): void;
   onClear(): void;
+  /** Where the teacher is in the page, from 0 to 1 of what can be scrolled (SPEC-057): the student follows it, and the teacher is put back there. */
+  scroll?: number;
+  /** The same, sideways: with the zoom the page is wider than the stage. */
+  scrollX?: number;
+  /** The teacher scrolls the page inside the stage; the positions, down and sideways, are fractions of what can be scrolled. */
+  onScroll?(y: number, x: number): void;
   loader?: PdfLoader;
+  /** The presentation window has its own toolbar and keys (SPEC-055 CA-16): no bar, no keys here, and the laser and the pen come from it. */
+  bare?: boolean;
+  laser?: boolean;
+  pen?: boolean;
 }
 
 type Point = [number, number];
 
-interface Throttle<A extends unknown[]> {
-  call(...args: A): void;
-  cancel(): void;
+/** The most pixels the page is drawn with for each logical pixel: a 4K projector showing the stage three times its size. */
+const MAX_DENSITY = 3;
+
+/** How many pixels the page is drawn with for each logical one: as many as the screen shows it with, in steps of a quarter so a small change of the window does not draw it again. */
+function densityOf(scale: number): number {
+  return Math.min(MAX_DENSITY, Math.ceil(scale * (window.devicePixelRatio || 1) * 4) / 4);
 }
 
-/** Calls at once, then at most once every `ms` with the latest arguments; the last call always gets through. */
-function throttle<A extends unknown[]>(fn: (...args: A) => void, ms: number): Throttle<A> {
-  let last = -Infinity;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let pending: A | null = null;
-  return {
-    call(...args: A) {
-      const wait = last + ms - Date.now();
-      if (wait <= 0) {
-        clearTimeout(timer);
-        timer = undefined;
-        pending = null;
-        last = Date.now();
-        fn(...args);
-        return;
-      }
-      pending = args;
-      timer ??= setTimeout(() => {
-        timer = undefined;
-        last = Date.now();
-        const next = pending;
-        pending = null;
-        if (next) fn(...next);
-      }, wait);
-    },
-    cancel() {
-      clearTimeout(timer);
-      timer = undefined;
-      pending = null;
-    },
-  };
-}
-
-/** The slides of the live classroom (SPEC-051, section 3.1): drawn from the PDF in the browser, with the laser and the pen of the teacher on top. */
-export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSlide, onCursor, onDraw, onClear, loader = pdfLoader }: SlidePresenterProps) {
-  const stage = useRef<HTMLDivElement>(null);
+/**
+ * The slides of the live classroom (SPEC-051, section 3.1): drawn from the PDF in the browser, as wide as the base stage and sharp at the size the
+ * screen shows them, with the laser and the pen of the teacher on top. A page taller or wider than the stage (the zoom makes the stage smaller)
+ * scrolls inside it, and only the teacher scrolls (SPEC-057).
+ */
+export function SlidePresenter({
+  deck,
+  slide,
+  canControl,
+  cursor,
+  strokes,
+  scroll = 0,
+  scrollX = 0,
+  onSlide,
+  onCursor,
+  onDraw,
+  onClear,
+  onScroll,
+  loader = pdfLoader,
+  bare = false,
+  laser: laserProp,
+  pen: penProp,
+}: SlidePresenterProps) {
+  const scale = useStageScale();
+  const density = densityOf(scale);
+  const area = useRef<HTMLDivElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<PdfPageRenderer | null>(null);
   const [failed, setFailed] = useState(false);
-  const [laser, setLaser] = useState(false);
-  const [pen, setPen] = useState(false);
+  const [drawn, setDrawn] = useState(0);
+  const [ownLaser, setLaser] = useState(false);
+  const [ownPen, setPen] = useState(false);
+  const laser = laserProp ?? ownLaser;
+  const pen = penProp ?? ownPen;
 
   const total = pdf?.pageCount ?? deck.pageCount;
   const current = Math.min(Math.max(slide, 1), Math.max(total, 1));
@@ -96,20 +104,32 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
     };
   }, [loader, deck.downloadUrl]);
 
+  // The page is drawn as wide as the base stage, less the scroll bar, at any zoom, and as tall as it is; with as many pixels as the screen shows it with.
   useEffect(() => {
     if (!pdf || !canvas.current) return;
-    const width = stage.current?.getBoundingClientRect().width || 960;
-    pdf.render(current, canvas.current, width).catch(() => setFailed(true));
-  }, [pdf, current]);
+    let stale = false;
+    const gutter = area.current ? Math.max(0, area.current.offsetWidth - area.current.clientWidth) : 0;
+    pdf.render(current, canvas.current, STAGE_WIDTH - gutter, density).then(
+      () => !stale && setDrawn((n) => n + 1),
+      () => !stale && setFailed(true),
+    );
+    return () => {
+      stale = true;
+    };
+  }, [pdf, current, density]);
 
-  // The pointer and the pen go out at the same pace. They are made in an effect, and the handlers read the latest props through a ref.
-  const send = useRef({ onCursor, onDraw });
+  // The page is put where the room says: at the top at every slide, and again once it is drawn, because only then it is as big as it is.
   useEffect(() => {
-    send.current = { onCursor, onDraw };
+    if (area.current && sheet.current) placeContent(area.current, sheet.current, scroll, !canControl, scrollX);
+  }, [scroll, scrollX, current, drawn, canControl]);
+
+  // The pen goes out at the same pace as the pointer. The handlers read the latest props through a ref.
+  const send = useRef({ onDraw });
+  useEffect(() => {
+    send.current = { onDraw };
   });
   const points = useRef<Point[] | null>(null);
   const sent = useRef(0);
-  const cursorOut = useRef<Throttle<[number, number, boolean]> | null>(null);
   const penOut = useRef<Throttle<[]> | null>(null);
   const flushPen = useRef<() => void>(() => undefined);
   useEffect(() => {
@@ -119,26 +139,25 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
       send.current.onDraw(path.slice(Math.max(sent.current - 1, 0)));
       sent.current = path.length;
     };
-    const cursorPace = throttle((x: number, y: number, on: boolean) => send.current.onCursor(x, y, on), FRAME_MS);
     const penPace = throttle(() => flushPen.current(), FRAME_MS);
-    cursorOut.current = cursorPace;
     penOut.current = penPace;
-    return () => {
-      cursorPace.cancel();
-      penPace.cancel();
-    };
+    return () => penPace.cancel();
   }, []);
+  const pointer = useCursorSender(onCursor, laser);
+  const lastMouse = useRef<{ clientX: number; clientY: number } | null>(null);
 
-  const where = (event: MouseEvent): Point => {
-    const rect = stage.current!.getBoundingClientRect();
-    const clamp = (value: number) => Math.min(100, Math.max(0, Math.round(value * 100) / 100));
-    return [clamp(((event.clientX - rect.left) / rect.width) * 100), clamp(((event.clientY - rect.top) / rect.height) * 100)];
+  // The place of the mouse as a percentage of the whole page: the scale of the stage is divided out and what is scrolled is added, so it is the same
+  // point of the page for everybody, whatever the size of the window and the place of the scroll.
+  const where = (at: { clientX: number; clientY: number }): Point => {
+    const point = toStagePoint(at, area.current!, scale);
+    const page = sheet.current!.getBoundingClientRect();
+    return [percentOf(point.x, page.width / scale), percentOf(point.y, page.height / scale)];
   };
 
   const goto = (to: number) => onSlide(Math.min(Math.max(to, 1), Math.max(total, 1)));
 
   const keyDown = (event: KeyboardEvent) => {
-    if (!canControl) return;
+    if (!canControl || bare) return;
     if (event.key === "ArrowRight" || event.key === "ArrowDown" || event.key === " ") {
       event.preventDefault();
       goto(current + 1);
@@ -150,13 +169,22 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
 
   const mouseMove = (event: MouseEvent) => {
     if (!canControl) return;
+    lastMouse.current = { clientX: event.clientX, clientY: event.clientY };
     const [x, y] = where(event);
     if (points.current) {
       points.current.push([x, y]);
       penOut.current?.call();
-    } else if (laser) {
-      cursorOut.current?.call(x, y, true);
+    } else {
+      pointer.move(x, y);
     }
+  };
+
+  // The pointer goes away from the screens of the class when the mouse leaves the slide.
+  const mouseLeaveStage = (event: MouseEvent) => {
+    mouseUp(event);
+    if (!canControl) return;
+    lastMouse.current = null;
+    pointer.leave();
   };
 
   const mouseDown = (event: MouseEvent) => {
@@ -173,9 +201,14 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
     points.current = null;
   };
 
-  const toggleLaser = () => {
-    if (laser) cursorOut.current?.call(0, 0, false);
-    setLaser(!laser);
+  // The teacher scrolls: the class is told where, and the pointer follows what is now under the mouse, even if the mouse is still.
+  const scrolled = () => {
+    if (!canControl || !area.current || !sheet.current) return;
+    onScroll?.(scrollFraction(area.current, sheet.current, "y"), scrollFraction(area.current, sheet.current, "x"));
+    if (lastMouse.current && !points.current) {
+      const [x, y] = where(lastMouse.current);
+      pointer.move(x, y);
+    }
   };
 
   return (
@@ -191,67 +224,73 @@ export function SlidePresenter({ deck, slide, canControl, cursor, strokes, onSli
         </p>
       )}
       <div
-        ref={stage}
-        className={`${styles.stage} ${canControl && pen ? styles.pen : ""}`}
+        ref={area}
+        className={`${styles.area} ${canControl ? "" : styles.follower} ${canControl && pen ? styles.pen : ""}`}
         role="group"
         aria-label={m.stage}
-        tabIndex={0}
+        tabIndex={canControl ? 0 : undefined}
         onKeyDown={keyDown}
         onMouseMove={mouseMove}
         onMouseDown={mouseDown}
         onMouseUp={mouseUp}
-        onMouseLeave={mouseUp}
+        onMouseLeave={mouseLeaveStage}
+        onScroll={scrolled}
       >
-        <canvas ref={canvas} className={styles.page} />
-        <svg className={styles.strokes} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          {strokes
-            .filter((stroke) => stroke.path && stroke.path.length > 0)
-            .map((stroke, index) => (
-              <polyline key={index} points={stroke.path!.map((point) => point.join(",")).join(" ")} />
-            ))}
-        </svg>
-        {cursor?.laser && <span className={styles.laser} data-laser="" style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }} />}
+        <div ref={sheet} className={styles.sheet} data-sheet="">
+          <canvas ref={canvas} className={styles.page} />
+          <svg className={styles.strokes} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            {strokes
+              .filter((stroke) => stroke.path && stroke.path.length > 0)
+              .map((stroke, index) => (
+                <polyline key={index} points={stroke.path!.map((point) => point.join(",")).join(" ")} />
+              ))}
+          </svg>
+          {/* The teacher sees his own mouse, not the point that stands for it; the laser tells him it is on. */}
+          {cursor?.visible && (cursor.laser || !canControl) && <StagePointer x={cursor.x} y={cursor.y} laser={cursor.laser} />}
+        </div>
       </div>
 
-      <div className={styles.bar}>
-        {canControl && (
-          <>
-            <Button variant="secondary" size="sm" disabled={current <= 1} onClick={() => goto(current - 1)}>
-              {m.previous}
-            </Button>
-            <Button variant="secondary" size="sm" disabled={current >= total} onClick={() => goto(current + 1)}>
-              {m.next}
-            </Button>
-          </>
-        )}
-        <span className={styles.position}>{m.position(current, total)}</span>
-        {canControl && (
-          <>
-            <label className={styles.goto}>
-              <span className={styles.srOnly}>{m.goTo}</span>
-              <input
-                type="number"
-                min={1}
-                max={total}
-                value={current}
-                onChange={(e) => {
-                  const to = Number(e.target.value);
-                  if (Number.isFinite(to) && e.target.value !== "") goto(to);
-                }}
-              />
-            </label>
-            <Button variant={laser ? "primary" : "secondary"} size="sm" aria-pressed={laser} onClick={toggleLaser}>
-              {m.laser}
-            </Button>
-            <Button variant={pen ? "primary" : "secondary"} size="sm" aria-pressed={pen} onClick={() => setPen(!pen)}>
-              {m.pen}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onClear}>
-              {m.clear}
-            </Button>
-          </>
-        )}
-      </div>
+      {!bare && (
+        <div className={styles.bar}>
+          {canControl && (
+            <>
+              <Button variant="secondary" size="sm" disabled={current <= 1} onClick={() => goto(current - 1)}>
+                {m.previous}
+              </Button>
+              <Button variant="secondary" size="sm" disabled={current >= total} onClick={() => goto(current + 1)}>
+                {m.next}
+              </Button>
+            </>
+          )}
+          <span className={styles.position}>{m.position(current, total)}</span>
+          {canControl && (
+            <>
+              <label className={styles.goto}>
+                <span className={styles.srOnly}>{m.goTo}</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={total}
+                  value={current}
+                  onChange={(e) => {
+                    const to = Number(e.target.value);
+                    if (Number.isFinite(to) && e.target.value !== "") goto(to);
+                  }}
+                />
+              </label>
+              <Button variant={laser ? "primary" : "secondary"} size="sm" aria-pressed={laser} onClick={() => setLaser(!laser)}>
+                {m.laser}
+              </Button>
+              <Button variant={pen ? "primary" : "secondary"} size="sm" aria-pressed={pen} onClick={() => setPen(!pen)}>
+                {m.pen}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onClear}>
+                {m.clear}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }

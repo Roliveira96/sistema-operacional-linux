@@ -109,6 +109,33 @@ func NormalizeExercise(in ExerciseInput, s *HTMLSanitizer) (NormalizedExercise, 
 	return out, nil
 }
 
+// CatalogFromConditions translates the conditions of finalization of an exercise, in the form the teacher edits and the content stores them (the
+// list under "conditions" of an item of a block of exercises, SPEC-022 RN-11), into the catalog the server grades with: the same translation
+// that the module bank does when it saves an exercise (SPEC-023 D-05), public for whoever reads the exercise of a block to grade it (SPEC-065).
+// Nothing, null and an empty list are no conditions and give an empty catalog. A list that cannot be graded is an error that wraps
+// ErrInvalidConditions: not a list, a condition of a kind that does not exist (which would be left out and make the exercise easier) or one that
+// lacks what its kind needs.
+func CatalogFromConditions(raw json.RawMessage) ([]Condition, error) {
+	var list []exerciseCondition
+	if err := decodeOptional(raw, &list); err != nil {
+		return nil, fmt.Errorf("%w: the conditions must be a list of conditions", ErrInvalidConditions)
+	}
+	out := make([]Condition, 0, len(list))
+	for _, e := range list {
+		translated := catalogFromEnd([]exerciseCondition{e})
+		if len(translated) == 0 {
+			return nil, fmt.Errorf("%w: unknown kind %q", ErrInvalidConditions, e.Kind)
+		}
+		out = append(out, translated...)
+	}
+	if len(out) > 0 {
+		if err := ValidateConditions(out); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
 // catalogFromEnd translates the conditions of finalization into the catalog the server grades with (SPEC-023 D-05).
 // An OWNER with a group becomes two conditions, one for the owner and one for the group.
 func catalogFromEnd(list []exerciseCondition) []Condition {

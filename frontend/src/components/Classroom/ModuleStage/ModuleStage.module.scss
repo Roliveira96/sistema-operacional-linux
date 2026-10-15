@@ -1,0 +1,23 @@
+// The module of the live class is the study screen; it gets the whole stage to fit in (SPEC-055 CA-13, SPEC-057). The pointer of the teacher is drawn
+// over it, as a percentage of this box.
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+  font-size: var(--font-size-lg);
+}

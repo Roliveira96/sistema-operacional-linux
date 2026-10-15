@@ -1,0 +1,56 @@
+@use "@/styles/mixins" as mixins;
+
+// What the live class tells in the header of the module (SPEC-058): the time of the class and the raised hands, on the right of the title. It is drawn
+// in the stage, so it is the same for the teacher and for every student.
+.status {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.clock {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.hands {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+
+  // A hand is up: the number stands out, so it is not told by the color alone (the label says it too).
+  &[data-raised="true"] {
+    color: var(--color-warning);
+  }
+}
+
+// In the room of the student the hand is a button (SPEC-062): it takes the room of the indicator and nothing more, so the header is the same on every screen.
+button.hands {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+
+  @include mixins.focusable;
+
+  // The hand of the student himself is up: the icon is filled too, so it is not told by the color alone.
+  &[data-mine="true"] .icon {
+    fill: currentcolor;
+    fill-opacity: 0.25;
+  }
+}
+
+.icon {
+  flex: none;
+}

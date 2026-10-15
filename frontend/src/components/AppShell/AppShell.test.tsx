@@ -18,9 +18,15 @@ vi.mock("@/services/classService", () => ({
   classService: { myClasses: vi.fn().mockResolvedValue({ items: [], total: 0 }) },
 }));
 
+let mockPathname = "/app";
+vi.mock("next/navigation", () => ({
+  usePathname: () => mockPathname,
+}));
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  mockPathname = "/app";
 });
 
 const logout = vi.fn();
@@ -63,6 +69,27 @@ describe("AppShell", () => {
     expect(screen.getByText(messages.students.title)).toBeDefined();
     expect(screen.getByText(messages.modules.title)).toBeDefined();
     expect(screen.getByText("Conteúdo")).toBeDefined();
+  });
+
+  it("marks current route link with aria-current='page'", () => {
+    mockPathname = "/app/classes";
+    signIn("TEACHER");
+    renderShell();
+
+    const classesLink = screen.getByRole("link", { name: messages.classes.title });
+    const studentsLink = screen.getByRole("link", { name: messages.students.title });
+
+    expect(classesLink.getAttribute("aria-current")).toBe("page");
+    expect(studentsLink.getAttribute("aria-current")).toBeNull();
+  });
+
+  it("marks nested child routes as active for the parent section", () => {
+    mockPathname = "/app/classes/cl-123";
+    signIn("TEACHER");
+    renderShell();
+
+    const classesLink = screen.getByRole("link", { name: messages.classes.title });
+    expect(classesLink.getAttribute("aria-current")).toBe("page");
   });
 
   it("does not render teacher-specific links for students", async () => {

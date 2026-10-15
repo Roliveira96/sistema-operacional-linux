@@ -24,6 +24,7 @@ import (
 	classlinkhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/handler"
 	classlinkrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/repository"
 	classlinkservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/service"
+	classroomdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
 	classroomhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/handler"
 	classroomrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/repository"
 	classroomservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/service"
@@ -189,8 +190,12 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	classroomHandler := classroomhandler.New(classroomService, auth, log, classroomhandler.Options{
 		AllowedOrigins: []string{cfg.Auth.PublicURL},
 		AnyOrigin:      cfg.IsDevelopment(),
+		// One submission of the state of the live exercise each 2 seconds for each student (SPEC-065 section 3.1).
+		SubmitLimiter: ratelimit.New(1, classroomdomain.ExerciseSubmitInterval),
 	})
 	classroomService.WithOnEnded(classroomHandler.CloseRoom)
+	// The round of the live exercise ends by itself at its time, or with the lesson, and the room is told (SPEC-065).
+	classroomService.WithExerciseEvents(classroomHandler.ExerciseEnded, classroomHandler.ExerciseFailed)
 	classroomSweep := func(ctx context.Context, _ time.Time) error {
 		_, err := classroomService.EndAbandoned(ctx, classroomHandler.ControllerConnected)
 		return err
@@ -211,6 +216,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	moduleHandler := coursemodulehandler.New(moduleService, auth)
 	contentReader := contentservice.NewReader(moduleService, contentrepository.New(db))
 	contentHandler := contenthandler.New(contentReader, auth)
+	// The live classroom checks the module of a lesson and reads it for its students (SPEC-054).
+	classroomService.WithModules(classroomModules{modules: moduleService, content: contentReader})
+	// The live exercise reads the exercise of a block of that module and grades the state of the student with its conditions (SPEC-065).
+	classroomService.WithExercises(classroomExercises{content: contentReader})
 	contentRepo := contentrepository.New(db)
 	// A module is born with its version 1 published (SPEC-021 RN-11).
 	moduleService.SetInitialVersioner(contentservice.NewInitialVersions(contentRepo))
