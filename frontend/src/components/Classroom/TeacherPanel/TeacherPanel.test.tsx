@@ -36,14 +36,16 @@ const module_: LiveModuleContent = {
 
 const actions = () => ({
   changeSlide: vi.fn(), switchMode: vi.fn(), moderate: vi.fn(), acceptStudent: vi.fn(), acceptAll: vi.fn(), removeStudent: vi.fn(), focusBlock: vi.fn(),
-  raiseHand: vi.fn(), lowerHand: vi.fn(),
+  raiseHand: vi.fn(), lowerHand: vi.fn(), sendChat: vi.fn(() => true),
 });
 
 function live(over: Record<string, unknown> = {}, room: Record<string, unknown> = {}) {
   const value = {
     room: { mode: "SLIDES", slide: 2, moduleId: null, moduleFocusBlockId: null, deck, strokes: [], cursor: null, online: 5, blank: false, ...room },
     admissions: { waiting: [], admitted: [] },
+    onlineStudents: [],
     hands: [],
+    chat: [],
     startedAt: "2026-10-14T10:00:00Z",
     presenterConnected: false,
     ready: true,

@@ -20,7 +20,9 @@ function live(over: Record<string, unknown> = {}) {
   const value = {
     room: { mode: "SLIDES", slide: 2, moduleId: null, moduleFocusBlockId: null, deck, strokes: [], cursor: null, online: 5, blank: false },
     admissions: { waiting: [], admitted: [] },
+    onlineStudents: [],
     hands: [],
+    chat: [],
     startedAt: "2026-10-14T10:00:00Z",
     presenterConnected: true,
     fullscreenRequested: false,
@@ -31,6 +33,7 @@ function live(over: Record<string, unknown> = {}) {
     canControl: true,
     changeSlide: vi.fn(), switchMode: vi.fn(), moderate: vi.fn(), acceptStudent: vi.fn(), acceptAll: vi.fn(), removeStudent: vi.fn(), focusBlock: vi.fn(),
     sendStageFullscreen: vi.fn(),
+    sendChat: vi.fn(() => true),
     ...over,
   };
   vi.mocked(useLiveClassroom).mockReturnValue(value as never);
