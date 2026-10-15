@@ -5,12 +5,15 @@ import type { ScreenElement } from "@/engine/terminalScreen";
 import {
   openLiveSocket,
   type AdmissionState,
+  type ChatTarget,
+  CHAT_MAX,
   type HandRaiseItem,
   type LiveAdmissions,
   type LiveCursor,
   type LiveDeck,
   type LiveMessage,
   type LiveMode,
+  type LiveChatMessage,
   type LiveSnapshot,
   type LiveSocket,
   type LiveSocketHandlers,
@@ -51,6 +54,10 @@ interface State {
   hands: HandRaiseItem[];
   /** The student's own hand and doubt, as the room gave them and as he changed them since; null for the teacher and until the room says (SPEC-058). */
   myHand: MyHand | null;
+  /** The messages of the class chat the room gave this screen, oldest first (SPEC-063). */
+  chat: LiveChatMessage[];
+  /** The admitted students who are in the room: only the panel is told (SPEC-063). */
+  onlineStudents: string[];
   /** Where the student stands; null until the server says (SPEC-054 CA-01). */
   admission: AdmissionState | null;
   admissions: LiveAdmissions;
@@ -70,6 +77,8 @@ const initial: State = {
   fullscreen: false,
   hands: [],
   myHand: null,
+  chat: [],
+  onlineStudents: [],
   admission: null,
   admissions: { waiting: [], admitted: [] },
   startedAt: null,
@@ -78,6 +87,38 @@ const initial: State = {
   ended: false,
   passive: false,
 };
+
+/** The most messages of the chat kept on screen, so a long class does not grow without end (the room gives up to 500 to the panel). */
+const MAX_CHAT = 500;
+
+/** A message of the chat as the room tells it, and nothing that has not its shape; null for anything else. The message for everybody has no owner. */
+function readChatMessage(value: unknown): LiveChatMessage | null {
+  if (!record(value)) return null;
+  const { id, scope, studentId, from, text, createdAt } = value;
+  if (typeof id !== "string" || id === "" || typeof text !== "string" || typeof createdAt !== "string") return null;
+  if (from !== "TEACHER" && from !== "STUDENT") return null;
+  if (scope === "all") return { id, scope, from, text, createdAt };
+  if (scope === "private" && typeof studentId === "string" && studentId !== "") return { id, scope, studentId, from, text, createdAt };
+  return null;
+}
+
+/** The history of a snapshot: the valid messages, in the order the room gave them, without repeating an id. */
+function readChat(value: unknown): LiveChatMessage[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const messages: LiveChatMessage[] = [];
+  for (const item of value) {
+    const message = readChatMessage(item);
+    if (message && !seen.has(message.id)) {
+      seen.add(message.id);
+      messages.push(message);
+    }
+  }
+  return messages.slice(-MAX_CHAT);
+}
+
+/** The ids of the online students, as a list of texts. */
+const readOnline = (value: unknown): string[] => (Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : []);
 
 /** The most strokes kept on screen, so a long class does not grow without end. */
 const MAX_STROKES = 500;
@@ -183,6 +224,8 @@ function apply(state: State, message: LiveMessage): State {
         fullscreen: s.stageView?.fullscreen === true,
         hands: s.handRaises ?? [],
         myHand: readMyHand(s.myHand),
+        chat: readChat(s.chat),
+        onlineStudents: readOnline(s.onlineStudents),
       };
     }
     // The server tells no restart: a new slide starts at the top, and a new module (SPEC-057 CA-05).
@@ -259,11 +302,19 @@ function apply(state: State, message: LiveMessage): State {
       return { ...state, myHand: { raised: true, question: typeof data.question === "string" ? data.question : "" } };
     case "live:hand:lower":
       return { ...state, myHand: { raised: false, question: "" } };
+    // A message of the chat is added once, however many times the room tells it (SPEC-063).
+    case "live:chat:message": {
+      const incoming = readChatMessage(data);
+      if (!incoming || state.chat.some((m) => m.id === incoming.id)) return state;
+      return { ...state, chat: [...state.chat, incoming].slice(-MAX_CHAT) };
+    }
     case "live:presence":
       return {
         ...state,
         presenterConnected: typeof data.presenterConnected === "boolean" ? data.presenterConnected : state.presenterConnected,
         room: { ...state.room, online: Number(data.online) || 0 },
+        // Only the panel is told who is online; the others' presence has no list, and it changes nothing.
+        onlineStudents: Array.isArray(data.onlineStudents) ? readOnline(data.onlineStudents) : state.onlineStudents,
       };
     case "live:control:revoked":
       return { ...state, passive: true };
@@ -528,6 +579,22 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
       const text = question.trim();
       sendOnly("live:hand:raise", text ? { question: text } : {});
       dispatch({ kind: "local", message: { type: "live:hand:raise", data: { question: text } } });
+    },
+    /**
+     * Sends a message of the class chat and says whether it went (SPEC-063). The student writes to the teacher and names no one; the teacher writes from the panel,
+     * to everybody or to one student, and has to say which. Nothing goes empty, over the limit or with the connection down, and nothing is shown before the room
+     * gives the message back.
+     */
+    sendChat: (text: string, to?: ChatTarget): boolean => {
+      const body = text.trim();
+      if (!connected || body === "" || Array.from(body).length > CHAT_MAX) return false;
+      if (role === "student") {
+        sendOnly("live:chat:send", { text: body });
+        return true;
+      }
+      if (!onPanel || !to) return false;
+      sendOnly("live:chat:send", to === "all" ? { text: body, to: "all" } : { text: body, studentId: to.studentId });
+      return true;
     },
     lowerHand: () => {
       sendOnly("live:hand:lower", {});

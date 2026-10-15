@@ -49,6 +49,25 @@ export interface MyHand {
 /** The longest doubt that goes with a hand, in characters and not in bytes, as the server takes it (SPEC-058). */
 export const HAND_QUESTION_MAX = 300;
 
+/** The longest text of a message of the class chat, in characters (SPEC-063). */
+export const CHAT_MAX = 500;
+
+/**
+ * A message of the class chat (SPEC-063): for everybody, or in the private conversation of a student, whoever wrote it. `studentId` is the owner of
+ * the conversation and only a private message has it.
+ */
+export interface LiveChatMessage {
+  id: string;
+  scope: "all" | "private";
+  studentId?: string;
+  from: "TEACHER" | "STUDENT";
+  text: string;
+  createdAt: string;
+}
+
+/** Where the teacher's message goes: to the whole class, or only to one student. */
+export type ChatTarget = "all" | { studentId: string };
+
 /** The mouse of the teacher on the stage: percentages, of the whole page on the slides and of the stage on the module (SPEC-057). */
 export interface LiveCursor {
   x: number;
@@ -136,6 +155,10 @@ export interface LiveSnapshot {
   terminal: LiveTerminalState;
   handRaises: HandRaiseItem[];
   onlineCount: number;
+  /** The history of the chat for who is asking: the student's own conversation and the messages for everybody, or all of them for the panel (SPEC-063). */
+  chat?: LiveChatMessage[];
+  /** Only the panel gets this: the admitted students who are in the room (SPEC-063). */
+  onlineStudents?: string[];
 }
 
 export type ActiveRoom = { hasActiveSession: false } | LiveSnapshot;

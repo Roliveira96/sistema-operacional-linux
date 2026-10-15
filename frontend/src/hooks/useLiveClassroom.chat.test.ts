@@ -98,7 +98,7 @@ describe("useLiveClassroom, the chat of the class", () => {
     const { result, socket } = setup("student");
     act(() => socket().receive("live:snapshot", snapshot()));
     act(() => socket().receive("live:chat:message", all("m-1", "<b>oi</b>\nlinha 2")));
-    expect(result.current.chat[0].text).toBe("<b>oi</b>\nlinha 2");
+    expect(result.current.chat[0]?.text).toBe("<b>oi</b>\nlinha 2");
   });
 
   it("takes only what has the shape of a message: an id, a scope, a sender and a text", () => {
@@ -114,7 +114,7 @@ describe("useLiveClassroom, the chat of the class", () => {
     const { result, socket } = setup("student");
     act(() => socket().receive("live:snapshot", snapshot()));
     act(() => socket().receive("live:chat:message", { ...all("m-1"), studentId: "u-7" }));
-    expect(result.current.chat[0].studentId).toBeUndefined();
+    expect(result.current.chat[0]?.studentId).toBeUndefined();
   });
 
   it("keeps the last 500 messages, so a long class does not grow without end", () => {
@@ -122,7 +122,7 @@ describe("useLiveClassroom, the chat of the class", () => {
     act(() => socket().receive("live:snapshot", snapshot()));
     for (let i = 0; i < 520; i++) act(() => socket().receive("live:chat:message", all(`m-${i}`)));
     expect(result.current.chat).toHaveLength(500);
-    expect(result.current.chat[0].id).toBe("m-20");
+    expect(result.current.chat[0]?.id).toBe("m-20");
     expect(result.current.chat.at(-1)!.id).toBe("m-519");
   });
 
