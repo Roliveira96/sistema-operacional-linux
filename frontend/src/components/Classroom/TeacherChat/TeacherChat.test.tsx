@@ -87,7 +87,10 @@ describe("TeacherChat", () => {
 
     it("marks each message: the name of the student for what he wrote, 'Você' for the teacher, and the tag only on what went to everybody", () => {
       render(<TeacherChat {...props()} />);
-      const [fromStudent, toAll, toStudent] = within(log()).getAllByRole("listitem").map((item) => within(item));
+      const rows = within(log()).getAllByRole("listitem").map((item) => within(item));
+      const fromStudent = rows[0]!;
+      const toAll = rows[1]!;
+      const toStudent = rows[2]!;
       expect(fromStudent.getByText("Ana Souza")).toBeDefined();
       expect(fromStudent.queryByText("Você")).toBeNull();
       expect(fromStudent.queryByText("Para todos")).toBeNull();

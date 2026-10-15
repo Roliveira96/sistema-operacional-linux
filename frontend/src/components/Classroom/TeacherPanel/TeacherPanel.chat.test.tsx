@@ -328,14 +328,16 @@ describe("TeacherPanel, the conversation", () => {
 // SPEC-063 CA-07: the new messages of each student, which the panel counts while it is open
 describe("TeacherPanel, the new messages", () => {
   it("counts the messages of a student that arrive after the panel opened, on his card, in words", async () => {
-    live({ chat: [fromStudent("u-1", "Do histórico")] });
+    const history = fromStudent("u-1", "Do histórico");
+    const first = fromStudent("u-2", "Primeira");
+    live({ chat: [history] });
     const view = panel();
     await flush();
     expect(counters()).toEqual([]);
-    live({ chat: [fromStudent("u-1", "Do histórico"), fromStudent("u-2", "Primeira")] });
+    live({ chat: [history, first] });
     view.rerender(element());
     expect(card("Bruno Lima").getByText("1 nova")).toBeDefined();
-    live({ chat: [fromStudent("u-1", "Do histórico"), fromStudent("u-2", "Primeira"), fromStudent("u-2", "Segunda"), fromStudent("u-1", "Nova da Ana")] });
+    live({ chat: [history, first, fromStudent("u-2", "Segunda"), fromStudent("u-1", "Nova da Ana")] });
     view.rerender(element());
     expect(card("Bruno Lima").getByText("2 novas")).toBeDefined();
     expect(card("Ana Souza").getByText("1 nova")).toBeDefined();
@@ -368,13 +370,14 @@ describe("TeacherPanel, the new messages", () => {
   });
 
   it("counts as read the history that comes with the first snapshot, after the room was not ready", async () => {
+    const history = [fromStudent("u-1", "Antiga"), fromStudent("u-2", "Antiga")];
     live({ ready: false, chat: [] });
     const view = panel();
     await flush();
-    live({ ready: true, chat: [fromStudent("u-1", "Antiga"), fromStudent("u-2", "Antiga")] });
+    live({ ready: true, chat: history });
     view.rerender(element());
     expect(counters()).toEqual([]);
-    live({ ready: true, chat: [fromStudent("u-1", "Antiga"), fromStudent("u-2", "Antiga"), fromStudent("u-2", "Nova")] });
+    live({ ready: true, chat: [...history, fromStudent("u-2", "Nova")] });
     view.rerender(element());
     expect(counters()).toEqual(["1 nova"]);
   });
