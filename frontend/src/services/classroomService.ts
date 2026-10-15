@@ -68,6 +68,78 @@ export interface LiveChatMessage {
 /** Where the teacher's message goes: to the whole class, or only to one student. */
 export type ChatTarget = "all" | { studentId: string };
 
+/** The level of an exercise, which gives its points (SPEC-065). */
+export type ExerciseDifficulty = "EASY" | "MEDIUM" | "HARD";
+
+/** One line of the scoreboard of a round: who finished, how long it took and what it was worth. */
+export interface ExerciseScoreRow {
+  studentId: string;
+  name: string;
+  elapsedSeconds: number;
+  points: number;
+}
+
+/** The result of a round, which the teacher shows to the students or hides again (SPEC-065). */
+export interface ExerciseResultBody {
+  runId: string;
+  visible: boolean;
+  completed: number;
+  participants: number;
+  scoreboard: ExerciseScoreRow[];
+}
+
+/** What a student made of the round, which only he and the panel are told. */
+export interface ExerciseMyResult {
+  completedAt: string;
+  elapsedSeconds: number;
+  points: number;
+}
+
+/** What the panel knows of a student in the round: how far he is, his last command, and how he ended it when he did. */
+export interface ExerciseProgressEntry {
+  studentId: string;
+  name?: string;
+  met: number;
+  total: number;
+  last: string;
+  at: string;
+  completedAt?: string;
+  elapsedSeconds?: number;
+  points?: number;
+  attempts?: number;
+}
+
+/** The round of a practical exercise of the live class, as the room tells it (SPEC-065). There is one at a time; the last one stays until the next. */
+export interface LiveExercise {
+  runId: string;
+  blockId: string;
+  /** The position of the exercise among the `items` of the block. */
+  index: number;
+  title: string;
+  difficulty: ExerciseDifficulty;
+  durationSeconds: number;
+  startedAt: string;
+  endsAt: string;
+  status: "RUNNING" | "ENDED";
+  endedBy?: "TIMER" | "TEACHER" | "SESSION";
+  endedAt?: string;
+  resultVisible: boolean;
+  /** The scoreboard, only while the teacher shows the result. */
+  result?: ExerciseResultBody;
+  /** The student's own result; null while he has none. */
+  myResult?: ExerciseMyResult | null;
+  /** The time of the server minus the time of this browser, when the room last told it: add it to `Date.now()` to count the time left by the clock of the server. */
+  skewMs: number;
+}
+
+/** What the server says of the state a student sent: it never says which conditions are missing. */
+export interface ExerciseVerdict {
+  passed: boolean;
+  completedAt?: string;
+  elapsedSeconds?: number;
+  points?: number;
+}
+
 /** The mouse of the teacher on the stage: percentages, of the whole page on the slides and of the stage on the module (SPEC-057). */
 export interface LiveCursor {
   x: number;
@@ -159,6 +231,8 @@ export interface LiveSnapshot {
   chat?: LiveChatMessage[];
   /** Only the panel gets this: the admitted students who are in the room (SPEC-063). */
   onlineStudents?: string[];
+  /** The round of the practical exercise, with the extras of who is asking (SPEC-065): null when the class had none. Read by the hook, which checks its shape. */
+  exercise?: Record<string, unknown> | null;
 }
 
 export type ActiveRoom = { hasActiveSession: false } | LiveSnapshot;
@@ -217,6 +291,9 @@ export function createClassroomService(client: HttpClient = httpClient) {
     saveNotes: (classId: string, sessionId: string, content: string) =>
       client.put<{ sessionId: string; savedLength: number; updatedAt: string }>(`${live(classId)}/sessions/${sessionId}/notes`, { content }),
     getNotes: (classId: string, sessionId: string) => client.get<LiveNote>(`${live(classId)}/sessions/${sessionId}/notes`),
+    /** Sends the state of the machine of the student for the server to check against the conditions of the exercise (SPEC-065). */
+    submitExercise: (classId: string, runId: string, snapshot: unknown) =>
+      client.post<ExerciseVerdict>(`${live(classId)}/exercise/submit`, { runId, snapshot }),
   };
 }
 

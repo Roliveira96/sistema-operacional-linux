@@ -7,6 +7,11 @@ import {
   type AdmissionState,
   type ChatTarget,
   CHAT_MAX,
+  type ExerciseDifficulty,
+  type ExerciseMyResult,
+  type ExerciseProgressEntry,
+  type ExerciseResultBody,
+  type LiveExercise,
   type HandRaiseItem,
   type LiveAdmissions,
   type LiveCursor,
@@ -58,6 +63,16 @@ interface State {
   chat: LiveChatMessage[];
   /** The admitted students who are in the room: only the panel is told (SPEC-063). */
   onlineStudents: string[];
+  /** The round of the practical exercise: the one running or the last one (SPEC-065). */
+  exercise: LiveExercise | null;
+  /** How far each student is in the round, by the id of the student: only the panel is told. */
+  exerciseProgress: Record<string, ExerciseProgressEntry>;
+  /** The last picture of the terminal of the student the teacher watches: only the panel gets it. */
+  watchedScreen: { studentId: string; screen: ScreenElement } | null;
+  /** The teacher watches this student's terminal, so he sends its picture: only the student is told. */
+  watchedByTeacher: boolean;
+  /** The student the panel watches, null for nobody. */
+  watching: string | null;
   /** Where the student stands; null until the server says (SPEC-054 CA-01). */
   admission: AdmissionState | null;
   admissions: LiveAdmissions;
@@ -79,6 +94,11 @@ const initial: State = {
   myHand: null,
   chat: [],
   onlineStudents: [],
+  exercise: null,
+  exerciseProgress: {},
+  watchedScreen: null,
+  watchedByTeacher: false,
+  watching: null,
   admission: null,
   admissions: { waiting: [], admitted: [] },
   startedAt: null,
@@ -119,6 +139,79 @@ function readChat(value: unknown): LiveChatMessage[] {
 
 /** The ids of the online students, as a list of texts. */
 const readOnline = (value: unknown): string[] => (Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : []);
+
+const DIFFICULTIES: ReadonlySet<unknown> = new Set<ExerciseDifficulty>(["EASY", "MEDIUM", "HARD"]);
+const ENDED_BY: ReadonlySet<unknown> = new Set(["TIMER", "TEACHER", "SESSION"]);
+const text = (value: unknown): value is string => typeof value === "string" && value !== "";
+const when = (value: unknown): value is string => typeof value === "string" && !Number.isNaN(Date.parse(value));
+const whole = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
+
+function readMyResult(value: unknown): ExerciseMyResult | null {
+  if (!record(value) || !when(value.completedAt) || !finite(value.elapsedSeconds) || !finite(value.points)) return null;
+  return { completedAt: value.completedAt, elapsedSeconds: value.elapsedSeconds, points: value.points };
+}
+
+/** The result of a round as the room tells it: the scoreboard of whoever finished, with nothing that has not its shape. */
+function readResult(value: unknown): ExerciseResultBody | null {
+  if (!record(value) || !text(value.runId) || typeof value.visible !== "boolean" || !whole(value.completed) || !whole(value.participants)) return null;
+  const rows = Array.isArray(value.scoreboard) ? value.scoreboard : [];
+  const scoreboard = rows.flatMap((row) =>
+    record(row) && text(row.studentId) && typeof row.name === "string" && finite(row.elapsedSeconds) && finite(row.points)
+      ? [{ studentId: row.studentId, name: row.name, elapsedSeconds: row.elapsedSeconds, points: row.points }]
+      : [],
+  );
+  return { runId: value.runId, visible: value.visible, completed: value.completed, participants: value.participants, scoreboard };
+}
+
+/** The progress of one student, as the panel is told: how many conditions he meets out of how many, never more than the total. */
+function readProgress(value: unknown): ExerciseProgressEntry | null {
+  if (!record(value) || !text(value.studentId) || !whole(value.met) || !whole(value.total) || value.met > value.total || value.total > 100) return null;
+  const entry: ExerciseProgressEntry = { studentId: value.studentId, met: value.met, total: value.total, last: typeof value.last === "string" ? value.last : "", at: typeof value.at === "string" ? value.at : "" };
+  if (typeof value.name === "string") entry.name = value.name;
+  if (when(value.completedAt)) entry.completedAt = value.completedAt;
+  if (finite(value.elapsedSeconds)) entry.elapsedSeconds = value.elapsedSeconds;
+  if (finite(value.points)) entry.points = value.points;
+  if (finite(value.attempts)) entry.attempts = value.attempts;
+  return entry;
+}
+
+/** The round of the exercise, in the form of the snapshot and of the start: null for anything that has not the shape of one (SPEC-065). */
+function readExercise(value: unknown): LiveExercise | null {
+  if (!record(value) || !text(value.runId) || !text(value.blockId) || !whole(value.index) || !text(value.title) || !DIFFICULTIES.has(value.difficulty)) return null;
+  if (!finite(value.durationSeconds) || value.durationSeconds <= 0 || !when(value.startedAt) || !when(value.endsAt)) return null;
+  const exercise: LiveExercise = {
+    runId: value.runId,
+    blockId: value.blockId,
+    index: value.index,
+    title: value.title,
+    difficulty: value.difficulty as ExerciseDifficulty,
+    durationSeconds: value.durationSeconds,
+    startedAt: value.startedAt,
+    endsAt: value.endsAt,
+    status: value.status === "ENDED" ? "ENDED" : "RUNNING",
+    resultVisible: value.resultVisible === true,
+    skewMs: when(value.now) ? Date.parse(value.now) - Date.now() : 0,
+  };
+  if (ENDED_BY.has(value.endedBy)) exercise.endedBy = value.endedBy as LiveExercise["endedBy"];
+  if (when(value.endedAt)) exercise.endedAt = value.endedAt;
+  if (exercise.resultVisible) {
+    const result = readResult(value.result);
+    if (result) exercise.result = result;
+  }
+  if ("myResult" in value) exercise.myResult = readMyResult(value.myResult);
+  return exercise;
+}
+
+/** The progress that comes with the snapshot of the panel, by student. */
+function readProgressList(value: unknown): Record<string, ExerciseProgressEntry> {
+  const list = record(value) && Array.isArray(value.progress) ? value.progress : [];
+  const progress: Record<string, ExerciseProgressEntry> = {};
+  for (const item of list) {
+    const entry = readProgress(item);
+    if (entry) progress[entry.studentId] = entry;
+  }
+  return progress;
+}
 
 /** The most strokes kept on screen, so a long class does not grow without end. */
 const MAX_STROKES = 500;
@@ -226,6 +319,12 @@ function apply(state: State, message: LiveMessage): State {
         myHand: readMyHand(s.myHand),
         chat: readChat(s.chat),
         onlineStudents: readOnline(s.onlineStudents),
+        exercise: readExercise(s.exercise),
+        exerciseProgress: readProgressList(s.exercise),
+        // A new connection starts with nobody watched: the server tells the student again if the teacher still does.
+        watchedScreen: null,
+        watchedByTeacher: false,
+        watching: null,
       };
     }
     // The server tells no restart: a new slide starts at the top, and a new module (SPEC-057 CA-05).
@@ -308,6 +407,58 @@ function apply(state: State, message: LiveMessage): State {
       if (!incoming || state.chat.some((m) => m.id === incoming.id)) return state;
       return { ...state, chat: [...state.chat, incoming].slice(-MAX_CHAT) };
     }
+    // The round of the practical exercise (SPEC-065): a new one clears what the last one left, and what names another round changes nothing.
+    case "live:exercise:started": {
+      const exercise = readExercise({ ...data, status: "RUNNING", resultVisible: false, myResult: null });
+      return exercise ? { ...state, exercise, exerciseProgress: {}, watchedScreen: null, watchedByTeacher: false, watching: null } : state;
+    }
+    case "live:exercise:ended": {
+      if (!state.exercise || data.runId !== state.exercise.runId) return state;
+      const ended: LiveExercise = { ...state.exercise, status: "ENDED", skewMs: when(data.now) ? Date.parse(data.now) - Date.now() : state.exercise.skewMs };
+      if (ENDED_BY.has(data.by)) ended.endedBy = data.by as LiveExercise["endedBy"];
+      if (when(data.endedAt)) ended.endedAt = data.endedAt;
+      return { ...state, exercise: ended, watchedScreen: null, watchedByTeacher: false, watching: null };
+    }
+    case "live:exercise:result": {
+      if (!state.exercise || data.runId !== state.exercise.runId) return state;
+      const result = readResult(data);
+      if (!result) return state;
+      const next: LiveExercise = { ...state.exercise, resultVisible: result.visible };
+      if (result.visible) next.result = result;
+      else delete next.result;
+      return { ...state, exercise: next };
+    }
+    case "live:exercise:progress": {
+      const entry = readProgress(data);
+      if (!entry || !state.exercise || data.runId !== state.exercise.runId) return state;
+      return { ...state, exerciseProgress: { ...state.exerciseProgress, [entry.studentId]: { ...state.exerciseProgress[entry.studentId], ...entry } } };
+    }
+    case "live:exercise:done": {
+      if (!state.exercise || data.runId !== state.exercise.runId || !text(data.studentId) || !when(data.completedAt) || !finite(data.elapsedSeconds) || !finite(data.points)) return state;
+      const before = state.exerciseProgress[data.studentId];
+      const entry: ExerciseProgressEntry = {
+        met: 0,
+        total: 0,
+        last: "",
+        at: data.completedAt,
+        ...before,
+        studentId: data.studentId,
+        completedAt: data.completedAt,
+        elapsedSeconds: data.elapsedSeconds,
+        points: data.points,
+      };
+      if (typeof data.name === "string") entry.name = data.name;
+      if (finite(data.attempts)) entry.attempts = data.attempts;
+      return { ...state, exerciseProgress: { ...state.exerciseProgress, [data.studentId]: entry } };
+    }
+    // The picture of the student the panel watches; a late one of the student it watched before is dropped.
+    case "live:exercise:screen":
+      return text(data.studentId) && data.studentId === state.watching && record(data.screen) ? { ...state, watchedScreen: { studentId: data.studentId, screen: data.screen as unknown as ScreenElement } } : state;
+    case "live:exercise:watch":
+      return { ...state, watchedByTeacher: data.on === true };
+    // What the panel does when it chooses a student to watch, which the server does not echo.
+    case "live:exercise:watching":
+      return { ...state, watching: text(data.studentId) ? data.studentId : null, watchedScreen: null };
     case "live:presence":
       return {
         ...state,
@@ -514,6 +665,8 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
 
   return {
     ...state,
+    // Only the panel is told how far each student is, whatever a message says.
+    exerciseProgress: kind === "panel" ? state.exerciseProgress : {},
     /** How many hands are up, for the header of the module. */
     handCount: state.hands.length,
     /** The teacher asked the students to go full screen (SPEC-059). */
@@ -579,6 +732,36 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
       const text = question.trim();
       sendOnly("live:hand:raise", text ? { question: text } : {});
       dispatch({ kind: "local", message: { type: "live:hand:raise", data: { question: text } } });
+    },
+    /** The teacher starts the round of a practical exercise of a block, for the minutes he says (the room takes 5 when none is told); only the panel does (SPEC-065). */
+    startExercise: (blockId: string, index: number, minutes?: number) => {
+      if (onPanel) sendOnly("live:exercise:start", minutes === undefined ? { blockId, index } : { blockId, index, minutes });
+    },
+    /** The teacher ends the round before the time. */
+    endExercise: () => {
+      if (onPanel) sendOnly("live:exercise:end", {});
+    },
+    /** The teacher shows the result of the ended round to the students, or hides it again. */
+    revealExercise: (visible: boolean) => {
+      if (onPanel) sendOnly("live:exercise:reveal", { visible });
+    },
+    /** The teacher watches the terminal of one student, or of nobody (null). */
+    watchStudent: (studentId: string | null) => {
+      if (!onPanel) return;
+      sendOnly("live:exercise:watch", { studentId });
+      dispatch({ kind: "local", message: { type: "live:exercise:watching", data: { studentId } } });
+    },
+    /** How far the student is: the conditions he meets out of the ones the exercise has, and his last command; says whether it went (SPEC-065). */
+    sendExerciseProgress: ({ runId, met, total, last = "" }: { runId: string; met: number; total: number; last?: string }): boolean => {
+      if (role !== "student" || !connected || !whole(met) || !whole(total) || met > total || total > 100) return false;
+      sendOnly("live:exercise:progress", { runId, met, total, last: Array.from(last.replace(/\p{Cc}/gu, "")).slice(0, 200).join("") });
+      return true;
+    },
+    /** The picture of the terminal of the student, which goes out only while the teacher watches him. */
+    sendExerciseScreen: (runId: string, screen: ScreenElement): boolean => {
+      if (role !== "student" || !connected || !state.watchedByTeacher) return false;
+      sendOnly("live:exercise:screen", { runId, screen });
+      return true;
     },
     /**
      * Sends a message of the class chat and says whether it went (SPEC-063). The student writes to the teacher and names no one; the teacher writes from the panel,
