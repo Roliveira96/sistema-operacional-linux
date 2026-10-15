@@ -94,6 +94,8 @@ type Options struct {
 	AnyOrigin bool
 	// SubmitLimiter limits the submissions of the state of the exercise, by student (SPEC-065); with none it is one each 2 seconds.
 	SubmitLimiter Limiter
+	// After runs the tolerance for a presenter window that left (SPEC-070); with none it is time.AfterFunc, and a test puts its own.
+	After service.AfterFunc
 }
 
 // Handler serves the routes of the live classroom.
@@ -104,11 +106,16 @@ type Handler struct {
 	hub      *hub.Hub
 	upgrader websocket.Upgrader
 	submits  Limiter
+	after    service.AfterFunc
+	windows  stageWindows
 }
 
 // New creates the handler and the hub of its rooms.
 func New(svc Service, auth authn.Validator, log *zap.Logger, opts Options) *Handler {
-	h := &Handler{svc: svc, auth: auth, log: log, submits: opts.SubmitLimiter}
+	h := &Handler{svc: svc, auth: auth, log: log, submits: opts.SubmitLimiter, after: opts.After}
+	if h.after == nil {
+		h.after = defaultAfter
+	}
 	if h.submits == nil {
 		h.submits = ratelimit.New(1, domain.ExerciseSubmitInterval)
 	}
@@ -153,6 +160,7 @@ func (h *Handler) Register(r gin.IRouter) {
 
 // CloseRoom tells everyone in the room that the lesson ended, and disconnects them.
 func (h *Handler) CloseRoom(sessionID uuid.UUID) {
+	h.windowRoomClosed(sessionID.String())
 	h.hub.Close(sessionID.String(), hub.Message{Type: typeEnded})
 }
 

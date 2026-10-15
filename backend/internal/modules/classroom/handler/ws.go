@@ -239,13 +239,18 @@ func (w wsHandler) Snapshot(ctx context.Context, room string, who hub.Identity) 
 	return w.snapshot(ctx, room, kind, who.UserID)
 }
 
-// takeOverStage ends the black screen when a new presenter window takes over; the others are told (SPEC-055).
+// takeOverStage ends the waiting screen when a presenter window comes in, the one of the B key (SPEC-055) and the one that the lack of a window
+// put there (SPEC-070); the others are told. A window that comes back inside the tolerance, or that replaces another, finds nothing to take off.
 func (w wsHandler) takeOverStage(room string, who hub.Identity) {
 	session := sessionOf(room)
-	if !w.h.svc.StageBlank(session) {
+	wasAway := w.h.windowOpened(room)
+	keyOn := w.h.svc.StageBlank(session)
+	if !keyOn && !wasAway {
 		return
 	}
-	w.h.svc.SetStageBlank(session, false)
+	if keyOn {
+		w.h.svc.SetStageBlank(session, false)
+	}
 	w.h.hub.Broadcast(room, hub.Message{Type: typeStageBlank, Data: mustMarshal(map[string]bool{"blank": false})}, who.ConnID)
 }
 
@@ -264,7 +269,7 @@ func (w wsHandler) snapshot(ctx context.Context, room, kind, student string) (hu
 		return hub.Message{}, err
 	}
 	body := activeBody(a, w.h.hub.Online(room), kind == viewPanel)
-	body["stageBlank"] = w.h.svc.StageBlank(sessionOf(room))
+	body["stageBlank"] = w.h.svc.StageBlank(sessionOf(room)) || (kind != viewPresenter && w.h.windowAway(room)) // the window itself sees the stage (SPEC-070 RN-05)
 	switch kind {
 	case viewPanel:
 		adm, err := w.h.svc.Admissions(ctx, sessionOf(room))
@@ -336,6 +341,7 @@ func (w wsHandler) Joined(room string, who hub.Identity) {
 func (w wsHandler) Left(room string, who hub.Identity) {
 	if who.Kind == viewPresenter {
 		w.presenterState(room) // the truth of the room, so a replaced window leaving does not close the presenter
+		w.h.windowLeft(room)
 	}
 	switch {
 	case who.Waiting:

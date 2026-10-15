@@ -137,15 +137,15 @@ func TestWindowLeaves_TenSecondsThenTheWaitingScreen(t *testing.T) {
 	presenter := w.dialView(t, "teacher", "presenter")
 	panel := w.dialView(t, "teacher2", "panel")
 	student := w.dial(t, "student")
-	for _, c := range []*websocket.Conn{presenter, panel, student} {
+	quiet := w.dial(t, "stranger") // only to see that nothing comes before the time is up: a read that times out spoils the connection
+	for _, c := range []*websocket.Conn{presenter, panel, student, quiet} {
 		readUntil(t, c, "live:snapshot")
 	}
 
 	require.NoError(t, presenter.Close())
 	eventually(t, func() bool { return timer.pending() == 1 })
 	assert.Equal(t, 10*time.Second, timer.delay())
-	nothingMore(t, student, blankMessage)
-	nothingMore(t, panel, blankMessage)
+	nothingMore(t, quiet, blankMessage)
 
 	meanwhile := w.dialView(t, "second", "")
 	assert.Equal(t, false, snapshotOf(t, meanwhile)["stageBlank"], "during the tolerance it is the stage: the value of the B key")
