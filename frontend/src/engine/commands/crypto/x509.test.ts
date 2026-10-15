@@ -1,11 +1,14 @@
 import { createPublicKey, X509Certificate } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { generateEd25519, generateRsa, privatePem, publicOf, publicPem, type PrivateKey } from "./pki";
 import { certificatePem, checkSignature, colonHex, createRequest, dateText, findExtension, issueCertificate, nameText, parseCertificate, parseRequest, parseSubject, requestPem } from "./x509";
 import { OID } from "./pki";
 
 // Covers SPEC-031 CA-08: the certificates are real, and Node reads, checks and fingerprints them like OpenSSL would.
 const subject = (text: string) => parseSubject(text)!;
+
+// The hashes and the keys are made by the code, in pure JavaScript: with the whole suite running at once the 5 seconds of the default are not enough.
+vi.setConfig({ testTimeout: 60_000 });
 
 describe("subjects", () => {
   it("reads the -subj form and refuses what is not it", () => {
