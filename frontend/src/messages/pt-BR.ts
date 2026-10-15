@@ -1429,6 +1429,7 @@ export const messages = {
       progress: (met: number, total: number) => `${met} de ${total} ${total === 1 ? "condição" : "condições"}`,
       checking: "Conferindo…",
       passed: (points: number, time: string) => `Você concluiu! +${points} ${points === 1 ? "ponto" : "pontos"}, em ${time}`,
+      gain: (points: number, time: string) => `Você fez +${points} ${points === 1 ? "ponto" : "pontos"}, em ${time}`,
       readOnly: "O terminal agora é só para leitura.",
       rejected: "Ainda falta algo. Continue tentando.",
       sendFailed: "Não foi possível conferir agora. Rode qualquer comando para tentar de novo.",
