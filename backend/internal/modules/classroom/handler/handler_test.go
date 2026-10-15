@@ -103,6 +103,9 @@ type fakeService struct {
 
 	// the chat of the lesson: what the handler asked and what was kept (SPEC-063)
 	chat chatState
+
+	// the exercise of the lesson: the round, who is in it, and what the handler asked (SPEC-065)
+	exercise exerciseDouble
 }
 
 func (f *fakeService) record(s string) {
