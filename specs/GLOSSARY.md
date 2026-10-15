@@ -56,6 +56,7 @@ Regras:
 | Mensagem para todos | `scope: "all"` de `live:chat:message` | Mensagem do professor que o painel e todos os alunos aceitos da aula recebem; o aluno não escreve para todos | `Aviso`, `Broadcast` (na interface) | Proposto (SPEC-063) |
 | Conversa particular | `scope: "private"` com `studentId` | Troca de mensagens entre um aluno e o professor; só o aluno e o painel a veem | `Mensagem direta`, `DM` | Proposto (SPEC-063) |
 | Cartão do aluno online | `OnlineStudents` | Card do painel do professor com o nome, a mão, a dúvida e as mensagens novas de um aluno aceito que está na sala | `Lista de presença` | Proposto (SPEC-063) |
+| Notificação do navegador | `Classroom/notices` | Aviso do sistema (a `Notification` do navegador) que a aula ao vivo mostra quando algo novo acontece e a página não está à vista: mão levantada e mensagem de aluno para o professor, mensagem do professor para o aluno; não é Web Push (não funciona com a aba fechada) | `Push`, `Toast` | Proposto (SPEC-064) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 

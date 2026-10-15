@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-064 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada pelo pedido do Tech Lead) |
 | **Autor** | Aruna Architect |
@@ -75,15 +75,15 @@ Nenhuma mudança.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO um aluno entra na fila de mãos, E a página do painel não está à vista ou em foco, E as notificações estão ligadas, O SISTEMA DEVE mostrar a notificação "Mão levantada" com o nome do aluno e a dúvida (quando houver).
-- [ ] **CA-02** (evento): QUANDO chega ao painel uma mensagem de aluno, nas mesmas condições, O SISTEMA DEVE mostrar a notificação "Mensagem de *Nome*" com o texto.
-- [ ] **CA-03** (evento): QUANDO chega à sala do aluno uma mensagem do professor (em particular ou para todos), nas mesmas condições, O SISTEMA DEVE mostrar a notificação "Professor" ou "Professor · para todos" com o texto.
-- [ ] **CA-04** (ubíquo): O sistema NÃO DEVE notificar: o histórico do primeiro instantâneo (entrar ou recarregar); a mensagem ou mão cujo id já estava na lista; a mensagem do próprio remetente; a mudança só da dúvida de uma mão que já estava levantada; a mão baixada; com a página à vista e em foco; com as notificações desligadas, bloqueadas ou indisponíveis.
-- [ ] **CA-05** (ubíquo): O botão "Notificações" DEVE existir no painel e na faixa do aluno, com os quatro estados de 3.1; o clique de "Ativar notificações" DEVE pedir a permissão; a escolha ligada ou desligada DEVE ficar guardada no navegador.
-- [ ] **CA-06** (evento): QUANDO a pessoa clica na notificação, O SISTEMA DEVE trazer a janela para frente e fechar a notificação, abrir a conversa do aluno no painel e a coluna "Conversa" na sala do aluno.
-- [ ] **CA-07** (ubíquo): A notificação DEVE ter texto puro, o corpo cortado em 140 caracteres, `tag` por mão e por mensagem e fechar-se sozinha em 8 segundos.
-- [ ] **CA-08** (ubíquo): Nada fora da sala ao vivo DEVE mudar; os testes existentes passam sem alteração (salvo os helpers de mock que ganham campos); o servidor e `engine/core` não são alterados.
-- [ ] **CA-09** (ubíquo): Stylelint, ESLint e `tsc` limpos; cobertura acima de 80% no escopo.
+- [x] **CA-01** (evento): QUANDO um aluno entra na fila de mãos, E a página do painel não está à vista ou em foco, E as notificações estão ligadas, O SISTEMA DEVE mostrar a notificação "Mão levantada" com o nome do aluno e a dúvida (quando houver).
+- [x] **CA-02** (evento): QUANDO chega ao painel uma mensagem de aluno, nas mesmas condições, O SISTEMA DEVE mostrar a notificação "Mensagem de *Nome*" com o texto.
+- [x] **CA-03** (evento): QUANDO chega à sala do aluno uma mensagem do professor (em particular ou para todos), nas mesmas condições, O SISTEMA DEVE mostrar a notificação "Professor" ou "Professor · para todos" com o texto.
+- [x] **CA-04** (ubíquo): O sistema NÃO DEVE notificar: o histórico do primeiro instantâneo (entrar ou recarregar); a mensagem ou mão cujo id já estava na lista; a mensagem do próprio remetente; a mudança só da dúvida de uma mão que já estava levantada; a mão baixada; com a página à vista e em foco; com as notificações desligadas, bloqueadas ou indisponíveis.
+- [x] **CA-05** (ubíquo): O botão "Notificações" DEVE existir no painel e na faixa do aluno, com os quatro estados de 3.1; o clique de "Ativar notificações" DEVE pedir a permissão; a escolha ligada ou desligada DEVE ficar guardada no navegador.
+- [x] **CA-06** (evento): QUANDO a pessoa clica na notificação, O SISTEMA DEVE trazer a janela para frente e fechar a notificação, abrir a conversa do aluno no painel e a coluna "Conversa" na sala do aluno.
+- [x] **CA-07** (ubíquo): A notificação DEVE ter texto puro, o corpo cortado em 140 caracteres, `tag` por mão e por mensagem e fechar-se sozinha em 8 segundos.
+- [x] **CA-08** (ubíquo): Nada fora da sala ao vivo DEVE mudar; os testes existentes passam sem alteração (salvo os helpers de mock que ganham campos); o servidor e `engine/core` não são alterados.
+- [x] **CA-09** (ubíquo): Stylelint, ESLint e `tsc` limpos; cobertura acima de 80% no escopo.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -116,3 +116,4 @@ O Tech Lead pediu "notificação push" para quem levanta a mão e para quem rece
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido do Tech Lead; as leituras e escolhas da seção 10 ficam para a revisão dele |
+| 14/10/2026 | Aruna Architect | Implementada (`544324c`, `2a56abe`, `87520e5`). Desvios: mais de 3 novidades na mesma atualização viram 3 notificações e um aviso "e mais *N*" (título "Aula ao vivo", `tag: "more"`); a mensagem sem nome conhecido diz "Mensagem de um aluno"; a dica do botão desativado fica visível ao lado dele; o botão "Notificações" entrou depois de "Conversa" na faixa, o que mudou os testes que comparavam a lista exata de botões; o acesso ao navegador ganhou `inView()`; sem verificação no navegador (nenhuma notificação foi vista de verdade) |
