@@ -1,0 +1,127 @@
+@use "@/styles/mixins" as mixins;
+
+// The conversation of the student, in the column beside the stage (SPEC-063): the messages scroll by themselves and the field stays under them.
+.chat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+
+  @include mixins.focusable;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised);
+}
+
+// What the teacher says only to this student stands out by its border, and the student's own by the dark of its box; the words above say who it is from.
+.item[data-kind="teacher"] {
+  border-color: var(--color-accent);
+}
+
+.item[data-kind="mine"] {
+  background-color: var(--color-surface-sunken);
+}
+
+.who {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+// Text and nothing else: the line breaks of the message are kept, and a long word breaks instead of running over the column.
+.text {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.compose {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field {
+  min-height: 4.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  resize: none;
+
+  @include mixins.focusable;
+
+  &::placeholder {
+    color: var(--color-text-secondary);
+  }
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.count {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// The loss of the connection takes the room left between the counter and the button, and is not there while the connection is.
+.offline {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+
+  &:empty {
+    display: none;
+  }
+}
+
+.footer > button {
+  margin-left: auto;
+}

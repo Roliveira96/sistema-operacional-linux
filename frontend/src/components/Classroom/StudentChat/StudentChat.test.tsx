@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveChatMessage } from "@/services/classroomService";
 import { StudentChat } from "./StudentChat";
 
-const styles = readFileSync(new URL("./StudentChat.module.scss", import.meta.url), "utf8");
+// A path in a variable, because Vite turns a literal `new URL("./file", import.meta.url)` into an asset URL.
+const styleOf = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const styles = styleOf("./StudentChat.module.scss");
 const rule = (name: string) => styles.slice(styles.indexOf(`.${name} {`), styles.indexOf("}", styles.indexOf(`.${name} {`)));
 
 afterEach(() => {
@@ -23,7 +25,7 @@ const type = (text: string) => fireEvent.change(field(), { target: { value: text
 const log = () => screen.getByRole("log");
 
 function setup(over: { messages?: LiveChatMessage[]; connected?: boolean; accepted?: boolean } = {}) {
-  const onSend = vi.fn((_text: string) => over.accepted ?? true);
+  const onSend = vi.fn<(text: string) => boolean>(() => over.accepted ?? true);
   const props = { messages: over.messages ?? [], connected: over.connected ?? true, onSend };
   const view = render(<StudentChat {...props} />);
   return { onSend, props, view, again: (next: Partial<typeof props>) => view.rerender(<StudentChat {...props} {...next} />) };
@@ -48,12 +50,13 @@ describe("StudentChat", () => {
       setup({ messages: [forAll("m-1", "Bom dia a todos"), toMe("m-2", "Veja o slide 3"), mine("m-3", "Obrigado")] });
       const items = within(log()).getAllByRole("listitem");
       expect(items).toHaveLength(3);
-      expect(within(items[0]).getByText("Professor · para todos")).toBeDefined();
-      expect(within(items[0]).getByText("Bom dia a todos")).toBeDefined();
-      expect(within(items[1]).getByText("Professor · só para você")).toBeDefined();
-      expect(within(items[1]).getByText("Veja o slide 3")).toBeDefined();
-      expect(within(items[2]).getByText("Você")).toBeDefined();
-      expect(within(items[2]).getByText("Obrigado")).toBeDefined();
+      const [everybody, onlyMe, own] = items as [HTMLElement, HTMLElement, HTMLElement];
+      expect(within(everybody).getByText("Professor · para todos")).toBeDefined();
+      expect(within(everybody).getByText("Bom dia a todos")).toBeDefined();
+      expect(within(onlyMe).getByText("Professor · só para você")).toBeDefined();
+      expect(within(onlyMe).getByText("Veja o slide 3")).toBeDefined();
+      expect(within(own).getByText("Você")).toBeDefined();
+      expect(within(own).getByText("Obrigado")).toBeDefined();
     });
 
     it("keeps the order the room gave, which is the order of the time, the newest last", () => {
@@ -113,6 +116,7 @@ describe("StudentChat", () => {
     });
 
     it("has the list scroll by itself, with the field always under it, and be reached by the keyboard", () => {
+      setup();
       expect(rule("list")).toMatch(/overflow-y:\s*auto/);
       expect(rule("list")).toMatch(/flex:\s*1/);
       expect(log().getAttribute("tabindex")).toBe("0");
@@ -241,7 +245,7 @@ describe("StudentChat", () => {
       type("meio da frase");
       again({ messages: [forAll("m-1", "Atenção")] });
       expect(field().value).toBe("meio da frase");
-      expect(screen.getByText("12/500")).toBeDefined();
+      expect(screen.getByText("13/500")).toBeDefined();
     });
 
     it("shows no message of its own before the room gives it back", () => {
