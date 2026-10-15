@@ -162,3 +162,27 @@ describe("classroomService, the live classes of the student", () => {
     expect(await createClassroomService(http).listMyLive()).toEqual([]);
   });
 });
+
+// SPEC-068 section 5: an image is sent with no page count, and the list tells the kind
+describe("classroomService, files sent with the class going on", () => {
+  const http: HttpClient = { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
+
+  it("uploads an image with no page count", async () => {
+    vi.mocked(http.post).mockResolvedValueOnce({ id: "d-2", title: "Esquema", pageCount: 1, kind: "IMAGE", downloadUrl: "https://minio/e.png" });
+    const file = new File(["x"], "esquema.png", { type: "image/png" });
+    const deck = await createClassroomService(http).uploadDeck("c-1", file, "Esquema");
+    const [path, body] = vi.mocked(http.post).mock.calls.at(-1)!;
+    expect(path).toBe("/classes/c-1/live/decks");
+    const form = body as FormData;
+    expect(form.get("title")).toBe("Esquema");
+    expect(form.has("pageCount")).toBe(false);
+    expect((form.get("file") as File).name).toBe("esquema.png");
+    expect(deck.kind).toBe("IMAGE");
+  });
+
+  it("lists the presentations with their kind", async () => {
+    const decks = [{ id: "d-2", title: "Esquema", pageCount: 1, kind: "IMAGE", createdAt: "2026-10-15" }];
+    vi.mocked(http.get).mockResolvedValueOnce({ decks });
+    expect(await createClassroomService(http).listDecks("c-1")).toEqual(decks);
+  });
+});

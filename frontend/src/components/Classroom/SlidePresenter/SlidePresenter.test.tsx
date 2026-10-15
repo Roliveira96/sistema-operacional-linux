@@ -650,3 +650,28 @@ describe("SlidePresenter", () => {
     });
   });
 });
+
+// SPEC-068 CA-10: an image is one slide, drawn whole by its own loader, in the same stage with the same laser, pen and scroll
+describe("SlidePresenter, an image presentation", () => {
+  const picture = { downloadUrl: "https://minio/e.png", pageCount: 1, kind: "IMAGE" as const };
+
+  it("draws the image with the image loader, as one slide, and not with the PDF reader", async () => {
+    const image = fakeLoader(1);
+    const { loader } = setup({ deck: picture, slide: 1, imageLoader: image.loader });
+    await waitFor(() => expect(image.render).toHaveBeenCalled());
+    expect(image.loader.load).toHaveBeenCalledWith("https://minio/e.png");
+    expect(loader.load).not.toHaveBeenCalled();
+    expect(image.render.mock.calls.at(-1)![0]).toBe(1);
+    expect(screen.getByText("Lâmina 1 de 1")).toBeDefined();
+    expect((screen.getByRole("button", { name: "Anterior" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Próxima" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("goes on drawing a PDF with the PDF reader when the kind is PDF", async () => {
+    const image = fakeLoader(1);
+    const { loader, renderPage } = setup({ deck: { ...deck, kind: "PDF" }, imageLoader: image.loader });
+    await waitFor(() => expect(renderPage).toHaveBeenCalled());
+    expect(loader.load).toHaveBeenCalledWith("https://minio/slides.pdf");
+    expect(image.loader.load).not.toHaveBeenCalled();
+  });
+});

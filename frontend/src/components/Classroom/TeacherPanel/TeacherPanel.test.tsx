@@ -36,7 +36,7 @@ const module_: LiveModuleContent = {
 
 const actions = () => ({
   changeSlide: vi.fn(), switchMode: vi.fn(), moderate: vi.fn(), acceptStudent: vi.fn(), acceptAll: vi.fn(), removeStudent: vi.fn(), focusBlock: vi.fn(),
-  raiseHand: vi.fn(), lowerHand: vi.fn(), sendChat: vi.fn(() => true),
+  raiseHand: vi.fn(), lowerHand: vi.fn(), sendChat: vi.fn(() => true), selectDeck: vi.fn(),
 });
 
 function live(over: Record<string, unknown> = {}, room: Record<string, unknown> = {}) {
@@ -69,6 +69,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-10-14T11:05:30Z"));
   vi.mocked(moduleService.listModules).mockResolvedValue({ items: [{ id: "m-1", title: "Permissões de arquivos" }, { id: "m-2", title: "Processos" }], total: 2, page: 1, limit: 100 } as never);
   vi.spyOn(classroomService, "getLiveModule").mockResolvedValue(module_);
+  vi.spyOn(classroomService, "listDecks").mockResolvedValue([{ id: "d-2", title: "Esquema", pageCount: 1, kind: "IMAGE", createdAt: "2026-10-15T10:00:00Z" }]);
 });
 afterEach(() => {
   cleanup();
@@ -217,6 +218,16 @@ describe("TeacherPanel", () => {
       expect(screen.getByText(notice)).toBeDefined();
       expect(screen.getByRole("button", { name: "Abrir de novo" })).toBeDefined();
     });
+  });
+
+  // SPEC-068: the files of the class, with the class going on, and the choice of what is on the stage
+  it("gives the files of the class, and projects one on the stage of the room", async () => {
+    const l = live();
+    render(<TeacherPanel {...props()} />);
+    await flush();
+    expect(screen.getByRole("region", { name: "Arquivos da aula" })).toBeDefined();
+    fireEvent.click(await screen.findByRole("button", { name: "Projetar Esquema" }));
+    expect(l.selectDeck).toHaveBeenCalledWith("d-2");
   });
 
   // CA-03: the waiting room, with the accept-all button on top (CA-19)
