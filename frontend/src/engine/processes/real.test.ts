@@ -153,3 +153,50 @@ describe("ps on the real terminal", () => {
     await run(t, "pkill sleep", 3);
   });
 });
+
+// Covers SPEC-029 CA-04 and CA-05 on the real terminal: top shows the real PR and NI, and pstree and pidof tell who is whose parent.
+describe("top, pstree and pidof on the real terminal", () => {
+  it("finds pstree and pidof in the PATH, and answers --help with the help of each (SPEC-027)", async () => {
+    const t = await terminal();
+    for (const name of ["pstree", "pidof", "top"]) {
+      expect((await run(t, `which ${name}`)).output.trim(), name).toMatch(new RegExp(`/${name}$`));
+      const help = await run(t, `${name} --help`);
+      expect(help.status, name).toBe(0);
+      expect(help.output, name).toContain(`Uso: ${name}`);
+    }
+  });
+
+  it("tells the PID of a program started in another terminal, and draws it under the shell that started it", async () => {
+    const t = await terminal();
+    const started = await run(t, "sleep 60 &", 2);
+    const pid = Number(/\[1\]\s+(\d+)/.exec(started.output)?.[1]);
+    expect(pid).toBeGreaterThan(0);
+    const found = await run(t, "pidof sleep", 3);
+    expect(found.status).toBe(0);
+    expect(found.output.trim().split(" ")).toContain(String(pid));
+
+    const tree = await run(t, "pstree -p", 3);
+    expect(tree.status).toBe(0);
+    expect(tree.output).toMatch(/bash\(\d+\)/);
+    expect(tree.output).toContain(`sleep(${pid})`);
+    expect((await run(t, `pstree ${pid}`, 3)).output.trim()).toBe("sleep");
+    await run(t, `kill ${pid}`, 3);
+    expect((await run(t, "pidof sleep", 3)).status).toBe(1);
+  });
+
+  it("shows in top the PR and the NI of a process, and what renice changed, in a screen of batch mode", async () => {
+    const t = await terminal();
+    const started = await run(t, "nice -n 10 sleep 60 &", 2);
+    const pid = Number(/\[1\]\s+(\d+)/.exec(started.output)?.[1]);
+    const row = (output: string) => new RegExp(`\\n\\s+${pid} \\S+\\s+(\\d+)\\s+(-?\\d+) `).exec(output)?.slice(1, 3).map(Number);
+
+    const before = await run(t, "top -b -n 1", 3);
+    expect(before.status).toBe(0);
+    expect(before.output).toContain("Tarefas:");
+    expect(row(before.output)).toEqual([30, 10]);
+
+    expect((await run(t, `renice 15 -p ${pid}`, 3)).status).toBe(0);
+    expect(row((await run(t, "top -b -n 1", 3)).output)).toEqual([35, 15]);
+    await run(t, `kill ${pid}`, 3);
+  });
+});

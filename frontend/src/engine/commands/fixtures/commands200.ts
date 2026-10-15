@@ -14,8 +14,8 @@ export const SETUP_COMMANDS: string[] = [
   "echo b > pasta/b.txt",
 ];
 
-/** What is outside SPEC-028 and keeps failing on purpose: the hard link, the compilers, the commands SPEC-029 gives to the process control, and the git subcommands the engine leaves out on purpose (it teaches only git --version and git init). */
-export const EXPECTED_FAILURES: string[] = ["ln a.txt duro", "gcc --version", "make --version", "pstree", "pidof bash", "nice -n 10 echo ok", "diff a.txt duro", "git config user.name Aluno", "git config user.email aluno@lab.com", "git add .", "git commit -m inicio", "git status", "git log --oneline"];
+/** What is outside SPEC-028 and keeps failing on purpose: the hard link, the compilers, and the git subcommands the engine leaves out on purpose (it teaches only git --version and git init). */
+export const EXPECTED_FAILURES: string[] = ["ln a.txt duro", "gcc --version", "make --version", "diff a.txt duro", "git config user.name Aluno", "git config user.email aluno@lab.com", "git add .", "git commit -m inicio", "git status", "git log --oneline"];
 
 export const COMMANDS_200: string[] = [
   "pwd",
