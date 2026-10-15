@@ -83,7 +83,7 @@ describe("ExerciseArea, the progress the teacher is told", () => {
     // The same command again, on the same machine: the room already knows.
     h.history.pop();
     await type("pwd", none());
-    await advance(10_000);
+    await advance(5000);
     expect(onProgress).toHaveBeenCalledTimes(2);
   });
 
@@ -94,7 +94,7 @@ describe("ExerciseArea, the progress the teacher is told", () => {
     await advance(2000);
     expect(onProgress).toHaveBeenCalledTimes(2);
     expect(sent()[1]![0]).toEqual({ runId: "r-1", met: 0, total: 2, last: "" });
-    await advance(10_000);
+    await advance(5000);
     expect(onProgress).toHaveBeenCalledTimes(2);
   });
 
@@ -104,6 +104,85 @@ describe("ExerciseArea, the progress the teacher is told", () => {
     view.unmount();
     await advance(5000);
     expect(onProgress).toHaveBeenCalledTimes(1);
+  });
+});
+
+// SPEC-065 CA-06: the panel says "Sem sinal" after 15 s without progress, so the client tells it again every 10 s while the round runs
+describe("ExerciseArea, the beat of the progress", () => {
+  it("tells the same progress again every 10 s, though nothing changed", async () => {
+    await open();
+    await advance(9999);
+    expect(onProgress).toHaveBeenCalledTimes(1);
+    await advance(1);
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    expect(sent()[1]![0]).toEqual(sent()[0]![0]);
+    await advance(10_000);
+    expect(onProgress).toHaveBeenCalledTimes(3);
+    expect(sent()[2]![0]).toEqual({ runId: "r-1", met: 0, total: 2, last: "" });
+  });
+
+  it("tells what the student is at now, the last command and how many conditions are met", async () => {
+    await open();
+    await type("mkdir /dois", half());
+    await advance(2000);
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    await advance(8000);
+    expect(onProgress).toHaveBeenCalledTimes(3);
+    expect(sent()[2]![0]).toEqual({ runId: "r-1", met: 1, total: 2, last: "mkdir /dois" });
+  });
+
+  it("keeps two seconds between the sends, the beat and the changes together", async () => {
+    await open();
+    await advance(9500);
+    await type("ls", half());
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    await advance(500);
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    await advance(1499);
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    await advance(1);
+    expect(onProgress).toHaveBeenCalledTimes(3);
+    expect(sent()[2]![0]).toEqual({ runId: "r-1", met: 1, total: 2, last: "ls" });
+  });
+
+  it("tries the beat again when the room did not take it, as with the connection down", async () => {
+    await open();
+    onProgress.mockReturnValueOnce(false).mockReturnValue(true);
+    await advance(10_000);
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    await advance(2000);
+    expect(onProgress).toHaveBeenCalledTimes(3);
+    await advance(7000);
+    expect(onProgress).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops when the round ends", async () => {
+    const view = await open();
+    view.rerender(area({ exercise: round({ status: "ENDED", endedBy: "TIMER", endedAt: START }) }));
+    await advance(60_000);
+    expect(onProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops when the area goes away", async () => {
+    const view = await open();
+    view.unmount();
+    await advance(60_000);
+    expect(onProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not pile up beats when the area is drawn again", async () => {
+    const view = await open();
+    for (let i = 0; i < 5; i += 1) view.rerender(area({ watched: i % 2 === 0, away: i % 2 === 1 }));
+    await advance(10_000);
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    await advance(10_000);
+    expect(onProgress).toHaveBeenCalledTimes(3);
+  });
+
+  it("goes on while the student looks at the lesson", async () => {
+    await open(area({ away: true }));
+    await advance(10_000);
+    expect(onProgress).toHaveBeenCalledTimes(2);
   });
 });
 

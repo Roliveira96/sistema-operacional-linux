@@ -94,6 +94,43 @@ describe("ExerciseArea, when the round ends with the result hidden", () => {
     expect(screen.getByRole("status").textContent).toContain("Você concluiu! +30 pontos, em 03:12");
   });
 
+  // SPEC-065 CA-09: the personal gain always shows; the notice of the end is only for who saw the round run in this page
+  describe("a round already over when the student came in or reloaded", () => {
+    const gain = { completedAt: END, elapsedSeconds: 192, points: 30 };
+
+    it("tells only the personal gain of a student who concluded, with no word of the end, and asks for no module", () => {
+      const view = render(area({ exercise: ended({ myResult: gain }) }));
+      const status = screen.getByRole("status");
+      expect(status.textContent).toBe("Você fez +30 pontos, em 03:12");
+      expect(view.container.textContent).not.toContain("Exercício encerrado");
+      expect(screen.queryByRole("region")).toBeNull();
+      expect(classroomService.getLiveModule).not.toHaveBeenCalled();
+      expect(mount).not.toHaveBeenCalled();
+    });
+
+    it("lets the student close it, once for the page", () => {
+      const view = render(area({ exercise: ended({ myResult: gain }) }));
+      fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+      expect(screen.queryByRole("status")).toBeNull();
+      view.rerender(area({ exercise: ended({ myResult: gain, endedBy: "TEACHER" }) }));
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("says nothing when the student did not conclude and the result is hidden", () => {
+      const view = render(area({ exercise: ended({ myResult: null }) }));
+      expect(view.container.textContent).toBe("");
+      view.rerender(area({ exercise: ended() }));
+      expect(view.container.textContent).toBe("");
+    });
+
+    it("still tells the end, with the gain, to who saw the round run", async () => {
+      await watched(ended({ myResult: gain }));
+      const status = screen.getByRole("status");
+      expect(status.textContent).toContain("Exercício encerrado");
+      expect(status.textContent).toContain("Você concluiu! +30 pontos, em 03:12");
+    });
+  });
+
   it("says nothing of a round that was already over when the student came, and does not ask for the module", () => {
     const view = render(area({ exercise: ended() }));
     expect(view.container.textContent).toBe("");
