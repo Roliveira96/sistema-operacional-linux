@@ -31,6 +31,8 @@ function room(mode: "SLIDES" | "MODULE", zoom = 1) {
     terminal: { screen: null },
     stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom, selection: null, terminalScroll: {} },
     hands: [],
+    chat: [],
+    sendChat: vi.fn(() => true),
     ready: true,
     ended: false,
     passive: false,

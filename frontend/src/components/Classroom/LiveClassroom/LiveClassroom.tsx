@@ -12,6 +12,7 @@ import { FixedStage } from "../FixedStage/FixedStage";
 import { HandDialog } from "../HandDialog/HandDialog";
 import { ModuleStage } from "../ModuleStage/ModuleStage";
 import { SlidePresenter } from "../SlidePresenter/SlidePresenter";
+import { StudentChat } from "../StudentChat/StudentChat";
 import { StudentNotesPanel } from "../StudentNotesPanel/StudentNotesPanel";
 import { WaitingRoom } from "../WaitingRoom/WaitingRoom";
 import { WaitingScreen } from "../WaitingScreen/WaitingScreen";
@@ -28,13 +29,16 @@ export interface LiveClassroomProps {
 
 /**
  * The live classroom of the student, in the style of a video call (SPEC-057 CA-13): the stage takes the whole window but a strip of controls at the
- * bottom, which never covers it; the hand, the notes and the full screen are on the strip, and the notes open in a column beside the stage, which is
- * fit to what is left. Nothing is over the stage. The stage is the fixed box the teacher sees, only smaller or bigger, and the student moves nothing of
- * it: the scroll, the divider, the zoom, the mouse and the selection are the teacher's. Inside the stage there is nothing the teacher's stage has not
+ * bottom, which never covers it; the hand, the notes, the conversation and the full screen are on the strip, and the notes or the conversation with the
+ * teacher open in a column beside the stage, which is fit to what is left (one column at a time, SPEC-063). Nothing is over the stage. The stage is the
+ * fixed box the teacher sees, only smaller or bigger, and the student moves nothing of it: the scroll, the divider, the zoom, the mouse and the selection
+ * are the teacher's. Inside the stage there is nothing the teacher's stage has not
  * (SPEC-057 CA-22): what is only the student's, the loss of the connection, is told in the strip, and the connecting takes the place of the content.
  * The hand goes up with one click and no text, from the strip or from the hand of the header of the module; then a modal opens for the doubt (optional,
  * SPEC-058, SPEC-062). The modal lives in the room, next to the stage and outside its fixed box, never in a portal, so the hand of the header and the modal
  * are inside whatever the browser puts in full screen, and the stage of the others does not change.
+ * The full screen, of the button, of the key F and of the request of the teacher, is the one of the whole room, so the strip, the notes, the conversation
+ * and the modal stay in it (SPEC-063 CA-09).
  * When the teacher asks for the full screen the room goes into focus mode at once, with the stage over the whole window, and tries the full screen of the
  * browser, which may want a gesture of the student first (SPEC-059). The student waits for the teacher to accept him (SPEC-051, section 3.1; SPEC-054).
  * The teacher has the panel and the presentation window (SPEC-055).
@@ -44,22 +48,33 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   const live = useLiveClassroom({ classId, role: "student" });
   const [now, setNow] = useState(() => Date.now());
   const [joinedAt] = useState(() => Date.now());
-  const [notes, setNotes] = useState(false);
+  // The column beside the stage: the notes or the conversation with the teacher, never both (SPEC-063).
+  const [side, setSide] = useState<"notes" | "chat" | null>(null);
+  const notes = side === "notes";
+  const chatOpen = side === "chat";
+  const toggleSide = (which: "notes" | "chat") => setSide(side === which ? null : which);
   // The modal of the doubt is open: the student raised the hand, or came to write the doubt of the hand that is up (SPEC-062).
   const [asking, setAsking] = useState(false);
-  const stage = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLElement>(null);
   const back = `/app/classes/${classId}`;
 
   // The teacher asked for the full screen: the room goes into focus mode and tries the full screen of the browser (SPEC-059).
   const requested = live.fullscreenRequested;
   const fullscreen = useRequestedFullscreen(frame, requested);
-  // The stage has the whole window in focus mode, so the column of notes closes when the request comes; the student can open it again.
+  // The stage has the whole window in focus mode, so the column of notes or of the conversation closes when the request comes; the student can open it again.
   const [focused, setFocused] = useState(false);
   if (requested !== focused) {
     setFocused(requested);
-    if (requested) setNotes(false);
+    if (requested) setSide(null);
   }
+
+  // The messages of the teacher the student has seen, to tell the new ones in the strip (SPEC-063). It is null until the first snapshot, whose history counts
+  // as read, as the one that comes when he comes back does; whatever comes while the conversation is open is read too, and opening it clears the number.
+  // Nothing is kept for the next visit.
+  const [seen, setSeen] = useState<ReadonlySet<string> | null>(null);
+  const fromTeacher = live.chat.filter((message) => message.from === "TEACHER").map((message) => message.id);
+  const unread = seen ? fromTeacher.filter((id) => !seen.has(id)).length : 0;
+  if (live.ready && (seen === null || (chatOpen && unread > 0))) setSeen(new Set(fromTeacher));
 
   const place = live.hands.findIndex((hand) => hand.studentId === userId);
   const raised = place >= 0;
@@ -84,10 +99,11 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
     return () => clearInterval(tick);
   }, []);
 
-  // The full screen is the one of the stage, which then fills the screen with the biggest scale that fits it, with nothing cut.
+  // The full screen is the one of the whole room, as the request of the teacher asks for, so the strip, the columns and the modal stay in it; the stage
+  // then fills what is left of the screen with the biggest scale that fits it, with nothing cut (SPEC-063 CA-09).
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen?.();
-    else void stage.current?.requestFullscreen?.();
+    else void frame.current?.requestFullscreen?.();
   };
 
   // The key F does the same, unless the student is writing, or the key belongs to the browser.
@@ -137,7 +153,7 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   return (
     <main ref={frame} className={styles.live} data-focus={requested ? "true" : undefined}>
       <div className={styles.body}>
-        <div ref={stage} className={styles.stage}>
+        <div className={styles.stage}>
           <FixedStage zoom={live.stageView.zoom}>
             {!live.ready ? (
               <p className={styles.notice} role="status">
@@ -183,9 +199,9 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
           {asking && <HandDialog saved={live.myHand?.question ?? ""} onSend={(question) => live.raiseHand(question)} onLower={lowerHand} onClose={() => setAsking(false)} />}
         </div>
 
-        {notes && (
-          <aside className={styles.side} aria-label={m.room.notesColumn}>
-            <StudentNotesPanel classId={classId} sessionId={session.id} />
+        {side && (
+          <aside className={styles.side} aria-label={notes ? m.room.notesColumn : m.chat.column}>
+            {notes ? <StudentNotesPanel classId={classId} sessionId={session.id} /> : <StudentChat messages={live.chat} connected={live.connected} onSend={live.sendChat} />}
           </aside>
         )}
       </div>
@@ -216,8 +232,22 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
           <Button variant={raised ? "primary" : "secondary"} size="sm" aria-pressed={raised} onClick={() => (raised ? lowerHand() : askHand())}>
             {raised ? m.hands.lower : m.hands.raise}
           </Button>
-          <Button variant={notes ? "primary" : "secondary"} size="sm" aria-expanded={notes} onClick={() => setNotes(!notes)}>
+          <Button variant={notes ? "primary" : "secondary"} size="sm" aria-expanded={notes} onClick={() => toggleSide("notes")}>
             {m.room.notesToggle}
+          </Button>
+          <Button
+            variant={chatOpen ? "primary" : "secondary"}
+            size="sm"
+            aria-expanded={chatOpen}
+            aria-label={unread > 0 ? m.chat.toggleWithNew(unread) : undefined}
+            onClick={() => toggleSide("chat")}
+          >
+            {m.chat.toggle}
+            {unread > 0 && (
+              <span className={styles.badge} aria-hidden="true">
+                {unread}
+              </span>
+            )}
           </Button>
           {/* The browser did not let the room into the full screen, or the student left it, while the teacher asks for it: one click does it (SPEC-059 CA-03, CA-04). */}
           {requested && fullscreen.supported && !fullscreen.inFullscreen && (

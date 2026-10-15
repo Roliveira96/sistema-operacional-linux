@@ -47,7 +47,8 @@ function createTries(room: RefObject<HTMLElement | null>) {
  * The full screen that the teacher asks the students for (SPEC-059 section 3.1). While `requested`, it asks the browser for the full screen of the room at
  * once; the browser may refuse, so then the next click or key of the student enters it, and `inFullscreen` tells the room whether to offer the button of
  * one click. When the student leaves the full screen (Escape) the room does not insist: nothing waits for a gesture again, and the button is how he goes
- * back in. When the request goes off, the full screen that the request took him into is left, and no other.
+ * back in. When the request goes off, the full screen of the room is left, however he came into it (the request, the button or the key F take the whole room,
+ * SPEC-063), and the full screen of any other element is not touched.
  */
 export function useRequestedFullscreen(room: RefObject<HTMLElement | null>, requested: boolean) {
   const [tries] = useState(() => createTries(room));
