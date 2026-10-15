@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { classroomService, type LiveExercise, type LiveModuleContent } from "@/services/classroomService";
-import { approved, END, exerciseModule, none, round, terminalHarness, whole } from "@/test/exerciseFixtures";
+import { approved, deferred, END, exerciseModule, none, round, terminalHarness, whole } from "@/test/exerciseFixtures";
 import { ExerciseArea, type ExerciseAreaProps } from "./ExerciseArea";
 
 const mount = vi.hoisted(() => vi.fn());
@@ -78,6 +78,20 @@ describe("ExerciseArea, when the round ends with the result hidden", () => {
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Exercício encerrado");
     expect(status.textContent).toContain("Você concluiu! +30 pontos, em 03:12");
+  });
+
+  // SPEC-065 section 6: a check on its way when the round ends is taken by the server for up to two seconds, so the student is told what it said
+  it("tells the personal gain of a check that was on its way when the round ended, and that the server still took", async () => {
+    const verdict = deferred<typeof approved>();
+    vi.spyOn(classroomService, "submitExercise").mockReturnValue(verdict.promise);
+    const view = render(area());
+    await screen.findByRole("heading", { name: "Criar as pastas" });
+    await waitFor(() => expect(screen.queryByText("Carregando o terminal…")).toBeNull());
+    act(() => h.type("touch /dois/x.txt", whole()));
+    view.rerender(area({ exercise: ended() }));
+    expect(screen.getByRole("status").textContent).not.toContain("Você concluiu");
+    await act(async () => verdict.resolve(approved));
+    expect(screen.getByRole("status").textContent).toContain("Você concluiu! +30 pontos, em 03:12");
   });
 
   it("says nothing of a round that was already over when the student came, and does not ask for the module", () => {
