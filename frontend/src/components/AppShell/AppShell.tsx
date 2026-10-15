@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { BrandMark } from "@/components/BrandMark/BrandMark";
 import { AccountMenu } from "@/components/AccountMenu/AccountMenu";
@@ -18,7 +19,14 @@ import styles from "./AppShell.module.scss";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isRouteActive = (href: string) => {
+    if (!pathname) return false;
+    if (href === "/app") return pathname === "/app";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -62,31 +70,59 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className={styles.nav} aria-label="Conta">
           {(user.role === "TEACHER" || user.role === "ADMIN") && (
             <>
-              <Link href="/app/classes" className={styles.link}>
+              <Link
+                href="/app/classes"
+                className={`${styles.link} ${isRouteActive("/app/classes") ? styles.active : ""}`}
+                aria-current={isRouteActive("/app/classes") ? "page" : undefined}
+              >
                 {messages.classes.title}
               </Link>
-              <Link href="/app/students" className={styles.link}>
+              <Link
+                href="/app/students"
+                className={`${styles.link} ${isRouteActive("/app/students") ? styles.active : ""}`}
+                aria-current={isRouteActive("/app/students") ? "page" : undefined}
+              >
                 {messages.students.title}
               </Link>
-              <Link href="/app/modules" className={styles.link}>
+              <Link
+                href="/app/modules"
+                className={`${styles.link} ${isRouteActive("/app/modules") ? styles.active : ""}`}
+                aria-current={isRouteActive("/app/modules") ? "page" : undefined}
+              >
                 {messages.modules.title}
               </Link>
             </>
           )}
           {user.role === "ADMIN" && (
             <>
-              <Link href="/app/admin/conformidade" className={styles.link}>
+              <Link
+                href="/app/admin/conformidade"
+                className={`${styles.link} ${isRouteActive("/app/admin/conformidade") ? styles.active : ""}`}
+                aria-current={isRouteActive("/app/admin/conformidade") ? "page" : undefined}
+              >
                 {messages.conformance.nav}
               </Link>
-              <Link href="/app/admin/holidays" className={styles.link}>
+              <Link
+                href="/app/admin/holidays"
+                className={`${styles.link} ${isRouteActive("/app/admin/holidays") ? styles.active : ""}`}
+                aria-current={isRouteActive("/app/admin/holidays") ? "page" : undefined}
+              >
                 {messages.schedule.holidays.nav}
               </Link>
             </>
           )}
-          <Link href="/app/calendar" className={styles.link}>
+          <Link
+            href="/app/calendar"
+            className={`${styles.link} ${isRouteActive("/app/calendar") ? styles.active : ""}`}
+            aria-current={isRouteActive("/app/calendar") ? "page" : undefined}
+          >
             {messages.schedule.page.nav}
           </Link>
-          <Link href="/app/profile/security" className={styles.link}>
+          <Link
+            href="/app/profile/security"
+            className={`${styles.link} ${isRouteActive("/app/profile/security") ? styles.active : ""}`}
+            aria-current={isRouteActive("/app/profile/security") ? "page" : undefined}
+          >
             {messages.home.security}
           </Link>
         </nav>
@@ -104,31 +140,66 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             {(user.role === "TEACHER" || user.role === "ADMIN") && (
               <>
-                <Link href="/app/classes" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                <Link
+                  href="/app/classes"
+                  className={`${styles.mobileLink} ${isRouteActive("/app/classes") ? styles.mobileActive : ""}`}
+                  aria-current={isRouteActive("/app/classes") ? "page" : undefined}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   {messages.classes.title}
                 </Link>
-                <Link href="/app/students" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                <Link
+                  href="/app/students"
+                  className={`${styles.mobileLink} ${isRouteActive("/app/students") ? styles.mobileActive : ""}`}
+                  aria-current={isRouteActive("/app/students") ? "page" : undefined}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   {messages.students.title}
                 </Link>
-                <Link href="/app/modules" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                <Link
+                  href="/app/modules"
+                  className={`${styles.mobileLink} ${isRouteActive("/app/modules") ? styles.mobileActive : ""}`}
+                  aria-current={isRouteActive("/app/modules") ? "page" : undefined}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   {messages.modules.title}
                 </Link>
               </>
             )}
             {user.role === "ADMIN" && (
               <>
-                <Link href="/app/admin/conformidade" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                <Link
+                  href="/app/admin/conformidade"
+                  className={`${styles.mobileLink} ${isRouteActive("/app/admin/conformidade") ? styles.mobileActive : ""}`}
+                  aria-current={isRouteActive("/app/admin/conformidade") ? "page" : undefined}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   {messages.conformance.nav}
                 </Link>
-                <Link href="/app/admin/holidays" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                <Link
+                  href="/app/admin/holidays"
+                  className={`${styles.mobileLink} ${isRouteActive("/app/admin/holidays") ? styles.mobileActive : ""}`}
+                  aria-current={isRouteActive("/app/admin/holidays") ? "page" : undefined}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   {messages.schedule.holidays.nav}
                 </Link>
               </>
             )}
-            <Link href="/app/calendar" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+            <Link
+              href="/app/calendar"
+              className={`${styles.mobileLink} ${isRouteActive("/app/calendar") ? styles.mobileActive : ""}`}
+              aria-current={isRouteActive("/app/calendar") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               {messages.schedule.page.nav}
             </Link>
-            <Link href="/app/profile/security" className={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+            <Link
+              href="/app/profile/security"
+              className={`${styles.mobileLink} ${isRouteActive("/app/profile/security") ? styles.mobileActive : ""}`}
+              aria-current={isRouteActive("/app/profile/security") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               {messages.home.security}
             </Link>
           </nav>

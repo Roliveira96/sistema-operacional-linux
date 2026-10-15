@@ -60,15 +60,31 @@
 
 .link {
   padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   text-decoration: none;
 
+  @include mixins.transition(color, background-color, border-color);
   @include mixins.focusable;
 
   &:hover {
+    background: var(--color-surface-raised);
+    border-color: var(--color-border);
     color: var(--color-text-primary);
+  }
+
+  &.active,
+  &[aria-current="page"] {
+    background: var(--color-surface-raised);
+    border-color: var(--color-border-strong);
+    color: var(--color-accent);
+    font-weight: var(--font-weight-semibold);
+
+    &:hover {
+      color: var(--color-accent-hover);
+    }
   }
 }
 
@@ -105,17 +121,31 @@
   align-items: center;
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-size: var(--font-size-md);
   font-weight: 500;
   color: var(--color-text-primary);
   text-decoration: none;
 
+  @include mixins.transition(color, background-color, border-color);
   @include mixins.focusable;
 
   &:hover {
     background: var(--color-surface);
     color: var(--color-accent);
+  }
+
+  &.mobileActive,
+  &[aria-current="page"] {
+    background: var(--color-surface);
+    border-color: var(--color-border-strong);
+    color: var(--color-accent);
+    font-weight: var(--font-weight-semibold);
+
+    &:hover {
+      color: var(--color-accent-hover);
+    }
   }
 }
 
