@@ -61,6 +61,15 @@ describe("classroomService", () => {
     expect((await service.getNotes("c-1", "s-1")).content).toBe("abc");
     expect(client.get).toHaveBeenLastCalledWith("/classes/c-1/live/sessions/s-1/notes");
   });
+
+  // SPEC-065: the conference of the exercise of the live class, on the server
+  it("sends the state of the machine of the student to be conferred, and gives back the verdict", async () => {
+    vi.mocked(client.post).mockResolvedValueOnce({ passed: true, completedAt: "2026-10-14T10:01:00Z", elapsedSeconds: 60, points: 12 });
+    const snapshot = { formato: "exame-so/maquina", versao: 1 };
+    const verdict = await service.submitExercise("c-1", "r-1", snapshot);
+    expect(client.post).toHaveBeenCalledWith("/classes/c-1/live/exercise/submit", { runId: "r-1", snapshot });
+    expect(verdict).toEqual({ passed: true, completedAt: "2026-10-14T10:01:00Z", elapsedSeconds: 60, points: 12 });
+  });
 });
 
 class FakeSocket {
