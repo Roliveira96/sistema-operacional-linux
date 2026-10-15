@@ -113,6 +113,20 @@ describe("top", () => {
     expect(f.cleared()).toBe(0);
   });
 
+  it("shows the whole command line of each process with -c, and only the program without it", async () => {
+    const plain = fake();
+    await top.executar(["-b", "-n", "1"], plain.context);
+    expect(plain.out.join("")).toMatch(/ sleep\n/);
+    expect(plain.out.join("")).not.toContain("sleep 300");
+
+    const full = fake();
+    await top.executar(["-b", "-n", "1", "-c"], full.context);
+    const text = full.out.join("");
+    expect(text).toContain(" sleep 300\n");
+    expect(text).toContain(" /sbin/init\n");
+    expect(text).toContain(" bash\n"); // the dash of a login shell is not part of the command
+  });
+
   it("refuses an option it does not know, and numbers that are not numbers", async () => {
     for (const [args, message] of [
       [["-x"], "top: opção inválida -- 'x'"],
