@@ -57,6 +57,10 @@ Regras:
 | Conversa particular | `scope: "private"` com `studentId` | Troca de mensagens entre um aluno e o professor; só o aluno e o painel a veem | `Mensagem direta`, `DM` | Proposto (SPEC-063) |
 | Cartão do aluno online | `OnlineStudents` | Card do painel do professor com o nome, a mão, a dúvida e as mensagens novas de um aluno aceito que está na sala | `Lista de presença` | Proposto (SPEC-063) |
 | Notificação do navegador | `Classroom/notices` | Aviso do sistema (a `Notification` do navegador) que a aula ao vivo mostra quando algo novo acontece e a página não está à vista: mão levantada e mensagem de aluno para o professor, mensagem do professor para o aluno; não é Web Push (não funciona com a aba fechada) | `Push`, `Toast` | Proposto (SPEC-064) |
+| Rodada de exercício | `live_exercise_runs` | Uma aplicação de um exercício prático de um bloco à turma na aula ao vivo, com tempo, que o professor inicia, encerra ou deixa vencer; uma por vez na aula | `Prova`, `Atividade` (solto) | Proposto (SPEC-065) |
+| Placar da rodada | `live:exercise:result` | Lista de quem concluiu a rodada, com tempo e pontos, por pontos e depois por tempo, que o professor mostra ou oculta aos alunos junto com a solução | `Ranking` (o ranking é a soma de várias rodadas, fora de escopo) | Proposto (SPEC-065) |
+| Pontos de gamificação | `live_exercise_results.points` | Pontos de quem concluiu uma rodada: a base da dificuldade (10, 20, 30) mais até 50% de bônus de rapidez; guardados para uma pontuação acumulada futura | `Nota` | Proposto (SPEC-065) |
+| Observação do terminal | `live:exercise:watch` | O painel vê ao vivo o terminal de um aluno da rodada, um por vez; só esse aluno manda a imagem | `Espelhar o aluno` | Proposto (SPEC-065) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 
