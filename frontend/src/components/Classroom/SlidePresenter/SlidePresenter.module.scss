@@ -48,6 +48,15 @@
 
   @include mixins.focusable;
 
+  // An image is drawn whole and in the middle of the stage; the automatic margins keep the top and the left reachable when it is bigger.
+  &.image {
+    display: flex;
+
+    .sheet {
+      margin: auto;
+    }
+  }
+
   &.pen {
     cursor: crosshair;
   }

@@ -71,3 +71,16 @@ describe("imageLoader", () => {
     await expect(imageLoader.load("https://minio/missing.png")).rejects.toThrow();
   });
 });
+
+describe("imageLoader, the pixels of the screen", () => {
+  it("uses the density of the screen when it is not told, and draws nothing where the canvas has no context", async () => {
+    stubImage({ width: 1600, height: 900 });
+    vi.stubGlobal("devicePixelRatio", 2);
+    const page = await imageLoader.load("https://minio/e.png");
+    const canvas = document.createElement("canvas");
+    vi.spyOn(canvas, "getContext").mockReturnValue(null);
+
+    await expect(page.render(1, canvas, 1264)).resolves.toBeUndefined();
+    expect(canvas.width).toBe(2528);
+  });
+});

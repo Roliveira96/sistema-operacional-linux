@@ -1304,6 +1304,7 @@ export const messages = {
       projectLabel: (title: string) => `Projetar ${title}`,
       sending: "Enviando…",
       retry: "Tentar de novo",
+      dismiss: "Dispensar",
       loadError: "Não foi possível listar os arquivos da turma.",
       errors: {
         format: "Formato não aceito. Envie um PDF ou uma imagem PNG, JPEG ou WebP.",

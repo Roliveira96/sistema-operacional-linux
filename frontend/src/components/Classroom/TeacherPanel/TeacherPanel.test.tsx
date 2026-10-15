@@ -220,6 +220,15 @@ describe("TeacherPanel", () => {
     });
   });
 
+  // SPEC-068 CA-10: an image has no pages to read thumbnails from; the panel shows the image itself where they would be
+  it("shows the image where the thumbnails of a PDF would be, and does not read it as a PDF", async () => {
+    live({}, { deck: { id: "d-2", title: "Esquema", pageCount: 1, kind: "IMAGE", downloadUrl: "https://minio/e.png" }, slide: 1 });
+    render(<TeacherPanel {...props()} />);
+    await flush();
+    expect(screen.queryByTestId("thumbs")).toBeNull();
+    expect((screen.getByRole("img", { name: "Esquema" }) as HTMLImageElement).src).toBe("https://minio/e.png");
+  });
+
   // SPEC-068: the files of the class, with the class going on, and the choice of what is on the stage
   it("gives the files of the class, and projects one on the stage of the room", async () => {
     const l = live();

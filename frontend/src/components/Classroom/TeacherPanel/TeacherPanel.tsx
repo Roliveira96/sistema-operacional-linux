@@ -11,6 +11,7 @@ import { moduleService } from "@/services/moduleService";
 import { AdmissionPanel } from "../AdmissionPanel/AdmissionPanel";
 import { elapsed } from "../elapsed";
 import { ExerciseBoard } from "../ExerciseBoard/ExerciseBoard";
+import { FilesPanel } from "../FilesPanel/FilesPanel";
 import { boardExercises, hintMessage, hintsOf } from "../ExerciseBoard/exercises";
 import { LiveInteractionDrawer } from "../LiveInteractionDrawer/LiveInteractionDrawer";
 import { NoticeToggle } from "../notices/NoticeToggle";
@@ -341,6 +342,8 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
             ))}
           </ol>
 
+          <FilesPanel classId={classId} onProject={live.selectDeck} />
+
           <section className={styles.summary} aria-label={t.summary.title}>
             <dl className={styles.facts}>
               <div>
@@ -415,7 +418,12 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
             {mode === "SLIDES" &&
               (room.deck ? (
                 <>
-                  <SlideThumbnails deck={room.deck} current={room.slide} onSelect={goto} loader={loader} />
+                  {room.deck.kind === "IMAGE" ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- the address is the signed one of the bucket, which next/image would not know.
+                    <img className={styles.preview} src={room.deck.downloadUrl} alt={room.deck.title} />
+                  ) : (
+                    <SlideThumbnails deck={room.deck} current={room.slide} onSelect={goto} loader={loader} />
+                  )}
                   <div className={styles.row}>
                     <Button variant="secondary" size="sm" disabled={!live.canControl || room.slide <= 1} onClick={() => goto(room.slide - 1)}>
                       {m.slides.previous}

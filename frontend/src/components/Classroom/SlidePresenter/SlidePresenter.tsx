@@ -7,13 +7,14 @@ import type { LiveStroke } from "@/services/classroomService";
 import { FRAME_MS, throttle, useCursorSender, type Throttle } from "../cursorSender";
 import { StagePointer, useStageScale } from "../FixedStage/FixedStage";
 import { percentOf, placeContent, scrollFraction, STAGE_WIDTH, toStagePoint } from "../FixedStage/stage";
+import { imageLoader } from "./imageLoader";
 import { pdfLoader, type PdfLoader, type PdfPageRenderer } from "./pdfRenderer";
 import styles from "./SlidePresenter.module.scss";
 
 const m = messages.classroom.slides;
 
 export interface SlidePresenterProps {
-  deck: { downloadUrl: string; pageCount: number };
+  deck: { downloadUrl: string; pageCount: number; kind?: "PDF" | "IMAGE" };
   slide: number;
   /** The teacher moves the slides and draws on them; a student only follows. */
   canControl: boolean;
@@ -32,6 +33,8 @@ export interface SlidePresenterProps {
   /** The teacher scrolls the page inside the stage; the positions, down and sideways, are fractions of what can be scrolled. */
   onScroll?(y: number, x: number): void;
   loader?: PdfLoader;
+  /** Draws a presentation that is an image (SPEC-068); the real one unless a test puts its own. */
+  imageLoader?: PdfLoader;
   /** The presentation window has its own toolbar and keys (SPEC-055 CA-16): no bar, no keys here, and the laser and the pen come from it. */
   bare?: boolean;
   laser?: boolean;
@@ -67,6 +70,7 @@ export function SlidePresenter({
   onClear,
   onScroll,
   loader = pdfLoader,
+  imageLoader: imageSource = imageLoader,
   bare = false,
   laser: laserProp,
   pen: penProp,
@@ -90,7 +94,8 @@ export function SlidePresenter({
   useEffect(() => {
     let cancelled = false;
     let opened: PdfPageRenderer | null = null;
-    loader.load(deck.downloadUrl).then(
+    const source = deck.kind === "IMAGE" ? imageSource : loader;
+    source.load(deck.downloadUrl).then(
       (loaded) => {
         if (cancelled) return loaded.destroy();
         opened = loaded;
@@ -102,7 +107,7 @@ export function SlidePresenter({
       cancelled = true;
       opened?.destroy();
     };
-  }, [loader, deck.downloadUrl]);
+  }, [loader, imageSource, deck.kind, deck.downloadUrl]);
 
   // The page is drawn as wide as the base stage, less the scroll bar, at any zoom, and as tall as it is; with as many pixels as the screen shows it with.
   useEffect(() => {
@@ -225,7 +230,7 @@ export function SlidePresenter({
       )}
       <div
         ref={area}
-        className={`${styles.area} ${canControl ? "" : styles.follower} ${canControl && pen ? styles.pen : ""}`}
+        className={`${styles.area} ${canControl ? "" : styles.follower} ${canControl && pen ? styles.pen : ""} ${deck.kind === "IMAGE" ? styles.image : ""}`}
         role="group"
         aria-label={m.stage}
         tabIndex={canControl ? 0 : undefined}

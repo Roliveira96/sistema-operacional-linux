@@ -18,11 +18,16 @@ export interface LiveSession {
   endedAt?: string | null;
 }
 
+/** What a presentation is: a PDF, whose pages are the slides, or one image (SPEC-068). */
+export type DeckKind = "PDF" | "IMAGE";
+
 export interface LiveDeck {
   id: string;
   title: string;
   pageCount: number;
-  /** Signed address of the PDF, valid for 15 minutes. */
+  /** A presentation that does not say its kind is a PDF. */
+  kind?: DeckKind;
+  /** Signed address of the file, valid for 15 minutes. */
   downloadUrl: string;
 }
 
@@ -253,6 +258,7 @@ export interface DeckSummary {
   id: string;
   title: string;
   pageCount: number;
+  kind?: DeckKind;
   createdAt: string;
 }
 
@@ -285,11 +291,12 @@ export function createClassroomService(client: HttpClient = httpClient) {
     startSession: (classId: string, input: StartSessionInput) => client.post<LiveSession>(`${live(classId)}/start`, input),
     endSession: (classId: string, sessionId: string) =>
       client.post<{ id: string; status: "FINISHED"; endedAt: string }>(`${live(classId)}/sessions/${sessionId}/end`),
-    uploadDeck: (classId: string, file: File, title: string, pageCount: number) => {
+    /** A PDF goes with the number of pages the browser read; an image has none to send (SPEC-068). */
+    uploadDeck: (classId: string, file: File, title: string, pageCount?: number) => {
       const form = new FormData();
       form.set("file", file);
       form.set("title", title);
-      form.set("pageCount", String(pageCount));
+      if (pageCount !== undefined) form.set("pageCount", String(pageCount));
       return client.post<LiveDeck>(`${live(classId)}/decks`, form);
     },
     listDecks: async (classId: string) => (await client.get<{ decks: DeckSummary[] }>(`${live(classId)}/decks`)).decks,

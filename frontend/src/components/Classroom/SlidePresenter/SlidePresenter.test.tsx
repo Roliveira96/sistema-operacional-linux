@@ -663,8 +663,8 @@ describe("SlidePresenter, an image presentation", () => {
     expect(loader.load).not.toHaveBeenCalled();
     expect(image.render.mock.calls.at(-1)![0]).toBe(1);
     expect(screen.getByText("Lâmina 1 de 1")).toBeDefined();
-    expect((screen.getByRole("button", { name: "Anterior" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Próxima" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Lâmina anterior" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Próxima lâmina" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("goes on drawing a PDF with the PDF reader when the kind is PDF", async () => {
