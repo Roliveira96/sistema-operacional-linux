@@ -15,6 +15,21 @@ export const messages = {
     failedSet: (pid: number) => `renice: falha ao definir a prioridade de ${pid} (ID do processo): Permissão negada`,
     failedGet: (pid: number) => `renice: falha ao obter a prioridade de ${pid} (ID do processo): Processo inexistente`,
   },
+  pstree: {
+    invalidOption: (option: string) => `pstree: opção inválida -- '${option}'`,
+    noProcess: (pid: number) => `pstree: nenhum processo com o PID ${pid}`,
+  },
+  pidof: {
+    usage: "Uso: pidof [-s] [-q] NOME...",
+    invalidOption: (option: string) => `pidof: opção inválida -- '${option}'`,
+  },
+  top: {
+    invalidOption: (option: string) => `top: opção inválida -- '${option}'`,
+    missingArgument: (option: string) => `top: a opção requer um argumento -- '${option}'`,
+    invalidIterations: (value: string) => `top: argumento de iterações inválido '${value}'`,
+    invalidDelay: (value: string) => `top: argumento de atraso inválido '${value}'`,
+    howToLeave: "(Ctrl+C para sair)",
+  },
   ps: {
     unknownField: (name: string) => `erro: especificador de formato definido pelo usuário desconhecido "${name}"`,
   },
