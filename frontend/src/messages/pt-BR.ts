@@ -5,10 +5,6 @@ export const messages = {
     name: "Linux na Prática",
     tagline: "Plataforma de ensino e avaliação de Sistemas Operacionais — UTFPR Guarapuava",
   },
-  theme: {
-    switchToDark: "Ativar tema escuro",
-    switchToLight: "Ativar tema claro",
-  },
   auth: {
     login: {
       title: "Entrar",
