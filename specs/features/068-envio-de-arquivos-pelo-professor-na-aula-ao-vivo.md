@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-068 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 15/10/2026 |
-| **Última revisão** | 15/10/2026 (aprovada) |
+| **Última revisão** | 15/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -109,17 +109,17 @@ Tabela alterada: `slide_decks`.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO o professor dono da turma envia um PDF válido com a sala ativa, O SISTEMA DEVE gravar a apresentação sem encerrar nem interromper a sala.
-- [ ] **CA-02** (evento): QUANDO o professor envia uma imagem PNG, JPEG ou WebP de até 10 MB, O SISTEMA DEVE gravar uma apresentação `IMAGE` de 1 lâmina, com o tipo da imagem no bucket.
-- [ ] **CA-03** (indesejado): SE o conteúdo do arquivo não for de um formato aceito, mesmo com nome ou tipo informado de formato aceito, ENTÃO O SISTEMA DEVE recusar com 400 `invalid-file`.
-- [ ] **CA-04** (indesejado): SE o arquivo passar do limite do seu formato, ENTÃO O SISTEMA DEVE recusar com 413 `file-too-large`; SE a turma já tem 100 apresentações, ENTÃO 409 `deck-limit-exceeded`.
-- [ ] **CA-05** (indesejado): SE quem envia não é o professor dono da turma nem administrador, ENTÃO O SISTEMA DEVE recusar com 403 `forbidden`.
-- [ ] **CA-06** (evento): QUANDO o painel manda `live:deck:select` com uma apresentação da turma, O SISTEMA DEVE passar o palco para ela na lâmina 1 e enviar `live:deck:changed` a todos os conectados da sala.
-- [ ] **CA-07** (indesejado): SE `live:deck:select` traz apresentação de outra turma ou que não existe, ENTÃO O SISTEMA DEVE recusar sem mudar o palco; E SE vem de quem não é o painel do professor, DEVE descartá-lo.
-- [ ] **CA-08** (estado): ENQUANTO a sala está ativa, O SISTEMA DEVE dar a quem entra ou reconecta a apresentação atual e a lâmina atual no instantâneo.
-- [ ] **CA-09** (evento): QUANDO o professor envia um arquivo com "Projetar ao terminar" ligado, O SISTEMA DEVE projetá-lo assim que o envio terminar, e NÃO DEVE projetar um envio que falhou.
-- [ ] **CA-10** (estado): ENQUANTO uma apresentação é `IMAGE`, O SISTEMA DEVE desenhá-la inteira e centralizada no palco, para o professor, a janela de apresentação e os estudantes.
-- [ ] **CA-11** (ubíquo): O painel DEVE mostrar, para cada apresentação, nome, tipo e lâminas, o estado do envio (Enviando ou pronto) e os erros no próprio item, em português, e o texto que orienta a exportar o PowerPoint para PDF.
+- [x] **CA-01** (evento): QUANDO o professor dono da turma envia um PDF válido com a sala ativa, O SISTEMA DEVE gravar a apresentação sem encerrar nem interromper a sala.
+- [x] **CA-02** (evento): QUANDO o professor envia uma imagem PNG, JPEG ou WebP de até 10 MB, O SISTEMA DEVE gravar uma apresentação `IMAGE` de 1 lâmina, com o tipo da imagem no bucket.
+- [x] **CA-03** (indesejado): SE o conteúdo do arquivo não for de um formato aceito, mesmo com nome ou tipo informado de formato aceito, ENTÃO O SISTEMA DEVE recusar com 400 `invalid-file`.
+- [x] **CA-04** (indesejado): SE o arquivo passar do limite do seu formato, ENTÃO O SISTEMA DEVE recusar com 413 `file-too-large`; SE a turma já tem 100 apresentações, ENTÃO 409 `deck-limit-exceeded`.
+- [x] **CA-05** (indesejado): SE quem envia não é o professor dono da turma nem administrador, ENTÃO O SISTEMA DEVE recusar com 403 `forbidden`.
+- [x] **CA-06** (evento): QUANDO o painel manda `live:deck:select` com uma apresentação da turma, O SISTEMA DEVE passar o palco para ela na lâmina 1 e enviar `live:deck:changed` a todos os conectados da sala.
+- [x] **CA-07** (indesejado): SE `live:deck:select` traz apresentação de outra turma ou que não existe, ENTÃO O SISTEMA DEVE recusar sem mudar o palco; E SE vem de quem não é o painel do professor, DEVE descartá-lo.
+- [x] **CA-08** (estado): ENQUANTO a sala está ativa, O SISTEMA DEVE dar a quem entra ou reconecta a apresentação atual e a lâmina atual no instantâneo.
+- [x] **CA-09** (evento): QUANDO o professor envia um arquivo com "Projetar ao terminar" ligado, O SISTEMA DEVE projetá-lo assim que o envio terminar, e NÃO DEVE projetar um envio que falhou.
+- [x] **CA-10** (estado): ENQUANTO uma apresentação é `IMAGE`, O SISTEMA DEVE desenhá-la inteira e centralizada no palco, para o professor, a janela de apresentação e os estudantes.
+- [x] **CA-11** (ubíquo): O painel DEVE mostrar, para cada apresentação, nome, tipo e lâminas, o estado do envio (Enviando ou pronto) e os erros no próprio item, em português, e o texto que orienta a exportar o PowerPoint para PDF.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -151,3 +151,4 @@ Nenhuma. Decisão do Tech Lead em 15/10/2026: por enquanto, somente PDF e imagen
 | 15/10/2026 | Aruna Architect | Criação em Rascunho, a pedido do Tech Lead, com PowerPoint, imagem e PDF |
 | 15/10/2026 | Aruna Architect | Escopo reduzido por decisão do Tech Lead: somente PDF e imagens por enquanto; saem a conversão de PowerPoint, os estados de conversão, o evento de status e os campos `status`, `source_format` e `failure_reason`; P-01 a P-04 resolvidas |
 | 15/10/2026 | Aruna Architect | Aprovada pelo Tech Lead ("Sim chat, pode ir fazendo em ordem"); o limite por turma passa de 20 para 100 apresentações, que é o que o código e a SPEC-053 já têm (a SPEC-051 dizia 20 e foi superada nesse ponto) |
+| 15/10/2026 | Implementador | Implementada. Backend: migração `00036` (`slide_decks.kind`), `domain.ClassifyUpload`, `Service.SelectDeck`, rota de envio com imagem, `live:deck:select` e `live:deck:changed`. Frontend: `FilesPanel`, `imageLoader`, `selectDeck` no hook e a seção no painel; com uma imagem no palco o painel mostra a imagem no lugar das miniaturas de PDF. Os 11 critérios têm teste automatizado; a leitura visual do palco com imagem, o envio real a um MinIO e o celular ficam para o roteiro manual do Tech Lead |
