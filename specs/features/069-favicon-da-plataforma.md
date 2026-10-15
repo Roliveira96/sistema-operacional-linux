@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-069 |
-| **Status** | Rascunho |
+| **Status** | Implementada |
 | **Data de criação** | 15/10/2026 |
-| **Última revisão** | 15/10/2026 |
+| **Última revisão** | 15/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Frontend |
@@ -45,7 +45,7 @@ Três arquivos de ícone na raiz do roteador, que o Next.js publica e liga ao HT
 | `favicon.ico` | Navegadores antigos e o pedido automático a `/favicon.ico`, com os tamanhos 16, 32 e 48 px |
 | `apple-icon.png` | Atalho na tela inicial do iPhone e do iPad, com 180 × 180 px |
 
-Os três vêm do mesmo desenho: as três primeiras formas do logo (as letras "U", "T" e "F", com a barra amarela do "F") centralizadas em um quadrado branco de cantos arredondados, com uma margem em volta. O desenho não leva texto nem cores novas.
+Os três vêm do mesmo desenho: as três primeiras formas do logo (as letras "U", "T" e "F", com a barra amarela do "F") centralizadas em um quadrado branco de cantos arredondados, com uma margem em volta. O desenho não leva texto nem cores novas. O `apple-icon.png` é o quadrado inteiro, sem os cantos arredondados, porque o iOS arredonda sozinho.
 
 ### 3.2. Backend
 
@@ -67,12 +67,12 @@ Não se aplica nesta spec: nenhum endpoint do backend muda. A aplicação passa 
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): O SISTEMA DEVE ter `icon.svg`, `favicon.ico` e `apple-icon.png` na raiz do roteador do frontend.
-- [ ] **CA-02** (ubíquo): O `icon.svg` DEVE ser um quadrado, com as formas do "UTF" do logo da UTFPR nas cores originais (amarelo e o preto do logo) sobre fundo branco de cantos arredondados, e NÃO DEVE conter texto nem imagem embutida.
-- [ ] **CA-03** (ubíquo): O `favicon.ico` DEVE conter as imagens de 16, 32 e 48 px.
-- [ ] **CA-04** (ubíquo): O `apple-icon.png` DEVE ser um PNG de 180 × 180 px.
-- [ ] **CA-05** (evento): QUANDO qualquer página é aberta, inclusive a de entrada, por quem não está autenticado, O SISTEMA DEVE ligar o ícone no `<head>` e responder 200 aos endereços dos três arquivos.
-- [ ] **CA-06** (indesejado): SE o navegador pede `/favicon.ico`, ENTÃO O SISTEMA NÃO DEVE responder 404.
+- [x] **CA-01** (ubíquo): O SISTEMA DEVE ter `icon.svg`, `favicon.ico` e `apple-icon.png` na raiz do roteador do frontend.
+- [x] **CA-02** (ubíquo): O `icon.svg` DEVE ser um quadrado, com as formas do "UTF" do logo da UTFPR nas cores originais (amarelo e o preto do logo) sobre fundo branco de cantos arredondados, e NÃO DEVE conter texto nem imagem embutida.
+- [x] **CA-03** (ubíquo): O `favicon.ico` DEVE conter as imagens de 16, 32 e 48 px.
+- [x] **CA-04** (ubíquo): O `apple-icon.png` DEVE ser um PNG de 180 × 180 px.
+- [x] **CA-05** (evento): QUANDO qualquer página é aberta, inclusive a de entrada, por quem não está autenticado, O SISTEMA DEVE ligar o ícone no `<head>` e responder 200 aos endereços dos três arquivos.
+- [x] **CA-06** (indesejado): SE o navegador pede `/favicon.ico`, ENTÃO O SISTEMA NÃO DEVE responder 404.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -98,3 +98,5 @@ Nenhuma.
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 15/10/2026 | Aruna Architect | Criação em Rascunho, a pedido do Tech Lead, com o símbolo da UTFPR como decisão dele |
+| 15/10/2026 | Aruna Architect | Aprovada pelo Tech Lead ("Sim chat, pode ir fazendo em ordem"); o ícone do iPhone ficou sem cantos arredondados, que o iOS faz |
+| 15/10/2026 | Implementador | Implementada: `icon.svg`, `favicon.ico` (16, 32 e 48 px) e `apple-icon.png` (180 px) gerados a partir das três primeiras formas do logo. CA-05 e CA-06 conferidos no servidor de desenvolvimento: os três endereços respondem 200 sem login e o `<head>` da tela de entrada liga os três; a leitura visual na aba do navegador fica para o Tech Lead |
