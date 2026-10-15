@@ -217,14 +217,17 @@ function Workspace({ classId, exercise, setup, mine, watched, onPassed, onProgre
       verdict = await classroomService.submitExercise(classId, runId, snapshot).catch(() => null);
     }
     turn.busy = false;
+    // A pass is told even when the area is gone: the server takes a check on its way for two seconds after the end of the round (SPEC-065 section 6).
+    if (verdict?.passed) {
+      latest.current.done = true;
+      onPassed({ completedAt: verdict.completedAt ?? new Date().toISOString(), elapsedSeconds: verdict.elapsedSeconds ?? 0, points: verdict.points ?? 0 });
+    }
     if (!alive.current) return;
     if (!verdict) {
       // Nothing was checked: the next command, whatever the machine, sends it again.
       turn.sent = "";
       setPhase("failed");
     } else if (verdict.passed) {
-      latest.current.done = true;
-      onPassed({ completedAt: verdict.completedAt ?? new Date().toISOString(), elapsedSeconds: verdict.elapsedSeconds ?? 0, points: verdict.points ?? 0 });
       setPhase("idle");
     } else {
       setPhase("rejected");
