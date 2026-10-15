@@ -1226,6 +1226,8 @@ export const messages = {
         blocked: (url: string) => `O navegador bloqueou a janela. Abra este endereço à mão: ${url}`,
         closed: "A janela de apresentação foi fechada.",
         openAgain: "Abrir de novo",
+        // SPEC-070: what the class sees while the window is not connected.
+        waitingScreen: "Sem a janela de apresentação, a turma vê a tela de espera. Abra a janela de apresentação para continuar a aula.",
       },
       sound: "Som do aviso",
       stage: {
