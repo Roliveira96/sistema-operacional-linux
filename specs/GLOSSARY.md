@@ -41,6 +41,11 @@ Regras:
 | Remanejamento | `Transfer` | Mudança do estudante de uma turma para outra, com rastreabilidade | `Move`, `Migration` | Canônico |
 | Link de convite | `InviteLink` | URL compartilhável para pedir matrícula na turma | `JoinLink` | Canônico |
 | Link da turma | `ClassLink` (tabela `class_links`) | Endereço https com nome que a docente publica na turma, como o da sala do Meet ou o do conteúdo. Não confundir com o link de convite | `InviteLink` (é o link de matrícula), `Resource`, `Bookmark` | Proposto (SPEC-048) |
+| Sala ao vivo (aula síncrona) | `LiveClassroomSession` (tabela `live_classroom_sessions`) | Aula conduzida em tempo real pela docente, com slides ou módulo espelhado; no máximo uma ativa por turma. Não confundir com a aula da agenda (`ClassSession`) nem com a sessão de login (`AuthSession`) | `Session` sozinho, `Meeting` | Proposto (SPEC-051) |
+| Apresentação | `SlideDeck` (tabela `slide_decks`) | PDF de slides enviado para a turma e projetado na sala ao vivo | `Presentation`, `Deck` sozinho | Proposto (SPEC-051) |
+| Lâmina | `Slide` | Uma página da apresentação | `Page` | Proposto (SPEC-051) |
+| Mão levantada | `LiveHandRaise` (tabela `live_hand_raises`) | Pedido de fala de um estudante na sala ao vivo, em fila cronológica | `Question`, `Request` | Proposto (SPEC-051) |
+| Anotações da aula | `LiveClassroomNote` (tabela `live_classroom_notes`) | Caderno privativo do estudante durante a sala ao vivo | `Notes` sozinho | Proposto (SPEC-051) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 

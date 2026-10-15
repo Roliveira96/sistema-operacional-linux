@@ -111,3 +111,129 @@ describe("mountTerminalWindow", () => {
     expect(html).toContain("Tabela Oficial de Comandos");
   });
 });
+
+// SPEC-051 (sala ao vivo): the adapter tells what the teacher types and runs, and a read-only copy shows it.
+describe("terminal window for the live classroom (SPEC-051)", () => {
+  const key = (target: Element, name: string) =>
+    target.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+  const type = (container: HTMLElement, text: string) => {
+    const screen = container.querySelector(".term-tela") as HTMLElement;
+    for (const letter of text) key(screen, letter);
+    return screen;
+  };
+  const mountLive = async () => {
+    const onInput = vi.fn();
+    const onCommandDone = vi.fn();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    mounted = await mountTerminalWindow(container, null, { onCommand: vi.fn(), onInput, onCommandDone });
+    mounted.setSpeed(100);
+    return { container, win: mounted, onInput, onCommandDone };
+  };
+
+  // Covers CA-07: the line being typed is reported at every key.
+  it("reports the line the teacher is typing, key by key", async () => {
+    const { container, onInput } = await mountLive();
+    type(container, "ls");
+    expect(onInput.mock.calls.map((call) => call[0])).toEqual([
+      { terminal: 1, line: "l" },
+      { terminal: 1, line: "ls" },
+    ]);
+    key(container.querySelector(".term-tela")!, "Backspace");
+    expect(onInput).toHaveBeenLastCalledWith({ terminal: 1, line: "l" });
+  });
+
+  // Covers CA-07: when the command ends, the line, the output and the state of the machine are reported.
+  it("reports the line, the output, the screen and the machine when a typed command ends", async () => {
+    const { container, onInput, onCommandDone } = await mountLive();
+    const screen = type(container, "echo ola-sala");
+    key(screen, "Enter");
+    await vi.waitFor(() => expect(onCommandDone).toHaveBeenCalledTimes(1));
+
+    const done = onCommandDone.mock.calls[0]![0];
+    expect(done).toMatchObject({ terminal: 1, line: "echo ola-sala", output: "ola-sala", status: 0, user: "root" });
+    expect(done.state).toMatchObject({ formato: "exame-so/maquina" });
+    expect(done.cwd).toMatch(/^\//);
+    const printed = done.segments.map((s: { text: string }) => s.text).join("");
+    expect(printed).toContain("root@");
+    expect(printed).toContain("echo ola-sala");
+    expect(printed).toContain("ola-sala\n");
+    // The prompt line is empty again, and that is told too.
+    await vi.waitFor(() => expect(onInput).toHaveBeenLastCalledWith({ terminal: 1, line: "" }));
+  });
+
+  // Covers CA-07: commands sent by a script are reported like typed ones, with their typing.
+  it("also reports a command sent by run()", async () => {
+    const { win, onInput, onCommandDone } = await mountLive();
+    await win.run({ command: "echo via-run" });
+    expect(onCommandDone).toHaveBeenCalledTimes(1);
+    expect(onCommandDone.mock.calls[0]![0]).toMatchObject({ line: "echo via-run", output: "via-run" });
+    expect(onInput.mock.calls.some((call) => call[0].line === "echo via-run")).toBe(true);
+  });
+
+  // Covers SPEC-051 section 6: a password typed in the terminal is never reported.
+  it("never reports what is typed at a password prompt", async () => {
+    const { win, onInput, onCommandDone } = await mountLive();
+    await win.execute({ command: "passwd", answers: ["segredo-secreto", "segredo-secreto"] });
+    const everything = JSON.stringify([onInput.mock.calls, onCommandDone.mock.calls]);
+    expect(everything).not.toContain("segredo-secreto");
+    // The machine that goes along has no password of any account.
+    const state = onCommandDone.mock.calls.at(-1)![0].state as { contas: { usuarios: { senha: string | null }[] } };
+    expect(state.contas.usuarios.length).toBeGreaterThan(0);
+    expect(state.contas.usuarios.every((user) => user.senha === null)).toBe(true);
+  });
+
+  // Covers CA-07: a terminal opened later (another tab of the window) is watched too.
+  it("watches the other terminals of the window", async () => {
+    const { container, win, onCommandDone } = await mountLive();
+    await win.run({ command: "echo no-dois", terminal: 2, login: { user: "ricardo", password: "123" } });
+    expect(container.querySelectorAll(".janela-aba").length).toBeGreaterThan(1);
+    expect(onCommandDone.mock.calls.at(-1)![0]).toMatchObject({ terminal: 2, line: "echo no-dois" });
+  });
+
+  // Covers CA-07: the copy of the student is read-only, shows the typing, the command and the output, and applies the machine.
+  it("makes a read-only copy that shows what the teacher does, without running anything", async () => {
+    const teacher = await mountLive();
+    key(type(teacher.container, "touch /tmp/marca-do-professor"), "Enter");
+    await vi.waitFor(() => expect(teacher.onCommandDone).toHaveBeenCalled());
+    const done = teacher.onCommandDone.mock.calls[0]![0];
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const copy = await mountTerminalWindow(container, null, { onCommand: vi.fn() });
+    copy.setSpeed(100);
+    try {
+      copy.setReadOnly(true);
+      expect(container.hasAttribute("inert")).toBe(true);
+      type(container, "zqzq");
+      expect(container.querySelector(".term-entrada")!.textContent).not.toContain("zqzq");
+
+      await copy.showInput(1, "ls -la /tmp");
+      expect(container.querySelector(".term-entrada")!.textContent).toContain("ls -la /tmp");
+
+      const before = JSON.stringify(copy.snapshot());
+      await copy.printScreen(1, [{ text: "root@x:~# touch /tmp/fantasma\n" }, { text: "saida-do-professor\n", className: "c-ok" }]);
+      expect(container.textContent).toContain("touch /tmp/fantasma");
+      expect(container.textContent).toContain("saida-do-professor");
+      expect(JSON.stringify(copy.snapshot())).toBe(before);
+      expect(container.querySelector(".term-entrada")!.textContent).not.toContain("ls -la /tmp");
+
+      await copy.syncMachine(done.state, { terminal: 1, cwd: "/tmp" });
+      expect(JSON.stringify(copy.snapshot())).toContain("marca-do-professor");
+      expect(container.textContent).toContain("saida-do-professor");
+      expect(container.querySelector(".term-entrada")!.textContent).toContain("/tmp");
+    } finally {
+      copy.destroy();
+    }
+  });
+
+  it("gives the keyboard back when the copy is no longer read-only", async () => {
+    const { container, win } = await mountLive();
+    win.setReadOnly(true);
+    expect(container.hasAttribute("inert")).toBe(true);
+    win.setReadOnly(false);
+    expect(container.hasAttribute("inert")).toBe(false);
+    type(container, "abc");
+    expect(container.querySelector(".term-entrada")!.textContent).toContain("abc");
+  });
+});

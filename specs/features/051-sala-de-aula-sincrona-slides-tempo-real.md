@@ -1,12 +1,22 @@
-14-10-26-spec-sala-de-aula-sincrona-slides-tempo-real.md
+# SPEC-051: Sala de Aula Síncrona, Apresentador de Slides e Espelhamento em Tempo Real
 
-# Tech Spec / SDD: Sala de Aula Síncrona, Apresentador de Slides e Espelhamento em Tempo Real
+| Campo | Valor |
+| :--- | :--- |
+| **ID** | SPEC-051 |
+| **Status** | Implementada |
+| **Data de criação** | 14/10/2026 |
+| **Última revisão** | 14/10/2026 (implementada) |
+| **Autor** | Autoria externa, trazida pelo Tech Lead (texto original); formato, revisão e decisões por Aruna Architect |
+| **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
+| **Escopo** | Ambos |
+| **Módulo** | `classroom` (novo módulo de domínio no backend) e `frontend/src/components/Classroom/` |
+| **Contexto de tela** | `/app/classes/:classId/live` (sala ao vivo) e seção "Aula ao vivo" na página da turma (`/app/classes/:classId`) |
+| **Prioridade** | Alta |
+| **Depende de** | SPEC-004 (infraestrutura local com MinIO), SPEC-009, SPEC-041 e SPEC-049 (turmas, matrícula e auditoria), SPEC-014, SPEC-016 e SPEC-020 (prática, tela de estudo e terminal), SPEC-042 (agenda da turma) |
+| **Substitui** | Nenhuma |
+| **Fontes canônicas** | Spec trazida pelo Tech Lead em 14/10/2026 (arquivo `14-10-26-spec-sala-de-aula-sincrona-slides-tempo-real.md`), em duas versões, e as decisões do Tech Lead de 14/10/2026 sobre o ciclo de vida da sala, a sala única por turma, a fluidez do movimento e a digitação espelhada |
 
-**Data:** 14/10/2026
-**Escopo:** Ambos
-**Módulo:** `classroom` (novo módulo de domínio no backend) e `frontend/src/components/Classroom/`
-**Contexto de Tela (se aplicável):** `/app/classes/:classId/live` (visão da sala ao vivo para docente e discentes)
-**Prioridade sugerida:** Alta
+> **Estado:** Implementada em 14/10/2026 (backend e frontend). Falta a verificação manual da seção 8 em navegador, com docente e estudantes.
 
 ---
 
@@ -14,19 +24,29 @@
 
 Atualmente, o ecossistema dispõe de gestão acadêmica de turmas, agenda letiva e catálogo de módulos instrucionais com terminal virtual individualizado. No entanto, durante o momento síncrono da aula, não existe um ambiente integrado de condução pedagógica. O docente depende de ferramentas externas para expor apresentações visuais e demonstrar comandos, gerando dispersão de foco e perda de contexto instrucional.
 
-A ausência de uma sala síncrona na plataforma impede que o docente compartilhe seus slides de aula com controle centralizado de navegação e que alterne de maneira imediata para o módulo de ensino da turma com espelhamento determinístico de comandos e do cursor do mouse. Sem esse mecanismo, os acadêmicos não conseguem acompanhar em tempo real as explicações práticas no terminal e ficam privados de canais interativos organizados de manifestação de dúvidas (como fila de mãos levantadas e caderno síncrono de anotações).
+A ausência de uma sala síncrona na plataforma impede que o docente compartilhe seus slides de aula com controle centralizado de navegação e que alterne de maneira imediata para o módulo de ensino da turma com espelhamento determinístico de comandos e do cursor do mouse. Sem esse mecanismo, os acadêmicos não conseguem acompanhar em tempo real as explicações práticas no terminal e ficam privados de canais interativos organizados de manifestação de dúvidas (como fila de mãos levantadas e caderno síncrono de anotações). Transmissões pesadas de vídeo e áudio contínuas sobrecarregam a largura de banda e excluem discentes em redes oscilantes, tornando indispensável uma solução síncrona orientada a dados e estados leves no navegador.
 
 ---
 
 ## 2. Objetivos (Goals)
 
-* Permitir que o docente proprietário da turma inicialize e encerre sessões síncronas de aula a qualquer momento do dia a partir da página da turma.
-* Disponibilizar upload e armazenamento de apresentações em PDF no MinIO, convertendo as páginas em lâminas estáticas e gerando um deck navegável em tela cheia.
-* Sincronizar em tempo real via WebSocket (NATS no backend) o estado da apresentação para todos os discentes conectados à sala: lâmina ativa, ponteiro virtual/cursor do docente e anotações visuais sobre o slide.
-* Permitir a alternância fluida entre o modo "Apresentação de Slides" e o modo "Módulo de Ensino", espelhando fielmente para os estudantes o conteúdo visual e a digitação/saídas do terminal do professor em modo somente leitura para os alunos.
-* Implementar fila ordenada de pedidos de fala ("Levantar a mão") para discentes, permitindo moderação direta pelo docente (deferir, abaixar ou limpar fila).
-* Prover caderno individual de anotações privativas do estudante durante a sessão, persistido e consultável após a aula.
-* Manter streaming pesado de áudio/vídeo explicitamente fora de escopo nesta fase, viabilizando uma solução leve, resiliente a oscilações de rede e orientada a dados síncronos de tela e cursor.
+* Permitir que o docente proprietário da turma (ou administrador) **inicie e encerre a aula quando quiser, em qualquer horário**, a partir da página da turma, com vínculo relacional opcional à aula agendada da turma.
+* Manter **uma só aula ativa por turma**: a aula continua aberta até o docente encerrá-la, e ele pode sair e voltar à mesma aula quantas vezes quiser.
+* Mostrar, na página da turma, a aula em andamento e o histórico das aulas anteriores com seus detalhes.
+* Disponibilizar upload e armazenamento de apresentações em PDF no MinIO, consumidas pelo navegador via URLs pré-assinadas renováveis e renderizadas localmente página a página.
+* Sincronizar em tempo real via WebSocket, de forma **fluida (cerca de 30 quadros por segundo)**, o ponteiro do docente, os traços sobre a lâmina e a **digitação no terminal**, além da lâmina ativa e dos comandos executados.
+* Permitir a alternância entre o modo de lâminas e o modo de módulo de ensino, espelhando para os estudantes, em leitura estrita e com teclado travado, o que o docente digita, executa e vê no terminal.
+* Implementar fila cronológica de pedidos de fala (mãos levantadas), com moderação do docente.
+* Prover caderno individual de anotações privativas do estudante durante a aula, persistido e consultável depois.
+* Garantir reconexão resiliente, com entrega do estado consolidado a quem entra com a aula em andamento.
+
+### 2.1. Fora de escopo (Non-Goals)
+
+* Áudio e vídeo.
+* Frequência (presença/chamada) e o estado "aula realizada" da agenda: o vínculo com a aula agendada é só relacional.
+* Conversão de páginas do PDF no servidor: as lâminas são renderizadas no navegador.
+* Broker de mensagens externo (NATS ou outro).
+* Reabrir uma aula já encerrada pelo docente: encerrar é definitivo; uma nova aula é outra sala.
 
 ---
 
@@ -34,368 +54,272 @@ A ausência de uma sala síncrona na plataforma impede que o docente compartilhe
 
 ### 3.1. Frontend (Next.js & SCSS Modules)
 
-A experiência síncrona organiza-se sob a rota dedicada `/app/classes/:classId/live`, desenhada para visualização imersiva:
+**Seção "Aula ao vivo" na página da turma (`/app/classes/:classId`, aba Visão geral):**
 
-* **Casca da Sala Síncrona (`LiveClassroom`):**
-* Barra superior de controle exibindo indicador de sessão ativa (com contador cronômetro síncrono), seletor de modo ("Slides" vs. "Módulo de Ensino"), indicador de discentes conectados, botão de alternância do caderno de anotações e botão de ação ("Encerrar Aula" para docente; "Sair da Sala" para discente).
-* Painel lateral retrátil contendo a fila de dúvidas ("Mãos Levantadas") e o bloco de anotações do acadêmico.
-* Área central de palco adaptativa, alternando entre o projetor de lâminas e a visão espelhada de módulos.
+* **Sem aula ativa:** o docente vê o formulário **Iniciar aula** (título obrigatório, apresentação opcional e aula agendada opcional) e o estudante vê "Nenhuma aula em andamento".
+* **Com aula ativa:** título e horário de início. O estudante vê **Entrar na aula**; o docente vê **Voltar para a aula** e **Encerrar aula**.
+* **Aulas anteriores:** lista das aulas encerradas (título, data, duração); o estudante abre as próprias anotações de cada uma.
 
+**Sala ao vivo (`/app/classes/:classId/live`):**
 
+* **Casca da Sala (`LiveClassroom`):**
+  * Gerencia a área central de projeção, a barra superior de status e as gavetas laterais de interação.
+  * Exibe indicador de aula ativa (com cronômetro), seletor de modo ("Lâminas" e "Módulo de Ensino"), indicador de discentes conectados, botão do caderno de anotações e botão de ação ("Encerrar Aula" para docente; "Sair da Sala" para discente).
+  * Painel lateral retrátil com a fila de dúvidas ("Mãos Levantadas") e o bloco de anotações do estudante.
+  * Trata o papel do usuário: o docente tem controles de apresentação, desenho e moderação; o discente tem visualização passiva e ações de participação.
 * **Projetor de Lâminas (`SlidePresenter`):**
-* Renderizador do slide atual a partir de imagens convertidas no MinIO ou canvas de PDF vetorial via biblioteca local sem dependências externas de CDN.
-* Camada de sobreposição (*canvas overlay*) capturando eventos do docente para desenhar o cursor laser virtual (coordenadas relativas percentuais X/Y) e anotações à mão livre (*drawing paths*).
-* Controles do docente: avançar, retroceder, ir para slide N, ativar laser, caneta de anotação e limpar rabiscos.
-* Para discentes: palco em modo receptor estrito, escutando mensagens WebSocket e atualizando o slide, a posição do ponteiro do docente com animação suave e os traços de caneta sem permitir interferência discente sobre o slide.
-
-
-* **Modo Módulo de Ensino Espelhado (`MirroredModuleView`):**
-* Renderiza a estrutura da tela de estudo do módulo (`TopicStudy`), instanciando o motor do terminal em modo mestre para o docente e em modo escravo/espelho para os estudantes.
-* Toda tecla ou comando processado no terminal do docente gera um broadcast dos deltas de saída ou do buffer de tela para os discentes, mantendo os terminais discentes travados contra entrada de teclado.
-
-
+  * Renderiza o PDF página a página com a biblioteca local `pdfjs-dist` (nas dependências do projeto, sem CDN).
+  * Camada de sobreposição (*canvas overlay*) captura o movimento do mouse do docente e os traços, emitindo coordenadas normalizadas em percentual de 0 a 100, **a cada 33 ms (cerca de 30 quadros por segundo)**.
+  * Para discentes: palco em modo receptor estrito. O ponteiro e os traços recebidos são **interpolados entre os quadros** por transição CSS, para o movimento ficar fluido; sem interferência sobre a lâmina.
+  * Controles do docente: avançar, retroceder, ir para a lâmina N, laser, caneta e limpar traços. Atalhos de teclado (setas e barra de espaço) exclusivos do docente.
+* **Espelhamento de Módulo e Terminal (`MirroredModuleView`):**
+  * Renderiza a tela de estudo do módulo (`TopicStudy`).
+  * Na visão do docente, o terminal funciona normalmente. O adaptador do terminal passa a informar (a) a **linha em digitação**, a cada tecla, e (b) a cada comando concluído, a **linha, a saída e o estado serializado** da máquina (P-O1).
+  * Na visão do estudante, uma instância espelho do terminal, **bloqueada contra foco e teclado**, **mostra o docente digitando** (a linha em digitação, a cerca de 30 quadros por segundo) e, ao fim do comando, imprime a linha e a saída e aplica o estado. O espelho não grava progresso nem notas.
+  * Senhas digitadas no terminal nunca são transmitidas (o terminal não as exibe e o adaptador só lê o que está na tela).
 * **Fila de Dúvidas e Caderno de Anotações (`LiveInteractionDrawer`):**
-* Componente de mão levantada: botão discente "Levantar a mão" que emite evento para a sala. Lista ordenada exibida ao docente com ações para abaixar a mão individual ou coletivamente.
-* Bloco de anotações privativas do estudante: editor de texto plano integrado salvando alterações automaticamente via debounce no serviço REST da aula.
-
-
-* **Gerenciamento de Conexão e Hooks:**
-* Hook `useLiveClassroom`: gerencia o ciclo de vida da conexão WebSocket com reconexão automática e tratamento de perda de conectividade.
-* Estilização estrita via SCSS Modules e tokens semânticos de `_tokens.scss`, garantindo paridade nos modos claro e escuro e alvos de clique ergonômicos.
-
-
+  * Botão discente "Levantar a mão"; lista FIFO ao docente, com ações para abaixar a mão individual ou coletivamente.
+  * Bloco de anotações privativas: editor de texto plano que salva sozinho (debounce) pela API REST.
+* **Gerenciamento de Estado e Rede (`useLiveClassroom`):**
+  * Conexão WebSocket com o Hub, reconexão automática e recepção do estado consolidado ao conectar (`live:snapshot`).
+  * Se o docente abre a sala em uma segunda aba, a conexão mais nova assume o controle e a anterior passa a modo passivo (`live:control:revoked`).
+  * Renovação automática da URL assinada do PDF antes de ela vencer.
+  * Tema único escuro, tokens semânticos de `_tokens.scss` e alvos de toque de no mínimo 44 px.
 
 ### 3.2. Backend (Go — Camada de Módulo/Service)
 
-O módulo `classroom` no backend Go estrutura-se sob os princípios de Clean Architecture e DDD-lite:
+O módulo `classroom` estrutura-se sob Clean Architecture e DDD-lite:
 
-* **Ciclo de Vida da Sessão da Aula:**
-* O Service valida a posse da turma pelo docente autenticado ou perfil de administrador e permite inicializar a sessão criando um registro ativo de sala.
-* Caso já exista uma sessão aberta para a mesma turma, o endpoint reaproveita o contexto ativo em vez de gerar duplicação.
-* O encerramento da aula atualiza o carimbo de término e encerra compulsoriamente os canais de transmissão WebSocket da sala.
-
-
-* **Processamento de Apresentações e Slides:**
-* O Handler recebe o arquivo PDF via formulário multipart, validando tamanho e formato MIME.
-* O Service orquestra a conversão das páginas do documento em imagens otimizadas no padrão AVIF ou armazenamento estruturado no MinIO com prefixo seguro, registrando a contagem de lâminas e gerando as URLs públicas assinadas correspondentes.
-
-
-* **Comunicação em Tempo Real e Broadcast (NATS):**
-* Handlers de WebSocket autenticados via token de sessão, associando a conexão ao ID da turma e da sessão ativa.
-* Assinatura e publicação em tópicos orientados por turma e sessão no NATS.
-* Tipos de mensagens síncronas tratadas no gateway WebSocket:
-* Mudança de lâmina ativa (número do slide).
-* Coordenadas do ponteiro/mouse do docente (valores percentuais X, Y normalizados de 0 a 100).
-* Traços e anotações vetoriais sobre a lâmina.
-* Alternância de contexto de tela (modo de apresentação de slides versus modo de módulo de ensino e ID do bloco ativo).
-* Stream de buffer do terminal do docente durante demonstrações no módulo.
-* Eventos de moderação: solicitação de fala de estudante (mão levantada), concessão e baixa de fila.
-
-
-
-
-* **Isolamento de Segurança e RBAC:**
-* Docentes têm exclusividade sobre comandos de broadcast de slides, coordenadas de cursor e controle de terminal. Mensagens de controle originadas por conexões com papel de estudante são descartadas com log de infração.
-* Discentes só podem publicar mensagens do tipo "mão levantada" e requisições individuais de anotação privativa.
-
-
+* **Camada de Domínio (`domain`):**
+  * Entidades da sala (`LiveClassroomSession`), das apresentações (`SlideDeck`), dos itens da fila de dúvidas (`LiveHandRaise`) e das anotações (`LiveClassroomNote`).
+  * Constantes de status (`ACTIVE`, `FINISHED`), modos (`SLIDES`, `MODULE`), status de intervenção (`PENDING`, `ANSWERED`, `LOWERED`) e limites.
+* **Camada de Serviço (`service`):**
+  * **RN-01 (iniciar a qualquer hora, uma aula ativa por turma):** `StartSession` valida que o solicitante é o docente dono da turma ou administrador, recusa turma arquivada e **não depende do horário da agenda**. Se a turma já tem aula ativa, devolve essa mesma aula (reabertura), ignorando o título enviado; só cria nova se não há ativa. A unicidade é garantida pelo banco (índice único parcial), e a corrida entre dois inícios devolve a aula que venceu.
+  * **RN-02 (encerrar e reabrir):** `EndSession` grava o término, desliga a transmissão e manda o Hub desconectar os clientes. Enquanto o docente não encerra, a aula permanece `ACTIVE`: ele pode sair e voltar à mesma aula. Encerrar é definitivo.
+  * **RN-03 (rede de segurança):** se a aula fica **12 horas** sem o docente conectado, o serviço a encerra, para não bloquear a turma por esquecimento.
+  * `UploadSlideDeck`: valida o tamanho (25 MB), o cabeçalho de PDF e a contagem de lâminas informada pelo navegador (de 1 a 100), o limite de **20 apresentações por turma**, grava no MinIO sob prefixo da turma e persiste. URLs pré-assinadas de **15 minutos**.
+  * `GetActiveSession`: devolve o estado consolidado da aula (RN-07).
+  * `ListSessions`: lista as aulas da turma, a ativa primeiro e depois as encerradas, da mais recente para a mais antiga, com os detalhes (título, início, término, duração, aula agendada ligada e, para o estudante, se tem anotações).
+  * `SaveStudentNote` e `GetStudentNote`: gravam e leem o texto privativo do estudante matriculado.
+  * **RN-04 (validação dos vínculos):** `deckId` e `classSessionId` precisam ser da mesma turma, e `initialModuleId` precisa existir; senão, 404.
+* **Camada de Transporte e WebSocket (`handler`):**
+  * Handlers REST em Gin, com erros RFC 7807 pelo pacote `platform/problem`.
+  * Handler de WebSocket sobre o **Hub próprio em memória**, em `backend/internal/platform/hub/` (`ARCHITECTURE.md`, 3.2 e 3.9), com leitura e escrita separadas por conexão e autenticação pelo cookie de sessão.
+  * **RN-05 (limites no servidor, entrada não confiável):** no máximo **100 conexões de estudantes por sala**; no máximo **35 eventos por segundo por emitente** (ponteiro, traços e digitação), com descarte do excedente; tamanho máximo por mensagem: 1 KiB para o ponteiro, 4 KiB para a digitação, 16 KiB para os traços e 1 MiB para o estado do terminal (valores a conferir depois de medir o tamanho do estado, P-O1). O estudante recebe o ponteiro e a digitação agrupados: no máximo o último valor a cada 30 ms.
+  * **RN-06 (papéis):** só o docente dono (ou administrador) emite mensagens de controle; as de estudante são descartadas com registro de auditoria. O docente não lê as anotações privadas.
+  * **RN-07 (estado consolidado):** ao conectar ou reconectar, o servidor envia `live:snapshot` como primeira mensagem, com modo, lâmina, módulo ativo, traços recentes da lâmina, linha em digitação, últimos 200 comandos e saídas do terminal, estado serializado da máquina, fila de mãos levantadas e total online. O estado canônico (modo, lâmina e módulo) fica no Postgres; traços, digitação e o histórico do terminal ficam em memória no Hub e valem durante a aula.
 
 ---
 
 ## 4. Modelo de Dados (Data Model)
 
-A modelagem de dados situa-se no schema `project-manager`:
+Todas as entidades pertencem ao schema `linux_lab` do PostgreSQL e usam UUIDv7 como chave primária, auditoria com data de criação e atualização e exclusão lógica:
 
-* **Tabela `live_sessions`:**
-* Identificador único UUIDv7 como chave primária.
-* Chave estrangeira `class_id` referenciando a tabela `classes`.
-* Chave estrangeira `teacher_id` referenciando `users(id)` (docente responsável).
-* Título ou tema descritivo da aula (texto, obrigatório).
-* Chave estrangeira anulável referenciando a apresentação vinculada (`deck_id`).
-* Modo ativo da sala (enumeração: `SLIDES`, `MODULE`).
-* Chave estrangeira anulável referenciando o módulo de ensino ativo (`active_module_id`).
-* Slide ativo no momento (inteiro, padrão 1).
-* Status da sessão (enumeração: `ACTIVE`, `FINISHED`).
-* Carimbos temporais: início da sessão (obrigatório), término da sessão (anulável) e controle de auditoria (`created_at`, `updated_at`, `deleted_at`).
-* Índices: índice composto sobre turma e status ativo, garantindo consulta imediata da sala em curso.
-
-
+* **Tabela `live_classroom_sessions`:**
+  * `id` (UUIDv7, PK); `class_id` (FK `classes`); `teacher_id` (FK `users`).
+  * `class_session_id` (FK anulável `class_sessions`): vínculo relacional estrito, sem inferência de presença ou chamada.
+  * `deck_id` (FK anulável `slide_decks`); `active_module_id` (FK anulável `course_modules`).
+  * `title` (texto, obrigatório, de 1 a 120 caracteres); `display_mode` (`SLIDES` ou `MODULE`); `current_slide` (inteiro, padrão 1); `status` (`ACTIVE` ou `FINISHED`).
+  * `started_at` (obrigatório); `ended_at` (anulável); `created_at`, `updated_at`, `deleted_at`.
+  * **Índice único parcial** sobre `class_id` onde `status = ACTIVE` e `deleted_at` é nulo (RN-01), e índice sobre `(class_id, started_at)` para a lista de aulas.
 * **Tabela `slide_decks`:**
-* Identificador único UUIDv7 como chave primária.
-* Chave estrangeira `class_id` referenciando `classes(id)`.
-* Chave estrangeira `uploaded_by` referenciando `users(id)`.
-* Título original do arquivo e descrição sumária.
-* Caminho/chave de armazenamento do arquivo de origem no MinIO.
-* Total de lâminas/páginas processadas (inteiro, maior que zero).
-* Chave de prefixo no MinIO das imagens de cada slide.
-* Carimbos de criação, alteração e exclusão lógica.
-
-
+  * `id`; `class_id` (FK `classes`); `uploaded_by` (FK `users`); `title` (de 1 a 120 caracteres); `object_key` (caminho relativo do PDF no bucket); `page_count` (de 1 a 100); `created_at`, `updated_at`, `deleted_at`.
+  * Índice em `(class_id)` onde `deleted_at` é nulo.
 * **Tabela `live_hand_raises`:**
-* Identificador único UUIDv7 como chave primária.
-* Chave estrangeira `session_id` referenciando `live_sessions(id) ON DELETE CASCADE`.
-* Chave estrangeira `student_id` referenciando `users(id)`.
-* Status da solicitação (enumeração: `PENDING`, `ANSWERED`, `LOWERED`).
-* Carimbo temporal da solicitação (usado para ordenação estrita FIFO na fila docente).
-* Carimbo de atendimento ou baixa.
-
-
-* **Tabela `student_live_notes`:**
-* Identificador único UUIDv7 como chave primária.
-* Chave estrangeira `session_id` referenciando `live_sessions(id) ON DELETE CASCADE`.
-* Chave estrangeira `student_id` referenciando `users(id)`.
-* Conteúdo textual das anotações privativas (texto longo).
-* Carimbos de criação e atualização contínua.
-* Unicidade composta: um único caderno de anotações por estudante e sessão ativa.
-
-
+  * `id`; `session_id` (FK `live_classroom_sessions`); `student_id` (FK `users`); `status` (`PENDING`, `ANSWERED`, `LOWERED`); `requested_at` (obrigatório); `resolved_at` (anulável); `created_at`, `updated_at`, `deleted_at`.
+  * Índice composto em `(session_id, status, requested_at)`.
+* **Tabela `live_classroom_notes`:**
+  * `id`; `session_id` (FK `live_classroom_sessions`); `student_id` (FK `users`); `content` (obrigatório, até 20.000 caracteres); `created_at`, `updated_at`, `deleted_at`.
+  * Índice único composto em `(session_id, student_id)` onde `deleted_at` é nulo.
 
 ---
 
 ## 5. Contrato de API (API Contract)
 
-### 5.1. POST /api/v1/classes/{classId}/live/start
+### 5.1. Início (ou reabertura) da aula
 
-Inicializa a sessão síncrona da turma ou recupera a sessão já em andamento.
+`POST /api/v1/classes/:id/live/start`
 
-* **Papéis autorizados:** `TEACHER` (proprietário da turma) e `ADMIN`.
-* **Parâmetros de rota:** identificador UUIDv7 da turma (`classId`).
-* **Campos descritivos de entrada:**
-* `title`: texto, obrigatório (1 a 120 caracteres).
-* `deckId`: UUIDv7, opcional (apresentação previamente enviada).
-* `initialModuleId`: UUIDv7, opcional (caso inicie direto no módulo de ensino).
+* **Papéis autorizados:** `TEACHER` (dono da turma) e `ADMIN`.
+* **Entrada:** `title` (obrigatório, 1 a 120 caracteres); `classSessionId` (opcional); `deckId` (opcional); `initialModuleId` (opcional).
+* **Resposta (201 Created se criou; 200 OK se já havia aula ativa e é a mesma):** `id`, `classId`, `title`, `classSessionId`, `status` (`ACTIVE`), `displayMode`, `currentSlide` e `startedAt`.
+* **Erros (RFC 7807):** 400 `validation-error` (título ausente ou inválido); 403 `forbidden`; 404 `class-not-found`; 404 `deck-not-found`; 404 `class-session-not-found`; 404 `module-not-found`; 409 `class-archived`.
 
+### 5.2. Encerramento da aula
 
-* **Estrutura lógica de resposta (HTTP 201 Created / 200 OK):**
-* Objeto contendo identificador da sessão, turma, status da sala (`ACTIVE`), modo inicial, slide ativo e carimbo de inicialização.
+`POST /api/v1/classes/:id/live/sessions/:sessionId/end`
 
+* **Papéis autorizados:** `TEACHER` (dono) e `ADMIN`. Sem corpo.
+* **Resposta (200 OK):** `id`, `status` (`FINISHED`) e `endedAt`.
+* **Erros:** 403 `forbidden`; 404 `session-not-found` (inexistente, de outra turma ou já encerrada).
 
-* **Erros (RFC 7807):**
-* HTTP 400 Bad Request (`validation-error`): título ausente ou inválido.
-* HTTP 403 Forbidden (`forbidden`): usuário não é o docente responsável pela turma.
-* HTTP 404 Not Found (`class-not-found`): turma inexistente ou inativa.
+### 5.3. Upload de apresentação
 
+`POST /api/v1/classes/:id/live/decks`
 
+* **Papéis autorizados:** `TEACHER` (dono) e `ADMIN`.
+* **Entrada (multipart):** `file` (PDF, até 25 MB); `title` (de 1 a 120 caracteres); `pageCount` (inteiro de 1 a 100, informado pelo navegador, que lê o PDF antes de enviar).
+* **Resposta (201 Created):** `id`, `title`, `pageCount`, `downloadUrl` (assinada, 15 minutos) e `createdAt`.
+* **Erros:** 400 `invalid-pdf` (o arquivo não começa com o cabeçalho de PDF, ou `pageCount` fora de 1 a 100; o arquivo corrompido ou com senha é recusado no navegador, antes do envio); 403 `forbidden`; 409 `deck-limit-exceeded`; 413 `file-too-large`.
 
----
+### 5.4. Aula ativa e estado inicial
 
-### 5.2. POST /api/v1/classes/{classId}/live/decks
+`GET /api/v1/classes/:id/live/active`
 
-Realiza upload de apresentação em PDF para uso na aula síncrona.
+* **Papéis autorizados:** `TEACHER`, `ADMIN` e `STUDENT` com matrícula `ACTIVE`.
+* **Resposta (200 OK):** com aula em curso: `session`, `displayMode`, `currentSlide`, `activeModuleId`, `activeDeck` (com `downloadUrl` renovada, 15 minutos), `recentDrawings`, `terminal` (linha em digitação, últimos comandos com saída e estado serializado), `handRaises` (fila) e `onlineCount`; sem aula: `hasActiveSession: false`.
+* **Erros:** 401 `not-authenticated`; 403 `forbidden`; 404 `class-not-found`.
 
-* **Papéis autorizados:** `TEACHER` (proprietário da turma) e `ADMIN`.
-* **Parâmetros de rota:** identificador UUIDv7 da turma (`classId`).
-* **Entrada via multipart/form-data:**
-* `file`: binário em formato PDF (tamanho máximo de 25 MB).
-* `title`: texto descritivo da apresentação.
+### 5.5. Lista de aulas da turma
 
+`GET /api/v1/classes/:id/live/sessions`
 
-* **Estrutura lógica de resposta (HTTP 201 Created):**
-* Identificador do deck, total de lâminas extraídas, lista indexada das URLs de cada slide e carimbo de criação.
+* **Papéis autorizados:** `TEACHER`, `ADMIN` e `STUDENT` com matrícula `ACTIVE`.
+* **Resposta (200 OK):** as 50 aulas mais recentes, a ativa primeiro: `id`, `title`, `status`, `startedAt`, `endedAt`, `durationMinutes`, `classSessionId` e, para o estudante, `hasNotes`.
+* **Erros:** 403 `forbidden`; 404 `class-not-found`.
 
+### 5.6. Gravação das anotações do estudante
 
-* **Erros (RFC 7807):**
-* HTTP 400 Bad Request (`unsupported-file-type`): arquivo não é um PDF válido.
-* HTTP 413 Payload Too Large (`file-too-large`): tamanho superior a 25 MB.
-* HTTP 403 Forbidden (`forbidden`): sem autorização sobre a turma.
+`PUT /api/v1/classes/:id/live/sessions/:sessionId/notes`
 
+* **Papéis autorizados:** `STUDENT` com matrícula `ACTIVE`.
+* **Entrada:** `content` (obrigatório, até 20.000 caracteres).
+* **Resposta (200 OK):** `sessionId`, `savedLength` e `updatedAt`.
+* **Erros:** 400 `content-too-long`; 403 `forbidden`; 404 `session-not-found`.
 
+### 5.7. Consulta das anotações depois da aula
 
----
+`GET /api/v1/classes/:id/live/sessions/:sessionId/notes`
 
-### 5.3. POST /api/v1/classes/{classId}/live/{sessionId}/end
+* **Papéis autorizados:** `STUDENT` (autor das anotações).
+* **Resposta (200 OK):** `sessionId`, `content` e `updatedAt`.
+* **Erros:** 403 `forbidden`; 404 `notes-not-found`; 404 `session-not-found`.
 
-Encerra a aula síncrona e finaliza as conexões ativas.
+### 5.8. Protocolo de tempo real (WebSocket)
 
-* **Papéis autorizados:** `TEACHER` (proprietário) e `ADMIN`.
-* **Parâmetros de rota:** `classId` e `sessionId`.
-* **Entrada:** Nenhuma entrada via corpo.
-* **Estrutura lógica de resposta (HTTP 200 OK):**
-* Identificador da sessão, status alterado para `FINISHED`, horário final consolidado e total de minutos de duração.
+`GET /api/v1/classes/:id/live/ws`
 
-
-* **Erros (RFC 7807):**
-* HTTP 403 Forbidden (`forbidden`): não é o proprietário.
-* HTTP 404 Not Found (`session-not-found`): sessão inexistente ou já finalizada.
-
-
-
----
-
-### 5.4. GET /api/v1/classes/{classId}/live/active
-
-Consulta os dados da sessão síncrona em andamento para ingresso de estudantes e docentes.
-
-* **Papéis autorizados:** `TEACHER`, `ADMIN` e `STUDENT` (com matrícula ativa na turma).
-* **Parâmetros de rota:** `classId`.
-* **Estrutura lógica de resposta (HTTP 200 OK):**
-* Dados da sessão ativa, deck associado com lista de slides, modo corrente, slide ativo, identificador do módulo caso esteja em modo módulo e total de estudantes online. Caso não haja aula ativa, retorna status sem sessão em andamento.
-
-
-* **Erros (RFC 7807):**
-* HTTP 403 Forbidden (`forbidden`): discente sem vínculo ativo com a turma.
-* HTTP 404 Not Found (`class-not-found`): turma inexistente.
-
-
-
----
-
-### 5.5. PUT /api/v1/classes/{classId}/live/{sessionId}/notes
-
-Grava ou atualiza as anotações individuais do estudante conectado.
-
-* **Papéis autorizados:** `STUDENT` (com matrícula ativa na turma).
-* **Parâmetros de rota:** `classId` e `sessionId`.
-* **Campos descritivos de entrada:**
-* `content`: texto livre, até 20.000 caracteres.
-
-
-* **Estrutura lógica de resposta (HTTP 200 OK):**
-* Confirmação de persistência, tamanho gravado e carimbo de alteração.
-
-
-* **Erros (RFC 7807):**
-* HTTP 400 Bad Request (`content-too-long`): excede o limite permitido.
-* HTTP 403 Forbidden (`forbidden`): sem matrícula ativa.
-
-
-
----
-
-### 5.6. Protocolo WebSocket (`/ws/classes/{classId}/live`)
-
-Canal bidirecional síncrono mantido sobre NATS:
-
-* **Autenticação:** validada na conexão inicial via cookie de sessão seguro (`linux_lab_session`).
-* **Mensagens emitidas exclusivamente pelo Docente (Broadcast para a Sala):**
-* `slide:change`: índice numérico da lâmina ativa.
-* `cursor:move`: percentual horizontal e vertical (X e Y) do cursor e estado do laser.
-* `canvas:draw`: coordenadas vetoriais para traçado ou limpeza do slide.
-* `mode:switch`: alternância de visualização (`SLIDES` ou `MODULE`) e ID do módulo didático.
-* `terminal:stream`: chunk textual do terminal espelhado para os discentes.
-* `hand:moderate`: ação do docente sobre a fila de mãos levantadas (abaixar mão de estudante específico ou de todos).
-
-
-* **Mensagens emitidas por Discentes (Encaminhadas ao Docente / Sala):**
-* `hand:raise`: evento informando intenção de fala do estudante conectado.
-* `hand:cancel`: retirada voluntária da intenção de fala pelo próprio estudante.
-
-
+* **Papéis autorizados:** `TEACHER`, `ADMIN` e `STUDENT` com matrícula `ACTIVE`. Upgrade HTTP sobre o Hub em memória.
+* **Mensagens só do docente (para a sala):**
+  * `live:slide:change` (índice da lâmina); `live:cursor:move` (X e Y em percentual); `live:canvas:draw` (traçado ou limpeza); `live:mode:switch` (`SLIDES` ou `MODULE` e o módulo).
+  * `live:terminal:input`: a linha em digitação e o terminal (de 1 a 3) a cada tecla, agrupada em até 30 quadros por segundo.
+  * `live:terminal:sync`: ao concluir um comando, o terminal, a linha, a saída e o estado serializado da máquina.
+  * `live:hand:moderate` (estudante atendido ou baixa geral).
+* **Mensagens dos estudantes:** `live:hand:raise` e `live:hand:lower`.
+* **Mensagens do servidor:** `live:snapshot` (primeira mensagem de cada conexão, RN-07); `live:ended` (a aula foi encerrada, pelo docente ou pela rede de segurança); `live:control:revoked` (outra aba do docente assumiu o controle); `live:presence` (total online); `live:hand:queue` (fila atualizada).
 
 ---
 
 ## 6. Impacto e Riscos (Impact & Risks)
 
-* **Risco de Sobrecarga de Rede por Eventos Contínuos de Cursor do Mouse:**
-* O envio de coordenadas de mouse a cada pixel percorrido pode saturar o canal WebSocket e sobrecarregar o broker NATS.
-* *Mitigação:* O cliente frontend aplicará estrangulamento (*throttling*) fixo nas emissões de cursor para o intervalo de 50 milissegundos (aproximadamente 20 frames por segundo), interpolando o movimento visualmente no lado discente através de transições suaves CSS (`transition: transform`).
-
-
-* **Risco de Injeção de Comandos Não Autorizados via Terminal Espelhado:**
-* Alunos mal-intencionados tentarem injetar entradas no canal de terminal durante o espelhamento do módulo.
-* *Mitigação:* O backend rejeitará imediatamente qualquer mensagem de terminal originada de conexões associadas ao papel `STUDENT`, aplicando o terminal dos estudantes puramente em modo *read-only* acoplado ao stream do docente.
-
-
-* **Risco de Arquivos PDF Corrompidos ou Pesados no Upload:**
-* O upload de apresentações pesadas travar o processo de extração de páginas no servidor.
-* *Mitigação:* Limite rígido de 25 MB e 100 páginas por documento, executando a validação sintática do arquivo no backend antes de despachar a extração e retornando erro RFC 7807 imediato caso o documento esteja danificado ou protegido por senha.
-
-
-* **Risco de Desconexão Inesperada e Perda de Estado da Aula:**
-* Oscilações de conexão no terminal do professor interromperem a experiência dos estudantes.
-* *Mitigação:* O estado canônico da aula (modo ativo, slide corrente e tema) reside persistido na entidade `live_sessions` do banco Postgres, permitindo que o professor e os alunos reconectem e restaurem o mesmo instante da apresentação instantaneamente.
-
-
+| Risco | Mitigação |
+| :--- | :--- |
+| Volume de mensagens de ponteiro e digitação (100 estudantes a 30 quadros por segundo) | Limite de 35 eventos por segundo por emitente no servidor, descarte do excedente, e envio aos estudantes agrupado no último valor a cada 30 ms; interpolação visual no receptor. A carga é medida no teste de carga da implementação. |
+| Injeção de comandos, teclas ou controle por discentes | O Hub valida o papel da conexão e descarta, com auditoria, tudo que não venha do docente dono ou do administrador. O terminal do estudante é só leitura. |
+| Vazamento de senha pela digitação espelhada | O adaptador só lê o que o terminal mostra na tela, e o terminal não exibe senhas; nenhuma mensagem de digitação é enviada enquanto o terminal pede senha. |
+| Docente fecha o navegador ou perde a conexão | A aula continua aberta; ao voltar, o docente reentra na mesma aula e recebe o estado consolidado. A rede de segurança encerra a aula após 12 horas sem o docente. |
+| Docente em várias abas | A conexão mais recente assume o controle e as anteriores recebem `live:control:revoked` e passam a modo passivo. |
+| Dois inícios simultâneos da aula | O índice único parcial garante uma só aula ativa por turma; o segundo início recebe a aula existente. |
+| Expiração das URLs de slides em aulas longas | URLs de 15 minutos; o frontend pede a renovação antes do vencimento. |
+| Envio descontrolado de arquivos | No máximo 20 apresentações por turma e 25 MB por PDF. |
+| Alteração no adaptador do terminal quebrar o motor | A alteração só acrescenta avisos (sem mudar o comportamento) e é coberta pelos testes de conformidade do motor (SPEC-030) e pelos testes do adaptador. |
 
 ---
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-* [ ] **CA-01** (evento): QUANDO o docente proprietário acionar o comando de inicializar a aula, O SISTEMA DEVE criar ou recuperar a sessão ativa da turma e liberar o ambiente de apresentação síncrona.
-* [ ] **CA-02** (segurança): SE um discente ou docente não proprietário tentar inicializar ou encerrar a sessão da aula, ENTÃO O SISTEMA DEVE recusar com código HTTP 403 (RFC 7807).
-* [ ] **CA-03** (evento): QUANDO o docente enviar uma apresentação em PDF válida de até 25 MB, O SISTEMA DEVE persistir o documento no MinIO, gerar a contagem de slides e disponibilizá-lo para projeção na sala.
-* [ ] **CA-04** (sincronização): QUANDO o docente avançar ou retroceder um slide na apresentação, O SISTEMA DEVE replicar a troca de lâmina instantaneamente via WebSocket para todos os estudantes conectados à sessão.
-* [ ] **CA-05** (sincronização): QUANDO o docente movimentar o cursor laser sobre o slide, O SISTEMA DEVE sincronizar a posição relativa para os discentes com estrangulamento de eventos e movimentação fluida.
-* [ ] **CA-06** (interação): QUANDO um estudante acionar a opção de levantar a mão, O SISTEMA DEVE registrar a solicitação em ordem cronológica FIFO e exibi-la imediatamente no painel de moderação do docente.
-* [ ] **CA-07** (moderação): QUANDO o docente abaixar a mão de um estudante ou limpar a fila, O SISTEMA DEVE refletir a alteração para todos os integrantes da sala sem recarregar a tela.
-* [ ] **CA-08** (modo alternado): QUANDO o docente comutar a aula para o modo "Módulo de Ensino", O SISTEMA DEVE carregar o módulo didático correspondente para todos os alunos e espelhar o terminal do professor em modo estritamente somente leitura para os acadêmicos.
-* [ ] **CA-09** (persistência): QUANDO um estudante digitar anotações em seu caderno pessoal durante a aula, O SISTEMA DEVE persistir o conteúdo de forma automática vinculando-o à sua conta e à sessão da turma.
-* [ ] **CA-10** (encerramento): QUANDO o docente finalizar a aula síncrona, O SISTEMA DEVE registrar o carimbo de encerramento, fechar os canais de broadcast WebSocket e notificar visualmente os estudantes da conclusão da sessão.
-* [ ] **CA-11** (acessibilidade e tema): QUANDO a sala síncrona for renderizada em tema claro ou escuro, A INTERFACE DEVE aplicar estritamente as variáveis semânticas de `_tokens.scss`, garantindo contraste adequado WCAG AA e navegação de slides operável por teclado (setas direcionais e barra de espaço).
+* [ ] **CA-01** (evento): QUANDO o docente dono da turma acionar "Iniciar aula", em qualquer dia e horário, O SISTEMA DEVE criar a aula com status `ACTIVE` no schema `linux_lab`, ligando opcionalmente a aula agendada sem interferir em registros de frequência.
+* [ ] **CA-02** (indesejado): SE um discente ou docente de outra turma tentar iniciar ou encerrar a aula, ENTÃO O SISTEMA DEVE responder 403 `forbidden` (RFC 7807).
+* [ ] **CA-03** (evento): QUANDO o docente enviar um PDF de até 25 MB e até 100 páginas, O SISTEMA DEVE gravar o arquivo no MinIO, registrar o `slide_decks` e devolver a URL assinada com validade de 15 minutos.
+* [ ] **CA-04** (indesejado): SE a turma já tiver 20 apresentações, ENTÃO O SISTEMA DEVE recusar o envio com 409 `deck-limit-exceeded`.
+* [ ] **CA-05** (evento): QUANDO o docente alterar a lâmina ativa, O SISTEMA DEVE transmitir o índice pelo WebSocket e atualizar as telas de todos os estudantes conectados.
+* [ ] **CA-06** (evento): QUANDO o docente movimentar o mouse ou a caneta sobre a lâmina, O SISTEMA DEVE transmitir as coordenadas a cerca de 30 quadros por segundo e mostrar o ponteiro e os traços aos estudantes com movimento fluido, interpolado entre os quadros.
+* [ ] **CA-07** (evento): QUANDO o docente estiver no modo "Módulo de Ensino", O SISTEMA DEVE mostrar aos estudantes, em um terminal bloqueado contra teclado, o que o docente digita (a cerca de 30 quadros por segundo) e, ao concluir cada comando, a linha, a saída e o estado da máquina.
+* [ ] **CA-08** (evento): QUANDO um estudante levantar a mão, O SISTEMA DEVE colocá-lo na fila por ordem cronológica (FIFO) e exibi-lo no painel de moderação do docente.
+* [ ] **CA-09** (evento): QUANDO o docente baixar a mão de um estudante ou limpar a fila, O SISTEMA DEVE atualizar o status do pedido e sincronizar a visão de todos os participantes.
+* [ ] **CA-10** (evento): QUANDO um estudante digitar anotações no seu caderno, O SISTEMA DEVE gravar o conteúdo pela API REST, ligado à aula e ao estudante, permitindo a leitura posterior pelo próprio autor.
+* [ ] **CA-11** (estado): ENQUANTO o docente conectar em uma nova aba, O SISTEMA DEVE dar o controle à conexão mais recente e avisar a anterior (`live:control:revoked`), que passa a modo passivo.
+* [ ] **CA-12** (evento): QUANDO o docente encerrar a aula, O SISTEMA DEVE gravar o término, enviar `live:ended` à sala e fechar as conexões WebSocket.
+* [ ] **CA-13** (ubíquo): A interface da sala DEVE operar só no tema único escuro, com tokens semânticos de `_tokens.scss` e alvos de toque de no mínimo 44 px.
+* [ ] **CA-14** (evento): QUANDO um participante conecta ou reconecta com a aula em andamento, O SISTEMA DEVE enviar `live:snapshot` como primeira mensagem, com modo, lâmina, módulo, traços recentes, terminal (linha em digitação, histórico recente e estado), fila e total online.
+* [ ] **CA-15** (evento): QUANDO o docente fica 12 horas sem conexão com a aula ativa, O SISTEMA DEVE encerrá-la e avisar os estudantes; ENQUANTO isso não acontece, a aula permanece aberta, e o docente pode sair e voltar à mesma aula.
+* [ ] **CA-16** (indesejado): SE a turma está arquivada, ENTÃO O SISTEMA DEVE recusar o início da aula com 409 `class-archived`.
+* [ ] **CA-17** (indesejado): SE a turma já tem aula ativa, ENTÃO O SISTEMA DEVE devolver essa aula (200 OK) em vez de criar outra, inclusive em inícios simultâneos.
+* [ ] **CA-18** (evento): QUANDO qualquer participante abre a página da turma, O SISTEMA DEVE mostrar a seção "Aula ao vivo" com a aula ativa (e o botão de entrar, voltar ou encerrar conforme o papel) e a lista das aulas anteriores com título, data e duração.
+* [ ] **CA-19** (indesejado): SE uma conexão passa de 35 eventos por segundo, ou envia mensagem maior que o limite do seu tipo, ou a sala já tem 100 estudantes conectados, ENTÃO O SISTEMA DEVE descartar o excesso ou recusar a conexão.
+* [ ] **CA-20** (indesejado): SE `deckId`, `classSessionId` ou `initialModuleId` não existe ou é de outra turma, ENTÃO O SISTEMA DEVE recusar o início com 404 (`deck-not-found`, `class-session-not-found` ou `module-not-found`).
 
 ---
 
 ## 8. Plano de Testes (Test Plan)
 
-### Backend
+Escritos antes da implementação e rodados vermelhos primeiro (SPEC-038).
 
-* **Testes Unitários de Service (`classroom/service`):**
-* Validação de inicialização de sessão para docente autorizado e rejeição para usuário sem vínculo proprietário com a turma (cobre CA-01 e CA-02).
-* Validação de regras de upload e extração de deck de slides, conferindo rejeição de formatos não suportados e arquivos acima de 25 MB (cobre CA-03).
-* Gestão da fila de mãos levantadas assegurando ordenação estrita por tempo de entrada (FIFO) e limpeza por moderação docente (cobre CA-06 e CA-07).
-* Persistência e atualização contínua de anotações individuais de estudantes com isolamento estrito entre usuários (cobre CA-09).
-* Encerramento de sessão com atualização de timestamp e invalidação de novos broadcasts (cobre CA-10).
+### Backend (`classroom` e `platform/hub`)
 
+* **`domain`:** invariantes de status e modos; limites do título, do nome da apresentação e das páginas do PDF (CA-03).
+* **`service`:**
+  * `TestStartSession_OwnerAndAdminAllowed` e `TestStartSession_AnyTimeOfDay` (CA-01); `TestStartSession_RejectsNonOwner` (CA-02); `TestStartSession_ArchivedClass` (CA-16).
+  * `TestStartSession_ReturnsTheActiveOne` e `TestStartSession_Concurrent` (CA-17).
+  * `TestStartSession_RejectsForeignLinks` (CA-20).
+  * `TestUploadDeck_SuccessAndMaxLimit` (CA-03, CA-04).
+  * `TestEndSession_UpdatesTimestampAndClosesRoom` (CA-12); `TestTeacherCanLeaveAndComeBack` e `TestSafetyNetEndsAfter12Hours` (CA-15).
+  * `TestActiveSession_ReturnsSnapshot` (CA-14); `TestListSessions_ActiveFirstAndDetails` (CA-18).
+  * `TestStudentNotes_SaveAndRetrieve` (CA-10).
+* **`repository` (banco de teste):** `TestOnlyOneActiveSessionPerClass` (CA-17), `TestSoftDeleteKeepsNotesAndHandRaises`.
+* **`handler` (`httptest`):** rotas REST com envelopes RFC 7807 e os status 200, 201, 400, 403, 404, 409 e 413 (CA-02 a CA-04, CA-10, CA-16, CA-18, CA-20).
+* **`platform/hub`:** difusão de `live:slide:change` (CA-05), `live:cursor:move` (CA-06), `live:terminal:input` e `live:terminal:sync` (CA-07); descarte de mensagem de controle de estudante (CA-02); fila FIFO e moderação (CA-08, CA-09); segunda conexão do docente assumindo o controle (CA-11); `live:ended` (CA-12); `live:snapshot` primeiro (CA-14); limites de 35 eventos por segundo, de tamanho e de 100 conexões (CA-19); agrupamento a cada 30 ms.
 
-* **Testes de Integração de Handlers e WebSocket (`classroom/handler`):**
-* Testes com `httptest` validando rotas REST de início, encerramento, upload e consulta de aula ativa com envelopes RFC 7807.
-* Teste de gateway WebSocket simulando conexões simultâneas de professor e estudantes: disparo de `slide:change` e `cursor:move` conferindo broadcast fiel para alunos e descarte de tentativas de entrada discente em canais de controle.
+### Frontend (Vitest e Testing Library)
 
+* `LiveClassroom.test.tsx` (CA-12, CA-13); `SlidePresenter.test.tsx` (CA-05, CA-06, com estrangulamento de 33 ms e interpolação); `MirroredModuleView.test.tsx` (CA-07: terminal bloqueado, digitação, linha e saída); `LiveInteractionDrawer.test.tsx` (CA-08, CA-09); `StudentNotesPanel.test.tsx` (CA-10); `useLiveClassroom.test.ts` (CA-11, CA-14 e a renovação da URL).
+* `LiveClassPanel.test.tsx` e o teste da página da turma: a seção "Aula ao vivo" para docente e estudante e a lista de aulas anteriores (CA-18).
+* `classroomService.test.ts`: chamadas REST tipadas.
+* `engine/terminalWindow.test.ts`: o adaptador informa a linha em digitação e, por comando, a linha, a saída e o estado; o modo espelho imprime sem executar nem aceitar teclado; senha não é transmitida; os testes de conformidade do motor (SPEC-030) continuam passando (CA-07).
+* **Cobertura:** acima de 80% no escopo (`go test -cover` e Vitest em modo de cobertura).
 
+### Teste manual
 
-### Frontend
-
-* **Testes Automatizados de Componente (Vitest e Testing Library):**
-* Renderização do componente `SlidePresenter` validando exibição da lâmina ativa, navegação por teclado (setas esquerda e direita) e presença dos botões de controle docente (cobre CA-04 e CA-11).
-* Teste do receptor discente garantindo que cliques ou toques sobre o slide e terminal não emitam eventos de mutação e permaneçam desabilitados (cobre CA-05 e CA-08).
-* Teste do componente de fila de dúvidas conferindo disparo do evento de levantar a mão e feedback visual de atendimento (cobre CA-06 e CA-07).
-* Teste de alternância entre tema claro e tema escuro verificando ausência de cores hardcoded e aplicação das propriedades semânticas (cobre CA-11).
-
-
-* **Teste Manual e de Usabilidade em Campo:**
-* Acessar a turma como docente pelo navegador desktop, iniciar a aula e carregar uma apresentação PDF.
-* Acessar a mesma sala síncrona em duas abas de estudante (uma em desktop e outra em visualização mobile).
-* Avançar os slides e desenhar com a caneta virtual, constatando atualização imediata e sincronizada nas abas dos alunos.
-* Alternar a visualização para o módulo instrucional e executar comandos no terminal, confirmando que os acadêmicos acompanham as saídas sem conseguir digitar no console.
-* Levantar a mão como estudante, atender no painel docente e encerrar a aula validando a desconexão amigável da sala.
-
-
+* Iniciar a aula como docente, sair, voltar e conferir que é a mesma; iniciar de novo e conferir que não cria outra.
+* Carregar um PDF; em abas de estudante, conferir a troca das lâminas e a fluidez do ponteiro e da caneta.
+* Alternar para o módulo, digitar no terminal e conferir que o estudante vê a digitação, o comando e a saída; digitar uma senha (`su`) e conferir que nada dela aparece.
+* Levantar a mão e moderar; digitar anotações como estudante e consultá-las depois do encerramento.
+* Conferir, na página da turma, a aula em andamento e as aulas anteriores.
 
 ---
 
 ## 9. Contexto Final da IA (AI Final Context Execution)
 
-Para implementar esta especificação, execute as alterações e criações no backend e frontend na seguinte ordem arquitetural:
+1. **Pré-leitura obrigatória:** `specs/ARCHITECTURE.md` (monólito modular, Hub WebSocket em memória, schema `linux_lab`, tema único escuro); `specs/GLOSSARY.md`; SPEC-009, 014, 016, 020, 030, 041, 042 e 049; `frontend/src/engine/terminalWindow.ts`.
+2. **Ordem de implementação:**
+   * Termos novos no `specs/GLOSSARY.md`: **Sala ao vivo** (`LiveClassroomSession`), **Apresentação** (`SlideDeck`), **Lâmina** (`Slide`), **Mão levantada** (`LiveHandRaise`) e **Anotações da aula** (`LiveClassroomNote`).
+   * Testes vermelhos de serviço, repositório, hub e adaptador; commit `test(...)`.
+   * Migração versionada `backend/migrations/00030_classroom.sql` com as quatro tabelas, exclusão lógica e o índice único parcial.
+   * Pacote `backend/internal/platform/hub/` e, em `backend/internal/modules/classroom/`, `domain`, `repository`, `service` e `handler`; rotas e injeção em `backend/cmd/api/main.go`.
+   * Adaptador do terminal (`engine/terminalWindow.ts`), conforme P-Q1.
+   * Frontend: `pdfjs-dist` no `package.json`, `classroomService.ts`, `useLiveClassroom.ts`, testes vermelhos dos componentes, os componentes de `Classroom/*`, a seção "Aula ao vivo" da página da turma, a página `app/classes/[id]/live/page.tsx` e as mensagens em `messages/pt-BR.ts`.
+   * Testes com cobertura acima de 80%, ESLint e Stylelint limpos e status final `Implementada`.
+3. **Arquivos a criar ou alterar:**
+   * Backend: `backend/migrations/00030_classroom.sql`; `backend/internal/platform/hub/hub.go` e `hub_test.go`; `backend/internal/modules/classroom/domain/{session,deck,interaction,note}.go`; `.../repository/repository.go`; `.../service/service.go` e `service_test.go`; `.../handler/handler.go` e `handler_test.go`; `backend/cmd/api/main.go`.
+   * Frontend: `frontend/package.json`; `frontend/src/engine/terminalWindow.ts` e `terminalWindow.test.ts`; `frontend/src/services/classroomService.ts` e `classroomService.test.ts`; `frontend/src/hooks/useLiveClassroom.ts`; `frontend/src/components/Classroom/{LiveClassroom,SlidePresenter,MirroredModuleView,LiveInteractionDrawer,StudentNotesPanel,LiveClassPanel}/` (componente, `.module.scss` e teste de cada um); `frontend/src/app/app/classes/[id]/live/page.tsx` e `page.module.scss`; `frontend/src/app/app/classes/[id]/page.tsx` e seu teste; `frontend/src/messages/pt-BR.ts`.
+   * `specs/GLOSSARY.md`.
 
-1. **Backend — Migração de Banco de Dados:**
-* Criar migração versionada provisionando as tabelas `live_sessions`, `slide_decks`, `live_hand_raises` e `student_live_notes` no schema `project-manager`.
+---
 
+## 10. Pendências para aprovação
 
-2. **Backend — Camadas de Domínio, Repositório e Serviço (`backend/internal/modules/classroom/`):**
-* Implementar entidades de domínio e validações de sessão em `domain/`.
-* Implementar interfaces e persistência via GORM em `repository/`.
-* Implementar lógica de controle síncrono, autorização de turma e integração NATS em `service/`.
-* Implementar handlers HTTP Gin e gateway WebSocket em `handler/`.
-* Configurar injeção de dependências no composition root em `backend/cmd/api/main.go`.
+Nenhuma. As decisões do Tech Lead de 14/10/2026 estão incorporadas, e a P-Q1 foi confirmada com a aprovação: o adaptador do terminal lê a digitação por fora do `engine/core` e, se não bastar, esta spec autoriza um aviso mínimo, só de notificação, em `engine/core/terminal/`, coberto pelos testes de conformidade (SPEC-030). "Reabrir" significa voltar à mesma aula enquanto ela está ativa; uma aula encerrada fica encerrada.
 
+---
 
-3. **Frontend — Camada de Serviços e Integração:**
-* Criar `frontend/src/services/classroomService.ts` com métodos tipados para API REST e cliente WebSocket.
-* Criar hook `frontend/src/hooks/useLiveClassroom.ts` gerenciando o estado síncrono da sala.
+## Histórico de revisões
 
-
-4. **Frontend — Componentes Visuais e Telas:**
-* Desenvolver componentes co-localizados:
-* `frontend/src/components/Classroom/LiveClassroom/`
-* `frontend/src/components/Classroom/SlidePresenter/`
-* `frontend/src/components/Classroom/MirroredModuleView/`
-* `frontend/src/components/Classroom/LiveInteractionDrawer/`
-* `frontend/src/components/Classroom/StudentNotesPanel/`
-
-
-* Implementar a página da sala síncrona em `frontend/src/app/app/classes/[id]/live/page.tsx` com seu respectivo `.module.scss`.
-* Centralizar todas as mensagens de interface em `frontend/src/messages/pt-BR.ts`.
-
-
-5. **Testes e Validação:**
-* Escrever testes automatizados no backend e frontend cobrindo todos os critérios de aceite (CA-01 a CA-11) assegurando cobertura superior a 80%, sem pendências em linter ou Stylelint.
+| Data | Autor | Alteração |
+| :--- | :--- | :--- |
+| 14/10/2026 | Autoria externa | Texto original trazido pelo Tech Lead |
+| 14/10/2026 | Aruna Architect | Formato ajustado ao template; pendências P-01 a P-14 |
+| 14/10/2026 | Aruna Architect | Parecer do autor sobre P-01 a P-14 incorporado; pendências P-N01 a P-N06 |
+| 14/10/2026 | Aruna Architect | Segunda versão do autor aplicada; correções de conformidade (migração `00030`, `platform/problem`, hub em `platform/hub/`); CA-14 a CA-16; pendências P-O1 a P-O5 |
+| 14/10/2026 | Aruna Architect | Decisões do Tech Lead aplicadas: iniciar e encerrar a aula a qualquer hora, sair e voltar à mesma aula, com rede de segurança de 12 horas (no lugar dos 15 minutos); uma aula ativa por turma, com índice único parcial e a seção "Aula ao vivo" na página da turma; fluidez de cerca de 30 quadros por segundo (teto de 35 por segundo no servidor) para o ponteiro, os traços e a digitação espelhada; adaptador do terminal informa a linha, a saída e o estado (P-O1); `GET .../live/sessions` (P-O2); mensagens do servidor `live:snapshot`, `live:ended`, `live:control:revoked`, `live:presence` e `live:hand:queue` (P-O3); validação dos vínculos com 404 (P-O4); limites e tamanhos de mensagem no servidor (P-O5). CA-01, CA-06, CA-07, CA-12, CA-14 e CA-15 reescritos e CA-17 a CA-20 acrescentados. Nova confirmação P-Q1 |
+| 14/10/2026 | Aruna Architect | Aprovada pelo Tech Lead; P-Q1 confirmada; "reabrir" esclarecido (voltar à mesma aula ativa); status Aprovada |
+| 14/10/2026 | Implementador | Implementada. Backend: migração `00030`, `platform/hub`, módulo `classroom` e `PresignedGetURL` em `platform/storage`. Frontend: adaptador do terminal (digitação lida por fora do `engine/core`, sem usar a autorização da P-Q1), serviço, hook, componentes e a seção "Aula ao vivo". Desvios: o espelho mostra só o terminal, sem embutir o `TopicStudy`; o seletor de módulo de ensino não foi feito (o modo MODULE usa o módulo informado); a rede de segurança de 12 horas usa `updated_at` como "visto com o docente"; ping a cada 30 s nas conexões ociosas |

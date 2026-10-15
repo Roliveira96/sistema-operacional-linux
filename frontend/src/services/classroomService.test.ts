@@ -1,0 +1,109 @@
+import { describe, expect, it, vi } from "vitest";
+import { createClassroomService, liveSocketUrl, openLiveSocket } from "./classroomService";
+import type { HttpClient } from "./httpClient";
+
+// SPEC-051, section 5
+describe("classroomService", () => {
+  const client: HttpClient = { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
+  const service = createClassroomService(client);
+
+  it("starts or reopens the class (5.1)", async () => {
+    vi.mocked(client.post).mockResolvedValueOnce({ id: "s-1", status: "ACTIVE" });
+    const session = await service.startSession("c-1", { title: "Aula 5", deckId: "d-1", classSessionId: "cs-1" });
+    expect(client.post).toHaveBeenCalledWith("/classes/c-1/live/start", { title: "Aula 5", deckId: "d-1", classSessionId: "cs-1" });
+    expect(session.id).toBe("s-1");
+  });
+
+  it("ends the class (5.2)", async () => {
+    vi.mocked(client.post).mockResolvedValueOnce({ id: "s-1", status: "FINISHED" });
+    await service.endSession("c-1", "s-1");
+    expect(client.post).toHaveBeenCalledWith("/classes/c-1/live/sessions/s-1/end");
+  });
+
+  it("uploads a deck as multipart with the page count read by the browser (5.3)", async () => {
+    vi.mocked(client.post).mockResolvedValueOnce({ id: "d-1", title: "Slides", pageCount: 12, downloadUrl: "https://minio/x" });
+    const file = new File(["%PDF-1.7"], "slides.pdf", { type: "application/pdf" });
+    const deck = await service.uploadDeck("c-1", file, "Slides", 12);
+    const [path, body] = vi.mocked(client.post).mock.calls.at(-1)!;
+    expect(path).toBe("/classes/c-1/live/decks");
+    const form = body as FormData;
+    expect(form.get("title")).toBe("Slides");
+    expect(form.get("pageCount")).toBe("12");
+    expect((form.get("file") as File).name).toBe("slides.pdf");
+    expect(deck.pageCount).toBe(12);
+  });
+
+  it("reads the active class (5.4), with or without a room", async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({ hasActiveSession: false });
+    expect(await service.getActive("c-1")).toEqual({ hasActiveSession: false });
+    expect(client.get).toHaveBeenCalledWith("/classes/c-1/live/active");
+  });
+
+  it("lists the classes (5.5)", async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({ sessions: [{ id: "s-1", title: "Aula 5", status: "FINISHED" }] });
+    expect(await service.listSessions("c-1")).toEqual([{ id: "s-1", title: "Aula 5", status: "FINISHED" }]);
+    expect(client.get).toHaveBeenCalledWith("/classes/c-1/live/sessions");
+  });
+
+  it("saves and reads the notes (5.6, 5.7)", async () => {
+    vi.mocked(client.put).mockResolvedValueOnce({ sessionId: "s-1", savedLength: 3, updatedAt: "x" });
+    await service.saveNotes("c-1", "s-1", "abc");
+    expect(client.put).toHaveBeenCalledWith("/classes/c-1/live/sessions/s-1/notes", { content: "abc" });
+    vi.mocked(client.get).mockResolvedValueOnce({ sessionId: "s-1", content: "abc", updatedAt: "x" });
+    expect((await service.getNotes("c-1", "s-1")).content).toBe("abc");
+    expect(client.get).toHaveBeenLastCalledWith("/classes/c-1/live/sessions/s-1/notes");
+  });
+});
+
+class FakeSocket {
+  static last: FakeSocket;
+  readyState = 0;
+  sent: string[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  constructor(public url: string) {
+    FakeSocket.last = this;
+  }
+  send(data: string) {
+    this.sent.push(data);
+  }
+  close() {
+    this.onclose?.();
+  }
+}
+
+// SPEC-051, section 5.8
+describe("live socket", () => {
+  it("builds the address from the page, on the same origin", () => {
+    expect(liveSocketUrl("c-1", { protocol: "http:", host: "localhost:3010" })).toBe("ws://localhost:3010/api/v1/classes/c-1/live/ws");
+    expect(liveSocketUrl("c-1", { protocol: "https:", host: "aulas.exemplo.br" })).toBe("wss://aulas.exemplo.br/api/v1/classes/c-1/live/ws");
+  });
+
+  it("sends and receives messages as { type, data }", () => {
+    const handlers = { onOpen: vi.fn(), onMessage: vi.fn(), onClose: vi.fn() };
+    const socket = openLiveSocket("c-1", handlers, (url) => new FakeSocket(url) as unknown as WebSocket);
+    const raw = FakeSocket.last;
+    raw.onopen?.();
+    expect(handlers.onOpen).toHaveBeenCalled();
+
+    raw.readyState = 1;
+    socket.send("live:slide:change", { slide: 3 });
+    expect(JSON.parse(raw.sent[0]!)).toEqual({ type: "live:slide:change", data: { slide: 3 } });
+
+    raw.onmessage?.({ data: JSON.stringify({ type: "live:presence", data: { online: 4 } }) });
+    expect(handlers.onMessage).toHaveBeenCalledWith({ type: "live:presence", data: { online: 4 } });
+
+    raw.onmessage?.({ data: "not json" });
+    expect(handlers.onMessage).toHaveBeenCalledTimes(1);
+
+    socket.close();
+    expect(handlers.onClose).toHaveBeenCalled();
+  });
+
+  it("does not send while the connection is not open", () => {
+    const socket = openLiveSocket("c-1", { onOpen: vi.fn(), onMessage: vi.fn(), onClose: vi.fn() }, (url) => new FakeSocket(url) as unknown as WebSocket);
+    socket.send("live:hand:raise", {});
+    expect(FakeSocket.last.sent).toEqual([]);
+  });
+});

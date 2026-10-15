@@ -1,0 +1,116 @@
+@use "@/styles/mixins" as mixins;
+
+.presenter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.stage {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-sunken);
+  overflow: hidden;
+  line-height: 0;
+
+  @include mixins.focusable;
+
+  &.pen {
+    cursor: crosshair;
+  }
+}
+
+.page {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+// The strokes and the laser sit on top of the page, as percentages of it.
+.strokes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+
+  polyline {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+}
+
+// The pointer moves between the frames that arrive, so it looks smooth.
+.laser {
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  margin: -0.5rem 0 0 -0.5rem;
+  border-radius: var(--radius-full);
+  background-color: var(--color-danger);
+  box-shadow: 0 0 0 4px var(--color-danger-faint);
+  pointer-events: none;
+  transition:
+    left 40ms linear,
+    top 40ms linear;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.position {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.goto input {
+  width: 4.5rem;
+  min-height: 2rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+
+  @include mixins.focusable;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
