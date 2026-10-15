@@ -63,8 +63,8 @@ describe("LiveNowBanner", () => {
     expect(links.map((l) => l.getAttribute("href"))).toEqual(["/app/classes/c-2/live", "/app/classes/c-1/live"]);
     const lines = screen.getAllByRole("listitem");
     expect(lines).toHaveLength(2);
-    expect(lines[0].textContent).toContain("Aula 2");
-    expect(lines[1].textContent).toContain("Aula 1");
+    expect(lines[0]?.textContent).toContain("Aula 2");
+    expect(lines[1]?.textContent).toContain("Aula 1");
   });
 
   // CA-08
@@ -74,7 +74,7 @@ describe("LiveNowBanner", () => {
     await flush();
 
     expect(screen.queryByRole("status")).toBeNull();
-    expect(container).toBeEmptyDOMElement();
+    expect(container.innerHTML).toBe("");
   });
 
   // Goal: it comes and goes by itself, as the class starts and ends
@@ -100,7 +100,7 @@ describe("LiveNowBanner", () => {
 
     await advance(20_000);
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(container).toBeEmptyDOMElement();
+    expect(container.innerHTML).toBe("");
 
     await advance(20_000);
     expect(screen.getByRole("status")).toBeDefined();

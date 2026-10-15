@@ -269,6 +269,15 @@ export interface LiveNote {
   updatedAt: string;
 }
 
+/** An open room of a class of the student: what the notice of the live class needs (SPEC-067 section 5). */
+export interface MyLiveRoom {
+  classId: string;
+  className: string;
+  sessionId: string;
+  title: string;
+  startedAt: string;
+}
+
 /** Live classroom REST client (SPEC-051, sections 5.1 to 5.7). */
 export function createClassroomService(client: HttpClient = httpClient) {
   const live = (classId: string) => `/classes/${classId}/live`;
@@ -285,6 +294,8 @@ export function createClassroomService(client: HttpClient = httpClient) {
     },
     listDecks: async (classId: string) => (await client.get<{ decks: DeckSummary[] }>(`${live(classId)}/decks`)).decks,
     getActive: (classId: string) => client.get<ActiveRoom>(`${live(classId)}/active`),
+    /** The open rooms of the classes where the student is enrolled, the newest first (SPEC-067). */
+    listMyLive: async () => (await client.get<{ items: MyLiveRoom[] }>("/me/live")).items,
     getLiveModule: (classId: string) => client.get<LiveModuleContent>(`${live(classId)}/module`),
     listSessions: async (classId: string) =>
       (await client.get<{ sessions: LiveSessionSummary[] }>(`${live(classId)}/sessions`)).sessions,

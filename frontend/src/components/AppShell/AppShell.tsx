@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { BrandMark } from "@/components/BrandMark/BrandMark";
 import { AccountMenu } from "@/components/AccountMenu/AccountMenu";
+import { LiveNowBanner } from "@/components/LiveNowBanner/LiveNowBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { useIdentity } from "@/hooks/useIdentity";
 import { messages } from "@/messages/pt-BR";
@@ -21,6 +22,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // The student who is already in the live room does not need the way in (SPEC-067 CA-09).
+  const inLiveRoom = /^\/app\/classes\/[^/]+\/live(\/|$)/.test(pathname ?? "");
 
   const isRouteActive = (href: string) => {
     if (!pathname) return false;
@@ -205,6 +209,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
       )}
+      {user.role === "STUDENT" && !inLiveRoom && <LiveNowBanner />}
       <div className={styles.content}>{children}</div>
     </div>
   );
