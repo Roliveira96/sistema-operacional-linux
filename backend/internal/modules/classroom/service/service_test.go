@@ -42,6 +42,8 @@ type fakeRepo struct {
 	race bool
 	// raises counts the calls of RaiseHand, to tell that a refused question never got to the repository (SPEC-058).
 	raises int
+	// chat is the messages of the chat of the lesson, in the order they were saved (SPEC-063).
+	chat []domain.LiveChatMessage
 }
 
 type handRow struct {

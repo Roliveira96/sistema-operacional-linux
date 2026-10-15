@@ -100,6 +100,9 @@ type fakeService struct {
 
 	// the full screen of the students the handler asked to keep, in order (SPEC-059)
 	fullscreens []bool
+
+	// the chat of the lesson: what the handler asked and what was kept (SPEC-063)
+	chat chatState
 }
 
 func (f *fakeService) record(s string) {
@@ -974,9 +977,10 @@ func TestPresenceAndTeacherLeaving(t *testing.T) {
 
 	student := w.dial(t, "student")
 	readUntil(t, student, "live:snapshot")
-	assert.JSONEq(t, `{"online":1,"presenterConnected":false}`, string(readUntil(t, teacher, "live:presence").Data))
+	// SPEC-063: the presence that goes to the panel carries who is online (the students admitted, once each)
+	assert.JSONEq(t, `{"online":1,"presenterConnected":false,"onlineStudents":["`+w.student.UserID.String()+`"]}`, string(readUntil(t, teacher, "live:presence").Data))
 	_ = student.Close()
-	assert.JSONEq(t, `{"online":0,"presenterConnected":false}`, string(readUntil(t, teacher, "live:presence").Data))
+	assert.JSONEq(t, `{"online":0,"presenterConnected":false,"onlineStudents":[]}`, string(readUntil(t, teacher, "live:presence").Data))
 
 	_ = teacher.Close()
 	eventually(t, func() bool { return w.svc.called("presence") >= 1 })

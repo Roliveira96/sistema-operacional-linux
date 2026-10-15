@@ -241,7 +241,7 @@ func TestAdmittedStudent_ReceivesTheRoom(t *testing.T) {
 
 	sendMsg(t, teacher, "live:slide:change", `{"slide":5}`)
 	assert.JSONEq(t, `{"slide":5}`, string(readUntil(t, student, "live:slide:change").Data))
-	assert.JSONEq(t, `{"online":1,"presenterConnected":false}`, string(readUntil(t, teacher, "live:presence").Data), "the admitted counts online")
+	assert.JSONEq(t, `{"online":1,"presenterConnected":false,"onlineStudents":["`+w.student.UserID.String()+`"]}`, string(readUntil(t, teacher, "live:presence").Data), "the admitted counts online (SPEC-063: and is listed for the panel)")
 
 	sendMsg(t, student, "live:hand:raise", `{}`)
 	readUntil(t, teacher, "live:hand:queue")
