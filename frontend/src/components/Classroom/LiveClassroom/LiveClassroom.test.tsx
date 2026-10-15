@@ -89,6 +89,8 @@ function live(over: Record<string, unknown> = {}) {
     terminal: { screen: null },
     stageView: { slideScroll: 0, slideScrollX: 0, materialScroll: 0, split: null, zoom: 1, selection: null, terminalScroll: {} },
     hands: [],
+    chat: [],
+    sendChat: vi.fn(() => true),
     ready: true,
     ended: false,
     passive: false,
@@ -399,10 +401,10 @@ describe("LiveClassroom", () => {
       expect(bar.getByText("Conectados: 5")).toBeDefined();
     });
 
-    it("has the hand, the notes and the full screen in the middle, and the way out on the right", () => {
+    it("has the hand, the notes, the conversation and the full screen in the middle, and the way out on the right", () => {
       live({ canControl: false });
       room();
-      expect(within(strip()).getAllByRole("button").map((button) => button.textContent)).toEqual(["Levantar a mão", "Anotações", "Tela cheia", "Sair da sala"]);
+      expect(within(strip()).getAllByRole("button").map((button) => button.textContent)).toEqual(["Levantar a mão", "Anotações", "Conversa", "Tela cheia", "Sair da sala"]);
     });
 
     it("has the strip after the stage, and nothing of it inside the stage", () => {
@@ -494,16 +496,18 @@ describe("LiveClassroom", () => {
 
     // The scale is the biggest that fits, which is the job of FixedStage; the window asks it to take the whole stage box to full screen
     describe("the full screen", () => {
-      it("asks the browser for the full screen of the stage, with a button and the key F", () => {
+      // SPEC-063 CA-09: the whole room goes to the full screen, so the strip, the notes and the conversation stay
+      it("asks the browser for the full screen of the whole room, with a button and the key F", () => {
         live({ canControl: false });
         room();
         const button = within(strip()).getByRole("button", { name: "Tela cheia" });
         expect(button.getAttribute("title")).toBe("Tela cheia (F)");
         fireEvent.click(button);
         expect(Element.prototype.requestFullscreen).toHaveBeenCalledTimes(1);
-        expect(vi.mocked(Element.prototype.requestFullscreen).mock.contexts[0]).toBe(stageBox());
+        expect(vi.mocked(Element.prototype.requestFullscreen).mock.contexts[0]).toBe(screen.getByRole("main"));
         fireEvent.keyDown(document.body, { key: "f" });
         expect(Element.prototype.requestFullscreen).toHaveBeenCalledTimes(2);
+        expect(vi.mocked(Element.prototype.requestFullscreen).mock.contexts[1]).toBe(screen.getByRole("main"));
         fireEvent.keyDown(document.body, { key: "F" });
         expect(Element.prototype.requestFullscreen).toHaveBeenCalledTimes(3);
       });
@@ -511,7 +515,7 @@ describe("LiveClassroom", () => {
       it("leaves the full screen with the same button or key when it is on", () => {
         live({ canControl: false });
         room();
-        Object.defineProperty(document, "fullscreenElement", { configurable: true, value: stageBox() });
+        Object.defineProperty(document, "fullscreenElement", { configurable: true, value: screen.getByRole("main") });
         fireEvent.keyDown(document.body, { key: "f" });
         expect(document.exitFullscreen).toHaveBeenCalledTimes(1);
         fireEvent.click(within(strip()).getByRole("button", { name: "Tela cheia" }));

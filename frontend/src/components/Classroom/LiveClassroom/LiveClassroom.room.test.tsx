@@ -45,6 +45,8 @@ function live(over: Record<string, unknown> = {}) {
     hands: [],
     handCount: 0,
     myHand: null,
+    chat: [],
+    sendChat: vi.fn(() => true),
     fullscreenRequested: false,
     ready: true,
     ended: false,
@@ -212,14 +214,14 @@ describe("the hand and the doubt, in the modal of the student", () => {
     expect(screen.getByTestId("fixed-stage").contains(dialog())).toBe(false);
   });
 
-  // CA-05: in every full screen, the hand of the header and the modal are inside what the browser shows
-  it("is inside the stage that the button of the full screen takes to the full screen, which is all the browser shows", () => {
+  // CA-05: in every full screen, the hand of the header and the modal are inside what the browser shows (SPEC-063 CA-09: the whole room)
+  it("is inside the room that the button of the full screen takes to the full screen, which is all the browser shows", () => {
     live({ room: MODULE_ROOM });
     const view = render(element());
     fireEvent.click(within(strip()).getByRole("button", { name: "Tela cheia" }));
     const asked = vi.mocked(Element.prototype.requestFullscreen).mock.contexts[0] as HTMLElement;
-    expect(asked).toBe(stageBox());
-    // The hand of the header is in that stage, so it is on the screen; the modal opens in it as well, and in no portal outside the room.
+    expect(asked).toBe(screen.getByRole("main"));
+    // The hand of the header is in that room, so it is on the screen; the modal opens in it as well, and in no portal outside the room.
     expect(asked.contains(screen.getByTestId("module"))).toBe(true);
     fireEvent.click(headerHand());
     expect(asked.contains(dialog())).toBe(true);
@@ -529,7 +531,7 @@ describe("the full screen that the teacher asks for", () => {
     await flush();
     fireEvent.click(within(strip()).getByRole("button", { name: "Tela cheia" }));
     expect(enter()).toHaveBeenCalledTimes(2);
-    expect(enter().mock.contexts[1]).toBe(screen.getByTestId("fixed-stage").parentElement);
+    expect(enter().mock.contexts[1]).toBe(room());
   });
 
   it("styles the highlighted button with a pulse that respects who asks for less motion", () => {
