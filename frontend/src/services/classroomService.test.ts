@@ -143,3 +143,22 @@ describe("live socket", () => {
     expect(http.get).toHaveBeenCalledWith("/classes/c-1/live/module");
   });
 });
+
+// SPEC-067 section 5: the open rooms of the classes of the student
+describe("classroomService, the live classes of the student", () => {
+  const http: HttpClient = { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
+
+  // CA-01
+  it("lists the open rooms of the classes of the student", async () => {
+    const items = [{ classId: "c-1", className: "Turma A", sessionId: "s-1", title: "Aula 1", startedAt: "2026-10-15T19:00:00Z" }];
+    vi.mocked(http.get).mockResolvedValueOnce({ items });
+    expect(await createClassroomService(http).listMyLive()).toEqual(items);
+    expect(http.get).toHaveBeenCalledWith("/me/live");
+  });
+
+  // CA-02
+  it("gives an empty list when no class is live", async () => {
+    vi.mocked(http.get).mockResolvedValueOnce({ items: [] });
+    expect(await createClassroomService(http).listMyLive()).toEqual([]);
+  });
+});
