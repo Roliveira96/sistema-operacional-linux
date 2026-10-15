@@ -122,7 +122,7 @@ Não se aplica nesta spec: não há mudança de schema. O endpoint lê `live_cla
 
 ## 8. Plano de Testes (Test Plan)
 
-- **Backend, service (`classroom`):** devolve a sala aberta de turma com matrícula `ACTIVE` (CA-01); lista vazia sem sala (CA-02); ignora matrícula não ativa, sala encerrada e turma excluída (CA-03); duas turmas com sala devolvem dois itens, da mais recente para a mais antiga (CA-15); sala aberta cuja aula da agenda já terminou continua na resposta (CA-14).
+- **Backend, service (`classroom`):** o estudante recebe o que o repositório achou, na ordem dele e só o dele (CA-01, CA-15); sem sala, lista vazia e não nula (CA-02); docente e administrador são recusados antes de consultar (CA-04). Os filtros de matrícula, sala e turma ficam na consulta e são testados no repository (CA-03, CA-14, CA-15).
 - **Backend, handler (`classroom`):** 200 com item e só os campos do contrato (CA-01, CA-05); 200 vazio (CA-02); 403 `forbidden` para docente e administrador (CA-04); 401 sem sessão (CA-04).
 - **Backend, repository (integração com PostgreSQL):** a consulta única devolve só salas `ACTIVE` de matrículas `ACTIVE` de turmas não excluídas, entre vários estudantes e turmas (CA-03, RN-06).
 - **Frontend, `classroomService.test.ts`:** a chamada a `GET /me/live` devolve a lista tipada e vazia quando não há sala (CA-01, CA-02).
