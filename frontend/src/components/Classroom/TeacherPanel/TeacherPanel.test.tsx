@@ -198,6 +198,25 @@ describe("TeacherPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: "Abrir de novo" }));
       expect(open).toHaveBeenCalledTimes(1);
     });
+
+    // SPEC-070 CA-08: with no presenter window the class sees the waiting screen, and the panel says so, from the start and after a close
+    it("says that the class sees the waiting screen while the window is not connected, and takes it off when it connects", async () => {
+      live({ presenterConnected: false });
+      const view = render(<TeacherPanel {...props()} />);
+      await flush();
+      const notice = "Sem a janela de apresentação, a turma vê a tela de espera. Abra a janela de apresentação para continuar a aula.";
+      expect(screen.getByText(notice)).toBeDefined(); // before the window was ever opened
+      expect(screen.getByRole("button", { name: "Abrir janela de apresentação" })).toBeDefined();
+
+      live({ presenterConnected: true });
+      view.rerender(<TeacherPanel {...props()} />);
+      expect(screen.queryByText(notice)).toBeNull();
+
+      live({ presenterConnected: false });
+      view.rerender(<TeacherPanel {...props()} />);
+      expect(screen.getByText(notice)).toBeDefined();
+      expect(screen.getByRole("button", { name: "Abrir de novo" })).toBeDefined();
+    });
   });
 
   // CA-03: the waiting room, with the accept-all button on top (CA-19)
