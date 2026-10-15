@@ -159,6 +159,13 @@ export const messages = {
     openMenu: "Abrir menu de navegação",
     closeMenu: "Fechar menu de navegação",
   },
+  // The notice of the live class that is going on, for the student (SPEC-067).
+  liveNow: {
+    region: "Aulas ao vivo em andamento",
+    badge: "Ao vivo",
+    title: (title: string) => `Aula ao vivo agora: ${title}`,
+    enter: "Entrar na aula",
+  },
   public: {
     nav: {
       brand: "Linux na Prática",
