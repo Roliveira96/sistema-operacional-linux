@@ -21,6 +21,8 @@ export interface HandQuestionProps {
   saved: string;
   /** Sends the doubt, trimmed; empty takes it away from the hand. */
   onSend(question: string): void;
+  /** Puts the cursor in the field when it appears: the modal that opens for the doubt (SPEC-062). */
+  autoFocus?: boolean;
 }
 
 /**
@@ -28,7 +30,7 @@ export interface HandQuestionProps {
  * the button or by Enter. It says "Dúvida enviada" while what is written is what the room has, and what is written can be changed and sent again.
  * The field belongs to the student: what the room tells about the doubt only moves the mark, never the text he is writing.
  */
-export function HandQuestion({ saved, onSend }: HandQuestionProps) {
+export function HandQuestion({ saved, onSend, autoFocus }: HandQuestionProps) {
   const [draft, setDraft] = useState(saved);
   const question = draft.trim();
   const changed = question !== saved;
@@ -45,6 +47,7 @@ export function HandQuestion({ saved, onSend }: HandQuestionProps) {
         aria-label={m.questionLabel}
         placeholder={m.questionLabel}
         autoComplete="off"
+        autoFocus={autoFocus}
         onChange={(event) => setDraft(clean(event.target.value))}
         onKeyDown={(event) => {
           // Enter that only confirms a word of an input method is not a send.

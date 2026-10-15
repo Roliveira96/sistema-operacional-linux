@@ -45,6 +45,10 @@ export interface ModuleStageProps {
   startedAt?: string | null;
   /** How many hands are up, for the header of the module (SPEC-058). */
   handCount?: number;
+  /** The student raises the hand from the header of the module: the click, which only the student's room gives (SPEC-062). */
+  onHand?(): void;
+  /** The hand of the student himself is up (SPEC-062). */
+  handRaised?: boolean;
   /** An example the teacher ran could not run: the window of the presentation tells him (SPEC-060). */
   onRunFailed?(): void;
 }
@@ -55,7 +59,7 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: 
  * The module of the live class: the study screen of the module in the live-class mode (SPEC-055 CA-13), drawn in the stage. Only the teacher can send:
  * the picture of his terminal, his reading, the scroll of the material, the divider, his mouse and the text he selects (SPEC-057).
  */
-export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection, onTerminalScroll, startedAt, handCount, onRunFailed }: ModuleStageProps) {
+export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection, onTerminalScroll, startedAt, handCount, onHand, handRaised, onRunFailed }: ModuleStageProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const scale = useStageScale();
   const zoom = useStageZoom();
@@ -114,6 +118,9 @@ export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, termi
           // What the header of the module tells is the same for both (SPEC-058).
           startedAt,
           handCount,
+          // The hand of the header is a button only for the student (SPEC-062).
+          onHand: teacher ? undefined : onHand,
+          handRaised,
           onRead: teacher ? onFocusBlock : undefined,
           onScreen: teacher ? onScreen : undefined,
           onMaterialScroll: teacher ? onMaterialScroll : undefined,

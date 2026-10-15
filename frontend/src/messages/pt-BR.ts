@@ -1312,6 +1312,9 @@ export const messages = {
       questionCount: (written: number, max: number) => `${written}/${max}`,
       questionSend: "Enviar dúvida",
       questionSent: "Dúvida enviada",
+      dialogTitle: "Sua dúvida para o professor",
+      dialogClose: "Fechar",
+      editQuestion: "Mão levantada: escrever a dúvida",
     },
     studentsFullscreen: {
       label: "Tela cheia para os alunos",

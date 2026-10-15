@@ -56,6 +56,10 @@ export interface TopicLive {
   startedAt?: string | null;
   /** How many hands are up, for the header; 0 when the room does not say (SPEC-058). */
   handCount?: number;
+  /** The student's room gives the click of the hand: the hand of the header is then the button that raises it (SPEC-062). The teacher's has none. */
+  onHand?(): void;
+  /** The hand of the student himself is up (SPEC-062). */
+  handRaised?: boolean;
   /** The teacher ran an example and it could not run: the terminal was busy, closed or failed. The window of the presentation tells him (SPEC-060 CA-04). */
   onRunFailed?(): void;
 }
@@ -98,7 +102,7 @@ function blockUnderReading(panel: HTMLElement): string | null {
  * teacher's, and the student only follows them (SPEC-057).
  */
 export function LiveTopicScreen({ live }: { live: TopicLive }) {
-  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, terminalScroll, startedAt, handCount = 0, onRead, onScreen, onMaterialScroll, onSplit, onSelection, onTerminalScroll, onRunFailed } = live;
+  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, terminalScroll, startedAt, handCount = 0, onHand, handRaised, onRead, onScreen, onMaterialScroll, onSplit, onSelection, onTerminalScroll, onRunFailed } = live;
   const teacher = role === "teacher";
   const script = useMemo(() => buildTopicScript(module.blocks), [module.blocks]);
   const panel = useRef<HTMLDivElement>(null);
@@ -285,7 +289,7 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
           <h1 className={styles.name}>{module.title}</h1>
         </div>
         {/* The time of the class and the raised hands, the same for the teacher and for the students (SPEC-058 CA-01). */}
-        {startedAt && <LiveHeaderStatus startedAt={startedAt} hands={handCount} />}
+        {startedAt && <LiveHeaderStatus startedAt={startedAt} hands={handCount} onHand={onHand} handRaised={handRaised} />}
       </header>
 
       <main

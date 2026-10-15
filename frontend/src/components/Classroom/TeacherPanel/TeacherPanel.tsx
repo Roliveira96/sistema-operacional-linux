@@ -28,18 +28,27 @@ const readSound = () => {
   }
 };
 
+/** What each notice sounds like, in hertz: one tone for a student who arrives, two rising tones for a hand that goes up (SPEC-062). */
+const TONES = { arrival: [880], hand: [660, 990] } as const;
+export type BeepKind = keyof typeof TONES;
+
 /** A short beep, from the browser itself; no file to load. */
-function webAudioBeep() {
+function webAudioBeep(kind: BeepKind = "arrival") {
   try {
     const audio = new AudioContext();
-    const tone = audio.createOscillator();
     const volume = audio.createGain();
-    tone.frequency.value = 880;
     volume.gain.value = 0.08;
-    tone.connect(volume).connect(audio.destination);
-    tone.start();
-    tone.stop(audio.currentTime + 0.18);
-    tone.onended = () => void audio.close();
+    volume.connect(audio.destination);
+    const tones = TONES[kind];
+    tones.forEach((frequency, index) => {
+      const tone = audio.createOscillator();
+      const start = audio.currentTime + index * 0.16;
+      tone.frequency.value = frequency;
+      tone.connect(volume);
+      tone.start(start);
+      tone.stop(start + 0.12);
+      if (index === tones.length - 1) tone.onended = () => void audio.close();
+    });
   } catch {
     /* no sound is not a failure */
   }
@@ -48,8 +57,8 @@ function webAudioBeep() {
 export interface TeacherPanelProps {
   classId: string;
   session: LiveSession;
-  /** The sound that tells a student arrived. */
-  beep?: () => void;
+  /** The sound that tells a student arrived, or that a hand went up (SPEC-062). */
+  beep?: (kind: BeepKind) => void;
   loader?: PdfLoader;
 }
 
@@ -123,8 +132,22 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
     const ids = admissions.waiting.map((w) => w.studentId);
     const before = known.current;
     known.current = ids;
-    if (before && sound && ids.some((id) => !before.includes(id))) beep();
+    if (before && sound && ids.some((id) => !before.includes(id))) beep("arrival");
   }, [admissions.waiting, sound, beep]);
+
+  // Whose hand goes up: another beep, once for each update of the line, with the same switch (SPEC-062 CA-08). The hands the first snapshot brings, and the
+  // ones already up when the panel is reloaded, are not news; neither is the same student changing the doubt, nor a hand that goes down.
+  const knownHands = useRef<string[] | null>(null);
+  useEffect(() => {
+    if (!live.ready) {
+      knownHands.current = null;
+      return;
+    }
+    const ids = live.hands.map((hand) => hand.studentId);
+    const before = knownHands.current;
+    knownHands.current = ids;
+    if (before && sound && ids.some((id) => !before.includes(id))) beep("hand");
+  }, [live.hands, live.ready, sound, beep]);
 
   const toggleSound = () => {
     const next = !sound;

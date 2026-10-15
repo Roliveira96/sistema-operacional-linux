@@ -9,7 +9,7 @@ import { messages } from "@/messages/pt-BR";
 import type { LiveSession } from "@/services/classroomService";
 import { elapsed } from "../elapsed";
 import { FixedStage } from "../FixedStage/FixedStage";
-import { HandQuestion } from "../HandQuestion/HandQuestion";
+import { HandDialog } from "../HandDialog/HandDialog";
 import { ModuleStage } from "../ModuleStage/ModuleStage";
 import { SlidePresenter } from "../SlidePresenter/SlidePresenter";
 import { StudentNotesPanel } from "../StudentNotesPanel/StudentNotesPanel";
@@ -32,7 +32,9 @@ export interface LiveClassroomProps {
  * fit to what is left. Nothing is over the stage. The stage is the fixed box the teacher sees, only smaller or bigger, and the student moves nothing of
  * it: the scroll, the divider, the zoom, the mouse and the selection are the teacher's. Inside the stage there is nothing the teacher's stage has not
  * (SPEC-057 CA-22): what is only the student's, the loss of the connection, is told in the strip, and the connecting takes the place of the content.
- * The hand goes up with one click and no text; once it is up, the doubt (optional) is written in the strip itself, never over the stage (SPEC-058).
+ * The hand goes up with one click and no text, from the strip or from the hand of the header of the module; then a modal opens for the doubt (optional,
+ * SPEC-058, SPEC-062). The modal lives in the room, next to the stage and outside its fixed box, never in a portal, so the hand of the header and the modal
+ * are inside whatever the browser puts in full screen, and the stage of the others does not change.
  * When the teacher asks for the full screen the room goes into focus mode at once, with the stage over the whole window, and tries the full screen of the
  * browser, which may want a gesture of the student first (SPEC-059). The student waits for the teacher to accept him (SPEC-051, section 3.1; SPEC-054).
  * The teacher has the panel and the presentation window (SPEC-055).
@@ -43,6 +45,8 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   const [now, setNow] = useState(() => Date.now());
   const [joinedAt] = useState(() => Date.now());
   const [notes, setNotes] = useState(false);
+  // The modal of the doubt is open: the student raised the hand, or came to write the doubt of the hand that is up (SPEC-062).
+  const [asking, setAsking] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLElement>(null);
   const back = `/app/classes/${classId}`;
@@ -56,6 +60,24 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
     setFocused(requested);
     if (requested) setNotes(false);
   }
+
+  const place = live.hands.findIndex((hand) => hand.studentId === userId);
+  const raised = place >= 0;
+  // The hand goes down, by the student or by the teacher: the modal has nothing left to say.
+  const [wasRaised, setWasRaised] = useState(raised);
+  if (raised !== wasRaised) {
+    setWasRaised(raised);
+    if (!raised) setAsking(false);
+  }
+  // The hand goes up with one click and no text, and the doubt is asked for in the modal; with the hand already up there is only the modal.
+  const askHand = () => {
+    if (!raised) live.raiseHand();
+    setAsking(true);
+  };
+  const lowerHand = () => {
+    setAsking(false);
+    live.lowerHand();
+  };
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -110,8 +132,6 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   const room = live.room;
   const mode = room.mode;
   const slideOf = room.deck ? Math.min(Math.max(room.slide, 1), Math.max(room.deck.pageCount, 1)) : 0;
-  const place = live.hands.findIndex((hand) => hand.studentId === userId);
-  const raised = place >= 0;
   const startedAt = live.startedAt ?? session.startedAt;
 
   return (
@@ -153,10 +173,14 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
                 stageView={live.stageView}
                 startedAt={startedAt}
                 handCount={live.handCount}
+                onHand={askHand}
+                handRaised={raised}
               />
             )}
             {room.blank && <WaitingScreen title={session.title} startedAt={startedAt} />}
           </FixedStage>
+          {/* In the room of the stage, outside its fixed box, and in no portal: it is in the full screen too (SPEC-062 CA-05, CA-07). */}
+          {asking && <HandDialog saved={live.myHand?.question ?? ""} onSend={(question) => live.raiseHand(question)} onLower={lowerHand} onClose={() => setAsking(false)} />}
         </div>
 
         {notes && (
@@ -189,9 +213,7 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
               <span className={styles.meta}>{m.hands.position(place + 1)}</span>
             </span>
           )}
-          {/* The doubt goes in the strip, with the hand: nothing opens over the material (SPEC-058 CA-04). */}
-          {raised && <HandQuestion saved={live.myHand?.question ?? ""} onSend={(question) => live.raiseHand(question)} />}
-          <Button variant={raised ? "primary" : "secondary"} size="sm" aria-pressed={raised} onClick={() => (raised ? live.lowerHand() : live.raiseHand())}>
+          <Button variant={raised ? "primary" : "secondary"} size="sm" aria-pressed={raised} onClick={() => (raised ? lowerHand() : askHand())}>
             {raised ? m.hands.lower : m.hands.raise}
           </Button>
           <Button variant={notes ? "primary" : "secondary"} size="sm" aria-expanded={notes} onClick={() => setNotes(!notes)}>

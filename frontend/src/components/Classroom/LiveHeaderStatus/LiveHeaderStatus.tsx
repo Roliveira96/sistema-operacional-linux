@@ -12,6 +12,10 @@ export interface LiveHeaderStatusProps {
   startedAt: string;
   /** How many hands are up. */
   hands: number;
+  /** The click of the hand: the student's room gives it, and the hand becomes the button that raises it (SPEC-062). Without it the hand is only an indicator. */
+  onHand?(): void;
+  /** The hand of the student himself is up: the button says so, and its icon is filled (SPEC-062). */
+  handRaised?: boolean;
 }
 
 /** A raised hand, drawn with the color of the text around it. */
@@ -31,7 +35,7 @@ function HandIcon() {
  * hands (a hand and the number, 0 with none). It is the same for the teacher and for the students (SPEC-058 CA-01). The clock counts from the start
  * the room tells, so a new snapshot with another start corrects it at once, and each tick reads the clock of the browser again, so it never drifts.
  */
-export function LiveHeaderStatus({ startedAt, hands }: LiveHeaderStatusProps) {
+export function LiveHeaderStatus({ startedAt, hands, onHand, handRaised = false }: LiveHeaderStatusProps) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -44,10 +48,25 @@ export function LiveHeaderStatus({ startedAt, hands }: LiveHeaderStatusProps) {
       <span className={styles.clock} role="timer" aria-label={m.room.timer}>
         {clock(now - new Date(startedAt).getTime())}
       </span>
-      <span className={styles.hands} role="img" aria-label={m.hands.count(hands)} data-raised={hands > 0 ? "true" : undefined}>
-        <HandIcon />
-        {hands}
-      </span>
+      {onHand ? (
+        <button
+          type="button"
+          className={styles.hands}
+          aria-label={handRaised ? m.hands.editQuestion : m.hands.raise}
+          title={m.hands.count(hands)}
+          data-raised={hands > 0 ? "true" : undefined}
+          data-mine={handRaised ? "true" : undefined}
+          onClick={onHand}
+        >
+          <HandIcon />
+          {hands}
+        </button>
+      ) : (
+        <span className={styles.hands} role="img" aria-label={m.hands.count(hands)} data-raised={hands > 0 ? "true" : undefined}>
+          <HandIcon />
+          {hands}
+        </span>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HandDialog } from "./HandDialog";
@@ -81,7 +82,7 @@ describe("HandDialog", () => {
   });
 
   it("uses only the tokens of the theme, with no color written in the style", () => {
-    const css = readFileSync(new URL("./HandDialog.module.scss", import.meta.url), "utf8");
+    const css = readFileSync(path.resolve(import.meta.dirname, "HandDialog.module.scss"), "utf8");
     expect(css.length).toBeGreaterThan(0);
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(css).not.toMatch(/\brgba?\(/);

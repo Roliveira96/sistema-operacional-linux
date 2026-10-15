@@ -85,6 +85,8 @@
 // The room the fixed stage is fit into: all that is left of the width, and the whole height. The stage is the same for everybody, only smaller or
 // bigger, with the dark of the theme where it does not fill the room.
 .stage {
+  // The modal of the doubt covers it, inside it, so it is in the full screen too (SPEC-062).
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
