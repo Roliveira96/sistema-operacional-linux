@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -423,6 +424,8 @@ func (h *Handler) getClass(c *gin.Context) {
 
 type updateClassRequest struct {
 	Name                    *string `json:"name"`
+	CourseCode              *string `json:"courseCode"`
+	Semester                *string `json:"semester"`
 	Summary                 *string `json:"summary"`
 	Color                   *string `json:"color"`
 	Syllabus                *string `json:"syllabus"`
@@ -455,8 +458,22 @@ func (h *Handler) updateClass(c *gin.Context) {
 		return
 	}
 
+	var invalidParams []problem.InvalidParam
+	if req.CourseCode != nil && strings.TrimSpace(*req.CourseCode) == "" {
+		invalidParams = append(invalidParams, problem.InvalidParam{Name: "courseCode", Reason: "cannot be empty"})
+	}
+	if req.Semester != nil && strings.TrimSpace(*req.Semester) == "" {
+		invalidParams = append(invalidParams, problem.InvalidParam{Name: "semester", Reason: "cannot be empty"})
+	}
+	if len(invalidParams) > 0 {
+		fail(c, problem.Validation("Validation failed.", invalidParams...))
+		return
+	}
+
 	input := service.UpdateClassInput{
 		Name:                    req.Name,
+		CourseCode:              req.CourseCode,
+		Semester:                req.Semester,
 		Summary:                 req.Summary,
 		Color:                   req.Color,
 		Syllabus:                req.Syllabus,

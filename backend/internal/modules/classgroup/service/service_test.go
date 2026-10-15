@@ -351,6 +351,36 @@ func TestUpdateClassAndPermissions(t *testing.T) {
 	}
 }
 
+func TestUpdateClassCourseCodeAndSemester(t *testing.T) {
+	svc, _, now := setupTest()
+	ctx := context.Background()
+	teacher := uuid.New()
+
+	class, err := svc.CreateClass(ctx, teacher, service.CreateClassInput{
+		Name:       "Turma Original",
+		CourseCode: "SO34E",
+		Semester:   "2026/2",
+		StartDate:  now,
+		EndDate:    now.Add(30 * 24 * time.Hour),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newCourseCode := "SO35F"
+	newSemester := "2027/1"
+	updated, err := svc.UpdateClass(ctx, teacher, class.ID, service.UpdateClassInput{
+		CourseCode: &newCourseCode,
+		Semester:   &newSemester,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.CourseCode != newCourseCode || updated.Semester != newSemester {
+		t.Fatalf("expected courseCode %s and semester %s, got %s and %s", newCourseCode, newSemester, updated.CourseCode, updated.Semester)
+	}
+}
+
 func TestArchiveClass(t *testing.T) {
 	svc, _, now := setupTest()
 	ctx := context.Background()

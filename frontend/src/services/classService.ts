@@ -81,6 +81,8 @@ export interface CreateClassPayload {
 
 export interface UpdateClassPayload {
   name?: string;
+  courseCode?: string;
+  semester?: string;
   summary?: string;
   syllabus?: string;
   institutionalGuidelines?: string;

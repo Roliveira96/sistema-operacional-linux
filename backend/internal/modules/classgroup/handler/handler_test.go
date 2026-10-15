@@ -145,6 +145,12 @@ func (f *fakeService) UpdateClass(ctx context.Context, teacherID, classID uuid.U
 	if input.Name != nil {
 		c.Name = *input.Name
 	}
+	if input.CourseCode != nil {
+		c.CourseCode = *input.CourseCode
+	}
+	if input.Semester != nil {
+		c.Semester = *input.Semester
+	}
 	f.classes[classID] = c
 	return c, nil
 }
@@ -326,10 +332,21 @@ func TestClassEndpointsFlow(t *testing.T) {
 
 	// 6. Update class
 	newTitle := "SO 2026 - Atualizada"
+	newCode := "SO35F"
+	newSemester := "2027/1"
 	res = doRequest(t, srv, http.MethodPatch, "/api/v1/classes/"+created.ID.String(), map[string]any{
-		"name": newTitle,
+		"name":       newTitle,
+		"courseCode": newCode,
+		"semester":   newSemester,
 	}, true)
 	assert.Equal(t, http.StatusOK, res.StatusCode)
+	var updatedResp struct {
+		CourseCode string `json:"courseCode"`
+		Semester   string `json:"semester"`
+	}
+	assert.NoError(t, json.NewDecoder(res.Body).Decode(&updatedResp))
+	assert.Equal(t, newCode, updatedResp.CourseCode)
+	assert.Equal(t, newSemester, updatedResp.Semester)
 
 	// 7. Archive class
 	res = doRequest(t, srv, http.MethodPost, "/api/v1/classes/"+created.ID.String()+"/archive", map[string]any{
@@ -457,6 +474,16 @@ func TestHandlerValidationAndErrorMappings(t *testing.T) {
 
 	res = doRequest(t, srv, http.MethodPatch, "/api/v1/classes/"+validID, map[string]any{
 		"inviteLinkEnd": "data-invalida",
+	}, true)
+	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+	res = doRequest(t, srv, http.MethodPatch, "/api/v1/classes/"+validID, map[string]any{
+		"courseCode": "   ",
+	}, true)
+	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+	res = doRequest(t, srv, http.MethodPatch, "/api/v1/classes/"+validID, map[string]any{
+		"semester": "   ",
 	}, true)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
