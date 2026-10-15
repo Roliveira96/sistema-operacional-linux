@@ -24,6 +24,7 @@ import (
 	classlinkhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/handler"
 	classlinkrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/repository"
 	classlinkservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classlink/service"
+	classroomdomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
 	classroomhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/handler"
 	classroomrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/repository"
 	classroomservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/service"
@@ -189,8 +190,12 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	classroomHandler := classroomhandler.New(classroomService, auth, log, classroomhandler.Options{
 		AllowedOrigins: []string{cfg.Auth.PublicURL},
 		AnyOrigin:      cfg.IsDevelopment(),
+		// One submission of the state of the live exercise each 2 seconds for each student (SPEC-065 section 3.1).
+		SubmitLimiter: ratelimit.New(1, classroomdomain.ExerciseSubmitInterval),
 	})
 	classroomService.WithOnEnded(classroomHandler.CloseRoom)
+	// The round of the live exercise ends by itself at its time, or with the lesson, and the room is told (SPEC-065).
+	classroomService.WithExerciseEvents(classroomHandler.ExerciseEnded, classroomHandler.ExerciseFailed)
 	classroomSweep := func(ctx context.Context, _ time.Time) error {
 		_, err := classroomService.EndAbandoned(ctx, classroomHandler.ControllerConnected)
 		return err

@@ -188,8 +188,8 @@ func (l *liveStates) watchExercise(id uuid.UUID, student *uuid.UUID) *uuid.UUID 
 	return previous
 }
 
-// exerciseWatched tells whether the student is the one that the teacher watches in the round that runs.
-func (l *liveStates) exerciseWatched(id, runID, student uuid.UUID) bool {
+// exerciseWatched tells whether the student is the one that the teacher watches in the round that runs; with a runID, in that round.
+func (l *liveStates) exerciseWatched(id uuid.UUID, runID *uuid.UUID, student uuid.UUID) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	st, ok := l.rooms[id]
@@ -197,7 +197,7 @@ func (l *liveStates) exerciseWatched(id, runID, student uuid.UUID) bool {
 		return false
 	}
 	m := &st.exercise
-	return m.running() && m.run.ID == runID && m.watching != nil && *m.watching == student
+	return m.running() && (runID == nil || m.run.ID == *runID) && m.watching != nil && *m.watching == student
 }
 
 // exerciseCrowd returns copies of who is in the round, the progress and the attempts of each.

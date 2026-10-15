@@ -334,12 +334,97 @@ const (
 	typeExDone     = "live:exercise:done"
 )
 
+// tap reads everything that a connection receives, in the background, so that a test can wait for a message and, later, tell that no other came.
+// A read that times out ends a connection for good, so a connection that a test goes on using is never read with a deadline.
+type tap struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+	msgs []message
+	took map[string]int // how many of each type the test took already
+}
+
+func newTap(conn *websocket.Conn) *tap {
+	p := &tap{conn: conn, took: map[string]int{}}
+	go func() {
+		for {
+			var m message
+			if err := conn.ReadJSON(&m); err != nil {
+				return
+			}
+			p.mu.Lock()
+			p.msgs = append(p.msgs, m)
+			p.mu.Unlock()
+		}
+	}()
+	return p
+}
+
+func (p *tap) send(t *testing.T, typ, data string) {
+	t.Helper()
+	sendMsg(t, p.conn, typ, data)
+}
+
+// next waits for the first message of the type that the test did not take yet, and takes it.
+func (p *tap) next(t *testing.T, typ string) message {
+	t.Helper()
+	var got message
+	require.Eventually(t, func() bool {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		seen := 0
+		for _, m := range p.msgs {
+			if m.Type != typ {
+				continue
+			}
+			if seen == p.took[typ] {
+				got, p.took[typ] = m, p.took[typ]+1
+				return true
+			}
+			seen++
+		}
+		return false
+	}, 2*time.Second, 5*time.Millisecond, "message not received: %s", typ)
+	return got
+}
+
+func (p *tap) nextData(t *testing.T, typ string) map[string]any {
+	t.Helper()
+	return dataOf(t, p.next(t, typ))
+}
+
+// pending are the types of the messages that came and that the test did not take, among the types.
+func (p *tap) pending(types ...string) []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	count := map[string]int{}
+	var out []string
+	for _, m := range p.msgs {
+		for _, typ := range types {
+			if m.Type == typ {
+				if count[typ]++; count[typ] > p.took[typ] {
+					out = append(out, typ)
+				}
+			}
+		}
+	}
+	return out
+}
+
+// quiet tells that nobody got a message of the types that the test did not take: it waits a moment for what is in flight, and looks.
+func quiet(t *testing.T, types []string, taps ...*tap) {
+	t.Helper()
+	time.Sleep(150 * time.Millisecond)
+	for i, p := range taps {
+		assert.Empty(t, p.pending(types...), "connection %d got a message that it should not have", i)
+	}
+}
+
 // crowd is a room with three students (A with two tabs, B and C), the panel, the presentation window and one student who waits.
 type crowd struct {
 	w                 *world
 	ana, bruno, carla uuid.UUID
-	a, aTab, b, c, d  *websocket.Conn
-	panel, presenter  *websocket.Conn
+	a, aTab, b, c, d  *tap
+	panel, presenter  *tap
 	block             uuid.UUID
 	waiting           authn.Principal
 }
@@ -352,17 +437,22 @@ func newCrowd(t *testing.T, w *world) *crowd {
 	cr := &crowd{w: w, ana: w.student.UserID, bruno: w.stranger.UserID, carla: third.UserID, waiting: waiting, block: uuid.New()}
 	w.svc.exercise.names = map[uuid.UUID]string{cr.ana: "Ana", cr.bruno: "Bruno", cr.carla: "Carla"}
 	w.svc.exercise.onEnded = w.h.ExerciseEnded
-	cr.a, cr.aTab, cr.b, cr.c = w.dial(t, "student"), w.dial(t, "second"), w.dial(t, "stranger"), w.dial(t, "third")
-	cr.panel, cr.presenter = w.dialView(t, "teacher", "panel"), w.dialView(t, "teacher2", "presenter")
-	for _, conn := range []*websocket.Conn{cr.a, cr.aTab, cr.b, cr.c, cr.panel, cr.presenter} {
-		readUntil(t, conn, "live:snapshot")
+	cr.a, cr.aTab, cr.b, cr.c = newTap(w.dial(t, "student")), newTap(w.dial(t, "second")), newTap(w.dial(t, "stranger")), newTap(w.dial(t, "third"))
+	cr.panel, cr.presenter = newTap(w.dialView(t, "teacher", "panel")), newTap(w.dialView(t, "teacher2", "presenter"))
+	for _, p := range []*tap{cr.a, cr.aTab, cr.b, cr.c, cr.panel, cr.presenter} {
+		p.next(t, "live:snapshot")
 	}
-	cr.d = w.dial(t, "waiting")
-	readUntil(t, cr.d, "live:admission:state")
+	cr.d = newTap(w.dial(t, "waiting"))
+	cr.d.next(t, "live:admission:state")
 	return cr
 }
 
-func (cr *crowd) students() []*websocket.Conn { return []*websocket.Conn{cr.a, cr.aTab, cr.b, cr.c} }
+func (cr *crowd) students() []*tap { return []*tap{cr.a, cr.aTab, cr.b, cr.c} }
+
+// everyone is every connection of the room, the panel and the waiting one included.
+func (cr *crowd) everyone() []*tap {
+	return []*tap{cr.a, cr.aTab, cr.b, cr.c, cr.d, cr.panel, cr.presenter}
+}
 
 // startData is the data of a start message for the block of the room, with the minutes when they are given.
 func (cr *crowd) startData(index int, minutes ...int) string {
@@ -373,11 +463,15 @@ func (cr *crowd) startData(index int, minutes ...int) string {
 	return data + `}`
 }
 
-// start has the panel start the exercise and waits for the panel to be told; it returns what the panel was told.
+// start has the panel start the exercise and takes the message of the panel and the ones of the students; it returns what the panel was told.
 func (cr *crowd) start(t *testing.T, minutes ...int) map[string]any {
 	t.Helper()
-	sendMsg(t, cr.panel, typeExStart, cr.startData(1, minutes...))
-	return dataOf(t, readUntil(t, cr.panel, typeExStarted))
+	cr.panel.send(t, typeExStart, cr.startData(1, minutes...))
+	started := cr.panel.nextData(t, typeExStarted)
+	for _, s := range cr.students() {
+		s.next(t, typeExStarted)
+	}
+	return started
 }
 
 func dataOf(t *testing.T, m message) map[string]any {
@@ -419,11 +513,11 @@ func TestExercise_StartTellsThePanelAndTheStudents(t *testing.T) {
 	cr := newCrowd(t, w)
 
 	sent := time.Now()
-	sendMsg(t, cr.panel, typeExStart, cr.startData(1))
-	started := dataOf(t, readUntil(t, cr.panel, typeExStarted))
+	cr.panel.send(t, typeExStart, cr.startData(1))
+	started := cr.panel.nextData(t, typeExStarted)
 	told := map[string]map[string]any{}
-	for name, conn := range map[string]*websocket.Conn{"A": cr.a, "A tab": cr.aTab, "B": cr.b, "C": cr.c} {
-		told[name] = dataOf(t, readUntil(t, conn, typeExStarted))
+	for name, p := range map[string]*tap{"A": cr.a, "A tab": cr.aTab, "B": cr.b, "C": cr.c} {
+		told[name] = p.nextData(t, typeExStarted)
 	}
 	assert.Less(t, time.Since(sent), 300*time.Millisecond, "the panel and the students are told in up to 300 ms")
 
@@ -442,8 +536,7 @@ func TestExercise_StartTellsThePanelAndTheStudents(t *testing.T) {
 		assert.Equal(t, started, got, name+" gets what the panel gets")
 	}
 
-	nothingMore(t, cr.presenter, typeExStarted)
-	nothingMore(t, cr.d, typeExStarted)
+	quiet(t, []string{typeExStarted}, cr.everyone()...) // nobody got it twice, and the presentation window and the waiting one got none
 	require.Len(t, w.svc.exerciseStarts(), 1)
 	in := w.svc.exerciseStarts()[0]
 	assert.Equal(t, cr.block, in.BlockID)
@@ -484,9 +577,9 @@ func TestExercise_StartIsOnlyThePanels(t *testing.T) {
 	w := setup(t)
 	cr := newCrowd(t, w)
 
-	sendMsg(t, cr.presenter, typeExStart, cr.startData(1))
-	sendMsg(t, cr.a, typeExStart, cr.startData(1))
-	sendMsg(t, cr.d, typeExStart, cr.startData(1))
+	cr.presenter.send(t, typeExStart, cr.startData(1))
+	cr.a.send(t, typeExStart, cr.startData(1))
+	cr.d.send(t, typeExStart, cr.startData(1))
 	oldPanel := w.dialView(t, "teacher2", "panel")
 	readUntil(t, oldPanel, "live:snapshot")
 	replacing := w.dialView(t, "teacher", "panel")
@@ -498,9 +591,7 @@ func TestExercise_StartIsOnlyThePanels(t *testing.T) {
 	assert.ElementsMatch(t, []string{"wrong-view", "not-controller", "not-admitted", "not-controller"}, droppedFor(w, typeExStart))
 	assert.Empty(t, w.svc.exerciseStarts(), "not one reached the service")
 	assert.Zero(t, rejectedCount(w))
-	for _, conn := range append(cr.students(), cr.panel, cr.presenter) {
-		nothingMore(t, conn, typeExStarted)
-	}
+	quiet(t, []string{typeExStarted}, cr.everyone()...)
 }
 
 // Covers SPEC-065 CA-01, CA-14 and section 3.1: a start that is not valid or that the service refuses starts nothing and tells nobody, with the
@@ -520,41 +611,40 @@ func TestExercise_StartRejections(t *testing.T) {
 		`{"blockId":"` + block + `","index":1,"minutes":"5"}`, `{"blockId":"` + block + `","index":1,"minutes":1.5}`,
 		`{"blockId":"` + block + `","index":1,"minutes":true}`,
 	} {
-		sendMsg(t, cr.panel, typeExStart, data)
+		cr.panel.send(t, typeExStart, data)
 		atTheHandler++
 	}
-	require.NoError(t, cr.panel.WriteJSON(obj{"type": typeExStart}))
+	require.NoError(t, cr.panel.conn.WriteJSON(obj{"type": typeExStart}))
 	atTheHandler++ // no data at all
 
 	atTheService := 0
 	for _, minutes := range []string{"0", "-1", "61", "1000"} {
-		sendMsg(t, cr.panel, typeExStart, `{"blockId":"`+block+`","index":1,"minutes":`+minutes+`}`)
+		cr.panel.send(t, typeExStart, `{"blockId":"`+block+`","index":1,"minutes":`+minutes+`}`)
 		atTheService++
 	}
 	eventually(t, func() bool { return rejectedCount(w) == atTheHandler+atTheService })
 	for _, err := range []error{domain.ErrExerciseUnavailable, domain.ErrExerciseRunning, domain.ErrModuleNotSelected, domain.ErrSessionNotFound, domain.ErrForbidden} {
 		w.svc.setExerciseError(err)
-		sendMsg(t, cr.panel, typeExStart, cr.startData(1))
+		cr.panel.send(t, typeExStart, cr.startData(1))
 		atTheService++
 		eventually(t, func() bool { return rejectedCount(w) == atTheHandler+atTheService }) // one at a time: the error is the one that was set
 	}
 	w.svc.setExerciseError(nil)
+
 	assert.Len(t, w.svc.exerciseStarts(), atTheService, "the others were rejected before they reached the service")
 	assert.Empty(t, droppedFor(w, typeExStart), "these are rejections, not drops")
 	for _, entry := range w.logs.FilterMessage("classroom message rejected").All() {
 		assert.Equal(t, typeExStart, entry.ContextMap()["type"])
 		assert.Equal(t, w.teacher.UserID.String(), entry.ContextMap()["userId"])
 	}
-	for _, conn := range append(cr.students(), cr.panel, cr.presenter) {
-		nothingMore(t, conn, typeExStarted)
-	}
+	quiet(t, []string{typeExStarted}, cr.everyone()...)
 
 	// the first valid start is the first that tells anybody, and with a second one running it is refused again
 	started := cr.start(t)
 	assert.NotEmpty(t, started["runId"])
-	sendMsg(t, cr.panel, typeExStart, cr.startData(1))
+	cr.panel.send(t, typeExStart, cr.startData(1))
 	eventually(t, func() bool { return rejectedCount(w) == atTheHandler+atTheService+1 })
-	nothingMore(t, cr.b, typeExStarted)
+	quiet(t, []string{typeExStarted}, cr.everyone()...)
 }
 
 // ---- end ----
@@ -566,40 +656,34 @@ func TestExercise_EndByTheTeacher(t *testing.T) {
 	w := setup(t)
 	cr := newCrowd(t, w)
 
-	sendMsg(t, cr.panel, typeExEnd, `{}`)
+	cr.panel.send(t, typeExEnd, `{}`)
 	eventually(t, func() bool { return rejectedCount(w) == 1 })
-	nothingMore(t, cr.a, typeExEnded)
+	quiet(t, []string{typeExEnded}, cr.everyone()...)
 
 	started := cr.start(t)
-	for _, conn := range cr.students() {
-		readUntil(t, conn, typeExStarted)
-	}
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+cr.bruno.String()+`"}`)
-	assert.JSONEq(t, `{"on":true}`, string(readUntil(t, cr.b, typeExWatch).Data))
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+cr.bruno.String()+`"}`)
+	assert.JSONEq(t, `{"on":true}`, string(cr.b.next(t, typeExWatch).Data))
 
-	sendMsg(t, cr.a, typeExEnd, `{}`)
+	cr.a.send(t, typeExEnd, `{}`)
 	eventually(t, func() bool { return len(droppedFor(w, typeExEnd)) == 1 })
 	assert.Equal(t, []string{"not-controller"}, droppedFor(w, typeExEnd))
 
 	w.svc.setExerciseNow(exerciseNow.Add(90 * time.Second))
-	sendMsg(t, cr.panel, typeExEnd, `{}`)
-	panel := dataOf(t, readUntil(t, cr.panel, typeExEnded))
+	cr.panel.send(t, typeExEnd, `{}`)
+	panel := cr.panel.nextData(t, typeExEnded)
 	assert.Equal(t, []string{"by", "endedAt", "now", "runId"}, sortedKeys(panel))
 	assert.Equal(t, started["runId"], panel["runId"])
 	assert.Equal(t, "TEACHER", panel["by"])
 	assert.Equal(t, "2026-10-14T19:01:30.000Z", panel["endedAt"])
 	assert.Equal(t, "2026-10-14T19:01:30.000Z", panel["now"])
-	for name, conn := range map[string]*websocket.Conn{"A": cr.a, "A tab": cr.aTab, "B": cr.b, "C": cr.c} {
-		assert.Equal(t, panel, dataOf(t, readUntil(t, conn, typeExEnded)), name)
+	for name, p := range map[string]*tap{"A": cr.a, "A tab": cr.aTab, "B": cr.b, "C": cr.c} {
+		assert.Equal(t, panel, p.nextData(t, typeExEnded), name)
 	}
-	assert.JSONEq(t, `{"on":false}`, string(readUntil(t, cr.b, typeExWatch).Data), "the observation ended with the round: Bruno is told")
-	nothingMore(t, cr.a, typeExWatch)
-	nothingMore(t, cr.c, typeExWatch)
-	nothingMore(t, cr.presenter, typeExEnded, typeExWatch)
-	nothingMore(t, cr.d, typeExEnded, typeExWatch)
+	assert.JSONEq(t, `{"on":false}`, string(cr.b.next(t, typeExWatch).Data), "the observation ended with the round: Bruno is told")
+	quiet(t, []string{typeExEnded, typeExWatch}, cr.everyone()...) // nobody else, and nobody twice
 
-	// the data may be empty, null or {}, and a second end has no round to end
-	sendMsg(t, cr.panel, typeExEnd, `{}`)
+	// a second end has no round to end
+	cr.panel.send(t, typeExEnd, `{}`)
 	eventually(t, func() bool { return rejectedCount(w) == 2 })
 }
 
@@ -610,31 +694,26 @@ func TestExercise_EndsByTheTimerWithTheRoomConnected(t *testing.T) {
 	w := setup(t)
 	cr := newCrowd(t, w)
 	started := cr.start(t, 1)
-	for _, conn := range cr.students() {
-		readUntil(t, conn, typeExStarted)
-	}
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+cr.ana.String()+`"}`)
-	readUntil(t, cr.a, typeExWatch)
-	readUntil(t, cr.aTab, typeExWatch)
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+cr.ana.String()+`"}`)
+	cr.a.next(t, typeExWatch)
+	cr.aTab.next(t, typeExWatch)
 
 	w.svc.fireTimer(w.session.ID)
 
-	panel := dataOf(t, readUntil(t, cr.panel, typeExEnded))
+	panel := cr.panel.nextData(t, typeExEnded)
 	assert.Equal(t, started["runId"], panel["runId"])
 	assert.Equal(t, "TIMER", panel["by"])
 	assert.Equal(t, "2026-10-14T19:01:00.000Z", panel["endedAt"], "at the end of its time")
-	for name, conn := range map[string]*websocket.Conn{"A": cr.a, "A tab": cr.aTab, "B": cr.b, "C": cr.c} {
-		assert.Equal(t, panel, dataOf(t, readUntil(t, conn, typeExEnded)), name)
+	for name, p := range map[string]*tap{"A": cr.a, "A tab": cr.aTab, "B": cr.b, "C": cr.c} {
+		assert.Equal(t, panel, p.nextData(t, typeExEnded), name)
 	}
-	assert.JSONEq(t, `{"on":false}`, string(readUntil(t, cr.a, typeExWatch).Data))
-	assert.JSONEq(t, `{"on":false}`, string(readUntil(t, cr.aTab, typeExWatch).Data), "all the tabs of the watched student")
-	nothingMore(t, cr.b, typeExWatch)
-	nothingMore(t, cr.presenter, typeExEnded, typeExWatch)
-	nothingMore(t, cr.d, typeExEnded)
+	assert.JSONEq(t, `{"on":false}`, string(cr.a.next(t, typeExWatch).Data))
+	assert.JSONEq(t, `{"on":false}`, string(cr.aTab.next(t, typeExWatch).Data), "all the tabs of the watched student")
+	quiet(t, []string{typeExEnded, typeExWatch}, cr.everyone()...)
 
-	sendMsg(t, cr.b, typeExProgress, `{"runId":"`+started["runId"].(string)+`","met":1,"total":2}`)
+	cr.b.send(t, typeExProgress, `{"runId":"`+started["runId"].(string)+`","met":1,"total":2}`)
 	eventually(t, func() bool { return rejectedCount(w) == 1 })
-	nothingMore(t, cr.panel, typeExProgress)
+	quiet(t, []string{typeExProgress}, cr.panel)
 }
 
 // Covers SPEC-065 CA-03: a failure of the timer is logged, with "classroom exercise timer failed" and who it was for, and tells nobody.
@@ -645,7 +724,7 @@ func TestExercise_TimerFailureIsLogged(t *testing.T) {
 	entries := w.logs.FilterMessage("classroom exercise timer failed").All()
 	require.Len(t, entries, 1)
 	assert.Equal(t, w.session.ID.String(), entries[0].ContextMap()["room"])
-	nothingMore(t, cr.panel, typeExEnded)
+	quiet(t, []string{typeExEnded}, cr.everyone()...)
 }
 
 // ---- reveal ----
@@ -656,16 +735,13 @@ func TestExercise_TimerFailureIsLogged(t *testing.T) {
 func TestExercise_RevealOnlyWhenEnded(t *testing.T) {
 	w := setup(t)
 	cr := newCrowd(t, w)
-	sendMsg(t, cr.panel, typeExReveal, `{"visible":true}`)
+	cr.panel.send(t, typeExReveal, `{"visible":true}`)
 	eventually(t, func() bool { return rejectedCount(w) == 1 })
 
 	started := cr.start(t)
-	for _, conn := range cr.students() {
-		readUntil(t, conn, typeExStarted)
-	}
-	sendMsg(t, cr.panel, typeExReveal, `{"visible":true}`)
+	cr.panel.send(t, typeExReveal, `{"visible":true}`)
 	eventually(t, func() bool { return rejectedCount(w) == 2 })
-	nothingMore(t, cr.a, typeExResult)
+	quiet(t, []string{typeExResult}, cr.everyone()...)
 
 	run := started["runId"].(string)
 	submit := func(token string, at time.Duration) {
@@ -678,18 +754,18 @@ func TestExercise_RevealOnlyWhenEnded(t *testing.T) {
 	submit("student", 95*time.Second)  // 30 + floor(30 × 205 ÷ 600) = 40
 	submit("third", 200*time.Second)   // 30 + floor(30 × 100 ÷ 600) = 35
 	w.svc.setExerciseNow(exerciseNow.Add(210 * time.Second))
-	sendMsg(t, cr.panel, typeExEnd, `{}`)
-	readUntil(t, cr.panel, typeExEnded)
+	cr.panel.send(t, typeExEnd, `{}`)
+	cr.panel.next(t, typeExEnded)
 
-	sendMsg(t, cr.a, typeExReveal, `{"visible":true}`)
+	cr.a.send(t, typeExReveal, `{"visible":true}`)
 	eventually(t, func() bool { return len(droppedFor(w, typeExReveal)) == 1 })
 	assert.Equal(t, []string{"not-controller"}, droppedFor(w, typeExReveal))
-	sendMsg(t, cr.presenter, typeExReveal, `{"visible":true}`)
+	cr.presenter.send(t, typeExReveal, `{"visible":true}`)
 	eventually(t, func() bool { return len(droppedFor(w, typeExReveal)) == 2 })
 	assert.Equal(t, "wrong-view", droppedFor(w, typeExReveal)[1])
 
-	sendMsg(t, cr.panel, typeExReveal, `{"visible":true}`)
-	shown := dataOf(t, readUntil(t, cr.panel, typeExResult))
+	cr.panel.send(t, typeExReveal, `{"visible":true}`)
+	shown := cr.panel.nextData(t, typeExResult)
 	assert.Equal(t, []string{"completed", "participants", "runId", "scoreboard", "visible"}, sortedKeys(shown))
 	assert.Equal(t, run, shown["runId"])
 	assert.Equal(t, true, shown["visible"])
@@ -708,22 +784,21 @@ func TestExercise_RevealOnlyWhenEnded(t *testing.T) {
 	assert.Equal(t, cr.bruno.String(), first["studentId"])
 	assert.EqualValues(t, 60, first["elapsedSeconds"])
 	assert.EqualValues(t, 42, first["points"])
-	for name, conn := range map[string]*websocket.Conn{"A": cr.a, "A tab": cr.aTab, "B": cr.b, "C": cr.c} {
-		assert.Equal(t, shown, dataOf(t, readUntil(t, conn, typeExResult)), name)
+	for name, p := range map[string]*tap{"A": cr.a, "A tab": cr.aTab, "B": cr.b, "C": cr.c} {
+		assert.Equal(t, shown, p.nextData(t, typeExResult), name)
 	}
-	nothingMore(t, cr.presenter, typeExResult)
-	nothingMore(t, cr.d, typeExResult)
+	quiet(t, []string{typeExResult}, cr.everyone()...)
 
-	sendMsg(t, cr.panel, typeExReveal, `{"visible":false}`)
-	hidden := dataOf(t, readUntil(t, cr.panel, typeExResult))
+	cr.panel.send(t, typeExReveal, `{"visible":false}`)
+	hidden := cr.panel.nextData(t, typeExResult)
 	assert.Equal(t, []string{"completed", "participants", "runId", "visible"}, sortedKeys(hidden), "hidden: no scoreboard")
 	assert.Equal(t, false, hidden["visible"])
 	assert.EqualValues(t, 3, hidden["completed"])
-	assert.Equal(t, hidden, dataOf(t, readUntil(t, cr.b, typeExResult)))
+	assert.Equal(t, hidden, cr.b.nextData(t, typeExResult))
 
 	for _, data := range []string{`{}`, `null`, `[]`, `{"visible":"yes"}`, `{"visible":1}`, `{"visible":null}`, `"visible"`} {
 		before := rejectedCount(w)
-		sendMsg(t, cr.panel, typeExReveal, data)
+		cr.panel.send(t, typeExReveal, data)
 		eventually(t, func() bool { return rejectedCount(w) == before+1 })
 	}
 }
@@ -737,35 +812,32 @@ func TestExercise_WatchOneStudentAtATime(t *testing.T) {
 	w := setup(t)
 	cr := newCrowd(t, w)
 	ana, bruno := cr.ana.String(), cr.bruno.String()
+	on, off := `{"on":true}`, `{"on":false}`
 
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+ana+`"}`)
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+ana+`"}`)
 	eventually(t, func() bool { return rejectedCount(w) == 1 })
-	nothingMore(t, cr.a, typeExWatch)
+	quiet(t, []string{typeExWatch}, cr.everyone()...)
 
 	cr.start(t)
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+ana+`"}`)
-	assert.JSONEq(t, `{"on":true}`, string(readUntil(t, cr.a, typeExWatch).Data))
-	assert.JSONEq(t, `{"on":true}`, string(readUntil(t, cr.aTab, typeExWatch).Data), "every tab of the student")
-	nothingMore(t, cr.b, typeExWatch)
-	nothingMore(t, cr.c, typeExWatch)
-	nothingMore(t, cr.presenter, typeExWatch)
-	nothingMore(t, cr.d, typeExWatch)
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+ana+`"}`)
+	assert.JSONEq(t, on, string(cr.a.next(t, typeExWatch).Data))
+	assert.JSONEq(t, on, string(cr.aTab.next(t, typeExWatch).Data), "every tab of the student")
+	quiet(t, []string{typeExWatch}, cr.everyone()...)
 
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+bruno+`"}`)
-	assert.JSONEq(t, `{"on":false}`, string(readUntil(t, cr.a, typeExWatch).Data), "Ana is no longer watched")
-	assert.JSONEq(t, `{"on":false}`, string(readUntil(t, cr.aTab, typeExWatch).Data))
-	assert.JSONEq(t, `{"on":true}`, string(readUntil(t, cr.b, typeExWatch).Data))
-	nothingMore(t, cr.c, typeExWatch)
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+bruno+`"}`)
+	assert.JSONEq(t, off, string(cr.a.next(t, typeExWatch).Data), "Ana is no longer watched")
+	assert.JSONEq(t, off, string(cr.aTab.next(t, typeExWatch).Data))
+	assert.JSONEq(t, on, string(cr.b.next(t, typeExWatch).Data))
+	quiet(t, []string{typeExWatch}, cr.everyone()...)
 
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+bruno+`"}`)
-	assert.JSONEq(t, `{"on":true}`, string(readUntil(t, cr.b, typeExWatch).Data), "the same again: still on")
-	nothingMore(t, cr.a, typeExWatch)
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+bruno+`"}`)
+	assert.JSONEq(t, on, string(cr.b.next(t, typeExWatch).Data), "the same again: still on")
+	quiet(t, []string{typeExWatch}, cr.everyone()...)
 
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":null}`)
-	assert.JSONEq(t, `{"on":false}`, string(readUntil(t, cr.b, typeExWatch).Data))
-	nothingMore(t, cr.a, typeExWatch)
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":null}`)
-	nothingMore(t, cr.b, typeExWatch)
+	cr.panel.send(t, typeExWatch, `{"studentId":null}`)
+	assert.JSONEq(t, off, string(cr.b.next(t, typeExWatch).Data))
+	cr.panel.send(t, typeExWatch, `{"studentId":null}`)
+	quiet(t, []string{typeExWatch}, cr.everyone()...)
 
 	// refused: a student that is not in the round, the waiting one, bad data
 	rejected := rejectedCount(w)
@@ -773,19 +845,15 @@ func TestExercise_WatchOneStudentAtATime(t *testing.T) {
 		`{"studentId":"` + uuid.NewString() + `"}`, `{"studentId":"` + w.teacher.UserID.String() + `"}`, `{"studentId":"` + cr.waiting.UserID.String() + `"}`,
 		`{}`, `null`, `[]`, `"x"`, `{"studentId":"not-a-uuid"}`, `{"studentId":""}`, `{"studentId":7}`, `{"studentId":true}`,
 	} {
-		sendMsg(t, cr.panel, typeExWatch, data)
+		cr.panel.send(t, typeExWatch, data)
 		rejected++
 		eventually(t, func() bool { return rejectedCount(w) == rejected })
 	}
-	for _, conn := range []*websocket.Conn{cr.a, cr.b, cr.c, cr.presenter} {
-		nothingMore(t, conn, typeExWatch)
-	}
-
-	sendMsg(t, cr.a, typeExWatch, `{"studentId":"`+ana+`"}`)
-	sendMsg(t, cr.presenter, typeExWatch, `{"studentId":"`+ana+`"}`)
+	cr.a.send(t, typeExWatch, `{"studentId":"`+ana+`"}`)
+	cr.presenter.send(t, typeExWatch, `{"studentId":"`+ana+`"}`)
 	eventually(t, func() bool { return len(droppedFor(w, typeExWatch)) == 2 })
 	assert.ElementsMatch(t, []string{"not-controller", "wrong-view"}, droppedFor(w, typeExWatch))
-	nothingMore(t, cr.a, typeExWatch)
+	quiet(t, []string{typeExWatch}, cr.everyone()...)
 }
 
 // Covers SPEC-065 CA-07 and section 3.1 (live:exercise:screen): the picture of a terminal goes to the panel only, and only from the student the
@@ -801,49 +869,47 @@ func TestExercise_ScreenOnlyOfTheWatchedStudent(t *testing.T) {
 	}
 
 	// nobody is watched: every picture is dropped
-	sendMsg(t, cr.a, typeExScreen, screen("a"))
+	cr.a.send(t, typeExScreen, screen("a"))
 	eventually(t, func() bool { return len(droppedFor(w, typeExScreen)) == 1 })
 	assert.Equal(t, []string{"not-watched"}, droppedFor(w, typeExScreen))
-	nothingMore(t, cr.panel, typeExScreen)
+	quiet(t, []string{typeExScreen}, cr.everyone()...)
 
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+cr.ana.String()+`"}`)
-	readUntil(t, cr.a, typeExWatch)
-	sendMsg(t, cr.a, typeExScreen, screen("a"))
-	got := dataOf(t, readUntil(t, cr.panel, typeExScreen))
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+cr.ana.String()+`"}`)
+	cr.a.next(t, typeExWatch)
+	cr.a.send(t, typeExScreen, screen("a"))
+	got := cr.panel.nextData(t, typeExScreen)
 	assert.Equal(t, []string{"screen", "studentId"}, sortedKeys(got))
 	assert.Equal(t, cr.ana.String(), got["studentId"])
 	assert.JSONEq(t, `{"tag":"div","children":["$ ls a"]}`, mustJSON(got["screen"]), "the picture as it came, with no runId")
-	for _, conn := range []*websocket.Conn{cr.b, cr.c, cr.aTab, cr.presenter, cr.d} {
-		nothingMore(t, conn, typeExScreen)
-	}
+	quiet(t, []string{typeExScreen}, cr.a, cr.aTab, cr.b, cr.c, cr.d, cr.presenter, cr.panel)
 
 	// Ana's other tab is Ana too: her picture passes
-	sendMsg(t, cr.aTab, typeExScreen, screen("tab"))
-	assert.Equal(t, cr.ana.String(), dataOf(t, readUntil(t, cr.panel, typeExScreen))["studentId"])
+	cr.aTab.send(t, typeExScreen, screen("tab"))
+	assert.Equal(t, cr.ana.String(), cr.panel.nextData(t, typeExScreen)["studentId"])
 
 	// B is not watched: dropped; the panel sees nothing
-	sendMsg(t, cr.b, typeExScreen, screen("b"))
+	cr.b.send(t, typeExScreen, screen("b"))
 	eventually(t, func() bool { return len(droppedFor(w, typeExScreen)) == 2 })
-	nothingMore(t, cr.panel, typeExScreen)
+	quiet(t, []string{typeExScreen}, cr.panel)
 
 	// a picture of the round that is not this one is dropped too
-	sendMsg(t, cr.a, typeExScreen, `{"runId":"`+uuid.NewString()+`","screen":{"tag":"div"}}`)
+	cr.a.send(t, typeExScreen, `{"runId":"`+uuid.NewString()+`","screen":{"tag":"div"}}`)
 	eventually(t, func() bool { return len(droppedFor(w, typeExScreen)) == 3 })
-	nothingMore(t, cr.panel, typeExScreen)
+	quiet(t, []string{typeExScreen}, cr.panel)
 
 	// the switch: Ana is dropped, Bruno passes
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+cr.bruno.String()+`"}`)
-	readUntil(t, cr.b, typeExWatch)
-	sendMsg(t, cr.a, typeExScreen, screen("a"))
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+cr.bruno.String()+`"}`)
+	cr.b.next(t, typeExWatch)
+	cr.a.send(t, typeExScreen, screen("a"))
 	eventually(t, func() bool { return len(droppedFor(w, typeExScreen)) == 4 })
-	sendMsg(t, cr.b, typeExScreen, screen("b"))
-	assert.Equal(t, cr.bruno.String(), dataOf(t, readUntil(t, cr.panel, typeExScreen))["studentId"])
-	nothingMore(t, cr.a, typeExScreen)
-	nothingMore(t, cr.c, typeExScreen)
+	cr.b.send(t, typeExScreen, screen("b"))
+	assert.Equal(t, cr.bruno.String(), cr.panel.nextData(t, typeExScreen)["studentId"])
+	quiet(t, []string{typeExScreen}, cr.everyone()...)
 
 	// stopping: nobody is watched any more
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":null}`)
-	sendMsg(t, cr.b, typeExScreen, screen("b"))
+	cr.panel.send(t, typeExWatch, `{"studentId":null}`)
+	cr.b.next(t, typeExWatch)
+	cr.b.send(t, typeExScreen, screen("b"))
 	eventually(t, func() bool { return len(droppedFor(w, typeExScreen)) == 5 })
 	assert.Zero(t, rejectedCount(w), "all of these were drops, not rejections")
 }
@@ -855,8 +921,8 @@ func TestExercise_ScreenRejections(t *testing.T) {
 	w := setup(t)
 	cr := newCrowd(t, w)
 	run := cr.start(t)["runId"].(string)
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+cr.ana.String()+`"}`)
-	readUntil(t, cr.a, typeExWatch)
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+cr.ana.String()+`"}`)
+	cr.a.next(t, typeExWatch)
 
 	rejected := 0
 	for _, data := range []string{
@@ -864,29 +930,29 @@ func TestExercise_ScreenRejections(t *testing.T) {
 		`{"runId":"` + run + `","screen":[1]}`, `{"runId":"` + run + `","screen":7}`, `{"screen":{"tag":"div"}}`,
 		`{"runId":"nope","screen":{"tag":"div"}}`, `{"runId":null,"screen":{"tag":"div"}}`, `{"runId":7,"screen":{"tag":"div"}}`,
 	} {
-		sendMsg(t, cr.a, typeExScreen, data)
+		cr.a.send(t, typeExScreen, data)
 		rejected++
 		eventually(t, func() bool { return rejectedCount(w) == rejected })
 	}
-	nothingMore(t, cr.panel, typeExScreen)
+	quiet(t, []string{typeExScreen}, cr.panel)
 
-	sendMsg(t, cr.panel, typeExScreen, `{"runId":"`+run+`","screen":{"tag":"div"}}`)
-	sendMsg(t, cr.presenter, typeExScreen, `{"runId":"`+run+`","screen":{"tag":"div"}}`)
-	sendMsg(t, cr.d, typeExScreen, `{"runId":"`+run+`","screen":{"tag":"div"}}`)
+	cr.panel.send(t, typeExScreen, `{"runId":"`+run+`","screen":{"tag":"div"}}`)
+	cr.presenter.send(t, typeExScreen, `{"runId":"`+run+`","screen":{"tag":"div"}}`)
+	cr.d.send(t, typeExScreen, `{"runId":"`+run+`","screen":{"tag":"div"}}`)
 	eventually(t, func() bool { return len(droppedFor(w, typeExScreen)) == 3 })
 	assert.ElementsMatch(t, []string{"wrong-view", "wrong-view", "not-admitted"}, droppedFor(w, typeExScreen))
 
 	pad := func(n int) string { return strings.Repeat("a", n) }
 	big := `{"runId":"` + run + `","screen":{"tag":"div","children":["` + pad(256*1024) + `"]}}`
-	sendMsg(t, cr.a, typeExScreen, big)
+	cr.a.send(t, typeExScreen, big)
 	rejected++
 	eventually(t, func() bool { return rejectedCount(w) == rejected })
 	assert.Equal(t, "too-large", w.logs.FilterMessage("classroom message rejected").All()[rejected-1].ContextMap()["reason"])
-	nothingMore(t, cr.panel, typeExScreen)
+	quiet(t, []string{typeExScreen}, cr.panel)
 
 	ok := `{"runId":"` + run + `","screen":{"tag":"div","children":["` + pad(200*1024) + `"]}}`
-	sendMsg(t, cr.a, typeExScreen, ok)
-	got := dataOf(t, readUntil(t, cr.panel, typeExScreen))
+	cr.a.send(t, typeExScreen, ok)
+	got := cr.panel.nextData(t, typeExScreen)
 	assert.Equal(t, cr.ana.String(), got["studentId"], "a picture of 200 KiB passes")
 }
 
@@ -898,12 +964,9 @@ func TestExercise_ProgressGoesOnlyToThePanel(t *testing.T) {
 	w := setup(t)
 	cr := newCrowd(t, w)
 	run := cr.start(t)["runId"].(string)
-	for _, conn := range cr.students() {
-		readUntil(t, conn, typeExStarted)
-	}
 
-	sendMsg(t, cr.a, typeExProgress, `{"runId":"`+run+`","met":2,"total":4,"last":"mkdir /srv/x"}`)
-	got := dataOf(t, readUntil(t, cr.panel, typeExProgress))
+	cr.a.send(t, typeExProgress, `{"runId":"`+run+`","met":2,"total":4,"last":"mkdir /srv/x"}`)
+	got := cr.panel.nextData(t, typeExProgress)
 	assert.Equal(t, []string{"at", "last", "met", "runId", "studentId", "total"}, sortedKeys(got))
 	assert.Equal(t, run, got["runId"])
 	assert.Equal(t, cr.ana.String(), got["studentId"])
@@ -911,16 +974,13 @@ func TestExercise_ProgressGoesOnlyToThePanel(t *testing.T) {
 	assert.EqualValues(t, 4, got["total"])
 	assert.Equal(t, "mkdir /srv/x", got["last"])
 	assert.Equal(t, "2026-10-14T19:00:00.000Z", got["at"], "the moment of the server")
-	for _, conn := range []*websocket.Conn{cr.aTab, cr.b, cr.c, cr.presenter, cr.d} {
-		nothingMore(t, conn, typeExProgress)
-	}
+	quiet(t, []string{typeExProgress}, cr.everyone()...)
 
-	sendMsg(t, cr.b, typeExProgress, `{"runId":"`+run+`","met":0,"total":4}`)
-	other := dataOf(t, readUntil(t, cr.panel, typeExProgress))
+	cr.b.send(t, typeExProgress, `{"runId":"`+run+`","met":0,"total":4}`)
+	other := cr.panel.nextData(t, typeExProgress)
 	assert.Equal(t, cr.bruno.String(), other["studentId"])
 	assert.Equal(t, "", other["last"], "no last command: an empty text")
-	nothingMore(t, cr.a, typeExProgress)
-	nothingMore(t, cr.c, typeExProgress)
+	quiet(t, []string{typeExProgress}, cr.everyone()...)
 	assert.Len(t, w.svc.exerciseRecorded(), 2)
 	assert.Equal(t, "mkdir /srv/x", w.svc.exerciseRecorded()[0].Last)
 }
@@ -943,24 +1003,24 @@ func TestExercise_ProgressRejections(t *testing.T) {
 		`{"met":1,"total":2}`, `{"runId":"nope","met":1,"total":2}`, `{"runId":null,"met":1,"total":2}`, `{"runId":7,"met":1,"total":2}`,
 		`{"runId":"` + uuid.NewString() + `","met":1,"total":2}`, `null`, `[]`, `"x"`, `{}`,
 	} {
-		sendMsg(t, cr.a, typeExProgress, data)
+		cr.a.send(t, typeExProgress, data)
 		rejected++
 	}
-	require.NoError(t, cr.a.WriteJSON(obj{"type": typeExProgress}))
+	require.NoError(t, cr.a.conn.WriteJSON(obj{"type": typeExProgress}))
 	rejected++
 	eventually(t, func() bool { return rejectedCount(w) == rejected })
 	assert.Empty(t, w.svc.exerciseRecorded(), "none was kept")
-	nothingMore(t, cr.panel, typeExProgress)
+	quiet(t, []string{typeExProgress}, cr.panel)
 
 	// 200 characters and a total of 100 are the most
-	sendMsg(t, cr.a, typeExProgress, with(`"met":100,"total":100,"last":"`+strings.Repeat("a", 200)+`"`))
-	got := dataOf(t, readUntil(t, cr.panel, typeExProgress))
+	cr.a.send(t, typeExProgress, with(`"met":100,"total":100,"last":"`+strings.Repeat("a", 200)+`"`))
+	got := cr.panel.nextData(t, typeExProgress)
 	assert.EqualValues(t, 100, got["met"])
 	assert.Len(t, got["last"], 200)
 
-	sendMsg(t, cr.panel, typeExProgress, with(`"met":1,"total":2`))
-	sendMsg(t, cr.presenter, typeExProgress, with(`"met":1,"total":2`))
-	sendMsg(t, cr.d, typeExProgress, with(`"met":1,"total":2`))
+	cr.panel.send(t, typeExProgress, with(`"met":1,"total":2`))
+	cr.presenter.send(t, typeExProgress, with(`"met":1,"total":2`))
+	cr.d.send(t, typeExProgress, with(`"met":1,"total":2`))
 	eventually(t, func() bool { return len(droppedFor(w, typeExProgress)) == 3 })
 	assert.ElementsMatch(t, []string{"wrong-view", "wrong-view", "not-admitted"}, droppedFor(w, typeExProgress))
 	assert.Len(t, w.svc.exerciseRecorded(), 1, "only the valid one")
@@ -974,7 +1034,7 @@ func TestExercise_ProgressIsLimitedByRate(t *testing.T) {
 
 	const burst = 80
 	for i := 0; i < burst; i++ {
-		sendMsg(t, cr.a, typeExProgress, `{"runId":"`+run+`","met":1,"total":2}`)
+		cr.a.send(t, typeExProgress, `{"runId":"`+run+`","met":1,"total":2}`)
 	}
 	limited := func() int { return len(droppedFor(w, typeExProgress)) }
 	eventually(t, func() bool { return len(w.svc.exerciseRecorded())+limited() == burst })
@@ -995,11 +1055,11 @@ func TestExercise_RulesOfTheHub(t *testing.T) {
 	run := cr.start(t)["runId"].(string)
 	long := strings.Repeat("a", 1100)
 
-	sendMsg(t, cr.panel, typeExStart, `{"blockId":"`+cr.block.String()+`","index":1,"pad":"`+long+`"}`)
-	sendMsg(t, cr.panel, typeExEnd, `{"pad":"`+long+`"}`)
-	sendMsg(t, cr.panel, typeExReveal, `{"visible":true,"pad":"`+long+`"}`)
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":null,"pad":"`+long+`"}`)
-	sendMsg(t, cr.a, typeExProgress, `{"runId":"`+run+`","met":1,"total":2,"pad":"`+long+`"}`)
+	cr.panel.send(t, typeExStart, `{"blockId":"`+cr.block.String()+`","index":1,"pad":"`+long+`"}`)
+	cr.panel.send(t, typeExEnd, `{"pad":"`+long+`"}`)
+	cr.panel.send(t, typeExReveal, `{"visible":true,"pad":"`+long+`"}`)
+	cr.panel.send(t, typeExWatch, `{"studentId":null,"pad":"`+long+`"}`)
+	cr.a.send(t, typeExProgress, `{"runId":"`+run+`","met":1,"total":2,"pad":"`+long+`"}`)
 	eventually(t, func() bool { return rejectedCount(w) == 5 })
 	for _, entry := range w.logs.FilterMessage("classroom message rejected").All() {
 		assert.Equal(t, "too-large", entry.ContextMap()["reason"])
@@ -1008,14 +1068,14 @@ func TestExercise_RulesOfTheHub(t *testing.T) {
 	assert.Empty(t, w.svc.exerciseRecorded())
 
 	for _, typ := range []string{typeExStarted, typeExEnded, typeExResult, typeExDone} {
-		sendMsg(t, cr.panel, typ, `{"runId":"`+run+`"}`)
-		sendMsg(t, cr.a, typ, `{"runId":"`+run+`"}`)
+		cr.panel.send(t, typ, `{"runId":"`+run+`"}`)
+		cr.a.send(t, typ, `{"runId":"`+run+`"}`)
 	}
 	eventually(t, func() bool { return len(droppedReasons(w)) == 8 })
 	for _, r := range droppedReasons(w) {
 		assert.True(t, strings.HasSuffix(r, ":unknown-type"), r)
 	}
-	nothingMore(t, cr.b, typeExStarted, typeExEnded, typeExResult, typeExDone)
+	quiet(t, []string{typeExStarted, typeExEnded, typeExResult, typeExDone, typeExProgress, typeExWatch}, cr.everyone()...)
 }
 
 // ---- snapshot ----
@@ -1051,8 +1111,8 @@ func TestExercise_SnapshotByRole(t *testing.T) {
 	cr := newCrowd(t, w)
 	started := cr.start(t)
 	run := started["runId"].(string)
-	sendMsg(t, cr.b, typeExProgress, `{"runId":"`+run+`","met":1,"total":4,"last":"ls"}`)
-	readUntil(t, cr.panel, typeExProgress)
+	cr.b.send(t, typeExProgress, `{"runId":"`+run+`","met":1,"total":4,"last":"ls"}`)
+	cr.panel.next(t, typeExProgress)
 	w.svc.setExerciseNow(exerciseNow.Add(95 * time.Second))
 	code, body := w.call(t, "student", http.MethodPost, w.path("/exercise/submit"), obj{"runId": run, "snapshot": "pass"})
 	require.Equal(t, http.StatusOK, code, body)
@@ -1146,9 +1206,9 @@ func TestExercise_SnapshotByRole(t *testing.T) {
 	assert.NotContains(t, snapshotOf(t, w.dialView(t, "teacher2", "presenter")), "exercise", "the presentation window never gets it")
 
 	// who waits gets the admission state and no snapshot
-	d := w.dial(t, "waiting")
-	assert.Equal(t, "WAITING", statusOf(t, readUntil(t, d, "live:admission:state")))
-	nothingMore(t, d, "live:snapshot", typeExStarted)
+	d := newTap(w.dial(t, "waiting"))
+	assert.Equal(t, "WAITING", statusOf(t, d.next(t, "live:admission:state")))
+	quiet(t, []string{"live:snapshot", typeExStarted}, d)
 }
 
 // Covers SPEC-065 CA-12 and section 3.1: a student admitted in the middle of a round gets the round in the snapshot of his admission, with his own
@@ -1173,48 +1233,21 @@ func TestExercise_AdmittedStudentGetsTheRound(t *testing.T) {
 	assert.Equal(t, "RUNNING", ex["status"])
 	assert.Contains(t, ex, "myResult")
 	assert.NotContains(t, ex, "progress")
-}
-
-// Covers SPEC-065 CA-12 and section 3.1: a student who joins or comes back during the round is in it (the service is told), and the student whom
-// the teacher is watching is told, when he comes back, that he is watched, so that he sends the picture again; one who is not watched is told
-// nothing.
-func TestExercise_JoiningStudentIsInTheRound(t *testing.T) {
-	w := setup(t)
-	cr := newCrowd(t, w)
-	cr.start(t)
-	sendMsg(t, cr.panel, typeExWatch, `{"studentId":"`+cr.bruno.String()+`"}`)
-	readUntil(t, cr.b, typeExWatch)
-
-	_ = cr.b.Close()
-	waitUntilOffline(t, cr.panel, cr.bruno)
-	back := w.dial(t, "stranger")
-	snap := exerciseOfSnapshot(t, snapshotOf(t, back))
-	assert.Equal(t, "RUNNING", snap["status"])
-	assert.JSONEq(t, `{"on":true}`, string(readUntil(t, back, typeExWatch).Data), "he is still watched")
 	eventually(t, func() bool {
 		w.svc.mu.Lock()
 		defer w.svc.mu.Unlock()
-		for _, id := range w.svc.exercise.joins {
-			if id == cr.bruno {
-				return true
-			}
-		}
-		return false
+		return len(w.svc.exercise.joins) == 1 && w.svc.exercise.joins[0] == w.student.UserID
 	})
-
-	late := w.dial(t, "student") // Ana, in a third tab: she is not watched
-	readUntil(t, late, "live:snapshot")
-	nothingMore(t, late, typeExWatch)
 }
 
-// waitUntilOffline reads the presence that the panel gets until the student is no longer among the ones who are online.
-func waitUntilOffline(t *testing.T, panel *websocket.Conn, student uuid.UUID) {
+// waitUntilOffline takes the presence that the panel gets until the student is no longer among the ones who are online.
+func waitUntilOffline(t *testing.T, panel *tap, student uuid.UUID) {
 	t.Helper()
 	for i := 0; i < 20; i++ {
 		var d struct {
 			OnlineStudents []string `json:"onlineStudents"`
 		}
-		require.NoError(t, json.Unmarshal(readUntil(t, panel, "live:presence").Data, &d))
+		require.NoError(t, json.Unmarshal(panel.next(t, "live:presence").Data, &d))
 		if !contains(d.OnlineStudents, student.String()) {
 			return
 		}
@@ -1229,6 +1262,46 @@ func contains(list []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// Covers SPEC-065 CA-12 and section 3.1: a student who joins or comes back during the round is in it (the service is told), and the student whom
+// the teacher is watching is told, when he comes back, that he is watched, so that he sends the picture again; one who is not watched is told
+// nothing.
+func TestExercise_JoiningStudentIsInTheRound(t *testing.T) {
+	w := setup(t)
+	cr := newCrowd(t, w)
+	cr.start(t)
+	cr.panel.send(t, typeExWatch, `{"studentId":"`+cr.bruno.String()+`"}`)
+	cr.b.next(t, typeExWatch)
+
+	_ = cr.b.conn.Close()
+	waitUntilOffline(t, cr.panel, cr.bruno)
+	back := newTap(w.dial(t, "stranger"))
+	snap := exerciseOfSnapshot(t, snapshotOf2(t, back))
+	assert.Equal(t, "RUNNING", snap["status"])
+	assert.JSONEq(t, `{"on":true}`, string(back.next(t, typeExWatch).Data), "he is still watched")
+	eventually(t, func() bool {
+		w.svc.mu.Lock()
+		defer w.svc.mu.Unlock()
+		for _, id := range w.svc.exercise.joins {
+			if id == cr.bruno {
+				return true
+			}
+		}
+		return false
+	})
+
+	late := newTap(w.dial(t, "student")) // Ana, in a third tab: she is not watched
+	late.next(t, "live:snapshot")
+	quiet(t, []string{typeExWatch}, late)
+}
+
+// snapshotOf2 is the snapshot that a tapped connection got.
+func snapshotOf2(t *testing.T, p *tap) map[string]any {
+	t.Helper()
+	var snap map[string]any
+	require.NoError(t, json.Unmarshal(p.next(t, "live:snapshot").Data, &snap))
+	return snap
 }
 
 // Covers SPEC-065 section 3.1 (instantâneo): GET /classes/:id/live/active does not change: no exercise.
@@ -1300,14 +1373,11 @@ func TestExerciseSubmit_ApprovedTellsThePanelOnce(t *testing.T) {
 	w, clock := setupExercise(t)
 	cr := newCrowd(t, w)
 	run := cr.start(t)["runId"].(string)
-	for _, conn := range cr.students() {
-		readUntil(t, conn, typeExStarted)
-	}
 
 	code, body := w.submit(t, "student", obj{"runId": run, "snapshot": "fail"})
 	require.Equal(t, http.StatusOK, code)
 	assert.Equal(t, map[string]any{"passed": false}, body, "it does not say what is missing, and says nothing else")
-	nothingMore(t, cr.panel, typeExDone)
+	quiet(t, []string{typeExDone}, cr.everyone()...)
 
 	clock.advance(3 * time.Second)
 	w.svc.setExerciseNow(exerciseNow.Add(95 * time.Second))
@@ -1319,7 +1389,7 @@ func TestExerciseSubmit_ApprovedTellsThePanelOnce(t *testing.T) {
 	assert.EqualValues(t, 95, body["elapsedSeconds"])
 	assert.EqualValues(t, 40, body["points"])
 
-	done := dataOf(t, readUntil(t, cr.panel, typeExDone))
+	done := cr.panel.nextData(t, typeExDone)
 	assert.Equal(t, []string{"attempts", "completedAt", "elapsedSeconds", "name", "points", "runId", "studentId"}, sortedKeys(done))
 	assert.Equal(t, run, done["runId"])
 	assert.Equal(t, cr.ana.String(), done["studentId"])
@@ -1328,19 +1398,17 @@ func TestExerciseSubmit_ApprovedTellsThePanelOnce(t *testing.T) {
 	assert.EqualValues(t, 95, done["elapsedSeconds"])
 	assert.EqualValues(t, 40, done["points"])
 	assert.EqualValues(t, 2, done["attempts"], "the one that failed and the one that passed")
-	for _, conn := range []*websocket.Conn{cr.a, cr.aTab, cr.b, cr.c, cr.presenter, cr.d} {
-		nothingMore(t, conn, typeExDone)
-	}
+	quiet(t, []string{typeExDone}, cr.everyone()...) // only the panel got it, once
 
 	clock.advance(3 * time.Second)
 	code, again := w.submit(t, "student", obj{"runId": run, "snapshot": "pass"})
 	require.Equal(t, http.StatusOK, code)
 	assert.Equal(t, body, again, "the same result")
-	nothingMore(t, cr.panel, typeExDone)
 	clock.advance(3 * time.Second)
 	code, again = w.submit(t, "student", obj{"runId": run, "snapshot": "fail"})
 	assert.Equal(t, http.StatusOK, code)
 	assert.Equal(t, body, again, "whatever state he sends after he concluded")
+	quiet(t, []string{typeExDone}, cr.everyone()...) // nobody was told again
 }
 
 // Covers SPEC-065 CA-04, CA-10 and section 3.1: a student who concludes in the 2 seconds after the end, with the result already shown, tells the
@@ -1350,25 +1418,28 @@ func TestExerciseSubmit_LateResultUpdatesTheShownScoreboard(t *testing.T) {
 	cr := newCrowd(t, w)
 	run := cr.start(t)["runId"].(string)
 	w.svc.setExerciseNow(exerciseNow.Add(60 * time.Second))
-	sendMsg(t, cr.panel, typeExEnd, `{}`)
-	readUntil(t, cr.panel, typeExEnded)
-	sendMsg(t, cr.panel, typeExReveal, `{"visible":true}`)
-	first := dataOf(t, readUntil(t, cr.panel, typeExResult))
+	cr.panel.send(t, typeExEnd, `{}`)
+	cr.panel.next(t, typeExEnded)
+	cr.panel.send(t, typeExReveal, `{"visible":true}`)
+	first := cr.panel.nextData(t, typeExResult)
 	assert.EqualValues(t, 0, first["completed"])
 	assert.Len(t, first["scoreboard"], 0)
+	for _, p := range cr.students() {
+		assert.Equal(t, first, p.nextData(t, typeExResult))
+	}
 
 	w.svc.setExerciseNow(exerciseNow.Add(61 * time.Second))
 	code, body := w.submit(t, "student", obj{"runId": run, "snapshot": "pass"})
 	require.Equal(t, http.StatusOK, code, body)
-	readUntil(t, cr.panel, typeExDone)
-	for name, conn := range map[string]*websocket.Conn{"panel": cr.panel, "A": cr.a, "B": cr.b} {
-		updated := dataOf(t, readUntil(t, conn, typeExResult))
+	cr.panel.next(t, typeExDone)
+	for name, p := range map[string]*tap{"panel": cr.panel, "A": cr.a, "A tab": cr.aTab, "B": cr.b, "C": cr.c} {
+		updated := p.nextData(t, typeExResult)
 		assert.EqualValues(t, 1, updated["completed"], name)
 		board := updated["scoreboard"].([]any)
 		require.Len(t, board, 1, name)
 		assert.Equal(t, "Ana", board[0].(map[string]any)["name"], name)
 	}
-	nothingMore(t, cr.presenter, typeExResult)
+	quiet(t, []string{typeExResult}, cr.everyone()...)
 }
 
 // Covers SPEC-065 CA-04, CA-14 and section 3.1 (Erros): the status of each refusal: 404 with no round (or a round that is not the current one),
@@ -1419,8 +1490,13 @@ func TestExerciseSubmit_Statuses(t *testing.T) {
 	code, body = w.submit(t, "teacher", obj{"runId": run, "snapshot": "pass"})
 	assert.Equal(t, http.StatusForbidden, code, "the teacher does not send")
 	assert.Equal(t, "forbidden", body["type"])
-	code, _ = w.call(t, "nobody", http.MethodPost, w.path("/exercise/submit"), obj{"runId": run, "snapshot": "pass"})
-	assert.Equal(t, http.StatusUnauthorized, code)
+	req, err := http.NewRequest(http.MethodPost, w.srv.URL+w.path("/exercise/submit"), strings.NewReader(`{"runId":"`+run+`","snapshot":"pass"}`))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := w.srv.Client().Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, res.StatusCode, "no session, no access")
 	code, body = w.call(t, "student", http.MethodPost, "/api/v1/classes/not-a-uuid/live/exercise/submit", obj{"runId": run, "snapshot": "pass"})
 	assert.Equal(t, http.StatusBadRequest, code)
 	assert.Equal(t, "invalid-uuid", body["type"])

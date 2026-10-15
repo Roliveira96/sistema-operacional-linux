@@ -57,6 +57,19 @@ const (
 	typeChatSend    = "live:chat:send"
 	typeChatMessage = "live:chat:message"
 
+	// SPEC-065: the exercise of the lesson. The panel starts, ends, shows the result and watches a student; the students report their progress
+	// and, when watched, the picture of their terminal; the server tells the round, its end, the result, the progress, who concluded and who is watched.
+	typeExerciseStart    = "live:exercise:start"
+	typeExerciseEnd      = "live:exercise:end"
+	typeExerciseReveal   = "live:exercise:reveal"
+	typeExerciseWatch    = "live:exercise:watch"
+	typeExerciseProgress = "live:exercise:progress"
+	typeExerciseScreen   = "live:exercise:screen"
+	typeExerciseStarted  = "live:exercise:started"
+	typeExerciseEnded    = "live:exercise:ended"
+	typeExerciseResult   = "live:exercise:result"
+	typeExerciseDone     = "live:exercise:done"
+
 	// clearSelectionData is the data of the message that takes the selection away, as it goes to the others
 	clearSelectionData = `{"clear":true}`
 
@@ -112,6 +125,17 @@ func hubConfig() hub.Config {
 			// the chat is the students' and the panel's, so the rule has no ControllerOnly and no Kind: the handler tells who is who. The text is
 			// up to 500 characters, which are up to 2,000 bytes, or more when the client escapes them (SPEC-063)
 			typeChatSend: {MaxBytes: 4 * kib, Limited: true},
+
+			// the exercise is the panel's to start, end, show and watch; the progress and the picture of the terminal are the students', so those
+			// two have no ControllerOnly and no Kind and the handler tells who is who. The progress is small (up to 200 characters of the last
+			// command); the picture has the limit of the terminal of the teacher, is limited by the rate of its sender, and the panel gets only the
+			// latest of each window (SPEC-065)
+			typeExerciseStart:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeExerciseEnd:      {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeExerciseReveal:   {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeExerciseWatch:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeExerciseProgress: {MaxBytes: kib, Limited: true},
+			typeExerciseScreen:   {MaxBytes: 256 * kib, Limited: true, Coalesce: true},
 		},
 		MaxViewers:    100,
 		MaxWaiting:    200,
@@ -256,6 +280,11 @@ func (w wsHandler) snapshot(ctx context.Context, room, kind, student string) (hu
 		}
 		body["chat"] = chatsJSON(history)
 		body["onlineStudents"] = w.h.hub.OnlineUsers(room)
+		round, err := w.h.svc.ExerciseOf(ctx, sessionOf(room), true)
+		if err != nil {
+			return hub.Message{}, err
+		}
+		body["exercise"] = exerciseSnapshot(round, true, uuid.Nil)
 	case viewPresenter:
 		delete(body, "onlineCount")
 	default:
@@ -269,6 +298,11 @@ func (w wsHandler) snapshot(ctx context.Context, room, kind, student string) (hu
 		}
 		body["myHand"] = myHand(a.HandRaises, student)
 		body["chat"] = chatsJSON(history)
+		round, err := w.h.svc.ExerciseOf(ctx, sessionOf(room), false)
+		if err != nil {
+			return hub.Message{}, err
+		}
+		body["exercise"] = exerciseSnapshot(round, false, owner)
 	}
 	return hub.Message{Type: typeSnapshot, Data: mustMarshal(body)}, nil
 }
@@ -292,6 +326,9 @@ func (w wsHandler) Joined(room string, who hub.Identity) {
 	case who.Waiting:
 		w.queue(context.Background(), room) // the teacher sees the new student in the waiting room
 	case who.Role == hub.Viewer:
+		if isStudent(who) {
+			w.joinedExercise(room, who)
+		}
 		w.presence(room)
 	}
 }
@@ -489,6 +526,10 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 		w.hands(ctx, room, who, msg)
 	case typeChatSend:
 		w.chat(ctx, room, who, msg)
+	case typeExerciseStart, typeExerciseEnd, typeExerciseReveal, typeExerciseWatch:
+		w.exerciseControl(ctx, room, who, msg)
+	case typeExerciseProgress, typeExerciseScreen:
+		w.exerciseStudent(ctx, room, who, msg)
 	}
 }
 
@@ -556,6 +597,7 @@ func (w wsHandler) release(ctx context.Context, room string, student uuid.UUID) 
 	id := student.String()
 	w.h.hub.SendTo(room, id, admissionState(domain.AdmissionAdmitted))
 	w.h.hub.SetWaiting(room, id, false)
+	w.h.svc.JoinExercise(sessionOf(room), student) // admitted in the middle of a round, he is in it
 	snap, err := w.snapshot(ctx, room, "", id)
 	if err != nil {
 		w.h.log.Warn("classroom snapshot of the admitted not sent", zap.String("room", room), zap.String("userId", id), zap.Error(err))

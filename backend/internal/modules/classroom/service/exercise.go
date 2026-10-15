@@ -350,7 +350,13 @@ func (s *Service) WatchExercise(ctx context.Context, actor Actor, sessionID uuid
 // ExerciseScreenAllowed tells whether the picture of a terminal is taken from the student: only from the one the teacher watches, in the round
 // that runs. The picture of anybody else is discarded.
 func (s *Service) ExerciseScreenAllowed(sessionID, student, runID uuid.UUID) bool {
-	return s.live.exerciseWatched(sessionID, runID, student)
+	return s.live.exerciseWatched(sessionID, &runID, student)
+}
+
+// ExerciseWatching tells whether the teacher watches the student in the round that runs: for the student who comes back to the room, who is told
+// again that he is watched.
+func (s *Service) ExerciseWatching(sessionID, student uuid.UUID) bool {
+	return s.live.exerciseWatched(sessionID, nil, student)
 }
 
 // JoinExercise puts the students in the round that runs, for who comes into the room in the middle of it; with none running, nothing happens.

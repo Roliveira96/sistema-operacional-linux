@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
@@ -20,6 +21,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/hub"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/problem"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/ratelimit"
 )
 
 // Service is what the handler uses from the service.
@@ -63,6 +65,23 @@ type Service interface {
 	TeacherPresence(ctx context.Context, sessionID uuid.UUID) error
 	SendChat(ctx context.Context, actor service.Actor, sessionID uuid.UUID, student *uuid.UUID, text string) (domain.LiveChatMessage, error)
 	ChatHistory(ctx context.Context, sessionID uuid.UUID, student *uuid.UUID) ([]domain.LiveChatMessage, error)
+
+	// The exercise of the lesson (SPEC-065).
+	StartExercise(ctx context.Context, actor service.Actor, sessionID uuid.UUID, in service.ExerciseStartInput) (service.ExerciseState, error)
+	EndExercise(ctx context.Context, actor service.Actor, sessionID uuid.UUID) (service.ExerciseState, error)
+	RevealExercise(ctx context.Context, actor service.Actor, sessionID uuid.UUID, visible bool) (service.ExerciseState, error)
+	WatchExercise(ctx context.Context, actor service.Actor, sessionID uuid.UUID, student *uuid.UUID) (service.ExerciseWatch, error)
+	ExerciseScreenAllowed(sessionID, student, runID uuid.UUID) bool
+	ExerciseWatching(sessionID, student uuid.UUID) bool
+	JoinExercise(sessionID uuid.UUID, students ...uuid.UUID)
+	RecordExerciseProgress(ctx context.Context, sessionID, student uuid.UUID, in service.ExerciseProgressInput) (service.ExerciseProgress, error)
+	ExerciseOf(ctx context.Context, sessionID uuid.UUID, withProgress bool) (*service.ExerciseState, error)
+	SubmitExercise(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.ExerciseSubmitInput) (service.ExerciseSubmitResult, error)
+}
+
+// Limiter says whether a key may do something again now, and if not, how long it has to wait.
+type Limiter interface {
+	Allow(key string) (bool, time.Duration)
 }
 
 // Options are the settings of the handler.
@@ -72,6 +91,8 @@ type Options struct {
 	AllowedOrigins []string
 	// AnyOrigin accepts every origin; only for local development, where the page may come by the address or by localhost.
 	AnyOrigin bool
+	// SubmitLimiter limits the submissions of the state of the exercise, by student (SPEC-065); with none it is one each 2 seconds.
+	SubmitLimiter Limiter
 }
 
 // Handler serves the routes of the live classroom.
@@ -81,11 +102,15 @@ type Handler struct {
 	log      *zap.Logger
 	hub      *hub.Hub
 	upgrader websocket.Upgrader
+	submits  Limiter
 }
 
 // New creates the handler and the hub of its rooms.
 func New(svc Service, auth authn.Validator, log *zap.Logger, opts Options) *Handler {
-	h := &Handler{svc: svc, auth: auth, log: log}
+	h := &Handler{svc: svc, auth: auth, log: log, submits: opts.SubmitLimiter}
+	if h.submits == nil {
+		h.submits = ratelimit.New(1, domain.ExerciseSubmitInterval)
+	}
 	h.upgrader = websocket.Upgrader{CheckOrigin: originChecker(opts)}
 	h.hub = hub.New(hubConfig(), wsHandler{h}, log)
 	return h
@@ -121,6 +146,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.PUT("/classes/:id/live/sessions/:sessionId/notes", h.saveNote)
 	g.GET("/classes/:id/live/sessions/:sessionId/notes", h.getNote)
 	g.GET("/classes/:id/live/ws", h.connect)
+	g.POST("/classes/:id/live/exercise/submit", h.submitExercise)
 }
 
 // CloseRoom tells everyone in the room that the lesson ended, and disconnects them.
@@ -564,6 +590,18 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("class-archived", err.Error())
 	case errors.Is(err, domain.ErrDeckLimit):
 		return problem.Conflict("deck-limit-exceeded", err.Error())
+	case errors.Is(err, domain.ErrNoExerciseRun):
+		return problem.NotFound("exercise-run-not-found", err.Error())
+	case errors.Is(err, domain.ErrExerciseEnded):
+		return problem.Conflict("exercise-ended", err.Error())
+	case errors.Is(err, domain.ErrExerciseRunning):
+		return problem.Conflict("exercise-running", err.Error())
+	case errors.Is(err, domain.ErrExerciseUnavailable):
+		return problem.Conflict("exercise-unavailable", err.Error())
+	case errors.Is(err, domain.ErrInvalidExerciseState):
+		return problem.Validation(err.Error(), problem.InvalidParam{Name: "snapshot", Reason: "invalid format"})
+	case errors.Is(err, domain.ErrInvalidExerciseMinutes):
+		return problem.Validation(err.Error(), problem.InvalidParam{Name: "minutes", Reason: "from 1 to 60"})
 	default:
 		return problem.Internal()
 	}
