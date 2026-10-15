@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-063 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
 | **Última revisão** | 14/10/2026 (aprovada pelo pedido do Tech Lead) |
 | **Autor** | Aruna Architect |
@@ -110,18 +110,18 @@ Só o WebSocket da sala (3.1): `live:chat:send` (cliente → servidor), `live:ch
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): O painel DEVE mostrar a seção "Alunos online" com um card por aluno aceito que está online (nome, mão e dúvida, mensagens novas, "Conversar"), na ordem de 3.3, atualizada em até 300 ms quando um aluno entra, sai, levanta ou baixa a mão; DEVE mostrar "Nenhum aluno online." sem eles e o botão "Mensagem para todos".
-- [ ] **CA-02** (evento): QUANDO o professor envia uma mensagem a um aluno pelo painel, O SISTEMA DEVE guardá-la e entregá-la só às conexões do painel e às do aluno.
-- [ ] **CA-03** (evento): QUANDO o professor envia uma mensagem para todos, O SISTEMA DEVE guardá-la e entregá-la ao painel e a todos os alunos aceitos, e NÃO DEVE entregá-la à janela de apresentação nem a quem está na sala de espera.
-- [ ] **CA-04** (evento): QUANDO um aluno aceito envia uma mensagem, O SISTEMA DEVE guardá-la e entregá-la ao painel e às conexões do próprio aluno, e NÃO DEVE entregá-la a nenhum outro aluno.
-- [ ] **CA-05** (ubíquo): O servidor DEVE rejeitar, sem enviar nada, o texto vazio ou de mais de 500 caracteres ou com caracteres de controle indevidos, o aluno que informa destinatário, o professor sem destino ou com dois, o `studentId` que não é aluno aceito da aula; e DEVE descartar o envio da janela de apresentação, de quem está em espera ou removido, e de papel sem direito.
-- [ ] **CA-06** (ubíquo): O histórico DEVE vir no instantâneo (aluno: as para todos e as da conversa dele; painel: todas; no máximo 200 e 500) e DEVE sobreviver ao recarregar e ao reconectar; o cliente NÃO DEVE duplicar a mensagem que já tem (mesmo `id`).
-- [ ] **CA-07** (evento): QUANDO o professor escolhe um card ou "Mensagem para todos", O SISTEMA DEVE abrir a conversa com as mensagens marcadas, a dúvida fixa no alto (quando a mão estiver levantada) e o campo de texto com os botões de 3.3; o Enter DEVE enviar em particular (ou para todos no canal "Para todos"); depois de enviar para todos a partir de uma conversa particular DEVE avisar; e abrir a conversa DEVE zerar as mensagens novas dela.
-- [ ] **CA-08** (ubíquo): O aluno DEVE ter na faixa o botão "Conversa" com o contador de mensagens novas, que abre a coluna lateral com as mensagens marcadas e o campo de texto; DEVE abrir uma fechando a das anotações (e o contrário); e o envio DEVE ficar desativado sem conexão.
-- [ ] **CA-09** (ubíquo): O botão "Tela cheia" e a tecla F do aluno DEVEM levar a sala inteira para a tela cheia, mantendo a faixa, a conversa, as anotações e o modal da dúvida.
-- [ ] **CA-10** (ubíquo): As mensagens e as dúvidas DEVEM ser desenhadas como texto puro, com as quebras de linha, e o servidor DEVE guardá-las como vieram.
-- [ ] **CA-11** (ubíquo): Nada fora da sala ao vivo DEVE mudar; os testes existentes passam sem alteração, salvo os da SPEC-057 e da SPEC-059 sobre o elemento em tela cheia, que passam a testar a sala inteira e estão listados no relatório; `engine/core` não é alterado.
-- [ ] **CA-12** (ubíquo): Stylelint, ESLint, `tsc`, `go vet` e `gofmt` limpos; cobertura acima de 80% no escopo; migração `00034` aplicada e revertida sem erro.
+- [x] **CA-01** (ubíquo): O painel DEVE mostrar a seção "Alunos online" com um card por aluno aceito que está online (nome, mão e dúvida, mensagens novas, "Conversar"), na ordem de 3.3, atualizada em até 300 ms quando um aluno entra, sai, levanta ou baixa a mão; DEVE mostrar "Nenhum aluno online." sem eles e o botão "Mensagem para todos".
+- [x] **CA-02** (evento): QUANDO o professor envia uma mensagem a um aluno pelo painel, O SISTEMA DEVE guardá-la e entregá-la só às conexões do painel e às do aluno.
+- [x] **CA-03** (evento): QUANDO o professor envia uma mensagem para todos, O SISTEMA DEVE guardá-la e entregá-la ao painel e a todos os alunos aceitos, e NÃO DEVE entregá-la à janela de apresentação nem a quem está na sala de espera.
+- [x] **CA-04** (evento): QUANDO um aluno aceito envia uma mensagem, O SISTEMA DEVE guardá-la e entregá-la ao painel e às conexões do próprio aluno, e NÃO DEVE entregá-la a nenhum outro aluno.
+- [x] **CA-05** (ubíquo): O servidor DEVE rejeitar, sem enviar nada, o texto vazio ou de mais de 500 caracteres ou com caracteres de controle indevidos, o aluno que informa destinatário, o professor sem destino ou com dois, o `studentId` que não é aluno aceito da aula; e DEVE descartar o envio da janela de apresentação, de quem está em espera ou removido, e de papel sem direito.
+- [x] **CA-06** (ubíquo): O histórico DEVE vir no instantâneo (aluno: as para todos e as da conversa dele; painel: todas; no máximo 200 e 500) e DEVE sobreviver ao recarregar e ao reconectar; o cliente NÃO DEVE duplicar a mensagem que já tem (mesmo `id`).
+- [x] **CA-07** (evento): QUANDO o professor escolhe um card ou "Mensagem para todos", O SISTEMA DEVE abrir a conversa com as mensagens marcadas, a dúvida fixa no alto (quando a mão estiver levantada) e o campo de texto com os botões de 3.3; o Enter DEVE enviar em particular (ou para todos no canal "Para todos"); depois de enviar para todos a partir de uma conversa particular DEVE avisar; e abrir a conversa DEVE zerar as mensagens novas dela.
+- [x] **CA-08** (ubíquo): O aluno DEVE ter na faixa o botão "Conversa" com o contador de mensagens novas, que abre a coluna lateral com as mensagens marcadas e o campo de texto; DEVE abrir uma fechando a das anotações (e o contrário); e o envio DEVE ficar desativado sem conexão.
+- [x] **CA-09** (ubíquo): O botão "Tela cheia" e a tecla F do aluno DEVEM levar a sala inteira para a tela cheia, mantendo a faixa, a conversa, as anotações e o modal da dúvida.
+- [x] **CA-10** (ubíquo): As mensagens e as dúvidas DEVEM ser desenhadas como texto puro, com as quebras de linha, e o servidor DEVE guardá-las como vieram.
+- [x] **CA-11** (ubíquo): Nada fora da sala ao vivo DEVE mudar; os testes existentes passam sem alteração, salvo os da SPEC-057 e da SPEC-059 sobre o elemento em tela cheia, que passam a testar a sala inteira e estão listados no relatório; `engine/core` não é alterado.
+- [x] **CA-12** (ubíquo): Stylelint, ESLint, `tsc`, `go vet` e `gofmt` limpos; cobertura acima de 80% no escopo; migração `00034` aplicada e revertida sem erro.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -157,3 +157,4 @@ O Tech Lead pediu os cards dos alunos online e o chat com resposta em particular
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 14/10/2026 | Aruna Architect | Criação; aprovada pelo pedido do Tech Lead; as escolhas da seção 10 ficam para a revisão dele |
+| 14/10/2026 | Aruna Architect | Implementada. Backend: `4b9ece8`, `f7f4268`, `d936e12`, `31eaf50`. Frontend: contrato `00083ad`, `21d8215`, textos `81f9ee9`; aluno `e5faed6`, `00eb145`, `50f0b31`; painel `c9fa12f`, `997a8de`, `2f1ad09`, `a4dd2ec`. Desvios: o texto da mensagem usa a normalização comum com a dúvida (`normalizePlainText`); a presença do painel ganhou `onlineStudents` e por isso três asserções de testes existentes de presença mudaram; o administrador também envia como professor (`sender_role = TEACHER`); a tabela tem `updated_at` e `deleted_at` como as vizinhas; o aluno que manda campo além de `text` é rejeitado, e a janela de apresentação é descartada (`wrong-view`); o campo do cliente reduz 4 ou mais quebras seguidas a 3 (o servidor rejeita mais de 3); o contador de novas toma como lido só o primeiro instantâneo, então mensagens que chegam em um instantâneo de reconexão contam como novas; cada conversa do painel guarda o próprio rascunho; `LiveInteractionDrawer` ganhou a prop `before`; ao desligar o pedido de tela cheia do professor a sala sai da tela cheia mesmo que o aluno a tenha escolhido (botão, F e pedido agora apontam para o mesmo elemento); testes existentes alterados: os de elemento em tela cheia (SPEC-057/062), o da lista de botões da faixa e os helpers `live()` dos mocks do hook; sem verificação no navegador |

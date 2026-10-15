@@ -52,6 +52,10 @@ Regras:
 | Modo foco | `data-focus` da sala do aluno | A sala do aluno cobrindo o menu da plataforma, com o palco na janela inteira, quando o professor liga a tela cheia dos alunos | `Fullscreen` (a tela cheia do navegador é outra coisa) | Proposto (SPEC-059) |
 | Tela de espera | `WaitingScreen` (estado interno `blank`, mensagem `live:stage:blank`) | Tela animada e colorida, com o título da aula e o tempo de aula, que o professor liga para cobrir o palco de todos; não confundir com a Sala de espera (admissão) | `Tela preta`, `Blank screen` | Proposto (SPEC-061) |
 | Dúvida da mão | `question` da mão levantada (`live_hand_raises`) | Texto opcional de até 300 caracteres que o aluno escreve, no modal que abre ao levantar a mão (pelo ícone do cabeçalho ou pelo botão da faixa); só o professor o lê | `Pergunta`, `Chat` | Proposto (SPEC-058, SPEC-062) |
+| Chat da aula | `live_chat_messages` | Conversa por texto da aula ao vivo: o aluno escreve ao professor e o professor responde em particular a um aluno ou para todos; só texto puro, até 500 caracteres | `Sala de bate-papo`, `Mensagens` (solto) | Proposto (SPEC-063) |
+| Mensagem para todos | `scope: "all"` de `live:chat:message` | Mensagem do professor que o painel e todos os alunos aceitos da aula recebem; o aluno não escreve para todos | `Aviso`, `Broadcast` (na interface) | Proposto (SPEC-063) |
+| Conversa particular | `scope: "private"` com `studentId` | Troca de mensagens entre um aluno e o professor; só o aluno e o painel a veem | `Mensagem direta`, `DM` | Proposto (SPEC-063) |
+| Cartão do aluno online | `OnlineStudents` | Card do painel do professor com o nome, a mão, a dúvida e as mensagens novas de um aluno aceito que está na sala | `Lista de presença` | Proposto (SPEC-063) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 
