@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-066 |
-| **Status** | Rascunho |
+| **Status** | Implementada |
 | **Data de criação** | 15/10/2026 |
-| **Última revisão** | 15/10/2026 |
+| **Última revisão** | 15/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Frontend |
@@ -67,13 +67,13 @@ Não se aplica nesta spec: nenhum endpoint muda.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): O SISTEMA DEVE ter, em todo campo de senha da interface (entrada, cadastro, redefinição, troca de senha e convite), um botão que mostra e oculta o valor digitado.
-- [ ] **CA-02** (estado): ENQUANTO a senha está oculta, O SISTEMA DEVE mostrar o campo como senha, o ícone de olho aberto e o botão com o nome "Mostrar senha" e não pressionado.
-- [ ] **CA-03** (evento): QUANDO o usuário aciona o botão com a senha oculta, O SISTEMA DEVE mostrar o valor em texto, trocar o ícone para olho riscado e o nome do botão para "Ocultar senha", pressionado.
-- [ ] **CA-04** (evento): QUANDO o usuário aciona o botão com a senha visível, O SISTEMA DEVE voltar a ocultar o valor e restaurar o ícone e o nome do estado oculto.
-- [ ] **CA-05** (ubíquo): O SISTEMA DEVE desenhar o ícone em SVG, escondido de leitores de tela e na cor do texto do tema, e NÃO DEVE usar os caracteres `◎` e `◉`.
-- [ ] **CA-06** (ubíquo): O SISTEMA NÃO DEVE alterar o valor digitado ao mostrar ou ocultar a senha.
-- [ ] **CA-07** (ubíquo): O SISTEMA DEVE manter o rótulo, a obrigatoriedade e o fluxo de cadastro do convite como estão hoje, incluindo o envio da senha digitada.
+- [x] **CA-01** (ubíquo): O SISTEMA DEVE ter, em todo campo de senha da interface (entrada, cadastro, redefinição, troca de senha e convite), um botão que mostra e oculta o valor digitado.
+- [x] **CA-02** (estado): ENQUANTO a senha está oculta, O SISTEMA DEVE mostrar o campo como senha, o ícone de olho aberto e o botão com o nome "Mostrar senha" e não pressionado.
+- [x] **CA-03** (evento): QUANDO o usuário aciona o botão com a senha oculta, O SISTEMA DEVE mostrar o valor em texto, trocar o ícone para olho riscado e o nome do botão para "Ocultar senha", pressionado.
+- [x] **CA-04** (evento): QUANDO o usuário aciona o botão com a senha visível, O SISTEMA DEVE voltar a ocultar o valor e restaurar o ícone e o nome do estado oculto.
+- [x] **CA-05** (ubíquo): O SISTEMA DEVE desenhar o ícone em SVG, escondido de leitores de tela e na cor do texto do tema, e NÃO DEVE usar os caracteres `◎` e `◉`.
+- [x] **CA-06** (ubíquo): O SISTEMA NÃO DEVE alterar o valor digitado ao mostrar ou ocultar a senha.
+- [x] **CA-07** (ubíquo): O SISTEMA DEVE manter o rótulo, a obrigatoriedade e o fluxo de cadastro do convite como estão hoje, incluindo o envio da senha digitada.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -108,3 +108,5 @@ Nenhuma.
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 15/10/2026 | Aruna Architect | Criação em Rascunho, a pedido do Tech Lead |
+| 15/10/2026 | Aruna Architect | Aprovada pelo Tech Lead ("Sim chat, pode ir fazendo em ordem") |
+| 15/10/2026 | Implementador | Implementada: olho em SVG (aberto e riscado) no `PasswordField` e o campo de senha do convite passou a usar o `PasswordField`. Os 7 critérios têm teste automatizado (41 testes dos formulários de senha passando); a conferência visual nos temas claro e escuro e no celular, em especial do campo do convite ao lado dos vizinhos, fica para o Tech Lead, porque a extensão do navegador não estava conectada |
