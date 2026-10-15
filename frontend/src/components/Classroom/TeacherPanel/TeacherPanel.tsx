@@ -11,6 +11,9 @@ import { moduleService } from "@/services/moduleService";
 import { AdmissionPanel } from "../AdmissionPanel/AdmissionPanel";
 import { elapsed } from "../elapsed";
 import { LiveInteractionDrawer } from "../LiveInteractionDrawer/LiveInteractionDrawer";
+import { NoticeToggle } from "../notices/NoticeToggle";
+import { useNoticePreference } from "../notices/noticePreference";
+import { useRoomNotices } from "../notices/useRoomNotices";
 import { OnlineStudents } from "../OnlineStudents/OnlineStudents";
 import { SlideThumbnails } from "../SlideThumbnails/SlideThumbnails";
 import type { PdfLoader } from "../SlidePresenter/pdfRenderer";
@@ -89,6 +92,27 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
   const [talk, setTalk] = useState<{ to: ChatTarget; name: string } | null>(null);
   const talkingWith = talk && talk.to !== "all" ? talk.to.studentId : null;
   const { unread, markRead } = useUnreadMessages(live.chat, live.ready, talkingWith);
+
+  // Opening a conversation reads what was new in it.
+  const openConversation = (to: ChatTarget) => {
+    setTalk({ to, name: to === "all" ? "" : (admissions.admitted.find((student) => student.studentId === to.studentId)?.name ?? "") });
+    if (to !== "all") markRead(to.studentId);
+  };
+
+  // The notices of the browser for a hand that goes up and a message of a student, when the teacher is in another window; the click opens that
+  // student's conversation (SPEC-064).
+  const [noticesOn, setNoticesOn] = useNoticePreference();
+  useRoomNotices({
+    role: "teacher",
+    chat: live.chat,
+    hands: live.hands,
+    ready: live.ready,
+    enabled: noticesOn,
+    nameOf: (studentId) => admissions.admitted.find((student) => student.studentId === studentId)?.name ?? live.hands.find((hand) => hand.studentId === studentId)?.name ?? "",
+    onOpen: (studentId) => {
+      if (studentId) openConversation({ studentId });
+    },
+  });
   const popup = useRef<Window | null>(null);
   const fullscreenHint = useId();
   const back = `/app/classes/${classId}`;
@@ -218,12 +242,6 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
   };
   const moduleTitle = modules.find((mod) => mod.id === room.moduleId)?.title ?? content?.title ?? m.room.modeModule;
   const waiting = admissions.waiting.length;
-
-  // Opening a conversation reads what was new in it.
-  const openConversation = (to: ChatTarget) => {
-    setTalk({ to, name: to === "all" ? "" : (admissions.admitted.find((student) => student.studentId === to.studentId)?.name ?? "") });
-    if (to !== "all") markRead(to.studentId);
-  };
 
   const steps: Step[] = [
     { n: 1, title: t.steps.open, hint: live.presenterConnected ? t.steps.openDone : t.steps.openHint, done: live.presenterConnected },
@@ -482,6 +500,7 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
           <Button variant="ghost" size="sm" aria-pressed={sound} onClick={toggleSound}>
             {t.sound}
           </Button>
+          <NoticeToggle enabled={noticesOn} onChange={setNoticesOn} />
         </LiveInteractionDrawer>
       </div>
     </main>

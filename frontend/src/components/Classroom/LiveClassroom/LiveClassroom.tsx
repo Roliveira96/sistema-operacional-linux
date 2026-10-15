@@ -11,6 +11,9 @@ import { elapsed } from "../elapsed";
 import { FixedStage } from "../FixedStage/FixedStage";
 import { HandDialog } from "../HandDialog/HandDialog";
 import { ModuleStage } from "../ModuleStage/ModuleStage";
+import { NoticeToggle } from "../notices/NoticeToggle";
+import { useNoticePreference } from "../notices/noticePreference";
+import { useRoomNotices } from "../notices/useRoomNotices";
 import { SlidePresenter } from "../SlidePresenter/SlidePresenter";
 import { StudentChat } from "../StudentChat/StudentChat";
 import { StudentNotesPanel } from "../StudentNotesPanel/StudentNotesPanel";
@@ -75,6 +78,10 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   const fromTeacher = live.chat.filter((message) => message.from === "TEACHER").map((message) => message.id);
   const unread = seen ? fromTeacher.filter((id) => !seen.has(id)).length : 0;
   if (live.ready && (seen === null || (chatOpen && unread > 0))) setSeen(new Set(fromTeacher));
+
+  // The notices of the browser for the messages of the teacher, when the student is in another tab or window; the click opens the conversation (SPEC-064).
+  const [noticesOn, setNoticesOn] = useNoticePreference();
+  useRoomNotices({ role: "student", chat: live.chat, hands: live.hands, ready: live.ready, enabled: noticesOn, onOpen: () => setSide("chat") });
 
   const place = live.hands.findIndex((hand) => hand.studentId === userId);
   const raised = place >= 0;
@@ -249,6 +256,7 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
               </span>
             )}
           </Button>
+          <NoticeToggle enabled={noticesOn} onChange={setNoticesOn} />
           {/* The browser did not let the room into the full screen, or the student left it, while the teacher asks for it: one click does it (SPEC-059 CA-03, CA-04). */}
           {requested && fullscreen.supported && !fullscreen.inFullscreen && (
             <Button variant="primary" size="sm" data-attention="true" onClick={() => fullscreen.enter()}>

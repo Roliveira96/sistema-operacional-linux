@@ -1359,6 +1359,21 @@ export const messages = {
       sentAll: "Mensagem enviada para todos os alunos.",
       offline: "Sem conexão. Reconectando…",
     },
+    // SPEC-064: the notices of the browser while the class is open, for the teacher and for the student
+    notices: {
+      toggle: "Notificações",
+      enable: "Ativar notificações",
+      unavailable: "Este navegador ou este endereço não permite notificações. Use https ou localhost.",
+      blocked: "As notificações estão bloqueadas nas configurações do navegador.",
+      handTitle: "Mão levantada",
+      handBody: (name: string, doubt?: string) => (doubt ? `${name} levantou a mão: ${doubt}` : `${name} levantou a mão`),
+      studentTitle: (name: string) => `Mensagem de ${name}`,
+      someone: "um aluno",
+      teacherPrivate: "Professor",
+      teacherAll: "Professor · para todos",
+      moreTitle: "Aula ao vivo",
+      moreBody: (count: number) => `e mais ${count} ${count === 1 ? "aviso" : "avisos"}`,
+    },
     notes: {
       title: "Minhas anotações",
       placeholder: "Escreva aqui. Só você vê estas anotações.",
