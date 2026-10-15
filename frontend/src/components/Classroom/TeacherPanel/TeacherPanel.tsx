@@ -6,14 +6,17 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { messages } from "@/messages/pt-BR";
-import { classroomService, type LiveModuleContent, type LiveSession } from "@/services/classroomService";
+import { classroomService, type ChatTarget, type LiveModuleContent, type LiveSession } from "@/services/classroomService";
 import { moduleService } from "@/services/moduleService";
 import { AdmissionPanel } from "../AdmissionPanel/AdmissionPanel";
 import { elapsed } from "../elapsed";
 import { LiveInteractionDrawer } from "../LiveInteractionDrawer/LiveInteractionDrawer";
+import { OnlineStudents } from "../OnlineStudents/OnlineStudents";
 import { SlideThumbnails } from "../SlideThumbnails/SlideThumbnails";
 import type { PdfLoader } from "../SlidePresenter/pdfRenderer";
+import { TeacherChat } from "../TeacherChat/TeacherChat";
 import styles from "./TeacherPanel.module.scss";
+import { useUnreadMessages } from "./useUnreadMessages";
 
 const m = messages.classroom;
 const t = m.teacher;
@@ -82,6 +85,10 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
   const [sound, setSound] = useState(readSound);
   const [blocked, setBlocked] = useState<string | null>(null);
   const [seenPresenter, setSeenPresenter] = useState(false);
+  // The conversation that is open, with the name of the student as it was when it opened (SPEC-063).
+  const [talk, setTalk] = useState<{ to: ChatTarget; name: string } | null>(null);
+  const talkingWith = talk && talk.to !== "all" ? talk.to.studentId : null;
+  const { unread, markRead } = useUnreadMessages(live.chat, live.ready, talkingWith);
   const popup = useRef<Window | null>(null);
   const fullscreenHint = useId();
   const back = `/app/classes/${classId}`;
@@ -212,6 +219,12 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
   const moduleTitle = modules.find((mod) => mod.id === room.moduleId)?.title ?? content?.title ?? m.room.modeModule;
   const waiting = admissions.waiting.length;
 
+  // Opening a conversation reads what was new in it.
+  const openConversation = (to: ChatTarget) => {
+    setTalk({ to, name: to === "all" ? "" : (admissions.admitted.find((student) => student.studentId === to.studentId)?.name ?? "") });
+    if (to !== "all") markRead(to.studentId);
+  };
+
   const steps: Step[] = [
     { n: 1, title: t.steps.open, hint: live.presenterConnected ? t.steps.openDone : t.steps.openHint, done: live.presenterConnected },
     { n: 2, title: t.steps.accept, hint: t.steps.waiting(waiting), done: waiting === 0 },
@@ -322,6 +335,15 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
               </div>
             </dl>
           </section>
+
+          <OnlineStudents
+            admitted={admissions.admitted}
+            online={live.onlineStudents}
+            hands={live.hands}
+            unread={unread}
+            selected={talk?.to ?? null}
+            onSelect={openConversation}
+          />
 
           <section className={styles.stage} aria-labelledby="stage-title">
             <h2 id="stage-title" className={styles.sectionTitle}>
@@ -438,7 +460,24 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
           </section>
         </div>
 
-        <LiveInteractionDrawer role="teacher" userId="" hands={live.hands} onRaise={() => undefined} onLower={() => undefined} onModerate={live.moderate}>
+        <LiveInteractionDrawer
+          role="teacher"
+          userId=""
+          hands={live.hands}
+          onRaise={() => undefined}
+          onLower={() => undefined}
+          onModerate={live.moderate}
+          before={
+            <TeacherChat
+              target={talk?.to ?? null}
+              studentName={talk?.name ?? ""}
+              chat={live.chat}
+              doubt={live.hands.find((hand) => hand.studentId === talkingWith)?.question}
+              connected={live.connected}
+              onSend={live.sendChat}
+            />
+          }
+        >
           <AdmissionPanel waiting={admissions.waiting} admitted={admissions.admitted} onAccept={live.acceptStudent} onAcceptAll={live.acceptAll} onRemove={live.removeStudent} />
           <Button variant="ghost" size="sm" aria-pressed={sound} onClick={toggleSound}>
             {t.sound}

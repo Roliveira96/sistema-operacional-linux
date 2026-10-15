@@ -18,6 +18,8 @@ export interface LiveInteractionDrawerProps {
   onLower(): void;
   /** The teacher lowers one hand, or all of them when no student is given. */
   onModerate(studentId?: string): void;
+  /** What goes above the hands: the conversation of the teacher (SPEC-063). */
+  before?: ReactNode;
   /** What goes under the hands: the notes of the student. */
   children?: ReactNode;
 }
@@ -26,11 +28,12 @@ export interface LiveInteractionDrawerProps {
  * The side of the live classroom: the raised hands for the teacher, each with the name, how long ago and the doubt that came with it (SPEC-058), and
  * the button to raise the hand for the student (SPEC-051 CA-08, CA-09).
  */
-export function LiveInteractionDrawer({ role, userId, hands, onRaise, onLower, onModerate, children }: LiveInteractionDrawerProps) {
+export function LiveInteractionDrawer({ role, userId, hands, onRaise, onLower, onModerate, before, children }: LiveInteractionDrawerProps) {
   const place = hands.findIndex((hand) => hand.studentId === userId);
   const now = useMinuteClock();
   return (
     <aside className={styles.drawer}>
+      {before}
       {role === "teacher" ? (
         <section className={styles.section} aria-labelledby="hands-title">
           <h2 id="hands-title" className={styles.title}>
