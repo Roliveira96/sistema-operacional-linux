@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { classroomService, type LiveExercise, type LiveModuleContent } from "@/services/classroomService";
-import { END, exerciseModule, none, round, terminalHarness } from "@/test/exerciseFixtures";
+import { approved, END, exerciseModule, none, round, terminalHarness, whole } from "@/test/exerciseFixtures";
 import { ExerciseArea, type ExerciseAreaProps } from "./ExerciseArea";
 
 const mount = vi.hoisted(() => vi.fn());
@@ -20,6 +20,17 @@ const result = { runId: "r-1", visible: true, completed: 2, participants: 3, sco
 const shown = (over: Partial<LiveExercise> = {}) => ended({ resultVisible: true, result, ...over });
 const results = () => screen.findByRole("region", { name: "Resultado do exercício" });
 const rows = () => within(screen.getByRole("table", { name: "Placar" })).getAllByRole("row").slice(1);
+
+/** The student concludes the exercise in this page: the server answers the check, and the room never tells him his result again until he comes back. */
+async function concluded() {
+  vi.spyOn(classroomService, "submitExercise").mockResolvedValue(approved);
+  const view = render(area());
+  await screen.findByRole("heading", { name: "Criar as pastas" });
+  await waitFor(() => expect(screen.queryByText("Carregando o terminal…")).toBeNull());
+  act(() => h.type("touch /dois/x.txt", whole()));
+  await screen.findByText("Você concluiu! +30 pontos, em 03:12");
+  return view;
+}
 
 /** The student sees the round run first, as he does when he is in the room when it ends. */
 async function watched(then: LiveExercise) {
@@ -56,6 +67,14 @@ describe("ExerciseArea, when the round ends with the result hidden", () => {
 
   it("tells the personal gain of the student who concluded, even with the result hidden", async () => {
     await watched(ended({ myResult: { completedAt: END, elapsedSeconds: 192, points: 30 } }));
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("Exercício encerrado");
+    expect(status.textContent).toContain("Você concluiu! +30 pontos, em 03:12");
+  });
+
+  it("tells the personal gain of a student who concluded in this page, though the room never told his result", async () => {
+    const view = await concluded();
+    view.rerender(area({ exercise: ended() }));
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Exercício encerrado");
     expect(status.textContent).toContain("Você concluiu! +30 pontos, em 03:12");
@@ -132,6 +151,13 @@ describe("ExerciseArea, the result the teacher shows", () => {
     render(area({ exercise: shown({ myResult: { completedAt: END, elapsedSeconds: 192, points: 28 } }) }));
     const region = await results();
     expect(within(region).getByText("Você concluiu! +28 pontos, em 03:12")).toBeDefined();
+  });
+
+  it("shows the personal gain of a student who concluded in this page on top of the result, though the room never told his result", async () => {
+    const view = await concluded();
+    view.rerender(area({ exercise: shown() }));
+    const region = await results();
+    expect(within(region).getByText("Você concluiu! +30 pontos, em 03:12")).toBeDefined();
   });
 
   it("says when nobody concluded, without an empty scoreboard", async () => {
