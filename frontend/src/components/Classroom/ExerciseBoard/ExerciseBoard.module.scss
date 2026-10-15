@@ -1,0 +1,390 @@
+@use "@/styles/mixins" as mixins;
+
+// The section "Exercício ao vivo", in the main column of the panel of the teacher (SPEC-065).
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+// What the class is doing that the teacher should know: a line on the left, and the words say it, so it is not only a color.
+.notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-info);
+  border-radius: var(--radius-md);
+  background-color: var(--color-info-subtle);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+// The list of the exercises of the module, to start one.
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+}
+
+.what {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
+.where {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+}
+
+.name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.level {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.minutes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+
+  input {
+    width: 4.5rem;
+    min-height: 2rem;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+
+    @include mixins.focusable;
+
+    &:disabled {
+      opacity: 0.35;
+    }
+  }
+}
+
+// Why an exercise cannot be started, written under it.
+.reason {
+  flex-basis: 100%;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-warning);
+}
+
+// The round that is running: the head, with the clock the teacher looks at, and what the room does around it.
+.running,
+.ended {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.roundTitle {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.clock {
+  font-size: var(--font-size-xl);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+// The tips of the exercise, to send to everybody.
+.tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.tipList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+}
+
+// A tip is plain text: a long word does not push the section out.
+.tipText {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+}
+
+.command {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-code-bg);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+.sent {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+}
+
+.failed {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-danger);
+}
+
+// The terminal of the student who is watched: a window of a fixed height, so the cards do not jump as the picture comes.
+.terminal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.terminalHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.terminalBody {
+  display: flex;
+  flex-direction: column;
+  height: 24rem;
+  min-width: 0;
+}
+
+// The cards of the students.
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+}
+
+// Who is doing it, who finished and who gave no sign are told by a line around the card and by the words of the state, never by the color alone.
+.doing {
+  border-color: var(--color-info-line);
+}
+
+.done {
+  border-color: var(--color-success);
+}
+
+.silent {
+  border-color: var(--color-warning);
+}
+
+.studentName {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.state {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-raised);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.doing .state {
+  background-color: var(--color-info-subtle);
+  color: var(--color-info-text);
+}
+
+.done .state {
+  background-color: var(--color-success-subtle);
+  color: var(--color-success);
+}
+
+.silent .state {
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+
+.bar {
+  width: 100%;
+  height: var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-raised);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent);
+}
+
+// The last command is plain text on one line, cut with an ellipsis; the whole of it is in the title.
+.last {
+  @include mixins.truncate;
+
+  max-width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-body);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+// The round that ended: who finished, with the time and the points.
+.finished {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finishedRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+
+  strong {
+    flex: 1 1 10rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--color-text-primary);
+  }
+
+  span {
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -11,6 +11,7 @@ const TIPS = ["Dica: Use o ls\nComando: ls -l", "Dica: Olhe a pasta home", "Dica
 
 interface Over {
   target?: ChatTarget | null;
+  studentName?: string;
   suggestions?: string[];
   onSend?: (text: string, to: ChatTarget) => boolean;
 }

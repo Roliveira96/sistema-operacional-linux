@@ -10,6 +10,8 @@ import { classroomService, type ChatTarget, type LiveModuleContent, type LiveSes
 import { moduleService } from "@/services/moduleService";
 import { AdmissionPanel } from "../AdmissionPanel/AdmissionPanel";
 import { elapsed } from "../elapsed";
+import { ExerciseBoard } from "../ExerciseBoard/ExerciseBoard";
+import { boardExercises, hintMessage, hintsOf } from "../ExerciseBoard/exercises";
 import { LiveInteractionDrawer } from "../LiveInteractionDrawer/LiveInteractionDrawer";
 import { NoticeToggle } from "../notices/NoticeToggle";
 import { useNoticePreference } from "../notices/noticePreference";
@@ -242,6 +244,10 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
   };
   const moduleTitle = modules.find((mod) => mod.id === room.moduleId)?.title ?? content?.title ?? m.room.modeModule;
   const waiting = admissions.waiting.length;
+  // The practical exercises of the module the room is in: the module read before is not offered once the room changes it (SPEC-065 3.3). The tips of the
+  // round that runs are what the private conversations suggest.
+  const exercises = room.moduleId && content?.moduleId === room.moduleId ? boardExercises(content.blocks) : null;
+  const tips = live.exercise?.status === "RUNNING" ? hintsOf(exercises, live.exercise).map(hintMessage) : [];
 
   const steps: Step[] = [
     { n: 1, title: t.steps.open, hint: live.presenterConnected ? t.steps.openDone : t.steps.openHint, done: live.presenterConnected },
@@ -361,6 +367,24 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
             unread={unread}
             selected={talk?.to ?? null}
             onSelect={openConversation}
+          />
+
+          <ExerciseBoard
+            exercise={live.exercise}
+            exercises={exercises}
+            admitted={admissions.admitted}
+            online={live.onlineStudents}
+            progress={live.exerciseProgress}
+            watching={live.watching}
+            watchedScreen={live.watchedScreen}
+            canControl={live.canControl}
+            classOnSlides={mode === "SLIDES"}
+            onStart={live.startExercise}
+            onEnd={live.endExercise}
+            onReveal={live.revealExercise}
+            onWatch={live.watchStudent}
+            onTip={(studentId) => openConversation({ studentId })}
+            onSendTip={(text) => live.sendChat(text, "all")}
           />
 
           <section className={styles.stage} aria-labelledby="stage-title">
@@ -493,6 +517,7 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
               doubt={live.hands.find((hand) => hand.studentId === talkingWith)?.question}
               connected={live.connected}
               onSend={live.sendChat}
+              suggestions={tips}
             />
           }
         >

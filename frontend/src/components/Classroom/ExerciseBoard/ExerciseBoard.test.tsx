@@ -237,7 +237,7 @@ describe("ExerciseBoard, with the round running", () => {
     expect(board().getByText("1 de 2 concluíram")).toBeDefined();
     again({ progress: { "u-1": finished("u-1", 205, 25), "u-2": finished("u-2", 250, 22) } });
     expect(board().getByText("2 de 2 concluíram")).toBeDefined();
-    again({ online: ["u-1", "u-2", "u-3"] });
+    again({ progress: { "u-1": finished("u-1", 205, 25), "u-2": finished("u-2", 250, 22) }, online: ["u-1", "u-2", "u-3"] });
     expect(board().getByText("2 de 3 concluíram")).toBeDefined();
   });
 
@@ -646,6 +646,10 @@ describe("ExerciseBoard, the style", () => {
   it("uses only the tokens of the theme: no color written in the sheet", () => {
     expect(scss).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
     expect(scss).toMatch(/var\(--color-/);
+  });
+
+  it("has a style for each state of a card, so none is drawn with a class that does not exist", () => {
+    for (const state of ["doing", "done", "silent"]) expect(scss).toMatch(new RegExp(String.raw`\.${state}\s*\{`));
   });
 
   it("gives the buttons and the field a visible focus", () => {
