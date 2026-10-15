@@ -91,4 +91,14 @@ describe("tail -f stays alive without holding the other terminals", () => {
     expect(ended.output).toContain("dois");
     expect((await run(t, "pgrep tail", 3)).status).not.toBe(0);
   });
+
+  it("in a pipe or a file it shows the end of the file and ends, since nobody reads before it ends", async () => {
+    const t = await terminal();
+    await run(t, "printf 'a\nb\n' > /tmp/pipe.log");
+    const piped = await run(t, "tail -f /tmp/pipe.log | head -n 1");
+    expect(piped.status).toBe(0);
+    expect(piped.output).toBe("a");
+    const redirected = await run(t, "tail -f /tmp/pipe.log > /tmp/copia.log; cat /tmp/copia.log");
+    expect(redirected.output).toContain("b");
+  });
 });

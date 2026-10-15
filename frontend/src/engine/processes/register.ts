@@ -1,5 +1,6 @@
 import { installBinaries } from "./binaries";
 import { yesCommand, watchCommand } from "./loops";
+import { makeTail } from "./follow";
 import { makeKill } from "./kill";
 import { pingCommand } from "./ping";
 import { niceCommand, reniceCommand } from "./nice";
@@ -37,6 +38,8 @@ export async function registerProcessCommands(registry: Registry): Promise<void>
   setProcessLister(listarProcessos as unknown as (machine: unknown) => ProcessLine[]);
   const ps = registry.obter("ps") as EngineCommand | undefined;
   if (ps) registry.registrar(makePs(ps) as unknown as never);
+  const tail = registry.obter("tail") as EngineCommand | undefined;
+  if (tail) registry.registrar(makeTail(tail) as unknown as never);
   const top = registry.obter("top") as EngineCommand | undefined;
   if (top) registry.registrar(makeTop(top) as unknown as never);
 }
