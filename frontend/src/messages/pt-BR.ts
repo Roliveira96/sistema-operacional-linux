@@ -1424,6 +1424,7 @@ export const messages = {
       terminalLoading: "Carregando o terminal…",
       terminalError: "Não foi possível abrir o terminal.",
       timer: "Tempo restante do exercício",
+      stripLabel: "Exercício",
       stripTimer: "Tempo do exercício",
       progress: (met: number, total: number) => `${met} de ${total} ${total === 1 ? "condição" : "condições"}`,
       checking: "Conferindo…",

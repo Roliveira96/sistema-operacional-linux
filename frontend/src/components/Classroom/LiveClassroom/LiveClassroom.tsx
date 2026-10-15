@@ -8,6 +8,8 @@ import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { messages } from "@/messages/pt-BR";
 import type { LiveSession } from "@/services/classroomService";
 import { elapsed } from "../elapsed";
+import { ExerciseArea } from "../ExerciseArea/ExerciseArea";
+import { ExerciseClock } from "../ExerciseArea/ExerciseClock";
 import { FixedStage } from "../FixedStage/FixedStage";
 import { HandDialog } from "../HandDialog/HandDialog";
 import { ModuleStage } from "../ModuleStage/ModuleStage";
@@ -58,6 +60,12 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   const toggleSide = (which: "notes" | "chat") => setSide(side === which ? null : which);
   // The modal of the doubt is open: the student raised the hand, or came to write the doubt of the hand that is up (SPEC-062).
   const [asking, setAsking] = useState(false);
+  // The round of the practical exercise (SPEC-065): while it runs the area of the exercise is in the place of the stage, and the student can look at the lesson
+  // without stopping it. The choice is for the round it was made in, so a new round starts in the exercise.
+  const exercise = live.exercise ?? null;
+  const exerciseRunning = exercise !== null && exercise.status === "RUNNING";
+  const [awayFrom, setAwayFrom] = useState<string | null>(null);
+  const away = exerciseRunning && awayFrom === exercise.runId;
   const frame = useRef<HTMLElement>(null);
   const back = `/app/classes/${classId}`;
 
@@ -118,7 +126,8 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
     const onKey = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey || event.key.toLowerCase() !== "f") return;
       const target = event.target instanceof HTMLElement ? event.target : null;
-      if (target && (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)) return;
+      // The terminal of the exercise is a place of typing too: its keys are the student's commands, not the shortcut of the room (SPEC-065).
+      if (target && (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable || target.closest(".term"))) return;
       toggleFullscreen();
     };
     document.addEventListener("keydown", onKey);
@@ -202,6 +211,18 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
             )}
             {room.blank && <WaitingScreen title={session.title} startedAt={startedAt} />}
           </FixedStage>
+          {/* In the room of the stage, outside its fixed box and in no portal, over the stage that stays mounted under it: the mirror of the teacher keeps its state (SPEC-065 CA-13). */}
+          {exercise && (
+            <ExerciseArea
+              classId={classId}
+              userId={userId}
+              exercise={exercise}
+              away={away}
+              watched={live.watchedByTeacher}
+              onProgress={live.sendExerciseProgress}
+              onScreen={live.sendExerciseScreen}
+            />
+          )}
           {/* In the room of the stage, outside its fixed box, and in no portal: it is in the full screen too (SPEC-062 CA-05, CA-07). */}
           {asking && <HandDialog saved={live.myHand?.question ?? ""} onSend={(question) => live.raiseHand(question)} onLower={lowerHand} onClose={() => setAsking(false)} />}
         </div>
@@ -224,12 +245,22 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
               {m.room.reconnecting}
             </span>
           )}
+          {exerciseRunning && (
+            <span className={styles.meta}>
+              {m.exerciseArea.stripLabel} <ExerciseClock exercise={exercise} label={m.exerciseArea.stripTimer} className={styles.exerciseClock} />
+            </span>
+          )}
           <span className={styles.meta}>{m.room.online(room.online)}</span>
           <span className={styles.meta}>{mode === "SLIDES" ? m.room.modeSlides : m.room.modeModule}</span>
           {mode === "SLIDES" && room.deck && <span className={styles.meta}>{m.slides.position(slideOf, room.deck.pageCount)}</span>}
         </div>
 
         <div className={styles.actions}>
+          {exerciseRunning && (
+            <Button variant={away ? "primary" : "secondary"} size="sm" onClick={() => setAwayFrom(away ? null : exercise.runId)}>
+              {away ? m.exerciseArea.backToExercise : m.exerciseArea.seeLesson}
+            </Button>
+          )}
           {raised && (
             <span className={styles.handState}>
               <span className={styles.handUp}>{m.hands.handUp}</span>

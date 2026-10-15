@@ -139,7 +139,7 @@ describe("LiveClassroom, the strip while the exercise runs", () => {
     const view = render(element());
     await area();
     await settled();
-    const hidden = () => screen.getByRole("region", { ...areaName, hidden: true }).hasAttribute("hidden");
+    const hidden = () => screen.getByLabelText("Exercício ao vivo").hasAttribute("hidden");
     expect(hidden()).toBe(false);
     fireEvent.click(within(strip()).getByRole("button", { name: "Ver a aula" }));
     expect(hidden()).toBe(true);

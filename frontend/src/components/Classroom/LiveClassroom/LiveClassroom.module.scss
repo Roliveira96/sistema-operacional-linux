@@ -203,6 +203,12 @@
   text-align: center;
 }
 
+// The time left of the exercise in the strip, which the student sees whichever he is looking at, the exercise or the lesson (SPEC-065).
+.exerciseClock {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
 .handState {
   display: flex;
   align-items: center;
