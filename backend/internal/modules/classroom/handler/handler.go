@@ -31,6 +31,7 @@ type Service interface {
 	UploadDeck(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.UploadInput) (service.DeckView, error)
 	ListDecks(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]domain.SlideDeck, error)
 	GetActive(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Active, error)
+	ListMyLive(ctx context.Context, actor service.Actor) ([]service.StudentRoom, error)
 	ListSessions(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]service.SessionSummary, error)
 	SaveNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, content string) (domain.LiveClassroomNote, error)
 	GetNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (domain.LiveClassroomNote, error)
@@ -136,6 +137,7 @@ func originChecker(opts Options) func(r *http.Request) bool {
 // Register wires the routes under /api/v1.
 func (h *Handler) Register(r gin.IRouter) {
 	g := r.Group("", authn.Required(h.auth), authn.PasswordChanged())
+	g.GET("/me/live", h.myLive)
 	g.POST("/classes/:id/live/start", h.start)
 	g.POST("/classes/:id/live/sessions/:sessionId/end", h.end)
 	g.POST("/classes/:id/live/decks", h.upload)
@@ -409,6 +411,25 @@ func (h *Handler) active(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, activeBody(a, h.hub.Online(a.Session.ID.String()), actor.Role != authn.RoleStudent)) // only the teacher reads the doubts
+}
+
+// myLive lists the open rooms of the classes of the student, for the notice of the live class (SPEC-067). Nothing of the state of the room goes.
+func (h *Handler) myLive(c *gin.Context) {
+	p, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+	rooms, err := h.svc.ListMyLive(c.Request.Context(), service.Actor{UserID: p.UserID, Role: p.Role})
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	items := make([]gin.H, 0, len(rooms))
+	for _, r := range rooms {
+		items = append(items, gin.H{"classId": r.ClassID, "className": r.ClassName, "sessionId": r.SessionID, "title": r.Title, "startedAt": r.StartedAt})
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
 // module reads the module that the open room chose, for its teacher and for its admitted students (SPEC-054).

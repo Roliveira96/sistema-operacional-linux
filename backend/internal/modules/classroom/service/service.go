@@ -39,6 +39,8 @@ type Repository interface {
 	// ListSessions puts the open room first and then the ended ones, newest first.
 	ListSessions(ctx context.Context, classID uuid.UUID, limit int) ([]domain.LiveClassroomSession, error)
 	ListActiveSessions(ctx context.Context) ([]domain.LiveClassroomSession, error)
+	// ListOpenRoomsOfStudent gives the open rooms of the classes where the student has an ACTIVE enrollment, the newest first (SPEC-067).
+	ListOpenRoomsOfStudent(ctx context.Context, studentID uuid.UUID) ([]StudentRoom, error)
 	SessionsWithNotes(ctx context.Context, studentID uuid.UUID, sessionIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 
 	CountDecks(ctx context.Context, classID uuid.UUID) (int64, error)
@@ -195,6 +197,31 @@ func (s *Service) readable(ctx context.Context, actor Actor, classID uuid.UUID) 
 		return ClassInfo{}, domain.ErrForbidden
 	}
 	return class, nil
+}
+
+// StudentRoom is an open room of a class of the student, as much as the notice of the live class needs (SPEC-067 RN-03).
+type StudentRoom struct {
+	ClassID   uuid.UUID
+	ClassName string
+	SessionID uuid.UUID
+	Title     string
+	StartedAt time.Time
+}
+
+// ListMyLive gives the open rooms of the classes of the student, the newest first; only a student asks (SPEC-067 RN-04, RN-05). A room stays
+// in the list for as long as it is open, whatever the schedule says (RN-07).
+func (s *Service) ListMyLive(ctx context.Context, actor Actor) ([]StudentRoom, error) {
+	if actor.Role != authn.RoleStudent {
+		return nil, domain.ErrForbidden
+	}
+	rooms, err := s.repo.ListOpenRoomsOfStudent(ctx, actor.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if rooms == nil {
+		rooms = []StudentRoom{}
+	}
+	return rooms, nil
 }
 
 // activeSession returns the open room by id, or ErrSessionNotFound.

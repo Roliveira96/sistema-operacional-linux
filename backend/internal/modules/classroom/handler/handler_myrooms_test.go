@@ -34,6 +34,11 @@ func (l *liveRooms) ListMyLive(_ context.Context, a service.Actor) ([]service.St
 	return l.rooms, l.err
 }
 
+// ListMyLive keeps the fake service whole for the tests that have no use for the rooms of a student; liveRooms answers for the tests that do.
+func (f *fakeService) ListMyLive(context.Context, service.Actor) ([]service.StudentRoom, error) {
+	return nil, nil
+}
+
 const myLivePath = "/api/v1/me/live"
 
 func setupMyLive(t *testing.T) (*world, *liveRooms) {

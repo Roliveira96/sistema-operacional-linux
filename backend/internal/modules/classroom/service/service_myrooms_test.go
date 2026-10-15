@@ -28,6 +28,11 @@ func (r *roomsRepo) ListOpenRoomsOfStudent(_ context.Context, studentID uuid.UUI
 	return r.rooms, r.err
 }
 
+// ListOpenRoomsOfStudent keeps the fake repository whole for the tests that have no use for the rooms of a student; roomsRepo answers for the tests that do.
+func (f *fakeRepo) ListOpenRoomsOfStudent(context.Context, uuid.UUID) ([]service.StudentRoom, error) {
+	return nil, nil
+}
+
 func newMyRooms() (*service.Service, *roomsRepo) {
 	repo := &roomsRepo{fakeRepo: newRepo()}
 	return service.New(repo, &fakeStorage{}, time.Now), repo
