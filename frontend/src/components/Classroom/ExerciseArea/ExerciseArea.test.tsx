@@ -122,7 +122,8 @@ describe("ExerciseArea, while the round runs", () => {
 
 // SPEC-065 CA-13: "Ver a aula" only hides the area; the exercise goes on
 describe("ExerciseArea, while the student looks at the lesson", () => {
-  const region = () => screen.getByRole("region", { name: "Exercício ao vivo", hidden: true });
+  // A hidden element has no accessible name for the queries by role, so it is found by its label.
+  const region = () => screen.getByLabelText("Exercício ao vivo");
 
   it("keeps the terminal open and only hides the area, and shows it again", async () => {
     const view = render(area());

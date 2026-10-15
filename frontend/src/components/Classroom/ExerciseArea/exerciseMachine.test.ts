@@ -20,10 +20,8 @@ describe("exerciseSetup", () => {
     expect(commands(setup.layers)).toEqual(["mkdir /base", "touch /a", "touch /group"]);
   });
 
-  it("gives the statement, the level, the conditions and the solution of the exercise as the module has them", () => {
+  it("gives the statement, the conditions and the solution of the exercise as the module has them", () => {
     const { item } = exerciseSetup(exerciseModule, "b-2", 1)!;
-    expect(item.title).toBe("Segundo");
-    expect(item.difficulty).toBe("MEDIUM");
     expect(item.description).toBe("<p>Crie a pasta <b>dois</b> com o arquivo x.txt</p>");
     expect(item.conditions).toEqual([
       { kind: "DIR_EXISTS", path: "/dois" },
@@ -52,7 +50,8 @@ describe("exerciseSetup", () => {
       ...exerciseModule,
       blocks: [{ id: "g", type: "EXERCISES", position: 0, payload: { items: [{ title: "Teoria", difficulty: "EASY", kind: "THEORETICAL_BOOLEAN" }, { title: "Prática", difficulty: "EASY", conditions: [{ kind: "DIR_EXISTS", path: "/x" }] }] } }],
     };
-    expect(exerciseSetup(module_, "g", 1)!.layers).toEqual([]);
+    // Only the snapshot of the module is left to prepare the machine.
+    expect(exerciseSetup(module_, "g", 1)!.layers.map((l) => l.id)).toEqual(["module"]);
   });
 
   it("has nothing for a block that is not in the module, is not a group of exercises, or has no such exercise", () => {

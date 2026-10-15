@@ -97,8 +97,8 @@ export const picture = (text: string): ScreenElement => ({ tag: "div", children:
 
 /**
  * The terminal engine as the component tests see it: `mountTerminalWindow` gives a window that keeps the commands it ran, says the machine it has, and
- * tells what the test makes it tell (a command typed, a picture). The window puts a screen of its own in the container, as the engine does, so a test can
- * type in it.
+ * tells what the test makes it tell (a command typed, a picture). The window puts a terminal of its own in the container (`.term` with its `.term-tela`),
+ * as the engine does, so a test can type in it.
  */
 export function terminalHarness(mount: Mock) {
   const history: string[] = [];
@@ -138,12 +138,15 @@ export function terminalHarness(mount: Mock) {
     screen: () => harness.mounted!.container.querySelector<HTMLElement>(".term-tela")!,
   };
   mount.mockImplementation(async (container: HTMLElement, snapshot: unknown, callbacks: TerminalWindowCallbacks) => {
+    const term = document.createElement("div");
+    term.className = "term";
     const screen = document.createElement("div");
     screen.className = "term-tela";
     screen.tabIndex = 0;
     screen.addEventListener("keydown", (event) => harness.keys(event.key));
     screen.addEventListener("paste", () => harness.pasted());
-    container.appendChild(screen);
+    term.appendChild(screen);
+    container.appendChild(term);
     harness.mounted = { container, snapshot, callbacks };
     return harness.win;
   });

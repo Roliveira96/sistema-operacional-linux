@@ -75,6 +75,8 @@ describe("ExerciseArea, the machine kept in the browser", () => {
 
   it("brings the machine back as the one the terminal starts on, without preparing it again", async () => {
     localStorage.setItem(exerciseKey("r-1"), JSON.stringify(half()));
+    // The window has the machine it was opened on.
+    h.set(half());
     await open();
     expect(h.mounted!.snapshot).toEqual(half());
     expect(h.win.execute).not.toHaveBeenCalled();
