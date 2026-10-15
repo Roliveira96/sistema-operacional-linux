@@ -78,7 +78,7 @@ describe("the conversation of the student with the teacher", () => {
     live();
     render(element());
     const names = within(strip()).getAllByRole("button").map((button) => button.textContent);
-    expect(names).toEqual(["Levantar a mão", "Anotações", "Conversa", "Tela cheia", "Sair da sala"]);
+    expect(names).toEqual(["Levantar a mão", "Anotações", "Conversa", "Notificações", "Tela cheia", "Sair da sala"]);
     expect(toggle().getAttribute("aria-expanded")).toBe("false");
     expect(column()).toBeNull();
   });
