@@ -464,7 +464,7 @@ func TestUploadDeck_Rules(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrClassNotFound)
 
 	_, err = w.svc.UploadDeck(ctx, w.teacher, w.class, service.UploadInput{Title: "d", PageCount: 3, Size: 20, File: strings.NewReader("GIF89a not a pdf")})
-	assert.ErrorIs(t, err, domain.ErrInvalidPDF)
+	assert.ErrorIs(t, err, domain.ErrInvalidFile) // SPEC-068 CA-03: a file that is none of the accepted formats is invalid-file, not an invalid PDF
 	_, err = w.svc.UploadDeck(ctx, w.teacher, w.class, service.UploadInput{Title: "d", PageCount: 0, Size: 109, File: bytes.NewReader(pdfBytes())})
 	assert.ErrorIs(t, err, domain.ErrInvalidPDF)
 	_, err = w.svc.UploadDeck(ctx, w.teacher, w.class, service.UploadInput{Title: "d", PageCount: 3, Size: domain.MaxDeckBytes + 1, File: bytes.NewReader(pdfBytes())})
