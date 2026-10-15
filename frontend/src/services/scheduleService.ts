@@ -1,3 +1,4 @@
+import { classroomService } from "./classroomService";
 import { httpClient, type HttpClient } from "./httpClient";
 
 /** How a session happens (SPEC-042). */
@@ -34,6 +35,34 @@ export interface Session {
   changeReason?: string;
   periodId?: string;
   onHoliday: boolean;
+  /** The topic of the lesson and whether it has any content; the content itself is read apart (SPEC-053, RN-06). */
+  topic?: string;
+  hasContent?: boolean;
+}
+
+/** A link of a lesson (SPEC-053 RN-01). */
+export interface SessionContentLink {
+  name: string;
+  url: string;
+  position?: number;
+}
+
+/** What a lesson covers, as the content endpoint reads it (SPEC-053, section 5). Empty when the lesson has none. */
+export interface SessionContent {
+  topic?: string;
+  description?: string;
+  module?: { id: string; title: string } | null;
+  deck?: { id: string; title: string; pageCount: number; downloadUrl: string } | null;
+  links: SessionContentLink[];
+}
+
+/** What the teacher saves: an empty or absent field clears the value. */
+export interface SessionContentInput {
+  topic?: string;
+  description?: string;
+  moduleId?: string;
+  deckId?: string;
+  links: { name: string; url: string }[];
 }
 
 export interface ClassEvent {
@@ -146,6 +175,9 @@ export function createScheduleService(client: HttpClient = httpClient) {
     updateSession: (classId: string, sessionId: string, input: SessionInput) =>
       client.patch<Session>(`/classes/${classId}/sessions/${sessionId}`, input),
     revertSession: (classId: string, sessionId: string) => client.delete<Session>(`/classes/${classId}/sessions/${sessionId}/override`),
+    getSessionContent: (classId: string, sessionId: string) => client.get<SessionContent>(`/classes/${classId}/sessions/${sessionId}/content`),
+    saveSessionContent: (classId: string, sessionId: string, input: SessionContentInput) =>
+      client.put<SessionContent>(`/classes/${classId}/sessions/${sessionId}/content`, input),
     createSession: (classId: string, input: SessionInput) => client.post<Session>(`/classes/${classId}/sessions`, input),
     deleteSession: (classId: string, sessionId: string) => client.delete<void>(`/classes/${classId}/sessions/${sessionId}`),
     createEvent: (classId: string, input: EventInput) => client.post<ClassEvent>(`/classes/${classId}/events`, input),
@@ -167,3 +199,18 @@ export function createScheduleService(client: HttpClient = httpClient) {
 
 export type ScheduleService = ReturnType<typeof createScheduleService>;
 export const scheduleService = createScheduleService();
+
+/**
+ * Starts the live class from a lesson of the calendar (SPEC-053 RN-08, CA-11): the topic is the title (the name of the class when the
+ * lesson has none), and the module and the presentation of the lesson come along, tied to it. If the class already has a live class
+ * going, the server answers with that one.
+ */
+export async function startLiveFromSession(classId: string, session: Session, fallbackTitle: string) {
+  const content = session.hasContent ? await scheduleService.getSessionContent(classId, session.id) : null;
+  return classroomService.startSession(classId, {
+    title: content?.topic?.trim() || fallbackTitle,
+    classSessionId: session.id,
+    ...(content?.deck ? { deckId: content.deck.id } : {}),
+    ...(content?.module ? { initialModuleId: content.module.id } : {}),
+  });
+}

@@ -42,6 +42,8 @@ type Repository interface {
 	SessionsWithNotes(ctx context.Context, studentID uuid.UUID, sessionIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 
 	CountDecks(ctx context.Context, classID uuid.UUID) (int64, error)
+	// ListDecks puts the newest presentation first (SPEC-053).
+	ListDecks(ctx context.Context, classID uuid.UUID) ([]domain.SlideDeck, error)
 	CreateDeck(ctx context.Context, d *domain.SlideDeck) error
 	FindDeck(ctx context.Context, id uuid.UUID) (domain.SlideDeck, error)
 
@@ -323,6 +325,15 @@ func (s *Service) UploadDeck(ctx context.Context, actor Actor, classID uuid.UUID
 		return DeckView{}, err
 	}
 	return s.deckView(ctx, deck)
+}
+
+// ListDecks lists the presentations of the class, newest first, for the teacher to pick one already sent (SPEC-053). Only who runs the class
+// lists them.
+func (s *Service) ListDecks(ctx context.Context, actor Actor, classID uuid.UUID) ([]domain.SlideDeck, error) {
+	if _, err := s.writable(ctx, actor, classID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListDecks(ctx, classID)
 }
 
 func (s *Service) deckView(ctx context.Context, deck domain.SlideDeck) (DeckView, error) {

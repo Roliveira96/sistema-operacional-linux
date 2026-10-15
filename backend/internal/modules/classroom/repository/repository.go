@@ -156,6 +156,13 @@ func (r *Repository) CountDecks(ctx context.Context, classID uuid.UUID) (int64, 
 	return n, err
 }
 
+// ListDecks returns the presentations of the class that were not deleted, newest first (SPEC-053).
+func (r *Repository) ListDecks(ctx context.Context, classID uuid.UUID) ([]domain.SlideDeck, error) {
+	decks := []domain.SlideDeck{}
+	err := r.db.Conn(ctx).Where("class_id = ?", classID).Order("created_at DESC").Find(&decks).Error
+	return decks, err
+}
+
 // CreateDeck inserts a presentation.
 func (r *Repository) CreateDeck(ctx context.Context, d *domain.SlideDeck) error {
 	return r.db.Conn(ctx).Create(d).Error

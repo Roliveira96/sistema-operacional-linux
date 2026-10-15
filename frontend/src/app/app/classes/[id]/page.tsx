@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { AddStudentsDialog } from "@/components/AddStudentsDialog/AddStudentsDialog";
+import { ButtonLink } from "@/components/Button/ButtonLink";
 import { ClassCalendar } from "@/components/ClassCalendar/ClassCalendar";
 import { ClassLinks } from "@/components/ClassLinks/ClassLinks";
 import { LiveClassPanel } from "@/components/Classroom/LiveClassPanel/LiveClassPanel";
@@ -11,6 +12,7 @@ import { ClassMembersTable } from "@/components/ClassMembersTable/ClassMembersTa
 import { EventForm } from "@/components/EventForm/EventForm";
 import { InviteLinkCard } from "@/components/InviteLinkCard/InviteLinkCard";
 import { PeriodForm } from "@/components/PeriodForm/PeriodForm";
+import { SessionContentForm } from "@/components/SessionContentForm/SessionContentForm";
 import { SessionForm } from "@/components/SessionForm/SessionForm";
 import { StudentFormModal } from "@/components/StudentFormModal/StudentFormModal";
 import { StudentImportCsvModal } from "@/components/StudentImportCsvModal/StudentImportCsvModal";
@@ -25,8 +27,10 @@ import {
   scheduleService,
   type Session,
   type SessionInput,
+  startLiveFromSession,
   type SpecialPeriod,
 } from "@/services/scheduleService";
+import { classroomService } from "@/services/classroomService";
 import { ApiProblemError } from "@/services/httpClient";
 import {
   IconBook,
@@ -261,8 +265,11 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [reload, setReload] = useState(0);
   const [calendarReload, setCalendarReload] = useState(0);
+  const [liveRoom, setLiveRoom] = useState<{ title: string; classSessionId: string | null } | null>(null);
   const [cachedCalendar, setCachedCalendar] = useState<CalendarData | null>(null);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [contentSession, setContentSession] = useState<Session | null>(null);
+  const [liveError, setLiveError] = useState(false);
   const [extraSessionDate, setExtraSessionDate] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<ClassEvent | null>(null);
   const [eventDate, setEventDate] = useState<string | null>(null);
@@ -283,6 +290,17 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
     },
     [id],
   );
+
+  const loadContent = useCallback((s: Session) => scheduleService.getSessionContent(id ?? "", s.id), [id]);
+
+  const handleStartLive = (s: Session, className: string) => {
+    if (!id) return;
+    setLiveError(false);
+    startLiveFromSession(id, s, className).then(
+      () => router.push(`/app/classes/${id}/live`),
+      () => setLiveError(true),
+    );
+  };
 
   const handleUpdateSession = async (payload: SessionInput) => {
     if (!id || !editingSession) return;
@@ -379,6 +397,24 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
       active = false;
     };
   }, [id, isStudent, reload]);
+
+  // The live class that is going on, for the notice of the Agenda tab (SPEC-053 CA-14); a failure only hides the notice.
+  useEffect(() => {
+    if (!id || tab !== "schedule") return;
+    let active = true;
+    classroomService
+      .getActive(id)
+      .then((room) => {
+        if (!active) return;
+        setLiveRoom(room.hasActiveSession ? { title: room.session.title, classSessionId: room.session.classSessionId ?? null } : null);
+      })
+      .catch(() => {
+        if (active) setLiveRoom(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, tab, calendarReload]);
 
   const refresh = () => setReload((n) => n + 1);
 
@@ -521,6 +557,11 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
           {feedback}
         </div>
       )}
+      {liveError && (
+        <div className={styles.problem} role="alert">
+          {messages.classroom.panel.errors.start}
+        </div>
+      )}
 
       <div className={styles.tabs} role="tablist">
         <button
@@ -569,18 +610,33 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             role={isStudent ? "student" : "teacher"}
           />
         ) : tab === "schedule" ? (
+          <>
+            {liveRoom && (
+              <div className={styles.liveBanner} role="status">
+                <span>{m.liveBanner(liveRoom.title)}</span>
+                <ButtonLink href={`/app/classes/${id}/live`} variant="primary" size="sm">
+                  {m.enterLiveBanner}
+                </ButtonLink>
+              </div>
+            )}
           <ClassCalendar
             load={loadCalendar}
+            liveClassSessionId={liveRoom?.classSessionId ?? null}
+            liveHref={liveRoom ? `/app/classes/${id}/live` : undefined}
             editable={!isStudent}
             settingsHref={!isStudent ? `/app/classes/${id}/settings` : undefined}
             reloadKey={calendarReload}
             onEditSession={(s) => setEditingSession(s)}
+            loadContent={loadContent}
+            onEditContent={(s) => setContentSession(s)}
+            onStartLive={handleStartLive}
             onAddSession={(d) => setExtraSessionDate(d)}
             onAddEvent={(d) => setEventDate(d)}
             onEditEvent={(e) => setEditingEvent(e)}
             onDeletePeriod={handleDeletePeriod}
             onSelectPeriod={(first, last) => setSelectedPeriodRange({ first, last })}
           />
+          </>
         ) : members.length === 0 ? (
           <section className={styles.onboarding} aria-labelledby="empty-title">
             <span className={styles.onboardingIcon}>
@@ -649,6 +705,15 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
 
       {!isStudent && (
         <>
+          {contentSession && id && (
+            <SessionContentForm
+              classId={id}
+              session={contentSession}
+              onSaved={() => setCalendarReload((n) => n + 1)}
+              onClose={() => setContentSession(null)}
+            />
+          )}
+
           {editingSession && (
             <SessionForm
               mode="edit"

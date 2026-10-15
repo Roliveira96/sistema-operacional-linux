@@ -815,3 +815,20 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
+
+// Notice of the live class that is going on, in the Agenda tab (SPEC-053 CA-14).
+.liveBanner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-md);
+  background-color: var(--color-danger-subtle);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}

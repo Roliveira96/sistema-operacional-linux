@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HttpClient } from "./httpClient";
-import { createScheduleService } from "./scheduleService";
+import { classroomService } from "./classroomService";
+import { createScheduleService, scheduleService, startLiveFromSession } from "./scheduleService";
 
 function client(): HttpClient {
   return { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
@@ -82,5 +83,49 @@ describe("scheduleService", () => {
     await expect(svc.getPreferences()).resolves.toEqual({ sessionReminders: true, weeklyDigest: false });
     await svc.setPreferences({ weeklyDigest: true });
     expect(c.patch).toHaveBeenCalledWith("/students/me/notifications", { weeklyDigest: true });
+  });
+
+  // SPEC-053, section 5: the content of a lesson
+  it("reads and saves the content of a lesson", async () => {
+    const c = client();
+    const svc = createScheduleService(c);
+    const content = { topic: "Permissões", description: "<p>x</p>", module: { id: "m-1", title: "Linux" }, deck: null, links: [] };
+    vi.mocked(c.get).mockResolvedValueOnce(content);
+    await expect(svc.getSessionContent("c-1", "s-1")).resolves.toEqual(content);
+    expect(c.get).toHaveBeenCalledWith("/classes/c-1/sessions/s-1/content");
+
+    const input = { topic: "Permissões", description: "<p>x</p>", moduleId: "m-1", deckId: "d-1", links: [{ name: "Meet", url: "https://meet.google.com/a" }] };
+    vi.mocked(c.put).mockResolvedValueOnce(content);
+    await expect(svc.saveSessionContent("c-1", "s-1", input)).resolves.toEqual(content);
+    expect(c.put).toHaveBeenCalledWith("/classes/c-1/sessions/s-1/content", input);
+  });
+});
+
+// SPEC-053 CA-11: start the live class from the lesson of the day
+describe("startLiveFromSession", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const lesson = (over = {}) => ({ id: "s-1", classId: "c-1", date: "2026-10-26", startTime: "08:20", endTime: "10:00", lessonCount: 2, mode: "IN_PERSON" as const, status: "SCHEDULED" as const, origin: "WEEKLY" as const, overridden: false, onHoliday: false, ...over });
+  const started = { id: "r-1", classId: "c-1", title: "x", status: "ACTIVE" as const, displayMode: "SLIDES" as const, currentSlide: 1, startedAt: "" };
+
+  it("uses the topic, the module and the deck of the lesson, linked to it", async () => {
+    vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue({ topic: "Permissões", module: { id: "m-1", title: "Linux" }, deck: { id: "d-1", title: "S", pageCount: 3, downloadUrl: "https://x" }, links: [] });
+    const start = vi.spyOn(classroomService, "startSession").mockResolvedValue(started);
+    await startLiveFromSession("c-1", lesson({ topic: "Permissões", hasContent: true }), "Sistemas Operacionais");
+    expect(start).toHaveBeenCalledWith("c-1", { title: "Permissões", classSessionId: "s-1", deckId: "d-1", initialModuleId: "m-1" });
+  });
+
+  it("uses the name of the class when the lesson has no topic and does not read a content it does not have", async () => {
+    const get = vi.spyOn(scheduleService, "getSessionContent");
+    const start = vi.spyOn(classroomService, "startSession").mockResolvedValue(started);
+    await startLiveFromSession("c-1", lesson(), "Sistemas Operacionais");
+    expect(get).not.toHaveBeenCalled();
+    expect(start).toHaveBeenCalledWith("c-1", { title: "Sistemas Operacionais", classSessionId: "s-1" });
+  });
+
+  it("uses the name of the class when the content has no topic", async () => {
+    vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue({ description: "<p>x</p>", links: [] });
+    const start = vi.spyOn(classroomService, "startSession").mockResolvedValue(started);
+    await startLiveFromSession("c-1", lesson({ hasContent: true }), "Sistemas Operacionais");
+    expect(start).toHaveBeenCalledWith("c-1", { title: "Sistemas Operacionais", classSessionId: "s-1" });
   });
 });

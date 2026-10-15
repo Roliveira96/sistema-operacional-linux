@@ -149,7 +149,7 @@ func (r *Repository) ReplaceMeetings(ctx context.Context, classID uuid.UUID, mee
 		if err := drop.Delete(&domain.WeeklyMeeting{}).Error; err != nil {
 			return err
 		}
-		if err := conn.Where("class_id = ? AND origin = ? AND overridden = false AND period_id IS NULL AND date >= ?",
+		if err := conn.Where("class_id = ? AND origin = ? AND overridden = false AND has_content = false AND period_id IS NULL AND date >= ?",
 			classID, domain.OriginWeekly, dateOnly(from)).Delete(&domain.ClassSession{}).Error; err != nil {
 			return err
 		}
@@ -211,6 +211,33 @@ func (r *Repository) FindSession(ctx context.Context, id uuid.UUID) (domain.Clas
 // SaveSession creates or updates a session.
 func (r *Repository) SaveSession(ctx context.Context, s *domain.ClassSession) error {
 	return r.db.Conn(ctx).Save(s).Error
+}
+
+// SaveContent saves the lesson and replaces its links in one transaction: the links that go are soft deleted (SPEC-053).
+func (r *Repository) SaveContent(ctx context.Context, s *domain.ClassSession, links []domain.SessionLink) error {
+	return r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
+		conn := r.db.Conn(txCtx)
+		if err := conn.Save(s).Error; err != nil {
+			return err
+		}
+		if err := conn.Where("session_id = ?", s.ID).Delete(&domain.SessionLink{}).Error; err != nil {
+			return err
+		}
+		for i := range links {
+			links[i].SessionID = s.ID
+			if err := conn.Create(&links[i]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// ListSessionLinks returns the links of a lesson, in order.
+func (r *Repository) ListSessionLinks(ctx context.Context, sessionID uuid.UUID) ([]domain.SessionLink, error) {
+	links := []domain.SessionLink{}
+	err := r.db.Conn(ctx).Where("session_id = ?", sessionID).Order("position").Find(&links).Error
+	return links, err
 }
 
 // DeleteSession removes a session (soft delete).

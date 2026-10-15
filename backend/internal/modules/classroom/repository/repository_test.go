@@ -294,3 +294,30 @@ func TestClassAndLinkChecks(t *testing.T) {
 	ok, _ = e.repo.ModuleExists(e.ctx, uuid.New())
 	assert.False(t, ok)
 }
+
+// Covers SPEC-053 CA-13: the decks of a class, newest first, without the deleted ones and without the ones of other classes.
+func TestListDecks(t *testing.T) {
+	e := newEnv(t)
+	other := e.newClass(t, "SO99X")
+	deck := func(class uuid.UUID, title string, at time.Time) domain.SlideDeck {
+		d := domain.SlideDeck{ClassID: class, UploadedBy: e.teacher.ID, Title: title, ObjectKey: "classes/x/decks/" + title + ".pdf", PageCount: 4}
+		d.CreatedAt = at
+		require.NoError(t, e.repo.CreateDeck(e.ctx, &d))
+		return d
+	}
+	oldest := deck(e.class.ID, "primeira", e.now.Add(-48*time.Hour))
+	newest := deck(e.class.ID, "terceira", e.now)
+	removed := deck(e.class.ID, "excluida", e.now.Add(-12*time.Hour))
+	middle := deck(e.class.ID, "segunda", e.now.Add(-24*time.Hour))
+	deck(other.ID, "de outra turma", e.now)
+	require.NoError(t, e.db.Conn(e.ctx).Delete(&domain.SlideDeck{}, "id = ?", removed.ID).Error)
+
+	list, err := e.repo.ListDecks(e.ctx, e.class.ID)
+	require.NoError(t, err)
+	require.Len(t, list, 3)
+	assert.Equal(t, []uuid.UUID{newest.ID, middle.ID, oldest.ID}, []uuid.UUID{list[0].ID, list[1].ID, list[2].ID})
+
+	none, err := e.repo.ListDecks(e.ctx, uuid.New())
+	require.NoError(t, err)
+	assert.Empty(t, none)
+}

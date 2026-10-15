@@ -27,6 +27,7 @@ type Service interface {
 	StartSession(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.StartInput) (domain.LiveClassroomSession, bool, error)
 	EndSession(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (domain.LiveClassroomSession, error)
 	UploadDeck(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.UploadInput) (service.DeckView, error)
+	ListDecks(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]domain.SlideDeck, error)
 	GetActive(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Active, error)
 	ListSessions(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]service.SessionSummary, error)
 	SaveNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, content string) (domain.LiveClassroomNote, error)
@@ -94,6 +95,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/live/start", h.start)
 	g.POST("/classes/:id/live/sessions/:sessionId/end", h.end)
 	g.POST("/classes/:id/live/decks", h.upload)
+	g.GET("/classes/:id/live/decks", h.decks)
 	g.GET("/classes/:id/live/active", h.active)
 	g.GET("/classes/:id/live/sessions", h.sessions)
 	g.PUT("/classes/:id/live/sessions/:sessionId/notes", h.saveNote)
@@ -300,6 +302,24 @@ func (h *Handler) active(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, activeBody(a, h.hub.Online(a.Session.ID.String())))
+}
+
+// decks lists the presentations of the class, without the address to download them (SPEC-053).
+func (h *Handler) decks(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	list, err := h.svc.ListDecks(c.Request.Context(), actor, classID)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	out := make([]gin.H, 0, len(list))
+	for _, d := range list {
+		out = append(out, gin.H{"id": d.ID, "title": d.Title, "pageCount": d.PageCount, "createdAt": d.CreatedAt})
+	}
+	c.JSON(http.StatusOK, gin.H{"decks": out})
 }
 
 func (h *Handler) sessions(c *gin.Context) {

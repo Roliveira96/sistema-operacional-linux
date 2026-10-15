@@ -29,7 +29,7 @@ const (
 // Limits (SPEC-051 sections 3.2 and 5).
 const (
 	MaxTitleLength    = 120
-	MaxDecksPerClass  = 20
+	MaxDecksPerClass  = 100
 	MaxPages          = 100
 	MaxDeckBytes      = 25 << 20
 	MaxNoteLength     = 20000
@@ -60,7 +60,7 @@ var (
 	ErrClassSessionNotFound = errors.New("lesson of the schedule not found")
 	ErrModuleNotFound       = errors.New("teaching module not found")
 	ErrNotesNotFound        = errors.New("no notes of the student in this live classroom")
-	ErrDeckLimit            = errors.New("the class already has 20 presentations")
+	ErrDeckLimit            = errors.New("the class already has 100 presentations")
 	ErrActiveSessionExists  = errors.New("the class already has a live classroom open")
 )
 

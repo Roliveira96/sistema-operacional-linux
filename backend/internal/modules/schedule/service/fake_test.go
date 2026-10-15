@@ -18,6 +18,7 @@ type fakeRepo struct {
 	students   map[uuid.UUID][]service.Recipient // by class
 	meetings   map[uuid.UUID][]domain.WeeklyMeeting
 	sessions   map[uuid.UUID]domain.ClassSession
+	links      map[uuid.UUID][]domain.SessionLink // by session (SPEC-053)
 	events     map[uuid.UUID]domain.ClassEvent
 	periods    map[uuid.UUID]domain.SpecialPeriod
 	holidays   map[uuid.UUID]domain.Holiday
@@ -33,6 +34,7 @@ func newFakeRepo() *fakeRepo {
 		students: map[uuid.UUID][]service.Recipient{},
 		meetings: map[uuid.UUID][]domain.WeeklyMeeting{},
 		sessions: map[uuid.UUID]domain.ClassSession{},
+		links:    map[uuid.UUID][]domain.SessionLink{},
 		events:   map[uuid.UUID]domain.ClassEvent{},
 		periods:  map[uuid.UUID]domain.SpecialPeriod{},
 		holidays: map[uuid.UUID]domain.Holiday{},
@@ -106,7 +108,7 @@ func (f *fakeRepo) ListMeetings(ctx context.Context, classID uuid.UUID) ([]domai
 func (f *fakeRepo) ReplaceMeetings(ctx context.Context, classID uuid.UUID, meetings []domain.WeeklyMeeting, from time.Time, sessions []domain.ClassSession) error {
 	f.meetings[classID] = meetings
 	for id, s := range f.sessions {
-		if s.ClassID == classID && s.Origin == domain.OriginWeekly && !s.Overridden && s.PeriodID == nil && !domain.Day(s.Date).Before(domain.Day(from)) {
+		if s.ClassID == classID && s.Origin == domain.OriginWeekly && !s.Overridden && !s.HasContent && s.PeriodID == nil && !domain.Day(s.Date).Before(domain.Day(from)) {
 			delete(f.sessions, id)
 		}
 	}
@@ -164,6 +166,17 @@ func (f *fakeRepo) SaveSession(ctx context.Context, s *domain.ClassSession) erro
 	}
 	f.sessions[s.ID] = *s
 	return nil
+}
+
+// SaveContent saves the session with its content and replaces its links (SPEC-053).
+func (f *fakeRepo) SaveContent(ctx context.Context, s *domain.ClassSession, links []domain.SessionLink) error {
+	f.sessions[s.ID] = *s
+	f.links[s.ID] = links
+	return nil
+}
+
+func (f *fakeRepo) ListSessionLinks(ctx context.Context, sessionID uuid.UUID) ([]domain.SessionLink, error) {
+	return f.links[sessionID], nil
 }
 
 func (f *fakeRepo) DeleteSession(ctx context.Context, id uuid.UUID) error {

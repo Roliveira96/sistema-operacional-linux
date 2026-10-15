@@ -137,7 +137,7 @@ describe("LiveClassPanel", () => {
     fireEvent.change(await screen.findByLabelText("Título da aula"), { target: { value: "Aula" } });
     fireEvent.change(screen.getByLabelText("Apresentação em PDF (opcional)"), { target: { files: [new File(["%PDF"], "a.pdf", { type: "application/pdf" })] } });
     fireEvent.click(screen.getByRole("button", { name: "Iniciar aula" }));
-    expect((await screen.findByRole("alert")).textContent).toBe("Esta turma já tem 20 apresentações.");
+    expect((await screen.findByRole("alert")).textContent).toBe("Esta turma já tem 100 apresentações.");
 
     vi.spyOn(classroomService, "startSession").mockRejectedValue(new ApiProblemError({ type: "class-archived", status: 409 }, 409));
     fireEvent.change(screen.getByLabelText("Apresentação em PDF (opcional)"), { target: { files: [] } });

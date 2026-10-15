@@ -12,6 +12,7 @@ import (
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/htmlsafe"
 )
 
 // MaxCalendarDays is the longest range a calendar request covers (SPEC-042, section 5).
@@ -120,6 +121,9 @@ type Repository interface {
 	FindSession(ctx context.Context, id uuid.UUID) (domain.ClassSession, error)
 	SaveSession(ctx context.Context, s *domain.ClassSession) error
 	DeleteSession(ctx context.Context, id uuid.UUID) error
+	// SaveContent saves the lesson and replaces its links in one transaction (SPEC-053).
+	SaveContent(ctx context.Context, s *domain.ClassSession, links []domain.SessionLink) error
+	ListSessionLinks(ctx context.Context, sessionID uuid.UUID) ([]domain.SessionLink, error)
 
 	ListEvents(ctx context.Context, classIDs []uuid.UUID, from, to time.Time) ([]domain.ClassEvent, error)
 	FindEvent(ctx context.Context, id uuid.UUID) (domain.ClassEvent, error)
@@ -148,11 +152,14 @@ type Service struct {
 	repo      Repository
 	now       func() time.Time
 	publicURL string
+	richText  *htmlsafe.Sanitizer
+	decks     Decks
+	modules   Modules
 }
 
 // New creates the service. publicURL is the address of the application, used in the e-mails.
 func New(repo Repository, now func() time.Time, publicURL string) *Service {
-	return &Service{repo: repo, now: now, publicURL: strings.TrimRight(publicURL, "/")}
+	return &Service{repo: repo, now: now, publicURL: strings.TrimRight(publicURL, "/"), richText: htmlsafe.NewRichText()}
 }
 
 func (s *Service) today() time.Time { return domain.Day(s.now().In(domain.Location())) }

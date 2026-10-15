@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { ClassCalendar } from "@/components/ClassCalendar/ClassCalendar";
+import { SessionContentForm } from "@/components/SessionContentForm/SessionContentForm";
 import { SessionForm } from "@/components/SessionForm/SessionForm";
-import { scheduleService, type Session, type SessionInput } from "@/services/scheduleService";
+import { messages } from "@/messages/pt-BR";
+import { scheduleService, startLiveFromSession, type Session, type SessionInput } from "@/services/scheduleService";
 
 export interface ClassSessionsCalendarProps {
   classId: string;
@@ -15,6 +18,15 @@ export interface ClassSessionsCalendarProps {
   today?: Date;
 }
 
+/** Takes the browser to the live class; it exists only after a class was started, so the router is not needed before (SPEC-053 CA-11). */
+function GoToLive({ href }: { href: string }) {
+  const router = useRouter();
+  useEffect(() => {
+    router.push(href);
+  }, [router, href]);
+  return null;
+}
+
 /**
  * The real calendar of a saved class, where the teacher cancels, adjusts or adds a lesson on a day
  * (SPEC-044, section 3.1.2). Events and special periods are edited only in the agenda of the class.
@@ -23,9 +35,21 @@ export function ClassSessionsCalendar({ classId, reloadKey = 0, studentCount = 0
   const [reload, setReload] = useState(0);
   const [editing, setEditing] = useState<Session | null>(null);
   const [extraDate, setExtraDate] = useState<string | null>(null);
+  const [contentOf, setContentOf] = useState<Session | null>(null);
+  const [startError, setStartError] = useState(false);
+  const [startedLive, setStartedLive] = useState(false);
 
   const load = useCallback((from: string, to: string) => scheduleService.classCalendar(classId, from, to), [classId]);
   const reloadCalendar = () => setReload((n) => n + 1);
+  const loadContent = useCallback((s: Session) => scheduleService.getSessionContent(classId, s.id), [classId]);
+
+  const startLive = (s: Session, className: string) => {
+    setStartError(false);
+    startLiveFromSession(classId, s, className).then(
+      () => setStartedLive(true),
+      () => setStartError(true),
+    );
+  };
 
   const update = async (payload: SessionInput) => {
     if (!editing) return;
@@ -57,7 +81,17 @@ export function ClassSessionsCalendar({ classId, reloadKey = 0, studentCount = 0
         reloadKey={reloadKey + reload}
         onEditSession={setEditing}
         onAddSession={setExtraDate}
+        loadContent={loadContent}
+        onEditContent={setContentOf}
+        onStartLive={startLive}
       />
+      {startError && (
+        <p role="alert">
+          {messages.classroom.panel.errors.start}
+        </p>
+      )}
+      {startedLive && <GoToLive href={`/app/classes/${classId}/live`} />}
+      {contentOf && <SessionContentForm classId={classId} session={contentOf} onSaved={reloadCalendar} onClose={() => setContentOf(null)} />}
       {editing && (
         <SessionForm
           mode="edit"
