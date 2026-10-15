@@ -213,6 +213,8 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	contentHandler := contenthandler.New(contentReader, auth)
 	// The live classroom checks the module of a lesson and reads it for its students (SPEC-054).
 	classroomService.WithModules(classroomModules{modules: moduleService, content: contentReader})
+	// The live exercise reads the exercise of a block of that module and grades the state of the student with its conditions (SPEC-065).
+	classroomService.WithExercises(classroomExercises{content: contentReader})
 	contentRepo := contentrepository.New(db)
 	// A module is born with its version 1 published (SPEC-021 RN-11).
 	moduleService.SetInitialVersioner(contentservice.NewInitialVersions(contentRepo))

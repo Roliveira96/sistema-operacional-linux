@@ -26,6 +26,9 @@ type liveState struct {
 
 	// the view of the stage (SPEC-057): only the latest of each, never a history
 	stage StageView
+
+	// the round of the exercise, who is in it and the progress of each (SPEC-065)
+	exercise exerciseMemory
 }
 
 // StageView is how the teacher left the stage: how far each pane is scrolled, as a fraction from 0 to 1 of what can be scrolled (the slide
@@ -71,6 +74,9 @@ func (l *liveStates) of(id uuid.UUID) *liveState {
 
 func (l *liveStates) forget(id uuid.UUID) {
 	l.mu.Lock()
+	if st, ok := l.rooms[id]; ok && st.exercise.stop != nil {
+		st.exercise.stop() // the timer of the round of a room that is gone
+	}
 	delete(l.rooms, id)
 	l.mu.Unlock()
 }

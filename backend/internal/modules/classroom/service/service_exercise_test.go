@@ -594,10 +594,12 @@ func TestExercise_EndsWithTheLesson(t *testing.T) {
 	assert.Empty(t, x.timers.running())
 	assert.Len(t, x.repo.exercise.results, 1, "the results stay")
 
-	// the safety net
+	// the safety net: the teacher left the room long ago, while the round was still running
 	z := exerciseRoom(t)
-	z.startRound(t, z.easyIndex, nil)
-	z.now = z.now.Add(domain.SafetyNet + time.Hour)
+	z.startRound(t, z.easyIndex, minutes(60))
+	left := z.repo.sessions[z.room.ID]
+	left.UpdatedAt = z.now.Add(-domain.SafetyNet - time.Hour)
+	z.repo.sessions[z.room.ID] = left
 	n, err := z.svc.EndAbandoned(ctx, func(uuid.UUID) bool { return false })
 	require.NoError(t, err)
 	assert.Equal(t, 1, n)

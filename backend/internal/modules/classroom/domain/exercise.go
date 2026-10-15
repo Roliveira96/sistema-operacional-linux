@@ -54,6 +54,7 @@ var (
 	ErrInvalidExerciseProgress = errors.New("the progress must have met and total from 0 to 100, met up to total, and the last command with up to 200 characters and no control characters")
 	ErrNoExerciseResult        = errors.New("the student has no result in this exercise round")
 	ErrInvalidExerciseEnd      = errors.New("a round ends by the timer, by the teacher or by the lesson")
+	ErrNotInExerciseRun        = errors.New("the student is not in this exercise round")
 )
 
 // ValidExerciseDifficulty tells whether the level is one of the three.

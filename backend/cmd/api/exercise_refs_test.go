@@ -94,11 +94,13 @@ func TestClassroomExercises_ReadsTheExerciseOfTheBlock(t *testing.T) {
 func TestClassroomExercises_Unavailable(t *testing.T) {
 	ex, content, module, block, text := moduleWith(t)
 	ctx := context.Background()
+	other := uuid.New()
+	content.blocks[other] = []contentdomain.ContentBlock{{ID: uuid.New(), BlockType: contentdomain.BlockExercises, Payload: json.RawMessage(exercisesPayload)}}
 	for name, tc := range map[string]struct {
 		module, block uuid.UUID
 		index         int
 	}{
-		"a block of another module":             {uuid.New(), block, 0},
+		"a block of another module":             {other, block, 0},
 		"a block that does not exist":           {module, uuid.New(), 0},
 		"a block that is not of exercises":      {module, text, 0},
 		"an index that does not exist":          {module, block, 6},

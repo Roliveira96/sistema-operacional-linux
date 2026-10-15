@@ -71,6 +71,23 @@ type Repository interface {
 	// ListChatMessages returns the last `limit` messages of the room, oldest first: all of them with no student, or the ones for everybody
 	// and the ones of the conversation of that student.
 	ListChatMessages(ctx context.Context, sessionID uuid.UUID, student *uuid.UUID, limit int) ([]domain.LiveChatMessage, error)
+
+	// The exercise of the lesson (SPEC-065). CreateExerciseRun returns domain.ErrExerciseRunning when the room has a round running;
+	// FindExerciseRun and CurrentExerciseRun return domain.ErrNoExerciseRun; the current round is the one that runs or, with none, the last one
+	// that ended.
+	CreateExerciseRun(ctx context.Context, run *domain.LiveExerciseRun) error
+	FindExerciseRun(ctx context.Context, id uuid.UUID) (domain.LiveExerciseRun, error)
+	CurrentExerciseRun(ctx context.Context, sessionID uuid.UUID) (domain.LiveExerciseRun, error)
+	// EndExerciseRun and SetExerciseResultVisible tell whether they changed the round: a round that already ended keeps its first end, and
+	// only a round that ended has a result to show.
+	EndExerciseRun(ctx context.Context, id uuid.UUID, at time.Time, by string) (bool, error)
+	SetExerciseResultVisible(ctx context.Context, id uuid.UUID, visible bool) (bool, error)
+	// SaveExerciseResult keeps the result once per student and round: with one already there it returns that one, and false.
+	SaveExerciseResult(ctx context.Context, res *domain.LiveExerciseResult) (domain.LiveExerciseResult, bool, error)
+	FindExerciseResult(ctx context.Context, runID, studentID uuid.UUID) (domain.LiveExerciseResult, error)
+	ListExerciseResults(ctx context.Context, runID uuid.UUID) ([]domain.ExerciseResultEntry, error)
+	// UserNames gives the name of each user (the e-mail of one who has none), for the cards of the round.
+	UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 // ModuleBlock is a block of the lesson of a module, as the room shows it.
@@ -119,11 +136,17 @@ type Service struct {
 	onEnded func(sessionID uuid.UUID)
 	live    *liveStates
 	modules Modules
+
+	// the exercise of the lesson (SPEC-065)
+	exercises        Exercises
+	after            AfterFunc
+	onExerciseEnded  func(sessionID uuid.UUID, state ExerciseState)
+	onExerciseFailed func(sessionID uuid.UUID, err error)
 }
 
 // New creates the service.
 func New(repo Repository, store Storage, now func() time.Time) *Service {
-	return &Service{repo: repo, store: store, now: now, live: newLiveStates()}
+	return &Service{repo: repo, store: store, now: now, live: newLiveStates(), after: timeAfter}
 }
 
 // WithOnEnded sets what runs when a room ends, to close its connections.
@@ -286,6 +309,11 @@ func (s *Service) EndSession(ctx context.Context, actor Actor, classID, sessionI
 }
 
 func (s *Service) finish(ctx context.Context, session *domain.LiveClassroomSession) error {
+	// The round that runs ends with the lesson, and the room is told before it is closed; if it cannot end, the lesson does not end either, so
+	// that nothing is left running in a room that is gone (SPEC-065).
+	if err := s.endRoundWithLesson(ctx, session.ID); err != nil {
+		return err
+	}
 	session.End(s.now())
 	if err := s.repo.SaveSession(ctx, session); err != nil {
 		return err
@@ -726,6 +754,12 @@ func (s *Service) SwitchMode(ctx context.Context, actor Actor, sessionID uuid.UU
 			return err
 		}
 		if session.ActiveModuleID == nil || *session.ActiveModuleID != *moduleID {
+			// The exercise of a round is read from the module of the lesson when it is graded, so the module stays while it runs (SPEC-065).
+			if run, has, err := s.currentRound(ctx, sessionID); err != nil {
+				return err
+			} else if has && run.Running() {
+				return domain.ErrExerciseRunning
+			}
 			s.live.setFocus(sessionID, "")
 			s.live.resetScroll(sessionID, domain.PaneMaterial)
 			s.live.setSelection(sessionID, nil)

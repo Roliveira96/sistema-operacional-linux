@@ -257,6 +257,13 @@ func (s *Service) entries(ctx context.Context, v contentservice.Viewer, rows []d
 	return out, nil
 }
 
+// ParseMachine reads the state of a machine that a student sent, and tells whether it is one of the simulator: the format, the version and the
+// bounds of the processes (ErrInvalidSnapshot). It is public for whoever grades a state outside the practice: the live exercise of the
+// classroom (SPEC-065), which gets it from the composition root.
+func ParseMachine(snapshot json.RawMessage) (*contentdomain.Machine, error) {
+	return parseMachine(snapshot)
+}
+
 func parseMachine(snapshot json.RawMessage) (*contentdomain.Machine, error) {
 	var machine contentdomain.Machine
 	if err := json.Unmarshal(snapshot, &machine); err != nil ||
