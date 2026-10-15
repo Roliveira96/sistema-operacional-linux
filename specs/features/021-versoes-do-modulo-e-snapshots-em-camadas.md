@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-021 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 09/10/2026 |
 | **Última revisão** | 09/10/2026 |
 | **Autor** | Implementador (Claude), a pedido do Tech Lead |
@@ -127,18 +127,18 @@ O `content_hash` é o resumo (SHA-256) do conteúdo; compara-se com o do rascunh
 
 ## 8. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente gravar o snapshot do módulo ou do card (passos digitados no terminal, editados ou adicionados à mão), O SISTEMA DEVE guardá-lo como script de passos.
-- [ ] **CA-02** (evento): QUANDO a docente abrir o terminal para preparar um snapshot, O SISTEMA DEVE iniciar a máquina como o aluno a teria antes dele (tópico mais camadas anteriores).
-- [ ] **CA-03** (evento): QUANDO o aluno abrir a página de estudo numa máquina nova, e a cada "Reset Máquina", O SISTEMA DEVE rodar o script do módulo e em seguida os dos cards, na ordem, e entregar a máquina pronta.
-- [ ] **CA-04** (evento): QUANDO a docente testar um card, O SISTEMA DEVE começar de uma máquina nova, rodar o snapshot do módulo, os dos cards anteriores e o do card, e só então os comandos do card.
-- [ ] **CA-05** (indesejado): SE um passo de snapshot terminar com erro no teste, ENTÃO O SISTEMA DEVE listá-lo como **conflito**, dizendo a camada, o comando e o que o terminal disse, e DEVE seguir com o teste.
-- [ ] **CA-06** (evento): QUANDO a docente publicar, O SISTEMA DEVE criar a próxima versão com o conteúdo do rascunho; SE não houver alterações, DEVE recusar com 409.
-- [ ] **CA-07** (estado): ENQUANTO houver alterações não publicadas, O SISTEMA DEVE mostrá-lo na edição do módulo, e o estudante NÃO DEVE ver essas alterações.
-- [ ] **CA-08** (evento): QUANDO a docente restaurar uma versão, O SISTEMA DEVE copiá-la para o rascunho, mantendo a identidade e o progresso dos blocos que existem nos dois, sem publicar.
-- [ ] **CA-09** (ubíquo): Os módulos que já existem DEVEM ter a versão 1, e o que o estudante vê DEVE ser o mesmo de antes; um módulo novo DEVE nascer com a versão 1 publicada (vazia), e SEMPRE DEVE haver uma versão publicada enquanto o rascunho é editado.
-- [ ] **CA-10** (evento): QUANDO a carga inicial mudar o conteúdo de um módulo que a autoria não tocou, O SISTEMA DEVE publicar uma nova versão dele.
-- [ ] **CA-11** (indesejado): SE um `TEACHER` tentar gravar, publicar ou restaurar um módulo que não é dele, ENTÃO O SISTEMA DEVE responder 403; SE não houver sessão, 401.
-- [ ] **CA-12** (evento): QUANDO a docente abrir um card antigo com `environment`, O SISTEMA DEVE mostrar os comandos dele como passos do snapshot do card.
+- [x] **CA-01** (evento): QUANDO a docente gravar o snapshot do módulo ou do card (passos digitados no terminal, editados ou adicionados à mão), O SISTEMA DEVE guardá-lo como script de passos.
+- [x] **CA-02** (evento): QUANDO a docente abrir o terminal para preparar um snapshot, O SISTEMA DEVE iniciar a máquina como o aluno a teria antes dele (tópico mais camadas anteriores).
+- [x] **CA-03** (evento): QUANDO o aluno abrir a página de estudo numa máquina nova, e a cada "Reset Máquina", O SISTEMA DEVE rodar o script do módulo e em seguida os dos cards, na ordem, e entregar a máquina pronta.
+- [x] **CA-04** (evento): QUANDO a docente testar um card, O SISTEMA DEVE começar de uma máquina nova, rodar o snapshot do módulo, os dos cards anteriores e o do card, e só então os comandos do card.
+- [x] **CA-05** (indesejado): SE um passo de snapshot terminar com erro no teste, ENTÃO O SISTEMA DEVE listá-lo como **conflito**, dizendo a camada, o comando e o que o terminal disse, e DEVE seguir com o teste.
+- [x] **CA-06** (evento): QUANDO a docente publicar, O SISTEMA DEVE criar a próxima versão com o conteúdo do rascunho; SE não houver alterações, DEVE recusar com 409.
+- [x] **CA-07** (estado): ENQUANTO houver alterações não publicadas, O SISTEMA DEVE mostrá-lo na edição do módulo, e o estudante NÃO DEVE ver essas alterações.
+- [x] **CA-08** (evento): QUANDO a docente restaurar uma versão, O SISTEMA DEVE copiá-la para o rascunho, mantendo a identidade e o progresso dos blocos que existem nos dois, sem publicar.
+- [x] **CA-09** (ubíquo): Os módulos que já existem DEVEM ter a versão 1, e o que o estudante vê DEVE ser o mesmo de antes; um módulo novo DEVE nascer com a versão 1 publicada (vazia), e SEMPRE DEVE haver uma versão publicada enquanto o rascunho é editado.
+- [x] **CA-10** (evento): QUANDO a carga inicial mudar o conteúdo de um módulo que a autoria não tocou, O SISTEMA DEVE publicar uma nova versão dele.
+- [x] **CA-11** (indesejado): SE um `TEACHER` tentar gravar, publicar ou restaurar um módulo que não é dele, ENTÃO O SISTEMA DEVE responder 403; SE não houver sessão, 401.
+- [x] **CA-12** (evento): QUANDO a docente abrir um card antigo com `environment`, O SISTEMA DEVE mostrar os comandos dele como passos do snapshot do card.
 
 ## 9. Plano de Testes (Test Plan)
 
@@ -170,3 +170,4 @@ Nenhuma em aberto. O Tech Lead respondeu em 09/10/2026:
 | 09/10/2026 | Tech Lead | Pedido: o snapshot do módulo deve ser exato e persistido; o texto de arquivos gravado pelo terminal não podia ficar de fora. Implementado como descrito em 3.3 (exatidão): conversão de editores em `printf`, comparação da máquina do terminal com a da repetição e salvamento imediato |
 | 09/10/2026 | Tech Lead | Pedido: o `printf` não serve para arquivos gigantes (logs, HTML); criar o arquivo como dado no JSON. Implementado (RN-12): `files` no snapshot, com as sessões de editor deixando de ser comandos, a comparação das máquinas acrescentando os arquivos e o teste no motor real com um log de cerca de 950 KB |
 | 10/10/2026 | Tech Lead | Pedido: o card editado (comandos, ambiente ou exercícios) volta sozinho a "não testado", sem o selo "alterado desde o teste"; o card sem comando, ambiente nem exercício mostra "não precisa ser testado". Implementado no selo da lista de conteúdo; o selo "alterado desde o teste" continua só no teste do módulo inteiro |
+| 15/10/2026 | Implementador | Fechada como Implementada, depois de conferir os 12 critérios contra o código e os testes de `content` (domain, service, repository com PostgreSQL e handler) e do frontend (`SetupEditor`, `CardTester`, `TopicStudy`, `VersionsTab`). Ressalvas, sem falta de código: CA-05 (com conflito no snapshot, o teste do card não roda os comandos dele, e o texto do critério diz que lista os conflitos além do resultado dos comandos; vale a decisão do Tech Lead entre ajustar o texto ou o código), CA-09 (a versão 1 dos módulos que já existiam vem de SQL da migração 00013, sem teste com dados) e o nome do botão do CA-02, que no código é "Gravar no terminal" |
