@@ -61,6 +61,8 @@ type Service interface {
 	LowerHand(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.HandRaiseEntry, error)
 	ModerateHand(ctx context.Context, sessionID uuid.UUID, studentID *uuid.UUID) ([]domain.HandRaiseEntry, error)
 	TeacherPresence(ctx context.Context, sessionID uuid.UUID) error
+	SendChat(ctx context.Context, actor service.Actor, sessionID uuid.UUID, student *uuid.UUID, text string) (domain.LiveChatMessage, error)
+	ChatHistory(ctx context.Context, sessionID uuid.UUID, student *uuid.UUID) ([]domain.LiveChatMessage, error)
 }
 
 // Options are the settings of the handler.
@@ -166,6 +168,25 @@ func myHand(entries []domain.HandRaiseEntry, student string) gin.H {
 		}
 	}
 	return gin.H{"raised": false, "question": ""}
+}
+
+// chatJSON is a message of the chat as the clients read it (SPEC-063): a private one carries the studentId that owns the conversation, whoever
+// wrote it; one for everybody has none.
+func chatJSON(m domain.LiveChatMessage) gin.H {
+	out := gin.H{"id": m.ID, "scope": "all", "from": m.SenderRole, "text": m.Body, "createdAt": m.CreatedAt.UTC()}
+	if m.StudentID != nil {
+		out["scope"], out["studentId"] = "private", *m.StudentID
+	}
+	return out
+}
+
+// chatsJSON is the history of the chat for the snapshot: a list, never null.
+func chatsJSON(list []domain.LiveChatMessage) []gin.H {
+	out := make([]gin.H, 0, len(list))
+	for _, m := range list {
+		out = append(out, chatJSON(m))
+	}
+	return out
 }
 
 // stageViewJSON is how the teacher left the stage: the scroll of each pane (the slide sideways too), the divider (null while he has not

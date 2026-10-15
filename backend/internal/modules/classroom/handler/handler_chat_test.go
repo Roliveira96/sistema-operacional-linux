@@ -307,9 +307,12 @@ func TestChat_RejectionsSendNothing(t *testing.T) {
 	assert.Len(t, w.svc.chatCalls(), atTheService, "the others were rejected before they reached the service")
 	assert.Empty(t, w.svc.kept(), "nothing was kept")
 	assert.Empty(t, w.logs.FilterMessage("classroom message dropped").All(), "these are rejections, not drops")
-	entry := w.logs.FilterMessage("classroom message rejected").All()[0].ContextMap()
-	assert.Equal(t, typeChatSend, entry["type"])
-	assert.Equal(t, w.student.UserID.String(), entry["userId"])
+	senders := map[any]bool{}
+	for _, entry := range w.logs.FilterMessage("classroom message rejected").All() {
+		assert.Equal(t, typeChatSend, entry.ContextMap()["type"])
+		senders[entry.ContextMap()["userId"]] = true
+	}
+	assert.Equal(t, map[any]bool{w.student.UserID.String(): true, w.teacher.UserID.String(): true}, senders, "the log says who sent it")
 
 	// and nothing was sent: the first message anybody gets is the one that came after
 	chatSend(t, panel, `{"text":"agora sim","to":"all"}`)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/service"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/hub"
 )
 
@@ -51,6 +52,10 @@ const (
 
 	// SPEC-059: the teacher asks the students to go full screen, from either of his windows
 	typeStageFullscreen = "live:stage:fullscreen"
+
+	// SPEC-063: the chat of the lesson, from the students and from the panel
+	typeChatSend    = "live:chat:send"
+	typeChatMessage = "live:chat:message"
 
 	// clearSelectionData is the data of the message that takes the selection away, as it goes to the others
 	clearSelectionData = `{"clear":true}`
@@ -103,6 +108,10 @@ func hubConfig() hub.Config {
 			typeHandRaise:        {MaxBytes: 4 * kib},
 			typeHandLower:        {MaxBytes: kib},
 			typeAdmissionRequest: {MaxBytes: kib, Limited: true, AllowWaiting: true},
+
+			// the chat is the students' and the panel's, so the rule has no ControllerOnly and no Kind: the handler tells who is who. The text is
+			// up to 500 characters, which are up to 2,000 bytes, or more when the client escapes them (SPEC-063)
+			typeChatSend: {MaxBytes: 4 * kib, Limited: true},
 		},
 		MaxViewers:    100,
 		MaxWaiting:    200,
@@ -169,6 +178,13 @@ func mustMarshal(v any) json.RawMessage {
 	return b
 }
 
+// isPanel tells a connection of the panel window of the teacher; a window that another replaced is a passive viewer and is not.
+func isPanel(who hub.Identity) bool { return who.Role == hub.Controller && who.Kind == viewPanel }
+
+// isStudent tells a connection of a student that the hub admitted: a viewer with the role of student. (The connections that wait are never
+// asked by BroadcastTo, and a window of the teacher that was replaced has the role of the teacher.)
+func isStudent(who hub.Identity) bool { return who.Role == hub.Viewer && who.Meta == authn.RoleStudent }
+
 // actorOf is who sent a message: the hub keeps the role the user had when he connected.
 func actorOf(who hub.Identity) (service.Actor, error) {
 	id, err := uuid.Parse(who.UserID)
@@ -214,9 +230,10 @@ func admissionState(status string) hub.Message {
 }
 
 // snapshot is the state of the room for a connection of the kind: the panel also gets the waiting room, the start of the lesson and
-// the state of the presenter window, and reads the questions of the raised hands; the presenter gets the stage and the raised hands
-// without their questions; a student gets the room, the hands without questions, and his own hand with his question in myHand
-// (SPEC-055 RN-05, SPEC-058). student is the user of the connection.
+// the state of the presenter window, reads the questions of the raised hands, the whole chat and who is online; the presenter gets the stage
+// and the raised hands without their questions, and no chat; a student gets the room, the hands without questions, his own hand with his
+// question in myHand, and the chat of the messages for everybody and of his conversation (SPEC-055 RN-05, SPEC-058, SPEC-063). student is the
+// user of the connection.
 func (w wsHandler) snapshot(ctx context.Context, room, kind, student string) (hub.Message, error) {
 	a, err := w.h.svc.Snapshot(ctx, sessionOf(room))
 	if err != nil {
@@ -233,10 +250,25 @@ func (w wsHandler) snapshot(ctx context.Context, room, kind, student string) (hu
 		body["admissions"] = admissionsBody(adm)
 		body["startedAt"] = a.Session.StartedAt
 		body["presenterConnected"] = w.h.hub.KindConnected(room, viewPresenter)
+		history, err := w.h.svc.ChatHistory(ctx, sessionOf(room), nil)
+		if err != nil {
+			return hub.Message{}, err
+		}
+		body["chat"] = chatsJSON(history)
+		body["onlineStudents"] = w.h.hub.OnlineUsers(room)
 	case viewPresenter:
 		delete(body, "onlineCount")
 	default:
+		owner, err := uuid.Parse(student)
+		if err != nil {
+			return hub.Message{}, err
+		}
+		history, err := w.h.svc.ChatHistory(ctx, sessionOf(room), &owner)
+		if err != nil {
+			return hub.Message{}, err
+		}
 		body["myHand"] = myHand(a.HandRaises, student)
+		body["chat"] = chatsJSON(history)
 	}
 	return hub.Message{Type: typeSnapshot, Data: mustMarshal(body)}, nil
 }
@@ -297,9 +329,14 @@ func (w wsHandler) presenterState(room string) {
 	w.h.hub.SendToKind(room, viewPanel, hub.Message{Type: typePresenterState, Data: mustMarshal(map[string]bool{"connected": connected})})
 }
 
+// presence tells the room how many are online and whether the presentation window is there. The panel also gets who is online, the admitted
+// students (SPEC-063); everybody else gets the message without that key.
 func (w wsHandler) presence(room string) {
 	body := map[string]any{"online": w.h.hub.Online(room), "presenterConnected": w.h.hub.KindConnected(room, viewPresenter)}
-	w.h.hub.Broadcast(room, hub.Message{Type: typePresence, Data: mustMarshal(body)}, "")
+	plain := hub.Message{Type: typePresence, Data: mustMarshal(body)}
+	body["onlineStudents"] = w.h.hub.OnlineUsers(room)
+	w.h.hub.SendToKind(room, viewPanel, hub.Message{Type: typePresence, Data: mustMarshal(body)})
+	w.h.hub.BroadcastTo(room, plain, func(who hub.Identity) bool { return !isPanel(who) })
 }
 
 func (w wsHandler) reject(room string, who hub.Identity, msg hub.Message, err error) {
@@ -450,6 +487,8 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 		w.admissions(ctx, room, who, msg)
 	case typeHandRaise, typeHandLower, typeHandModerate:
 		w.hands(ctx, room, who, msg)
+	case typeChatSend:
+		w.chat(ctx, room, who, msg)
 	}
 }
 
@@ -584,9 +623,93 @@ func (w wsHandler) hands(ctx context.Context, room string, who hub.Identity, msg
 // sendHandQueue tells the room the queue of raised hands. The text of the doubts is for the teacher: the panel gets each hand with its
 // question, and everybody else (the students, even the one who asked, and the presentation window) gets the hands without the key.
 func (w wsHandler) sendHandQueue(room string, queue []domain.HandRaiseEntry) {
-	isPanel := func(who hub.Identity) bool { return who.Role == hub.Controller && who.Kind == viewPanel }
 	full := hub.Message{Type: typeHandQueue, Data: mustMarshal(map[string]any{"queue": handsJSON(queue, true)})}
 	plain := hub.Message{Type: typeHandQueue, Data: mustMarshal(map[string]any{"queue": handsJSON(queue, false)})}
 	w.h.hub.SendToKind(room, viewPanel, full)
 	w.h.hub.BroadcastTo(room, plain, func(who hub.Identity) bool { return !isPanel(who) })
+}
+
+// chat saves a message of the chat of the lesson and, only after it was saved, delivers it (SPEC-063 section 3.1). The student writes to the
+// teacher, with the text and nothing else; the panel writes in particular to one student or, with "to":"all", to everybody. The presentation
+// window and any other connection are dropped (the hub has already dropped who waits). A message that is not valid is rejected and sends
+// nothing.
+func (w wsHandler) chat(ctx context.Context, room string, who hub.Identity, msg hub.Message) {
+	switch {
+	case isStudent(who), isPanel(who):
+	case who.Role == hub.Controller:
+		w.Dropped(room, who, msg.Type, "wrong-view")
+		return
+	default:
+		w.Dropped(room, who, msg.Type, "not-allowed")
+		return
+	}
+	actor, err := actorOf(who)
+	if err != nil {
+		w.reject(room, who, msg, err)
+		return
+	}
+	text, student, err := parseChat(msg.Data, isStudent(who))
+	if err != nil {
+		w.reject(room, who, msg, err)
+		return
+	}
+	saved, err := w.h.svc.SendChat(ctx, actor, sessionOf(room), student, text)
+	if err != nil {
+		w.reject(room, who, msg, err)
+		return
+	}
+	w.deliverChat(room, saved)
+}
+
+// parseChat reads the data of live:chat:send. A student sends the text and no other field: the message is for the teacher. The panel names
+// exactly one destination, "to":"all" (the student comes back nil) or the studentId of one student.
+func parseChat(data json.RawMessage, student bool) (text string, to *uuid.UUID, err error) {
+	if len(data) == 0 {
+		return "", nil, errors.New("the message needs data")
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	if student {
+		dec.DisallowUnknownFields()
+		var d struct {
+			Text *string `json:"text"`
+		}
+		if err := dec.Decode(&d); err != nil {
+			return "", nil, err
+		}
+		if d.Text == nil {
+			return "", nil, errors.New("the message needs the text")
+		}
+		return *d.Text, nil, nil
+	}
+	var d struct {
+		Text      *string    `json:"text"`
+		To        *string    `json:"to"`
+		StudentID *uuid.UUID `json:"studentId"`
+	}
+	if err := dec.Decode(&d); err != nil {
+		return "", nil, err
+	}
+	if d.Text == nil {
+		return "", nil, errors.New("the message needs the text")
+	}
+	switch {
+	case d.To != nil && *d.To == "all" && d.StudentID == nil:
+		return *d.Text, nil, nil
+	case d.To == nil && d.StudentID != nil:
+		return *d.Text, d.StudentID, nil
+	}
+	return "", nil, errors.New("the message needs exactly one destination: \"to\":\"all\", or the studentId of a student")
+}
+
+// deliverChat sends a saved message: the panel always gets it; a private message also goes to the connections of its student (the confirmation
+// of the sending, in any tab, when he wrote it) and nobody else; one for everybody goes to every admitted student. The presentation window
+// and the waiting room never get it.
+func (w wsHandler) deliverChat(room string, m domain.LiveChatMessage) {
+	out := hub.Message{Type: typeChatMessage, Data: mustMarshal(chatJSON(m))}
+	if m.StudentID == nil {
+		w.h.hub.BroadcastTo(room, out, func(who hub.Identity) bool { return isPanel(who) || isStudent(who) })
+		return
+	}
+	student := m.StudentID.String()
+	w.h.hub.BroadcastTo(room, out, func(who hub.Identity) bool { return isPanel(who) || (isStudent(who) && who.UserID == student) })
 }

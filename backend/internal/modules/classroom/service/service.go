@@ -65,6 +65,12 @@ type Repository interface {
 	// ListAdmissions returns who waits and who is admitted, first in first served, without the removed.
 	ListAdmissions(ctx context.Context, sessionID uuid.UUID) ([]domain.AdmissionEntry, error)
 	AdmitAllWaiting(ctx context.Context, sessionID uuid.UUID, now time.Time, decidedBy *uuid.UUID) ([]uuid.UUID, error)
+
+	// CreateChatMessage keeps a message of the chat of the lesson (SPEC-063).
+	CreateChatMessage(ctx context.Context, m *domain.LiveChatMessage) error
+	// ListChatMessages returns the last `limit` messages of the room, oldest first: all of them with no student, or the ones for everybody
+	// and the ones of the conversation of that student.
+	ListChatMessages(ctx context.Context, sessionID uuid.UUID, student *uuid.UUID, limit int) ([]domain.LiveChatMessage, error)
 }
 
 // ModuleBlock is a block of the lesson of a module, as the room shows it.
@@ -827,6 +833,57 @@ func (s *Service) ModerateHand(ctx context.Context, sessionID uuid.UUID, student
 		return nil, err
 	}
 	return s.repo.ListHandRaises(ctx, sessionID)
+}
+
+// SendChat saves a message of the chat of the open room and returns it, with the id and the moment that the server gave (SPEC-063). A
+// student writes to the teacher, in his own conversation: he must be admitted and names no recipient (domain.ErrForbidden if he does).
+// Who runs the class writes to one student, who must be admitted (domain.ErrNotAdmitted), or, with no student, to everybody. The text is
+// checked last (domain.ErrInvalidChatText), and a refusal keeps nothing.
+func (s *Service) SendChat(ctx context.Context, actor Actor, sessionID uuid.UUID, student *uuid.UUID, text string) (domain.LiveChatMessage, error) {
+	m := domain.LiveChatMessage{SessionID: sessionID, SenderID: actor.UserID}
+	if actor.Role == authn.RoleStudent {
+		if _, err := s.activeSession(ctx, sessionID); err != nil {
+			return domain.LiveChatMessage{}, err
+		}
+		if student != nil {
+			return domain.LiveChatMessage{}, domain.ErrForbidden
+		}
+		if err := s.requireAdmitted(ctx, sessionID, actor.UserID); err != nil {
+			return domain.LiveChatMessage{}, err
+		}
+		own := actor.UserID
+		m.SenderRole, m.StudentID = domain.ChatSenderStudent, &own
+	} else {
+		if _, err := s.decider(ctx, actor, sessionID); err != nil {
+			return domain.LiveChatMessage{}, err
+		}
+		if student != nil {
+			if err := s.requireAdmitted(ctx, sessionID, *student); err != nil {
+				return domain.LiveChatMessage{}, err
+			}
+		}
+		m.SenderRole, m.StudentID = domain.ChatSenderTeacher, student
+	}
+	body, err := domain.NormalizeChatText(text)
+	if err != nil {
+		return domain.LiveChatMessage{}, err
+	}
+	m.Body, m.CreatedAt = body, s.now().Truncate(time.Microsecond) // the precision of the column, so the live message and the history agree
+	if err := s.repo.CreateChatMessage(ctx, &m); err != nil {
+		return domain.LiveChatMessage{}, err
+	}
+	return m, nil
+}
+
+// ChatHistory returns the chat of the room, oldest first, for the snapshot: with a student, the last 200 messages for everybody and of his
+// conversation; with none, the panel's reading, the last 500 of all (SPEC-063). The room need not be open: a room that ended keeps its
+// messages.
+func (s *Service) ChatHistory(ctx context.Context, sessionID uuid.UUID, student *uuid.UUID) ([]domain.LiveChatMessage, error) {
+	limit := domain.ChatHistoryPanel
+	if student != nil {
+		limit = domain.ChatHistoryStudent
+	}
+	return s.repo.ListChatMessages(ctx, sessionID, student, limit)
 }
 
 // RememberDrawing keeps a stroke of the current slide for who comes in later; a clear message empties them.
