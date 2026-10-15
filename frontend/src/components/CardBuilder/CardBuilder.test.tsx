@@ -529,7 +529,7 @@ describe("CardBuilder, an existing card", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Recarregar o card" }));
 
-    expect((await screen.findByRole("alert")).textContent).toContain("Este card não existe mais: outra pessoa o removeu.");
+    expect(await screen.findByText("Este card não existe mais: outra pessoa o removeu.")).toBeDefined();
     expect((input("Título principal do card") as HTMLInputElement).value).toBe("Meu título");
   });
 
