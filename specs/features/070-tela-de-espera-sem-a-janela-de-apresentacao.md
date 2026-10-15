@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-070 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 15/10/2026 |
-| **Última revisão** | 15/10/2026 (aprovada) |
+| **Última revisão** | 15/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -75,16 +75,16 @@ Nenhum endpoint e nenhuma mensagem nova.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (estado): ENQUANTO a sala não tem janela de apresentação conectada e nenhuma tolerância está correndo, O SISTEMA DEVE mostrar aos alunos aceitos a tela de espera, inclusive no começo da aula, antes da primeira janela.
-- [ ] **CA-02** (evento): QUANDO uma janela de apresentação conecta com a tela de espera ligada, O SISTEMA DEVE desligá-la e enviar `live:stage:blank` com `blank` falso a todos os conectados da sala.
-- [ ] **CA-03** (evento): QUANDO a última janela de apresentação sai da sala, O SISTEMA DEVE esperar 10 segundos e, se nenhuma janela conectou nesse prazo, ligar a tela de espera e enviar `live:stage:blank` com `blank` verdadeiro a todos os conectados da sala.
-- [ ] **CA-04** (indesejado): SE uma janela de apresentação conecta dentro dos 10 segundos (recarga, queda curta ou substituição por outra janela), ENTÃO O SISTEMA NÃO DEVE ligar a tela de espera nem enviar o aviso.
-- [ ] **CA-05** (estado): ENQUANTO não há janela de apresentação e a tolerância não está correndo, O SISTEMA DEVE dar a quem entra ou reconecta o instantâneo com `stageBlank` verdadeiro; ENQUANTO a tolerância corre, o valor da tecla B.
-- [ ] **CA-06** (indesejado): SE a aula é encerrada, pelo painel ou pela rede de segurança, ENTÃO O SISTEMA NÃO DEVE ligar a tela de espera nem enviar `live:stage:blank` por causa da saída da janela, e DEVE cancelar a tolerância em andamento.
-- [ ] **CA-07** (estado): ENQUANTO não há janela de apresentação, O SISTEMA DEVE manter a tela de espera para os alunos, mesmo que o painel troque lâmina, modo ou módulo.
-- [ ] **CA-08** (estado): ENQUANTO a janela de apresentação não está conectada, O painel DEVE dizer que a turma vê a tela de espera e mostrar o botão **Abrir janela de apresentação**, e DEVE tirar o aviso quando a janela conectar.
-- [ ] **CA-09** (ubíquo): O SISTEMA NÃO DEVE mudar nada para o estudante que ainda espera ser aceito (SPEC-054) nem para quem não está na sala.
-- [ ] **CA-10** (ubíquo): O SISTEMA DEVE manter a tecla B como está: com a janela conectada, a tela de espera liga e desliga só por ela.
+- [x] **CA-01** (estado): ENQUANTO a sala não tem janela de apresentação conectada e nenhuma tolerância está correndo, O SISTEMA DEVE mostrar aos alunos aceitos a tela de espera, inclusive no começo da aula, antes da primeira janela.
+- [x] **CA-02** (evento): QUANDO uma janela de apresentação conecta com a tela de espera ligada, O SISTEMA DEVE desligá-la e enviar `live:stage:blank` com `blank` falso a todos os conectados da sala.
+- [x] **CA-03** (evento): QUANDO a última janela de apresentação sai da sala, O SISTEMA DEVE esperar 10 segundos e, se nenhuma janela conectou nesse prazo, ligar a tela de espera e enviar `live:stage:blank` com `blank` verdadeiro a todos os conectados da sala.
+- [x] **CA-04** (indesejado): SE uma janela de apresentação conecta dentro dos 10 segundos (recarga, queda curta ou substituição por outra janela), ENTÃO O SISTEMA NÃO DEVE ligar a tela de espera nem enviar o aviso.
+- [x] **CA-05** (estado): ENQUANTO não há janela de apresentação e a tolerância não está correndo, O SISTEMA DEVE dar a quem entra ou reconecta o instantâneo com `stageBlank` verdadeiro; ENQUANTO a tolerância corre, o valor da tecla B.
+- [x] **CA-06** (indesejado): SE a aula é encerrada, pelo painel ou pela rede de segurança, ENTÃO O SISTEMA NÃO DEVE ligar a tela de espera nem enviar `live:stage:blank` por causa da saída da janela, e DEVE cancelar a tolerância em andamento.
+- [x] **CA-07** (estado): ENQUANTO não há janela de apresentação, O SISTEMA DEVE manter a tela de espera para os alunos, mesmo que o painel troque lâmina, modo ou módulo.
+- [x] **CA-08** (estado): ENQUANTO a janela de apresentação não está conectada, O painel DEVE dizer que a turma vê a tela de espera e mostrar o botão **Abrir janela de apresentação**, e DEVE tirar o aviso quando a janela conectar.
+- [x] **CA-09** (ubíquo): O SISTEMA NÃO DEVE mudar nada para o estudante que ainda espera ser aceito (SPEC-054) nem para quem não está na sala.
+- [x] **CA-10** (ubíquo): O SISTEMA DEVE manter a tecla B como está: com a janela conectada, a tela de espera liga e desliga só por ela.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -125,3 +125,4 @@ Nenhuma. Decisões do Tech Lead em 15/10/2026: a tela de espera vale sempre que 
 | 15/10/2026 | Aruna Architect | Criação em Rascunho, a pedido do Tech Lead |
 | 15/10/2026 | Aruna Architect | Aprovada pelo Tech Lead ("Sim chat, pode ir fazendo em ordem"); RN-01 e seção 4 ajustadas para dizer que o registro da janela fica em memória, o que o desenho exige |
 | 15/10/2026 | Aruna Architect | Decisões do Tech Lead: a tela de espera vale também antes da primeira janela (sai o caso "só pelo painel") e há tolerância de 10 segundos para recarga; P-01 e P-02 resolvidas; o nome do arquivo passa a refletir o novo escopo |
+| 15/10/2026 | Implementador | Implementada: `Options.After`, o registro da janela e a tolerância de 10 s em `handler/window.go`, ligados ao instantâneo, à entrada e à saída da janela e ao fim da aula; aviso no painel. Os 10 critérios têm teste automatizado; o roteiro manual (janela real, recarga e fim da aula) fica para o Tech Lead |

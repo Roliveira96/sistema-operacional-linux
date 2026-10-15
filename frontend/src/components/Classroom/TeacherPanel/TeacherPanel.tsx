@@ -307,6 +307,8 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
         </p>
       )}
 
+      {!live.presenterConnected && <p className={styles.error}>{t.presenter.waitingScreen}</p>}
+
       <div className={styles.body}>
         <div className={styles.main}>
           <ol className={styles.steps} aria-label={t.steps.title}>
