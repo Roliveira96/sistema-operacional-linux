@@ -18,6 +18,9 @@ const line = (pid: number, ppid: number, comando: string, extra: Partial<Process
 beforeEach(() => {
   setProcessLister(() => [
     line(1, 0, "/sbin/init", { usuario: "root", tty: "?" }),
+    // the threads of the kernel are not part of the tree that pstree draws
+    line(2, 0, "[kthreadd]", { usuario: "root", tty: "?" }),
+    line(3, 2, "[rcu_gp]", { usuario: "root", tty: "?" }),
     line(500, 1, "/usr/sbin/cron", { usuario: "root", tty: "?" }),
     line(2400, 1, "-bash"),
     line(2451, 2400, "sleep 300"),
@@ -45,6 +48,13 @@ describe("pstree", () => {
       "     ├─bash",
       "     └─cron",
     ]);
+  });
+
+  it("does not draw the threads of the kernel, which the real pstree leaves out", async () => {
+    const { out } = await run(pstreeCommand, ["-p"]);
+    expect(out).not.toContain("kthreadd");
+    expect(out).not.toContain("rcu_gp");
+    expect(out.split("\n")[0]).toMatch(/^init\(1\)/);
   });
 
   it("shows the PIDs with -p", async () => {
