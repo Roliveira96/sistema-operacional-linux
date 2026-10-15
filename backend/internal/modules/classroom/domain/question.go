@@ -9,8 +9,9 @@ import (
 
 // The doubt that a student writes when he raises his hand (SPEC-058).
 const (
-	MaxQuestionLength     = 300 // characters, not bytes
-	maxQuestionLineBreaks = 3   // in a row
+	MaxQuestionLength = 300 // characters, not bytes
+
+	maxLineBreaksInARow = 3
 )
 
 // ErrInvalidQuestion is the answer to a question that is too long, has a control character or too many line breaks in a row.
@@ -20,25 +21,35 @@ var ErrInvalidQuestion = errors.New("the question must have up to 300 characters
 // except the line break, and no more than 3 line breaks in a row. Empty means no question, and the result is then "". The text is plain
 // text: nothing else is changed in it.
 func NormalizeQuestion(raw string) (string, error) {
-	if !utf8.ValidString(raw) {
+	text, ok := normalizePlainText(raw, MaxQuestionLength)
+	if !ok {
 		return "", ErrInvalidQuestion
 	}
+	return text, nil
+}
+
+// normalizePlainText trims the text and tells whether it is valid plain text of up to limit characters: UTF-8, no control characters except
+// the line break, and no more than 3 line breaks in a row. The text may be empty; the caller decides what that means.
+func normalizePlainText(raw string, limit int) (string, bool) {
+	if !utf8.ValidString(raw) {
+		return "", false
+	}
 	text := strings.TrimSpace(raw)
-	if utf8.RuneCountInString(text) > MaxQuestionLength {
-		return "", ErrInvalidQuestion
+	if utf8.RuneCountInString(text) > limit {
+		return "", false
 	}
 	breaks := 0
 	for _, r := range text {
 		if r == '\n' {
-			if breaks++; breaks > maxQuestionLineBreaks {
-				return "", ErrInvalidQuestion
+			if breaks++; breaks > maxLineBreaksInARow {
+				return "", false
 			}
 			continue
 		}
 		if unicode.IsControl(r) {
-			return "", ErrInvalidQuestion
+			return "", false
 		}
 		breaks = 0
 	}
-	return text, nil
+	return text, true
 }

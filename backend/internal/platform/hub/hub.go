@@ -331,13 +331,18 @@ func (h *Hub) Serve(ctx context.Context, ws *websocket.Conn, roomID string, who 
 func (r *room) count(role Role) int {
 	n := 0
 	for _, c := range r.conns {
-		c.mu.Lock()
-		if c.role == role && !c.waiting && !c.revoked {
+		if c.counts(role) {
 			n++
 		}
-		c.mu.Unlock()
 	}
 	return n
+}
+
+// counts tells whether the connection is one of the admitted of the role: not waiting, and not a window that another one replaced.
+func (c *conn) counts(role Role) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.role == role && !c.waiting && !c.revoked
 }
 
 func (r *room) countWaiting() int {
@@ -579,6 +584,21 @@ func (h *Hub) Online(roomID string) int {
 		return r.count(Viewer)
 	}
 	return 0
+}
+
+// OnlineUsers lists the users of the admitted viewers of the room, each one once (two tabs of a student are one student) and in order. The
+// waiting, the controller and a window that another one replaced are not in it. It is never nil.
+func (h *Hub) OnlineUsers(roomID string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, c := range h.members(roomID) {
+		if c.counts(Viewer) && !seen[c.userID] {
+			seen[c.userID] = true
+			out = append(out, c.userID)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ControllerConnected tells whether the room has its controller.

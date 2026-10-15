@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -256,6 +257,29 @@ func (r *Repository) FindNote(ctx context.Context, sessionID, studentID uuid.UUI
 	var note domain.LiveClassroomNote
 	err := r.db.Conn(ctx).Where("session_id = ? AND student_id = ?", sessionID, studentID).First(&note).Error
 	return note, notFound(err, domain.ErrNotesNotFound)
+}
+
+// ---- chat of the lesson (SPEC-063) ----
+
+// CreateChatMessage inserts a message of the chat. The room, the sender and the student exist, and the rules of who writes where hold,
+// by the constraints of the table.
+func (r *Repository) CreateChatMessage(ctx context.Context, m *domain.LiveChatMessage) error {
+	return r.db.Conn(ctx).Create(m).Error
+}
+
+// ListChatMessages returns the last `limit` messages of the room, oldest first. With no student it is the panel's reading, every message;
+// with one, it is that student's: the messages for everybody and the ones of his own conversation.
+func (r *Repository) ListChatMessages(ctx context.Context, sessionID uuid.UUID, student *uuid.UUID, limit int) ([]domain.LiveChatMessage, error) {
+	query := r.db.Conn(ctx).Where("session_id = ?", sessionID)
+	if student != nil {
+		query = query.Where("(student_id IS NULL OR student_id = ?)", *student)
+	}
+	var out []domain.LiveChatMessage
+	if err := query.Order("created_at DESC, id DESC").Limit(limit).Find(&out).Error; err != nil {
+		return nil, err
+	}
+	slices.Reverse(out) // read newest first so that the limit keeps the last ones; the caller wants them oldest first
+	return out, nil
 }
 
 // ---- waiting room (SPEC-054) ----

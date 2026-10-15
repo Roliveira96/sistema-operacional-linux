@@ -207,6 +207,16 @@ func migrationParts(t *testing.T, prefix string) (up, down string) {
 	return text[upAt+len("-- +goose Up") : downAt], text[downAt+len("-- +goose Down"):]
 }
 
+// runMigration runs the statements of one part of a migration, one by one, as goose does: the driver takes a single command at a time.
+func runMigration(t *testing.T, e env, part string) {
+	t.Helper()
+	for _, statement := range strings.Split(part, ";\n") {
+		if strings.TrimSpace(statement) != "" {
+			require.NoError(t, e.db.Conn(e.ctx).Exec(statement).Error, statement)
+		}
+	}
+}
+
 func chatTable(t *testing.T, e env) (columns []string, indexes []string) {
 	t.Helper()
 	require.NoError(t, e.db.Conn(e.ctx).Raw(
@@ -235,14 +245,14 @@ func TestMigration00034_CreatesTheTableAndTakesItBack(t *testing.T) {
 	s := e.openRoom(t)
 	e.chat(t, s, e.student.ID, domain.ChatSenderStudent, &e.student.ID, "ficará só até a reversão", e.now)
 
-	require.NoError(t, e.db.Conn(e.ctx).Exec(down).Error, "the Down runs")
+	runMigration(t, e, down)
 	columns, _ = chatTable(t, e)
 	assert.Empty(t, columns, "the Down took the table away")
 	found, err := e.repo.FindSession(e.ctx, s.ID)
 	require.NoError(t, err, "and left the room")
 	assert.Equal(t, s.ID, found.ID)
 
-	require.NoError(t, e.db.Conn(e.ctx).Exec(up).Error, "the Up runs again")
+	runMigration(t, e, up)
 	columns, _ = chatTable(t, e)
 	assert.Len(t, columns, 9)
 	got, err := e.repo.ListChatMessages(e.ctx, s.ID, nil, 500)
