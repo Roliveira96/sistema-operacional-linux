@@ -18,7 +18,7 @@ class FakeNotification {
   }
 }
 
-const shown = () => FakeNotification.instances[0];
+const shown = () => FakeNotification.instances[0]!;
 const clickIt = (notification: FakeNotification) => notification.onclick?.(new Event("click"));
 
 beforeEach(() => {
@@ -113,7 +113,7 @@ describe("browserNotice, showing a notice", () => {
     browserNotice.show({ title: "t", body: "b".repeat(140), tag: "x" });
     expect(shown().options!.body).toBe("b".repeat(140));
     browserNotice.show({ title: "t", body: "b".repeat(141), tag: "y" });
-    expect(FakeNotification.instances[1].options!.body).toBe(`${"b".repeat(139)}…`);
+    expect(FakeNotification.instances[1]!.options!.body).toBe(`${"b".repeat(139)}…`);
   });
 
   it("counts by character, so a picture is never cut in half", () => {

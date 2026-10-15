@@ -401,10 +401,10 @@ describe("LiveClassroom", () => {
       expect(bar.getByText("Conectados: 5")).toBeDefined();
     });
 
-    it("has the hand, the notes, the conversation and the full screen in the middle, and the way out on the right", () => {
+    it("has the hand, the notes, the conversation, the notices and the full screen in the middle, and the way out on the right", () => {
       live({ canControl: false });
       room();
-      expect(within(strip()).getAllByRole("button").map((button) => button.textContent)).toEqual(["Levantar a mão", "Anotações", "Conversa", "Tela cheia", "Sair da sala"]);
+      expect(within(strip()).getAllByRole("button").map((button) => button.textContent)).toEqual(["Levantar a mão", "Anotações", "Conversa", "Notificações", "Tela cheia", "Sair da sala"]);
     });
 
     it("has the strip after the stage, and nothing of it inside the stage", () => {

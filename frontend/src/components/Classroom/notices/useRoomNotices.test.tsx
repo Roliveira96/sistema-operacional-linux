@@ -24,7 +24,7 @@ const message = (over: Partial<LiveChatMessage> & Pick<LiveChatMessage, "from" |
 const fromStudent = (studentId: string, text: string, id?: string) => message({ from: "STUDENT", studentId, text, ...(id ? { id } : {}) });
 const toStudent = (studentId: string, text: string) => message({ from: "TEACHER", studentId, text });
 const toAll = (text: string) => ({ id: `m-${++seq}`, scope: "all", from: "TEACHER", text, createdAt: "2026-10-14T10:00:00Z" }) as LiveChatMessage;
-const hand = (studentId: string, question = ""): HandRaiseItem => ({ studentId, name: NAMES[studentId], requestedAt: "2026-10-14T10:00:00Z", question });
+const hand = (studentId: string, question = ""): HandRaiseItem => ({ studentId, name: NAMES[studentId]!, requestedAt: "2026-10-14T10:00:00Z", question });
 
 function setup(role: "teacher" | "student", over: Partial<RoomNoticesInput> = {}, access = browser()) {
   const onOpen = vi.fn();
@@ -89,7 +89,7 @@ describe("useRoomNotices, the teacher", () => {
   it("uses the name the line of hands gives, which is the one of the student", () => {
     const t = setup("teacher", { nameOf: () => "" });
     t.give({ hands: [{ studentId: "u-9", name: "Davi Rocha", requestedAt: "2026-10-14T10:00:00Z" }] });
-    expect(calls(t)[0].body).toBe("Davi Rocha levantou a mão");
+    expect(calls(t)[0]!.body).toBe("Davi Rocha levantou a mão");
   });
 
   it("notifies a message of a student, with his name and the text", () => {
@@ -102,20 +102,20 @@ describe("useRoomNotices, the teacher", () => {
   it("gives the text of the message as it came, with no template and no HTML made of it", () => {
     const t = setup("teacher");
     t.give({ chat: [fromStudent("u-1", "<b>oi</b> {{x}} ${y}")] });
-    expect(calls(t)[0].body).toBe("<b>oi</b> {{x}} ${y}");
+    expect(calls(t)[0]!.body).toBe("<b>oi</b> {{x}} ${y}");
   });
 
   it("says 'um aluno' when it cannot tell whose the message is", () => {
     const t = setup("teacher", { nameOf: () => "" });
     t.give({ chat: [fromStudent("u-9", "Oi")] });
-    expect(calls(t)[0].title).toBe("Mensagem de um aluno");
+    expect(calls(t)[0]!.title).toBe("Mensagem de um aluno");
   });
 
   it("opens the conversation of the student when the notice of his hand is clicked", () => {
     const t = setup("teacher");
     t.give({ hands: [hand("u-3")] });
     expect(t.onOpen).not.toHaveBeenCalled();
-    calls(t)[0].onClick!();
+    calls(t)[0]!.onClick!();
     expect(t.onOpen).toHaveBeenCalledTimes(1);
     expect(t.onOpen).toHaveBeenCalledWith("u-3");
   });
@@ -123,7 +123,7 @@ describe("useRoomNotices, the teacher", () => {
   it("opens the conversation of the student when the notice of his message is clicked", () => {
     const t = setup("teacher");
     t.give({ chat: [fromStudent("u-2", "Oi")] });
-    calls(t)[0].onClick!();
+    calls(t)[0]!.onClick!();
     expect(t.onOpen).toHaveBeenCalledTimes(1);
     expect(t.onOpen).toHaveBeenCalledWith("u-2");
   });
@@ -175,7 +175,7 @@ describe("useRoomNotices, the student", () => {
   it("asks to open the conversation when the notice is clicked", () => {
     const t = setup("student");
     t.give({ chat: [toAll("Atenção")] });
-    calls(t)[0].onClick!();
+    calls(t)[0]!.onClick!();
     expect(t.onOpen).toHaveBeenCalledTimes(1);
   });
 });
@@ -339,7 +339,7 @@ describe("useRoomNotices, many things at once", () => {
   it("says 'e mais 1 aviso' in the singular", () => {
     const t = setup("teacher");
     t.give({ hands: many(4) });
-    expect(calls(t)[3].body).toBe("e mais 1 aviso");
+    expect(calls(t)[3]!.body).toBe("e mais 1 aviso");
   });
 
   it("counts the hands and the messages of the same update together", () => {
@@ -347,7 +347,7 @@ describe("useRoomNotices, many things at once", () => {
     t.give({ hands: [hand("u-1"), hand("u-2")], chat: [fromStudent("u-1", "A"), fromStudent("u-2", "B"), fromStudent("u-3", "C")] });
     const shown = calls(t);
     expect(shown.map((c) => c.tag.split("-")[0])).toEqual(["hand", "hand", "chat", "more"]);
-    expect(shown[3].body).toBe("e mais 2 avisos");
+    expect(shown[3]!.body).toBe("e mais 2 avisos");
   });
 
   it("counts each update by itself: the limit is not for the whole class", () => {

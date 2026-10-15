@@ -67,6 +67,7 @@ class FakeNotification {
   }
 }
 const shown = () => FakeNotification.instances;
+const first = () => FakeNotification.instances[0]!;
 const click = (notification: FakeNotification) => act(() => void notification.onclick?.(new Event("click")));
 
 /** What the browser says about the page: the student is in another tab, or looking at the room. */
@@ -162,11 +163,11 @@ describe("LiveClassroom, the notices of the teacher", () => {
     view.rerender(element());
     await flush();
     expect(shown()).toHaveLength(1);
-    expect(shown()[0].title).toBe("Professor · para todos");
-    expect(shown()[0].options).toMatchObject({ body: "Prova na sexta", tag: "chat-m-2" });
-    await click(shown()[0]);
+    expect(first().title).toBe("Professor · para todos");
+    expect(first().options).toMatchObject({ body: "Prova na sexta", tag: "chat-m-2" });
+    await click(first());
     expect(window.focus).toHaveBeenCalled();
-    expect(shown()[0].close).toHaveBeenCalled();
+    expect(first().close).toHaveBeenCalled();
     expect(column()).not.toBeNull();
     expect(chatToggle().getAttribute("aria-expanded")).toBe("true");
   });
@@ -179,8 +180,8 @@ describe("LiveClassroom, the notices of the teacher", () => {
     live({ chat: [toMe("m-1", "Veja o man")] });
     view.rerender(element());
     await flush();
-    expect(shown()[0].title).toBe("Professor");
-    await click(shown()[0]);
+    expect(first().title).toBe("Professor");
+    await click(first());
     expect(screen.queryByTestId("notes")).toBeNull();
     expect(column()).not.toBeNull();
   });
@@ -192,7 +193,7 @@ describe("LiveClassroom, the notices of the teacher", () => {
     live({ chat: [toMe("m-1")] });
     view.rerender(element());
     await flush();
-    await click(shown()[0]);
+    await click(first());
     expect(column()).not.toBeNull();
   });
 

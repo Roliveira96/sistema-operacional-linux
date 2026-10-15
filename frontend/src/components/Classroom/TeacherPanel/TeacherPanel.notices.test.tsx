@@ -61,6 +61,7 @@ class FakeNotification {
   }
 }
 const shown = () => FakeNotification.instances;
+const first = () => FakeNotification.instances[0]!;
 const click = (notification: FakeNotification) => act(() => void notification.onclick?.(new Event("click")));
 
 /** What the browser says about the page: the teacher is in another window, or looking at the panel. */
@@ -163,11 +164,11 @@ describe("TeacherPanel, the notices of the hands and of the messages", () => {
     view.rerender(element());
     await flush();
     expect(shown()).toHaveLength(1);
-    expect(shown()[0].title).toBe("Mão levantada");
-    expect(shown()[0].options).toMatchObject({ body: "Bruno Lima levantou a mão: Como uso o chmod?", tag: "hand-u-2" });
-    await click(shown()[0]);
+    expect(first().title).toBe("Mão levantada");
+    expect(first().options).toMatchObject({ body: "Bruno Lima levantou a mão: Como uso o chmod?", tag: "hand-u-2" });
+    await click(first());
     expect(window.focus).toHaveBeenCalled();
-    expect(shown()[0].close).toHaveBeenCalled();
+    expect(first().close).toHaveBeenCalled();
     expect(screen.getByRole("heading", { level: 3, name: "Conversa com Bruno Lima" })).toBeDefined();
   });
 
@@ -180,9 +181,9 @@ describe("TeacherPanel, the notices of the hands and of the messages", () => {
     view.rerender(element());
     await flush();
     expect(shown()).toHaveLength(1);
-    expect(shown()[0].title).toBe("Mensagem de Ana Souza");
-    expect(shown()[0].options).toMatchObject({ body: "Não entendi o chmod", tag: `chat-${written.id}` });
-    await click(shown()[0]);
+    expect(first().title).toBe("Mensagem de Ana Souza");
+    expect(first().options).toMatchObject({ body: "Não entendi o chmod", tag: `chat-${written.id}` });
+    await click(first());
     expect(screen.getByRole("heading", { level: 3, name: "Conversa com Ana Souza" })).toBeDefined();
     expect(within(screen.getByRole("log")).getByText("Não entendi o chmod")).toBeDefined();
   });
@@ -196,7 +197,7 @@ describe("TeacherPanel, the notices of the hands and of the messages", () => {
     live({ chat: [fromStudent("u-2", "Oi, professor")] });
     view.rerender(element());
     await flush();
-    await click(shown()[0]);
+    await click(first());
     expect(screen.getByRole("heading", { level: 3, name: "Conversa com Bruno Lima" })).toBeDefined();
   });
 

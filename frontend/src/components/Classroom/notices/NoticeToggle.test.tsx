@@ -173,6 +173,6 @@ describe("NoticeToggle, when the browser blocked the notices", () => {
       </>,
     );
     const [first, second] = screen.getAllByRole("button");
-    expect(first.getAttribute("aria-describedby")).not.toBe(second.getAttribute("aria-describedby"));
+    expect(first!.getAttribute("aria-describedby")).not.toBe(second!.getAttribute("aria-describedby"));
   });
 });
