@@ -392,8 +392,8 @@ type DeckView struct {
 	DownloadURL string
 }
 
-// UploadDeck stores a presentation of the class (RN-04). The browser read the PDF and told how many pages it has; the server checks the
-// header, the size and the limits.
+// UploadDeck stores a presentation of the class (RN-04): a PDF, whose pages the browser counted, or an image (SPEC-068). The server reads the format
+// from the content of the file and checks the size and the limits; the room does not have to be open, and sending a file does not touch it.
 func (s *Service) UploadDeck(ctx context.Context, actor Actor, classID uuid.UUID, in UploadInput) (DeckView, error) {
 	if _, err := s.writable(ctx, actor, classID); err != nil {
 		return DeckView{}, err
@@ -406,8 +406,8 @@ func (s *Service) UploadDeck(ctx context.Context, actor Actor, classID uuid.UUID
 	if int64(len(data)) > size {
 		size = int64(len(data))
 	}
-	header, _ := bufio.NewReader(bytes.NewReader(data)).Peek(5)
-	title, err := domain.ValidateDeck(in.Title, in.PageCount, size, header)
+	header, _ := bufio.NewReader(bytes.NewReader(data)).Peek(12)
+	upload, err := domain.ClassifyUpload(in.Title, in.PageCount, size, header)
 	if err != nil {
 		return DeckView{}, err
 	}
@@ -419,15 +419,41 @@ func (s *Service) UploadDeck(ctx context.Context, actor Actor, classID uuid.UUID
 		return DeckView{}, domain.ErrDeckLimit
 	}
 
-	deck := domain.SlideDeck{ClassID: classID, UploadedBy: actor.UserID, Title: title, PageCount: in.PageCount}
+	deck := domain.SlideDeck{ClassID: classID, UploadedBy: actor.UserID, Title: upload.Title, PageCount: upload.PageCount, Kind: upload.Kind}
 	deck.ID = uuid.New()
-	deck.ObjectKey = "classes/" + classID.String() + "/decks/" + deck.ID.String() + ".pdf"
-	if err := s.store.PutObject(ctx, deck.ObjectKey, bytes.NewReader(data), int64(len(data)), "application/pdf"); err != nil {
+	deck.ObjectKey = "classes/" + classID.String() + "/decks/" + deck.ID.String() + upload.Extension
+	if err := s.store.PutObject(ctx, deck.ObjectKey, bytes.NewReader(data), int64(len(data)), upload.ContentType); err != nil {
 		return DeckView{}, err
 	}
 	if err := s.repo.CreateDeck(ctx, &deck); err != nil {
 		return DeckView{}, err
 	}
+	return s.deckView(ctx, deck)
+}
+
+// SelectDeck puts a presentation of the class on the stage of the open room, at the first slide and in the slides mode, and takes away what was
+// drawn on the one that was there; only who runs the class does it (SPEC-068 RN-05). It gives the presentation with a fresh address.
+func (s *Service) SelectDeck(ctx context.Context, actor Actor, sessionID, deckID uuid.UUID) (DeckView, error) {
+	session, err := s.activeSession(ctx, sessionID)
+	if err != nil {
+		return DeckView{}, err
+	}
+	if _, err := s.writable(ctx, actor, session.ClassID); err != nil {
+		return DeckView{}, err
+	}
+	deck, err := s.repo.FindDeck(ctx, deckID)
+	if err != nil {
+		return DeckView{}, err
+	}
+	if deck.ClassID != session.ClassID {
+		return DeckView{}, domain.ErrDeckNotFound
+	}
+	session.DeckID, session.CurrentSlide, session.DisplayMode = &deck.ID, 1, domain.ModeSlides
+	if err := s.repo.SaveSession(ctx, &session); err != nil {
+		return DeckView{}, err
+	}
+	s.live.clearDrawings(sessionID)
+	s.live.resetScroll(sessionID, domain.PaneSlide)
 	return s.deckView(ctx, deck)
 }
 

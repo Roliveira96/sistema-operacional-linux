@@ -54,7 +54,7 @@ var pdfHeader = []byte("%PDF-")
 var (
 	ErrInvalidTitle         = errors.New("the title must have from 1 to 120 characters")
 	ErrInvalidPDF           = errors.New("the file is not a valid presentation")
-	ErrFileTooLarge         = errors.New("the file is larger than 25 MB")
+	ErrFileTooLarge         = errors.New("the file is larger than the limit of its format (25 MB for a PDF, 10 MB for an image)")
 	ErrContentTooLong       = errors.New("the notes have more than 20,000 characters")
 	ErrInvalidSlide         = errors.New("the slide is out of the presentation")
 	ErrInvalidMode          = errors.New("the mode must be SLIDES or MODULE")
@@ -125,7 +125,7 @@ func (s LiveClassroomSession) DurationMinutes() int {
 	return int(s.EndedAt.Sub(s.StartedAt) / time.Minute)
 }
 
-// SlideDeck is a presentation (a PDF) uploaded for the class.
+// SlideDeck is a presentation uploaded for the class: a PDF, or one image (SPEC-068).
 type SlideDeck struct {
 	database.Model
 	ClassID    uuid.UUID
@@ -133,6 +133,8 @@ type SlideDeck struct {
 	Title      string
 	ObjectKey  string
 	PageCount  int
+	// Kind is KindPDF or KindImage; a deck saved with none is a PDF, by the default of the table.
+	Kind string `gorm:"default:PDF"`
 }
 
 // TableName maps SlideDeck to its table.

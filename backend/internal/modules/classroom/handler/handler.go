@@ -31,6 +31,7 @@ type Service interface {
 	UploadDeck(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.UploadInput) (service.DeckView, error)
 	ListDecks(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]domain.SlideDeck, error)
 	GetActive(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Active, error)
+	SelectDeck(ctx context.Context, actor service.Actor, sessionID, deckID uuid.UUID) (service.DeckView, error)
 	ListMyLive(ctx context.Context, actor service.Actor) ([]service.StudentRoom, error)
 	ListSessions(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]service.SessionSummary, error)
 	SaveNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, content string) (domain.LiveClassroomNote, error)
@@ -179,7 +180,7 @@ func sessionJSON(s domain.LiveClassroomSession) gin.H {
 }
 
 func deckJSON(v service.DeckView) gin.H {
-	return gin.H{"id": v.Deck.ID, "title": v.Deck.Title, "pageCount": v.Deck.PageCount, "downloadUrl": v.DownloadURL}
+	return gin.H{"id": v.Deck.ID, "title": v.Deck.Title, "pageCount": v.Deck.PageCount, "kind": v.Deck.Kind, "downloadUrl": v.DownloadURL}
 }
 
 // handsJSON is the queue of raised hands. The question of each one (empty with none) goes only where withQuestions is true, which is the
@@ -387,10 +388,14 @@ func (h *Handler) upload(c *gin.Context) {
 		return
 	}
 	defer file.Close()
-	pages, err := strconv.Atoi(c.Request.FormValue("pageCount"))
-	if err != nil {
-		fail(c, toProblem(&domain.FieldError{Field: "pageCount", Err: domain.ErrInvalidPDF}))
-		return
+	// Only a PDF has a page count, which the browser reads; an image has none to send (SPEC-068).
+	pages := 0
+	if raw := c.Request.FormValue("pageCount"); raw != "" {
+		var err error
+		if pages, err = strconv.Atoi(raw); err != nil {
+			fail(c, toProblem(&domain.FieldError{Field: "pageCount", Err: domain.ErrInvalidPDF}))
+			return
+		}
 	}
 	view, err := h.svc.UploadDeck(c.Request.Context(), actor, classID, service.UploadInput{
 		Title: c.Request.FormValue("title"), PageCount: pages, Size: header.Size, File: file,
@@ -471,7 +476,7 @@ func (h *Handler) decks(c *gin.Context) {
 	}
 	out := make([]gin.H, 0, len(list))
 	for _, d := range list {
-		out = append(out, gin.H{"id": d.ID, "title": d.Title, "pageCount": d.PageCount, "createdAt": d.CreatedAt})
+		out = append(out, gin.H{"id": d.ID, "title": d.Title, "pageCount": d.PageCount, "kind": d.Kind, "createdAt": d.CreatedAt})
 	}
 	c.JSON(http.StatusOK, gin.H{"decks": out})
 }
@@ -591,6 +596,8 @@ func toProblem(err error) *problem.Problem {
 		return withField(problem.BadRequest("validation-error", err.Error()))
 	case errors.Is(err, domain.ErrInvalidPDF):
 		return withField(problem.BadRequest("invalid-pdf", err.Error()))
+	case errors.Is(err, domain.ErrInvalidFile):
+		return withField(problem.BadRequest("invalid-file", err.Error()))
 	case errors.Is(err, domain.ErrContentTooLong):
 		return problem.BadRequest("content-too-long", err.Error())
 	case errors.Is(err, domain.ErrInvalidSlide), errors.Is(err, domain.ErrInvalidMode):

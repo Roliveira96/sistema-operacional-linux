@@ -19,10 +19,13 @@ import (
 
 // The messages of the realtime channel (SPEC-051, section 5.8).
 const (
-	typeSlideChange  = "live:slide:change"
-	typeCursorMove   = "live:cursor:move"
-	typeCanvasDraw   = "live:canvas:draw"
-	typeModeSwitch   = "live:mode:switch"
+	typeSlideChange = "live:slide:change"
+	typeCursorMove  = "live:cursor:move"
+	typeCanvasDraw  = "live:canvas:draw"
+	typeModeSwitch  = "live:mode:switch"
+	// SPEC-068: the panel chooses the presentation that is on the stage, and the server tells everybody which one it is.
+	typeDeckSelect   = "live:deck:select"
+	typeDeckChanged  = "live:deck:changed"
 	typeHandModerate = "live:hand:moderate"
 	typeHandRaise    = "live:hand:raise"
 	typeHandLower    = "live:hand:lower"
@@ -100,6 +103,8 @@ func hubConfig() hub.Config {
 			typeSlideChange: {MaxBytes: kib, ControllerOnly: true},
 			typeModeSwitch:  {MaxBytes: kib, ControllerOnly: true},
 			typeModuleFocus: {MaxBytes: kib, ControllerOnly: true},
+			// the choice of the presentation is the panel's (SPEC-068)
+			typeDeckSelect: {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 			// the stage is the presenter window's (SPEC-055 RN-02)
 			typeCursorMove:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
 			typeCanvasDraw:     {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
@@ -429,6 +434,28 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 			return
 		}
 		relay()
+	case typeDeckSelect:
+		var d struct {
+			DeckID *uuid.UUID `json:"deckId"`
+		}
+		if err := json.Unmarshal(msg.Data, &d); err != nil || d.DeckID == nil {
+			w.reject(room, who, msg, errors.New("the message needs the id of the presentation"))
+			return
+		}
+		actor, err := actorOf(who)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		view, err := svc.SelectDeck(ctx, actor, session, *d.DeckID)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		// everybody, the panel that asked too: it needs the address of the presentation, which only the server can give
+		w.h.hub.Broadcast(room, hub.Message{Type: typeDeckChanged, Data: mustMarshal(map[string]any{
+			"activeDeck": deckJSON(view), "displayMode": domain.ModeSlides, "currentSlide": 1,
+		})}, "")
 	case typeTerminalScreen:
 		// the server does not read the picture: it only checks that it is an object, keeps the latest and passes it on
 		var d struct {
