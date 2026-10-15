@@ -23,8 +23,13 @@ export async function rand(args: string[], context: EngineContext): Promise<numb
   return writeBytes(context, "openssl rand", first(options, "out"), text) ? 0 : 1;
 }
 
+/** The algorithms that were broken and removed from OpenSSL: the class teaches that they exist and why they went, but the simulator does not run them (SPEC-031 RN-07). */
+const REMOVED_ALGORITHMS = new Set(["md2", "md4", "mdc2", "rc2", "rc4", "des", "des-cbc", "des-ecb", "des-cfb", "des-ofb"]);
+
 export function unknownOption(context: EngineContext, command: string, option: string): number {
-  context.falhar(`openssl ${command}: opção desconhecida ou sem valor: ${option}`);
+  const name = option.replace(/^-+/, "").toLowerCase();
+  if (REMOVED_ALGORITHMS.has(name)) context.falhar(`openssl ${command}: algoritmo desconhecido no simulador: ${name}`);
+  else context.falhar(`openssl ${command}: opção desconhecida ou sem valor: ${option}`);
   return 1;
 }
 
