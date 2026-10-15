@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LiveHeaderStatus } from "./LiveHeaderStatus";
 
@@ -67,6 +67,50 @@ describe("LiveHeaderStatus", () => {
     expect(screen.getByRole("img", { name: "2 mãos levantadas" }).textContent).toBe("2");
     view.rerender(<LiveHeaderStatus startedAt={STARTED} hands={0} />);
     expect(screen.getByRole("img", { name: "0 mãos levantadas" }).textContent).toBe("0");
+  });
+
+  // SPEC-062 CA-01: in the room of the student the hand is the button that raises it
+  describe("the hand as a button, in the room of the student", () => {
+    it("is a button with the number inside and a name that says what it does, when the room gives it a click", () => {
+      const onHand = vi.fn();
+      render(<LiveHeaderStatus startedAt={STARTED} hands={3} onHand={onHand} />);
+      const button = screen.getByRole("button", { name: "Levantar a mão" });
+      expect(button.textContent).toBe("3");
+      expect(button.querySelector("svg")).not.toBeNull();
+      expect(button.getAttribute("type")).toBe("button");
+      fireEvent.click(button);
+      expect(onHand).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("img", { name: /mão|mãos/ })).toBeNull();
+    });
+
+    it("says that the hand is up and that the doubt can be written, and marks it beyond the color", () => {
+      render(<LiveHeaderStatus startedAt={STARTED} hands={1} onHand={vi.fn()} handRaised />);
+      const button = screen.getByRole("button", { name: "Mão levantada: escrever a dúvida" });
+      expect(button.getAttribute("data-mine")).toBe("true");
+      expect(button.getAttribute("title")).toBe("1 mão levantada");
+    });
+
+    it("does not mark the button of a student whose hand is down", () => {
+      render(<LiveHeaderStatus startedAt={STARTED} hands={2} onHand={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Levantar a mão" }).getAttribute("data-mine")).toBeNull();
+    });
+
+    it("is not a button for the teacher, who gives it no click: the indicator it always was", () => {
+      render(<LiveHeaderStatus startedAt={STARTED} hands={2} />);
+      expect(screen.queryByRole("button")).toBeNull();
+      expect(screen.getByRole("img", { name: "2 mãos levantadas" }).textContent).toBe("2");
+    });
+
+    it("takes the same room as the indicator: no border, background, padding or margin of its own, and a visible focus", () => {
+      const css = styleOf("./LiveHeaderStatus.module.scss");
+      const rule = css.slice(css.indexOf("button.hands"));
+      expect(css).toContain("button.hands");
+      expect(rule).toMatch(/padding:\s*0/);
+      expect(rule).toMatch(/margin:\s*0/);
+      expect(rule).toMatch(/border:\s*0/);
+      expect(rule).toMatch(/background:\s*none/);
+      expect(rule).toMatch(/focus-visible|focusable/);
+    });
   });
 
   it("stops the clock when it goes away", () => {

@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mountTerminalWindow } from "@/engine/terminalWindow";
 import { LiveTopicScreen, type TopicLive } from "@/components/TopicStudy/LiveTopicScreen";
@@ -92,6 +92,21 @@ describe("the header of the module in the live class", () => {
     expect(flowOf(head())).toEqual(teacherHeader);
     expect(head().textContent).toBe(teacherText);
     student.unmount();
+  });
+
+  // SPEC-062 CA-01: the room of the student gives the click of the hand; the header then has the hand as a button, in the place of the indicator
+  it("has the hand as a button when the room gives the click, in the place where the indicator was", () => {
+    const onHand = vi.fn();
+    const indicator = render(screenOf({ handCount: 2 }));
+    const before = within(head()).getByRole("img", { name: "2 mãos levantadas" }).parentElement;
+    const siblings = Array.from(before!.children).map((el) => el.className);
+    indicator.unmount();
+    render(screenOf({ handCount: 2, onHand, handRaised: true }));
+    const button = within(head()).getByRole("button", { name: "Mão levantada: escrever a dúvida" });
+    expect(button.parentElement!.children.length).toBe(siblings.length);
+    expect(button.textContent).toBe("2");
+    fireEvent.click(button);
+    expect(onHand).toHaveBeenCalledTimes(1);
   });
 
   // CA-09: the room gives no start, as in the screens that are not a live class: the header is the one it always was

@@ -16,9 +16,14 @@ vi.mock("../SlidePresenter/SlidePresenter", async () => {
 });
 vi.mock("../ModuleStage/ModuleStage", async () => {
   const React = await import("react");
-  type P = { startedAt?: string | null; handCount?: number };
+  type P = { startedAt?: string | null; handCount?: number; onHand?(): void; handRaised?: boolean };
   return {
-    ModuleStage: (p: P) => React.createElement("div", { "data-testid": "module", "data-started-at": p.startedAt ?? "", "data-hand-count": String(p.handCount) }),
+    ModuleStage: (p: P) =>
+      React.createElement(
+        "div",
+        { "data-testid": "module", "data-started-at": p.startedAt ?? "", "data-hand-count": String(p.handCount), "data-hand-click": String(Boolean(p.onHand)), "data-hand-raised": String(p.handRaised) },
+        p.onHand ? React.createElement("button", { onClick: p.onHand }, "mão do cabeçalho") : null,
+      ),
   };
 });
 vi.mock("../StudentNotesPanel/StudentNotesPanel", async () => {
@@ -67,105 +72,171 @@ afterEach(() => {
   Object.defineProperty(document, "fullscreenElement", { configurable: true, value: null });
 });
 
-// SPEC-058: the hand with a doubt, and the header of the module
-describe("the hand and the doubt, on the strip of the student", () => {
-  const field = () => within(strip()).getByRole("textbox", { name: "Escreva sua dúvida (opcional)" }) as HTMLInputElement;
+const MODULE_ROOM = { mode: "MODULE", slide: 1, moduleId: "m-1", moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: null, online: 2 };
 
-  // CA-03
-  it("raises the hand with one click and asks for no text", () => {
+// SPEC-062: the hand and the doubt, in a modal that is in the full screen too
+describe("the hand and the doubt, in the modal of the student", () => {
+  const dialog = () => screen.queryByRole("dialog", { name: "Sua dúvida para o professor" });
+  const field = () => within(dialog()!).getByRole("textbox", { name: "Escreva sua dúvida (opcional)" }) as HTMLInputElement;
+  const headerHand = () => screen.getByRole("button", { name: "mão do cabeçalho" });
+  const stageBox = () => screen.getByTestId("fixed-stage").parentElement as HTMLElement;
+
+  // CA-06: the button of the strip raises the hand with one click, as before, and opens the modal
+  it("raises the hand with one click and no text from the strip, and opens the modal for the doubt", () => {
     const l = live();
     render(element());
+    expect(dialog()).toBeNull();
     fireEvent.click(within(strip()).getByRole("button", { name: "Levantar a mão" }));
     expect(l.raiseHand).toHaveBeenCalledTimes(1);
     expect(l.raiseHand).toHaveBeenCalledWith();
-    expect(screen.queryByRole("textbox")).toBeNull();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(dialog()).not.toBeNull();
+    expect(document.activeElement).toBe(field());
+  });
+
+  it("has no modal and no field while the hand is down and nobody asked for it", () => {
+    live();
+    render(element());
+    expect(dialog()).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Escreva sua dúvida (opcional)" })).toBeNull();
+  });
+
+  // CA-06: the field is not in the strip any more; the strip keeps the state of the hand and the place in the line
+  it("keeps no field in the strip with the hand up, only that the hand is up and the place in the line", () => {
+    live({ hands: [other, me], myHand: { raised: true, question: "Como uso o chmod?" } });
+    render(element());
+    expect(within(strip()).queryByRole("textbox")).toBeNull();
+    expect(within(strip()).queryByRole("button", { name: "Enviar dúvida" })).toBeNull();
+    expect(within(strip()).getByText("Sua mão está levantada.")).toBeDefined();
+    expect(within(strip()).getByText("2º na fila")).toBeDefined();
+    expect(within(strip()).getByRole("button", { name: "Abaixar a mão" })).toBeDefined();
+    // Coming back with the hand up does not open the modal by itself.
+    expect(dialog()).toBeNull();
+  });
+
+  // CA-01, CA-02: the hand of the header is the click of the student
+  it("gives the module the click of the hand and whether the hand of the student is up", () => {
+    live({ room: MODULE_ROOM });
+    const view = render(element());
+    expect(screen.getByTestId("module").getAttribute("data-hand-click")).toBe("true");
+    expect(screen.getByTestId("module").getAttribute("data-hand-raised")).toBe("false");
+    live({ room: MODULE_ROOM, hands: [me], myHand: { raised: true, question: "" } });
+    view.rerender(element());
+    expect(screen.getByTestId("module").getAttribute("data-hand-raised")).toBe("true");
+  });
+
+  it("raises the hand, with no text, and opens the modal when the hand of the header is clicked with the hand down", () => {
+    const l = live({ room: MODULE_ROOM });
+    render(element());
+    fireEvent.click(headerHand());
+    expect(l.raiseHand).toHaveBeenCalledTimes(1);
+    expect(l.raiseHand).toHaveBeenCalledWith();
+    expect(dialog()).not.toBeNull();
+    expect(field().value).toBe("");
+  });
+
+  // CA-03
+  it("only opens the modal, with the doubt the room has, when the hand of the header is clicked with the hand up", () => {
+    const l = live({ room: MODULE_ROOM, hands: [me], myHand: { raised: true, question: "Como uso o chmod?" } });
+    render(element());
+    fireEvent.click(headerHand());
+    expect(l.raiseHand).not.toHaveBeenCalled();
+    expect(field().value).toBe("Como uso o chmod?");
+    expect(within(dialog()!).getByText("Dúvida enviada")).toBeDefined();
   });
 
   // CA-04
-  it("has no field for the doubt while the hand is down", () => {
-    live();
+  it("sends the doubt from the modal, edited and sent again, and keeps the modal open", () => {
+    const l = live({ room: MODULE_ROOM, hands: [me], myHand: { raised: true, question: "" } });
     render(element());
-    expect(screen.queryByRole("textbox", { name: "Escreva sua dúvida (opcional)" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Enviar dúvida" })).toBeNull();
-  });
-
-  it("shows the field in the strip, with the counter and the button, as soon as the hand is up, and nothing over the material", () => {
-    live({ hands: [other, me], myHand: { raised: true, question: "" } });
-    render(element());
-    expect(field().value).toBe("");
-    expect(within(strip()).getByText("0/300")).toBeDefined();
-    expect(within(strip()).getByRole("button", { name: "Enviar dúvida" })).toBeDefined();
-    const stage = screen.getByTestId("fixed-stage");
-    expect(stage.contains(field())).toBe(false);
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.queryByRole("menu")).toBeNull();
-    expect(screen.queryByRole("complementary")).toBeNull();
-    // The button to lower the hand and the place in the line stay where they were.
-    expect(within(strip()).getByRole("button", { name: "Abaixar a mão" })).toBeDefined();
-    expect(within(strip()).getByText("2º na fila")).toBeDefined();
-  });
-
-  it("sends the doubt with the button, and with Enter", () => {
-    const l = live({ hands: [me], myHand: { raised: true, question: "" } });
-    render(element());
+    fireEvent.click(headerHand());
     fireEvent.change(field(), { target: { value: "Como uso o chmod?" } });
-    fireEvent.click(within(strip()).getByRole("button", { name: "Enviar dúvida" }));
+    fireEvent.click(within(dialog()!).getByRole("button", { name: "Enviar dúvida" }));
     expect(l.raiseHand).toHaveBeenLastCalledWith("Como uso o chmod?");
     fireEvent.change(field(), { target: { value: "E o chown?" } });
     fireEvent.keyDown(field(), { key: "Enter" });
     expect(l.raiseHand).toHaveBeenLastCalledWith("E o chown?");
-    expect(l.raiseHand).toHaveBeenCalledTimes(2);
+    expect(dialog()).not.toBeNull();
   });
 
-  it("says 'Dúvida enviada' when the room has the doubt, and lets it be edited and sent again", () => {
-    const l = live({ hands: [me], myHand: { raised: true, question: "Como uso o chmod?" } });
+  it("closes with the button or Esc and leaves the hand up", () => {
+    const l = live({ room: MODULE_ROOM, hands: [me], myHand: { raised: true, question: "" } });
     render(element());
-    expect(within(strip()).getByText("Dúvida enviada")).toBeDefined();
-    fireEvent.change(field(), { target: { value: "Como uso o chmod -R?" } });
-    expect(within(strip()).queryByText("Dúvida enviada")).toBeNull();
-    fireEvent.click(within(strip()).getByRole("button", { name: "Enviar dúvida" }));
-    expect(l.raiseHand).toHaveBeenLastCalledWith("Como uso o chmod -R?");
+    fireEvent.click(headerHand());
+    fireEvent.click(within(dialog()!).getByRole("button", { name: "Fechar" }));
+    expect(dialog()).toBeNull();
+    fireEvent.click(headerHand());
+    fireEvent.keyDown(dialog()!, { key: "Escape" });
+    expect(dialog()).toBeNull();
+    expect(l.lowerHand).not.toHaveBeenCalled();
   });
 
-  // CA-07: reconnecting gives the hand and the doubt back
-  it("finds the hand and the doubt again after reconnecting, from what the room has for the student", () => {
-    live({ hands: [other, me], myHand: { raised: true, question: "Como uso o chmod?" } });
+  it("lowers the hand and closes with the button of the modal", () => {
+    const l = live({ room: MODULE_ROOM, hands: [me], myHand: { raised: true, question: "Como uso o chmod?" } });
     render(element());
-    expect(within(strip()).getByText("Sua mão está levantada.")).toBeDefined();
-    expect(field().value).toBe("Como uso o chmod?");
-    expect(within(strip()).getByText("Dúvida enviada")).toBeDefined();
+    fireEvent.click(headerHand());
+    fireEvent.click(within(dialog()!).getByRole("button", { name: "Abaixar a mão" }));
+    expect(l.lowerHand).toHaveBeenCalledTimes(1);
+    expect(dialog()).toBeNull();
   });
 
-  // CA-05: lowering the hand takes the doubt with it
-  it("lowers the hand with the same button, and the field goes away with the doubt", () => {
-    const l = live({ hands: [me], myHand: { raised: true, question: "Como uso o chmod?" } });
-    const view = render(element());
+  it("lowers the hand and closes the modal with the button of the strip too", () => {
+    const l = live({ room: MODULE_ROOM, hands: [me], myHand: { raised: true, question: "" } });
+    render(element());
+    fireEvent.click(headerHand());
+    expect(dialog()).not.toBeNull();
     fireEvent.click(within(strip()).getByRole("button", { name: "Abaixar a mão" }));
     expect(l.lowerHand).toHaveBeenCalledTimes(1);
-    live({ hands: [], myHand: { raised: false, question: "" } });
-    view.rerender(element());
-    expect(screen.queryByRole("textbox")).toBeNull();
-    live({ hands: [me], myHand: { raised: true, question: "" } });
-    view.rerender(element());
-    expect(field().value).toBe("");
-    expect(within(strip()).queryByText("Dúvida enviada")).toBeNull();
+    expect(dialog()).toBeNull();
   });
 
-  it("starts with an empty field when the teacher lowered the hand and the student raised it again", () => {
-    live();
+  it("closes the modal when the hand goes down by the teacher, and starts empty when the student raises it again", () => {
+    live({ room: MODULE_ROOM, hands: [me], myHand: { raised: true, question: "dúvida velha" } });
     const view = render(element());
-    live({ hands: [me], myHand: { raised: true, question: "dúvida velha" } });
-    view.rerender(element());
+    fireEvent.click(headerHand());
     expect(field().value).toBe("dúvida velha");
-    live({ hands: [], myHand: { raised: true, question: "dúvida velha" } });
+    live({ room: MODULE_ROOM, hands: [], myHand: { raised: false, question: "" } });
     view.rerender(element());
-    expect(screen.queryByRole("textbox")).toBeNull();
-    live({ hands: [me], myHand: { raised: true, question: "" } });
+    expect(dialog()).toBeNull();
+    live({ room: MODULE_ROOM, hands: [me], myHand: { raised: true, question: "" } });
     view.rerender(element());
+    fireEvent.click(headerHand());
     expect(field().value).toBe("");
   });
 
+  // CA-07: the modal is in the room of the stage, not in the box of the stage the teacher sees
+  it("is over the room of the stage, outside the box of the stage, so the stage of the others does not change", () => {
+    live({ room: MODULE_ROOM });
+    render(element());
+    fireEvent.click(headerHand());
+    expect(stageBox().contains(dialog())).toBe(true);
+    expect(screen.getByTestId("fixed-stage").contains(dialog())).toBe(false);
+  });
+
+  // CA-05: in every full screen, the hand of the header and the modal are inside what the browser shows
+  it("is inside the stage that the button of the full screen takes to the full screen, which is all the browser shows", () => {
+    live({ room: MODULE_ROOM });
+    const view = render(element());
+    fireEvent.click(within(strip()).getByRole("button", { name: "Tela cheia" }));
+    const asked = vi.mocked(Element.prototype.requestFullscreen).mock.contexts[0] as HTMLElement;
+    expect(asked).toBe(stageBox());
+    // The hand of the header is in that stage, so it is on the screen; the modal opens in it as well, and in no portal outside the room.
+    expect(asked.contains(screen.getByTestId("module"))).toBe(true);
+    fireEvent.click(headerHand());
+    expect(asked.contains(dialog())).toBe(true);
+    expect(view.container.contains(dialog())).toBe(true);
+  });
+
+  it("is inside the room that the request of the teacher takes to the full screen", () => {
+    live({ room: MODULE_ROOM, fullscreenRequested: true, stageView: stageView(true) });
+    const view = render(element());
+    fireEvent.click(headerHand());
+    expect(screen.getByRole("main").contains(dialog())).toBe(true);
+    expect(view.container.contains(dialog())).toBe(true);
+  });
+});
+
+// SPEC-058: the header of the module
+describe("the header of the module, for the student", () => {
   // CA-01: the header of the module, as the room tells it, the same for everybody
   it("gives the module, for its header, the start of the class as the room tells it and the number of raised hands", () => {
     live({ room: { mode: "MODULE", slide: 1, moduleId: "m-1", moduleFocusBlockId: null, blank: false, deck: null, strokes: [], cursor: null, online: 2 }, startedAt: "2026-10-14T09:30:00Z", handCount: 3 });

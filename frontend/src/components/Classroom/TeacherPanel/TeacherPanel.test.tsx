@@ -261,6 +261,95 @@ describe("TeacherPanel", () => {
     });
   });
 
+  // SPEC-062 CA-08: the sound of a hand that goes up
+  describe("the hands that go up", () => {
+    const ana = { studentId: "u-1", name: "Ana", requestedAt: "2026-10-14T11:00:00Z" };
+    const bruno = { studentId: "u-2", name: "Bruno", requestedAt: "2026-10-14T11:01:00Z" };
+    const clara = { studentId: "u-3", name: "Clara", requestedAt: "2026-10-14T11:02:00Z" };
+
+    it("plays the sound of the hand, once, when a student who was not in the line puts the hand up, and not for the hands that were already up", async () => {
+      const beep = vi.fn();
+      live({ hands: [ana] });
+      const view = render(<TeacherPanel {...props()} beep={beep} />);
+      await flush();
+      expect(beep).not.toHaveBeenCalled();
+      live({ hands: [ana, bruno] });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      expect(beep).toHaveBeenCalledTimes(1);
+      expect(beep).toHaveBeenCalledWith("hand");
+      live({ hands: [ana, bruno, clara] });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      expect(beep).toHaveBeenCalledTimes(2);
+    });
+
+    it("plays once when two hands go up in the same update", async () => {
+      const beep = vi.fn();
+      live({ hands: [] });
+      const view = render(<TeacherPanel {...props()} beep={beep} />);
+      await flush();
+      live({ hands: [ana, bruno] });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      expect(beep).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not play for the hands the first snapshot brings, after the room was not ready", async () => {
+      const beep = vi.fn();
+      live({ hands: [], ready: false });
+      const view = render(<TeacherPanel {...props()} beep={beep} />);
+      await flush();
+      live({ hands: [ana, bruno], ready: true });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      expect(beep).not.toHaveBeenCalled();
+    });
+
+    it("does not play when the same student only changes the doubt, nor when a hand goes down", async () => {
+      const beep = vi.fn();
+      live({ hands: [ana, bruno] });
+      const view = render(<TeacherPanel {...props()} beep={beep} />);
+      await flush();
+      live({ hands: [{ ...ana, question: "Como uso o chmod?" }, bruno] });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      live({ hands: [bruno] });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      expect(beep).not.toHaveBeenCalled();
+    });
+
+    it("plays again for a student who put the hand down and up again", async () => {
+      const beep = vi.fn();
+      live({ hands: [ana] });
+      const view = render(<TeacherPanel {...props()} beep={beep} />);
+      await flush();
+      live({ hands: [] });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      live({ hands: [ana] });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      expect(beep).toHaveBeenCalledTimes(1);
+    });
+
+    it("is silent with the sound of the notice off, and the hand is still on the screen", async () => {
+      const beep = vi.fn();
+      live({ hands: [] });
+      const view = render(<TeacherPanel {...props()} beep={beep} />);
+      await flush();
+      fireEvent.click(screen.getByRole("button", { name: "Som do aviso" }));
+      live({ hands: [ana] });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      expect(beep).not.toHaveBeenCalled();
+      expect(screen.getAllByText("Ana").length).toBeGreaterThan(0);
+    });
+
+    it("keeps the sound of the waiting room as it was", async () => {
+      const beep = vi.fn();
+      live({ admissions: { waiting: [], admitted: [] } });
+      const view = render(<TeacherPanel {...props()} beep={beep} />);
+      await flush();
+      live({ admissions: { waiting: [{ studentId: "u-9", name: "Davi" }], admitted: [] } });
+      view.rerender(<TeacherPanel {...props()} beep={beep} />);
+      expect(beep).toHaveBeenCalledTimes(1);
+      expect(beep).toHaveBeenCalledWith("arrival");
+    });
+  });
+
   // CA-03 and CA-06: the control of the slides and of the mode
   describe("the control of the stage", () => {
     it("moves through the slides, with the thumbnails, Previous, Next and the number", async () => {
