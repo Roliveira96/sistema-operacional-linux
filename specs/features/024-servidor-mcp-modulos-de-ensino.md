@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-024 |
-| **Status** | Aprovada (revisão 4 aprovada pelo Tech Lead em 10/10/2026) |
+| **Status** | Implementada |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Aruna Architect |
@@ -219,35 +219,35 @@ Impacto em módulos existentes: nenhum em comportamento; `auth` ganha a validaç
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): O SISTEMA DEVE expor o MCP em `/mcp` com todas as ferramentas da seção 3.2.
-- [ ] **CA-02** (indesejado): SE a chamada ao MCP não tiver token válido, ENTÃO O SISTEMA DEVE responder 401 `invalid-access-token`.
-- [ ] **CA-03** (indesejado): SE o usuário do token for `STUDENT`, ENTÃO O SISTEMA DEVE responder 403 `forbidden` sem executar ferramenta alguma.
-- [ ] **CA-04** (indesejado): SE um `TEACHER` chamar ferramenta sobre módulo de outro docente, ENTÃO O SISTEMA DEVE responder como módulo inexistente.
-- [ ] **CA-05** (estado): ENQUANTO o usuário for `ADMIN`, O SISTEMA DEVE permitir as ferramentas sobre qualquer módulo.
-- [ ] **CA-06** (evento): QUANDO o token for revogado, expirar ou o usuário mudar de papel para `STUDENT`, O SISTEMA DEVE recusar a chamada seguinte.
-- [ ] **CA-07** (ubíquo): O SISTEMA DEVE guardar só o hash do token e mostrar o valor uma única vez, na criação.
-- [ ] **CA-08** (evento): QUANDO `create_module` for chamada, O SISTEMA DEVE criar o módulo com a versão 1 publicada e vazia.
-- [ ] **CA-09** (evento): QUANDO `append_content_blocks` ou `replace_content_blocks` for chamada, O SISTEMA DEVE gravar só no rascunho e o estudante NÃO DEVE ver a mudança antes da publicação.
-- [ ] **CA-10** (indesejado): SE um bloco ou exercício for inválido, ENTÃO O SISTEMA DEVE devolver erro com `type`, caminho do campo, valor recebido e valor esperado, e NÃO DEVE gravar nada da operação.
-- [ ] **CA-11** (evento): QUANDO `replace_content_blocks` falhar no meio, O SISTEMA DEVE manter o rascunho como estava (atomicidade).
-- [ ] **CA-12** (ubíquo): O SISTEMA NÃO DEVE expor no MCP ferramenta que publique ou restaure versão.
-- [ ] **CA-13** (indesejado): SE uma chamada às rotas REST de publicar ou restaurar vier com token de acesso pessoal, ENTÃO O SISTEMA DEVE recusar com 401 `not-authenticated`; só a sessão por cookie vale.
-- [ ] **CA-17** (indesejado): SE a docente publicar sem resultado aprovado e válido do teste do conteúdo, ou do teste do banco de exercícios (quando o módulo tem exercícios), ENTÃO O SISTEMA DEVE responder 409 `module-not-tested`, listar o teste que falta e não criar versão.
-- [ ] **CA-18** (evento): QUANDO o rascunho ou o banco de exercícios for alterado depois do teste (por tela ou por MCP), O SISTEMA DEVE tratar o resultado correspondente como vencido e exigir novo teste.
-- [ ] **CA-19** (evento): QUANDO a docente rodar "Testar o módulo" e "Testar Banco de Exercícios" na tela e os dois forem aprovados, O SISTEMA DEVE gravar os resultados e habilitar o botão Publicar.
-- [ ] **CA-20** (indesejado): SE o MCP tentar registrar resultado de teste, ENTÃO O SISTEMA NÃO DEVE oferecer essa operação (sem ferramenta e sem aceitar Bearer na rota).
-- [ ] **CA-21** (estado): ENQUANTO o módulo não tiver exercícios, O SISTEMA NÃO DEVE exigir o teste do banco de exercícios.
-- [ ] **CA-22** (evento): QUANDO o cliente MCP chamar `/mcp` sem token, O SISTEMA DEVE responder 401 com `WWW-Authenticate` apontando para os metadados OAuth, e os metadados DEVEM descrever os endpoints de registro, autorização e token.
-- [ ] **CA-23** (evento): QUANDO `ADMIN` ou `TEACHER` autorizar o cliente na tela de consentimento e o cliente trocar o código com o `code_verifier` correto, O SISTEMA DEVE emitir um token de acesso pessoal de 30 dias, listado no perfil, que funciona em `/mcp`.
-- [ ] **CA-24** (indesejado): SE o código for usado duas vezes, estiver vencido, vier com `code_verifier` ou `redirect_uri` diferente, ENTÃO O SISTEMA DEVE recusar com `invalid_grant` e, no reuso, revogar o token já emitido.
-- [ ] **CA-25** (indesejado): SE o `redirect_uri` do registro não for de loopback, ou `STUDENT` tentar autorizar, ENTÃO O SISTEMA DEVE recusar sem emitir código.
-- [ ] **CA-26** (ubíquo): O SISTEMA NÃO DEVE aceitar o token emitido por OAuth nas rotas REST de publicar e restaurar (CA-13).
-- [ ] **CA-27** (estado): ENQUANTO `APP_ENV=development` e `MCP_DEV_USER_EMAIL` apontar para um `ADMIN` ou `TEACHER` ativo, O SISTEMA DEVE aceitar `/mcp` sem token, agindo como esse usuário.
-- [ ] **CA-28** (indesejado): SE `MCP_DEV_USER_EMAIL` estiver definido com `APP_ENV=production`, ENTÃO O SISTEMA NÃO DEVE iniciar e DEVE informar o motivo; o modo local NUNCA pode estar ativo em produção.
-- [ ] **CA-13a** (evento): QUANDO `validate_module` encontrar problemas, O SISTEMA DEVE listar todos, com caminho do campo.
-- [ ] **CA-14** (evento): QUANDO `archive_module` for chamada, O SISTEMA DEVE impedir novo uso em turmas e preservar turmas e histórico existentes.
-- [ ] **CA-15** (ubíquo): O SISTEMA DEVE registrar no log cada gravação por MCP (usuário, ferramenta, módulo), sem token nem conteúdo.
-- [ ] **CA-16** (ubíquo): A tela do perfil DEVE listar, criar e revogar tokens, mostrando o valor só na criação.
+- [x] **CA-01** (ubíquo): O SISTEMA DEVE expor o MCP em `/mcp` com todas as ferramentas da seção 3.2.
+- [x] **CA-02** (indesejado): SE a chamada ao MCP não tiver token válido, ENTÃO O SISTEMA DEVE responder 401 `invalid-access-token`.
+- [x] **CA-03** (indesejado): SE o usuário do token for `STUDENT`, ENTÃO O SISTEMA DEVE responder 403 `forbidden` sem executar ferramenta alguma.
+- [x] **CA-04** (indesejado): SE um `TEACHER` chamar ferramenta sobre módulo de outro docente, ENTÃO O SISTEMA DEVE responder como módulo inexistente.
+- [x] **CA-05** (estado): ENQUANTO o usuário for `ADMIN`, O SISTEMA DEVE permitir as ferramentas sobre qualquer módulo.
+- [x] **CA-06** (evento): QUANDO o token for revogado, expirar ou o usuário mudar de papel para `STUDENT`, O SISTEMA DEVE recusar a chamada seguinte.
+- [x] **CA-07** (ubíquo): O SISTEMA DEVE guardar só o hash do token e mostrar o valor uma única vez, na criação.
+- [x] **CA-08** (evento): QUANDO `create_module` for chamada, O SISTEMA DEVE criar o módulo com a versão 1 publicada e vazia.
+- [x] **CA-09** (evento): QUANDO `append_content_blocks` ou `replace_content_blocks` for chamada, O SISTEMA DEVE gravar só no rascunho e o estudante NÃO DEVE ver a mudança antes da publicação.
+- [x] **CA-10** (indesejado): SE um bloco ou exercício for inválido, ENTÃO O SISTEMA DEVE devolver erro com `type`, caminho do campo, valor recebido e valor esperado, e NÃO DEVE gravar nada da operação.
+- [x] **CA-11** (evento): QUANDO `replace_content_blocks` falhar no meio, O SISTEMA DEVE manter o rascunho como estava (atomicidade).
+- [x] **CA-12** (ubíquo): O SISTEMA NÃO DEVE expor no MCP ferramenta que publique ou restaure versão.
+- [x] **CA-13** (indesejado): SE uma chamada às rotas REST de publicar ou restaurar vier com token de acesso pessoal, ENTÃO O SISTEMA DEVE recusar com 401 `not-authenticated`; só a sessão por cookie vale.
+- [x] **CA-17** (indesejado): SE a docente publicar sem resultado aprovado e válido do teste do conteúdo, ou do teste do banco de exercícios (quando o módulo tem exercícios), ENTÃO O SISTEMA DEVE responder 409 `module-not-tested`, listar o teste que falta e não criar versão.
+- [x] **CA-18** (evento): QUANDO o rascunho ou o banco de exercícios for alterado depois do teste (por tela ou por MCP), O SISTEMA DEVE tratar o resultado correspondente como vencido e exigir novo teste.
+- [x] **CA-19** (evento): QUANDO a docente rodar "Testar o módulo" e "Testar Banco de Exercícios" na tela e os dois forem aprovados, O SISTEMA DEVE gravar os resultados e habilitar o botão Publicar.
+- [x] **CA-20** (indesejado): SE o MCP tentar registrar resultado de teste, ENTÃO O SISTEMA NÃO DEVE oferecer essa operação (sem ferramenta e sem aceitar Bearer na rota).
+- [x] **CA-21** (estado): ENQUANTO o módulo não tiver exercícios, O SISTEMA NÃO DEVE exigir o teste do banco de exercícios.
+- [x] **CA-22** (evento): QUANDO o cliente MCP chamar `/mcp` sem token, O SISTEMA DEVE responder 401 com `WWW-Authenticate` apontando para os metadados OAuth, e os metadados DEVEM descrever os endpoints de registro, autorização e token.
+- [x] **CA-23** (evento): QUANDO `ADMIN` ou `TEACHER` autorizar o cliente na tela de consentimento e o cliente trocar o código com o `code_verifier` correto, O SISTEMA DEVE emitir um token de acesso pessoal de 30 dias, listado no perfil, que funciona em `/mcp`.
+- [x] **CA-24** (indesejado): SE o código for usado duas vezes, estiver vencido, vier com `code_verifier` ou `redirect_uri` diferente, ENTÃO O SISTEMA DEVE recusar com `invalid_grant` e, no reuso, revogar o token já emitido.
+- [x] **CA-25** (indesejado): SE o `redirect_uri` do registro não for de loopback, ou `STUDENT` tentar autorizar, ENTÃO O SISTEMA DEVE recusar sem emitir código.
+- [x] **CA-26** (ubíquo): O SISTEMA NÃO DEVE aceitar o token emitido por OAuth nas rotas REST de publicar e restaurar (CA-13).
+- [x] **CA-27** (estado): ENQUANTO `APP_ENV=development` e `MCP_DEV_USER_EMAIL` apontar para um `ADMIN` ou `TEACHER` ativo, O SISTEMA DEVE aceitar `/mcp` sem token, agindo como esse usuário.
+- [x] **CA-28** (indesejado): SE `MCP_DEV_USER_EMAIL` estiver definido com `APP_ENV=production`, ENTÃO O SISTEMA NÃO DEVE iniciar e DEVE informar o motivo; o modo local NUNCA pode estar ativo em produção.
+- [x] **CA-13a** (evento): QUANDO `validate_module` encontrar problemas, O SISTEMA DEVE listar todos, com caminho do campo.
+- [x] **CA-14** (evento): QUANDO `archive_module` for chamada, O SISTEMA DEVE impedir novo uso em turmas e preservar turmas e histórico existentes.
+- [x] **CA-15** (ubíquo): O SISTEMA DEVE registrar no log cada gravação por MCP (usuário, ferramenta, módulo), sem token nem conteúdo.
+- [x] **CA-16** (ubíquo): A tela do perfil DEVE listar, criar e revogar tokens, mostrando o valor só na criação.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -309,3 +309,4 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | 12/10/2026 | Implementador (Claude) | Revisada pela SPEC-036 (RN-10): as ferramentas de exercício aceitam `THEORETICAL_SINGLE` com `choices`, `correctChoice` e `shuffleChoices`, e a documentação do bloco `EXERCISES` inclui o item de escolha única |
 | 12/10/2026 | Implementador (Claude) | Revisada pela SPEC-037 (RN-10): as ferramentas de exercício aceitam `THEORETICAL_MATCHING` com `left`, `right`, `pairs` e `shuffleChoices`, e a documentação do bloco `EXERCISES` inclui o item de ligar colunas |
 | 12/10/2026 | Implementador (Claude) | Revisada pela SPEC-039 (RN-04): ferramentas `list_pending_answers`, `get_answer` e `suggest_grade` (sugestão de nota da descritiva, que nunca vale como nota) e exceção às "notas" do fora de escopo; as ferramentas de exercício aceitam `DISCURSIVE` com `expectedAnswer` e `maxLength` |
+| 15/10/2026 | Implementador | Fechada como Implementada, depois de conferir os 29 critérios (CA-01 a CA-28 e CA-13a) contra o código e os testes de `mcp`, `auth`, `authn`, `content` e `coursemodule`. Ressalvas de teste, sem falta de código: CA-11 (a atomicidade do `replace_content_blocks` é testada no fake e no repositório, sem uma falha no meio em PostgreSQL), CA-13 e CA-26 (a recusa de Bearer em publicar e restaurar vem do grupo de rotas, sem teste por rota), CA-14 (preservar turmas e histórico só no código) e CA-23 (sem um teste HTTP único do token OAuth chamando `/mcp`). O roteiro manual da seção 8 (cliente MCP real, token e login OAuth) fica para o Tech Lead |
