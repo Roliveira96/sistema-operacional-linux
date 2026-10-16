@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-073 |
-| **Status** | Implementada |
+| **Status** | Aprovada |
 | **Data de criação** | 16/10/2026 |
-| **Última revisão** | 16/10/2026 (implementada) |
+| **Última revisão** | 16/10/2026 (CA-12 e CA-13 acrescentados) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -52,6 +52,8 @@ O professor também não tem onde registrar, por aula, **o que de fato aconteceu
 - **Aula atual.** Um card em destaque com a marca **Agora** (ou **Começa às HH:MM**, nos 15 minutos antes do início), a data e o horário, o tema (ou o código da disciplina), a sala ou o link, e o botão conforme o papel e o estado: para o estudante, **Entrar na aula ao vivo** quando a turma tem sala ao vivo ativa (ligada ou não à aula), senão o texto "A aula ao vivo ainda não começou"; para o professor, **Voltar para a aula ao vivo** quando há sala ativa, senão **Iniciar aula ao vivo** (o mesmo início pela aula da SPEC-053). Quando não há aula agora, o bloco mostra "Nenhuma aula agora" e a próxima aula com data e horário.
 - **Aulas passadas.** As 3 aulas mais recentes já terminadas, cada uma num card recolhido com a data, o tema e a marca "N comandos" (quando houve sala ao vivo com comandos). O botão **Ver diário** expande o card com o diário da aula.
 - **Próximas aulas.** As 5 aulas seguintes, com data, horário, tema, sala ou link e, quando a aula tem conteúdo, os links e a apresentação (o material preparatório da SPEC-053). **Ver detalhes** expande o diário (só o conteúdo e as anotações).
+
+**Ações dos cards (todos os blocos).** Cada card de aula tem o botão que abre o diário dela: **Ver diário** nas passadas e **Ver detalhes** na atual e nas próximas. Ele existe **sempre** na atual e nas passadas; nas próximas, **sempre para o professor** e, para o estudante, só quando a aula tem conteúdo (não há o que ver numa aula vazia). O diário aberto num card, sem nada registrado, diz "Nada registrado nesta aula ainda." (no painel do dia do calendário, não), e o professor tem ao lado os botões de editar abaixo. O professor dono e o administrador têm, em **todos** os cards, os botões **Conteúdo da aula** e **Alterar esta aula**, que abrem os mesmos diálogos do painel do dia do calendário (SPEC-053 e SPEC-042); ao salvar, a linha do tempo e o calendário são lidos de novo. O estudante nunca vê esses dois botões.
 
 A linha do tempo é consultada ao abrir a aba Agenda, a cada 60 segundos enquanto a aba está visível e quando a aba volta a ficar visível; falha na consulta esconde a linha do tempo sem mensagem e a próxima consulta tenta de novo (padrão da SPEC-067). Estados: carregando (esqueleto de três cards), sem aulas (turma sem encontros: o mesmo estado vazio do calendário) e erro silencioso.
 
@@ -172,6 +174,8 @@ Cada **aula** traz: `id`, `date`, `startTime`, `endTime`, `startsAt` e `endsAt` 
 - [x] **CA-09** (evento): QUANDO o professor conclui um comando na janela de apresentação, digitado ou pelo ▶ da SPEC-060, O SISTEMA DEVE enviá-lo uma única vez com o terminal, a linha, o código de saída e a saída cortada em 4.000 caracteres; o painel, a sala do aluno e o terminal do exercício do aluno NÃO DEVEM enviar nada; a senha digitada no `su` NÃO DEVE aparecer na linha nem na saída.
 - [x] **CA-10** (ubíquo): O diálogo de conteúdo DEVE ter os campos "Anotações da aula (a turma vê)" e "Anotações privadas (só você vê)", gravados com o Salvar, com erro junto do campo.
 - [x] **CA-11** (ubíquo): `engine/core` NÃO DEVE mudar (salvo o aviso mínimo autorizado na seção 3.1, coberto pela conformidade); nada das anotações do estudante (SPEC-051) DEVE mudar; Stylelint, ESLint e `tsc` limpos; cores só dos tokens; alvos de 44 px; blocos e marcas legíveis por leitor de tela.
+- [ ] **CA-12** (ubíquo): Cada card da linha do tempo DEVE ter o botão que abre o diário da aula: sempre na aula atual e nas passadas; nas próximas, sempre para o professor e, para o estudante, só quando a aula tem conteúdo; o diário aberto num card, sem nada registrado, DEVE dizer "Nada registrado nesta aula ainda."
+- [ ] **CA-13** (evento): QUANDO o professor dono ou o administrador aciona "Conteúdo da aula" ou "Alterar esta aula" num card da linha do tempo, O SISTEMA DEVE abrir, para aquela aula, o mesmo diálogo do painel do dia do calendário e, ao salvar, DEVE ler de novo a linha do tempo e o calendário; o estudante NÃO DEVE ter esses botões.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -198,7 +202,9 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | Teste | Arquivo | Cobre |
 | :--- | :--- | :--- |
 | três blocos, marca Agora e "Começa às", botões por papel e estado, "Nenhuma aula agora", cards recolhidos e marca de comandos, consulta a cada 60 s só visível, falha silenciosa | `ClassTimeline.test.tsx` | CA-07 |
-| seções do diário por papel, comandos ao expandir, Copiar | `SessionDiary.test.tsx` | CA-08 |
+| botão do diário em todos os cards (próxima sem conteúdo: só o professor); "Conteúdo da aula" e "Alterar esta aula" em todos os cards do professor e em nenhum do estudante; os botões chamam o diálogo da aula certa | `ClassTimeline.test.tsx` | CA-12, CA-13 |
+| seções do diário por papel, comandos ao expandir, Copiar; diário vazio diz "Nada registrado nesta aula ainda." | `SessionDiary.test.tsx` | CA-08, CA-12 |
+| "Conteúdo da aula" e "Alterar esta aula" abertos pela linha do tempo, e a linha do tempo lida de novo ao salvar | `classes/[id]/page.test.tsx` | CA-13 |
 | diário no painel do dia | `ClassCalendar.test.tsx` | CA-08 |
 | dois campos novos, Salvar, erro junto do campo | `SessionContentForm.test.tsx` | CA-10 |
 | `onCommandRun` para comando digitado e para `execute`, uma vez cada, terminal certo, status e saída; `su` sem a senha; conformidade continua passando | `engine/terminalWindow.test.ts` | CA-09, CA-11 |
@@ -256,3 +262,4 @@ Nenhuma.
 | 16/10/2026 | Tech Lead | Aprovada ("Aprovo"). Status: `Aprovada` |
 | 16/10/2026 | Implementador | Implementada. Backend: migração `00038`, `SplitTimeline` e anotações no `schedule`, comandos no `classroom` (domain, repository, service, `live:terminal:command` no hub e rota de leitura), porta `LiveSessions` em `cmd/api/diary_refs.go`. Frontend: `onCommandRun` no adaptador do terminal (lido de fora, sem tocar `engine/core`), `sendTerminalCommand` no hook, `ClassTimeline`, `SessionDiary` (com `SessionContentView`, que o painel do dia passou a usar), campos de anotações no diálogo de conteúdo e a linha do tempo na aba Agenda. Desvios: o teste de uma consulta só das contagens ficou no repositório do `classroom` (`TestLinkedSessions_WithTheirCommandCounts`), porque o `schedule` reaproveita `ListSessions` e as contagens vêm pela porta; o teste da senha usa `passwd`, que pede a senha pelo mesmo caminho do `su`; o painel do dia, com o diário, lê o conteúdo pela leitura do diário (uma chamada), e os dois testes da SPEC-053 que conferiam o corpo exato do salvar passaram a incluir `teacherNotes` e `teacherPrivateNotes` vazios |
 | 16/10/2026 | Implementador | Renumerada de SPEC-071 para SPEC-073 (e a SPEC-072 de materiais para SPEC-074), e a migração de `00037` para `00038`, ao juntar a branch com a `projeto-tcc2`: lá já existem a SPEC-071 (prática guiada em aula), a SPEC-072 (caderno dinâmico de anotações) e a migração `00037`. O conteúdo da spec não mudou |
+| 16/10/2026 | Aruna Architect | Falha achada em uso pelo Tech Lead: na aba Agenda os cards da linha do tempo não tinham botão (a próxima aula sem conteúdo não abria nada) e o professor não tinha como editar a aula por eles; o "Conteúdo da aula" e o "Alterar esta aula" só existiam no painel do dia do calendário. Acrescentados as ações dos cards, o diário vazio com mensagem e os CA-12 e CA-13; volta a Aprovada |
