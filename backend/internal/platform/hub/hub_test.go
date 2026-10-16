@@ -243,13 +243,14 @@ func TestViewerLimit(t *testing.T) {
 	require.NoError(t, third.SetReadDeadline(time.Now().Add(2*time.Second)))
 	var m hub.Message
 	assert.Error(t, third.ReadJSON(&m), "the third viewer is closed before any message")
-	var full bool
-	for len(e.errs) > 0 {
-		if errors.Is(<-e.errs, hub.ErrRoomFull) {
-			full = true
-		}
+	// The hub closes the connection first and only then returns ErrRoomFull to the handler, so the error may arrive after the client saw the
+	// close: it is waited for, and not read from a channel that may still be empty.
+	select {
+	case err := <-e.errs:
+		assert.ErrorIs(t, err, hub.ErrRoomFull)
+	case <-time.After(2 * time.Second):
+		assert.Fail(t, "the hub did not say the room is full")
 	}
-	assert.True(t, full)
 	// A room is counted by its own people: another room is not full.
 	other := e.dial(t, "room-2", "viewer", "d")
 	assert.Equal(t, "snap", read(t, other).Type)
