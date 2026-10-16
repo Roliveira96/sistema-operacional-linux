@@ -122,7 +122,12 @@ func (s *Service) SaveContent(ctx context.Context, actor Actor, classID, session
 	}
 	session.DeckID, session.ModuleID = in.DeckID, in.ModuleID
 	session.TeacherNotes, session.TeacherPrivateNotes = notes, private
-	session.HasContent = topic != nil || description != "" || in.DeckID != nil || in.ModuleID != nil || len(links) > 0 || notes != nil || private != nil
+	// the materials are saved apart (SPEC-074), but a lesson that has one has content (RN-07)
+	materials, err := s.materialsOf(ctx, sessionID)
+	if err != nil {
+		return SessionContent{}, err
+	}
+	session.HasContent = topic != nil || description != "" || in.DeckID != nil || in.ModuleID != nil || len(links) > 0 || notes != nil || private != nil || len(materials) > 0
 	if err := s.repo.SaveContent(ctx, &session, links); err != nil {
 		return SessionContent{}, err
 	}

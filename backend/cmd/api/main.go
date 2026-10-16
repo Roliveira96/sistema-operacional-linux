@@ -215,6 +215,8 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	scheduleService.WithContentRefs(scheduleDecks{classroom: classroomService}, scheduleModules{modules: moduleService})
 	// The timeline and the diary of the lessons read the rooms of the live classroom (SPEC-073).
 	scheduleService.WithLiveSessions(scheduleLive{classroom: classroomService})
+	// The materials of a lesson: the files are checked by the rule of the presentations and kept in the bucket (SPEC-074).
+	scheduleService.WithMaterials(scheduleFiles{}, store)
 	moduleHandler := coursemodulehandler.New(moduleService, auth)
 	contentReader := contentservice.NewReader(moduleService, contentrepository.New(db))
 	contentHandler := contenthandler.New(contentReader, auth)
