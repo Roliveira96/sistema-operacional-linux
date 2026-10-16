@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { ScreenElement } from "@/engine/terminalScreen";
+import type { CommandRun } from "@/engine/terminalWindow";
 import {
   openLiveSocket,
   type AdmissionState,
@@ -698,6 +699,10 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
       if (!onStage) return;
       lastScreen.current = screen;
       sendOnly("live:terminal:screen", { screen });
+    },
+    /** A command the presenter window ran, for the diary of the lesson; the server keeps it and echoes nothing (SPEC-071). */
+    sendTerminalCommand: (run: CommandRun) => {
+      if (onStage) sendOnly("live:terminal:command", run);
     },
     /**
      * Where the teacher scrolled the slide (down and sideways) or the material (down), as fractions of what can be scrolled; only the presenter window

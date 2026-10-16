@@ -157,7 +157,8 @@ describe("ClassTimeline", () => {
     const { loadDiary } = setup("student");
     await flush();
     const past = block("Aulas passadas");
-    fireEvent.click(within(past).getByRole("button", { name: "Ver diário" }));
+    expect(within(past).getAllByRole("button", { name: "Ver diário" })).toHaveLength(3);
+    fireEvent.click(within(past).getAllByRole("button", { name: "Ver diário" })[0]!);
     await flush();
     expect(loadDiary).toHaveBeenCalledWith(expect.objectContaining({ id: "s-14" }));
     expect(within(past).getByText("Notas de s-14")).toBeDefined();

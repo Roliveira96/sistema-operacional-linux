@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { TopicStudy } from "@/components/TopicStudy/TopicStudy";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import type { ScreenElement } from "@/engine/terminalScreen";
+import type { CommandRun } from "@/engine/terminalWindow";
 import { messages } from "@/messages/pt-BR";
 import { classroomService, type LiveCursor, type LiveModuleContent, type StageSelection, type StageView } from "@/services/classroomService";
 import { type CursorSend, useCursorSender } from "../cursorSender";
@@ -25,6 +26,8 @@ export interface ModuleStageProps {
   onFocusBlock?(blockId: string): void;
   /** The teacher's terminal tells the picture of its window. */
   onScreen?(tree: ScreenElement): void;
+  /** The teacher's terminal tells each command that ran, for the diary of the lesson (SPEC-071). */
+  onCommandRun?(run: CommandRun): void;
   /** The mouse of the teacher, shown to everybody as a percentage of the stage (SPEC-057 CA-07). */
   cursor?: LiveCursor | null;
   /** The laser is on: the pointer of the teacher is the highlight. */
@@ -59,7 +62,7 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; module: 
  * The module of the live class: the study screen of the module in the live-class mode (SPEC-055 CA-13), drawn in the stage. Only the teacher can send:
  * the picture of his terminal, his reading, the scroll of the material, the divider, his mouse and the text he selects (SPEC-057).
  */
-export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection, onTerminalScroll, startedAt, handCount, onHand, handRaised, onRunFailed }: ModuleStageProps) {
+export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, terminal, onFocusBlock, onScreen, onCommandRun, cursor = null, laser = false, onCursor, stageView, onMaterialScroll, onSplit, onSelection, onTerminalScroll, startedAt, handCount, onHand, handRaised, onRunFailed }: ModuleStageProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const scale = useStageScale();
   const zoom = useStageZoom();
@@ -123,6 +126,7 @@ export function ModuleStage({ classId, moduleId, role, moduleFocusBlockId, termi
           handRaised,
           onRead: teacher ? onFocusBlock : undefined,
           onScreen: teacher ? onScreen : undefined,
+          onCommandRun: teacher ? onCommandRun : undefined,
           onMaterialScroll: teacher ? onMaterialScroll : undefined,
           onSplit: teacher ? onSplit : undefined,
           onSelection: teacher ? onSelection : undefined,

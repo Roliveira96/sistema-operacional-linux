@@ -58,6 +58,8 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
 
   const [topic, setTopic] = useState("");
   const [description, setDescription] = useState("");
+  const [teacherNotes, setTeacherNotes] = useState("");
+  const [teacherPrivateNotes, setTeacherPrivateNotes] = useState("");
   const [links, setLinks] = useState<Link[]>([]);
   const [moduleId, setModuleId] = useState("");
   const [deckId, setDeckId] = useState("");
@@ -66,7 +68,9 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
   const [linkName, setLinkName] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
 
-  const [errors, setErrors] = useState<Partial<Record<"topic" | "description" | "linkName" | "linkUrl" | "links" | "file", string>>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<"topic" | "description" | "teacherNotes" | "teacherPrivateNotes" | "linkName" | "linkUrl" | "links" | "file", string>>
+  >({});
   const [banner, setBanner] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -87,6 +91,8 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
         setContent(loaded);
         setTopic(loaded.topic ?? "");
         setDescription(loaded.description ?? "");
+        setTeacherNotes(loaded.teacherNotes ?? "");
+        setTeacherPrivateNotes(loaded.teacherPrivateNotes ?? "");
         setLinks(loaded.links.map((l) => ({ name: l.name, url: l.url })));
         setModuleId(loaded.module?.id ?? "");
         setDeckId(loaded.deck?.id ?? "");
@@ -189,7 +195,11 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
         if (link) return setErrors({ links: m.errors.linkInvalid(Number(link[1]) + 1) });
         if (field === "links") return setErrors({ links: m.errors.tooManyLinks });
       }
-      if (err.type === "content-too-long") return setErrors({ description: m.errors.descriptionTooLong });
+      if (err.type === "content-too-long") {
+        if (field === "teacherNotes") return setErrors({ teacherNotes: m.errors.notesTooLong });
+        if (field === "teacherPrivateNotes") return setErrors({ teacherPrivateNotes: m.errors.notesTooLong });
+        return setErrors({ description: m.errors.descriptionTooLong });
+      }
       if (err.type === "deck-not-found") return setBanner(m.errors.deckGone);
       if (err.type === "module-not-found") return setBanner(m.errors.moduleGone);
       if (err.type === "forbidden") return setBanner(m.errors.forbidden);
@@ -209,7 +219,7 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
     setErrors({});
     setSaving(true);
     try {
-      await scheduleService.saveSessionContent(classId, session.id, { topic: name, description, moduleId, deckId, links });
+      await scheduleService.saveSessionContent(classId, session.id, { topic: name, description, moduleId, deckId, links, teacherNotes, teacherPrivateNotes });
       onSaved();
       onClose();
     } catch (err) {
@@ -270,6 +280,28 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
                 invalid={Boolean(errors.description)}
               />
               {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
+            </div>
+
+            {/* The notes of the teacher on the lesson: the public ones the class reads, the private ones only he does (SPEC-071). */}
+            <div className={styles.field}>
+              <RichTextEditor
+                label={m.teacherNotesLabel}
+                value={teacherNotes}
+                onChange={setTeacherNotes}
+                placeholder={m.teacherNotesPlaceholder}
+                invalid={Boolean(errors.teacherNotes)}
+              />
+              {errors.teacherNotes && <span className={styles.fieldError}>{errors.teacherNotes}</span>}
+            </div>
+            <div className={styles.field}>
+              <RichTextEditor
+                label={m.teacherPrivateNotesLabel}
+                value={teacherPrivateNotes}
+                onChange={setTeacherPrivateNotes}
+                placeholder={m.teacherPrivateNotesPlaceholder}
+                invalid={Boolean(errors.teacherPrivateNotes)}
+              />
+              {errors.teacherPrivateNotes && <span className={styles.fieldError}>{errors.teacherPrivateNotes}</span>}
             </div>
 
             <fieldset className={styles.group}>

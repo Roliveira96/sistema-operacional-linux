@@ -124,12 +124,15 @@ describe("SessionContentForm", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
 
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    // the notes of the teacher go along, empty when there are none (SPEC-071 CA-10)
     expect(save).toHaveBeenCalledWith("c-1", "s-26", {
       topic: "Usuários e grupos",
       description: "<p>Veremos chmod.</p>",
       moduleId: "m-2",
       deckId: "d-1",
       links: [{ name: "Meet", url: "https://meet.google.com/abc" }],
+      teacherNotes: "",
+      teacherPrivateNotes: "",
     });
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -145,7 +148,7 @@ describe("SessionContentForm", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Remover link: Meet" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save.mock.lastCall?.[2]).toEqual({ topic: "", description: "<p>Veremos chmod.</p>", moduleId: "", deckId: "", links: [] });
+    expect(save.mock.lastCall?.[2]).toEqual({ topic: "", description: "<p>Veremos chmod.</p>", moduleId: "", deckId: "", links: [], teacherNotes: "", teacherPrivateNotes: "" });
   });
 
   it("refuses a topic of more than 120 characters next to the field, without calling the server", async () => {

@@ -285,6 +285,17 @@ export interface MyLiveRoom {
 }
 
 /** Live classroom REST client (SPEC-051, sections 5.1 to 5.7). */
+/** A command the teacher ran in the presentation window of a live classroom, as the server kept it (SPEC-071). */
+export interface LiveTerminalCommand {
+  terminal: number;
+  command: string;
+  /** null when the command was interrupted and had no exit status. */
+  exitStatus: number | null;
+  output: string;
+  outputTruncated: boolean;
+  ranAt: string;
+}
+
 export function createClassroomService(client: HttpClient = httpClient) {
   const live = (classId: string) => `/classes/${classId}/live`;
   return {
@@ -309,6 +320,9 @@ export function createClassroomService(client: HttpClient = httpClient) {
     saveNotes: (classId: string, sessionId: string, content: string) =>
       client.put<{ sessionId: string; savedLength: number; updatedAt: string }>(`${live(classId)}/sessions/${sessionId}/notes`, { content }),
     getNotes: (classId: string, sessionId: string) => client.get<LiveNote>(`${live(classId)}/sessions/${sessionId}/notes`),
+    /** The commands the teacher ran in a live classroom, in the order they ran (SPEC-071). */
+    listCommands: async (classId: string, sessionId: string) =>
+      (await client.get<{ sessionId: string; commands: LiveTerminalCommand[] }>(`${live(classId)}/sessions/${sessionId}/commands`)).commands,
     /** Sends the state of the machine of the student for the server to check against the conditions of the exercise (SPEC-065). */
     submitExercise: (classId: string, runId: string, snapshot: unknown) =>
       client.post<ExerciseVerdict>(`${live(classId)}/exercise/submit`, { runId, snapshot }),
