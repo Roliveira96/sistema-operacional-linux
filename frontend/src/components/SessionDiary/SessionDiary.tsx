@@ -20,6 +20,8 @@ export interface SessionDiaryProps {
   loadCommands: (liveSessionId: string) => Promise<LiveTerminalCommand[]>;
   /** The content of the lesson is shown too; the panel of the day that already shows it apart asks for false. */
   showContent?: boolean;
+  /** A diary with nothing in it says so: the cards of the timeline ask for it (SPEC-073 CA-12); the panel of the day does not. */
+  showEmpty?: boolean;
 }
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; diary: Diary };
@@ -31,7 +33,7 @@ const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour
  * lesson with the commands the teacher ran, which are read when a live class is expanded. It is the same in the panel of the day and in the cards of
  * the timeline.
  */
-export function SessionDiary({ session, role, load, loadCommands, showContent = true }: SessionDiaryProps) {
+export function SessionDiary({ session, role, load, loadCommands, showContent = true, showEmpty = false }: SessionDiaryProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
@@ -50,6 +52,8 @@ export function SessionDiary({ session, role, load, loadCommands, showContent = 
 
   const { content, liveSessions } = state.diary;
   const privateNotes = role === "teacher" ? (content.teacherPrivateNotes ?? "") : "";
+  const empty = !content.teacherNotes && !privateNotes && !(showContent && hasContentToShow(content)) && liveSessions.length === 0;
+  if (empty && showEmpty) return <p className={styles.muted}>{m.nothing}</p>;
   return (
     <div className={styles.diary}>
       {content.teacherNotes && (

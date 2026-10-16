@@ -654,6 +654,8 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             loadCommands={loadCommands}
             liveHref={`/app/classes/${id}/live`}
             onStartLive={(s) => handleStartLive(s, data.name)}
+            onEditContent={isStudent ? undefined : (s) => setContentSession(s)}
+            onEditSession={isStudent ? undefined : (s) => setEditingSession(s)}
             reloadKey={calendarReload}
           />
           </>

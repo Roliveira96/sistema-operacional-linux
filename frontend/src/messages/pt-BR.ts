@@ -619,11 +619,14 @@ export const messages = {
       viewDiary: "Ver diário",
       viewDetails: "Ver detalhes",
       hide: "Recolher",
+      editContent: "Conteúdo da aula",
+      editSession: "Alterar esta aula",
     },
     // SPEC-073: the diary of the lesson
     diary: {
       loading: "Carregando o diário…",
       loadError: "Não foi possível carregar o diário da aula.",
+      nothing: "Nada registrado nesta aula ainda.",
       notes: "Anotações da aula",
       privateNotes: "Anotações privadas",
       onlyYou: "Só você vê",

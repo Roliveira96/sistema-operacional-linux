@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { SessionDiary } from "@/components/SessionDiary/SessionDiary";
@@ -28,6 +28,9 @@ export interface ClassTimelineProps {
   liveHref: string;
   /** The teacher starts the live class from the current lesson (SPEC-053 CA-11). */
   onStartLive?: (session: TimelineEntry) => void;
+  /** The teacher opens the content of the lesson of a card, and changes the lesson (SPEC-073 CA-13); a button is drawn only for a handler that is given. */
+  onEditContent?: (session: TimelineEntry) => void;
+  onEditSession?: (session: TimelineEntry) => void;
   /** Changing it reads the timeline again. */
   reloadKey?: number;
 }
@@ -43,7 +46,7 @@ function dayOf(entry: TimelineEntry): string {
  * The timeline of the class under the calendar (SPEC-073, 3.1): the current lesson, the past ones folded, and the upcoming ones. It asks the server
  * when it opens, every minute while the tab is in view and when the tab comes back into view; a failed reading hides it until the next one.
  */
-export function ClassTimeline({ classId, courseCode, role, load, loadDiary, loadCommands, liveHref, onStartLive, reloadKey = 0 }: ClassTimelineProps) {
+export function ClassTimeline({ classId, courseCode, role, load, loadDiary, loadCommands, liveHref, onStartLive, onEditContent, onEditSession, reloadKey = 0 }: ClassTimelineProps) {
   const [data, setData] = useState<Timeline | null>(null);
   const baseId = useId();
 
@@ -69,7 +72,7 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
   if (!data) return null;
   const { current, past, upcoming, liveSessionId, now } = data;
   const next = upcoming[0];
-  const diaryProps = { classId, role, loadDiary, loadCommands };
+  const cardProps = { classId, courseCode, role, loadDiary, loadCommands, onEditContent, onEditSession };
 
   return (
     <section className={styles.timeline} aria-label={m.region}>
@@ -78,17 +81,13 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
           {m.current}
         </h3>
         {current ? (
-          <article className={`${styles.card} ${styles.current}`}>
-            <div className={styles.cardHead}>
-              <span className={styles.badgeNow}>{new Date(now) >= new Date(current.startsAt) ? m.now : m.startsAt(current.startTime)}</span>
-              <span>
-                {dayOf(current)} · {current.startTime}–{current.endTime}
-              </span>
-            </div>
-            <h4 className={styles.topic}>{current.topic || courseCode}</h4>
-            <Place entry={current} />
-            <div className={styles.actions}>
-              {liveSessionId ? (
+          <EntryCard
+            entry={current}
+            expandLabel={m.viewDetails}
+            canExpand
+            badge={new Date(now) >= new Date(current.startsAt) ? m.now : m.startsAt(current.startTime)}
+            live={
+              liveSessionId ? (
                 <ButtonLink href={liveHref} variant="primary" size="sm">
                   {role === "teacher" ? m.backToLive : m.enterLive}
                 </ButtonLink>
@@ -100,9 +99,10 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
                 )
               ) : (
                 <p className={styles.muted}>{m.liveNotStarted}</p>
-              )}
-            </div>
-          </article>
+              )
+            }
+            {...cardProps}
+          />
         ) : (
           <>
             <p className={styles.empty}>{m.none}</p>
@@ -120,7 +120,7 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
         ) : (
           <ul className={styles.list}>
             {past.map((entry) => (
-              <EntryCard key={entry.id} entry={entry} courseCode={courseCode} expandLabel={m.viewDiary} canExpand {...diaryProps} />
+              <EntryCard key={entry.id} entry={entry} expandLabel={m.viewDiary} canExpand {...cardProps} />
             ))}
           </ul>
         )}
@@ -135,7 +135,7 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
         ) : (
           <ul className={styles.list}>
             {upcoming.map((entry) => (
-              <EntryCard key={entry.id} entry={entry} courseCode={courseCode} expandLabel={m.viewDetails} canExpand={Boolean(entry.hasContent)} {...diaryProps} />
+              <EntryCard key={entry.id} entry={entry} expandLabel={m.viewDetails} canExpand={role === "teacher" || Boolean(entry.hasContent)} {...cardProps} />
             ))}
           </ul>
         )}
@@ -166,15 +166,28 @@ interface EntryCardProps {
   loadDiary: (session: Session) => Promise<Diary>;
   loadCommands: (liveSessionId: string) => Promise<LiveTerminalCommand[]>;
   expandLabel: string;
+  /** Whether there is a diary to open: always for the current and the past lessons; for an upcoming one, for the teacher, or when it has content. */
   canExpand: boolean;
+  onEditContent?: (session: TimelineEntry) => void;
+  onEditSession?: (session: TimelineEntry) => void;
+  /** The mark of the current lesson ("Agora", or the time it starts); its card is the one in evidence. */
+  badge?: string;
+  /** The way into the live class, or the way to start it, of the current lesson. */
+  live?: ReactNode;
 }
 
-/** A past or upcoming lesson, folded: the day, the topic and, when there were, the commands; its diary opens under it. */
-function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, expandLabel, canExpand }: EntryCardProps) {
+/**
+ * A lesson of the timeline: the day, the topic and, when there were, the commands. Its diary opens under it, and the teacher edits the content and
+ * the lesson from its buttons, the same dialogs of the panel of the day of the calendar (SPEC-073 CA-12, CA-13).
+ */
+function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, expandLabel, canExpand, onEditContent, onEditSession, badge, live }: EntryCardProps) {
   const [open, setOpen] = useState(false);
+  const teacher = role === "teacher";
+  const Root = badge ? "article" : "li";
   return (
-    <li className={styles.card}>
+    <Root className={badge ? `${styles.card} ${styles.current}` : styles.card}>
       <div className={styles.cardHead}>
+        {badge && <span className={styles.badgeNow}>{badge}</span>}
         <span>
           {dayOf(entry)} · {entry.startTime}–{entry.endTime}
         </span>
@@ -182,14 +195,25 @@ function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, 
       </div>
       <h4 className={styles.topic}>{entry.topic || courseCode}</h4>
       <Place entry={entry} />
-      {canExpand && (
-        <div className={styles.actions}>
+      <div className={styles.actions}>
+        {live}
+        {canExpand && (
           <Button variant="secondary" size="sm" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
             {open ? m.hide : expandLabel}
           </Button>
-        </div>
-      )}
-      {open && <SessionDiary classId={classId} session={entry} role={role} load={loadDiary} loadCommands={loadCommands} />}
-    </li>
+        )}
+        {teacher && onEditContent && (
+          <Button variant="ghost" size="sm" onClick={() => onEditContent(entry)}>
+            {m.editContent}
+          </Button>
+        )}
+        {teacher && onEditSession && (
+          <Button variant="ghost" size="sm" onClick={() => onEditSession(entry)}>
+            {m.editSession}
+          </Button>
+        )}
+      </div>
+      {open && <SessionDiary classId={classId} session={entry} role={role} load={loadDiary} loadCommands={loadCommands} showEmpty />}
+    </Root>
   );
 }
