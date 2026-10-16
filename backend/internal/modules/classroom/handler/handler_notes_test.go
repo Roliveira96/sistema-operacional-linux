@@ -13,6 +13,7 @@ import (
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/service"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 )
 
@@ -105,7 +106,7 @@ func TestNoteImagesUploadAndMediaProxyRoutes(t *testing.T) {
 	}
 	req, err := http.NewRequest(http.MethodGet, w.srv.URL+"/api/v1/media/notes/"+imgID.String(), nil)
 	require.NoError(t, err)
-	req.AddCookie(&http.Cookie{Name: "session", Value: "student"})
+	req.AddCookie(&http.Cookie{Name: authn.CookieName, Value: "student"})
 	res, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer res.Body.Close()

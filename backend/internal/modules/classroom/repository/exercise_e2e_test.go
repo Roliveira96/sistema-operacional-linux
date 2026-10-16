@@ -45,6 +45,9 @@ func (v e2eValidator) Authenticate(_ context.Context, token string) (authn.Princ
 type noStorage struct{}
 
 func (noStorage) PutObject(context.Context, string, io.Reader, int64, string) error { return nil }
+func (noStorage) GetObject(context.Context, string) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(nil)), nil
+}
 func (noStorage) PresignedGetURL(context.Context, string, time.Duration) (string, error) {
 	return "", nil
 }
