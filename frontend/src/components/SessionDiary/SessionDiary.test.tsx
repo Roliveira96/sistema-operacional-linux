@@ -144,3 +144,42 @@ describe("SessionDiary", () => {
     expect(screen.queryByRole("button", { name: /Ver comandos/ })).toBeNull();
   });
 });
+
+// SPEC-073 CA-12: a card that was opened and has nothing registered says so; the panel of the day does not
+describe("diary with nothing registered (SPEC-073 CA-12)", () => {
+  const nothing: Partial<Diary> = { content: { links: [] }, liveSessions: [] };
+
+  it("says that nothing was registered, when the card asks for the message", async () => {
+    const load = vi.fn().mockResolvedValue(diary(nothing));
+    render(<SessionDiary classId="c-1" session={lesson} role="teacher" load={load} loadCommands={vi.fn()} showEmpty />);
+    expect(await screen.findByText("Nada registrado nesta aula ainda.")).toBeDefined();
+  });
+
+  it("does not say it when the lesson has notes, content or a live class", async () => {
+    for (const over of [
+      { content: { links: [], teacherNotes: "<p>Algo</p>" }, liveSessions: [] },
+      { content: { links: [], topic: "Tema" }, liveSessions: [] },
+      { content: { links: [] }, liveSessions: diary().liveSessions },
+    ] as Partial<Diary>[]) {
+      const load = vi.fn().mockResolvedValue(diary(over));
+      const view = render(<SessionDiary classId="c-1" session={lesson} role="student" load={load} loadCommands={vi.fn()} showEmpty />);
+      await waitFor(() => expect(screen.queryByText("Carregando o diário…")).toBeNull());
+      expect(screen.queryByText("Nada registrado nesta aula ainda.")).toBeNull();
+      view.unmount();
+    }
+  });
+
+  it("does not say it by default, as in the panel of the day", async () => {
+    const load = vi.fn().mockResolvedValue(diary(nothing));
+    render(<SessionDiary classId="c-1" session={lesson} role="teacher" load={load} loadCommands={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByText("Carregando o diário…")).toBeNull());
+    expect(screen.queryByText("Nada registrado nesta aula ainda.")).toBeNull();
+  });
+
+  it("does not count the private notes for a student, who never gets them", async () => {
+    const load = vi.fn().mockResolvedValue(diary({ content: { links: [], teacherPrivateNotes: "<p>Segredo</p>" }, liveSessions: [] }));
+    render(<SessionDiary classId="c-1" session={lesson} role="student" load={load} loadCommands={vi.fn()} showEmpty />);
+    expect(await screen.findByText("Nada registrado nesta aula ainda.")).toBeDefined();
+    expect(screen.queryByText("Segredo")).toBeNull();
+  });
+});

@@ -493,3 +493,61 @@ describe("timeline of the class (SPEC-073)", () => {
     expect(within(region).getByText("A aula ao vivo ainda não começou.")).toBeDefined();
   });
 });
+
+// SPEC-073 CA-13: the teacher opens the content and changes a lesson from the cards of the timeline
+describe("actions of the timeline cards (SPEC-073 CA-13)", () => {
+  const lesson = (id: string, date: string, over: Record<string, unknown> = {}) => ({
+    id, classId: "c-1", date, startTime: "08:20", endTime: "10:20", lessonCount: 2, mode: "IN_PERSON", status: "SCHEDULED", origin: "WEEKLY",
+    overridden: false, onHoliday: false, hasContent: false, startsAt: `${date}T08:20:00-03:00`, endsAt: `${date}T10:20:00-03:00`, liveSessionCount: 0, commandCount: 0,
+    ...over,
+  });
+  const timeline = () => ({
+    now: "2026-10-13T10:00:00-03:00",
+    current: null,
+    past: [],
+    upcoming: [lesson("s-19", "2026-10-19", { topic: "teste" }), lesson("s-22", "2026-10-22")],
+    liveSessionId: null,
+  });
+
+  it("opens the content dialog and the change dialog of the lesson of the card, and reads the timeline again when it saves", async () => {
+    asRole("TEACHER");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: [], total: 0, page: 1, limit: 100 });
+    vi.spyOn(classroomService, "listDecks").mockResolvedValue([]);
+    vi.mocked(scheduleService.timeline).mockReset().mockResolvedValue(timeline() as never);
+    render(<ClassPage params={params} />);
+
+    const region = await screen.findByRole("region", { name: "Linha do tempo da turma" });
+    const upcoming = within(region).getByRole("region", { name: "Próximas aulas" });
+    const callsBefore = vi.mocked(scheduleService.timeline).mock.calls.length;
+
+    fireEvent.click(within(upcoming).getAllByRole("button", { name: "Conteúdo da aula" })[1]!);
+    const dialog = await screen.findByRole("dialog", { name: "Conteúdo da aula de 22/10/2026" });
+    expect(scheduleService.getSessionContent).toHaveBeenCalledWith("c-1", "s-22");
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(scheduleService.saveSessionContent).toHaveBeenCalledWith("c-1", "s-22", expect.anything()));
+    await waitFor(() => expect(vi.mocked(scheduleService.timeline).mock.calls.length).toBeGreaterThan(callsBefore));
+
+    fireEvent.click(within(upcoming).getAllByRole("button", { name: "Alterar esta aula" })[0]!);
+    expect(await screen.findByRole("dialog", { name: "Alterar a aula de 19/10/2026" })).toBeDefined();
+  });
+
+  it("does not give the student the buttons that edit", async () => {
+    asRole("STUDENT");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id, name: theClass.name, courseCode: theClass.courseCode, semester: theClass.semester, status: "ACTIVE",
+      summary: "", syllabus: "", institutionalGuidelines: "", startDate: theClass.startDate, endDate: theClass.endDate,
+      scheduleDescription: "", enableVirtualClassroom: false,
+    });
+    vi.mocked(scheduleService.timeline).mockReset().mockResolvedValue(timeline() as never);
+    render(<ClassPage params={params} />);
+
+    const region = await screen.findByRole("region", { name: "Linha do tempo da turma" });
+    expect(within(region).getByText("teste")).toBeDefined();
+    expect(within(region).queryByRole("button", { name: "Conteúdo da aula" })).toBeNull();
+    expect(within(region).queryByRole("button", { name: "Alterar esta aula" })).toBeNull();
+  });
+});

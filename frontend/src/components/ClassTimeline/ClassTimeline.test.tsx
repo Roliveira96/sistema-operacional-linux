@@ -208,3 +208,93 @@ describe("ClassTimeline", () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 });
+
+// SPEC-073 CA-12, CA-13: every card opens its diary, and the teacher edits the lesson from the card
+describe("actions of the cards (SPEC-073 CA-12, CA-13)", () => {
+  const names = { diary: "Ver diário", details: "Ver detalhes", content: "Conteúdo da aula", change: "Alterar esta aula" };
+
+  it("gives the teacher the diary and the two edit buttons in every card, even in an upcoming lesson with nothing in it", async () => {
+    setup("teacher", {}, { onEditContent: vi.fn(), onEditSession: vi.fn() });
+    await flush();
+
+    const current = block("Aula atual");
+    expect(within(current).getByRole("button", { name: names.details })).toBeDefined();
+    expect(within(current).getByRole("button", { name: names.content })).toBeDefined();
+    expect(within(current).getByRole("button", { name: names.change })).toBeDefined();
+
+    const past = block("Aulas passadas");
+    expect(within(past).getAllByRole("button", { name: names.diary })).toHaveLength(3);
+    expect(within(past).getAllByRole("button", { name: names.content })).toHaveLength(3);
+    expect(within(past).getAllByRole("button", { name: names.change })).toHaveLength(3);
+
+    // s-26 has no content, and the teacher still opens it and edits it
+    const upcoming = block("Próximas aulas");
+    expect(within(upcoming).getAllByRole("button", { name: names.details })).toHaveLength(2);
+    expect(within(upcoming).getAllByRole("button", { name: names.content })).toHaveLength(2);
+    expect(within(upcoming).getAllByRole("button", { name: names.change })).toHaveLength(2);
+  });
+
+  it("calls the handlers with the lesson of the card that was clicked", async () => {
+    const onEditContent = vi.fn();
+    const onEditSession = vi.fn();
+    setup("teacher", {}, { onEditContent, onEditSession });
+    await flush();
+
+    const upcoming = block("Próximas aulas");
+    fireEvent.click(within(upcoming).getAllByRole("button", { name: names.content })[1]!);
+    expect(onEditContent).toHaveBeenCalledTimes(1);
+    expect(onEditContent).toHaveBeenCalledWith(expect.objectContaining({ id: "s-26" }));
+
+    const past = block("Aulas passadas");
+    fireEvent.click(within(past).getAllByRole("button", { name: names.change })[0]!);
+    expect(onEditSession).toHaveBeenCalledTimes(1);
+    expect(onEditSession).toHaveBeenCalledWith(expect.objectContaining({ id: "s-14" }));
+
+    fireEvent.click(within(block("Aula atual")).getByRole("button", { name: names.content }));
+    expect(onEditContent).toHaveBeenLastCalledWith(expect.objectContaining({ id: "s-19" }));
+  });
+
+  it("gives the student the diary where there is something to see, and never the edit buttons", async () => {
+    setup("student", {}, { onEditContent: vi.fn(), onEditSession: vi.fn() });
+    await flush();
+
+    expect(within(block("Aula atual")).getByRole("button", { name: names.details })).toBeDefined();
+    expect(within(block("Aulas passadas")).getAllByRole("button", { name: names.diary })).toHaveLength(3);
+    // only s-21 has content: the lesson with none has nothing to open
+    expect(within(block("Próximas aulas")).getAllByRole("button", { name: names.details })).toHaveLength(1);
+
+    expect(within(region()).queryByRole("button", { name: names.content })).toBeNull();
+    expect(within(region()).queryByRole("button", { name: names.change })).toBeNull();
+  });
+
+  it("does not draw an edit button the page gave no handler for", async () => {
+    setup("teacher", {}, { onEditContent: vi.fn() });
+    await flush();
+    expect(within(region()).getAllByRole("button", { name: names.content }).length).toBeGreaterThan(0);
+    expect(within(region()).queryByRole("button", { name: names.change })).toBeNull();
+  });
+
+  it("says nothing was registered when the teacher opens a lesson that has nothing in it", async () => {
+    const empty = vi.fn().mockImplementation(async (e: TimelineEntry) => ({ session: e, content: { links: [] }, liveSessions: [] }));
+    setup("teacher", {}, { loadDiary: empty, onEditContent: vi.fn() });
+    await flush();
+
+    const upcoming = block("Próximas aulas");
+    fireEvent.click(within(upcoming).getAllByRole("button", { name: names.details })[1]!);
+    await flush();
+    expect(empty).toHaveBeenCalledWith(expect.objectContaining({ id: "s-26" }));
+    expect(within(upcoming).getByText("Nada registrado nesta aula ainda.")).toBeDefined();
+  });
+
+  it("opens the diary of the current lesson from its card", async () => {
+    const { loadDiary } = setup("student");
+    await flush();
+    const current = block("Aula atual");
+    fireEvent.click(within(current).getByRole("button", { name: names.details }));
+    await flush();
+    expect(loadDiary).toHaveBeenCalledWith(expect.objectContaining({ id: "s-19" }));
+    expect(within(current).getByText("Notas de s-19")).toBeDefined();
+    fireEvent.click(within(current).getByRole("button", { name: "Recolher" }));
+    expect(within(current).queryByText("Notas de s-19")).toBeNull();
+  });
+});
