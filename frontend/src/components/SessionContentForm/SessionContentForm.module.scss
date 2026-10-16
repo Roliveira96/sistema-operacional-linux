@@ -174,32 +174,68 @@
   }
 }
 
-// The file field: the browser button looks like a secondary button.
-.file {
+// The area that receives the PDF, by click or by drop (SPEC-053 CA-15).
+.dropzone {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: var(--space-1) var(--space-2);
-  border-style: dashed;
-  color: var(--color-text-secondary);
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-4);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  text-align: center;
   cursor: pointer;
+  transition:
+    border-color var(--duration-fast) ease,
+    background var(--duration-fast) ease;
 
-  &::file-selector-button {
-    margin-right: var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-raised);
-    color: var(--color-text-primary);
-    font: inherit;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
+  &:hover {
+    border-color: var(--color-accent);
   }
 
-  &:disabled {
+  &:focus-within {
+    @include mixins.focus-ring;
+  }
+
+  &[data-dragging="true"] {
+    border-color: var(--color-accent);
+    border-style: solid;
+    background: var(--color-orange-faint);
+  }
+
+  &[data-busy="true"] {
     opacity: 0.6;
-    cursor: not-allowed;
+    cursor: progress;
   }
+}
+
+.dropIcon {
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  color: var(--color-accent);
+}
+
+.dropHint {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.dropLimits {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+// The real input stays for the click and the keyboard, out of sight.
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .fieldError {

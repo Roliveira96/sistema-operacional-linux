@@ -680,6 +680,8 @@ export const messages = {
       deckLabel: "Apresentação (PDF)",
       deckNone: "Nenhuma",
       uploadLabel: "Enviar PDF",
+      dropHint: "Arraste o PDF aqui ou clique para escolher",
+      dropLimits: "PDF de até 25 MB e 100 páginas",
       uploading: "Enviando a apresentação…",
       save: "Salvar",
       saving: "Salvando…",

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, type FormEvent, useEffect, useId, useState } from "react";
+import { type DragEvent, type FormEvent, useEffect, useId, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { readPdfInfo } from "@/components/Classroom/SlidePresenter/pdfRenderer";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
@@ -74,6 +74,7 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
   const [banner, setBanner] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -158,8 +159,8 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
     setLinkUrl("");
   };
 
-  const chooseFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  /** Validates and sends the presentation, chosen by click or dropped on the area (SPEC-053 CA-15). */
+  const sendFile = async (file: File | undefined) => {
     setErrors((prev) => ({ ...prev, file: undefined }));
     if (!file) return;
     const fail = (message: string) => setErrors((prev) => ({ ...prev, file: message }));
@@ -230,6 +231,25 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
   };
 
   const busy = saving || uploading;
+
+  // Only a drag that carries files lights the area up; the first dropped file is the one sent.
+  const carriesFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files");
+  const dragOver = (event: DragEvent<HTMLLabelElement>) => {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    if (!busy) setDragging(true);
+  };
+  const dragLeave = (event: DragEvent<HTMLLabelElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setDragging(false);
+  };
+  const dropFile = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setDragging(false);
+    if (busy) return;
+    const file = event.dataTransfer?.files?.[0];
+    if (file) void sendFile(file);
+  };
   const titleId = `${baseId}-title`;
 
   return (
@@ -437,14 +457,34 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
                   <label htmlFor={`${baseId}-file`} className={styles.label}>
                     {m.uploadLabel}
                   </label>
-                  <input
-                    id={`${baseId}-file`}
-                    className={`${styles.input} ${styles.file}`}
-                    type="file"
-                    accept="application/pdf,.pdf"
-                    disabled={busy}
-                    onChange={(e) => void chooseFile(e)}
-                  />
+                  {/* The drop area: a label of the same input, so a click still opens the file picker. */}
+                  <label
+                    htmlFor={`${baseId}-file`}
+                    className={styles.dropzone}
+                    data-dragging={dragging ? "true" : undefined}
+                    data-busy={busy ? "true" : undefined}
+                    onDragEnter={dragOver}
+                    onDragOver={dragOver}
+                    onDragLeave={dragLeave}
+                    onDrop={dropFile}
+                  >
+                    <span className={styles.dropIcon} aria-hidden="true">
+                      ⇪
+                    </span>
+                    <span className={styles.dropHint}>{m.dropHint}</span>
+                    <span className={styles.dropLimits}>{m.dropLimits}</span>
+                    <input
+                      id={`${baseId}-file`}
+                      className={styles.fileInput}
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      disabled={busy}
+                      onChange={(e) => {
+                        void sendFile(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
                   {uploading && <span className={styles.muted}>{m.uploading}</span>}
                   {errors.file && <span className={styles.fieldError}>{errors.file}</span>}
                 </div>
