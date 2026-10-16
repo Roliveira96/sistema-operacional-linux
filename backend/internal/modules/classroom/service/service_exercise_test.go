@@ -25,6 +25,8 @@ type exerciseStore struct {
 	results []domain.LiveExerciseResult
 	reads   int
 	failEnd error
+	// participants are the rows of the students of the rounds, by (round, student) (SPEC-071 RN-08)
+	participants map[[2]uuid.UUID]domain.ExerciseParticipant
 }
 
 func (f *fakeRepo) CreateExerciseRun(_ context.Context, run *domain.LiveExerciseRun) error {
@@ -99,6 +101,15 @@ func (f *fakeRepo) SaveExerciseResult(_ context.Context, res *domain.LiveExercis
 	if res.ID == uuid.Nil {
 		res.ID = uuid.New()
 	}
+	// SPEC-071 RN-07: the conclusion is the row of the participant; who had his terminal taken over gets no points
+	key := [2]uuid.UUID{res.RunID, res.StudentID}
+	p := f.participantRow(key)
+	if p.TakenOver {
+		res.Points = 0
+	}
+	res.TakenOver, res.HelpRequested, res.Status = p.TakenOver, p.HelpRequested, domain.ParticipantCompleted
+	p.Status, p.Commands = domain.ParticipantCompleted, max(p.Commands, res.Commands)
+	f.exercise.participants[key] = p
 	f.exercise.results = append(f.exercise.results, *res)
 	return *res, true, nil
 }

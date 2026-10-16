@@ -49,7 +49,7 @@ describe("ExerciseArea, the progress the teacher is told", () => {
   it("tells at once how far the student is when the terminal is ready", async () => {
     await open();
     expect(onProgress).toHaveBeenCalledTimes(1);
-    expect(onProgress).toHaveBeenCalledWith({ runId: "r-1", met: 0, total: 2, last: "" });
+    expect(onProgress).toHaveBeenCalledWith({ runId: "r-1", met: 0, total: 2, last: "", commands: 0 }); // SPEC-071 adds the commands
   });
 
   it("holds what changes for two seconds and then tells the last command and how many conditions are met", async () => {
@@ -60,7 +60,7 @@ describe("ExerciseArea, the progress the teacher is told", () => {
     expect(onProgress).toHaveBeenCalledTimes(1);
     await advance(1);
     expect(onProgress).toHaveBeenCalledTimes(2);
-    expect(sent()[1]![0]).toEqual({ runId: "r-1", met: 1, total: 2, last: "mkdir /dois" });
+    expect(sent()[1]![0]).toMatchObject({ runId: "r-1", met: 1, total: 2, last: "mkdir /dois" }) /* SPEC-071 adds the commands */;
   });
 
   it("tells only the last of the changes of a stretch of two seconds", async () => {
@@ -93,7 +93,7 @@ describe("ExerciseArea, the progress the teacher is told", () => {
     expect(onProgress).toHaveBeenCalledTimes(1);
     await advance(2000);
     expect(onProgress).toHaveBeenCalledTimes(2);
-    expect(sent()[1]![0]).toEqual({ runId: "r-1", met: 0, total: 2, last: "" });
+    expect(sent()[1]![0]).toMatchObject({ runId: "r-1", met: 0, total: 2, last: "" }) /* SPEC-071 adds the commands */;
     await advance(5000);
     expect(onProgress).toHaveBeenCalledTimes(2);
   });
@@ -118,7 +118,7 @@ describe("ExerciseArea, the beat of the progress", () => {
     expect(sent()[1]![0]).toEqual(sent()[0]![0]);
     await advance(10_000);
     expect(onProgress).toHaveBeenCalledTimes(3);
-    expect(sent()[2]![0]).toEqual({ runId: "r-1", met: 0, total: 2, last: "" });
+    expect(sent()[2]![0]).toMatchObject({ runId: "r-1", met: 0, total: 2, last: "" }) /* SPEC-071 adds the commands */;
   });
 
   it("tells what the student is at now, the last command and how many conditions are met", async () => {
@@ -128,7 +128,7 @@ describe("ExerciseArea, the beat of the progress", () => {
     expect(onProgress).toHaveBeenCalledTimes(2);
     await advance(8000);
     expect(onProgress).toHaveBeenCalledTimes(3);
-    expect(sent()[2]![0]).toEqual({ runId: "r-1", met: 1, total: 2, last: "mkdir /dois" });
+    expect(sent()[2]![0]).toMatchObject({ runId: "r-1", met: 1, total: 2, last: "mkdir /dois" }) /* SPEC-071 adds the commands */;
   });
 
   it("keeps two seconds between the sends, the beat and the changes together", async () => {
@@ -142,7 +142,7 @@ describe("ExerciseArea, the beat of the progress", () => {
     expect(onProgress).toHaveBeenCalledTimes(2);
     await advance(1);
     expect(onProgress).toHaveBeenCalledTimes(3);
-    expect(sent()[2]![0]).toEqual({ runId: "r-1", met: 1, total: 2, last: "ls" });
+    expect(sent()[2]![0]).toMatchObject({ runId: "r-1", met: 1, total: 2, last: "ls" }) /* SPEC-071 adds the commands */;
   });
 
   it("tries the beat again when the room did not take it, as with the connection down", async () => {

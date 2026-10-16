@@ -104,7 +104,8 @@ describe("ExerciseArea, the machine kept in the browser", () => {
     await advance(2000);
     expect(kept()).toEqual(half());
     await type("touch /dois/x.txt", whole());
-    view.rerender(area({ exercise: round({ status: "ENDED", endedBy: "TEACHER", endedAt: START }) }));
+    // SPEC-071 RN-03: the machine is kept while the round can reopen, and forgotten when the class goes back to the lesson
+    view.rerender(area({ exercise: round({ status: "CLOSED", endedBy: "TEACHER", endedAt: START, closedAt: START }) }));
     expect(kept()).toBeNull();
     await advance(5000);
     expect(kept()).toBeNull();
