@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-071 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 16/10/2026 |
-| **Última revisão** | 16/10/2026 (P-01 e P-02 respondidas pelo Tech Lead) |
+| **Última revisão** | 16/10/2026 (aprovada pelo Tech Lead) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -260,3 +260,4 @@ Nenhuma pendência. P-01 ("Voltar para a aula" com o cronômetro correndo encerr
 | :--- | :--- | :--- |
 | 16/10/2026 | Aruna Architect | Criação, a partir da Tech Spec trazida pelo Tech Lead e das decisões dele na mesma data (seção "Fontes canônicas"); duas pendências abertas |
 | 16/10/2026 | Aruna Architect | P-01: voltar para a aula encerra a rodada. P-02: takeover tecla a tecla (shell, `top`, `nano`, `vim`, `Ctrl+C` e colagem), entregue pelo adaptador `engine/remoteKeys.ts` sem alterar `engine/core`; `live:exercise:input` vira `live:exercise:key`. Seção 10 vazia, pronta para aprovação |
+| 16/10/2026 | Tech Lead | Aprovada |
