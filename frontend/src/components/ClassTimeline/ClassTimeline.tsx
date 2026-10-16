@@ -215,6 +215,7 @@ function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, 
           </span>
           <Place entry={entry} />
           {entry.commandCount > 0 && <span className={styles.tag}>{m.commands(entry.commandCount)}</span>}
+          {entry.materialCount > 0 && <span className={styles.tag}>{m.materials(entry.materialCount)}</span>}
         </p>
       </div>
       <div className={styles.actions}>

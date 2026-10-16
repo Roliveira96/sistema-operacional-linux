@@ -4,6 +4,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useId, useState } from "re
 import { Button } from "@/components/Button/Button";
 import { readPdfInfo } from "@/components/Classroom/SlidePresenter/pdfRenderer";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
+import { SessionMaterials } from "@/components/SessionMaterials/SessionMaterials";
 import { messages } from "@/messages/pt-BR";
 import { classroomService } from "@/services/classroomService";
 import { ApiProblemError } from "@/services/httpClient";
@@ -405,7 +406,7 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
               <label htmlFor={`${baseId}-deck`} className={styles.label}>
                 {m.deckLabel}
               </label>
-              <select id={`${baseId}-deck`} className={styles.input} value={deckId} onChange={(e) => setDeckId(e.target.value)}>
+              <select id={`${baseId}-deck`} className={styles.input} value={deckId} aria-describedby={`${baseId}-deck-hint`} onChange={(e) => setDeckId(e.target.value)}>
                 <option value="">{m.deckNone}</option>
                 {deckOptions.map((x) => (
                   <option key={x.id} value={x.id}>
@@ -413,6 +414,9 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
                   </option>
                 ))}
               </select>
+              <span id={`${baseId}-deck-hint`} className={styles.hint}>
+                {m.deckHint}
+              </span>
               <label htmlFor={`${baseId}-file`} className={styles.label}>
                 {m.uploadLabel}
               </label>
@@ -427,6 +431,9 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
               {uploading && <span className={styles.muted}>{m.uploading}</span>}
               {errors.file && <span className={styles.fieldError}>{errors.file}</span>}
             </div>
+
+            {/* The materials are saved on the spot, one by one: they are not part of the Save of the content (SPEC-074). */}
+            <SessionMaterials classId={classId} sessionId={session.id} />
 
             {banner && (
               <div className={styles.error} role="alert">

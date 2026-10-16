@@ -313,7 +313,7 @@ describe("materials in the cards (SPEC-074 CA-11)", () => {
     expect(within(block("Aula atual")).getByText("3 materiais")).toBeDefined();
     expect(within(block("Aulas passadas")).getByText("1 material")).toBeDefined();
     expect(within(block("Próximas aulas")).getByText("2 materiais")).toBeDefined();
-    expect(screen.getAllByText(/\d+ materiais?$/)).toHaveLength(3);
+    expect(screen.getAllByText(/^\d+ (material|materiais)$/)).toHaveLength(3);
   });
 
   it("lets a student open an upcoming lesson that has materials only, to see the ones that come before the class", async () => {

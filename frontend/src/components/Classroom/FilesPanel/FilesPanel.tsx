@@ -10,14 +10,14 @@ import styles from "./FilesPanel.module.scss";
 
 const m = messages.classroom.files;
 
-const MAX_PDF_BYTES = 25 * 1024 * 1024;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_PAGES = 100;
+export const MAX_PDF_BYTES = 25 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+export const MAX_PAGES = 100;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
-const ACCEPT = ["application/pdf", ...IMAGE_TYPES].join(",");
+export const ACCEPT = ["application/pdf", ...IMAGE_TYPES].join(",");
 
 /** What the file is by its type, or by its name when the browser does not say; null for what is not a presentation (the server reads the content). */
-function kindOf(file: File): DeckKind | null {
+export function kindOf(file: File): DeckKind | null {
   const name = file.name.toLowerCase();
   if (file.type === "application/pdf" || name.endsWith(".pdf")) return "PDF";
   if (IMAGE_TYPES.includes(file.type) || /\.(png|jpe?g|webp)$/.test(name)) return "IMAGE";
@@ -25,7 +25,7 @@ function kindOf(file: File): DeckKind | null {
 }
 
 /** The name of the presentation: the name of the file, with no extension. */
-function titleOf(file: File): string {
+export function titleOf(file: File): string {
   const bare = file.name.replace(/\.[^.]+$/, "").trim();
   return (bare || file.name.trim() || "Arquivo").slice(0, 120);
 }

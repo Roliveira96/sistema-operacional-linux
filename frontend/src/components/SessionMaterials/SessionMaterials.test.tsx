@@ -93,7 +93,7 @@ describe("SessionMaterials: the four areas (SPEC-074 CA-10)", () => {
       expect(within(area).getByLabelText("Escolher arquivos")).toBeDefined();
       expect(within(area).getByRole("button", { name: "Adicionar link" })).toBeDefined();
     }
-    expect(within(zone("Só depois da aula")).getByText(/resolução dos exercícios/i)).toBeDefined();
+    expect(within(zone("Só depois da aula")).getByText(/Bom para a resolução dos exercícios/)).toBeDefined();
   });
 
   it("shows what each material is: the file with its size and pages, the link with its site, and why it is hidden", async () => {
@@ -367,7 +367,7 @@ describe("SessionMaterials: editing a material, saved on the spot (SPEC-074 CA-0
     expect(within(zone("Sempre visível")).queryByRole("group", { name: "Roteiro" })).toBeNull();
   });
 
-  it("has the release only in the phases that include the time after the lesson, saves it with the offset of the school, and clears it", async () => {
+  it("has the release only in the phases that include the time after the lesson, saves it, when the field is left, with the offset of the school, and clears it", async () => {
     const { service } = await setup();
     expect(within(row("Roteiro")).queryByLabelText("Liberar em")).toBeNull();
     expect(within(row("Lista 1")).queryByLabelText("Liberar em")).toBeNull();
@@ -377,8 +377,12 @@ describe("SessionMaterials: editing a material, saved on the spot (SPEC-074 CA-0
     expect((within(row("Apoio")).getByLabelText("Liberar em") as HTMLInputElement).value).toBe("2026-10-19T11:00");
 
     fireEvent.change(release, { target: { value: "2026-10-20T14:30" } });
+    expect(service.updateMaterial).not.toHaveBeenCalled(); // typing is not saving: it is saved when the field is left
+    fireEvent.blur(release);
     await waitFor(() => expect(service.updateMaterial).toHaveBeenCalledWith("c-1", "s-26", "c", { releaseAt: "2026-10-20T14:30:00-03:00" }));
-    fireEvent.change(within(row("Apoio")).getByLabelText("Liberar em"), { target: { value: "" } });
+    const apoio = within(row("Apoio")).getByLabelText("Liberar em");
+    fireEvent.change(apoio, { target: { value: "" } });
+    fireEvent.blur(apoio);
     await waitFor(() => expect(service.updateMaterial).toHaveBeenCalledWith("c-1", "s-26", "d", { releaseAt: null }));
   });
 

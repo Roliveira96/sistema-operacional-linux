@@ -367,6 +367,7 @@ describe("SessionContentForm: materials (SPEC-074 CA-10)", () => {
     const dialog = await ready();
     expect(await within(dialog).findByRole("heading", { level: 3, name: "Materiais da aula" })).toBeDefined();
     expect(scheduleService.materials).toHaveBeenCalledWith("c-1", "s-26");
+    await within(dialog).findByRole("heading", { level: 4, name: "Sempre visível" });
     expect(within(dialog).getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual([
       "Sempre visível",
       "Só durante a aula",

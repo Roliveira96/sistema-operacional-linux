@@ -4,7 +4,8 @@ import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { messages } from "@/messages/pt-BR";
 import type { LiveTerminalCommand } from "@/services/classroomService";
-import type { DiaryLiveSession, Session, SessionDiary as Diary } from "@/services/scheduleService";
+import { scheduleService, type DiaryLiveSession, type Session, type SessionDiary as Diary, type SessionMaterial } from "@/services/scheduleService";
+import { DiaryMaterials, type MaterialsService } from "./DiaryMaterials";
 import { hasContentToShow, SessionContentView } from "./SessionContentView";
 import styles from "./SessionDiary.module.scss";
 
@@ -22,6 +23,8 @@ export interface SessionDiaryProps {
   showContent?: boolean;
   /** A diary with nothing in it says so: the cards of the timeline ask for it (SPEC-073 CA-12); the panel of the day does not. */
   showEmpty?: boolean;
+  /** Gives the address of a file and releases a material (SPEC-074). */
+  service?: MaterialsService;
 }
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; diary: Diary };
@@ -33,7 +36,7 @@ const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour
  * lesson with the commands the teacher ran, which are read when a live class is expanded. It is the same in the panel of the day and in the cards of
  * the timeline.
  */
-export function SessionDiary({ session, role, load, loadCommands, showContent = true, showEmpty = false }: SessionDiaryProps) {
+export function SessionDiary({ classId, session, role, load, loadCommands, showContent = true, showEmpty = false, service = scheduleService }: SessionDiaryProps) {
   const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
@@ -51,8 +54,11 @@ export function SessionDiary({ session, role, load, loadCommands, showContent = 
   if (state.kind === "error") return <p className={styles.muted}>{m.loadError}</p>;
 
   const { content, liveSessions } = state.diary;
+  const materials = state.diary.materials ?? [];
+  const released = (material: SessionMaterial) =>
+    setState({ kind: "ready", diary: { ...state.diary, materials: materials.map((x) => (x.id === material.id ? material : x)) } });
   const privateNotes = role === "teacher" ? (content.teacherPrivateNotes ?? "") : "";
-  const empty = !content.teacherNotes && !privateNotes && !(showContent && hasContentToShow(content)) && liveSessions.length === 0;
+  const empty = !content.teacherNotes && !privateNotes && !(showContent && hasContentToShow(content)) && liveSessions.length === 0 && materials.length === 0;
   if (empty && showEmpty) return <p className={styles.muted}>{m.nothing}</p>;
   return (
     <div className={styles.diary}>
@@ -73,6 +79,7 @@ export function SessionDiary({ session, role, load, loadCommands, showContent = 
         </section>
       )}
       {showContent && hasContentToShow(content) && <SessionContentView content={content} />}
+      <DiaryMaterials classId={classId} sessionId={session.id} teacher={role === "teacher"} materials={materials} service={service} onReleased={released} />
       {liveSessions.length > 0 && (
         <section className={styles.section}>
           <h4 className={styles.heading}>{m.liveSessions}</h4>

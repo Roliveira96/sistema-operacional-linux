@@ -76,6 +76,8 @@ export interface TimelineEntry extends Session {
   endsAt: string;
   liveSessionCount: number;
   commandCount: number;
+  /** How many materials the reader sees in the lesson: the teacher all of them, a student the visible ones (SPEC-074). */
+  materialCount: number;
 }
 
 /** The three blocks of the class at the now of the server, and the open room of the class, linked to a lesson or not (SPEC-073 RN-01, RN-02). */
@@ -103,6 +105,52 @@ export interface SessionDiary {
   session: TimelineEntry;
   content: SessionContent;
   liveSessions: DiaryLiveSession[];
+  /** The materials the reader sees: all for the teacher, the visible ones for a student (SPEC-074). */
+  materials: SessionMaterial[];
+}
+
+/** What a material is (SPEC-074 RN-01). */
+export type MaterialKind = "SLIDES" | "EXERCISES" | "EXERCISE_SOLUTION" | "REFERENCE";
+
+/** The phase of the lesson in which the class sees a material (SPEC-074 RN-04). */
+export type MaterialVisibility = "ALWAYS" | "DURING_CLASS" | "AFTER_CLASS" | "DURING_AND_AFTER";
+
+/**
+ * A file or a link of a lesson (SPEC-074, section 5). visibleNow and hiddenUntil come only for the teacher and the administrator: hiddenUntil is
+ * CLASS_START, CLASS_END, CLASS_OVER, CLASS_CANCELED or, for a release, the instant.
+ */
+export interface SessionMaterial {
+  id: string;
+  position: number;
+  title: string;
+  kind: MaterialKind;
+  visibility: MaterialVisibility;
+  releaseAt: string | null;
+  source: "FILE" | "LINK";
+  url?: string;
+  fileName?: string;
+  contentType?: string;
+  sizeBytes?: number;
+  pageCount?: number;
+  visibleNow?: boolean;
+  hiddenUntil?: string;
+}
+
+/** What the teacher says of a material when it is included. */
+export interface MaterialInput {
+  title: string;
+  kind: MaterialKind;
+  visibility: MaterialVisibility;
+  releaseAt?: string;
+}
+
+/** What the teacher changes in a material: only what is sent changes, and a null release clears it. */
+export interface MaterialPatch {
+  title?: string;
+  kind?: MaterialKind;
+  visibility?: MaterialVisibility;
+  releaseAt?: string | null;
+  position?: number;
 }
 
 export interface ClassEvent {
@@ -222,6 +270,32 @@ export function createScheduleService(client: HttpClient = httpClient) {
     getDiary: (classId: string, sessionId: string) => client.get<SessionDiary>(`/classes/${classId}/sessions/${sessionId}/diary`),
     saveSessionContent: (classId: string, sessionId: string, input: SessionContentInput) =>
       client.put<SessionContent>(`/classes/${classId}/sessions/${sessionId}/content`, input),
+    /** The materials of a lesson, as the reader may see them (SPEC-074). */
+    materials: async (classId: string, sessionId: string) =>
+      (await client.get<{ materials: SessionMaterial[] }>(`/classes/${classId}/sessions/${sessionId}/materials`)).materials,
+    addLinkMaterial: (classId: string, sessionId: string, input: MaterialInput & { url: string }) =>
+      client.post<SessionMaterial>(`/classes/${classId}/sessions/${sessionId}/materials/links`, input),
+    /** A PDF goes with the number of pages the browser read; an image has none to send. */
+    addFileMaterial: (classId: string, sessionId: string, file: File, input: MaterialInput, pageCount?: number) => {
+      const form = new FormData();
+      form.set("file", file);
+      form.set("title", input.title);
+      form.set("kind", input.kind);
+      form.set("visibility", input.visibility);
+      if (input.releaseAt) form.set("releaseAt", input.releaseAt);
+      if (pageCount !== undefined) form.set("pageCount", String(pageCount));
+      return client.post<SessionMaterial>(`/classes/${classId}/sessions/${sessionId}/materials/files`, form);
+    },
+    updateMaterial: (classId: string, sessionId: string, materialId: string, patch: MaterialPatch) =>
+      client.patch<SessionMaterial>(`/classes/${classId}/sessions/${sessionId}/materials/${materialId}`, patch),
+    /** "Release now": the server records its own clock as the release (SPEC-074 CA-05). */
+    releaseMaterial: (classId: string, sessionId: string, materialId: string) =>
+      client.post<SessionMaterial>(`/classes/${classId}/sessions/${sessionId}/materials/${materialId}/release`),
+    deleteMaterial: (classId: string, sessionId: string, materialId: string) =>
+      client.delete<void>(`/classes/${classId}/sessions/${sessionId}/materials/${materialId}`),
+    /** The signed address of a file, good for 15 minutes: asked for when it is clicked (SPEC-074 CA-07). */
+    materialDownload: (classId: string, sessionId: string, materialId: string) =>
+      client.get<{ downloadUrl: string; expiresAt: string }>(`/classes/${classId}/sessions/${sessionId}/materials/${materialId}/download`),
     createSession: (classId: string, input: SessionInput) => client.post<Session>(`/classes/${classId}/sessions`, input),
     deleteSession: (classId: string, sessionId: string) => client.delete<void>(`/classes/${classId}/sessions/${sessionId}`),
     createEvent: (classId: string, input: EventInput) => client.post<ClassEvent>(`/classes/${classId}/events`, input),
