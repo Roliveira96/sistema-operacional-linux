@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-071 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 16/10/2026 |
 | **Última revisão** | 16/10/2026 |
 | **Autor** | Autoria trazida pelo Tech Lead; adequação ao padrão arquitetural por Aruna Architect |
@@ -214,18 +214,18 @@ Duas novas tabelas no schema `linux_lab`, versionadas em nova migração goose (
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): O caderno de anotações DEVE funcionar como widget flutuante arrastável (usando `transform: translate3d`) e minimizável em pílula com contador de notas, mantendo posição e estado (`expanded`/`minimized`) salvos no `localStorage`.
-- [ ] **CA-02** (evento): QUANDO o estudante criar um bloco de anotação, O SISTEMA DEVE persistir um registro independente em `live_classroom_note_blocks` com o horário do servidor (`created_at`) e exibi-lo na lista cronológica com o horário formatado (`HH:mm`).
-- [ ] **CA-03** (evento): QUANDO o estudante editar um bloco de anotação existente, O SISTEMA DEVE atualizar `content_markdown` e `updated_at` no servidor e exibir no cartão do bloco a marcação de atualização.
-- [ ] **CA-04** (evento): QUANDO o estudante acionar a exclusão de um bloco e confirmar no diálogo de confirmação, O SISTEMA DEVE realizar a exclusão lógica do bloco e revogar o acesso às imagens associadas a ele.
-- [ ] **CA-05** (evento): QUANDO o estudante usar a barra de ferramentas ou os atalhos `Ctrl+B` e `Ctrl+I`, O SISTEMA DEVE aplicar a formatação Markdown correspondente (negrito, itálico, código inline e lista de marcadores).
-- [ ] **CA-06** (evento): QUANDO o estudante colar (`paste`) uma imagem do clipboard no editor, O SISTEMA DEVE otimizá-la no cliente, fazer o upload para `/note-images` e inserir a referência Markdown `/api/v1/media/notes/{imageId}` no editor sem exigir salvamento prévio em disco.
-- [ ] **CA-07** (evento): QUANDO uma imagem com largura maior que 1220 pixels passar pelo pipeline do cliente, O SISTEMA DEVE redimensioná-la proporcionalmente para largura 1220 pixels; ENQUANTO a largura for menor ou igual a 1220 pixels, DEVE manter as dimensões originais.
-- [ ] **CA-08** (evento): QUANDO o cliente codificar a imagem no Canvas, O SISTEMA DEVE exportar em `image/avif` e, SE o navegador não suportar codificação AVIF, DEVE usar `image/webp` como fallback transparente.
-- [ ] **CA-09** (ubíquo): As imagens renderizadas nos blocos de anotação DEVEM ser enquadradas de forma responsiva (`max-width: 100%`, `height: auto`, `object-fit: contain`) e todo conteúdo Markdown DEVE ser sanitizado contra XSS (rejeitando HTML arbitrário e URLs externas).
-- [ ] **CA-10** (indesejado): SE outro estudante, docente ou administrador tentar listar, criar, editar ou excluir blocos de anotação de um estudante, ou acessar `/api/v1/media/notes/:imageId` de uma imagem pertencente a outro estudante, ENTÃO O SISTEMA DEVE responder `403 forbidden` (RFC 7807).
-- [ ] **CA-11** (evento): QUANDO o próprio estudante autor requisitar `GET /api/v1/media/notes/:imageId` de uma imagem ativa sua, O SISTEMA DEVE fazer o streaming dos bytes do MinIO com `Content-Type` da imagem e `Cache-Control: private, max-age=86400`.
-- [ ] **CA-12** (indesejado): SE o arquivo enviado em `POST /note-images` passar de 5 MB ou não tiver assinatura binária válida de AVIF ou WebP, ENTÃO O SISTEMA DEVE recusar com `413 file-too-large` ou `400 invalid-file` sem gravar no MinIO.
+- [x] **CA-01** (ubíquo): O caderno de anotações DEVE funcionar como widget flutuante arrastável (usando `transform: translate3d`) e minimizável em pílula com contador de notas, mantendo posição e estado (`expanded`/`minimized`) salvos no `localStorage`.
+- [x] **CA-02** (evento): QUANDO o estudante criar um bloco de anotação, O SISTEMA DEVE persistir um registro independente em `live_classroom_note_blocks` com o horário do servidor (`created_at`) e exibi-lo na lista cronológica com o horário formatado (`HH:mm`).
+- [x] **CA-03** (evento): QUANDO o estudante editar um bloco de anotação existente, O SISTEMA DEVE atualizar `content_markdown` e `updated_at` no servidor e exibir no cartão do bloco a marcação de atualização.
+- [x] **CA-04** (evento): QUANDO o estudante acionar a exclusão de um bloco e confirmar no diálogo de confirmação, O SISTEMA DEVE realizar a exclusão lógica do bloco e revogar o acesso às imagens associadas a ele.
+- [x] **CA-05** (evento): QUANDO o estudante usar a barra de ferramentas ou os atalhos `Ctrl+B` e `Ctrl+I`, O SISTEMA DEVE aplicar a formatação Markdown correspondente (negrito, itálico, código inline e lista de marcadores).
+- [x] **CA-06** (evento): QUANDO o estudante colar (`paste`) uma imagem do clipboard no editor, O SISTEMA DEVE otimizá-la no cliente, fazer o upload para `/note-images` e inserir a referência Markdown `/api/v1/media/notes/{imageId}` no editor sem exigir salvamento prévio em disco.
+- [x] **CA-07** (evento): QUANDO uma imagem com largura maior que 1220 pixels passar pelo pipeline do cliente, O SISTEMA DEVE redimensioná-la proporcionalmente para largura 1220 pixels; ENQUANTO a largura for menor ou igual a 1220 pixels, DEVE manter as dimensões originais.
+- [x] **CA-08** (evento): QUANDO o cliente codificar a imagem no Canvas, O SISTEMA DEVE exportar em `image/avif` e, SE o navegador não suportar codificação AVIF, DEVE usar `image/webp` como fallback transparente.
+- [x] **CA-09** (ubíquo): As imagens renderizadas nos blocos de anotação DEVEM ser enquadradas de forma responsiva (`max-width: 100%`, `height: auto`, `object-fit: contain`) e todo conteúdo Markdown DEVE ser sanitizado contra XSS (rejeitando HTML arbitrário e URLs externas).
+- [x] **CA-10** (indesejado): SE outro estudante, docente ou administrador tentar listar, criar, editar ou excluir blocos de anotação de um estudante, ou acessar `/api/v1/media/notes/:imageId` de uma imagem pertencente a outro estudante, ENTÃO O SISTEMA DEVE responder `403 forbidden` (RFC 7807).
+- [x] **CA-11** (evento): QUANDO o próprio estudante autor requisitar `GET /api/v1/media/notes/:imageId` de uma imagem ativa sua, O SISTEMA DEVE fazer o streaming dos bytes do MinIO com `Content-Type` da imagem e `Cache-Control: private, max-age=86400`.
+- [x] **CA-12** (indesejado): SE o arquivo enviado em `POST /note-images` passar de 5 MB ou não tiver assinatura binária válida de AVIF ou WebP, ENTÃO O SISTEMA DEVE recusar com `413 file-too-large` ou `400 invalid-file` sem gravar no MinIO.
 
 ## 8. Plano de Testes (Test Plan)
 
