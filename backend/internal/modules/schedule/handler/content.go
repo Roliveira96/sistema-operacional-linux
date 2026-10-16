@@ -20,6 +20,8 @@ type contentRequest struct {
 		Name string `json:"name"`
 		URL  string `json:"url"`
 	} `json:"links"`
+	TeacherNotes        string `json:"teacherNotes"`
+	TeacherPrivateNotes string `json:"teacherPrivateNotes"`
 }
 
 type contentModuleJSON struct {
@@ -46,10 +48,13 @@ type contentJSON struct {
 	Module      *contentModuleJSON `json:"module"`
 	Deck        *contentDeckJSON   `json:"deck"`
 	Links       []contentLinkJSON  `json:"links"`
+	// The notes of the teacher (SPEC-071): the private ones are left out for who may not read them.
+	TeacherNotes        string  `json:"teacherNotes"`
+	TeacherPrivateNotes *string `json:"teacherPrivateNotes,omitempty"`
 }
 
 func toContentJSON(c service.SessionContent) contentJSON {
-	out := contentJSON{Topic: c.Topic, Description: c.Description, Links: []contentLinkJSON{}}
+	out := contentJSON{Topic: c.Topic, Description: c.Description, Links: []contentLinkJSON{}, TeacherNotes: c.TeacherNotes, TeacherPrivateNotes: c.TeacherPrivateNotes}
 	if c.Module != nil {
 		out.Module = &contentModuleJSON{ID: c.Module.ID, Title: c.Module.Title}
 	}
@@ -101,7 +106,8 @@ func (h *Handler) saveContent(c *gin.Context) {
 		fail(c, toProblem(err))
 		return
 	}
-	in := service.ContentInput{Topic: req.Topic, Description: req.Description, ModuleID: moduleID, DeckID: deckID}
+	in := service.ContentInput{Topic: req.Topic, Description: req.Description, ModuleID: moduleID, DeckID: deckID,
+		TeacherNotes: req.TeacherNotes, TeacherPrivateNotes: req.TeacherPrivateNotes}
 	for _, l := range req.Links {
 		in.Links = append(in.Links, domain.LinkInput{Name: l.Name, URL: l.URL})
 	}

@@ -25,6 +25,8 @@ type ScheduleService interface {
 	RevertSession(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (domain.ClassSession, error)
 	SaveContent(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, in service.ContentInput) (service.SessionContent, error)
 	Content(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (service.SessionContent, error)
+	Timeline(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Timeline, error)
+	Diary(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (service.Diary, error)
 	CreateExtraSession(ctx context.Context, actor service.Actor, classID uuid.UUID, session domain.ClassSession) (domain.ClassSession, error)
 	DeleteExtraSession(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) error
 	CreateEvent(ctx context.Context, actor service.Actor, classID uuid.UUID, event domain.ClassEvent) (domain.ClassEvent, error)
@@ -57,6 +59,8 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.GET("/classes/:id/meetings", h.listMeetings)
 	g.PUT("/classes/:id/meetings", h.replaceMeetings)
 	g.GET("/classes/:id/calendar", h.classCalendar)
+	g.GET("/classes/:id/sessions/timeline", h.timeline)
+	g.GET("/classes/:id/sessions/:sessionId/diary", h.diary)
 	g.POST("/classes/:id/sessions", h.createSession)
 	g.PATCH("/classes/:id/sessions/:sessionId", h.updateSession)
 	g.DELETE("/classes/:id/sessions/:sessionId", h.deleteSession)

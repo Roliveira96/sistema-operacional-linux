@@ -79,6 +79,10 @@ type Service interface {
 	RecordExerciseProgress(ctx context.Context, sessionID, student uuid.UUID, in service.ExerciseProgressInput) (service.ExerciseProgress, error)
 	ExerciseOf(ctx context.Context, sessionID uuid.UUID, withProgress bool) (*service.ExerciseState, error)
 	SubmitExercise(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.ExerciseSubmitInput) (service.ExerciseSubmitResult, error)
+
+	// The commands of the teacher (SPEC-071).
+	RecordCommand(ctx context.Context, sessionID uuid.UUID, in service.CommandInput) (domain.LiveTerminalCommand, error)
+	ListCommands(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) ([]domain.LiveTerminalCommand, error)
 }
 
 // Limiter says whether a key may do something again now, and if not, how long it has to wait.
@@ -155,6 +159,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.GET("/classes/:id/live/sessions", h.sessions)
 	g.PUT("/classes/:id/live/sessions/:sessionId/notes", h.saveNote)
 	g.GET("/classes/:id/live/sessions/:sessionId/notes", h.getNote)
+	g.GET("/classes/:id/live/sessions/:sessionId/commands", h.commands)
 	g.GET("/classes/:id/live/ws", h.connect)
 	g.POST("/classes/:id/live/exercise/submit", h.submitExercise)
 }

@@ -90,6 +90,13 @@ type Repository interface {
 	ListExerciseResults(ctx context.Context, runID uuid.UUID) ([]domain.ExerciseResultEntry, error)
 	// UserNames gives the name of each user (the e-mail of one who has none), for the cards of the round.
 	UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
+
+	// The commands of the teacher (SPEC-071). ListCommands gives them in the order they ran; ListLinkedSessions gives the rooms linked to any
+	// of the lessons of the schedule, oldest first, each with how many commands it has.
+	CreateCommand(ctx context.Context, c *domain.LiveTerminalCommand) error
+	CountCommands(ctx context.Context, sessionID uuid.UUID) (int64, error)
+	ListCommands(ctx context.Context, sessionID uuid.UUID) ([]domain.LiveTerminalCommand, error)
+	ListLinkedSessions(ctx context.Context, classSessionIDs []uuid.UUID) ([]LinkedRoom, error)
 }
 
 // ModuleBlock is a block of the lesson of a module, as the room shows it.

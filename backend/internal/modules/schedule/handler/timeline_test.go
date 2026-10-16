@@ -51,10 +51,10 @@ func TestTimelineRoute(t *testing.T) {
 	classID, live := uuid.New(), uuid.New()
 	current, past := aLesson(classID, day(2026, 10, 19)), aLesson(classID, day(2026, 10, 14))
 	svc.timeline = service.Timeline{
-		Now:      time.Date(2026, 10, 19, 9, 0, 0, 0, domain.Location()),
-		Current:  &service.TimelineEntry{Session: current, LiveSessionCount: 1, CommandCount: 4},
-		Past:     []service.TimelineEntry{{Session: past}},
-		Upcoming: []service.TimelineEntry{},
+		Now:           time.Date(2026, 10, 19, 9, 0, 0, 0, domain.Location()),
+		Current:       &service.TimelineEntry{Session: current, LiveSessionCount: 1, CommandCount: 4},
+		Past:          []service.TimelineEntry{{Session: past}},
+		Upcoming:      []service.TimelineEntry{},
 		LiveSessionID: &live,
 	}
 
