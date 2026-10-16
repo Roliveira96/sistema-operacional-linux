@@ -1,8 +1,8 @@
-# SPEC-071: Sistema Dinâmico de Caderno de Anotações Discente em Aula
+# SPEC-072: Sistema Dinâmico de Caderno de Anotações Discente em Aula
 
 | Campo | Valor |
 | :--- | :--- |
-| **ID** | SPEC-071 |
+| **ID** | SPEC-072 |
 | **Status** | Implementada |
 | **Data de criação** | 16/10/2026 |
 | **Última revisão** | 16/10/2026 |
