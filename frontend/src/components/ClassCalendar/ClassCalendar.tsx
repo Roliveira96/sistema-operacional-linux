@@ -2,13 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { SessionContentView } from "@/components/SessionDiary/SessionContentView";
+import { SessionDiary } from "@/components/SessionDiary/SessionDiary";
 import { addMonths, isoDate, monthGrid, sameDay } from "@/lib/calendar";
 import { messages } from "@/messages/pt-BR";
+import type { LiveTerminalCommand } from "@/services/classroomService";
 import type {
   CalendarData,
   ClassEvent,
   Session,
   SessionContent,
+  SessionDiary as Diary,
   SpecialPeriod,
 } from "@/services/scheduleService";
 import styles from "./ClassCalendar.module.scss";
@@ -36,6 +40,14 @@ export interface ClassCalendarProps {
   /** The lesson linked to the live class that is going on, and where the live class is (SPEC-053 CA-14). */
   liveClassSessionId?: string | null;
   liveHref?: string;
+  /**
+   * Reads the diary of a lesson (SPEC-073): with it, the panel of the day shows the diary of each lesson, with its content, in place of the content
+   * alone, and reads the commands of a live class when it is expanded.
+   */
+  loadDiary?: (session: Session) => Promise<Diary>;
+  loadCommands?: (liveSessionId: string) => Promise<LiveTerminalCommand[]>;
+  /** Who reads the diary: the teacher gets his private notes. Without it, who can edit is the teacher. */
+  role?: "teacher" | "student";
 }
 
 /** What a lesson covers: topic, description, links, module and presentation, for whoever reads the lesson (SPEC-053, 3.1). */
@@ -55,32 +67,7 @@ function SessionContentBlock({ session, load }: { session: Session; load: (sessi
 
   if (failed) return <div className={styles.itemMeta}>{messages.schedule.calendar.contentLoadError}</div>;
   if (!content) return null;
-  return (
-    <div className={styles.content}>
-      {content.topic && <h4 className={styles.contentTopic}>{content.topic}</h4>}
-      {content.description && (
-        // HTML filtered by the server when it was saved (SPEC-053 RN-01).
-        <div className={styles.contentText} dangerouslySetInnerHTML={{ __html: content.description }} />
-      )}
-      {content.links.length > 0 && (
-        <ul className={styles.contentLinks}>
-          {content.links.map((link) => (
-            <li key={`${link.url}-${link.name}`}>
-              <a href={link.url} target="_blank" rel="noopener noreferrer">
-                {link.name}
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-      {content.module && <Link href={`/app/modules/${content.module.id}`}>{content.module.title}</Link>}
-      {content.deck && (
-        <a href={content.deck.downloadUrl} target="_blank" rel="noopener noreferrer">
-          {messages.schedule.calendar.viewDeck}
-        </a>
-      )}
-    </div>
-  );
+  return <SessionContentView content={content} />;
 }
 
 const MONTH_NAMES = [
@@ -118,6 +105,9 @@ export function ClassCalendar({
   onStartLive,
   liveClassSessionId,
   liveHref,
+  loadDiary,
+  loadCommands,
+  role,
 }: ClassCalendarProps) {
   const [currentDate, setCurrentDate] = useState<Date>(
     new Date(initialMonth.getFullYear(), initialMonth.getMonth(), 1),
@@ -740,7 +730,12 @@ export function ClassCalendar({
                     {s.changeReason && (
                       <div className={styles.itemMeta}>{s.changeReason}</div>
                     )}
-                    {loadContent && s.hasContent && <SessionContentBlock session={s} load={loadContent} />}
+                    {/* The diary brings the content with it (SPEC-073); without it, the content comes alone (SPEC-053). */}
+                    {loadDiary && loadCommands ? (
+                      <SessionDiary classId={s.classId} session={s} role={role ?? (editable ? "teacher" : "student")} load={loadDiary} loadCommands={loadCommands} />
+                    ) : (
+                      loadContent && s.hasContent && <SessionContentBlock session={s} load={loadContent} />
+                    )}
                   </div>
 
                   <div className={styles.panelActions}>

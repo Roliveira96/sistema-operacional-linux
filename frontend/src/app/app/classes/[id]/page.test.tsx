@@ -32,6 +32,9 @@ vi.mock("@/services/scheduleService", async () => {
       deletePeriod: vi.fn(),
       getSessionContent: vi.fn().mockResolvedValue({ links: [] }),
       saveSessionContent: vi.fn().mockResolvedValue({ links: [] }),
+      // SPEC-073: the timeline and the diary under the calendar
+      timeline: vi.fn().mockResolvedValue({ now: "2026-10-13T10:00:00-03:00", current: null, past: [], upcoming: [], liveSessionId: null }),
+      getDiary: vi.fn().mockResolvedValue({ session: {}, content: { links: [] }, liveSessions: [] }),
     },
     startLiveFromSession: vi.fn().mockResolvedValue({ id: "r-1" }),
   };
@@ -457,5 +460,36 @@ describe("ClassPage (SPEC-041)", () => {
     render(<ClassPage params={params} />);
     await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ });
     expect(screen.queryByText(/Aula ao vivo em andamento/)).toBeNull();
+  });
+});
+
+// SPEC-073 CA-07: the timeline of the class under the calendar of the Agenda tab
+describe("timeline of the class (SPEC-073)", () => {
+  it("shows the timeline under the calendar, for the student", async () => {
+    asRole("STUDENT");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue({
+      id: theClass.id, name: theClass.name, courseCode: theClass.courseCode, semester: theClass.semester, status: "ACTIVE",
+      summary: "", syllabus: "", institutionalGuidelines: "", startDate: theClass.startDate, endDate: theClass.endDate,
+      scheduleDescription: "", enableVirtualClassroom: false,
+    });
+    vi.mocked(scheduleService.timeline).mockResolvedValue({
+      now: "2026-10-19T09:00:00-03:00",
+      current: {
+        id: "s-19", classId: "c-1", date: "2026-10-19", startTime: "08:20", endTime: "10:00", lessonCount: 2, mode: "IN_PERSON", status: "SCHEDULED",
+        origin: "WEEKLY", overridden: false, onHoliday: false, topic: "Permissões de arquivos", hasContent: true,
+        startsAt: "2026-10-19T08:20:00-03:00", endsAt: "2026-10-19T10:00:00-03:00", liveSessionCount: 0, commandCount: 0,
+      },
+      past: [],
+      upcoming: [],
+      liveSessionId: null,
+    });
+    render(<ClassPage params={params} />);
+
+    const region = await screen.findByRole("region", { name: "Linha do tempo da turma" });
+    expect(within(region).getByText("Agora")).toBeDefined();
+    expect(within(region).getByText("Permissões de arquivos")).toBeDefined();
+    expect(scheduleService.timeline).toHaveBeenCalledWith("c-1");
+    expect(within(region).getByText("A aula ao vivo ainda não começou.")).toBeDefined();
   });
 });

@@ -7,6 +7,7 @@ import { AddStudentsDialog } from "@/components/AddStudentsDialog/AddStudentsDia
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { ClassCalendar } from "@/components/ClassCalendar/ClassCalendar";
 import { ClassLinks } from "@/components/ClassLinks/ClassLinks";
+import { ClassTimeline } from "@/components/ClassTimeline/ClassTimeline";
 import { LiveClassPanel } from "@/components/Classroom/LiveClassPanel/LiveClassPanel";
 import { ClassMembersTable } from "@/components/ClassMembersTable/ClassMembersTable";
 import { EventForm } from "@/components/EventForm/EventForm";
@@ -292,6 +293,10 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
   );
 
   const loadContent = useCallback((s: Session) => scheduleService.getSessionContent(id ?? "", s.id), [id]);
+  // The timeline and the diary of the lessons (SPEC-073); stable, so the components do not read them again at every render.
+  const loadTimeline = useCallback(() => scheduleService.timeline(id ?? ""), [id]);
+  const loadDiary = useCallback((s: Session) => scheduleService.getDiary(id ?? "", s.id), [id]);
+  const loadCommands = useCallback((liveSessionId: string) => classroomService.listCommands(id ?? "", liveSessionId), [id]);
 
   const handleStartLive = (s: Session, className: string) => {
     if (!id) return;
@@ -628,6 +633,9 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             reloadKey={calendarReload}
             onEditSession={(s) => setEditingSession(s)}
             loadContent={loadContent}
+            loadDiary={loadDiary}
+            loadCommands={loadCommands}
+            role={isStudent ? "student" : "teacher"}
             onEditContent={(s) => setContentSession(s)}
             onStartLive={handleStartLive}
             onAddSession={(d) => setExtraSessionDate(d)}
@@ -635,6 +643,18 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             onEditEvent={(e) => setEditingEvent(e)}
             onDeletePeriod={handleDeletePeriod}
             onSelectPeriod={(first, last) => setSelectedPeriodRange({ first, last })}
+          />
+          {/* The timeline of the class under the calendar (SPEC-073 CA-07). */}
+          <ClassTimeline
+            classId={id ?? ""}
+            courseCode={data.courseCode}
+            role={isStudent ? "student" : "teacher"}
+            load={loadTimeline}
+            loadDiary={loadDiary}
+            loadCommands={loadCommands}
+            liveHref={`/app/classes/${id}/live`}
+            onStartLive={(s) => handleStartLive(s, data.name)}
+            reloadKey={calendarReload}
           />
           </>
         ) : members.length === 0 ? (

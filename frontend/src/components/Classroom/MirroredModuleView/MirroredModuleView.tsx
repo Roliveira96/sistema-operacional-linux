@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { mountTerminalWindow, type TerminalStep } from "@/engine/terminalWindow";
+import { mountTerminalWindow, type CommandRun, type TerminalStep } from "@/engine/terminalWindow";
 import type { ScreenElement, ScreenLocator } from "@/engine/terminalScreen";
 import type { LiveTerminal } from "@/hooks/useLiveClassroom";
 import { messages } from "@/messages/pt-BR";
@@ -35,10 +35,12 @@ export interface MirroredModuleViewProps {
    * normal speed, and reaches the class through the picture of the window, as what the teacher types does (SPEC-060). The student's copy never tells it.
    */
   onRunner?(run: StepRunner | null): void;
+  /** The teacher's terminal tells each command that ran in it, typed or by a step, for the diary of the lesson (SPEC-073). The student's copy never tells it. */
+  onCommandRun?(run: CommandRun): void;
 }
 
 /** The real terminal of the teacher: it runs the commands and tells the class what its window looks like. */
-function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll, onRunner }: Pick<MirroredModuleViewProps, "initialState" | "onScreen" | "onLocator" | "onTerminalScroll" | "onRunner">) {
+function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll, onRunner, onCommandRun }: Pick<MirroredModuleViewProps, "initialState" | "onScreen" | "onLocator" | "onTerminalScroll" | "onRunner" | "onCommandRun">) {
   const host = useRef<HTMLDivElement>(null);
   // Read once, when the terminal is mounted: a new module mounts a new view.
   const startOn = useRef(initialState);
@@ -48,11 +50,13 @@ function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll, 
   const locate = useRef(onLocator);
   const scrolled = useRef(onTerminalScroll);
   const runs = useRef(onRunner);
+  const ran = useRef(onCommandRun);
   useEffect(() => {
     tell.current = onScreen;
     locate.current = onLocator;
     scrolled.current = onTerminalScroll;
     runs.current = onRunner;
+    ran.current = onCommandRun;
   });
 
   useEffect(() => {
@@ -80,6 +84,7 @@ function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll, 
         tell.current?.(tree);
         locate.current?.(locator);
       },
+      onCommandRun: (run) => ran.current?.(run),
     })
       .then((created) => {
         if (cancelled) return created.destroy();
@@ -120,10 +125,10 @@ function TeacherTerminal({ initialState, onScreen, onLocator, onTerminalScroll, 
  * The terminal of the module in the live classroom (SPEC-056). The teacher's is the real one and tells the picture of its window; the student's is a
  * read-only copy that draws that picture and never mounts the terminal engine, so it cannot run anything.
  */
-export function MirroredModuleView({ role, terminal, initialState, onScreen, onLocator, selection, onTerminalScroll, terminalScroll, onRunner }: MirroredModuleViewProps) {
+export function MirroredModuleView({ role, terminal, initialState, onScreen, onLocator, selection, onTerminalScroll, terminalScroll, onRunner, onCommandRun }: MirroredModuleViewProps) {
   return role === "student" ? (
     <TerminalMirror screen={terminal.screen} selection={selection} scroll={terminalScroll} />
   ) : (
-    <TeacherTerminal initialState={initialState} onScreen={onScreen} onLocator={onLocator} onTerminalScroll={onTerminalScroll} onRunner={onRunner} />
+    <TeacherTerminal initialState={initialState} onScreen={onScreen} onLocator={onLocator} onTerminalScroll={onTerminalScroll} onRunner={onRunner} onCommandRun={onCommandRun} />
   );
 }

@@ -209,6 +209,7 @@ export function PresenterStage({ classId, session }: PresenterStageProps) {
               handCount={live.handCount}
               onFocusBlock={live.focusBlock}
               onScreen={live.sendTerminalScreen}
+              onCommandRun={live.sendTerminalCommand}
               onCursor={live.moveCursor}
               onMaterialScroll={(y) => live.sendStageScroll("material", y)}
               onSplit={live.sendStageSplit}
