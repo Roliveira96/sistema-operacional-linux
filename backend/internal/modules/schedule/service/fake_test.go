@@ -19,6 +19,7 @@ type fakeRepo struct {
 	meetings   map[uuid.UUID][]domain.WeeklyMeeting
 	sessions   map[uuid.UUID]domain.ClassSession
 	links      map[uuid.UUID][]domain.SessionLink // by session (SPEC-053)
+	materials  map[uuid.UUID]domain.ClassSessionMaterial // by id, the ones not deleted (SPEC-074)
 	events     map[uuid.UUID]domain.ClassEvent
 	periods    map[uuid.UUID]domain.SpecialPeriod
 	holidays   map[uuid.UUID]domain.Holiday
@@ -35,6 +36,7 @@ func newFakeRepo() *fakeRepo {
 		meetings: map[uuid.UUID][]domain.WeeklyMeeting{},
 		sessions: map[uuid.UUID]domain.ClassSession{},
 		links:    map[uuid.UUID][]domain.SessionLink{},
+		materials: map[uuid.UUID]domain.ClassSessionMaterial{},
 		events:   map[uuid.UUID]domain.ClassEvent{},
 		periods:  map[uuid.UUID]domain.SpecialPeriod{},
 		holidays: map[uuid.UUID]domain.Holiday{},
@@ -181,6 +183,11 @@ func (f *fakeRepo) ListSessionLinks(ctx context.Context, sessionID uuid.UUID) ([
 
 func (f *fakeRepo) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	delete(f.sessions, id)
+	for materialID, m := range f.materials {
+		if m.SessionID == id {
+			delete(f.materials, materialID)
+		}
+	}
 	return nil
 }
 
