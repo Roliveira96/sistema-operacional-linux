@@ -104,10 +104,10 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
             {...cardProps}
           />
         ) : (
-          <>
+          <div className={styles.emptyBox}>
             <p className={styles.empty}>{m.none}</p>
             {next && <p className={styles.empty}>{m.next(dayOf(next), next.startTime)}</p>}
-          </>
+          </div>
         )}
       </section>
 
@@ -120,7 +120,7 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
         ) : (
           <ul className={styles.list}>
             {past.map((entry) => (
-              <EntryCard key={entry.id} entry={entry} expandLabel={m.viewDiary} canExpand {...cardProps} />
+              <EntryCard key={entry.id} entry={entry} expandLabel={m.viewDiary} canExpand past {...cardProps} />
             ))}
           </ul>
         )}
@@ -144,18 +144,27 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
   );
 }
 
-/** The room of an in-person lesson, or the link of an online one. */
+/** The room of an in-person lesson, or the link of an online one, as a chip of the meta line of the card. */
 function Place({ entry }: { entry: TimelineEntry }) {
-  if (entry.mode === "ONLINE" && entry.onlineUrl) {
-    return (
-      <p className={styles.place}>
+  const online = entry.mode === "ONLINE" && entry.onlineUrl;
+  if (!online && !entry.room) return null;
+  return (
+    <span className={styles.place}>
+      {online ? (
         <a href={entry.onlineUrl} target="_blank" rel="noopener noreferrer">
           {entry.onlineUrl}
         </a>
-      </p>
-    );
-  }
-  return entry.room ? <p className={styles.place}>{entry.room}</p> : null;
+      ) : (
+        entry.room
+      )}
+    </span>
+  );
+}
+
+/** "19" and "out", for the date block of the card; the full day is written in the meta line, so the block is only for the eye. */
+function dateBlock(entry: TimelineEntry) {
+  const date = parseIsoDate(entry.date);
+  return { day: String(date.getDate()), month: date.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "") };
 }
 
 interface EntryCardProps {
@@ -174,27 +183,40 @@ interface EntryCardProps {
   badge?: string;
   /** The way into the live class, or the way to start it, of the current lesson. */
   live?: ReactNode;
+  /** An upcoming or past lesson: the past ones are drawn quieter. */
+  past?: boolean;
 }
 
 /**
  * A lesson of the timeline: the day, the topic and, when there were, the commands. Its diary opens under it, and the teacher edits the content and
  * the lesson from its buttons, the same dialogs of the panel of the day of the calendar (SPEC-073 CA-12, CA-13).
  */
-function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, expandLabel, canExpand, onEditContent, onEditSession, badge, live }: EntryCardProps) {
+function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, expandLabel, canExpand, onEditContent, onEditSession, badge, live, past }: EntryCardProps) {
   const [open, setOpen] = useState(false);
   const teacher = role === "teacher";
   const Root = badge ? "article" : "li";
+  const { day, month } = dateBlock(entry);
+  const topic = entry.topic || courseCode;
+  const tone = badge ? `${styles.card} ${styles.current}` : past ? `${styles.card} ${styles.past}` : styles.card;
   return (
-    <Root className={badge ? `${styles.card} ${styles.current}` : styles.card}>
-      <div className={styles.cardHead}>
-        {badge && <span className={styles.badgeNow}>{badge}</span>}
-        <span>
-          {dayOf(entry)} · {entry.startTime}–{entry.endTime}
-        </span>
-        {entry.commandCount > 0 && <span className={styles.tag}>{m.commands(entry.commandCount)}</span>}
+    <Root className={tone}>
+      <div className={styles.date} aria-hidden="true">
+        <span className={styles.dateDay}>{day}</span>
+        <span className={styles.dateMonth}>{month}</span>
       </div>
-      <h4 className={styles.topic}>{entry.topic || courseCode}</h4>
-      <Place entry={entry} />
+      <div className={styles.body}>
+        <h4 className={styles.topic} title={topic}>
+          {topic}
+        </h4>
+        <p className={styles.meta}>
+          {badge && <span className={styles.badgeNow}>{badge}</span>}
+          <span>
+            {dayOf(entry)} · {entry.startTime}–{entry.endTime}
+          </span>
+          <Place entry={entry} />
+          {entry.commandCount > 0 && <span className={styles.tag}>{m.commands(entry.commandCount)}</span>}
+        </p>
+      </div>
       <div className={styles.actions}>
         {live}
         {canExpand && (
@@ -202,18 +224,26 @@ function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, 
             {open ? m.hide : expandLabel}
           </Button>
         )}
-        {teacher && onEditContent && (
-          <Button variant="ghost" size="sm" onClick={() => onEditContent(entry)}>
-            {m.editContent}
-          </Button>
-        )}
-        {teacher && onEditSession && (
-          <Button variant="ghost" size="sm" onClick={() => onEditSession(entry)}>
-            {m.editSession}
-          </Button>
+        {teacher && (onEditContent || onEditSession) && (
+          <div className={styles.editGroup}>
+            {onEditContent && (
+              <Button variant="ghost" size="sm" onClick={() => onEditContent(entry)}>
+                {m.editContent}
+              </Button>
+            )}
+            {onEditSession && (
+              <Button variant="ghost" size="sm" onClick={() => onEditSession(entry)}>
+                {m.editSession}
+              </Button>
+            )}
+          </div>
         )}
       </div>
-      {open && <SessionDiary classId={classId} session={entry} role={role} load={loadDiary} loadCommands={loadCommands} showEmpty />}
+      {open && (
+        <div className={styles.diary}>
+          <SessionDiary classId={classId} session={entry} role={role} load={loadDiary} loadCommands={loadCommands} showEmpty />
+        </div>
+      )}
     </Root>
   );
 }

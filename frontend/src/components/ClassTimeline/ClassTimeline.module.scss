@@ -1,9 +1,13 @@
-// The timeline of the class under the calendar (SPEC-073).
+@use "@/styles/mixins" as *;
+
+// The timeline of the class under the calendar (SPEC-073). A lesson is told by its date, so the date is the anchor of the card; the title and the
+// meta line follow it, and the actions go to the right on a wide screen and below on a narrow one.
+
 .timeline {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  margin-top: var(--space-5);
+  gap: var(--space-8);
+  margin-top: var(--space-8);
 }
 
 .block {
@@ -12,11 +16,24 @@
   gap: var(--space-3);
 }
 
+// A quiet label with a hairline: the three blocks are told apart without competing with the lessons.
 .heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background-color: var(--color-hairline);
+  }
 }
 
 .list {
@@ -29,31 +46,120 @@
 }
 
 .card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
   background-color: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+
+  @include transition(border-color);
+
+  &:hover {
+    border-color: var(--color-border-strong);
+  }
+
+  @include from("md") {
+    grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+  }
 }
 
 .current {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 1px var(--color-accent-glow);
+
+  &:hover {
+    border-color: var(--color-accent);
+  }
 }
 
-.cardHead {
+// The date, as the eye finds it: the day big, the month small.
+.date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+
+.dateDay {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.dateMonth {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+// What already happened is outlined instead of filled, and a little quieter.
+.past {
+  .date {
+    background-color: transparent;
+    border-color: var(--color-border);
+  }
+
+  .dateDay {
+    color: var(--color-text-body);
+  }
+
+  .topic {
+    color: var(--color-text-body);
+  }
+}
+
+.current .date {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+
+  .dateDay,
+  .dateMonth {
+    color: var(--color-accent-contrast);
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.topic {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+
+  @include truncate(2);
+}
+
+.meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-xs);
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
 
 .badgeNow {
-  padding: 1px 8px;
+  margin-right: var(--space-1);
+  padding: 1px var(--space-2);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent-contrast);
   background-color: var(--color-accent);
@@ -61,35 +167,72 @@
 }
 
 .tag {
-  padding: 1px 6px;
+  margin-left: var(--space-1);
+  padding: 1px var(--space-2);
+  font-size: var(--font-size-xs);
   color: var(--color-info-text);
   background-color: var(--color-info-subtle);
   border-radius: var(--radius-sm);
 }
 
-.topic {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
+// The room (or the link of an online lesson) is a chip, like the commands: it needs no separator and wraps as a whole.
 .place {
-  margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  padding: 1px var(--space-2);
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  overflow-wrap: anywhere;
+  color: var(--color-text-body);
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
 
   a {
     color: var(--color-accent);
   }
+
+  @include truncate;
 }
 
 .actions {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+
+  // a finger needs 44 px; with a mouse the small buttons are enough
+  button {
+    min-height: 2.75rem;
+  }
+
+  @include from("md") {
+    grid-column: auto;
+    justify-content: flex-end;
+
+    button {
+      min-height: 0;
+    }
+  }
+}
+
+// The two buttons that edit the lesson, set apart from the one that opens it.
+.editGroup {
+  display: flex;
+  gap: var(--space-1);
+
+  // the bar between the two groups is only for the row of the wide screen; when they wrap, a bar would be left alone
+  @include from("md") {
+    padding-left: var(--space-2);
+    margin-left: var(--space-1);
+    border-left: 1px solid var(--color-border);
+  }
+}
+
+// The diary of the lesson, under the whole card.
+.diary {
+  grid-column: 1 / -1;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-hairline);
 }
 
 .empty,
@@ -97,4 +240,24 @@
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+
+.empty {
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.emptyBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+
+  .empty {
+    padding: 0;
+    border: 0;
+  }
 }
