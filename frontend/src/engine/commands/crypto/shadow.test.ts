@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { passwordHash, randomSalt } from "./shadow";
 
 // Covers SPEC-031 CA-09: the hashes of /etc/shadow are the ones of Ubuntu (vectors of the authors of the schemes).
+// The hashes and the keys are made by the code, in pure JavaScript: with the whole suite running at once the 5 seconds of the default are not enough.
+vi.setConfig({ testTimeout: 60_000 });
+
 describe("password hashes (CA-09)", () => {
   it("SHA-512-crypt gives the vector of Ulrich Drepper", async () => {
     expect(await passwordHash("6", "Hello world!", "saltstring")).toBe(

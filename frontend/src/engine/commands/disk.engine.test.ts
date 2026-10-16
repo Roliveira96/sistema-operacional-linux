@@ -163,3 +163,20 @@ describe("the help of the commands changed by SPEC-028 (RN-14)", () => {
     expect(help).toContain("--apparent-size");
   });
 });
+
+// Covers SPEC-028 CA-15: the files that dd makes are part of the machine, and come back the same when it is saved and restored.
+describe("dd and the saved machine (CA-15)", () => {
+  it("keeps a file made by dd, with its size and content, after the machine is saved and restored", async () => {
+    await run("dd if=/dev/zero of=img.bin bs=1k count=3 status=none");
+    await run("dd if=a.txt of=copia-dd.txt status=none");
+    const before = (await lines("sha256sum img.bin copia-dd.txt && ls -l img.bin | awk '{print $5}'")).join("\n");
+    expect(before).toContain("copia-dd.txt");
+    expect(before.endsWith("3072")).toBe(true);
+
+    await win.reset(win.snapshot());
+
+    await run("cd /tmp/lab");
+    expect((await lines("sha256sum img.bin copia-dd.txt && ls -l img.bin | awk '{print $5}'")).join("\n")).toBe(before);
+    expect((await lines("cat copia-dd.txt"))[0]).toBe("hello world");
+  });
+});

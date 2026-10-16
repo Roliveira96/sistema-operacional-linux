@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-026 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 10/10/2026 |
 | **Última revisão** | 10/10/2026 |
 | **Autor** | Aruna Architect |
@@ -131,23 +131,23 @@ Impacto em módulos existentes: `AppShell` e `NavbarPublic` trocam o bloco de co
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): A BARRA, para usuário logado, DEVE mostrar apenas a foto (ou as iniciais) e o nome, sem e-mail, RA, papel ou botão "Sair".
-- [ ] **CA-02** (evento): QUANDO o usuário clicar no botão da conta, O SISTEMA DEVE abrir o painel com e-mail, turmas, "Meu perfil" e "Sair".
-- [ ] **CA-03** (evento): QUANDO o usuário pressionar `Esc`, clicar fora ou escolher um item, O SISTEMA DEVE fechar o painel, e no `Esc` devolver o foco ao botão.
-- [ ] **CA-04** (evento): QUANDO o usuário acionar "Meu perfil", O SISTEMA DEVE levá-lo a `/app/profile`.
-- [ ] **CA-05** (evento): QUANDO o usuário acionar "Sair", O SISTEMA DEVE encerrar a sessão e mostrar o estado de visitante.
-- [ ] **CA-06** (estado): ENQUANTO as turmas carregam, O PAINEL DEVE mostrar o esqueleto; SE a carga falhar, ENTÃO DEVE mostrar o erro com "Tentar de novo", mantendo e-mail, perfil e sair utilizáveis.
-- [ ] **CA-07** (estado): ENQUANTO o usuário não tiver turmas, O PAINEL DEVE mostrar a mensagem de vazio.
-- [ ] **CA-08** (ubíquo): O PAINEL DEVE mostrar até 5 turmas com nome, código e semestre, e a indicação "Aguardando aprovação" para matrícula pendente.
-- [ ] **CA-09** (estado): ENQUANTO o usuário for administrador, O PAINEL NÃO DEVE mostrar o bloco de turmas.
-- [ ] **CA-10** (ubíquo): O MENU DEVE ser operável só com teclado, com `aria-expanded`, região nomeada, foco visível e alvos de 44 px.
-- [ ] **CA-11** (estado): ENQUANTO o usuário pedir movimento reduzido, O PAINEL NÃO DEVE animar.
-- [ ] **CA-12** (estado): ENQUANTO a tela for menor que 640 px, A BARRA DEVE mostrar só a foto e o PAINEL DEVE mostrar o nome.
-- [ ] **CA-13** (evento): QUANDO o estudante chamar `GET /api/v1/me/classes`, O SISTEMA DEVE devolver só as turmas com matrícula ativa ou pendente.
-- [ ] **CA-14** (evento): QUANDO o docente chamar a rota, O SISTEMA DEVE devolver só as turmas de que é responsável e que não estão arquivadas.
-- [ ] **CA-15** (evento): QUANDO o administrador chamar a rota, O SISTEMA DEVE devolver lista vazia.
-- [ ] **CA-16** (indesejado): SE a chamada vier sem sessão, ENTÃO O SISTEMA DEVE responder 401 `not-authenticated`.
-- [ ] **CA-17** (ubíquo): A ROTA NÃO DEVE devolver membros de outras matrículas nem o código de convite.
+- [x] **CA-01** (ubíquo): A BARRA, para usuário logado, DEVE mostrar apenas a foto (ou as iniciais) e o nome, sem e-mail, RA, papel ou botão "Sair".
+- [x] **CA-02** (evento): QUANDO o usuário clicar no botão da conta, O SISTEMA DEVE abrir o painel com e-mail, turmas, "Meu perfil" e "Sair".
+- [x] **CA-03** (evento): QUANDO o usuário pressionar `Esc`, clicar fora ou escolher um item, O SISTEMA DEVE fechar o painel, e no `Esc` devolver o foco ao botão.
+- [x] **CA-04** (evento): QUANDO o usuário acionar "Meu perfil", O SISTEMA DEVE levá-lo a `/app/profile`.
+- [x] **CA-05** (evento): QUANDO o usuário acionar "Sair", O SISTEMA DEVE encerrar a sessão e mostrar o estado de visitante.
+- [x] **CA-06** (estado): ENQUANTO as turmas carregam, O PAINEL DEVE mostrar o esqueleto; SE a carga falhar, ENTÃO DEVE mostrar o erro com "Tentar de novo", mantendo e-mail, perfil e sair utilizáveis.
+- [x] **CA-07** (estado): ENQUANTO o usuário não tiver turmas, O PAINEL DEVE mostrar a mensagem de vazio.
+- [x] **CA-08** (ubíquo): O PAINEL DEVE mostrar até 5 turmas com nome, código e semestre, e a indicação "Aguardando aprovação" para matrícula pendente.
+- [x] **CA-09** (estado): ENQUANTO o usuário for administrador, O PAINEL NÃO DEVE mostrar o bloco de turmas.
+- [x] **CA-10** (ubíquo): O MENU DEVE ser operável só com teclado, com `aria-expanded`, região nomeada, foco visível e alvos de 44 px.
+- [x] **CA-11** (estado): ENQUANTO o usuário pedir movimento reduzido, O PAINEL NÃO DEVE animar.
+- [x] **CA-12** (estado): ENQUANTO a tela for menor que 640 px, A BARRA DEVE mostrar só a foto e o PAINEL DEVE mostrar o nome.
+- [x] **CA-13** (evento): QUANDO o estudante chamar `GET /api/v1/me/classes`, O SISTEMA DEVE devolver só as turmas com matrícula ativa ou pendente.
+- [x] **CA-14** (evento): QUANDO o docente chamar a rota, O SISTEMA DEVE devolver só as turmas de que é responsável e que não estão arquivadas.
+- [x] **CA-15** (evento): QUANDO o administrador chamar a rota, O SISTEMA DEVE devolver lista vazia.
+- [x] **CA-16** (indesejado): SE a chamada vier sem sessão, ENTÃO O SISTEMA DEVE responder 401 `not-authenticated`.
+- [x] **CA-17** (ubíquo): A ROTA NÃO DEVE devolver membros de outras matrículas nem o código de convite.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -186,3 +186,4 @@ Nenhuma. Todas foram resolvidas em 10/10/2026, com as recomendações aceitas pe
 | 10/10/2026 | Aruna Architect | Criação em Rascunho, a partir do pedido do Tech Lead, com as skills de UX e de UI |
 | 10/10/2026 | Aruna Architect | Pendências P-01 a P-05 viram decisões D-01 a D-05. Aprovada pelo Tech Lead em 10/10/2026 |
 | 10/10/2026 | Implementador (Claude) | Renumerada de SPEC-025 para SPEC-026: o número 025 já tinha sido tomado pela spec de upload de imagens do conteúdo, criada em paralelo |
+| 15/10/2026 | Implementador | Fechada como Implementada, depois de conferir os 17 critérios contra o código e os testes: CA-01 a CA-12 em `AccountMenu.test.tsx` (inclusive os testes de estilo de movimento reduzido e de 640 px) e CA-13 a CA-17 em `classgroup` (handler, service e repository com PostgreSQL). O roteiro manual de CA-10 e CA-12 (teclado, leitor de tela e 360, 768 e 1280 px) fica para o Tech Lead |

@@ -18,11 +18,16 @@ export interface LiveSession {
   endedAt?: string | null;
 }
 
+/** What a presentation is: a PDF, whose pages are the slides, or one image (SPEC-068). */
+export type DeckKind = "PDF" | "IMAGE";
+
 export interface LiveDeck {
   id: string;
   title: string;
   pageCount: number;
-  /** Signed address of the PDF, valid for 15 minutes. */
+  /** A presentation that does not say its kind is a PDF. */
+  kind?: DeckKind;
+  /** Signed address of the file, valid for 15 minutes. */
   downloadUrl: string;
 }
 
@@ -253,6 +258,7 @@ export interface DeckSummary {
   id: string;
   title: string;
   pageCount: number;
+  kind?: DeckKind;
   createdAt: string;
 }
 
@@ -269,6 +275,15 @@ export interface LiveNote {
   updatedAt: string;
 }
 
+/** An open room of a class of the student: what the notice of the live class needs (SPEC-067 section 5). */
+export interface MyLiveRoom {
+  classId: string;
+  className: string;
+  sessionId: string;
+  title: string;
+  startedAt: string;
+}
+
 /** Live classroom REST client (SPEC-051, sections 5.1 to 5.7). */
 export function createClassroomService(client: HttpClient = httpClient) {
   const live = (classId: string) => `/classes/${classId}/live`;
@@ -276,15 +291,18 @@ export function createClassroomService(client: HttpClient = httpClient) {
     startSession: (classId: string, input: StartSessionInput) => client.post<LiveSession>(`${live(classId)}/start`, input),
     endSession: (classId: string, sessionId: string) =>
       client.post<{ id: string; status: "FINISHED"; endedAt: string }>(`${live(classId)}/sessions/${sessionId}/end`),
-    uploadDeck: (classId: string, file: File, title: string, pageCount: number) => {
+    /** A PDF goes with the number of pages the browser read; an image has none to send (SPEC-068). */
+    uploadDeck: (classId: string, file: File, title: string, pageCount?: number) => {
       const form = new FormData();
       form.set("file", file);
       form.set("title", title);
-      form.set("pageCount", String(pageCount));
+      if (pageCount !== undefined) form.set("pageCount", String(pageCount));
       return client.post<LiveDeck>(`${live(classId)}/decks`, form);
     },
     listDecks: async (classId: string) => (await client.get<{ decks: DeckSummary[] }>(`${live(classId)}/decks`)).decks,
     getActive: (classId: string) => client.get<ActiveRoom>(`${live(classId)}/active`),
+    /** The open rooms of the classes where the student is enrolled, the newest first (SPEC-067). */
+    listMyLive: async () => (await client.get<{ items: MyLiveRoom[] }>("/me/live")).items,
     getLiveModule: (classId: string) => client.get<LiveModuleContent>(`${live(classId)}/module`),
     listSessions: async (classId: string) =>
       (await client.get<{ sessions: LiveSessionSummary[] }>(`${live(classId)}/sessions`)).sessions,

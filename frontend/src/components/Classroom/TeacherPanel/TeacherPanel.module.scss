@@ -124,6 +124,16 @@
   color: var(--color-text-secondary);
 }
 
+// The image that is on the stage, where the thumbnails of a PDF would be (SPEC-068).
+.preview {
+  display: block;
+  max-width: 100%;
+  max-height: 12rem;
+  object-fit: contain;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
 .summary,
 .stage {
   padding: var(--space-4);

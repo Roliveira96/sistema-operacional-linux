@@ -23,9 +23,12 @@ export function setProcessLister(lister: Lister): void {
   listLines = lister;
 }
 
-const niceOfLine = (line: ProcessLine) => (line.processo ? niceOf(line.processo as EngineProcess) : niceOfPid(line.pid));
-const priorityOfLine = (line: ProcessLine) => (line.processo ? priorityOf(line.processo as EngineProcess) : 80 + niceOfPid(line.pid));
-const programOf = (command: string) => command.replace(/^-/, "").split(" ")[0]!.split("/").pop() ?? command;
+/** The processes the engine lists, as `ps` and `top` read them. */
+export const processLines = (machine: unknown): ProcessLine[] => listLines(machine);
+
+export const niceOfLine = (line: ProcessLine) => (line.processo ? niceOf(line.processo as EngineProcess) : niceOfPid(line.pid));
+export const priorityOfLine = (line: ProcessLine) => (line.processo ? priorityOf(line.processo as EngineProcess) : 80 + niceOfPid(line.pid));
+export const programOf = (command: string) => command.replace(/^-/, "").split(" ")[0]!.split("/").pop() ?? command;
 
 type Column = { title: string; align: "left" | "right"; min: number; value: (line: ProcessLine, uidOf: (name: string) => number) => string };
 

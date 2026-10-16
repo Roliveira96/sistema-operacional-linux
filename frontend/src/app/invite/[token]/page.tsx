@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { PasswordField } from "@/components/PasswordField/PasswordField";
 import { messages } from "@/messages/pt-BR";
 import { joinByInvite, type JoinInviteResponse } from "@/services/studentService";
 import styles from "./page.module.scss";
@@ -151,19 +152,13 @@ export default function InviteJoinPage({
               />
             </div>
 
-            <div className={styles.field}>
-              <label htmlFor="invite-password" className={styles.label}>
-                {messages.students.invite.password}
-              </label>
-              <input
-                id="invite-password"
-                type="password"
-                className={styles.input}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            <PasswordField
+              label={messages.students.invite.password}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
 
             <div className={styles.field}>
               <label htmlFor="invite-whatsapp" className={styles.label}>

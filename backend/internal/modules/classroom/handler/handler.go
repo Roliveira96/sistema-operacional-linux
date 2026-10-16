@@ -31,6 +31,8 @@ type Service interface {
 	UploadDeck(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.UploadInput) (service.DeckView, error)
 	ListDecks(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]domain.SlideDeck, error)
 	GetActive(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Active, error)
+	SelectDeck(ctx context.Context, actor service.Actor, sessionID, deckID uuid.UUID) (service.DeckView, error)
+	ListMyLive(ctx context.Context, actor service.Actor) ([]service.StudentRoom, error)
 	ListSessions(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]service.SessionSummary, error)
 	SaveNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, content string) (domain.LiveClassroomNote, error)
 	GetNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (domain.LiveClassroomNote, error)
@@ -93,6 +95,8 @@ type Options struct {
 	AnyOrigin bool
 	// SubmitLimiter limits the submissions of the state of the exercise, by student (SPEC-065); with none it is one each 2 seconds.
 	SubmitLimiter Limiter
+	// After runs the tolerance for a presenter window that left (SPEC-070); with none it is time.AfterFunc, and a test puts its own.
+	After service.AfterFunc
 }
 
 // Handler serves the routes of the live classroom.
@@ -103,11 +107,16 @@ type Handler struct {
 	hub      *hub.Hub
 	upgrader websocket.Upgrader
 	submits  Limiter
+	after    service.AfterFunc
+	windows  stageWindows
 }
 
 // New creates the handler and the hub of its rooms.
 func New(svc Service, auth authn.Validator, log *zap.Logger, opts Options) *Handler {
-	h := &Handler{svc: svc, auth: auth, log: log, submits: opts.SubmitLimiter}
+	h := &Handler{svc: svc, auth: auth, log: log, submits: opts.SubmitLimiter, after: opts.After}
+	if h.after == nil {
+		h.after = defaultAfter
+	}
 	if h.submits == nil {
 		h.submits = ratelimit.New(1, domain.ExerciseSubmitInterval)
 	}
@@ -136,6 +145,7 @@ func originChecker(opts Options) func(r *http.Request) bool {
 // Register wires the routes under /api/v1.
 func (h *Handler) Register(r gin.IRouter) {
 	g := r.Group("", authn.Required(h.auth), authn.PasswordChanged())
+	g.GET("/me/live", h.myLive)
 	g.POST("/classes/:id/live/start", h.start)
 	g.POST("/classes/:id/live/sessions/:sessionId/end", h.end)
 	g.POST("/classes/:id/live/decks", h.upload)
@@ -151,6 +161,7 @@ func (h *Handler) Register(r gin.IRouter) {
 
 // CloseRoom tells everyone in the room that the lesson ended, and disconnects them.
 func (h *Handler) CloseRoom(sessionID uuid.UUID) {
+	h.windowRoomClosed(sessionID.String())
 	h.hub.Close(sessionID.String(), hub.Message{Type: typeEnded})
 }
 
@@ -169,7 +180,7 @@ func sessionJSON(s domain.LiveClassroomSession) gin.H {
 }
 
 func deckJSON(v service.DeckView) gin.H {
-	return gin.H{"id": v.Deck.ID, "title": v.Deck.Title, "pageCount": v.Deck.PageCount, "downloadUrl": v.DownloadURL}
+	return gin.H{"id": v.Deck.ID, "title": v.Deck.Title, "pageCount": v.Deck.PageCount, "kind": v.Deck.Kind, "downloadUrl": v.DownloadURL}
 }
 
 // handsJSON is the queue of raised hands. The question of each one (empty with none) goes only where withQuestions is true, which is the
@@ -377,10 +388,14 @@ func (h *Handler) upload(c *gin.Context) {
 		return
 	}
 	defer file.Close()
-	pages, err := strconv.Atoi(c.Request.FormValue("pageCount"))
-	if err != nil {
-		fail(c, toProblem(&domain.FieldError{Field: "pageCount", Err: domain.ErrInvalidPDF}))
-		return
+	// Only a PDF has a page count, which the browser reads; an image has none to send (SPEC-068).
+	pages := 0
+	if raw := c.Request.FormValue("pageCount"); raw != "" {
+		var err error
+		if pages, err = strconv.Atoi(raw); err != nil {
+			fail(c, toProblem(&domain.FieldError{Field: "pageCount", Err: domain.ErrInvalidPDF}))
+			return
+		}
 	}
 	view, err := h.svc.UploadDeck(c.Request.Context(), actor, classID, service.UploadInput{
 		Title: c.Request.FormValue("title"), PageCount: pages, Size: header.Size, File: file,
@@ -409,6 +424,25 @@ func (h *Handler) active(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, activeBody(a, h.hub.Online(a.Session.ID.String()), actor.Role != authn.RoleStudent)) // only the teacher reads the doubts
+}
+
+// myLive lists the open rooms of the classes of the student, for the notice of the live class (SPEC-067). Nothing of the state of the room goes.
+func (h *Handler) myLive(c *gin.Context) {
+	p, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+	rooms, err := h.svc.ListMyLive(c.Request.Context(), service.Actor{UserID: p.UserID, Role: p.Role})
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	items := make([]gin.H, 0, len(rooms))
+	for _, r := range rooms {
+		items = append(items, gin.H{"classId": r.ClassID, "className": r.ClassName, "sessionId": r.SessionID, "title": r.Title, "startedAt": r.StartedAt})
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
 // module reads the module that the open room chose, for its teacher and for its admitted students (SPEC-054).
@@ -442,7 +476,7 @@ func (h *Handler) decks(c *gin.Context) {
 	}
 	out := make([]gin.H, 0, len(list))
 	for _, d := range list {
-		out = append(out, gin.H{"id": d.ID, "title": d.Title, "pageCount": d.PageCount, "createdAt": d.CreatedAt})
+		out = append(out, gin.H{"id": d.ID, "title": d.Title, "pageCount": d.PageCount, "kind": d.Kind, "createdAt": d.CreatedAt})
 	}
 	c.JSON(http.StatusOK, gin.H{"decks": out})
 }
@@ -562,6 +596,8 @@ func toProblem(err error) *problem.Problem {
 		return withField(problem.BadRequest("validation-error", err.Error()))
 	case errors.Is(err, domain.ErrInvalidPDF):
 		return withField(problem.BadRequest("invalid-pdf", err.Error()))
+	case errors.Is(err, domain.ErrInvalidFile):
+		return withField(problem.BadRequest("invalid-file", err.Error()))
 	case errors.Is(err, domain.ErrContentTooLong):
 		return problem.BadRequest("content-too-long", err.Error())
 	case errors.Is(err, domain.ErrInvalidSlide), errors.Is(err, domain.ErrInvalidMode):

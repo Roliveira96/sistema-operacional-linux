@@ -6,6 +6,7 @@ import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import {
   buildBlocks,
   checkCard,
+  groupCards,
   looksSafe,
   newElement,
   newId,
@@ -599,6 +600,28 @@ export function CardBuilder({
     }
   };
 
+  // The other person saved first: the card is loaded as it is now, and the author's own changes go away (SPEC-019 CA-09, P-04).
+  const reload = async () => {
+    setGeneral(null);
+    try {
+      const mine = new Set(stored?.blocks.map((b) => b.id));
+      const fresh = groupCards(await service.list(moduleId)).find((g) => g.blocks.some((b) => mine.has(b.id)));
+      if (!fresh) {
+        setConflict(false);
+        setGeneral(m.reloadGone);
+        return;
+      }
+      const model = parseCard(fresh);
+      setStored(fresh);
+      setCard(model);
+      setBaseline(JSON.stringify(model, withoutIds));
+      setErrors({});
+      setConflict(false);
+    } catch {
+      setGeneral(m.genericError);
+    }
+  };
+
   const preview = useMemo(() => {
     const bad = checkCard(card, false);
     const shown: CardModel = {
@@ -974,6 +997,9 @@ export function CardBuilder({
               onClick={() => void save(true)}
             >
               {m.conflictForce}
+            </button>
+            <button type="button" className={styles.secondary} onClick={() => void reload()}>
+              {m.conflictReload}
             </button>
           </div>
         )}

@@ -5,10 +5,6 @@ export const messages = {
     name: "Linux na Prática",
     tagline: "Plataforma de ensino e avaliação de Sistemas Operacionais — UTFPR Guarapuava",
   },
-  theme: {
-    switchToDark: "Ativar tema escuro",
-    switchToLight: "Ativar tema claro",
-  },
   auth: {
     login: {
       title: "Entrar",
@@ -158,6 +154,13 @@ export const messages = {
     mobileNavAriaLabel: "Navegação móvel",
     openMenu: "Abrir menu de navegação",
     closeMenu: "Fechar menu de navegação",
+  },
+  // The notice of the live class that is going on, for the student (SPEC-067).
+  liveNow: {
+    region: "Aulas ao vivo em andamento",
+    badge: "Ao vivo",
+    title: (title: string) => `Aula ao vivo agora: ${title}`,
+    enter: "Entrar na aula",
   },
   public: {
     nav: {
@@ -1219,6 +1222,8 @@ export const messages = {
         blocked: (url: string) => `O navegador bloqueou a janela. Abra este endereço à mão: ${url}`,
         closed: "A janela de apresentação foi fechada.",
         openAgain: "Abrir de novo",
+        // SPEC-070: what the class sees while the window is not connected.
+        waitingScreen: "Sem a janela de apresentação, a turma vê a tela de espera. Abra a janela de apresentação para continuar a aula.",
       },
       sound: "Som do aviso",
       stage: {
@@ -1279,6 +1284,33 @@ export const messages = {
       loading: "Carregando o módulo da aula…",
       loadError: "Não foi possível carregar o módulo da aula.",
       inFocus: "Bloco em foco",
+    },
+    // The files the teacher sends with the class going on, and puts on the stage (SPEC-068).
+    files: {
+      title: "Arquivos da aula",
+      help: "Envie um PDF ou uma imagem (PNG, JPEG ou WebP) e projete para a turma na hora. Para usar uma apresentação do PowerPoint, exporte-a para PDF antes de enviar.",
+      send: "Enviar arquivo",
+      dropHint: "ou arraste o arquivo para cá",
+      projectWhenDone: "Projetar ao terminar",
+      listLabel: "Apresentações da turma",
+      empty: "Nenhum arquivo enviado ainda.",
+      kind: { PDF: "PDF", IMAGE: "Imagem" },
+      slides: (count: number) => (count === 1 ? "1 lâmina" : `${count} lâminas`),
+      project: "Projetar",
+      projectLabel: (title: string) => `Projetar ${title}`,
+      sending: "Enviando…",
+      retry: "Tentar de novo",
+      dismiss: "Dispensar",
+      loadError: "Não foi possível listar os arquivos da turma.",
+      errors: {
+        format: "Formato não aceito. Envie um PDF ou uma imagem PNG, JPEG ou WebP.",
+        pdfRead: "Não foi possível ler o PDF. Ele pode estar corrompido ou protegido por senha.",
+        tooManyPages: "O PDF pode ter até 100 páginas.",
+        tooBigPdf: "O PDF pode ter até 25 MB.",
+        tooBigImage: "A imagem pode ter até 10 MB.",
+        deckLimit: "Esta turma já tem 100 apresentações.",
+        send: "Não foi possível enviar o arquivo. Verifique a conexão e tente de novo.",
+      },
     },
     slides: {
       stage: "Palco da apresentação",

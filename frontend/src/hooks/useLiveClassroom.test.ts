@@ -1262,3 +1262,42 @@ describe("useLiveClassroom", () => {
     });
   });
 });
+
+// SPEC-068 CA-06: the teacher chooses the presentation that is on the stage; the server says which one it is, with its address
+describe("useLiveClassroom, the presentation on the stage", () => {
+  const picture = { id: "d-2", title: "Esquema", pageCount: 1, kind: "IMAGE", downloadUrl: "https://minio/e.png" };
+
+  it("puts the presentation that the server says on the stage, at the first slide, in the slides mode and with nothing drawn", () => {
+    const { result, socket } = setup("student");
+    act(() => socket().handlers.onOpen());
+    act(() => socket().receive("live:snapshot", snapshot({ displayMode: "MODULE", currentSlide: 4, activeModuleId: "m-1" })));
+    expect(result.current.room).toMatchObject({ mode: "MODULE", slide: 4, deck: { id: "d-1" }, strokes: [{ path: [[1, 2]] }] });
+
+    act(() => socket().receive("live:deck:changed", { activeDeck: picture, displayMode: "SLIDES", currentSlide: 1 }));
+    expect(result.current.room).toMatchObject({ mode: "SLIDES", slide: 1, deck: picture, strokes: [] });
+    expect(result.current.stageView.slideScroll).toBe(0);
+  });
+
+  it("lets the panel choose a presentation, and waits for the server to say which one is on the stage", () => {
+    const { result, socket } = setup("teacher", "panel");
+    act(() => socket().handlers.onOpen());
+    act(() => socket().receive("live:snapshot", snapshot()));
+
+    act(() => result.current.selectDeck("d-2"));
+    expect(socket().sent.at(-1)).toEqual({ type: "live:deck:select", data: { deckId: "d-2" } });
+    expect(result.current.room.deck?.id).toBe("d-1");
+
+    act(() => socket().receive("live:deck:changed", { activeDeck: picture, displayMode: "SLIDES", currentSlide: 1 }));
+    expect(result.current.room.deck?.id).toBe("d-2");
+  });
+
+  it("does not send the choice from a student, nor from the window of the presentation", () => {
+    for (const [role, window] of [["student", undefined], ["teacher", "presenter"]] as const) {
+      const { result, socket } = setup(role, window);
+      act(() => socket().handlers.onOpen());
+      act(() => socket().receive("live:snapshot", snapshot()));
+      act(() => result.current.selectDeck("d-2"));
+      expect(socket().sent.filter((m) => m.type === "live:deck:select")).toEqual([]);
+    }
+  });
+});

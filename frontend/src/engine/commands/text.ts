@@ -46,6 +46,12 @@ const paste = defineCommand(
     const delimiters = Array.from(unescapeDelimiter(parsed.values.get("d") ?? "\t"));
     const { inputs, failed } = readInputs("paste", parsed.operands, context);
     const columns = inputs.map((input) => linesOf(input.text));
+    // Several "-" are the same standard input, and each one takes the next line in turn: "paste - -" joins the lines in pairs.
+    const fromInput = inputs.flatMap((input, index) => (input.name === null ? [index] : []));
+    if (fromInput.length > 1 && !parsed.flags.has("s")) {
+      const all = linesOf(context.entrada ?? "");
+      fromInput.forEach((column, position) => (columns[column] = all.filter((_, line) => line % fromInput.length === position)));
+    }
     const pick = (index: number): string => delimiters[index % delimiters.length] ?? "\t";
     if (parsed.flags.has("s")) {
       for (const column of columns) context.linha(column.reduce((out, line, i) => (i === 0 ? line : out + pick(i - 1) + line), ""));
@@ -638,8 +644,12 @@ function describeFile(node: EngineNode, text: string): string {
   if (node.formato === "tar.gz" || node.formato === "gz") return "gzip compressed data";
   if (node.formato === "zip") return "Zip archive data";
   if (node.formato === "tar") return "POSIX tar archive";
+  return describeText(text, (node.modo & 0o111) !== 0);
+}
+
+/** What a text is: all that is known of the standard input, and what is left to say of a file once the node told what it is. */
+function describeText(text: string, executable: boolean): string {
   if (text === "") return "empty";
-  const executable = (node.modo & 0o111) !== 0;
   const ascii = /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text);
   const kind = ascii ? "ASCII text" : "Unicode text, UTF-8 text";
   if (text.startsWith("#!")) {
@@ -669,6 +679,11 @@ const file = defineCommand(
       return 1;
     }
     for (const path of parsed.operands) {
+      if (path === "-") {
+        const kind = describeText(context.entrada ?? "", false);
+        context.linha(parsed.flags.has("b") ? kind : `/dev/stdin: ${kind}`);
+        continue;
+      }
       const label = (text: string) => (parsed.flags.has("b") ? text : `${path}: ${text}`);
       try {
         const node = context.localizarSemSeguir(path);

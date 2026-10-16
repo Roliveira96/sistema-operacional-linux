@@ -29,6 +29,8 @@ export interface EngineMachine {
   hostname: string;
   processos: { listar(): EngineProcess[]; porPid(pid: number): EngineProcess | undefined };
   contas: { nomeDoUsuario(uid: number): string };
+  /** The users with a session open, which the summary of top counts. */
+  usuariosNasConexoes?(): string[];
 }
 
 export interface EngineExecutor {

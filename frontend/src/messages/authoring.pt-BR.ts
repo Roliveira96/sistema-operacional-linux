@@ -444,6 +444,7 @@ export const authoringMessages = {
     conflict: "Outra pessoa alterou este card depois que você o abriu.",
     conflictForce: "Gravar por cima (perde a alteração da outra pessoa)",
     conflictReload: "Recarregar o card",
+    reloadGone: "Este card não existe mais: outra pessoa o removeu.",
     unsavedLeave: "Há alterações não salvas. Sair mesmo assim?",
     required: "Obrigatório.",
     https: "Use um endereço que comece com https://.",

@@ -490,6 +490,49 @@ describe("CardBuilder, an existing card", () => {
     ).toBe(true);
   });
 
+  // SPEC-019 CA-09 (P-04): the author may also load what the other person saved, and give up his own changes
+  it("offers to reload a card that someone else changed, and shows what the other person saved", async () => {
+    service.saveCard.mockRejectedValueOnce(
+      new ApiProblemError({ type: "block-conflict", title: "Conflict" }, 409),
+    );
+    service.list.mockResolvedValueOnce(
+      stored.map((b) =>
+        b.id === "h1"
+          ? { ...b, payload: { ...b.payload, title: "Título da outra pessoa" }, updatedAt: "2026-10-09T13:00:00Z" }
+          : b,
+      ),
+    );
+    renderBuilder({ group: group() });
+    fireEvent.change(input("Título principal do card"), { target: { value: "Meu título" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
+    await screen.findByText("Outra pessoa alterou este card depois que você o abriu.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Recarregar o card" }));
+
+    await waitFor(() =>
+      expect((input("Título principal do card") as HTMLInputElement).value).toBe("Título da outra pessoa"),
+    );
+    expect(service.list).toHaveBeenCalledWith("mod-1");
+    expect(screen.queryByText("Outra pessoa alterou este card depois que você o abriu.")).toBeNull();
+    expect(service.saveCard).toHaveBeenCalledTimes(1);
+  });
+
+  it("says the card is gone when the other person removed it, and keeps what the author wrote", async () => {
+    service.saveCard.mockRejectedValueOnce(
+      new ApiProblemError({ type: "block-conflict", title: "Conflict" }, 409),
+    );
+    service.list.mockResolvedValueOnce([]);
+    renderBuilder({ group: group() });
+    fireEvent.change(input("Título principal do card"), { target: { value: "Meu título" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar card" }));
+    await screen.findByText("Outra pessoa alterou este card depois que você o abriu.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Recarregar o card" }));
+
+    expect(await screen.findByText("Este card não existe mais: outra pessoa o removeu.")).toBeDefined();
+    expect((input("Título principal do card") as HTMLInputElement).value).toBe("Meu título");
+  });
+
   it("tells when the save failed for another reason", async () => {
     service.saveCard.mockRejectedValue(new Error("rede"));
     renderBuilder({ group: group() });

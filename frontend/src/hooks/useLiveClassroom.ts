@@ -363,6 +363,16 @@ function apply(state: State, message: LiveMessage): State {
       const strokes = [...state.room.strokes, data as LiveStroke].slice(-MAX_STROKES);
       return { ...state, room: { ...state.room, strokes } };
     }
+    // The teacher chose the presentation of the stage (SPEC-068): it starts at the first slide, in the slides mode, with nothing drawn.
+    case "live:deck:changed": {
+      const deck = data.activeDeck as LiveDeck | undefined;
+      if (!deck || typeof deck !== "object") return state;
+      return {
+        ...state,
+        room: { ...state.room, deck, mode: (data.displayMode as LiveMode) ?? "SLIDES", slide: Number(data.currentSlide) || 1, strokes: [], cursor: null },
+        stageView: { ...state.stageView, slideScroll: 0, slideScrollX: 0 },
+      };
+    }
     case "live:mode:switch": {
       // Going back to the slides says no module, but the room keeps its module (the snapshot says so), and so does the scroll of its material: the
       // server restarts that scroll only when the module is another one (SPEC-057).
@@ -679,6 +689,10 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
     clearDrawings: () => onStage && emit("live:canvas:draw", { clear: true }),
     setBlank: (blank: boolean) => onStage && emit("live:stage:blank", { blank }),
     switchMode: (mode: LiveMode, moduleId?: string) => emit("live:mode:switch", moduleId ? { mode, moduleId } : { mode }),
+    /** The panel asks for a presentation of the class to be put on the stage; the server says which one is there, and tells everybody (SPEC-068). */
+    selectDeck: (deckId: string) => {
+      if (onPanel) sendOnly("live:deck:select", { deckId });
+    },
     /** The picture of the presenter window's terminal, at every change; the server does not echo it, and the teacher has the real terminal. */
     sendTerminalScreen: (screen: ScreenElement) => {
       if (!onStage) return;

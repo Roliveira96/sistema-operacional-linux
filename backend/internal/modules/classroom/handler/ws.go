@@ -19,10 +19,13 @@ import (
 
 // The messages of the realtime channel (SPEC-051, section 5.8).
 const (
-	typeSlideChange  = "live:slide:change"
-	typeCursorMove   = "live:cursor:move"
-	typeCanvasDraw   = "live:canvas:draw"
-	typeModeSwitch   = "live:mode:switch"
+	typeSlideChange = "live:slide:change"
+	typeCursorMove  = "live:cursor:move"
+	typeCanvasDraw  = "live:canvas:draw"
+	typeModeSwitch  = "live:mode:switch"
+	// SPEC-068: the panel chooses the presentation that is on the stage, and the server tells everybody which one it is.
+	typeDeckSelect   = "live:deck:select"
+	typeDeckChanged  = "live:deck:changed"
 	typeHandModerate = "live:hand:moderate"
 	typeHandRaise    = "live:hand:raise"
 	typeHandLower    = "live:hand:lower"
@@ -100,6 +103,8 @@ func hubConfig() hub.Config {
 			typeSlideChange: {MaxBytes: kib, ControllerOnly: true},
 			typeModeSwitch:  {MaxBytes: kib, ControllerOnly: true},
 			typeModuleFocus: {MaxBytes: kib, ControllerOnly: true},
+			// the choice of the presentation is the panel's (SPEC-068)
+			typeDeckSelect: {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 			// the stage is the presenter window's (SPEC-055 RN-02)
 			typeCursorMove:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
 			typeCanvasDraw:     {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
@@ -239,13 +244,18 @@ func (w wsHandler) Snapshot(ctx context.Context, room string, who hub.Identity) 
 	return w.snapshot(ctx, room, kind, who.UserID)
 }
 
-// takeOverStage ends the black screen when a new presenter window takes over; the others are told (SPEC-055).
+// takeOverStage ends the waiting screen when a presenter window comes in, the one of the B key (SPEC-055) and the one that the lack of a window
+// put there (SPEC-070); the others are told. A window that comes back inside the tolerance, or that replaces another, finds nothing to take off.
 func (w wsHandler) takeOverStage(room string, who hub.Identity) {
 	session := sessionOf(room)
-	if !w.h.svc.StageBlank(session) {
+	wasAway := w.h.windowOpened(room)
+	keyOn := w.h.svc.StageBlank(session)
+	if !keyOn && !wasAway {
 		return
 	}
-	w.h.svc.SetStageBlank(session, false)
+	if keyOn {
+		w.h.svc.SetStageBlank(session, false)
+	}
 	w.h.hub.Broadcast(room, hub.Message{Type: typeStageBlank, Data: mustMarshal(map[string]bool{"blank": false})}, who.ConnID)
 }
 
@@ -264,7 +274,7 @@ func (w wsHandler) snapshot(ctx context.Context, room, kind, student string) (hu
 		return hub.Message{}, err
 	}
 	body := activeBody(a, w.h.hub.Online(room), kind == viewPanel)
-	body["stageBlank"] = w.h.svc.StageBlank(sessionOf(room))
+	body["stageBlank"] = w.h.svc.StageBlank(sessionOf(room)) || (kind != viewPresenter && w.h.windowAway(room)) // the window itself sees the stage (SPEC-070 RN-05)
 	switch kind {
 	case viewPanel:
 		adm, err := w.h.svc.Admissions(ctx, sessionOf(room))
@@ -336,6 +346,7 @@ func (w wsHandler) Joined(room string, who hub.Identity) {
 func (w wsHandler) Left(room string, who hub.Identity) {
 	if who.Kind == viewPresenter {
 		w.presenterState(room) // the truth of the room, so a replaced window leaving does not close the presenter
+		w.h.windowLeft(room)
 	}
 	switch {
 	case who.Waiting:
@@ -423,6 +434,28 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 			return
 		}
 		relay()
+	case typeDeckSelect:
+		var d struct {
+			DeckID *uuid.UUID `json:"deckId"`
+		}
+		if err := json.Unmarshal(msg.Data, &d); err != nil || d.DeckID == nil {
+			w.reject(room, who, msg, errors.New("the message needs the id of the presentation"))
+			return
+		}
+		actor, err := actorOf(who)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		view, err := svc.SelectDeck(ctx, actor, session, *d.DeckID)
+		if err != nil {
+			w.reject(room, who, msg, err)
+			return
+		}
+		// everybody, the panel that asked too: it needs the address of the presentation, which only the server can give
+		w.h.hub.Broadcast(room, hub.Message{Type: typeDeckChanged, Data: mustMarshal(map[string]any{
+			"activeDeck": deckJSON(view), "displayMode": domain.ModeSlides, "currentSlide": 1,
+		})}, "")
 	case typeTerminalScreen:
 		// the server does not read the picture: it only checks that it is an object, keeps the latest and passes it on
 		var d struct {

@@ -31,6 +31,21 @@ describe("InviteJoinPage", () => {
     expect(screen.getByLabelText(messages.students.invite.password)).toBeDefined();
   });
 
+  // SPEC-066 CA-01: the student creates the password here, and may see what he types, as in every other password field
+  it("lets the student show and hide the password with the eye button", async () => {
+    render(<InviteJoinPage params={Promise.resolve({ token: "tok-abc" })} />);
+    const password = (await screen.findByLabelText(messages.students.invite.password)) as HTMLInputElement;
+    expect(password.type).toBe("password");
+
+    fireEvent.change(password, { target: { value: "Pass12345!" } });
+    fireEvent.click(screen.getByRole("button", { name: messages.auth.showPassword }));
+    expect(password.type).toBe("text");
+    expect(password.value).toBe("Pass12345!");
+
+    fireEvent.click(screen.getByRole("button", { name: messages.auth.hidePassword }));
+    expect(password.type).toBe("password");
+  });
+
   it("validates academic ID before sending request", async () => {
     render(<InviteJoinPage params={Promise.resolve({ token: "tok-abc" })} />);
 

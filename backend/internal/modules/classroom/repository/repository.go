@@ -134,6 +134,19 @@ func (r *Repository) ListActiveSessions(ctx context.Context) ([]domain.LiveClass
 	return out, err
 }
 
+// ListOpenRoomsOfStudent returns the open rooms of the classes that were not deleted and where the student has an ACTIVE enrollment, the newest
+// first, in one query (SPEC-067 RN-01, RN-02, RN-06, RN-08). The columns are named as the fields of service.StudentRoom.
+func (r *Repository) ListOpenRoomsOfStudent(ctx context.Context, studentID uuid.UUID) ([]service.StudentRoom, error) {
+	var out []service.StudentRoom
+	err := r.db.Conn(ctx).Table("live_classroom_sessions AS s").
+		Select("s.class_id AS class_id, c.name AS class_name, s.id AS session_id, s.title AS title, s.started_at AS started_at").
+		Joins("JOIN classes c ON c.id = s.class_id AND c.deleted_at IS NULL").
+		Joins("JOIN class_enrollments ce ON ce.class_id = s.class_id AND ce.user_id = ? AND ce.status = 'ACTIVE' AND ce.deleted_at IS NULL", studentID).
+		Where("s.status = ? AND s.deleted_at IS NULL", domain.StatusActive).
+		Order("s.started_at DESC").Scan(&out).Error
+	return out, err
+}
+
 // SessionsWithNotes tells which of the rooms the student has notes in.
 func (r *Repository) SessionsWithNotes(ctx context.Context, studentID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
 	out := map[uuid.UUID]bool{}

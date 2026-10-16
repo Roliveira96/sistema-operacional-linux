@@ -120,3 +120,16 @@ describe("TerminalPane, the panel of processes", () => {
     set.mockRestore();
   });
 });
+
+// Covers SPEC-015 CA-03: under the window of the terminal, the footer says how to use it: the keys and what each one does.
+describe("TerminalPane, the footer of shortcuts", () => {
+  it("lists Tab, the up arrow, Ctrl+C and Ctrl+L, each with what it does", async () => {
+    mount.mockResolvedValue(fakeWindow());
+    const { container } = render(<TerminalPane snapshot={null} onReady={vi.fn()} onCommand={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+
+    const footer = container.querySelector("p:last-of-type") as HTMLElement;
+    expect([...footer.querySelectorAll("kbd")].map((key) => key.textContent)).toEqual(["Tab", "↑", "Ctrl+C", "Ctrl+L"]);
+    for (const text of ["completa", "histórico", "cancela", "limpa"]) expect(footer.textContent).toContain(text);
+  });
+});

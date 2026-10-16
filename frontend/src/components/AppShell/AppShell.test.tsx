@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
 import { messages } from "@/messages/pt-BR";
 import type { CurrentUser, Role } from "@/services/authService";
+import { classroomService } from "@/services/classroomService";
 import { getStudentProfile } from "@/services/studentService";
 import { AppShell } from "./AppShell";
 
@@ -12,6 +13,10 @@ vi.mock("@/hooks/useAuth", () => ({
 
 vi.mock("@/services/studentService", () => ({
   getStudentProfile: vi.fn(),
+}));
+
+vi.mock("@/services/classroomService", () => ({
+  classroomService: { listMyLive: vi.fn().mockResolvedValue([]) },
 }));
 
 vi.mock("@/services/classService", () => ({
@@ -266,3 +271,58 @@ describe("AppShell", () => {
     });
   });
 });
+
+// SPEC-067: the notice of the live class, for the student, on every screen of the signed-in area
+describe("AppShell, live class notice", () => {
+  const live = [{ classId: "c-1", className: "Turma A", sessionId: "s-1", title: "Processos", startedAt: "2026-10-15T19:00:00Z" }];
+
+  beforeEach(() => {
+    vi.mocked(classroomService.listMyLive).mockResolvedValue(live);
+  });
+
+  const enterLink = () => screen.findByRole("link", { name: messages.liveNow.enter });
+
+  // CA-06
+  it("shows the notice to the student on the home page and on any other screen", async () => {
+    signIn("STUDENT");
+    renderShell();
+    expect((await enterLink()).getAttribute("href")).toBe("/app/classes/c-1/live");
+
+    cleanup();
+    mockPathname = "/app/calendar";
+    renderShell();
+    expect(await enterLink()).toBeDefined();
+
+    cleanup();
+    mockPathname = "/app/classes/c-1";
+    renderShell();
+    expect(await enterLink()).toBeDefined();
+  });
+
+  // CA-09
+  it("does not show it inside the live room, where the student already is", async () => {
+    mockPathname = "/app/classes/c-1";
+    signIn("STUDENT");
+    const view = renderShell();
+    expect(await enterLink()).toBeDefined();
+
+    mockPathname = "/app/classes/c-1/live";
+    view.rerender(
+      <AppShell>
+        <div>Conteúdo</div>
+      </AppShell>,
+    );
+    expect(screen.queryByRole("link", { name: messages.liveNow.enter })).toBeNull();
+  });
+
+  // CA-10
+  it.each(["TEACHER", "ADMIN"] as const)("does not show it to the %s, and does not even ask", async (role) => {
+    signIn(role);
+    renderShell();
+    await screen.findByText("Conteúdo");
+
+    expect(screen.queryByRole("link", { name: messages.liveNow.enter })).toBeNull();
+    expect(classroomService.listMyLive).not.toHaveBeenCalled();
+  });
+});
+

@@ -42,7 +42,7 @@ func TestConnectionView(t *testing.T) {
 		panel := snapshotOf(t, w.dialView(t, "teacher", view))
 		assert.Contains(t, panel, "admissions", "view=%q is the panel", view)
 		assert.Equal(t, false, panel["presenterConnected"])
-		assert.Equal(t, false, panel["stageBlank"])
+		assert.Equal(t, true, panel["stageBlank"], "SPEC-070: no presenter window, the students see the waiting screen")
 		assert.Equal(t, "2026-10-14T19:00:00Z", panel["startedAt"])
 		assert.Contains(t, panel, "handRaises")
 		assert.Contains(t, panel, "onlineCount")

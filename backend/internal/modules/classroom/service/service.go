@@ -39,6 +39,8 @@ type Repository interface {
 	// ListSessions puts the open room first and then the ended ones, newest first.
 	ListSessions(ctx context.Context, classID uuid.UUID, limit int) ([]domain.LiveClassroomSession, error)
 	ListActiveSessions(ctx context.Context) ([]domain.LiveClassroomSession, error)
+	// ListOpenRoomsOfStudent gives the open rooms of the classes where the student has an ACTIVE enrollment, the newest first (SPEC-067).
+	ListOpenRoomsOfStudent(ctx context.Context, studentID uuid.UUID) ([]StudentRoom, error)
 	SessionsWithNotes(ctx context.Context, studentID uuid.UUID, sessionIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 
 	CountDecks(ctx context.Context, classID uuid.UUID) (int64, error)
@@ -195,6 +197,31 @@ func (s *Service) readable(ctx context.Context, actor Actor, classID uuid.UUID) 
 		return ClassInfo{}, domain.ErrForbidden
 	}
 	return class, nil
+}
+
+// StudentRoom is an open room of a class of the student, as much as the notice of the live class needs (SPEC-067 RN-03).
+type StudentRoom struct {
+	ClassID   uuid.UUID
+	ClassName string
+	SessionID uuid.UUID
+	Title     string
+	StartedAt time.Time
+}
+
+// ListMyLive gives the open rooms of the classes of the student, the newest first; only a student asks (SPEC-067 RN-04, RN-05). A room stays
+// in the list for as long as it is open, whatever the schedule says (RN-07).
+func (s *Service) ListMyLive(ctx context.Context, actor Actor) ([]StudentRoom, error) {
+	if actor.Role != authn.RoleStudent {
+		return nil, domain.ErrForbidden
+	}
+	rooms, err := s.repo.ListOpenRoomsOfStudent(ctx, actor.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if rooms == nil {
+		rooms = []StudentRoom{}
+	}
+	return rooms, nil
 }
 
 // activeSession returns the open room by id, or ErrSessionNotFound.
@@ -365,8 +392,8 @@ type DeckView struct {
 	DownloadURL string
 }
 
-// UploadDeck stores a presentation of the class (RN-04). The browser read the PDF and told how many pages it has; the server checks the
-// header, the size and the limits.
+// UploadDeck stores a presentation of the class (RN-04): a PDF, whose pages the browser counted, or an image (SPEC-068). The server reads the format
+// from the content of the file and checks the size and the limits; the room does not have to be open, and sending a file does not touch it.
 func (s *Service) UploadDeck(ctx context.Context, actor Actor, classID uuid.UUID, in UploadInput) (DeckView, error) {
 	if _, err := s.writable(ctx, actor, classID); err != nil {
 		return DeckView{}, err
@@ -379,8 +406,8 @@ func (s *Service) UploadDeck(ctx context.Context, actor Actor, classID uuid.UUID
 	if int64(len(data)) > size {
 		size = int64(len(data))
 	}
-	header, _ := bufio.NewReader(bytes.NewReader(data)).Peek(5)
-	title, err := domain.ValidateDeck(in.Title, in.PageCount, size, header)
+	header, _ := bufio.NewReader(bytes.NewReader(data)).Peek(12)
+	upload, err := domain.ClassifyUpload(in.Title, in.PageCount, size, header)
 	if err != nil {
 		return DeckView{}, err
 	}
@@ -392,15 +419,41 @@ func (s *Service) UploadDeck(ctx context.Context, actor Actor, classID uuid.UUID
 		return DeckView{}, domain.ErrDeckLimit
 	}
 
-	deck := domain.SlideDeck{ClassID: classID, UploadedBy: actor.UserID, Title: title, PageCount: in.PageCount}
+	deck := domain.SlideDeck{ClassID: classID, UploadedBy: actor.UserID, Title: upload.Title, PageCount: upload.PageCount, Kind: upload.Kind}
 	deck.ID = uuid.New()
-	deck.ObjectKey = "classes/" + classID.String() + "/decks/" + deck.ID.String() + ".pdf"
-	if err := s.store.PutObject(ctx, deck.ObjectKey, bytes.NewReader(data), int64(len(data)), "application/pdf"); err != nil {
+	deck.ObjectKey = "classes/" + classID.String() + "/decks/" + deck.ID.String() + upload.Extension
+	if err := s.store.PutObject(ctx, deck.ObjectKey, bytes.NewReader(data), int64(len(data)), upload.ContentType); err != nil {
 		return DeckView{}, err
 	}
 	if err := s.repo.CreateDeck(ctx, &deck); err != nil {
 		return DeckView{}, err
 	}
+	return s.deckView(ctx, deck)
+}
+
+// SelectDeck puts a presentation of the class on the stage of the open room, at the first slide and in the slides mode, and takes away what was
+// drawn on the one that was there; only who runs the class does it (SPEC-068 RN-05). It gives the presentation with a fresh address.
+func (s *Service) SelectDeck(ctx context.Context, actor Actor, sessionID, deckID uuid.UUID) (DeckView, error) {
+	session, err := s.activeSession(ctx, sessionID)
+	if err != nil {
+		return DeckView{}, err
+	}
+	if _, err := s.writable(ctx, actor, session.ClassID); err != nil {
+		return DeckView{}, err
+	}
+	deck, err := s.repo.FindDeck(ctx, deckID)
+	if err != nil {
+		return DeckView{}, err
+	}
+	if deck.ClassID != session.ClassID {
+		return DeckView{}, domain.ErrDeckNotFound
+	}
+	session.DeckID, session.CurrentSlide, session.DisplayMode = &deck.ID, 1, domain.ModeSlides
+	if err := s.repo.SaveSession(ctx, &session); err != nil {
+		return DeckView{}, err
+	}
+	s.live.clearDrawings(sessionID)
+	s.live.resetScroll(sessionID, domain.PaneSlide)
 	return s.deckView(ctx, deck)
 }
 
