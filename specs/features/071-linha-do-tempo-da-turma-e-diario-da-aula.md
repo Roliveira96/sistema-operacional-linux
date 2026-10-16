@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-071 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 16/10/2026 |
-| **Última revisão** | 16/10/2026 (aprovada) |
+| **Última revisão** | 16/10/2026 (implementada) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -161,17 +161,17 @@ Cada **aula** traz: `id`, `date`, `startTime`, `endTime`, `startsAt` e `endsAt` 
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): A linha do tempo DEVE trazer, calculados no servidor em `America/Sao_Paulo` e só com aulas não canceladas, as 3 aulas passadas mais recentes, a aula atual (de 15 minutos antes do início até o fim; a de início mais cedo se houver mais de uma) e as 5 próximas, com os campos da seção 5.
-- [ ] **CA-02** (estado): ENQUANTO a turma tem sala ao vivo ativa ligada a uma aula, O SISTEMA DEVE tratar essa aula como a atual, mesmo fora do horário, e informar `liveSessionId`; ENQUANTO a sala ativa não tem vínculo, os blocos NÃO DEVEM mudar e `liveSessionId` DEVE vir mesmo assim.
-- [ ] **CA-03** (evento): QUANDO a docente dona ou o administrador grava o conteúdo com anotações públicas e privadas, O SISTEMA DEVE guardá-las só nessa aula, sem marcar a aula como alterada, pedir motivo nem enviar e-mail; SE passam do limite, ENTÃO DEVE recusar com 400 apontando o campo.
-- [ ] **CA-04** (ubíquo): As anotações privadas NUNCA DEVEM sair para o estudante, em nenhuma rota (conteúdo, diário, linha do tempo); as públicas DEVEM sair para todos que leem a aula.
-- [ ] **CA-05** (evento): QUANDO a janela de apresentação envia `live:terminal:command` válido, O SISTEMA DEVE gravá-lo com o momento do servidor; SE vem do painel, de estudante ou da sala de espera, ou é inválido, ENTÃO DEVE descartar com auditoria sem gravar; SE a sala já tem 2.000 comandos, ENTÃO DEVE descartar com auditoria.
-- [ ] **CA-06** (ubíquo): A leitura dos comandos de uma sala DEVE devolvê-los na ordem em que rodaram à docente dona, ao administrador e ao estudante com matrícula ativa, durante e depois da sala; sala de outra turma DEVE dar 404.
-- [ ] **CA-07** (ubíquo): A aba Agenda DEVE mostrar, abaixo do calendário, os blocos Aula atual (com a marca "Agora", ou "Começa às HH:MM" nos 15 minutos antes, e o botão certo para o papel e o estado, ou "Nenhuma aula agora" com a próxima), Aulas passadas (recolhidas, com a marca de comandos) e Próximas aulas (com o material preparatório); a consulta DEVE repetir a cada 60 s só com a aba visível e falhar em silêncio.
-- [ ] **CA-08** (ubíquo): O diário DEVE aparecer no painel do dia e nos cards expandidos, com as anotações públicas, as privadas só para o professor (com "Só você vê"), o conteúdo e as salas ao vivo com os comandos (terminal, linha, código de saída, saída recolhida e Copiar) carregados ao expandir.
-- [ ] **CA-09** (evento): QUANDO o professor conclui um comando na janela de apresentação, digitado ou pelo ▶ da SPEC-060, O SISTEMA DEVE enviá-lo uma única vez com o terminal, a linha, o código de saída e a saída cortada em 4.000 caracteres; o painel, a sala do aluno e o terminal do exercício do aluno NÃO DEVEM enviar nada; a senha digitada no `su` NÃO DEVE aparecer na linha nem na saída.
-- [ ] **CA-10** (ubíquo): O diálogo de conteúdo DEVE ter os campos "Anotações da aula (a turma vê)" e "Anotações privadas (só você vê)", gravados com o Salvar, com erro junto do campo.
-- [ ] **CA-11** (ubíquo): `engine/core` NÃO DEVE mudar (salvo o aviso mínimo autorizado na seção 3.1, coberto pela conformidade); nada das anotações do estudante (SPEC-051) DEVE mudar; Stylelint, ESLint e `tsc` limpos; cores só dos tokens; alvos de 44 px; blocos e marcas legíveis por leitor de tela.
+- [x] **CA-01** (ubíquo): A linha do tempo DEVE trazer, calculados no servidor em `America/Sao_Paulo` e só com aulas não canceladas, as 3 aulas passadas mais recentes, a aula atual (de 15 minutos antes do início até o fim; a de início mais cedo se houver mais de uma) e as 5 próximas, com os campos da seção 5.
+- [x] **CA-02** (estado): ENQUANTO a turma tem sala ao vivo ativa ligada a uma aula, O SISTEMA DEVE tratar essa aula como a atual, mesmo fora do horário, e informar `liveSessionId`; ENQUANTO a sala ativa não tem vínculo, os blocos NÃO DEVEM mudar e `liveSessionId` DEVE vir mesmo assim.
+- [x] **CA-03** (evento): QUANDO a docente dona ou o administrador grava o conteúdo com anotações públicas e privadas, O SISTEMA DEVE guardá-las só nessa aula, sem marcar a aula como alterada, pedir motivo nem enviar e-mail; SE passam do limite, ENTÃO DEVE recusar com 400 apontando o campo.
+- [x] **CA-04** (ubíquo): As anotações privadas NUNCA DEVEM sair para o estudante, em nenhuma rota (conteúdo, diário, linha do tempo); as públicas DEVEM sair para todos que leem a aula.
+- [x] **CA-05** (evento): QUANDO a janela de apresentação envia `live:terminal:command` válido, O SISTEMA DEVE gravá-lo com o momento do servidor; SE vem do painel, de estudante ou da sala de espera, ou é inválido, ENTÃO DEVE descartar com auditoria sem gravar; SE a sala já tem 2.000 comandos, ENTÃO DEVE descartar com auditoria.
+- [x] **CA-06** (ubíquo): A leitura dos comandos de uma sala DEVE devolvê-los na ordem em que rodaram à docente dona, ao administrador e ao estudante com matrícula ativa, durante e depois da sala; sala de outra turma DEVE dar 404.
+- [x] **CA-07** (ubíquo): A aba Agenda DEVE mostrar, abaixo do calendário, os blocos Aula atual (com a marca "Agora", ou "Começa às HH:MM" nos 15 minutos antes, e o botão certo para o papel e o estado, ou "Nenhuma aula agora" com a próxima), Aulas passadas (recolhidas, com a marca de comandos) e Próximas aulas (com o material preparatório); a consulta DEVE repetir a cada 60 s só com a aba visível e falhar em silêncio.
+- [x] **CA-08** (ubíquo): O diário DEVE aparecer no painel do dia e nos cards expandidos, com as anotações públicas, as privadas só para o professor (com "Só você vê"), o conteúdo e as salas ao vivo com os comandos (terminal, linha, código de saída, saída recolhida e Copiar) carregados ao expandir.
+- [x] **CA-09** (evento): QUANDO o professor conclui um comando na janela de apresentação, digitado ou pelo ▶ da SPEC-060, O SISTEMA DEVE enviá-lo uma única vez com o terminal, a linha, o código de saída e a saída cortada em 4.000 caracteres; o painel, a sala do aluno e o terminal do exercício do aluno NÃO DEVEM enviar nada; a senha digitada no `su` NÃO DEVE aparecer na linha nem na saída.
+- [x] **CA-10** (ubíquo): O diálogo de conteúdo DEVE ter os campos "Anotações da aula (a turma vê)" e "Anotações privadas (só você vê)", gravados com o Salvar, com erro junto do campo.
+- [x] **CA-11** (ubíquo): `engine/core` NÃO DEVE mudar (salvo o aviso mínimo autorizado na seção 3.1, coberto pela conformidade); nada das anotações do estudante (SPEC-051) DEVE mudar; Stylelint, ESLint e `tsc` limpos; cores só dos tokens; alvos de 44 px; blocos e marcas legíveis por leitor de tela.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -254,3 +254,4 @@ Nenhuma.
 | 16/10/2026 | Aruna Architect | Caderno do estudante retirado (D-03): outra pessoa faz a spec das anotações do aluno. Saem a tabela `class_session_notebooks`, as rotas de caderno, a regra do caderno na sala e a antiga P-01 |
 | 16/10/2026 | Aruna Architect | Decisões do Tech Lead aplicadas: aula atual 15 minutos antes do início (D-04), limites de saída e de comandos (D-05), registro de todo comando, digitado ou pelo ▶, lido durante e depois (D-06). Sem pendências |
 | 16/10/2026 | Tech Lead | Aprovada ("Aprovo"). Status: `Aprovada` |
+| 16/10/2026 | Implementador | Implementada. Backend: migração `00037`, `SplitTimeline` e anotações no `schedule`, comandos no `classroom` (domain, repository, service, `live:terminal:command` no hub e rota de leitura), porta `LiveSessions` em `cmd/api/diary_refs.go`. Frontend: `onCommandRun` no adaptador do terminal (lido de fora, sem tocar `engine/core`), `sendTerminalCommand` no hook, `ClassTimeline`, `SessionDiary` (com `SessionContentView`, que o painel do dia passou a usar), campos de anotações no diálogo de conteúdo e a linha do tempo na aba Agenda. Desvios: o teste de uma consulta só das contagens ficou no repositório do `classroom` (`TestLinkedSessions_WithTheirCommandCounts`), porque o `schedule` reaproveita `ListSessions` e as contagens vêm pela porta; o teste da senha usa `passwd`, que pede a senha pelo mesmo caminho do `su`; o painel do dia, com o diário, lê o conteúdo pela leitura do diário (uma chamada), e os dois testes da SPEC-053 que conferiam o corpo exato do salvar passaram a incluir `teacherNotes` e `teacherPrivateNotes` vazios |

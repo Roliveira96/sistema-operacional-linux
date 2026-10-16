@@ -61,6 +61,11 @@ Regras:
 | Placar da rodada | `live:exercise:result` | Lista de quem concluiu a rodada, com tempo e pontos, por pontos e depois por tempo, que o professor mostra ou oculta aos alunos junto com a solução | `Ranking` (o ranking é a soma de várias rodadas, fora de escopo) | Proposto (SPEC-065) |
 | Pontos de gamificação | `live_exercise_results.points` | Pontos de quem concluiu uma rodada: a base da dificuldade (10, 20, 30) mais até 50% de bônus de rapidez; guardados para uma pontuação acumulada futura | `Nota` | Proposto (SPEC-065) |
 | Observação do terminal | `live:exercise:watch` | O painel vê ao vivo o terminal de um aluno da rodada, um por vez; só esse aluno manda a imagem | `Espelhar o aluno` | Proposto (SPEC-065) |
+| Linha do tempo da turma | `ClassTimeline` (rota `sessions/timeline`) | Os blocos Aulas passadas, Aula atual e Próximas aulas, calculados pelo servidor | `Feed`, `Histórico` | Proposto (SPEC-071) |
+| Aula atual | `current` da linha do tempo | A aula de hoje na janela de 15 minutos antes do início até o fim, ou a ligada à sala ao vivo ativa | `Aula de agora` | Proposto (SPEC-071) |
+| Diário da aula | `SessionDiary` (rota `sessions/{id}/diary`) | As anotações do professor, o conteúdo e as salas ao vivo com os comandos de uma aula da agenda | `Diário de bordo` (na interface é só "diário") | Proposto (SPEC-071) |
+| Anotações da aula (do professor) | `teacher_notes`, `teacher_private_notes` | Texto público e texto privado do professor numa aula da agenda. Não confundir com `LiveClassroomNote` (do estudante na sala) | `Notes` solto | Proposto (SPEC-071) |
+| Comando da aula ao vivo | `LiveTerminalCommand` (tabela `live_terminal_commands`, mensagem `live:terminal:command`) | Uma linha que o professor executou na janela de apresentação, com o terminal, o código de saída e a saída | `History` (reservado ao `CommandLog` da prova) | Proposto (SPEC-071) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 
