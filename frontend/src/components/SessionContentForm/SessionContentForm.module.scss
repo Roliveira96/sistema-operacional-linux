@@ -59,6 +59,18 @@
   color: var(--color-text-secondary);
 }
 
+// The name of an editor and, under it, who reads what is written in it.
+.fieldHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
 .input {
   min-height: 2.75rem;
   padding: 0 var(--space-3);

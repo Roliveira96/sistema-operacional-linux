@@ -272,34 +272,64 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
             </div>
 
             <div className={styles.field}>
+              <div className={styles.fieldHead}>
+                {/* the editor has a label only for the screen reader; the one on the screen is the form of the lesson */}
+                <span className={styles.label} aria-hidden="true">
+                  {m.descriptionLabel}
+                </span>
+                <span id={`${baseId}-description-hint`} className={styles.hint}>
+                  {m.descriptionHint}
+                </span>
+              </div>
               <RichTextEditor
                 label={m.descriptionLabel}
                 value={description}
                 onChange={setDescription}
                 placeholder={m.descriptionPlaceholder}
                 invalid={Boolean(errors.description)}
+                describedBy={`${baseId}-description-hint`}
               />
               {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
             </div>
 
             {/* The notes of the teacher on the lesson: the public ones the class reads, the private ones only he does (SPEC-073). */}
             <div className={styles.field}>
+              <div className={styles.fieldHead}>
+                {/* the editor has a label only for the screen reader; the one on the screen is the form of the lesson */}
+                <span className={styles.label} aria-hidden="true">
+                  {m.teacherNotesLabel}
+                </span>
+                <span id={`${baseId}-notes-hint`} className={styles.hint}>
+                  {m.teacherNotesHint}
+                </span>
+              </div>
               <RichTextEditor
                 label={m.teacherNotesLabel}
                 value={teacherNotes}
                 onChange={setTeacherNotes}
                 placeholder={m.teacherNotesPlaceholder}
                 invalid={Boolean(errors.teacherNotes)}
+                describedBy={`${baseId}-notes-hint`}
               />
               {errors.teacherNotes && <span className={styles.fieldError}>{errors.teacherNotes}</span>}
             </div>
             <div className={styles.field}>
+              <div className={styles.fieldHead}>
+                {/* the editor has a label only for the screen reader; the one on the screen is the form of the lesson */}
+                <span className={styles.label} aria-hidden="true">
+                  {m.teacherPrivateNotesLabel}
+                </span>
+                <span id={`${baseId}-private-notes-hint`} className={styles.hint}>
+                  {m.teacherPrivateNotesHint}
+                </span>
+              </div>
               <RichTextEditor
                 label={m.teacherPrivateNotesLabel}
                 value={teacherPrivateNotes}
                 onChange={setTeacherPrivateNotes}
                 placeholder={m.teacherPrivateNotesPlaceholder}
                 invalid={Boolean(errors.teacherPrivateNotes)}
+                describedBy={`${baseId}-private-notes-hint`}
               />
               {errors.teacherPrivateNotes && <span className={styles.fieldError}>{errors.teacherPrivateNotes}</span>}
             </div>
