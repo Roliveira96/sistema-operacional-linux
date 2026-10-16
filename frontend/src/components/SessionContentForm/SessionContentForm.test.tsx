@@ -41,6 +41,7 @@ let classDecks: Array<{ id: string; title: string; pageCount: number; createdAt:
 function setup(content: SessionContent = { links: [] }) {
   vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: modules, total: 2, page: 1, limit: 100 });
   vi.spyOn(classroomService, "listDecks").mockResolvedValue(classDecks);
+  vi.spyOn(scheduleService, "materials").mockResolvedValue([]);
   const get = vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue(content);
   const save = vi.spyOn(scheduleService, "saveSessionContent").mockResolvedValue(content);
   const onSaved = vi.fn();
@@ -354,5 +355,37 @@ describe("labels and help of the editors (SPEC-073 CA-10)", () => {
     const dialog = await ready();
     const ids = editors.map(({ hint }) => within(dialog).getByText(hint).id);
     expect(new Set(ids).size).toBe(3);
+  });
+});
+
+// SPEC-074 CA-10: the materials of the lesson, in four areas, by the phase in which the class sees them
+describe("SessionContentForm: materials (SPEC-074 CA-10)", () => {
+  it("has the section of the materials with one area for each phase, and reads the materials of the lesson", async () => {
+    setup(saved);
+    const dialog = await ready();
+    expect(await within(dialog).findByRole("heading", { level: 3, name: "Materiais da aula" })).toBeDefined();
+    expect(scheduleService.materials).toHaveBeenCalledWith("c-1", "s-26");
+    expect(within(dialog).getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual([
+      "Sempre visível",
+      "Só durante a aula",
+      "Durante e depois da aula",
+      "Só depois da aula",
+    ]);
+    expect(within(dialog).getAllByLabelText("Escolher arquivos")).toHaveLength(4);
+  });
+
+  it("explains that the presentation of the lesson is the one projected in the live class, and that the files of the class are in the materials", async () => {
+    setup(saved);
+    const dialog = await ready();
+    expect(within(dialog).getByText("É a que você projeta na aula ao vivo. Os arquivos que a turma abre e baixa ficam em Materiais da aula, abaixo.")).toBeDefined();
+  });
+
+  it("does not save the materials with the content: they are saved on the spot", async () => {
+    const { save } = setup(saved);
+    const dialog = await ready();
+    await waitFor(() => expect((within(dialog).getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(Object.keys(save.mock.calls[0]![2])).not.toContain("materials");
   });
 });

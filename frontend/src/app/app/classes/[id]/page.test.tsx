@@ -478,7 +478,7 @@ describe("timeline of the class (SPEC-073)", () => {
       current: {
         id: "s-19", classId: "c-1", date: "2026-10-19", startTime: "08:20", endTime: "10:00", lessonCount: 2, mode: "IN_PERSON", status: "SCHEDULED",
         origin: "WEEKLY", overridden: false, onHoliday: false, topic: "Permissões de arquivos", hasContent: true,
-        startsAt: "2026-10-19T08:20:00-03:00", endsAt: "2026-10-19T10:00:00-03:00", liveSessionCount: 0, commandCount: 0,
+        startsAt: "2026-10-19T08:20:00-03:00", endsAt: "2026-10-19T10:00:00-03:00", liveSessionCount: 0, commandCount: 0, materialCount: 0,
       },
       past: [],
       upcoming: [],
@@ -498,7 +498,7 @@ describe("timeline of the class (SPEC-073)", () => {
 describe("actions of the timeline cards (SPEC-073 CA-13)", () => {
   const lesson = (id: string, date: string, over: Record<string, unknown> = {}) => ({
     id, classId: "c-1", date, startTime: "08:20", endTime: "10:20", lessonCount: 2, mode: "IN_PERSON", status: "SCHEDULED", origin: "WEEKLY",
-    overridden: false, onHoliday: false, hasContent: false, startsAt: `${date}T08:20:00-03:00`, endsAt: `${date}T10:20:00-03:00`, liveSessionCount: 0, commandCount: 0,
+    overridden: false, onHoliday: false, hasContent: false, startsAt: `${date}T08:20:00-03:00`, endsAt: `${date}T10:20:00-03:00`, liveSessionCount: 0, commandCount: 0, materialCount: 0,
     ...over,
   });
   const timeline = () => ({

@@ -180,11 +180,11 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
 | Teste | Arquivo | Cobre |
 | :--- | :--- | :--- |
-| seção Materiais: quatro áreas na ordem, lista de cada fase, Escolher arquivos com validação e o estado Enviando…, link na fase da área, campos (título, tipo, fase, liberação), passar de fase, liberar, subir, descer, remover, erro junto do material | `SessionContentForm.test.tsx` | CA-10 |
-| arrastar e soltar: destaque da área, vários arquivos em ordem, fase da área e tipo inicial, recusado não impede os outros, solto fora da área não é aberto | `SessionContentForm.test.tsx` | CA-13 |
+| seção Materiais: quatro áreas na ordem, lista de cada fase, Escolher arquivos com validação e o estado Enviando…, link na fase da área, campos (título, tipo, fase, liberação), passar de fase, liberar, subir, descer, remover, erro junto do material | `SessionMaterials.test.tsx` (a seção) e `SessionContentForm.test.tsx` (a seção dentro do diálogo) | CA-10 |
+| arrastar e soltar: destaque da área, vários arquivos em ordem, fase da área e tipo inicial, recusado não impede os outros, solto fora da área não é aberto | `SessionMaterials.test.tsx` | CA-13 |
 | grupos por fase, ícone, Abrir e Baixar (endereço no clique), ocultos só para o professor com o motivo, nada para o estudante | `SessionDiary.test.tsx` | CA-11 |
 | "N materiais" nos cards e material preparatório nas próximas | `ClassTimeline.test.tsx` | CA-11 |
-| chamadas e erros RFC 7807 | `scheduleService.test.ts` | CA-01 a CA-09 |
+| chamadas e erros RFC 7807 | `scheduleService.materials.test.ts` | CA-01 a CA-09 |
 
 **Manual:** numa aula de hoje, incluir um PDF "Sempre", uma lista de exercícios "Durante a aula", um roteiro "Durante e depois da aula" e a resolução "Depois da aula"; entrar como estudante 20 minutos antes e ver só o PDF; 10 minutos antes, ver a lista e o roteiro; iniciar e encerrar a sala ao vivo ligada à aula e ver a resolução aparecer e a lista sumir; noutra aula, marcar uma data de liberação e usar "Liberar agora"; conferir que o endereço de download vence em 15 minutos.
 
@@ -194,7 +194,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
 1. **Pré-leitura obrigatória:** `AI_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `GLOSSARY.md`, SPEC-053, 068, 071; `classroom/domain/upload.go` (`ClassifyUpload`, limites) e o handler do envio da SPEC-068 (leitura limitada do multipart); `platform/storage` (`PutObject`, `PresignedGetURL`); `schedule/service/content.go` e `cmd/api/content_refs.go` (portas); a regra da aula atual do `schedule/domain` (SPEC-073); `components/SessionContentForm` (envio de PDF da SPEC-053); `components/SessionDiary` e `components/ClassTimeline` (SPEC-073).
 2. **Ordem de execução:** termos novos no `GLOSSARY.md`; testes vermelhos do backend e commit `test`; migração `00039`; `schedule` (domain do material e da visibilidade, repository, service com a porta de arquivos e o armazenamento, handler); composição em `cmd/api` (`material_refs.go`); `hasContent` e regeneração; linha do tempo e diário com materiais; testes vermelhos do frontend e commit `test`; serviço; seção Materiais do diálogo; materiais no diário e na linha do tempo; mensagens.
-3. **Arquivos a criar ou alterar:** `backend/migrations/00039_session_materials.sql`; `backend/internal/modules/schedule/{domain,repository,service,handler}/**`; `backend/cmd/api/main.go` e `backend/cmd/api/material_refs.go` (novo); `frontend/src/services/scheduleService.ts`; `frontend/src/components/SessionContentForm/**`; `frontend/src/components/SessionDiary/**`; `frontend/src/components/ClassTimeline/**`; `frontend/src/messages/pt-BR.ts`; `specs/GLOSSARY.md`.
+3. **Arquivos a criar ou alterar:** `backend/migrations/00039_session_materials.sql`; `backend/internal/modules/schedule/{domain,repository,service,handler}/**`; `backend/cmd/api/main.go` e `backend/cmd/api/material_refs.go` (novo); `frontend/src/services/scheduleService.ts`; `frontend/src/components/SessionContentForm/**`; `frontend/src/components/SessionMaterials/**` (novo); `frontend/src/components/SessionDiary/**`; `frontend/src/components/ClassTimeline/**`; `frontend/src/messages/pt-BR.ts`; `specs/GLOSSARY.md`.
 4. **Definição de pronto:** CA marcados, testes da seção 8 verdes, cobertura acima de 80%, nenhuma violação de `ARCHITECTURE.md`, status `Implementada`.
 
 ## 10. Pendências para aprovação
