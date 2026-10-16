@@ -46,6 +46,8 @@ Regras:
 | Lâmina | `Slide` | Uma página da apresentação | `Page` | Proposto (SPEC-051) |
 | Mão levantada | `LiveHandRaise` (tabela `live_hand_raises`) | Pedido de fala de um estudante na sala ao vivo, em fila cronológica | `Question`, `Request` | Proposto (SPEC-051) |
 | Anotações da aula | `LiveClassroomNote` (tabela `live_classroom_notes`) | Caderno privativo do estudante durante a sala ao vivo | `Notes` sozinho | Proposto (SPEC-051) |
+| Bloco de anotação da aula | `LiveClassroomNoteBlock` (tabela `live_classroom_note_blocks`) | Registro atômico e cronológico do caderno de anotações privativo do estudante em uma aula ao vivo, em Markdown com imagens privadas | `anotacoes_discentes_blocos`, `NoteBlock` solto | Decidido (SPEC-071) |
+| Imagem de anotação da aula | `LiveClassroomNoteImage` (tabela `live_classroom_note_images`) | Captura de tela ou imagem privada anexada pelo estudante ao seu caderno de anotações, otimizada em AVIF/WebP e servida por proxy autenticado | `imagens_anotacoes`, `NoteAttachment` | Decidido (SPEC-071) |
 | Sala de espera | `LiveClassroomAdmission` (tabela `live_classroom_admissions`) | Situação do estudante numa aula ao vivo (`WAITING`, `ADMITTED`, `REMOVED`): só o aceito pelo professor vê a aula | `Lobby`, `Approval` | Proposto (SPEC-054) |
 | Espelho do terminal | `TerminalMirror` | Cópia somente leitura da tela do terminal do professor na aula ao vivo, desenhada pelo aluno a partir de uma árvore segura de tags (`live:terminal:screen`) | `Terminal remoto`, `Replay` | Proposto (SPEC-056) |
 | Palco | `FixedStage` | Área fixa de 1920 × 1080 px lógicos onde a aula ao vivo é desenhada, ajustada por escala à janela de cada pessoa, para o professor e os alunos verem a mesma tela | `Viewport`, `Canvas` | Proposto (SPEC-057) |
