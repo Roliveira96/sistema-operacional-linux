@@ -60,6 +60,8 @@ A aula ao vivo (SPEC-051) é iniciada só pela visão geral, sem ligação com a
 
 Botões do padrão `Button`, tema único escuro, só tokens, alvos de 44 px, textos no arquivo de mensagens.
 
+**Aparência do diálogo.** Cabeçalho fixo (título e uma linha de apoio), corpo com rolagem e rodapé fixo com Cancelar e Salvar, para salvar sem rolar até o fim. O corpo tem três seções com rótulo discreto e linha: **Planejamento** (tema e descrição), **Diário da aula** (as anotações da SPEC-073, as privadas num bloco destacado) e **Materiais** (links, módulo e apresentação lado a lado numa tela larga, e o envio do PDF). O rótulo visível e a linha de ajuda dos editores são os da SPEC-073 (CA-10).
+
 ### 3.2. Backend (Go — Camada de Módulo/Service)
 
 - **RN-01 (conteúdo da aula):** cada aula tem tema (opcional, 1 a 120 caracteres), descrição (opcional, HTML filtrado pelo mesmo filtro da ementa), módulo de ensino (opcional), apresentação (opcional) e até 10 links (nome de 1 a 80 caracteres e endereço https de até 2.000, como na SPEC-048).
@@ -188,3 +190,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: tema, descrição, links, módulo
 | 14/10/2026 | Implementador | Implementada. Desvios: coluna `has_content` em `class_sessions` (para manter as aulas com conteúdo na regeneração e trazer `hasContent` sem consulta extra); portas `Decks` e `Modules` do `schedule` implementadas por adaptadores em `cmd/api/content_refs.go`; módulo que o leitor não pode usar sai da leitura sem erro (na gravação dá 404), e módulos privados por turma não aparecem ao estudante; os botões novos do painel da aula usam o estilo `navBtn` dos vizinhos, não o componente `Button`; aula cancelada não mostra "Iniciar aula ao vivo". O teste do limite de apresentações da SPEC-051 passou de 20 para 100 |
 | 14/10/2026 | Aruna Architect | Falha achada em uso: o estudante abria a aula na agenda e não tinha como entrar na aula ao vivo, porque o botão só existia na visão geral e a spec só previa "Iniciar" para o professor. Acrescentados o aviso na Agenda, a marca e o botão no painel da aula (CA-14); volta a Aprovada |
 | 14/10/2026 | Implementador | CA-14 implementado: aviso da aula ao vivo na aba Agenda e, no painel da aula ligada à sala ativa, a marca "Ao vivo agora" e o botão de entrar ("Voltar para a aula ao vivo" para o professor). A página só consulta a sala ativa na aba Agenda, e uma falha da consulta apenas esconde o aviso |
+| 16/10/2026 | Implementador | Aparência do diálogo refeita a pedido do Tech Lead (cabeçalho e rodapé fixos, seções Planejamento, Diário da aula e Materiais, anotações privadas destacadas); só estilo e marcação, sem mudar o comportamento nem os critérios de aceite |

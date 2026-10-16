@@ -235,204 +235,227 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className={styles.modal}>
-        <h2 id={titleId} className={styles.title}>
-          {m.title(dateBr(session.date))}
-        </h2>
+        <header className={styles.header}>
+          <h2 id={titleId} className={styles.title}>
+            {m.title(dateBr(session.date))}
+          </h2>
+          <p className={styles.subtitle}>{m.subtitle}</p>
+        </header>
 
-        {loadFailed && (
-          <div className={styles.error} role="alert">
-            <span>{m.loadError}</span>
-            <Button variant="secondary" size="sm" onClick={retry}>
-              {m.retry}
-            </Button>
+        {!content && (
+          <div className={styles.status}>
+            {loadFailed && (
+              <div className={styles.error} role="alert">
+                <span>{m.loadError}</span>
+                <Button variant="secondary" size="sm" onClick={retry}>
+                  {m.retry}
+                </Button>
+              </div>
+            )}
+            {!loadFailed && <p className={styles.muted}>{m.loading}</p>}
           </div>
         )}
-        {!content && !loadFailed && <p className={styles.muted}>{m.loading}</p>}
 
         {content && (
           <form className={styles.form} onSubmit={(e) => void submit(e)} noValidate>
-            <div className={styles.field}>
-              <label htmlFor={`${baseId}-topic`} className={styles.label}>
-                {m.topicLabel}
-              </label>
-              <input
-                id={`${baseId}-topic`}
-                className={styles.input}
-                value={topic}
-                placeholder={m.topicPlaceholder}
-                aria-invalid={errors.topic ? true : undefined}
-                aria-describedby={errors.topic ? `${baseId}-topic-error` : undefined}
-                onChange={(e) => setTopic(e.target.value)}
-              />
-              {errors.topic && (
-                <span id={`${baseId}-topic-error`} className={styles.fieldError}>
-                  {errors.topic}
-                </span>
-              )}
-            </div>
-
-            <div className={styles.field}>
-              <div className={styles.fieldHead}>
-                {/* the editor has a label only for the screen reader; the one on the screen is the form of the lesson */}
-                <span className={styles.label} aria-hidden="true">
-                  {m.descriptionLabel}
-                </span>
-                <span id={`${baseId}-description-hint`} className={styles.hint}>
-                  {m.descriptionHint}
-                </span>
-              </div>
-              <RichTextEditor
-                label={m.descriptionLabel}
-                value={description}
-                onChange={setDescription}
-                placeholder={m.descriptionPlaceholder}
-                invalid={Boolean(errors.description)}
-                describedBy={`${baseId}-description-hint`}
-              />
-              {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
-            </div>
-
-            {/* The notes of the teacher on the lesson: the public ones the class reads, the private ones only he does (SPEC-073). */}
-            <div className={styles.field}>
-              <div className={styles.fieldHead}>
-                {/* the editor has a label only for the screen reader; the one on the screen is the form of the lesson */}
-                <span className={styles.label} aria-hidden="true">
-                  {m.teacherNotesLabel}
-                </span>
-                <span id={`${baseId}-notes-hint`} className={styles.hint}>
-                  {m.teacherNotesHint}
-                </span>
-              </div>
-              <RichTextEditor
-                label={m.teacherNotesLabel}
-                value={teacherNotes}
-                onChange={setTeacherNotes}
-                placeholder={m.teacherNotesPlaceholder}
-                invalid={Boolean(errors.teacherNotes)}
-                describedBy={`${baseId}-notes-hint`}
-              />
-              {errors.teacherNotes && <span className={styles.fieldError}>{errors.teacherNotes}</span>}
-            </div>
-            <div className={styles.field}>
-              <div className={styles.fieldHead}>
-                {/* the editor has a label only for the screen reader; the one on the screen is the form of the lesson */}
-                <span className={styles.label} aria-hidden="true">
-                  {m.teacherPrivateNotesLabel}
-                </span>
-                <span id={`${baseId}-private-notes-hint`} className={styles.hint}>
-                  {m.teacherPrivateNotesHint}
-                </span>
-              </div>
-              <RichTextEditor
-                label={m.teacherPrivateNotesLabel}
-                value={teacherPrivateNotes}
-                onChange={setTeacherPrivateNotes}
-                placeholder={m.teacherPrivateNotesPlaceholder}
-                invalid={Boolean(errors.teacherPrivateNotes)}
-                describedBy={`${baseId}-private-notes-hint`}
-              />
-              {errors.teacherPrivateNotes && <span className={styles.fieldError}>{errors.teacherPrivateNotes}</span>}
-            </div>
-
-            <fieldset className={styles.group}>
-              <legend className={styles.label}>{m.linksLegend}</legend>
-              {links.length > 0 && (
-                <ul className={styles.links}>
-                  {links.map((link, i) => (
-                    <li key={`${link.url}-${i}`} className={styles.link}>
-                      <span className={styles.linkText}>
-                        <span className={styles.linkName}>{link.name}</span>
-                        <span className={styles.linkUrl}>{link.url}</span>
-                      </span>
-                      <Button variant="secondary" size="sm" aria-label={m.removeLink(link.name)} onClick={() => setLinks(links.filter((_, j) => j !== i))}>
-                        {m.remove}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className={styles.addLink}>
+            <div className={styles.body}>
+              <section className={styles.section}>
+                <h3 className={styles.sectionTitle}>{m.sectionPlan}</h3>
                 <div className={styles.field}>
-                  <label htmlFor={`${baseId}-link-name`} className={styles.label}>
-                    {m.linkNameLabel}
+                  <label htmlFor={`${baseId}-topic`} className={styles.label}>
+                    {m.topicLabel}
                   </label>
                   <input
-                    id={`${baseId}-link-name`}
+                    id={`${baseId}-topic`}
                     className={styles.input}
-                    value={linkName}
-                    aria-invalid={errors.linkName ? true : undefined}
-                    onChange={(e) => setLinkName(e.target.value)}
+                    value={topic}
+                    placeholder={m.topicPlaceholder}
+                    aria-invalid={errors.topic ? true : undefined}
+                    aria-describedby={errors.topic ? `${baseId}-topic-error` : undefined}
+                    onChange={(e) => setTopic(e.target.value)}
                   />
-                  {errors.linkName && <span className={styles.fieldError}>{errors.linkName}</span>}
+                  {errors.topic && (
+                    <span id={`${baseId}-topic-error`} className={styles.fieldError}>
+                      {errors.topic}
+                    </span>
+                  )}
                 </div>
+
                 <div className={styles.field}>
-                  <label htmlFor={`${baseId}-link-url`} className={styles.label}>
-                    {m.linkUrlLabel}
+                  <div className={styles.fieldHead}>
+                    {/* the editor has a label only for the screen reader; the one on the screen is the form of the lesson */}
+                    <span className={styles.label} aria-hidden="true">
+                      {m.descriptionLabel}
+                    </span>
+                    <span id={`${baseId}-description-hint`} className={styles.hint}>
+                      {m.descriptionHint}
+                    </span>
+                  </div>
+                  <RichTextEditor
+                    label={m.descriptionLabel}
+                    value={description}
+                    onChange={setDescription}
+                    placeholder={m.descriptionPlaceholder}
+                    invalid={Boolean(errors.description)}
+                    describedBy={`${baseId}-description-hint`}
+                  />
+                  {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
+                </div>
+              </section>
+
+              {/* The notes of the teacher on the lesson: the public ones the class reads, the private ones only he does (SPEC-073). */}
+              <section className={styles.section}>
+                <h3 className={styles.sectionTitle}>{m.sectionDiary}</h3>
+                <div className={styles.field}>
+<div className={styles.fieldHead}>
+                    {/* the editor has a label only for the screen reader; the one on the screen is the form of the lesson */}
+                    <span className={styles.label} aria-hidden="true">
+                      {m.teacherNotesLabel}
+                    </span>
+                    <span id={`${baseId}-notes-hint`} className={styles.hint}>
+                      {m.teacherNotesHint}
+                    </span>
+                  </div>
+                  <RichTextEditor
+                    label={m.teacherNotesLabel}
+                    value={teacherNotes}
+                    onChange={setTeacherNotes}
+                    placeholder={m.teacherNotesPlaceholder}
+                    invalid={Boolean(errors.teacherNotes)}
+                    describedBy={`${baseId}-notes-hint`}
+                  />
+                  {errors.teacherNotes && <span className={styles.fieldError}>{errors.teacherNotes}</span>}
+                </div>
+                <div className={`${styles.field} ${styles.private}`}>
+<div className={styles.fieldHead}>
+                    {/* the editor has a label only for the screen reader; the one on the screen is the form of the lesson */}
+                    <span className={styles.label} aria-hidden="true">
+                      {m.teacherPrivateNotesLabel}
+                    </span>
+                    <span id={`${baseId}-private-notes-hint`} className={styles.hint}>
+                      {m.teacherPrivateNotesHint}
+                    </span>
+                  </div>
+                  <RichTextEditor
+                    label={m.teacherPrivateNotesLabel}
+                    value={teacherPrivateNotes}
+                    onChange={setTeacherPrivateNotes}
+                    placeholder={m.teacherPrivateNotesPlaceholder}
+                    invalid={Boolean(errors.teacherPrivateNotes)}
+                    describedBy={`${baseId}-private-notes-hint`}
+                  />
+                  {errors.teacherPrivateNotes && <span className={styles.fieldError}>{errors.teacherPrivateNotes}</span>}
+                </div>
+              </section>
+
+              <section className={styles.section}>
+                <h3 className={styles.sectionTitle}>{m.sectionMaterials}</h3>
+                <fieldset className={styles.group}>
+                  <legend className={styles.label}>{m.linksLegend}</legend>
+                  {links.length > 0 && (
+                    <ul className={styles.links}>
+                      {links.map((link, i) => (
+                        <li key={`${link.url}-${i}`} className={styles.link}>
+                          <span className={styles.linkText}>
+                            <span className={styles.linkName}>{link.name}</span>
+                            <span className={styles.linkUrl}>{link.url}</span>
+                          </span>
+                          <Button variant="secondary" size="sm" aria-label={m.removeLink(link.name)} onClick={() => setLinks(links.filter((_, j) => j !== i))}>
+                            {m.remove}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className={styles.addLink}>
+                    <div className={styles.field}>
+                      <label htmlFor={`${baseId}-link-name`} className={styles.label}>
+                        {m.linkNameLabel}
+                      </label>
+                      <input
+                        id={`${baseId}-link-name`}
+                        className={styles.input}
+                        value={linkName}
+                        aria-invalid={errors.linkName ? true : undefined}
+                        onChange={(e) => setLinkName(e.target.value)}
+                      />
+                      {errors.linkName && <span className={styles.fieldError}>{errors.linkName}</span>}
+                    </div>
+                    <div className={styles.field}>
+                      <label htmlFor={`${baseId}-link-url`} className={styles.label}>
+                        {m.linkUrlLabel}
+                      </label>
+                      <input
+                        id={`${baseId}-link-url`}
+                        className={styles.input}
+                        type="url"
+                        value={linkUrl}
+                        placeholder="https://"
+                        aria-invalid={errors.linkUrl ? true : undefined}
+                        onChange={(e) => setLinkUrl(e.target.value)}
+                      />
+                      {errors.linkUrl && <span className={styles.fieldError}>{errors.linkUrl}</span>}
+                    </div>
+                    <Button variant="secondary" onClick={addLink}>
+                      {m.addLink}
+                    </Button>
+                  </div>
+                  {errors.links && <span className={styles.fieldError}>{errors.links}</span>}
+                </fieldset>
+
+                <div className={styles.pair}>
+                  <div className={styles.field}>
+                    <label htmlFor={`${baseId}-module`} className={styles.label}>
+                      {m.moduleLabel}
+                    </label>
+                    <select id={`${baseId}-module`} className={styles.input} value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
+                      <option value="">{m.moduleNone}</option>
+                      {moduleOptions.map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.field}>
+                    <label htmlFor={`${baseId}-deck`} className={styles.label}>
+                      {m.deckLabel}
+                    </label>
+                    <select id={`${baseId}-deck`} className={styles.input} value={deckId} onChange={(e) => setDeckId(e.target.value)}>
+                      <option value="">{m.deckNone}</option>
+                      {deckOptions.map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className={styles.field}>
+                  <label htmlFor={`${baseId}-file`} className={styles.label}>
+                    {m.uploadLabel}
                   </label>
                   <input
-                    id={`${baseId}-link-url`}
-                    className={styles.input}
-                    type="url"
-                    value={linkUrl}
-                    placeholder="https://"
-                    aria-invalid={errors.linkUrl ? true : undefined}
-                    onChange={(e) => setLinkUrl(e.target.value)}
+                    id={`${baseId}-file`}
+                    className={`${styles.input} ${styles.file}`}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    disabled={busy}
+                    onChange={(e) => void chooseFile(e)}
                   />
-                  {errors.linkUrl && <span className={styles.fieldError}>{errors.linkUrl}</span>}
+                  {uploading && <span className={styles.muted}>{m.uploading}</span>}
+                  {errors.file && <span className={styles.fieldError}>{errors.file}</span>}
                 </div>
-                <Button variant="secondary" onClick={addLink}>
-                  {m.addLink}
-                </Button>
-              </div>
-              {errors.links && <span className={styles.fieldError}>{errors.links}</span>}
-            </fieldset>
+              </section>
 
-            <div className={styles.field}>
-              <label htmlFor={`${baseId}-module`} className={styles.label}>
-                {m.moduleLabel}
-              </label>
-              <select id={`${baseId}-module`} className={styles.input} value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
-                <option value="">{m.moduleNone}</option>
-                {moduleOptions.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.title}
-                  </option>
-                ))}
-              </select>
+              {banner && (
+                <div className={styles.error} role="alert">
+                  {banner}
+                </div>
+              )}
             </div>
-
-            <div className={styles.field}>
-              <label htmlFor={`${baseId}-deck`} className={styles.label}>
-                {m.deckLabel}
-              </label>
-              <select id={`${baseId}-deck`} className={styles.input} value={deckId} onChange={(e) => setDeckId(e.target.value)}>
-                <option value="">{m.deckNone}</option>
-                {deckOptions.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.title}
-                  </option>
-                ))}
-              </select>
-              <label htmlFor={`${baseId}-file`} className={styles.label}>
-                {m.uploadLabel}
-              </label>
-              <input
-                id={`${baseId}-file`}
-                className={styles.input}
-                type="file"
-                accept="application/pdf,.pdf"
-                disabled={busy}
-                onChange={(e) => void chooseFile(e)}
-              />
-              {uploading && <span className={styles.muted}>{m.uploading}</span>}
-              {errors.file && <span className={styles.fieldError}>{errors.file}</span>}
-            </div>
-
-            {banner && (
-              <div className={styles.error} role="alert">
-                {banner}
-              </div>
-            )}
 
             <div className={styles.actions}>
               <Button variant="secondary" onClick={onClose} disabled={saving}>

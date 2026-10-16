@@ -651,6 +651,10 @@ export const messages = {
     },
     content: {
       title: (date: string) => `Conteúdo da aula de ${date}`,
+      subtitle: "Planeje a aula, registre o que aconteceu e anexe os materiais.",
+      sectionPlan: "Planejamento",
+      sectionDiary: "Diário da aula",
+      sectionMaterials: "Materiais",
       loading: "Carregando o conteúdo…",
       loadError: "Não foi possível carregar o conteúdo da aula.",
       retry: "Tentar de novo",
