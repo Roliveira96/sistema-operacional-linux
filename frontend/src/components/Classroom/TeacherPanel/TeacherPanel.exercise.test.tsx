@@ -373,7 +373,7 @@ describe("TeacherPanel, the live exercise: the end", () => {
   });
 
   it("goes back to the list with 'Nova rodada', and starts another exercise from it", async () => {
-    const l = live(over);
+    const l = live({ ...over, exercise: running({ status: "CLOSED", endedBy: "TIMER", closedAt: "2026-10-14T10:06:00Z" }) }); // SPEC-071: after going back to the lesson
     panel();
     await flush();
     fireEvent.click(board().getByRole("button", { name: "Nova rodada" }));

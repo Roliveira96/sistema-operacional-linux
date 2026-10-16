@@ -106,7 +106,7 @@ describe("LiveClassroom, the area of the exercise", () => {
     render(element());
     await area();
     await settled();
-    expect(l.sendExerciseProgress).toHaveBeenCalledWith({ runId: "r-1", met: 0, total: 2, last: "" });
+    expect(l.sendExerciseProgress).toHaveBeenCalledWith({ runId: "r-1", met: 0, total: 2, last: "", commands: 0 }); // SPEC-071 adds the commands
     act(() => h.show(picture("oi")));
     expect(l.sendExerciseScreen).toHaveBeenCalledWith("r-1", picture("oi"));
   });
@@ -117,7 +117,7 @@ describe("LiveClassroom, the area of the exercise", () => {
     expect(screen.queryByRole("region", areaName)).toBeNull();
     expect(screen.queryByRole("timer", { name: "Tempo do exercício" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Ver a aula" })).toBeNull();
-    live({ exercise: round({ status: "ENDED", endedBy: "TIMER", endedAt: END }) });
+    live({ exercise: round({ status: "CLOSED", endedBy: "TIMER", endedAt: END, closedAt: END }) }); // SPEC-071: the class went back to the lesson
     view.rerender(element());
     expect(screen.queryByRole("region", areaName)).toBeNull();
     expect(screen.queryByRole("button", { name: "Ver a aula" })).toBeNull();
@@ -174,7 +174,7 @@ describe("LiveClassroom, the strip while the exercise runs", () => {
     const view = render(element());
     await area();
     await settled();
-    live({ exercise: round({ status: "ENDED", endedBy: "TEACHER", endedAt: END }) });
+    live({ exercise: round({ status: "CLOSED", endedBy: "TEACHER", endedAt: END, closedAt: END }) }); // SPEC-071: the class went back to the lesson
     view.rerender(element());
     expect(screen.queryByRole("region", areaName)).toBeNull();
     expect(within(strip()).queryByRole("timer", { name: "Tempo do exercício" })).toBeNull();
