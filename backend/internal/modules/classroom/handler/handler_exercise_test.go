@@ -54,6 +54,13 @@ type exerciseDouble struct {
 	submits  []service.ExerciseSubmitInput
 	recorded []service.ExerciseProgress
 	onEnded  func(uuid.UUID, service.ExerciseState)
+
+	// SPEC-071: the student taken over now, who had a takeover in the round, whether the student was online at each takeover, and whether the
+	// timer releases the takeover
+	takeover       *uuid.UUID
+	takenOver      map[uuid.UUID]bool
+	takeoverOnline []bool
+	releaseOnTimer bool
 }
 
 func (d *exerciseDouble) at() time.Time {
@@ -86,10 +93,16 @@ func (d *exerciseDouble) state(withProgress bool) *service.ExerciseState {
 			if p, ok := d.progress[id]; ok {
 				at := p.At
 				e.Met, e.Total, e.Last, e.At = p.Met, p.Total, p.Last, &at
+				e.Commands, e.LastCommandAt = p.Commands, p.LastCommandAt
 			}
+			e.Status = domain.ParticipantInProgress
+			if d.takeover != nil && *d.takeover == id {
+				e.TakeoverOn, e.TakenOver = true, true
+			}
+			e.TakenOver = e.TakenOver || d.takenOver[id]
 			for i := range results {
 				if results[i].StudentID == id {
-					e.Result, e.Attempts = &results[i], results[i].Attempts
+					e.Result, e.Attempts, e.Status = &results[i], results[i].Attempts, domain.ParticipantCompleted
 				}
 			}
 			st.Entries = append(st.Entries, e)
@@ -227,7 +240,8 @@ func (f *fakeService) RecordExerciseProgress(_ context.Context, _, student uuid.
 	if err != nil {
 		return service.ExerciseProgress{}, err
 	}
-	p := service.ExerciseProgress{RunID: in.RunID, StudentID: student, Met: in.Met, Total: in.Total, Last: last, At: d.at()}
+	at := d.at()
+	p := service.ExerciseProgress{RunID: in.RunID, StudentID: student, Met: in.Met, Total: in.Total, Last: last, At: at, Commands: in.Commands, LastCommandAt: &at}
 	d.participants[student], d.progress[student] = true, p
 	d.recorded = append(d.recorded, p)
 	return p, nil
@@ -288,6 +302,9 @@ func (f *fakeService) fireTimer(session uuid.UUID) {
 	_ = d.run.End(d.run.EndsAt, domain.EndedByTimer)
 	st := *d.state(false)
 	st.Unwatched, d.watching = d.watching, nil
+	if d.releaseOnTimer {
+		st.Released = d.release()
+	}
 	hook := d.onEnded
 	f.mu.Unlock()
 	if hook != nil {
@@ -967,7 +984,7 @@ func TestExercise_ProgressGoesOnlyToThePanel(t *testing.T) {
 
 	cr.a.send(t, typeExProgress, `{"runId":"`+run+`","met":2,"total":4,"last":"mkdir /srv/x"}`)
 	got := cr.panel.nextData(t, typeExProgress)
-	assert.Equal(t, []string{"at", "last", "met", "runId", "studentId", "total"}, sortedKeys(got))
+	assert.Equal(t, []string{"at", "commands", "last", "lastCommandAt", "met", "runId", "studentId", "total"}, sortedKeys(got)) // SPEC-071 adds the commands
 	assert.Equal(t, run, got["runId"])
 	assert.Equal(t, cr.ana.String(), got["studentId"])
 	assert.EqualValues(t, 2, got["met"])
@@ -1117,7 +1134,8 @@ func TestExercise_SnapshotByRole(t *testing.T) {
 	code, body := w.call(t, "student", http.MethodPost, w.path("/exercise/submit"), obj{"runId": run, "snapshot": "pass"})
 	require.Equal(t, http.StatusOK, code, body)
 
-	base := []string{"blockId", "difficulty", "durationSeconds", "endedAt", "endedBy", "endsAt", "index", "now", "resultVisible", "runId", "startedAt", "status", "title"}
+	// SPEC-071 adds the close and the pause
+	base := []string{"blockId", "closedAt", "difficulty", "durationSeconds", "endedAt", "endedBy", "endsAt", "index", "now", "pausedSeconds", "resultVisible", "runId", "startedAt", "status", "title"}
 	withKeys := func(extra ...string) []string {
 		keys := append(append([]string(nil), base...), extra...)
 		sort.Strings(keys)
@@ -1126,7 +1144,7 @@ func TestExercise_SnapshotByRole(t *testing.T) {
 
 	// a student who connects in the middle of the round: Ana concluded, Bruno did not
 	ana := exerciseOfSnapshot(t, snapshotOf(t, w.dial(t, "student")))
-	assert.Equal(t, withKeys("myResult"), sortedKeys(ana))
+	assert.Equal(t, withKeys("myResult", "takenOver"), sortedKeys(ana))
 	assert.Equal(t, run, ana["runId"])
 	assert.Equal(t, cr.block.String(), ana["blockId"])
 	assert.Equal(t, "RUNNING", ana["status"])
@@ -1146,7 +1164,7 @@ func TestExercise_SnapshotByRole(t *testing.T) {
 	assert.EqualValues(t, 40, mine["points"])
 
 	bruno := exerciseOfSnapshot(t, snapshotOf(t, w.dial(t, "stranger")))
-	assert.Equal(t, withKeys("myResult"), sortedKeys(bruno), "no progress and no result of the others")
+	assert.Equal(t, withKeys("myResult", "takenOver"), sortedKeys(bruno), "no progress and no result of the others")
 	assert.Nil(t, bruno["myResult"], "Bruno did not conclude")
 
 	panelWindow := w.dialView(t, "teacher", "panel") // it takes the control from the panel of the room: the commands below are its own
@@ -1157,7 +1175,8 @@ func TestExercise_SnapshotByRole(t *testing.T) {
 	rows := map[string]map[string]any{}
 	for _, row := range list {
 		entry := row.(map[string]any)
-		assert.Equal(t, []string{"at", "attempts", "completedAt", "elapsedSeconds", "last", "met", "name", "points", "studentId", "total"}, sortedKeys(entry))
+		assert.Equal(t, []string{"at", "attempts", "commands", "completedAt", "elapsedSeconds", "helpRequested", "last", "lastCommandAt", "met", "name", "points", "status", "studentId",
+			"takenOver", "takeoverOn", "total"}, sortedKeys(entry)) // SPEC-071 adds the commands, the status, the help and the takeover
 		rows[entry["name"].(string)] = entry
 	}
 	assert.Equal(t, "2026-10-14T19:00:00.000Z", rows["Bruno"]["at"])
@@ -1182,7 +1201,7 @@ func TestExercise_SnapshotByRole(t *testing.T) {
 	sendMsg(t, panelWindow, typeExEnd, `{}`)
 	readUntil(t, panelWindow, typeExEnded)
 	ended := exerciseOfSnapshot(t, snapshotOf(t, w.dial(t, "second")))
-	assert.Equal(t, withKeys("myResult"), sortedKeys(ended), "ended and hidden: no scoreboard")
+	assert.Equal(t, withKeys("myResult", "takenOver"), sortedKeys(ended), "ended and hidden: no scoreboard")
 	assert.Equal(t, "ENDED", ended["status"])
 	assert.Equal(t, "TEACHER", ended["endedBy"])
 	assert.Equal(t, "2026-10-14T19:02:00.000Z", ended["endedAt"])
