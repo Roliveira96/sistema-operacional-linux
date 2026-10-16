@@ -290,3 +290,31 @@ describe("SessionContentForm", () => {
     });
   });
 });
+
+// SPEC-071 CA-10: the notes of the teacher in the dialog of the content
+describe("notes of the teacher (SPEC-071)", () => {
+  it("opens with the notes filled in, saves them with the content and closes", async () => {
+    const { save, onSaved } = setup({ ...saved, teacherNotes: "<p>Vimos chmod.</p>", teacherPrivateNotes: "<p>Rever o fork.</p>" });
+    const dialog = await ready();
+    await waitFor(() => expect(within(dialog).getByRole("textbox", { name: "Anotações da aula (a turma vê)" }).textContent).toContain("Vimos chmod."));
+    expect(within(dialog).getByRole("textbox", { name: "Anotações privadas (só você vê)" }).textContent).toContain("Rever o fork.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.lastCall?.[2]).toMatchObject({ topic: "Permissões de arquivos", teacherNotes: "<p>Vimos chmod.</p>", teacherPrivateNotes: "<p>Rever o fork.</p>" });
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+  });
+
+  it("sends empty notes when there are none, and puts a note over the limit next to its field", async () => {
+    const { save, onClose } = setup(saved);
+    const dialog = await ready();
+    await waitFor(() => expect((within(dialog).getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.lastCall?.[2]).toMatchObject({ teacherNotes: "", teacherPrivateNotes: "" });
+
+    save.mockRejectedValueOnce(new ApiProblemError({ type: "content-too-long", status: 400, field: "teacherPrivateNotes" }, 400));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    expect(await within(dialog).findByText("As anotações podem ter até 20.000 caracteres.")).toBeDefined();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

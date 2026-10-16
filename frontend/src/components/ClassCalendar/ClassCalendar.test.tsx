@@ -310,3 +310,44 @@ describe("ClassCalendar", () => {
     });
   });
 });
+
+// SPEC-071 CA-08: the diary of each lesson in the panel of the day
+describe("diary of a lesson in the panel of the day (SPEC-071)", () => {
+  const withContent = () => {
+    const data = octoberCalendar();
+    data.sessions = data.sessions.map((x) => (x.id === "s-26" ? { ...x, topic: "Permissões de arquivos", hasContent: true } : x));
+    return data;
+  };
+
+  it("shows the diary of the lesson, with the content, the notes of the teacher and the live classes, from one reading", async () => {
+    const loadDiary = vi.fn().mockResolvedValue({
+      session: { id: "s-26", liveSessionCount: 1, commandCount: 2 },
+      content: {
+        topic: "Permissões de arquivos",
+        description: "<p>Veremos <strong>chmod</strong>.</p>",
+        links: [{ name: "Meet", url: "https://meet.google.com/abc", position: 0 }],
+        teacherNotes: "<p>Vimos chmod e chown.</p>",
+      },
+      liveSessions: [{ id: "live-1", title: "Aula de segunda", status: "FINISHED", startedAt: "2026-10-26T08:25:00-03:00", endedAt: "2026-10-26T10:00:00-03:00", durationMinutes: 95, commandCount: 2 }],
+    });
+    const loadContent = vi.fn();
+    setup({ load: vi.fn().mockResolvedValue(withContent()), loadDiary, loadCommands: vi.fn().mockResolvedValue([]), loadContent, role: "student" });
+    await screen.findByRole("heading", { name: "outubro de 2026" });
+    fireEvent.click(dayButton(/^segunda-feira, 26 de outubro/));
+    const panel = screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" });
+    expect(await within(panel).findByText("Vimos chmod e chown.")).toBeDefined();
+    expect(loadDiary).toHaveBeenCalledWith(expect.objectContaining({ id: "s-26" }));
+    expect(loadContent).not.toHaveBeenCalled();
+    expect(within(panel).getByRole("heading", { level: 4, name: "Permissões de arquivos" })).toBeDefined();
+    expect(within(panel).getByRole("link", { name: "Meet" }).getAttribute("href")).toBe("https://meet.google.com/abc");
+    expect(within(panel).getByText("Aula de segunda")).toBeDefined();
+    expect(within(panel).getByRole("button", { name: "Ver comandos (2)" })).toBeDefined();
+  });
+
+  it("reads the diary of a lesson without content too, for its live classes", async () => {
+    const loadDiary = vi.fn().mockResolvedValue({ session: { id: "s-19" }, content: { links: [] }, liveSessions: [] });
+    setup({ loadDiary, loadCommands: vi.fn(), role: "teacher" });
+    fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 19 de outubro/ }));
+    await waitFor(() => expect(loadDiary).toHaveBeenCalledWith(expect.objectContaining({ id: "s-19" })));
+  });
+});

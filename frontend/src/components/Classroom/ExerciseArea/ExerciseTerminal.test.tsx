@@ -148,3 +148,13 @@ describe("ExerciseTerminal, read only", () => {
     expect(h.keys).not.toHaveBeenCalled();
   });
 });
+
+// SPEC-071 CA-09: the terminal of the student in the exercise never reports its commands to the live classroom
+describe("commands of the live classroom (SPEC-071)", () => {
+  it("does not ask the window for the commands that ran", async () => {
+    render(terminal());
+    await ready();
+    expect(mount).toHaveBeenCalledTimes(1);
+    expect(mount.mock.calls[0]![2]).not.toHaveProperty("onCommandRun");
+  });
+});

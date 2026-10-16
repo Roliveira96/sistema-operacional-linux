@@ -316,3 +316,28 @@ describe("MirroredModuleView", () => {
     });
   });
 });
+
+// SPEC-071 CA-09: the teacher's terminal tells each command that ran; the student's copy has nothing to tell
+describe("commands of the teacher (SPEC-071)", () => {
+  const run = { terminal: 1, command: "ls -la", exitStatus: 0, output: "total 0\n", outputTruncated: false };
+
+  it("passes on each command the teacher's terminal ran, to the latest handler", async () => {
+    const first = vi.fn();
+    const view = render(<MirroredModuleView role="teacher" terminal={empty} onCommandRun={first} />);
+    await waitFor(() => expect(windows).toHaveLength(1));
+    expect(callbacks!.onCommandRun).toBeTypeOf("function");
+    callbacks!.onCommandRun!(run);
+    expect(first).toHaveBeenCalledWith(run);
+
+    const second = vi.fn();
+    view.rerender(<MirroredModuleView role="teacher" terminal={empty} onCommandRun={second} />);
+    callbacks!.onCommandRun!({ ...run, command: "pwd" });
+    expect(second).toHaveBeenCalledWith({ ...run, command: "pwd" });
+    expect(first).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the student's copy no terminal to report from", () => {
+    render(<MirroredModuleView role="student" terminal={{ screen: tree("ls") }} onCommandRun={vi.fn()} />);
+    expect(mountTerminalWindow).not.toHaveBeenCalled();
+  });
+});
