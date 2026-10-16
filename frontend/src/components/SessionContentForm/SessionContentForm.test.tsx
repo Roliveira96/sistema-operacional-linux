@@ -321,3 +321,38 @@ describe("notes of the teacher (SPEC-073)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+// SPEC-073 CA-10: each of the three editors shows its name and says who reads what is written in it
+describe("labels and help of the editors (SPEC-073 CA-10)", () => {
+  const editors = [
+    { name: "Descrição do conteúdo", hint: "A turma vê este texto na agenda da turma." },
+    { name: "Anotações da aula (a turma vê)", hint: "Registro do que aconteceu na aula: a turma vê assim que você salvar." },
+    { name: "Anotações privadas (só você vê)", hint: "Lembretes seus sobre esta aula. Nenhum estudante vê." },
+  ];
+
+  it("shows the name of each editor on the screen, and not only to the screen reader", async () => {
+    setup();
+    const dialog = await ready();
+    for (const { name } of editors) {
+      // the editor has a label of its own for the screen reader; the one on the screen is the other (the editors open a moment after the dialog)
+      await waitFor(() => expect(within(dialog).getAllByText(name), name).toHaveLength(2));
+    }
+  });
+
+  it("tells who reads what is written, and ties that line to the editor", async () => {
+    setup();
+    const dialog = await ready();
+    for (const { name, hint } of editors) {
+      const line = within(dialog).getByText(hint);
+      expect(line.id, name).not.toBe("");
+      expect((await within(dialog).findByRole("textbox", { name })).getAttribute("aria-describedby"), name).toBe(line.id);
+    }
+  });
+
+  it("gives each editor a different line, so the three are not alike", async () => {
+    setup();
+    const dialog = await ready();
+    const ids = editors.map(({ hint }) => within(dialog).getByText(hint).id);
+    expect(new Set(ids).size).toBe(3);
+  });
+});
