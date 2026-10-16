@@ -88,12 +88,12 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
             badge={new Date(now) >= new Date(current.startsAt) ? m.now : m.startsAt(current.startTime)}
             live={
               liveSessionId ? (
-                <ButtonLink href={liveHref} variant="primary" size="sm">
+                <ButtonLink href={liveHref} variant="primary" size="md">
                   {role === "teacher" ? m.backToLive : m.enterLive}
                 </ButtonLink>
               ) : role === "teacher" ? (
                 onStartLive && (
-                  <Button variant="primary" size="sm" onClick={() => onStartLive(current)}>
+                  <Button variant="primary" size="md" onClick={() => onStartLive(current)}>
                     {m.startLive}
                   </Button>
                 )
@@ -220,23 +220,19 @@ function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, 
       <div className={styles.actions}>
         {live}
         {canExpand && (
-          <Button variant="secondary" size="sm" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          <Button variant="secondary" size="md" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
             {open ? m.hide : expandLabel}
           </Button>
         )}
-        {teacher && (onEditContent || onEditSession) && (
-          <div className={styles.editGroup}>
-            {onEditContent && (
-              <Button variant="ghost" size="sm" onClick={() => onEditContent(entry)}>
-                {m.editContent}
-              </Button>
-            )}
-            {onEditSession && (
-              <Button variant="ghost" size="sm" onClick={() => onEditSession(entry)}>
-                {m.editSession}
-              </Button>
-            )}
-          </div>
+        {teacher && onEditContent && (
+          <Button variant="secondary" size="md" onClick={() => onEditContent(entry)}>
+            {m.editContent}
+          </Button>
+        )}
+        {teacher && onEditSession && (
+          <Button variant="secondary" size="md" onClick={() => onEditSession(entry)}>
+            {m.editSession}
+          </Button>
         )}
       </div>
       {open && (
