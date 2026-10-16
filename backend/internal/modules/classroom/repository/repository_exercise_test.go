@@ -406,10 +406,11 @@ func TestMigration00035_CreatesTheTablesAndTakesThemBack(t *testing.T) {
 	up, down := migrationParts(t, "00035_")
 
 	columns, indexes := exerciseTables(t, e)
-	assert.ElementsMatch(t, []string{"block_id", "created_at", "deleted_at", "difficulty", "duration_seconds", "ended_at", "ended_by", "ends_at", "exercise_index", "id",
-		"result_visible", "session_id", "started_at", "title", "updated_at"}, columns["live_exercise_runs"])
-	assert.ElementsMatch(t, []string{"attempts", "completed_at", "created_at", "deleted_at", "elapsed_seconds", "id", "points", "run_id", "student_id", "updated_at"},
-		columns["live_exercise_results"])
+	// SPEC-071: the migration 00038, applied after this one, adds the columns of the pause, of the close and of the participants
+	assert.ElementsMatch(t, []string{"block_id", "closed_at", "created_at", "deleted_at", "difficulty", "duration_seconds", "ended_at", "ended_by", "ends_at", "exercise_index", "id",
+		"paused_at", "paused_seconds", "result_visible", "session_id", "started_at", "title", "updated_at"}, columns["live_exercise_runs"])
+	assert.ElementsMatch(t, []string{"attempts", "commands", "completed_at", "created_at", "deleted_at", "elapsed_seconds", "help_requested", "id", "points", "run_id",
+		"status", "student_id", "taken_over", "updated_at"}, columns["live_exercise_results"])
 	hasIndex := func(table, part string) bool {
 		for _, def := range indexes[table] {
 			if strings.Contains(def, "UNIQUE") && strings.Contains(def, part) {
@@ -439,6 +440,8 @@ func TestMigration00035_CreatesTheTablesAndTakesThemBack(t *testing.T) {
 	columns, _ = exerciseTables(t, e)
 	assert.Len(t, columns["live_exercise_runs"], 15)
 	assert.Len(t, columns["live_exercise_results"], 10)
+	guidedUp, _ := migrationParts(t, "00038_") // SPEC-071: the tables as the code uses them now
+	runMigration(t, e, guidedUp)
 	_, err = e.repo.CurrentExerciseRun(e.ctx, s.ID)
 	assert.ErrorIs(t, err, domain.ErrNoExerciseRun, "the tables come back empty")
 	again := e.startRun(t, s, domain.DifficultyEasy, 5, e.now)

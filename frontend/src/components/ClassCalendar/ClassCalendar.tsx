@@ -41,7 +41,7 @@ export interface ClassCalendarProps {
   liveClassSessionId?: string | null;
   liveHref?: string;
   /**
-   * Reads the diary of a lesson (SPEC-071): with it, the panel of the day shows the diary of each lesson, with its content, in place of the content
+   * Reads the diary of a lesson (SPEC-073): with it, the panel of the day shows the diary of each lesson, with its content, in place of the content
    * alone, and reads the commands of a live class when it is expanded.
    */
   loadDiary?: (session: Session) => Promise<Diary>;
@@ -730,7 +730,7 @@ export function ClassCalendar({
                     {s.changeReason && (
                       <div className={styles.itemMeta}>{s.changeReason}</div>
                     )}
-                    {/* The diary brings the content with it (SPEC-071); without it, the content comes alone (SPEC-053). */}
+                    {/* The diary brings the content with it (SPEC-073); without it, the content comes alone (SPEC-053). */}
                     {loadDiary && loadCommands ? (
                       <SessionDiary classId={s.classId} session={s} role={role ?? (editable ? "teacher" : "student")} load={loadDiary} loadCommands={loadCommands} />
                     ) : (

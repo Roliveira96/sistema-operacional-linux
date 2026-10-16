@@ -293,7 +293,7 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
   );
 
   const loadContent = useCallback((s: Session) => scheduleService.getSessionContent(id ?? "", s.id), [id]);
-  // The timeline and the diary of the lessons (SPEC-071); stable, so the components do not read them again at every render.
+  // The timeline and the diary of the lessons (SPEC-073); stable, so the components do not read them again at every render.
   const loadTimeline = useCallback(() => scheduleService.timeline(id ?? ""), [id]);
   const loadDiary = useCallback((s: Session) => scheduleService.getDiary(id ?? "", s.id), [id]);
   const loadCommands = useCallback((liveSessionId: string) => classroomService.listCommands(id ?? "", liveSessionId), [id]);
@@ -644,7 +644,7 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             onDeletePeriod={handleDeletePeriod}
             onSelectPeriod={(first, last) => setSelectedPeriodRange({ first, last })}
           />
-          {/* The timeline of the class under the calendar (SPEC-071 CA-07). */}
+          {/* The timeline of the class under the calendar (SPEC-073 CA-07). */}
           <ClassTimeline
             classId={id ?? ""}
             courseCode={data.courseCode}

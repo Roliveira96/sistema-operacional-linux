@@ -285,7 +285,7 @@ type ClassSession struct {
 	ModuleID    *uuid.UUID
 	DeckID      *uuid.UUID
 	HasContent  bool
-	// The notes of the teacher on the lesson (SPEC-071 RN-03): the public ones the class reads; the private ones only the teacher and an
+	// The notes of the teacher on the lesson (SPEC-073 RN-03): the public ones the class reads; the private ones only the teacher and an
 	// administrator read.
 	TeacherNotes        *string
 	TeacherPrivateNotes *string

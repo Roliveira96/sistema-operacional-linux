@@ -48,29 +48,33 @@ type fakeService struct {
 	mu  sync.Mutex
 	err error // returned by every REST use case when set
 
-	session  domain.LiveClassroomSession
-	created  bool
-	active   service.Active
-	summary  []service.SessionSummary
-	deck     service.DeckView
-	decks    []domain.SlideDeck
-	note     domain.LiveClassroomNote
-	connErr  error
-	queue    []domain.HandRaiseEntry
-	teacher  uuid.UUID
-	calls    []string
-	upload   service.UploadInput
-	uploaded []byte
-	actor    service.Actor
-	start    service.StartInput
-	slides   []int
-	modes    []string
-	moduleID *uuid.UUID
-	drawings []string
-	screens  []string        // the terminal screens the handler asked to keep (SPEC-056)
-	screen   json.RawMessage // the last of them, which the snapshot gives back
-	moderate []*uuid.UUID
-	presence int
+	session    domain.LiveClassroomSession
+	created    bool
+	active     service.Active
+	summary    []service.SessionSummary
+	deck       service.DeckView
+	decks      []domain.SlideDeck
+	note       domain.LiveClassroomNote
+	noteBlock  domain.LiveClassroomNoteBlock
+	noteBlocks []domain.LiveClassroomNoteBlock
+	noteImage  service.NoteImageCreated
+	noteStream service.NoteImageStream
+	connErr    error
+	queue      []domain.HandRaiseEntry
+	teacher    uuid.UUID
+	calls      []string
+	upload     service.UploadInput
+	uploaded   []byte
+	actor      service.Actor
+	start      service.StartInput
+	slides     []int
+	modes      []string
+	moduleID   *uuid.UUID
+	drawings   []string
+	screens    []string        // the terminal screens the handler asked to keep (SPEC-056)
+	screen     json.RawMessage // the last of them, which the snapshot gives back
+	moderate   []*uuid.UUID
+	presence   int
 
 	// the waiting room, the broadcast of the terminal and the module of the room (SPEC-054)
 	waiting    bool // a student comes in waiting; by default he comes in admitted, as before SPEC-054
@@ -107,7 +111,7 @@ type fakeService struct {
 	// the exercise of the lesson: the round, who is in it, and what the handler asked (SPEC-065)
 	exercise exerciseDouble
 
-	// the commands of the teacher: what the handler asked to keep, and what the route reads (SPEC-071)
+	// the commands of the teacher: what the handler asked to keep, and what the route reads (SPEC-073)
 	commands commandState
 }
 
@@ -164,6 +168,35 @@ func (f *fakeService) SaveNote(_ context.Context, a service.Actor, _, _ uuid.UUI
 func (f *fakeService) GetNote(_ context.Context, a service.Actor, _, _ uuid.UUID) (domain.LiveClassroomNote, error) {
 	f.actor = a
 	return f.note, f.err
+}
+func (f *fakeService) ListNoteBlocks(_ context.Context, a service.Actor, _, _ uuid.UUID) ([]domain.LiveClassroomNoteBlock, error) {
+	f.actor = a
+	return f.noteBlocks, f.err
+}
+func (f *fakeService) CreateNoteBlock(_ context.Context, a service.Actor, _, _ uuid.UUID, contentMarkdown string) (domain.LiveClassroomNoteBlock, error) {
+	f.actor = a
+	f.noteBlock.ContentMarkdown = contentMarkdown
+	return f.noteBlock, f.err
+}
+func (f *fakeService) UpdateNoteBlock(_ context.Context, a service.Actor, _, _, _ uuid.UUID, contentMarkdown string) (domain.LiveClassroomNoteBlock, error) {
+	f.actor = a
+	f.noteBlock.ContentMarkdown = contentMarkdown
+	return f.noteBlock, f.err
+}
+func (f *fakeService) DeleteNoteBlock(_ context.Context, a service.Actor, _, _, _ uuid.UUID) error {
+	f.actor = a
+	return f.err
+}
+func (f *fakeService) UploadNoteImage(_ context.Context, a service.Actor, _, _ uuid.UUID, in service.NoteImageInput) (service.NoteImageCreated, error) {
+	f.actor = a
+	if in.File != nil {
+		f.uploaded, _ = io.ReadAll(in.File)
+	}
+	return f.noteImage, f.err
+}
+func (f *fakeService) OpenNoteImage(_ context.Context, a service.Actor, _ uuid.UUID) (service.NoteImageStream, error) {
+	f.actor = a
+	return f.noteStream, f.err
 }
 func (f *fakeService) Connect(_ context.Context, a service.Actor, _ uuid.UUID) (service.Connection, error) {
 	f.actor = a

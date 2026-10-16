@@ -31,10 +31,12 @@ type fakeRepo struct {
 	classSessions map[uuid.UUID]uuid.UUID // class session -> class
 	modules       map[uuid.UUID]bool
 
-	sessions map[uuid.UUID]domain.LiveClassroomSession
-	decks    map[uuid.UUID]domain.SlideDeck
-	hands    []handRow
-	notes    map[[2]uuid.UUID]domain.LiveClassroomNote
+	sessions   map[uuid.UUID]domain.LiveClassroomSession
+	decks      map[uuid.UUID]domain.SlideDeck
+	hands      []handRow
+	notes      map[[2]uuid.UUID]domain.LiveClassroomNote
+	noteBlocks map[uuid.UUID]domain.LiveClassroomNoteBlock
+	noteImages map[uuid.UUID]domain.LiveClassroomNoteImage
 	// admissions are the rows of the waiting room, by (session, student) (SPEC-054).
 	admissions map[[2]uuid.UUID]*domain.LiveClassroomAdmission
 
@@ -46,7 +48,7 @@ type fakeRepo struct {
 	chat []domain.LiveChatMessage
 	// exercise is the rounds and the results of the exercise of the lesson (SPEC-065).
 	exercise exerciseStore
-	// commands is the commands of the teacher, in the order they were saved (SPEC-071).
+	// commands is the commands of the teacher, in the order they were saved (SPEC-073).
 	commands []domain.LiveTerminalCommand
 }
 
@@ -62,7 +64,10 @@ func newRepo() *fakeRepo {
 		classes: map[uuid.UUID]service.ClassInfo{}, students: map[uuid.UUID]map[uuid.UUID]bool{}, studentNames: map[uuid.UUID]string{},
 		classSessions: map[uuid.UUID]uuid.UUID{}, modules: map[uuid.UUID]bool{},
 		sessions: map[uuid.UUID]domain.LiveClassroomSession{}, decks: map[uuid.UUID]domain.SlideDeck{},
-		notes: map[[2]uuid.UUID]domain.LiveClassroomNote{}, admissions: map[[2]uuid.UUID]*domain.LiveClassroomAdmission{},
+		notes:      map[[2]uuid.UUID]domain.LiveClassroomNote{},
+		noteBlocks: map[uuid.UUID]domain.LiveClassroomNoteBlock{},
+		noteImages: map[uuid.UUID]domain.LiveClassroomNoteImage{},
+		admissions: map[[2]uuid.UUID]*domain.LiveClassroomAdmission{},
 	}
 }
 
@@ -160,6 +165,13 @@ func (f *fakeRepo) SessionsWithNotes(_ context.Context, studentID uuid.UUID, ids
 	for _, id := range ids {
 		if _, ok := f.notes[[2]uuid.UUID{id, studentID}]; ok {
 			out[id] = true
+			continue
+		}
+		for _, b := range f.noteBlocks {
+			if b.SessionID == id && b.StudentID == studentID && !b.DeletedAt.Valid {
+				out[id] = true
+				break
+			}
 		}
 	}
 	return out, nil
@@ -253,6 +265,85 @@ func (f *fakeRepo) FindNote(_ context.Context, session, student uuid.UUID) (doma
 	return n, nil
 }
 
+func (f *fakeRepo) ListNoteBlocks(_ context.Context, session, student uuid.UUID) ([]domain.LiveClassroomNoteBlock, error) {
+	out := []domain.LiveClassroomNoteBlock{}
+	for _, b := range f.noteBlocks {
+		if b.SessionID == session && b.StudentID == student && !b.DeletedAt.Valid {
+			out = append(out, b)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].CreatedAt.Before(out[j].CreatedAt)
+		}
+		return out[i].ID.String() < out[j].ID.String()
+	})
+	return out, nil
+}
+
+func (f *fakeRepo) CreateNoteBlock(_ context.Context, b *domain.LiveClassroomNoteBlock) error {
+	if b.ID == uuid.Nil {
+		b.ID = uuid.New()
+	}
+	f.noteBlocks[b.ID] = *b
+	return nil
+}
+
+func (f *fakeRepo) FindNoteBlock(_ context.Context, id uuid.UUID) (domain.LiveClassroomNoteBlock, error) {
+	b, ok := f.noteBlocks[id]
+	if !ok || b.DeletedAt.Valid {
+		return domain.LiveClassroomNoteBlock{}, domain.ErrNoteBlockNotFound
+	}
+	return b, nil
+}
+
+func (f *fakeRepo) SaveNoteBlock(_ context.Context, b *domain.LiveClassroomNoteBlock) error {
+	f.noteBlocks[b.ID] = *b
+	return nil
+}
+
+func (f *fakeRepo) DeleteNoteBlock(_ context.Context, id uuid.UUID, _ time.Time) error {
+	b, ok := f.noteBlocks[id]
+	if !ok || b.DeletedAt.Valid {
+		return domain.ErrNoteBlockNotFound
+	}
+	delete(f.noteBlocks, id)
+	for imgID, img := range f.noteImages {
+		if img.NoteBlockID != nil && *img.NoteBlockID == id {
+			delete(f.noteImages, imgID)
+		}
+	}
+	return nil
+}
+
+func (f *fakeRepo) CreateNoteImage(_ context.Context, img *domain.LiveClassroomNoteImage) error {
+	if img.ID == uuid.Nil {
+		img.ID = uuid.New()
+	}
+	f.noteImages[img.ID] = *img
+	return nil
+}
+
+func (f *fakeRepo) FindNoteImage(_ context.Context, id uuid.UUID) (domain.LiveClassroomNoteImage, error) {
+	img, ok := f.noteImages[id]
+	if !ok || img.DeletedAt.Valid {
+		return domain.LiveClassroomNoteImage{}, domain.ErrNoteImageNotFound
+	}
+	return img, nil
+}
+
+func (f *fakeRepo) LinkNoteImages(_ context.Context, session, student, blockID uuid.UUID, imageIDs []uuid.UUID) error {
+	for _, id := range imageIDs {
+		img, ok := f.noteImages[id]
+		if ok && img.SessionID == session && img.StudentID == student {
+			bid := blockID
+			img.NoteBlockID = &bid
+			f.noteImages[id] = img
+		}
+	}
+	return nil
+}
+
 type fakeStorage struct {
 	puts []string
 	body map[string][]byte
@@ -270,6 +361,16 @@ func (s *fakeStorage) PutObject(_ context.Context, key string, r io.Reader, _ in
 	s.body[key] = b
 	s.puts = append(s.puts, key)
 	return nil
+}
+func (s *fakeStorage) GetObject(_ context.Context, key string) (io.ReadCloser, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	b, ok := s.body[key]
+	if !ok {
+		return nil, domain.ErrNoteImageNotFound
+	}
+	return io.NopCloser(bytes.NewReader(b)), nil
 }
 func (s *fakeStorage) PresignedGetURL(_ context.Context, key string, ttl time.Duration) (string, error) {
 	return fmt.Sprintf("https://files.test/%s?ttl=%d", key, int(ttl.Seconds())), nil

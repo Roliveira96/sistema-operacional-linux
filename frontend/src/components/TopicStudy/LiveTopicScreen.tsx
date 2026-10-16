@@ -41,7 +41,7 @@ export interface TopicLive {
   onRead?(blockId: string): void;
   /** The teacher's terminal tells the picture of its window (SPEC-056). */
   onScreen?(tree: ScreenElement): void;
-  /** The teacher's terminal tells each command that ran, for the diary of the lesson (SPEC-071). */
+  /** The teacher's terminal tells each command that ran, for the diary of the lesson (SPEC-073). */
   onCommandRun?(run: CommandRun): void;
   /** The teacher scrolls the material; the position is a fraction of what can be scrolled (SPEC-057). */
   onMaterialScroll?(y: number): void;

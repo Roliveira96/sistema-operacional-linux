@@ -12,7 +12,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 )
 
-// The commands of the teacher in the live classroom (SPEC-071 RN-05, RN-06).
+// The commands of the teacher in the live classroom (SPEC-073 RN-05, RN-06).
 const (
 	MinTerminal = 1
 	MaxTerminal = 3
@@ -44,7 +44,7 @@ type LiveTerminalCommand struct {
 // TableName maps LiveTerminalCommand to its table.
 func (LiveTerminalCommand) TableName() string { return "live_terminal_commands" }
 
-// NewTerminalCommand checks a command the presentation window sent and makes the row of it, with now as the moment it ran (SPEC-071 RN-05):
+// NewTerminalCommand checks a command the presentation window sent and makes the row of it, with now as the moment it ran (SPEC-073 RN-05):
 // the terminal is one of the three; the line is trimmed, has from 1 to MaxCommandLength characters and no control character; the output is
 // valid text, cut at MaxCommandOutputLength characters when longer, which marks it as truncated, like the client does when it cut it itself.
 func NewTerminalCommand(sessionID uuid.UUID, terminal int, command string, exitStatus *int, output string, truncated bool, now time.Time) (LiveTerminalCommand, error) {

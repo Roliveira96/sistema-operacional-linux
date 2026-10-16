@@ -36,6 +36,12 @@ type Service interface {
 	ListSessions(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]service.SessionSummary, error)
 	SaveNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, content string) (domain.LiveClassroomNote, error)
 	GetNote(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (domain.LiveClassroomNote, error)
+	ListNoteBlocks(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) ([]domain.LiveClassroomNoteBlock, error)
+	CreateNoteBlock(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, contentMarkdown string) (domain.LiveClassroomNoteBlock, error)
+	UpdateNoteBlock(ctx context.Context, actor service.Actor, classID, sessionID, blockID uuid.UUID, contentMarkdown string) (domain.LiveClassroomNoteBlock, error)
+	DeleteNoteBlock(ctx context.Context, actor service.Actor, classID, sessionID, blockID uuid.UUID) error
+	UploadNoteImage(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, in service.NoteImageInput) (service.NoteImageCreated, error)
+	OpenNoteImage(ctx context.Context, actor service.Actor, imageID uuid.UUID) (service.NoteImageStream, error)
 
 	Connect(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Connection, error)
 	Snapshot(ctx context.Context, sessionID uuid.UUID) (service.Active, error)
@@ -80,7 +86,7 @@ type Service interface {
 	ExerciseOf(ctx context.Context, sessionID uuid.UUID, withProgress bool) (*service.ExerciseState, error)
 	SubmitExercise(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.ExerciseSubmitInput) (service.ExerciseSubmitResult, error)
 
-	// The commands of the teacher (SPEC-071).
+	// The commands of the teacher (SPEC-073).
 	RecordCommand(ctx context.Context, sessionID uuid.UUID, in service.CommandInput) (domain.LiveTerminalCommand, error)
 	ListCommands(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) ([]domain.LiveTerminalCommand, error)
 }
@@ -160,6 +166,12 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.PUT("/classes/:id/live/sessions/:sessionId/notes", h.saveNote)
 	g.GET("/classes/:id/live/sessions/:sessionId/notes", h.getNote)
 	g.GET("/classes/:id/live/sessions/:sessionId/commands", h.commands)
+	g.GET("/classes/:id/live/sessions/:sessionId/note-blocks", h.listNoteBlocks)
+	g.POST("/classes/:id/live/sessions/:sessionId/note-blocks", h.createNoteBlock)
+	g.PATCH("/classes/:id/live/sessions/:sessionId/note-blocks/:blockId", h.updateNoteBlock)
+	g.DELETE("/classes/:id/live/sessions/:sessionId/note-blocks/:blockId", h.deleteNoteBlock)
+	g.POST("/classes/:id/live/sessions/:sessionId/note-images", h.uploadNoteImage)
+	g.GET("/media/notes/:imageId", h.getNoteImage)
 	g.GET("/classes/:id/live/ws", h.connect)
 	g.POST("/classes/:id/live/exercise/submit", h.submitExercise)
 }
@@ -597,11 +609,11 @@ func toProblem(err error) *problem.Problem {
 		return p
 	}
 	switch {
-	case errors.Is(err, domain.ErrInvalidTitle):
+	case errors.Is(err, domain.ErrInvalidTitle), errors.Is(err, domain.ErrEmptyNoteBlock):
 		return withField(problem.BadRequest("validation-error", err.Error()))
 	case errors.Is(err, domain.ErrInvalidPDF):
 		return withField(problem.BadRequest("invalid-pdf", err.Error()))
-	case errors.Is(err, domain.ErrInvalidFile):
+	case errors.Is(err, domain.ErrInvalidFile), errors.Is(err, domain.ErrInvalidNoteImage):
 		return withField(problem.BadRequest("invalid-file", err.Error()))
 	case errors.Is(err, domain.ErrContentTooLong):
 		return problem.BadRequest("content-too-long", err.Error())
@@ -627,6 +639,10 @@ func toProblem(err error) *problem.Problem {
 		return problem.NotFound("module-not-selected", err.Error())
 	case errors.Is(err, domain.ErrNotesNotFound):
 		return problem.NotFound("notes-not-found", err.Error())
+	case errors.Is(err, domain.ErrNoteBlockNotFound):
+		return problem.NotFound("note-block-not-found", err.Error())
+	case errors.Is(err, domain.ErrNoteImageNotFound):
+		return problem.NotFound("note-image-not-found", err.Error())
 	case errors.Is(err, domain.ErrClassArchived):
 		return problem.Conflict("class-archived", err.Error())
 	case errors.Is(err, domain.ErrDeckLimit):

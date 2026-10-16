@@ -9,7 +9,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/service"
 )
 
-// ---- SPEC-071: the commands of the teacher in the live classroom ----
+// ---- SPEC-073: the commands of the teacher in the live classroom ----
 
 // CreateCommand inserts a command; the room exists and the limits of the fields hold, by the constraints of the table.
 func (r *Repository) CreateCommand(ctx context.Context, c *domain.LiveTerminalCommand) error {

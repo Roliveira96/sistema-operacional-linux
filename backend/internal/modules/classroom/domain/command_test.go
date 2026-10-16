@@ -14,7 +14,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
 )
 
-// ---- SPEC-071: the commands of the teacher in the live classroom ----
+// ---- SPEC-073: the commands of the teacher in the live classroom ----
 
 func commandField(err error) string {
 	var fe *domain.FieldError
@@ -24,7 +24,7 @@ func commandField(err error) string {
 	return ""
 }
 
-// Covers SPEC-071 CA-05 and RN-05: a command is the terminal (1 to 3), the line as typed (trimmed, 1 to 2,000 characters, no control
+// Covers SPEC-073 CA-05 and RN-05: a command is the terminal (1 to 3), the line as typed (trimmed, 1 to 2,000 characters, no control
 // characters), the exit status (or none, when it was interrupted), the output and the moment of the server.
 func TestNewTerminalCommand(t *testing.T) {
 	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
@@ -53,7 +53,7 @@ func TestNewTerminalCommand(t *testing.T) {
 	assert.Equal(t, domain.MaxCommandOutputLength, utf8.RuneCountInString(edge.Output))
 }
 
-// Covers SPEC-071 CA-05 and RN-05: the output is cut by the server at 4,000 characters (characters, not bytes) and marked; what the client
+// Covers SPEC-073 CA-05 and RN-05: the output is cut by the server at 4,000 characters (characters, not bytes) and marked; what the client
 // already cut stays marked.
 func TestNewTerminalCommand_OutputCut(t *testing.T) {
 	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
@@ -70,7 +70,7 @@ func TestNewTerminalCommand_OutputCut(t *testing.T) {
 	assert.True(t, byClient.OutputTruncated)
 }
 
-// Covers SPEC-071 CA-05: what is refused, and which field broke.
+// Covers SPEC-073 CA-05: what is refused, and which field broke.
 func TestNewTerminalCommand_Invalid(t *testing.T) {
 	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
 	zero := 0

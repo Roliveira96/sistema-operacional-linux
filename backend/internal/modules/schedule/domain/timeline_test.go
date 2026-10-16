@@ -13,7 +13,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 )
 
-// ---- SPEC-071: the timeline of the class ----
+// ---- SPEC-073: the timeline of the class ----
 
 func hm(h, m int) domain.Clock { return domain.Clock(h*60 + m) }
 
@@ -35,7 +35,7 @@ func topics(list []domain.ClassSession) []string {
 	return out
 }
 
-// Covers SPEC-071 CA-01 and RN-01: the past (the 3 most recent, newest first), the current (the lesson of today whose window started: 15
+// Covers SPEC-073 CA-01 and RN-01: the past (the 3 most recent, newest first), the current (the lesson of today whose window started: 15
 // minutes before the start, until the end) and the upcoming (the 5 nearest), out of the lessons that are not canceled.
 func TestTimelineSplit(t *testing.T) {
 	sessions := []domain.ClassSession{
@@ -62,7 +62,7 @@ func TestTimelineSplit(t *testing.T) {
 	assert.Equal(t, []string{"u1", "u2", "u3", "u4", "u5"}, topics(tl.Upcoming), "the 5 nearest, nearest first")
 }
 
-// Covers SPEC-071 CA-01 and D-04: the window of the current lesson opens 15 minutes before the start and closes at the end, to the minute.
+// Covers SPEC-073 CA-01 and D-04: the window of the current lesson opens 15 minutes before the start and closes at the end, to the minute.
 func TestTimelineSplit_WindowOfFifteenMinutesBefore(t *testing.T) {
 	today := lesson("today", 2026, time.October, 19, hm(8, 20), hm(10, 0))
 	sessions := []domain.ClassSession{today}
@@ -90,7 +90,7 @@ func TestTimelineSplit_WindowOfFifteenMinutesBefore(t *testing.T) {
 	}
 }
 
-// Covers SPEC-071 RN-01: with two lessons of the day in the window at once, the one that starts earlier is the current one; the clock is read
+// Covers SPEC-073 RN-01: with two lessons of the day in the window at once, the one that starts earlier is the current one; the clock is read
 // in the time zone of the schedule, so a lesson around midnight is on its own day.
 func TestTimelineSplit_TwoLessonsADayAndMidnight(t *testing.T) {
 	early := lesson("early", 2026, time.October, 19, hm(8, 20), hm(10, 0))
@@ -106,7 +106,7 @@ func TestTimelineSplit_TwoLessonsADayAndMidnight(t *testing.T) {
 	assert.Equal(t, []string{"night"}, topics(tl.Past), "one minute past midnight, local time, the night lesson is over")
 }
 
-// Covers SPEC-071 RN-01: a lesson that was changed by hand uses its changed time; an empty schedule gives empty blocks, not nil.
+// Covers SPEC-073 RN-01: a lesson that was changed by hand uses its changed time; an empty schedule gives empty blocks, not nil.
 func TestTimelineSplit_ChangedTimeAndEmpty(t *testing.T) {
 	moved := lesson("moved", 2026, time.October, 19, hm(14, 0), hm(15, 40))
 	moved.Overridden = true
@@ -122,7 +122,7 @@ func TestTimelineSplit_ChangedTimeAndEmpty(t *testing.T) {
 	assert.Empty(t, empty.Upcoming)
 }
 
-// Covers SPEC-071 RN-01: the instants of a lesson, with the window of the current one.
+// Covers SPEC-073 RN-01: the instants of a lesson, with the window of the current one.
 func TestClassSession_Instants(t *testing.T) {
 	s := lesson("x", 2026, time.October, 19, hm(8, 20), hm(10, 0))
 	assert.Equal(t, at(2026, time.October, 19, 8, 20), s.StartsAt())
@@ -130,7 +130,7 @@ func TestClassSession_Instants(t *testing.T) {
 	assert.Equal(t, at(2026, time.October, 19, 8, 5), s.WindowOpensAt())
 }
 
-// Covers SPEC-071 CA-03 and RN-03: the notes of the teacher have the limit of the description; an empty one means none.
+// Covers SPEC-073 CA-03 and RN-03: the notes of the teacher have the limit of the description; an empty one means none.
 func TestTeacherNotes_Validate(t *testing.T) {
 	got, err := domain.NormalizeTeacherNotes("teacherNotes", "  <p>Hoje vimos chmod</p>  ")
 	require.NoError(t, err)

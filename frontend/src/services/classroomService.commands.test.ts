@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createClassroomService, type LiveTerminalCommand } from "./classroomService";
 import type { HttpClient } from "./httpClient";
 
-// SPEC-071, section 5: the commands the teacher ran in a live classroom
-describe("classroomService: commands of the teacher (SPEC-071)", () => {
+// SPEC-073, section 5: the commands the teacher ran in a live classroom
+describe("classroomService: commands of the teacher (SPEC-073)", () => {
   it("lists the commands of a live classroom, as the server ordered them", async () => {
     const client: HttpClient = { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
     const service = createClassroomService(client);

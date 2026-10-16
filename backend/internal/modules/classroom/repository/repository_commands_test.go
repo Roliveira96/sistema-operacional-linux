@@ -11,7 +11,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
 )
 
-// ---- SPEC-071: the commands of the teacher in the live classroom ----
+// ---- SPEC-073: the commands of the teacher in the live classroom ----
 
 // lesson inserts a lesson of the schedule of the class, which a room may be linked to.
 func (e env) lesson(t *testing.T, class uuid.UUID) uuid.UUID {
@@ -43,7 +43,7 @@ func (e env) linkedRoom(t *testing.T, class uuid.UUID, lesson *uuid.UUID, starte
 	return s
 }
 
-// Covers SPEC-071 CA-06 and section 4: the commands are saved and read back in the order they ran, whatever the order they were saved in, with
+// Covers SPEC-073 CA-06 and section 4: the commands are saved and read back in the order they ran, whatever the order they were saved in, with
 // the exit status (or none) and the output; the count is of the room alone.
 func TestCommands_OrderedByRanAt(t *testing.T) {
 	e := newEnv(t)
@@ -79,7 +79,7 @@ func TestCommands_OrderedByRanAt(t *testing.T) {
 	assert.Empty(t, none)
 }
 
-// Covers SPEC-071 CA-01 and section 3.2 (the port of the schedule): the rooms linked to any of the lessons asked, oldest first, each with how
+// Covers SPEC-073 CA-01 and section 3.2 (the port of the schedule): the rooms linked to any of the lessons asked, oldest first, each with how
 // many commands it has; rooms of other lessons, and rooms linked to none, stay out.
 func TestLinkedSessions_WithTheirCommandCounts(t *testing.T) {
 	e := newEnv(t)

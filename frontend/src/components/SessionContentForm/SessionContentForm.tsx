@@ -282,7 +282,7 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
               {errors.description && <span className={styles.fieldError}>{errors.description}</span>}
             </div>
 
-            {/* The notes of the teacher on the lesson: the public ones the class reads, the private ones only he does (SPEC-071). */}
+            {/* The notes of the teacher on the lesson: the public ones the class reads, the private ones only he does (SPEC-073). */}
             <div className={styles.field}>
               <RichTextEditor
                 label={m.teacherNotesLabel}

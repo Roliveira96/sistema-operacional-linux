@@ -48,7 +48,7 @@ type contentJSON struct {
 	Module      *contentModuleJSON `json:"module"`
 	Deck        *contentDeckJSON   `json:"deck"`
 	Links       []contentLinkJSON  `json:"links"`
-	// The notes of the teacher (SPEC-071): the private ones are left out for who may not read them.
+	// The notes of the teacher (SPEC-073): the private ones are left out for who may not read them.
 	TeacherNotes        string  `json:"teacherNotes"`
 	TeacherPrivateNotes *string `json:"teacherPrivateNotes,omitempty"`
 }

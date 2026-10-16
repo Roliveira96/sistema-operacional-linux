@@ -15,7 +15,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 )
 
-// ---- SPEC-071: the commands of the teacher in the live classroom ----
+// ---- SPEC-073: the commands of the teacher in the live classroom ----
 
 const typeTerminalCommand = "live:terminal:command"
 
@@ -57,7 +57,7 @@ func (f *fakeService) recordedCommands() []service.CommandInput {
 	return append([]service.CommandInput(nil), f.commands.calls...)
 }
 
-// Covers SPEC-071 CA-05, CA-07 and RN-05: the presentation window of the teacher records a command, which is kept and relayed to nobody;
+// Covers SPEC-073 CA-05, CA-07 and RN-05: the presentation window of the teacher records a command, which is kept and relayed to nobody;
 // the panel, a student and one who waits are dropped with audit, and the service is never asked.
 func TestTerminalCommand_PresenterOnly(t *testing.T) {
 	w := setup(t)
@@ -114,7 +114,7 @@ func TestTerminalCommand_PresenterOnly(t *testing.T) {
 	assert.Equal(t, 2, w.svc.called("command"))
 }
 
-// Covers SPEC-071 CA-05: a command the handler cannot read, one the domain refuses and one the service refuses are rejected with the log of
+// Covers SPEC-073 CA-05: a command the handler cannot read, one the domain refuses and one the service refuses are rejected with the log of
 // the room, and nothing is kept or sent.
 func TestTerminalCommand_InvalidRejected(t *testing.T) {
 	w := setup(t)
@@ -137,7 +137,7 @@ func TestTerminalCommand_InvalidRejected(t *testing.T) {
 	nothingMore(t, student, typeTerminalCommand)
 }
 
-// Covers SPEC-071 CA-06 and section 5: the commands of a room are read by the route, in order, with the fields of the contract; the problems
+// Covers SPEC-073 CA-06 and section 5: the commands of a room are read by the route, in order, with the fields of the contract; the problems
 // of the service are mapped, and the ids are checked.
 func TestCommandsRoute(t *testing.T) {
 	w := setup(t)

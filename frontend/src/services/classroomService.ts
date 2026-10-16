@@ -275,6 +275,25 @@ export interface LiveNote {
   updatedAt: string;
 }
 
+/** An atomic Markdown note block of the student for a live class session (SPEC-071). */
+export interface LiveNoteBlock {
+  id: string;
+  contentMarkdown: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NoteImageUploadMeta {
+  fileName?: string;
+  width?: number;
+  height?: number;
+}
+
+export interface NoteImageCreated {
+  imageId: string;
+  accessUrl: string;
+}
+
 /** An open room of a class of the student: what the notice of the live class needs (SPEC-067 section 5). */
 export interface MyLiveRoom {
   classId: string;
@@ -284,8 +303,7 @@ export interface MyLiveRoom {
   startedAt: string;
 }
 
-/** Live classroom REST client (SPEC-051, sections 5.1 to 5.7). */
-/** A command the teacher ran in the presentation window of a live classroom, as the server kept it (SPEC-071). */
+/** A command the teacher ran in the presentation window of a live classroom, as the server kept it (SPEC-073). */
 export interface LiveTerminalCommand {
   terminal: number;
   command: string;
@@ -296,6 +314,7 @@ export interface LiveTerminalCommand {
   ranAt: string;
 }
 
+/** Live classroom REST client (SPEC-051, sections 5.1 to 5.7; SPEC-071, sections 5.1 to 5.5). */
 export function createClassroomService(client: HttpClient = httpClient) {
   const live = (classId: string) => `/classes/${classId}/live`;
   return {
@@ -320,9 +339,26 @@ export function createClassroomService(client: HttpClient = httpClient) {
     saveNotes: (classId: string, sessionId: string, content: string) =>
       client.put<{ sessionId: string; savedLength: number; updatedAt: string }>(`${live(classId)}/sessions/${sessionId}/notes`, { content }),
     getNotes: (classId: string, sessionId: string) => client.get<LiveNote>(`${live(classId)}/sessions/${sessionId}/notes`),
-    /** The commands the teacher ran in a live classroom, in the order they ran (SPEC-071). */
+    /** The commands the teacher ran in a live classroom, in the order they ran (SPEC-073). */
     listCommands: async (classId: string, sessionId: string) =>
       (await client.get<{ sessionId: string; commands: LiveTerminalCommand[] }>(`${live(classId)}/sessions/${sessionId}/commands`)).commands,
+    listNoteBlocks: async (classId: string, sessionId: string) =>
+      (await client.get<{ items: LiveNoteBlock[] }>(`${live(classId)}/sessions/${sessionId}/note-blocks`)).items,
+    createNoteBlock: (classId: string, sessionId: string, contentMarkdown: string) =>
+      client.post<LiveNoteBlock>(`${live(classId)}/sessions/${sessionId}/note-blocks`, { contentMarkdown }),
+    updateNoteBlock: (classId: string, sessionId: string, blockId: string, contentMarkdown: string) =>
+      client.patch<LiveNoteBlock>(`${live(classId)}/sessions/${sessionId}/note-blocks/${blockId}`, { contentMarkdown }),
+    deleteNoteBlock: (classId: string, sessionId: string, blockId: string) =>
+      client.delete<void>(`${live(classId)}/sessions/${sessionId}/note-blocks/${blockId}`),
+    uploadNoteImage: (classId: string, sessionId: string, blob: Blob, meta?: NoteImageUploadMeta) => {
+      const form = new FormData();
+      const fileName = meta?.fileName ?? (blob.type === "image/webp" ? "captura.webp" : "captura.avif");
+      const file = blob instanceof File && blob.name === fileName ? blob : new File([blob], fileName, { type: blob.type });
+      form.set("file", file);
+      if (meta?.width !== undefined) form.set("width", String(meta.width));
+      if (meta?.height !== undefined) form.set("height", String(meta.height));
+      return client.post<NoteImageCreated>(`${live(classId)}/sessions/${sessionId}/note-images`, form);
+    },
     /** Sends the state of the machine of the student for the server to check against the conditions of the exercise (SPEC-065). */
     submitExercise: (classId: string, runId: string, snapshot: unknown) =>
       client.post<ExerciseVerdict>(`${live(classId)}/exercise/submit`, { runId, snapshot }),

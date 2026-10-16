@@ -17,7 +17,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 )
 
-// ---- SPEC-071: the commands of the teacher in the live classroom ----
+// ---- SPEC-073: the commands of the teacher in the live classroom ----
 
 // the repository double keeps the commands in the order they were saved
 func (f *fakeRepo) CreateCommand(_ context.Context, c *domain.LiveTerminalCommand) error {
@@ -76,7 +76,7 @@ func commandFieldOf(err error) string {
 	return ""
 }
 
-// Covers SPEC-071 CA-05, CA-06 and RN-05, RN-07: each command is kept with the moment of the server, and the list comes back in the order
+// Covers SPEC-073 CA-05, CA-06 and RN-05, RN-07: each command is kept with the moment of the server, and the list comes back in the order
 // they ran, with the terminal, the exit status (or none) and the output; an output over the limit is cut and marked.
 func TestRecordCommand_ServerTimeAndOrder(t *testing.T) {
 	w := setup(t)
@@ -112,7 +112,7 @@ func TestRecordCommand_ServerTimeAndOrder(t *testing.T) {
 	assert.True(t, cut.OutputTruncated)
 }
 
-// Covers SPEC-071 CA-05: a command that is not valid is refused with its field, and nothing is kept; a room that does not exist or that ended
+// Covers SPEC-073 CA-05: a command that is not valid is refused with its field, and nothing is kept; a room that does not exist or that ended
 // takes no command.
 func TestRecordCommand_InvalidAndEndedRoom(t *testing.T) {
 	w := setup(t)
@@ -145,7 +145,7 @@ func TestRecordCommand_InvalidAndEndedRoom(t *testing.T) {
 	assert.Empty(t, w.repo.commands)
 }
 
-// Covers SPEC-071 CA-05 and RN-06: a room keeps at most 2,000 commands; the ones over the limit are refused, and nothing else breaks.
+// Covers SPEC-073 CA-05 and RN-06: a room keeps at most 2,000 commands; the ones over the limit are refused, and nothing else breaks.
 func TestRecordCommand_CapPerSession(t *testing.T) {
 	w := setup(t)
 	ctx := context.Background()
@@ -166,7 +166,7 @@ func TestRecordCommand_CapPerSession(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// Covers SPEC-071 CA-06 and RN-07: the owner teacher, an administrator and a student with an active enrollment read the commands of a room
+// Covers SPEC-073 CA-06 and RN-07: the owner teacher, an administrator and a student with an active enrollment read the commands of a room
 // of the class, while it is open and after it ended; who is outside the class is refused, and a room of another class is not found.
 func TestListCommands_RolesAndForeignSession(t *testing.T) {
 	w := setup(t)
@@ -207,7 +207,7 @@ func TestListCommands_RolesAndForeignSession(t *testing.T) {
 	assert.Empty(t, list)
 }
 
-// Covers SPEC-071 CA-01, CA-02 and section 3.2 (the port of the schedule): the rooms linked to the lessons asked, oldest first, each with how
+// Covers SPEC-073 CA-01, CA-02 and section 3.2 (the port of the schedule): the rooms linked to the lessons asked, oldest first, each with how
 // many commands it has; and the open room of the class, with the lesson it is linked to.
 func TestLinkedRooms_ForTheSchedule(t *testing.T) {
 	w := setup(t)

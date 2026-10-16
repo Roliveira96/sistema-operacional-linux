@@ -12,7 +12,7 @@ import styles from "./ClassTimeline.module.scss";
 
 const m = messages.schedule.timeline;
 
-/** How often the timeline is asked again while the tab is in view (SPEC-071, 3.1). */
+/** How often the timeline is asked again while the tab is in view (SPEC-073, 3.1). */
 const CHECK_EVERY_MS = 60_000;
 
 export interface ClassTimelineProps {
@@ -20,7 +20,7 @@ export interface ClassTimelineProps {
   /** The code of the course, shown for a lesson that has no topic. */
   courseCode: string;
   role: "teacher" | "student";
-  /** Reads the timeline; the server decides what is past, current and upcoming (SPEC-071 RN-01). */
+  /** Reads the timeline; the server decides what is past, current and upcoming (SPEC-073 RN-01). */
   load: () => Promise<Timeline>;
   loadDiary: (session: Session) => Promise<Diary>;
   loadCommands: (liveSessionId: string) => Promise<LiveTerminalCommand[]>;
@@ -40,7 +40,7 @@ function dayOf(entry: TimelineEntry): string {
 }
 
 /**
- * The timeline of the class under the calendar (SPEC-071, 3.1): the current lesson, the past ones folded, and the upcoming ones. It asks the server
+ * The timeline of the class under the calendar (SPEC-073, 3.1): the current lesson, the past ones folded, and the upcoming ones. It asks the server
  * when it opens, every minute while the tab is in view and when the tab comes back into view; a failed reading hides it until the next one.
  */
 export function ClassTimeline({ classId, courseCode, role, load, loadDiary, loadCommands, liveHref, onStartLive, reloadKey = 0 }: ClassTimelineProps) {

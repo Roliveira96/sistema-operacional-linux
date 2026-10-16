@@ -14,7 +14,7 @@ export interface SessionDiaryProps {
   classId: string;
   session: Session;
   role: "teacher" | "student";
-  /** Reads the diary of the lesson (SPEC-071 RN-04). */
+  /** Reads the diary of the lesson (SPEC-073 RN-04). */
   load: (session: Session) => Promise<Diary>;
   /** Reads the commands the teacher ran in a live class, when it is expanded. */
   loadCommands: (liveSessionId: string) => Promise<LiveTerminalCommand[]>;
@@ -27,7 +27,7 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; diary: D
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
 /**
- * The diary of a lesson (SPEC-071, 3.1): the notes of the teacher (the private ones only to him), the content, and the live classes linked to the
+ * The diary of a lesson (SPEC-073, 3.1): the notes of the teacher (the private ones only to him), the content, and the live classes linked to the
  * lesson with the commands the teacher ran, which are read when a live class is expanded. It is the same in the panel of the day and in the cards of
  * the timeline.
  */
@@ -55,7 +55,7 @@ export function SessionDiary({ session, role, load, loadCommands, showContent = 
       {content.teacherNotes && (
         <section className={styles.section}>
           <h4 className={styles.heading}>{m.notes}</h4>
-          {/* HTML filtered by the server when it was saved (SPEC-071 RN-03). */}
+          {/* HTML filtered by the server when it was saved (SPEC-073 RN-03). */}
           <div className={styles.text} dangerouslySetInnerHTML={{ __html: content.teacherNotes }} />
         </section>
       )}

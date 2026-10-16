@@ -10,7 +10,7 @@ import (
 )
 
 // LiveSummary is a room of the live classroom linked to a lesson, as the diary shows it, with how many commands the teacher ran in it
-// (SPEC-071 RN-04).
+// (SPEC-073 RN-04).
 type LiveSummary struct {
 	ID              uuid.UUID
 	Title           string
@@ -21,14 +21,14 @@ type LiveSummary struct {
 	CommandCount    int
 }
 
-// ActiveLive is the open room of a class, and the lesson it is linked to, if any (SPEC-071 RN-02).
+// ActiveLive is the open room of a class, and the lesson it is linked to, if any (SPEC-073 RN-02).
 type ActiveLive struct {
 	ID             uuid.UUID
 	ClassSessionID *uuid.UUID
 }
 
 // LiveSessions is what the schedule needs from the live classroom; the classroom service implements it, in the composition root, never
-// through its repository (SPEC-071 section 3.2).
+// through its repository (SPEC-073 section 3.2).
 type LiveSessions interface {
 	// LinkedSessions gives the rooms linked to each of the lessons, oldest first, in one reading.
 	LinkedSessions(ctx context.Context, classSessionIDs []uuid.UUID) (map[uuid.UUID][]LiveSummary, error)
@@ -65,7 +65,7 @@ type Diary struct {
 	LiveSessions []LiveSummary
 }
 
-// Timeline splits the lessons of the class at the now of the server (SPEC-071 RN-01). The lesson linked to the open room is the current one,
+// Timeline splits the lessons of the class at the now of the server (SPEC-073 RN-01). The lesson linked to the open room is the current one,
 // whatever the hour, and the lesson of the hour then waits at the front of the upcoming (RN-02). Who reads the calendar reads it.
 func (s *Service) Timeline(ctx context.Context, actor Actor, classID uuid.UUID) (Timeline, error) {
 	class, err := s.readableClass(ctx, actor, classID)
@@ -147,7 +147,7 @@ func (s *Service) Timeline(ctx context.Context, actor Actor, classID uuid.UUID) 
 	return out, nil
 }
 
-// Diary reads a lesson with its content and the rooms linked to it (SPEC-071 RN-04). The content hides the private notes from a student.
+// Diary reads a lesson with its content and the rooms linked to it (SPEC-073 RN-04). The content hides the private notes from a student.
 func (s *Service) Diary(ctx context.Context, actor Actor, classID, sessionID uuid.UUID) (Diary, error) {
 	content, err := s.Content(ctx, actor, classID, sessionID)
 	if err != nil {

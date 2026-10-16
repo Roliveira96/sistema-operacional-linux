@@ -1,4 +1,4 @@
--- SPEC-071: the diary of the lesson. The notes of the teacher on a lesson of the schedule (public, which the class reads, and private, which
+-- SPEC-073: the diary of the lesson. The notes of the teacher on a lesson of the schedule (public, which the class reads, and private, which
 -- only the teacher and an administrator read), and the commands the teacher ran in the presentation window of a live classroom, kept in the
 -- order they ran, with the moment of the server. The commands have forensic value: nothing is deleted physically.
 

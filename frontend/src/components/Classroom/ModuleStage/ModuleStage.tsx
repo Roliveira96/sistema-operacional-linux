@@ -26,7 +26,7 @@ export interface ModuleStageProps {
   onFocusBlock?(blockId: string): void;
   /** The teacher's terminal tells the picture of its window. */
   onScreen?(tree: ScreenElement): void;
-  /** The teacher's terminal tells each command that ran, for the diary of the lesson (SPEC-071). */
+  /** The teacher's terminal tells each command that ran, for the diary of the lesson (SPEC-073). */
   onCommandRun?(run: CommandRun): void;
   /** The mouse of the teacher, shown to everybody as a percentage of the stage (SPEC-057 CA-07). */
   cursor?: LiveCursor | null;

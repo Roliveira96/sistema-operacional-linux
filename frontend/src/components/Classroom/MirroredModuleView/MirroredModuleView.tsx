@@ -35,7 +35,7 @@ export interface MirroredModuleViewProps {
    * normal speed, and reaches the class through the picture of the window, as what the teacher types does (SPEC-060). The student's copy never tells it.
    */
   onRunner?(run: StepRunner | null): void;
-  /** The teacher's terminal tells each command that ran in it, typed or by a step, for the diary of the lesson (SPEC-071). The student's copy never tells it. */
+  /** The teacher's terminal tells each command that ran in it, typed or by a step, for the diary of the lesson (SPEC-073). The student's copy never tells it. */
   onCommandRun?(run: CommandRun): void;
 }
 

@@ -599,7 +599,7 @@ export const messages = {
     },
     notify: (n: number) =>
       n === 0 ? "" : n === 1 ? "O estudante ativo receberá um e-mail." : `Os ${n} estudantes ativos receberão um e-mail.`,
-    // SPEC-071: the timeline of the class under the calendar
+    // SPEC-073: the timeline of the class under the calendar
     timeline: {
       region: "Linha do tempo da turma",
       current: "Aula atual",
@@ -620,7 +620,7 @@ export const messages = {
       viewDetails: "Ver detalhes",
       hide: "Recolher",
     },
-    // SPEC-071: the diary of the lesson
+    // SPEC-073: the diary of the lesson
     diary: {
       loading: "Carregando o diário…",
       loadError: "Não foi possível carregar o diário da aula.",
@@ -1548,12 +1548,32 @@ export const messages = {
     },
     notes: {
       title: "Minhas anotações",
-      placeholder: "Escreva aqui. Só você vê estas anotações.",
+      newNoteLabel: "Nova anotação",
+      placeholder: "Escreva uma anotação em Markdown ou cole uma captura (Ctrl+V). Só você vê estas anotações.",
       loading: "Carregando as anotações…",
       saving: "Salvando…",
       saved: "Salvo.",
       error: "Não foi possível salvar as anotações.",
+      uploadError: "Não foi possível enviar a imagem.",
+      uploadingImage: "Otimizando e enviando captura…",
       limit: "Até 20.000 caracteres",
+      empty: "Nenhuma anotação registrada nesta aula ainda.",
+      addBlock: "Adicionar anotação",
+      minimize: "Minimizar caderno",
+      pillLabel: (count: number) => `Anotações (${count})`,
+      editBlock: "Editar anotação",
+      saveEdit: "Salvar edição",
+      cancelEdit: "Cancelar",
+      deleteBlock: "Excluir anotação",
+      confirmDelete: "Confirmar exclusão",
+      editedAt: (time: string) => `editado às ${time}`,
+      pastedImageAlt: "Captura",
+      toolbar: {
+        bold: "Negrito",
+        italic: "Itálico",
+        inlineCode: "Código inline",
+        bulletList: "Lista de marcadores",
+      },
     },
   },
 } as const;

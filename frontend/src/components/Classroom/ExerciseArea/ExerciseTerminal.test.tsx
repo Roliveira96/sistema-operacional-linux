@@ -149,8 +149,8 @@ describe("ExerciseTerminal, read only", () => {
   });
 });
 
-// SPEC-071 CA-09: the terminal of the student in the exercise never reports its commands to the live classroom
-describe("commands of the live classroom (SPEC-071)", () => {
+// SPEC-073 CA-09: the terminal of the student in the exercise never reports its commands to the live classroom
+describe("commands of the live classroom (SPEC-073)", () => {
   it("does not ask the window for the commands that ran", async () => {
     render(terminal());
     await ready();

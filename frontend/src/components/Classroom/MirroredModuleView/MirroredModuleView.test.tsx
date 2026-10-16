@@ -317,8 +317,8 @@ describe("MirroredModuleView", () => {
   });
 });
 
-// SPEC-071 CA-09: the teacher's terminal tells each command that ran; the student's copy has nothing to tell
-describe("commands of the teacher (SPEC-071)", () => {
+// SPEC-073 CA-09: the teacher's terminal tells each command that ran; the student's copy has nothing to tell
+describe("commands of the teacher (SPEC-073)", () => {
   const run = { terminal: 1, command: "ls -la", exitStatus: 0, output: "total 0\n", outputTruncated: false };
 
   it("passes on each command the teacher's terminal ran, to the latest handler", async () => {

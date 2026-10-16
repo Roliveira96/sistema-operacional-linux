@@ -1302,8 +1302,8 @@ describe("useLiveClassroom, the presentation on the stage", () => {
   });
 });
 
-// SPEC-071 CA-09: the commands of the teacher go out only from the presenter window, as they ran
-describe("commands of the teacher (SPEC-071)", () => {
+// SPEC-073 CA-09: the commands of the teacher go out only from the presenter window, as they ran
+describe("commands of the teacher (SPEC-073)", () => {
   const run = { terminal: 1, command: "ls -la", exitStatus: 0, output: "total 0\n", outputTruncated: false };
 
   it("lets only the presenter send a command", () => {

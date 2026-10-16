@@ -700,7 +700,7 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
       lastScreen.current = screen;
       sendOnly("live:terminal:screen", { screen });
     },
-    /** A command the presenter window ran, for the diary of the lesson; the server keeps it and echoes nothing (SPEC-071). */
+    /** A command the presenter window ran, for the diary of the lesson; the server keeps it and echoes nothing (SPEC-073). */
     sendTerminalCommand: (run: CommandRun) => {
       if (onStage) sendOnly("live:terminal:command", run);
     },

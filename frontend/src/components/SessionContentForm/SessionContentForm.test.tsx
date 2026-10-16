@@ -124,7 +124,7 @@ describe("SessionContentForm", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
 
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    // the notes of the teacher go along, empty when there are none (SPEC-071 CA-10)
+    // the notes of the teacher go along, empty when there are none (SPEC-073 CA-10)
     expect(save).toHaveBeenCalledWith("c-1", "s-26", {
       topic: "Usuários e grupos",
       description: "<p>Veremos chmod.</p>",
@@ -294,8 +294,8 @@ describe("SessionContentForm", () => {
   });
 });
 
-// SPEC-071 CA-10: the notes of the teacher in the dialog of the content
-describe("notes of the teacher (SPEC-071)", () => {
+// SPEC-073 CA-10: the notes of the teacher in the dialog of the content
+describe("notes of the teacher (SPEC-073)", () => {
   it("opens with the notes filled in, saves them with the content and closes", async () => {
     const { save, onSaved } = setup({ ...saved, teacherNotes: "<p>Vimos chmod.</p>", teacherPrivateNotes: "<p>Rever o fork.</p>" });
     const dialog = await ready();

@@ -47,7 +47,7 @@ const (
 	// SPEC-056: the picture of the terminal window of the teacher, which the students and the panel see as it is
 	typeTerminalScreen = "live:terminal:screen"
 
-	// SPEC-071: a command the teacher ran in the presentation window, which the server keeps and relays to nobody
+	// SPEC-073: a command the teacher ran in the presentation window, which the server keeps and relays to nobody
 	typeTerminalCommand = "live:terminal:command"
 
 	// SPEC-057: how far the teacher scrolled a pane of the stage, where he put the divider of the module, the zoom, and the text he selected
@@ -112,7 +112,7 @@ func hubConfig() hub.Config {
 			typeCursorMove:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Limited: true, Coalesce: true},
 			typeCanvasDraw:     {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
 			typeTerminalScreen: {MaxBytes: 256 * kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
-			// a command is the line, up to 4,000 characters of output and little else; it counts against the budget of its sender (SPEC-071)
+			// a command is the line, up to 4,000 characters of output and little else; it counts against the budget of its sender (SPEC-073)
 			typeTerminalCommand: {MaxBytes: 8 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
 			typeStageBlank:      {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter},
 			typeStageScroll:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true, CoalesceKey: scrollKey},

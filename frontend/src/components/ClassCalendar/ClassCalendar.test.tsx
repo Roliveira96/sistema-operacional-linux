@@ -311,8 +311,8 @@ describe("ClassCalendar", () => {
   });
 });
 
-// SPEC-071 CA-08: the diary of each lesson in the panel of the day
-describe("diary of a lesson in the panel of the day (SPEC-071)", () => {
+// SPEC-073 CA-08: the diary of each lesson in the panel of the day
+describe("diary of a lesson in the panel of the day (SPEC-073)", () => {
   const withContent = () => {
     const data = octoberCalendar();
     data.sessions = data.sessions.map((x) => (x.id === "s-26" ? { ...x, topic: "Permissões de arquivos", hasContent: true } : x));

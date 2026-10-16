@@ -40,7 +40,7 @@ function setup(over: Partial<Diary> = {}, role: "teacher" | "student" = "student
   return { load, loadCommands };
 }
 
-// SPEC-071 CA-08 and section 3.1: the diary of the lesson
+// SPEC-073 CA-08 and section 3.1: the diary of the lesson
 describe("SessionDiary", () => {
   it("shows the student the public notes, the content and the live classes, and never the private notes", async () => {
     const { load } = setup();

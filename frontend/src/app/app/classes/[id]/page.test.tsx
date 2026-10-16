@@ -32,7 +32,7 @@ vi.mock("@/services/scheduleService", async () => {
       deletePeriod: vi.fn(),
       getSessionContent: vi.fn().mockResolvedValue({ links: [] }),
       saveSessionContent: vi.fn().mockResolvedValue({ links: [] }),
-      // SPEC-071: the timeline and the diary under the calendar
+      // SPEC-073: the timeline and the diary under the calendar
       timeline: vi.fn().mockResolvedValue({ now: "2026-10-13T10:00:00-03:00", current: null, past: [], upcoming: [], liveSessionId: null }),
       getDiary: vi.fn().mockResolvedValue({ session: {}, content: { links: [] }, liveSessions: [] }),
     },
@@ -463,8 +463,8 @@ describe("ClassPage (SPEC-041)", () => {
   });
 });
 
-// SPEC-071 CA-07: the timeline of the class under the calendar of the Agenda tab
-describe("timeline of the class (SPEC-071)", () => {
+// SPEC-073 CA-07: the timeline of the class under the calendar of the Agenda tab
+describe("timeline of the class (SPEC-073)", () => {
   it("shows the timeline under the calendar, for the student", async () => {
     asRole("STUDENT");
     searchParams = new URLSearchParams("tab=schedule");

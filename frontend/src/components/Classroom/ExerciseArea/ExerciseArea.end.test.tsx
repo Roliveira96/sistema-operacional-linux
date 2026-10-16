@@ -12,7 +12,8 @@ let h: ReturnType<typeof terminalHarness>;
 const area = (over: Partial<ExerciseAreaProps> = {}) => (
   <ExerciseArea classId="c-1" userId="u-1" exercise={round()} away={false} watched={false} onProgress={() => true} onScreen={() => true} {...over} />
 );
-const ended = (over: Partial<LiveExercise> = {}) => round({ status: "ENDED", endedBy: "TIMER", endedAt: END, ...over });
+// SPEC-071: the student goes back to the stage when the class goes back to the lesson (CLOSED), not when the time is up
+const ended = (over: Partial<LiveExercise> = {}) => round({ status: "CLOSED", endedBy: "TIMER", endedAt: END, closedAt: END, ...over });
 const result = { runId: "r-1", visible: true, completed: 2, participants: 3, scoreboard: [
   { studentId: "u-9", name: "Ana", elapsedSeconds: 75, points: 30 },
   { studentId: "u-1", name: "Bia", elapsedSeconds: 192, points: 28 },

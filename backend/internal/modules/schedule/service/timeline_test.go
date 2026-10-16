@@ -14,7 +14,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/service"
 )
 
-// ---- SPEC-071: the timeline of the class and the diary of the lesson ----
+// ---- SPEC-073: the timeline of the class and the diary of the lesson ----
 
 // fakeLive answers for the live classroom, like the classroom service does through the port in cmd/api: the rooms linked to each lesson,
 // with their commands, and the open room of the class.
@@ -79,7 +79,7 @@ func entryIDs(list []service.TimelineEntry) []uuid.UUID {
 	return out
 }
 
-// Covers SPEC-071 CA-01 and RN-01, RN-04: the owner teacher, an administrator and a student with an active enrollment read the timeline:
+// Covers SPEC-073 CA-01 and RN-01, RN-04: the owner teacher, an administrator and a student with an active enrollment read the timeline:
 // the past (newest first), the current lesson (the window of 15 minutes before the start, until the end) and the upcoming ones, each with
 // how many rooms were linked to it and how many commands they have, from one reading of the live classroom.
 func TestTimeline_Roles(t *testing.T) {
@@ -117,7 +117,7 @@ func TestTimeline_Roles(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrForbidden)
 }
 
-// Covers SPEC-071 CA-01: a canceled lesson is in no block; without the live classroom plugged in, the timeline still reads.
+// Covers SPEC-073 CA-01: a canceled lesson is in no block; without the live classroom plugged in, the timeline still reads.
 func TestTimeline_CanceledOutAndNoLivePort(t *testing.T) {
 	f := newTimelineFixture(t)
 	f.now = at(2026, time.October, 26, 9, 0)
@@ -137,7 +137,7 @@ func TestTimeline_CanceledOutAndNoLivePort(t *testing.T) {
 	assert.Nil(t, tl.LiveSessionID)
 }
 
-// Covers SPEC-071 CA-02 and RN-02: the lesson linked to the open room is the current one, whatever the hour, and leaves the other blocks;
+// Covers SPEC-073 CA-02 and RN-02: the lesson linked to the open room is the current one, whatever the hour, and leaves the other blocks;
 // the lesson that was current by the clock goes to the front of the upcoming ones.
 func TestTimeline_LiveLinkedWins(t *testing.T) {
 	f := newTimelineFixture(t)
@@ -167,7 +167,7 @@ func TestTimeline_LiveLinkedWins(t *testing.T) {
 	assert.Nil(t, tl.LiveSessionID)
 }
 
-// Covers SPEC-071 CA-02 and RN-02: an open room that is not linked to a lesson changes no block, and is told so the button of the room shows.
+// Covers SPEC-073 CA-02 and RN-02: an open room that is not linked to a lesson changes no block, and is told so the button of the room shows.
 func TestTimeline_LiveUnlinkedKeepsBlocks(t *testing.T) {
 	f := newTimelineFixture(t)
 	f.now = at(2026, time.October, 26, 9, 0)
@@ -190,7 +190,7 @@ func TestTimeline_LiveUnlinkedKeepsBlocks(t *testing.T) {
 	assert.Equal(t, room, *tl.LiveSessionID)
 }
 
-// Covers SPEC-071 CA-03 and RN-03: the notes of the teacher are saved with the content, through the same filter as the description, and
+// Covers SPEC-073 CA-03 and RN-03: the notes of the teacher are saved with the content, through the same filter as the description, and
 // saving them is not a change of the lesson: no change mark, no reason, no e-mail. A lesson with notes alone is a lesson with content.
 func TestSaveContent_TeacherNotes_NotAnOverrideNoMail(t *testing.T) {
 	f := newTimelineFixture(t)
@@ -227,7 +227,7 @@ func TestSaveContent_TeacherNotes_NotAnOverrideNoMail(t *testing.T) {
 	assert.False(t, cleared.HasContent)
 }
 
-// Covers SPEC-071 CA-03: notes over the limit are refused, pointing at the field, and nothing is saved.
+// Covers SPEC-073 CA-03: notes over the limit are refused, pointing at the field, and nothing is saved.
 func TestSaveContent_TeacherNotes_TooLong(t *testing.T) {
 	f := newTimelineFixture(t)
 	id := f.sessions[0].ID
@@ -246,7 +246,7 @@ func TestSaveContent_TeacherNotes_TooLong(t *testing.T) {
 	}
 }
 
-// Covers SPEC-071 CA-04 and RN-03: the private notes come back to the owner teacher and to an administrator, and never to a student; the
+// Covers SPEC-073 CA-04 and RN-03: the private notes come back to the owner teacher and to an administrator, and never to a student; the
 // public notes come back to everybody.
 func TestContent_PrivateNotesOnlyTeacherAndAdmin(t *testing.T) {
 	f := newTimelineFixture(t)
@@ -276,7 +276,7 @@ func TestContent_PrivateNotesOnlyTeacherAndAdmin(t *testing.T) {
 	assert.Equal(t, "", *got.TeacherPrivateNotes)
 }
 
-// Covers SPEC-071 CA-04, CA-08 and RN-04: the diary brings the lesson with its counts, the content (the private notes only to who may see
+// Covers SPEC-073 CA-04, CA-08 and RN-04: the diary brings the lesson with its counts, the content (the private notes only to who may see
 // them) and the rooms linked to the lesson; who reads is who reads the calendar.
 func TestDiary_StudentGetsNoPrivateNotes(t *testing.T) {
 	f := newTimelineFixture(t)

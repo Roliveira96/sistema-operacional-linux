@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 )
 
-// The timeline of the class (SPEC-071 RN-01, D-04): the lesson of the hour is current from 15 minutes before its start until its end; the
+// The timeline of the class (SPEC-073 RN-01, D-04): the lesson of the hour is current from 15 minutes before its start until its end; the
 // past block has the 3 most recent lessons and the upcoming block the 5 nearest.
 const (
 	CurrentWindowBefore = 15 * time.Minute
@@ -21,7 +21,7 @@ func (s ClassSession) StartsAt() time.Time { return s.StartTime.At(s.Date) }
 // EndsAt is the instant the lesson ends.
 func (s ClassSession) EndsAt() time.Time { return s.EndTime.At(s.Date) }
 
-// WindowOpensAt is when the lesson becomes the current one: 15 minutes before it starts (SPEC-071 D-04).
+// WindowOpensAt is when the lesson becomes the current one: 15 minutes before it starts (SPEC-073 D-04).
 func (s ClassSession) WindowOpensAt() time.Time { return s.StartsAt().Add(-CurrentWindowBefore) }
 
 // Timeline is the three blocks of the class at an instant: the past lessons (newest first), the current one, if any, and the upcoming ones
@@ -32,7 +32,7 @@ type Timeline struct {
 	Upcoming []ClassSession
 }
 
-// SplitTimeline puts the lessons that are not canceled in the blocks of the timeline at now (SPEC-071 RN-01): a lesson that ended is past;
+// SplitTimeline puts the lessons that are not canceled in the blocks of the timeline at now (SPEC-073 RN-01): a lesson that ended is past;
 // a lesson whose window opened (15 minutes before the start) and did not end is current, the one that starts earlier when there is more
 // than one, and the others of the window wait at the front of the upcoming; a lesson whose window did not open is upcoming. The past keeps
 // the MaxPastLessons most recent and the upcoming the MaxUpcomingLessons nearest.
@@ -76,7 +76,7 @@ func SplitTimeline(sessions []ClassSession, now time.Time) Timeline {
 }
 
 // NormalizeTeacherNotes trims a note of the teacher (already filtered as rich text) and checks its length, which is the one of the description
-// (SPEC-071 RN-03); an empty note means none. field names the note in the error.
+// (SPEC-073 RN-03); an empty note means none. field names the note in the error.
 func NormalizeTeacherNotes(field, raw string) (*string, error) {
 	text := strings.TrimSpace(raw)
 	if text == "" {

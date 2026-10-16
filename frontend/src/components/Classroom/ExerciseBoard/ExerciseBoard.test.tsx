@@ -39,6 +39,8 @@ const round = (over: Partial<LiveExercise> = {}): LiveExercise => ({
   ...over,
 });
 const ended = (over: Partial<LiveExercise> = {}) => round({ status: "ENDED", endedBy: "TIMER", endedAt: "2026-10-14T10:05:00Z", ...over });
+// SPEC-071: "Nova rodada" is there once the class went back to the lesson
+const closed = (over: Partial<LiveExercise> = {}) => ended({ status: "CLOSED", closedAt: "2026-10-14T10:06:00Z", ...over });
 
 const entry = (studentId: string, over: Partial<ExerciseProgressEntry> = {}): ExerciseProgressEntry => ({ studentId, met: 0, total: 2, last: "", at: START, ...over });
 const finished = (studentId: string, elapsedSeconds: number, points: number): ExerciseProgressEntry =>
@@ -610,32 +612,32 @@ describe("ExerciseBoard, with the round ended", () => {
   });
 
   it("goes back to the list with 'Nova rodada', and the ended round stays out while it is the same one", () => {
-    const { p, again } = mount({ exercise: ended() });
+    const { p, again } = mount({ exercise: closed() });
     fireEvent.click(board().getByRole("button", { name: "Nova rodada" }));
     expect(board().queryByText("Exercício encerrado")).toBeNull();
     expect(board().getAllByRole("button", { name: /^Iniciar exercício/ })).toHaveLength(3);
-    again({ exercise: ended({ resultVisible: true }) });
+    again({ exercise: closed({ resultVisible: true }) });
     expect(board().queryByText("Exercício encerrado")).toBeNull();
     fireEvent.click(row("Listar arquivos").getByRole("button", { name: /^Iniciar exercício/ }));
     expect(p.onStart).toHaveBeenCalledWith("b-1", 0, 5);
   });
 
   it("shows a round that starts after 'Nova rodada', and its end after that", () => {
-    const { again } = mount({ exercise: ended() });
+    const { again } = mount({ exercise: closed() });
     fireEvent.click(board().getByRole("button", { name: "Nova rodada" }));
     again({ exercise: round({ runId: "r-2" }) });
     expect(screen.getByRole("timer", { name: "Tempo restante" })).toBeDefined();
-    again({ exercise: ended({ runId: "r-2" }) });
+    again({ exercise: closed({ runId: "r-2" }) });
     expect(board().getByRole("heading", { name: "Exercício encerrado" })).toBeDefined();
   });
 
   it("shows again an ended round that the room gives after a reload, whichever it is", () => {
-    mount({ exercise: ended({ runId: "r-7" }) });
+    mount({ exercise: closed({ runId: "r-7" }) });
     expect(board().getByRole("heading", { name: "Exercício encerrado" })).toBeDefined();
   });
 
   it("is still there with no module, when a round ended", () => {
-    mount({ exercise: ended(), exercises: null });
+    mount({ exercise: closed(), exercises: null });
     expect(board().getByRole("heading", { name: "Exercício encerrado" })).toBeDefined();
     fireEvent.click(board().getByRole("button", { name: "Nova rodada" }));
     expect(screen.queryByRole("region", { name: "Exercício ao vivo" })).toBeNull();

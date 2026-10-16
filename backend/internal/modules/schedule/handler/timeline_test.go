@@ -16,7 +16,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 )
 
-// ---- SPEC-071: the timeline of the class and the diary of the lesson ----
+// ---- SPEC-073: the timeline of the class and the diary of the lesson ----
 
 func (f *fakeService) Timeline(_ context.Context, a service.Actor, classID uuid.UUID) (service.Timeline, error) {
 	f.actor, f.classID = a, classID
@@ -43,7 +43,7 @@ func aLesson(classID uuid.UUID, d time.Time) domain.ClassSession {
 		Topic: str("Permissões"), Description: str("<p>longo</p>"), HasContent: true, TeacherNotes: str("<p>público</p>"), TeacherPrivateNotes: str("<p>segredo</p>")}
 }
 
-// Covers SPEC-071 CA-01, CA-02, CA-04 and section 5: the timeline comes with the now of the server, the three blocks, the instants of each
+// Covers SPEC-073 CA-01, CA-02, CA-04 and section 5: the timeline comes with the now of the server, the three blocks, the instants of each
 // lesson with the offset of the schedule, the counts of the rooms and the commands, the open room, and nothing of the notes.
 func TestTimelineRoute(t *testing.T) {
 	srv, svc, userID := setup(authn.RoleStudent)
@@ -117,7 +117,7 @@ func TestTimelineRoute(t *testing.T) {
 	assert.Equal(t, "invalid-uuid", out["type"])
 }
 
-// Covers SPEC-071 CA-04, CA-08 and section 5: the diary brings the lesson with its counts, the content with the public notes (and the private
+// Covers SPEC-073 CA-04, CA-08 and section 5: the diary brings the lesson with its counts, the content with the public notes (and the private
 // ones only when the service gave them), and the rooms linked to the lesson with their commands.
 func TestDiaryRoute(t *testing.T) {
 	srv, svc, _ := setup(authn.RoleTeacher)
@@ -189,7 +189,7 @@ func TestDiaryRoute(t *testing.T) {
 	assert.Equal(t, "invalid-uuid", out["type"])
 }
 
-// Covers SPEC-071 CA-03, CA-04 and section 5: the content takes and gives back the notes of the teacher; the private ones only when the
+// Covers SPEC-073 CA-03, CA-04 and section 5: the content takes and gives back the notes of the teacher; the private ones only when the
 // service gave them, and a note over the limit points at its field.
 func TestContentRoute_TeacherNotes(t *testing.T) {
 	srv, svc, _ := setup(authn.RoleTeacher)

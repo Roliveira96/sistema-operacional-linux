@@ -6,8 +6,8 @@ function client(): HttpClient {
   return { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
 }
 
-// SPEC-071, section 5: the timeline of the class, the diary of the lesson and the notes of the teacher in the content
-describe("scheduleService: timeline and diary (SPEC-071)", () => {
+// SPEC-073, section 5: the timeline of the class, the diary of the lesson and the notes of the teacher in the content
+describe("scheduleService: timeline and diary (SPEC-073)", () => {
   it("reads the timeline of the class", async () => {
     const c = client();
     const svc = createScheduleService(c);

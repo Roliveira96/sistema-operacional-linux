@@ -10,7 +10,7 @@ import (
 )
 
 // scheduleLive lets the schedule read the rooms of the live classroom for its timeline and its diary, through the classroom service and never
-// its repository (SPEC-071 section 3.2).
+// its repository (SPEC-073 section 3.2).
 type scheduleLive struct{ classroom *classroomservice.Service }
 
 func (l scheduleLive) LinkedSessions(ctx context.Context, lessons []uuid.UUID) (map[uuid.UUID][]scheduleservice.LiveSummary, error) {

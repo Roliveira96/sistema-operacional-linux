@@ -51,13 +51,13 @@ type ContentInput struct {
 	ModuleID    *uuid.UUID
 	DeckID      *uuid.UUID
 	Links       []domain.LinkInput
-	// The notes of the teacher (SPEC-071 RN-03), as rich text.
+	// The notes of the teacher (SPEC-073 RN-03), as rich text.
 	TeacherNotes        string
 	TeacherPrivateNotes string
 }
 
 // SessionContent is the content of a lesson, with the module and the presentation resolved. TeacherPrivateNotes is nil for a reader who may
-// not see the private notes (a student); for the teacher it is the text, empty when there is none (SPEC-071 RN-03).
+// not see the private notes (a student); for the teacher it is the text, empty when there is none (SPEC-073 RN-03).
 type SessionContent struct {
 	Topic               string
 	Description         string
@@ -145,7 +145,7 @@ func (s *Service) Content(ctx context.Context, actor Actor, classID, sessionID u
 		return SessionContent{}, err
 	}
 	out := SessionContent{Topic: derefString(session.Topic), Description: derefString(session.Description), Links: links, TeacherNotes: derefString(session.TeacherNotes)}
-	// the private notes are the teacher's and the administrator's; a student never gets them, not even empty (SPEC-071 RN-03)
+	// the private notes are the teacher's and the administrator's; a student never gets them, not even empty (SPEC-073 RN-03)
 	if actor.Role != authn.RoleStudent {
 		private := derefString(session.TeacherPrivateNotes)
 		out.TeacherPrivateNotes = &private

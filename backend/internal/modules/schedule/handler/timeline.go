@@ -11,7 +11,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/service"
 )
 
-// The timeline of the class and the diary of the lesson (SPEC-071, section 5). The instants carry the offset of the schedule (SPEC-042 RN-13).
+// The timeline of the class and the diary of the lesson (SPEC-073, section 5). The instants carry the offset of the schedule (SPEC-042 RN-13).
 
 type timelineEntryJSON struct {
 	sessionJSON

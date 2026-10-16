@@ -28,7 +28,7 @@ export interface CommandResult {
   output: string;
 }
 
-/** A command that ran in the window, as the live classroom keeps it for the diary of the lesson (SPEC-071). */
+/** A command that ran in the window, as the live classroom keeps it for the diary of the lesson (SPEC-073). */
 export interface CommandRun {
   /** The terminal tab it ran in (1 to 3). */
   terminal: number;
@@ -45,7 +45,7 @@ export interface TerminalWindowCallbacks {
   /** Called after every command with the serialized machine. */
   onCommand(snapshot: unknown): void;
   /**
-   * Called once for each command that ran, typed by hand or by a step, with the terminal, the line, the exit status and the output (SPEC-071).
+   * Called once for each command that ran, typed by hand or by a step, with the terminal, the line, the exit status and the output (SPEC-073).
    * Only the presentation window of the live classroom asks for it.
    */
   onCommandRun?(run: CommandRun): void;
@@ -114,7 +114,7 @@ export function cleanOutput(printed: string, command: string): string {
   return lines.join("\n");
 }
 
-/** The most of the output of a command the live classroom keeps (SPEC-071 RN-05). */
+/** The most of the output of a command the live classroom keeps (SPEC-073 RN-05). */
 const RUN_OUTPUT_MAX = 4000;
 
 /** What the watcher of the commands reads of a terminal: its screen and its shell session. */
@@ -124,7 +124,7 @@ interface WatchedTerminal {
 }
 
 /**
- * Watches the terminals of the window for the commands that ran, from outside the legacy terminal (SPEC-071 CA-09, CA-11). After each command, the
+ * Watches the terminals of the window for the commands that ran, from outside the legacy terminal (SPEC-073 CA-09, CA-11). After each command, the
  * terminal whose shell history grew is the one that ran it: the line is the last of that history (what is typed at a password prompt never goes
  * there), the status is the one of its scope, and the output is what its screen got since the command before, without the prompt line and the
  * command, as `cleanOutput` does for the steps. A terminal first seen at its first command has no mark: its output starts at the echo of the line.
@@ -365,7 +365,7 @@ export async function mountTerminalWindow(
   };
 
   let machine = build(snapshot);
-  // SPEC-071: the presentation window asks for each command that ran; it is read from outside, after the window tells that a command ended.
+  // SPEC-073: the presentation window asks for each command that ran; it is read from outside, after the window tells that a command ended.
   const watcher = callbacks.onCommandRun ? commandWatcher(callbacks.onCommandRun) : null;
   let terminalsOf: () => Array<TerminalInternals | null> = () => [];
   const notify = () => {

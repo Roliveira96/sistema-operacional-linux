@@ -186,3 +186,62 @@ describe("classroomService, files sent with the class going on", () => {
     expect(await createClassroomService(http).listDecks("c-1")).toEqual(decks);
   });
 });
+
+// SPEC-071 section 5: atomic note blocks and private note images
+describe("classroomService, atomic note blocks and private note images (SPEC-071)", () => {
+  const http: HttpClient = { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
+  const svc = createClassroomService(http);
+
+  it("lists, creates, updates and deletes atomic note blocks", async () => {
+    const block = {
+      id: "b-1",
+      contentMarkdown: "O comando `sudo` eleva privilégios.",
+      createdAt: "2026-10-16T10:14:22Z",
+      updatedAt: "2026-10-16T10:14:22Z",
+    };
+    vi.mocked(http.get).mockResolvedValueOnce({ items: [block] });
+    expect(await svc.listNoteBlocks("c-1", "s-1")).toEqual([block]);
+    expect(http.get).toHaveBeenCalledWith("/classes/c-1/live/sessions/s-1/note-blocks");
+
+    vi.mocked(http.post).mockResolvedValueOnce(block);
+    expect(await svc.createNoteBlock("c-1", "s-1", block.contentMarkdown)).toEqual(block);
+    expect(http.post).toHaveBeenCalledWith("/classes/c-1/live/sessions/s-1/note-blocks", {
+      contentMarkdown: block.contentMarkdown,
+    });
+
+    const edited = { ...block, contentMarkdown: "Editado", updatedAt: "2026-10-16T10:15:10Z" };
+    vi.mocked(http.patch).mockResolvedValueOnce(edited);
+    expect(await svc.updateNoteBlock("c-1", "s-1", "b-1", "Editado")).toEqual(edited);
+    expect(http.patch).toHaveBeenCalledWith("/classes/c-1/live/sessions/s-1/note-blocks/b-1", {
+      contentMarkdown: "Editado",
+    });
+
+    vi.mocked(http.delete).mockResolvedValueOnce(undefined);
+    await svc.deleteNoteBlock("c-1", "s-1", "b-1");
+    expect(http.delete).toHaveBeenCalledWith("/classes/c-1/live/sessions/s-1/note-blocks/b-1");
+  });
+
+  it("uploads a note image as multipart with width and height and returns the proxy access URL", async () => {
+    vi.mocked(http.post).mockResolvedValueOnce({
+      imageId: "img-1",
+      accessUrl: "/api/v1/media/notes/img-1",
+    });
+    const blob = new Blob(["avif-bytes"], { type: "image/avif" });
+    const created = await svc.uploadNoteImage("c-1", "s-1", blob, {
+      fileName: "capture.avif",
+      width: 1220,
+      height: 680,
+    });
+    const [path, body] = vi.mocked(http.post).mock.calls.at(-1)!;
+    expect(path).toBe("/classes/c-1/live/sessions/s-1/note-images");
+    const form = body as FormData;
+    expect(form.get("width")).toBe("1220");
+    expect(form.get("height")).toBe("680");
+    expect((form.get("file") as File).name).toBe("capture.avif");
+    expect(created).toEqual({
+      imageId: "img-1",
+      accessUrl: "/api/v1/media/notes/img-1",
+    });
+  });
+});
+

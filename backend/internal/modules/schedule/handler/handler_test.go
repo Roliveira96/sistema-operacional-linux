@@ -49,7 +49,7 @@ type fakeService struct {
 	sessionID    uuid.UUID
 	savedContent service.ContentInput
 	content      service.SessionContent
-	// SPEC-071
+	// SPEC-073
 	timeline service.Timeline
 	diary    service.Diary
 }

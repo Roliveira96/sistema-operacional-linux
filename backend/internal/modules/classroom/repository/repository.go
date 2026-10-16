@@ -147,18 +147,27 @@ func (r *Repository) ListOpenRoomsOfStudent(ctx context.Context, studentID uuid.
 	return out, err
 }
 
-// SessionsWithNotes tells which of the rooms the student has notes in.
+// SessionsWithNotes tells which of the rooms the student has notes in (legacy notes or atomic note blocks, SPEC-071 RN-08).
 func (r *Repository) SessionsWithNotes(ctx context.Context, studentID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
 	out := map[uuid.UUID]bool{}
 	if len(ids) == 0 {
 		return out, nil
 	}
 	var found []uuid.UUID
-	err := r.db.Conn(ctx).Model(&domain.LiveClassroomNote{}).Where("student_id = ? AND session_id IN ?", studentID, ids).Pluck("session_id", &found).Error
+	if err := r.db.Conn(ctx).Model(&domain.LiveClassroomNote{}).Where("student_id = ? AND session_id IN ?", studentID, ids).Pluck("session_id", &found).Error; err != nil {
+		return out, err
+	}
 	for _, id := range found {
 		out[id] = true
 	}
-	return out, err
+	var blockFound []uuid.UUID
+	if err := r.db.Conn(ctx).Model(&domain.LiveClassroomNoteBlock{}).Where("student_id = ? AND session_id IN ?", studentID, ids).Distinct("session_id").Pluck("session_id", &blockFound).Error; err != nil {
+		return out, err
+	}
+	for _, id := range blockFound {
+		out[id] = true
+	}
+	return out, nil
 }
 
 // ---- decks ----

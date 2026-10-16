@@ -46,6 +46,8 @@ Regras:
 | Lâmina | `Slide` | Uma página da apresentação | `Page` | Proposto (SPEC-051) |
 | Mão levantada | `LiveHandRaise` (tabela `live_hand_raises`) | Pedido de fala de um estudante na sala ao vivo, em fila cronológica | `Question`, `Request` | Proposto (SPEC-051) |
 | Anotações da aula | `LiveClassroomNote` (tabela `live_classroom_notes`) | Caderno privativo do estudante durante a sala ao vivo | `Notes` sozinho | Proposto (SPEC-051) |
+| Bloco de anotação da aula | `LiveClassroomNoteBlock` (tabela `live_classroom_note_blocks`) | Registro atômico e cronológico do caderno de anotações privativo do estudante em uma aula ao vivo, em Markdown com imagens privadas | `anotacoes_discentes_blocos`, `NoteBlock` solto | Decidido (SPEC-072) |
+| Imagem de anotação da aula | `LiveClassroomNoteImage` (tabela `live_classroom_note_images`) | Captura de tela ou imagem privada anexada pelo estudante ao seu caderno de anotações, otimizada em AVIF/WebP e servida por proxy autenticado | `imagens_anotacoes`, `NoteAttachment` | Decidido (SPEC-072) |
 | Sala de espera | `LiveClassroomAdmission` (tabela `live_classroom_admissions`) | Situação do estudante numa aula ao vivo (`WAITING`, `ADMITTED`, `REMOVED`): só o aceito pelo professor vê a aula | `Lobby`, `Approval` | Proposto (SPEC-054) |
 | Espelho do terminal | `TerminalMirror` | Cópia somente leitura da tela do terminal do professor na aula ao vivo, desenhada pelo aluno a partir de uma árvore segura de tags (`live:terminal:screen`) | `Terminal remoto`, `Replay` | Proposto (SPEC-056) |
 | Palco | `FixedStage` | Área fixa de 1920 × 1080 px lógicos onde a aula ao vivo é desenhada, ajustada por escala à janela de cada pessoa, para o professor e os alunos verem a mesma tela | `Viewport`, `Canvas` | Proposto (SPEC-057) |
@@ -61,11 +63,11 @@ Regras:
 | Placar da rodada | `live:exercise:result` | Lista de quem concluiu a rodada, com tempo e pontos, por pontos e depois por tempo, que o professor mostra ou oculta aos alunos junto com a solução | `Ranking` (o ranking é a soma de várias rodadas, fora de escopo) | Proposto (SPEC-065) |
 | Pontos de gamificação | `live_exercise_results.points` | Pontos de quem concluiu uma rodada: a base da dificuldade (10, 20, 30) mais até 50% de bônus de rapidez; guardados para uma pontuação acumulada futura | `Nota` | Proposto (SPEC-065) |
 | Observação do terminal | `live:exercise:watch` | O painel vê ao vivo o terminal de um aluno da rodada, um por vez; só esse aluno manda a imagem | `Espelhar o aluno` | Proposto (SPEC-065) |
-| Linha do tempo da turma | `ClassTimeline` (rota `sessions/timeline`) | Os blocos Aulas passadas, Aula atual e Próximas aulas, calculados pelo servidor | `Feed`, `Histórico` | Proposto (SPEC-071) |
-| Aula atual | `current` da linha do tempo | A aula de hoje na janela de 15 minutos antes do início até o fim, ou a ligada à sala ao vivo ativa | `Aula de agora` | Proposto (SPEC-071) |
-| Diário da aula | `SessionDiary` (rota `sessions/{id}/diary`) | As anotações do professor, o conteúdo e as salas ao vivo com os comandos de uma aula da agenda | `Diário de bordo` (na interface é só "diário") | Proposto (SPEC-071) |
-| Anotações da aula (do professor) | `teacher_notes`, `teacher_private_notes` | Texto público e texto privado do professor numa aula da agenda. Não confundir com `LiveClassroomNote` (do estudante na sala) | `Notes` solto | Proposto (SPEC-071) |
-| Comando da aula ao vivo | `LiveTerminalCommand` (tabela `live_terminal_commands`, mensagem `live:terminal:command`) | Uma linha que o professor executou na janela de apresentação, com o terminal, o código de saída e a saída | `History` (reservado ao `CommandLog` da prova) | Proposto (SPEC-071) |
+| Linha do tempo da turma | `ClassTimeline` (rota `sessions/timeline`) | Os blocos Aulas passadas, Aula atual e Próximas aulas, calculados pelo servidor | `Feed`, `Histórico` | Proposto (SPEC-073) |
+| Aula atual | `current` da linha do tempo | A aula de hoje na janela de 15 minutos antes do início até o fim, ou a ligada à sala ao vivo ativa | `Aula de agora` | Proposto (SPEC-073) |
+| Diário da aula | `SessionDiary` (rota `sessions/{id}/diary`) | As anotações do professor, o conteúdo e as salas ao vivo com os comandos de uma aula da agenda | `Diário de bordo` (na interface é só "diário") | Proposto (SPEC-073) |
+| Anotações da aula (do professor) | `teacher_notes`, `teacher_private_notes` | Texto público e texto privado do professor numa aula da agenda. Não confundir com `LiveClassroomNote` (do estudante na sala) | `Notes` solto | Proposto (SPEC-073) |
+| Comando da aula ao vivo | `LiveTerminalCommand` (tabela `live_terminal_commands`, mensagem `live:terminal:command`) | Uma linha que o professor executou na janela de apresentação, com o terminal, o código de saída e a saída | `History` (reservado ao `CommandLog` da prova) | Proposto (SPEC-073) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 

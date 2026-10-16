@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// commands reads the commands the teacher ran in a room of the class, in the order they ran (SPEC-071 section 5).
+// commands reads the commands the teacher ran in a room of the class, in the order they ran (SPEC-073 section 5).
 func (h *Handler) commands(c *gin.Context) {
 	actor, classID, ok := requestOf(c)
 	if !ok {

@@ -537,8 +537,8 @@ describe("picture of the screen for the live classroom (SPEC-056)", () => {
   });
 });
 
-// SPEC-071 CA-09, CA-11: the commands the teacher runs in the presentation window, for the diary of the lesson
-describe("commands of the teacher for the live classroom (SPEC-071)", () => {
+// SPEC-073 CA-09, CA-11: the commands the teacher runs in the presentation window, for the diary of the lesson
+describe("commands of the teacher for the live classroom (SPEC-073)", () => {
   const key = (target: Element, name: string) => target.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
   const type = (container: HTMLElement, text: string) => {
     const screen = container.querySelector(".term-tela") as HTMLElement;

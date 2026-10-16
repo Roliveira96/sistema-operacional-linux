@@ -76,7 +76,7 @@ function setup(role: "teacher" | "student", over: Partial<Timeline> = {}, extra:
 const region = () => screen.getByRole("region", { name: "Linha do tempo da turma" });
 const block = (name: string) => within(region()).getByRole("region", { name });
 
-// SPEC-071 CA-07 and section 3.1: the timeline of the class under the calendar
+// SPEC-073 CA-07 and section 3.1: the timeline of the class under the calendar
 describe("ClassTimeline", () => {
   it("shows the three blocks: the current lesson marked Agora, the past ones folded with their commands, and the upcoming ones", async () => {
     const { load } = setup("student");

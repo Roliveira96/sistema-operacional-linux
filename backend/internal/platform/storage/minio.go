@@ -80,6 +80,15 @@ func (s *Storage) PutObject(ctx context.Context, objectKey string, reader io.Rea
 	return nil
 }
 
+// GetObject opens a private object from the configured bucket for streaming (SPEC-071).
+func (s *Storage) GetObject(ctx context.Context, objectKey string) (io.ReadCloser, error) {
+	obj, err := s.client.GetObject(ctx, s.bucket, objectKey, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get object %s: %w", objectKey, err)
+	}
+	return obj, nil
+}
+
 // PresignedGetURL returns a temporary address that lets whoever has it read the object, valid for ttl (SPEC-051: the decks of the live
 // classroom are not public; each student asks for a fresh address).
 func (s *Storage) PresignedGetURL(ctx context.Context, objectKey string, ttl time.Duration) (string, error) {
@@ -101,7 +110,6 @@ func (s *Storage) GetObjectURL(objectKey string) string {
 	}
 	return fmt.Sprintf("%s://%s/%s/%s", scheme, s.endpoint, s.bucket, objectKey)
 }
-
 
 // Exists tells whether an object is in the bucket.
 func (s *Storage) Exists(ctx context.Context, objectKey string) (bool, error) {

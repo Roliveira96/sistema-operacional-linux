@@ -60,6 +60,16 @@ type Repository interface {
 	SaveNote(ctx context.Context, sessionID, studentID uuid.UUID, content string) (domain.LiveClassroomNote, error)
 	FindNote(ctx context.Context, sessionID, studentID uuid.UUID) (domain.LiveClassroomNote, error)
 
+	// Atomic note blocks and private note images (SPEC-071).
+	ListNoteBlocks(ctx context.Context, sessionID, studentID uuid.UUID) ([]domain.LiveClassroomNoteBlock, error)
+	CreateNoteBlock(ctx context.Context, b *domain.LiveClassroomNoteBlock) error
+	FindNoteBlock(ctx context.Context, id uuid.UUID) (domain.LiveClassroomNoteBlock, error)
+	SaveNoteBlock(ctx context.Context, b *domain.LiveClassroomNoteBlock) error
+	DeleteNoteBlock(ctx context.Context, id uuid.UUID, now time.Time) error
+	CreateNoteImage(ctx context.Context, img *domain.LiveClassroomNoteImage) error
+	FindNoteImage(ctx context.Context, id uuid.UUID) (domain.LiveClassroomNoteImage, error)
+	LinkNoteImages(ctx context.Context, sessionID, studentID, blockID uuid.UUID, imageIDs []uuid.UUID) error
+
 	// FindAdmission returns domain.ErrAdmissionNotFound when the student never asked to come in (SPEC-054).
 	FindAdmission(ctx context.Context, sessionID, studentID uuid.UUID) (domain.LiveClassroomAdmission, error)
 	// UpsertAdmission creates the row or changes its status; waiting puts the student at the end of the line.
@@ -91,7 +101,7 @@ type Repository interface {
 	// UserNames gives the name of each user (the e-mail of one who has none), for the cards of the round.
 	UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
 
-	// The commands of the teacher (SPEC-071). ListCommands gives them in the order they ran; ListLinkedSessions gives the rooms linked to any
+	// The commands of the teacher (SPEC-073). ListCommands gives them in the order they ran; ListLinkedSessions gives the rooms linked to any
 	// of the lessons of the schedule, oldest first, each with how many commands it has.
 	CreateCommand(ctx context.Context, c *domain.LiveTerminalCommand) error
 	CountCommands(ctx context.Context, sessionID uuid.UUID) (int64, error)
@@ -125,9 +135,10 @@ type Modules interface {
 	Read(ctx context.Context, moduleID uuid.UUID) (ModuleView, error)
 }
 
-// Storage keeps the files of the presentations.
+// Storage keeps the files of the presentations and private student note images.
 type Storage interface {
 	PutObject(ctx context.Context, key string, r io.Reader, size int64, contentType string) error
+	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
 	PresignedGetURL(ctx context.Context, key string, ttl time.Duration) (string, error)
 }
 

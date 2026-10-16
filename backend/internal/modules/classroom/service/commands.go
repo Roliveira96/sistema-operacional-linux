@@ -9,7 +9,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/classroom/domain"
 )
 
-// ---- SPEC-071: the commands of the teacher in the live classroom ----
+// ---- SPEC-073: the commands of the teacher in the live classroom ----
 
 // CommandInput is a command as the presentation window sent it.
 type CommandInput struct {
@@ -27,7 +27,7 @@ type LinkedRoom struct {
 	CommandCount int
 }
 
-// RecordCommand keeps a command the presentation window of the open room sent, with the moment of the server (SPEC-071 RN-05); a room that
+// RecordCommand keeps a command the presentation window of the open room sent, with the moment of the server (SPEC-073 RN-05); a room that
 // is not open takes none, and a room with MaxCommandsPerSession commands takes no more (RN-06). The handler has already checked who sent it.
 func (s *Service) RecordCommand(ctx context.Context, sessionID uuid.UUID, in CommandInput) (domain.LiveTerminalCommand, error) {
 	session, err := s.activeSession(ctx, sessionID)
@@ -52,7 +52,7 @@ func (s *Service) RecordCommand(ctx context.Context, sessionID uuid.UUID, in Com
 }
 
 // ListCommands gives the commands of a room of the class, in the order they ran, to who may see the room: the owner teacher, an
-// administrator and a student with an active enrollment, while the room is open and after it ended (SPEC-071 RN-07).
+// administrator and a student with an active enrollment, while the room is open and after it ended (SPEC-073 RN-07).
 func (s *Service) ListCommands(ctx context.Context, actor Actor, classID, sessionID uuid.UUID) ([]domain.LiveTerminalCommand, error) {
 	if _, err := s.readable(ctx, actor, classID); err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func (s *Service) LinkedRooms(ctx context.Context, classSessionIDs []uuid.UUID) 
 	return rooms, nil
 }
 
-// ActiveRoom gives the open room of the class, when there is one; the schedule asks it to know the lesson of the hour (SPEC-071 RN-02).
+// ActiveRoom gives the open room of the class, when there is one; the schedule asks it to know the lesson of the hour (SPEC-073 RN-02).
 func (s *Service) ActiveRoom(ctx context.Context, classID uuid.UUID) (domain.LiveClassroomSession, bool, error) {
 	session, err := s.repo.FindActiveSession(ctx, classID)
 	if errors.Is(err, domain.ErrSessionNotFound) {
