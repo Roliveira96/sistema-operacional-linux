@@ -106,6 +106,9 @@ type fakeService struct {
 
 	// the exercise of the lesson: the round, who is in it, and what the handler asked (SPEC-065)
 	exercise exerciseDouble
+
+	// the commands of the teacher: what the handler asked to keep, and what the route reads (SPEC-071)
+	commands commandState
 }
 
 func (f *fakeService) record(s string) {

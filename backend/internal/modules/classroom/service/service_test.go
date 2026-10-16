@@ -46,6 +46,8 @@ type fakeRepo struct {
 	chat []domain.LiveChatMessage
 	// exercise is the rounds and the results of the exercise of the lesson (SPEC-065).
 	exercise exerciseStore
+	// commands is the commands of the teacher, in the order they were saved (SPEC-071).
+	commands []domain.LiveTerminalCommand
 }
 
 type handRow struct {
