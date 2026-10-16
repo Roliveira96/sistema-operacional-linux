@@ -280,6 +280,64 @@ describe("SessionContentForm", () => {
       expect(upload).not.toHaveBeenCalled();
     });
 
+    // SPEC-053 CA-15: the teachers drop the file on the area instead of choosing it.
+    describe("dropping the file on the area", () => {
+      const area = (dialog: HTMLElement) => within(dialog).getByText("Arraste o PDF aqui ou clique para escolher").closest("label") as HTMLElement;
+      const drop = (dialog: HTMLElement, ...files: File[]) => fireEvent.drop(area(dialog), { dataTransfer: { files, types: ["Files"] } });
+
+      it("sends the dropped PDF and selects it, like the one chosen by click", async () => {
+        setup();
+        const dialog = await ready();
+        readPdfInfo.mockResolvedValue({ pageCount: 4 });
+        const upload = vi.spyOn(classroomService, "uploadDeck").mockResolvedValue({ id: "d-7", title: "Aula 3 - Permissões", pageCount: 4, downloadUrl: "https://minio/d-7" });
+        const file = pdf();
+        drop(dialog, file, new File(["%PDF-1.7"], "outro.pdf", { type: "application/pdf" }));
+        await waitFor(() => expect(upload).toHaveBeenCalledWith("c-1", file, "Aula 3 - Permissões", 4));
+        expect(upload).toHaveBeenCalledTimes(1);
+        const deck = within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement;
+        await waitFor(() => expect(deck.value).toBe("d-7"));
+      });
+
+      it("refuses a dropped file that is not a PDF, before sending", async () => {
+        setup();
+        const dialog = await ready();
+        const upload = vi.spyOn(classroomService, "uploadDeck");
+        drop(dialog, new File(["x"], "foto.png", { type: "image/png" }));
+        expect(await within(dialog).findByText("Escolha um arquivo PDF.")).toBeDefined();
+        expect(upload).not.toHaveBeenCalled();
+      });
+
+      it("highlights the area while a file is over it", async () => {
+        setup();
+        const dialog = await ready();
+        const target = area(dialog);
+        expect(target.getAttribute("data-dragging")).toBeNull();
+        fireEvent.dragEnter(target, { dataTransfer: { types: ["Files"] } });
+        expect(target.getAttribute("data-dragging")).toBe("true");
+        fireEvent.dragLeave(target, { dataTransfer: { types: ["Files"] } });
+        expect(target.getAttribute("data-dragging")).toBeNull();
+        fireEvent.dragEnter(target, { dataTransfer: { types: ["Files"] } });
+        fireEvent.drop(target, { dataTransfer: { files: [], types: ["Files"] } });
+        expect(target.getAttribute("data-dragging")).toBeNull();
+      });
+
+      it("ignores a file dropped while another one is being sent", async () => {
+        setup();
+        const dialog = await ready();
+        readPdfInfo.mockResolvedValue({ pageCount: 2 });
+        let finish: (deck: { id: string; title: string; pageCount: number; downloadUrl: string }) => void = () => undefined;
+        const upload = vi.spyOn(classroomService, "uploadDeck").mockReturnValue(new Promise((resolve) => (finish = resolve)));
+        drop(dialog, pdf());
+        await waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
+        drop(dialog, new File(["%PDF-1.7"], "segundo.pdf", { type: "application/pdf" }));
+        await Promise.resolve();
+        expect(readPdfInfo).toHaveBeenCalledTimes(1);
+        finish({ id: "d-8", title: "Aula 3 - Permissões", pageCount: 2, downloadUrl: "https://minio/d-8" });
+        await waitFor(() => expect((within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement).value).toBe("d-8"));
+        expect(upload).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it("shows the refusals of the server", async () => {
       setup();
       const dialog = await ready();

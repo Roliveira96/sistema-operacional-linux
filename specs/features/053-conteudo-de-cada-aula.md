@@ -49,7 +49,7 @@ A aula ao vivo (SPEC-051) é iniciada só pela visão geral, sem ligação com a
 - **Descrição do conteúdo:** texto formatado (o mesmo editor da ementa), até o limite da ementa.
 - **Links da aula:** lista de nome e endereço https, até 10 (mesmo editor e regras dos links da turma, SPEC-048).
 - **Módulo de ensino:** lista dos módulos que o professor pode usar, com a opção "Nenhum".
-- **Apresentação (PDF):** lista das apresentações da turma, com "Nenhuma", e o botão **Enviar PDF**, que lê o arquivo no navegador, valida (PDF, até 25 MB, até 100 páginas, sem senha), envia e já seleciona a nova apresentação. Reaproveita o envio da SPEC-051.
+- **Apresentação (PDF):** lista das apresentações da turma, com "Nenhuma", e a área **Enviar PDF**, que lê o arquivo no navegador, valida (PDF, até 25 MB, até 100 páginas, sem senha), envia e já seleciona a nova apresentação. Reaproveita o envio da SPEC-051. O arquivo chega por clique (escolher no computador) ou **arrastando e soltando** sobre a área, que fica destacada enquanto o arquivo está sobre ela; os dois caminhos têm a mesma validação e o mesmo envio. Soltar mais de um arquivo usa só o primeiro; com um envio em andamento, a área não aceita outro.
 - O botão **Salvar** grava tudo de uma vez; erros de campo aparecem junto do campo.
 
 **Ver o conteúdo (todos).** O painel da aula mostra, quando houver: o tema (também no marcador do dia, no lugar do código da disciplina), a descrição, os links como ligações que abrem em outra aba (`rel="noopener noreferrer"`), o módulo (para o estudante, uma ligação para o módulo) e a apresentação (**Ver apresentação**, que abre o PDF por endereço assinado). Aula sem conteúdo continua como hoje.
@@ -151,6 +151,7 @@ Tabela nova `class_session_links`:
 - [ ] **CA-11** (evento): QUANDO o professor aciona "Iniciar aula ao vivo" no painel de uma aula, O SISTEMA DEVE iniciar a sala ligada a essa aula, com o tema como título, o módulo e a apresentação da aula; SE já há aula ativa, ENTÃO DEVE levar a ela.
 - [ ] **CA-13** (evento): QUANDO o professor abre o diálogo de conteúdo, O SISTEMA DEVE listar as apresentações da turma (do mais recente para o mais antigo) para ele escolher; só a docente dona e o administrador podem listar.
 - [ ] **CA-14** (estado): ENQUANTO a turma tem aula ao vivo ativa, a aba Agenda DEVE mostrar o aviso com o título e o botão "Entrar na aula" (estudante e professor), e o painel da aula ligada a ela DEVE mostrar "Ao vivo agora" e o botão de entrar (no professor, "Voltar para a aula ao vivo", sem "Iniciar aula ao vivo"); nas outras aulas, nada muda.
+- [ ] **CA-15** (evento): QUANDO o professor arrasta um arquivo e o solta na área "Enviar PDF" do diálogo de conteúdo, O SISTEMA DEVE tratá-lo como o arquivo escolhido pelo clique (mesma validação, envio e seleção da apresentação) e DEVE destacar a área enquanto o arquivo está sobre ela; com um envio em andamento, DEVE ignorar o arquivo solto.
 - [ ] **CA-12** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens.
 
 ## 8. Plano de Testes (Test Plan)
@@ -163,7 +164,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 - **Backend, `schedule/handler`:** as duas rotas, os papéis e os erros da seção 5; `topic` e `hasContent` no calendário. Cobre CA-03 a CA-05 e CA-07.
 - **Backend, `classroom` (lista):** `TestListDecks` (ordem, só da turma, papéis e 403 e 404) no serviço e no handler. Cobre CA-13.
 - **Backend, `classroom` (limite):** `TestUploadDeck_SuccessAndMaxLimit` passa a testar 100. Cobre CA-08.
-- **Frontend, serviço e componentes:** diálogo "Conteúdo da aula" (campos, salvar, erros junto do campo, envio de PDF com validação no navegador) cobre CA-09; painel da aula (mostra o conteúdo, tema no marcador) cobre CA-10; "Iniciar aula ao vivo" cobre CA-11, para docente e sem o botão para estudante.
+- **Frontend, serviço e componentes:** diálogo "Conteúdo da aula" (campos, salvar, erros junto do campo, envio de PDF com validação no navegador) cobre CA-09; soltar um PDF na área de envio (envia e seleciona), soltar um arquivo que não é PDF (recusa), o destaque ao arrastar por cima e o arquivo solto ignorado durante um envio cobrem CA-15; painel da aula (mostra o conteúdo, tema no marcador) cobre CA-10; "Iniciar aula ao vivo" cobre CA-11, para docente e sem o botão para estudante.
 - **Frontend (CA-14):** `ClassCalendar` mostra a marca e o botão só na aula ligada à sala ativa, para estudante e professor; a página da turma mostra o aviso na aba Agenda e some quando não há aula ativa.
 - **Manual:** na aba Horários, abrir a aula de segunda e a de terça, dar um conteúdo diferente a cada uma, enviar um PDF, entrar como estudante e ver cada conteúdo, e iniciar a aula ao vivo a partir da aula do dia.
 - **Cobertura:** acima de 80% no escopo (`go test -cover` e Vitest).
@@ -191,3 +192,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: tema, descrição, links, módulo
 | 14/10/2026 | Aruna Architect | Falha achada em uso: o estudante abria a aula na agenda e não tinha como entrar na aula ao vivo, porque o botão só existia na visão geral e a spec só previa "Iniciar" para o professor. Acrescentados o aviso na Agenda, a marca e o botão no painel da aula (CA-14); volta a Aprovada |
 | 14/10/2026 | Implementador | CA-14 implementado: aviso da aula ao vivo na aba Agenda e, no painel da aula ligada à sala ativa, a marca "Ao vivo agora" e o botão de entrar ("Voltar para a aula ao vivo" para o professor). A página só consulta a sala ativa na aba Agenda, e uma falha da consulta apenas esconde o aviso |
 | 16/10/2026 | Implementador | Aparência do diálogo refeita a pedido do Tech Lead (cabeçalho e rodapé fixos, seções Planejamento, Diário da aula e Materiais, anotações privadas destacadas); só estilo e marcação, sem mudar o comportamento nem os critérios de aceite |
+| 16/10/2026 | Aruna Architect | Pedido do Tech Lead: os professores enviam a apresentação arrastando e soltando o arquivo. A área Enviar PDF passa a aceitar arquivo solto, com o destaque ao arrastar; acrescentado o CA-15; volta a Aprovada |
