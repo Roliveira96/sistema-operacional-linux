@@ -5,7 +5,7 @@
 | **ID** | SPEC-074 |
 | **Status** | Aprovada |
 | **Data de criação** | 16/10/2026 |
-| **Última revisão** | 16/10/2026 (aprovada) |
+| **Última revisão** | 16/10/2026 (quatro áreas por fase e arrastar e soltar) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -24,7 +24,7 @@ Uma aula tem **materiais de momentos diferentes**: os slides e o roteiro que o e
 
 ## 2. Objetivos (Goals)
 
-- Cada aula da agenda tem uma **lista de materiais**: arquivo (PDF ou imagem) ou link, com título, tipo (slides, exercícios, resolução dos exercícios, referência) e **fase de visibilidade**, escolhida pelo professor: sempre, só durante a aula, só depois da aula, ou durante e depois da aula.
+- Cada aula da agenda tem uma **lista de materiais**: arquivo (PDF ou imagem) ou link, com título, tipo (slides, exercícios, resolução dos exercícios, referência) e **fase de visibilidade**, escolhida pelo professor: sempre, só durante a aula, só depois da aula, ou durante e depois da aula. No diálogo da aula, cada fase é uma **área** própria onde o professor **arrasta os arquivos**.
 - O **servidor decide** o que o estudante vê em cada momento, pelo relógio dele e pela janela da aula atual (SPEC-073): o estudante nunca recebe o que não está liberado, nem a existência dele.
 - O que é "depois da aula" **se libera sozinho** quando a aula termina (pelo horário ou quando o professor encerra a sala ao vivo ligada à aula), por data e hora marcadas, ou na hora, pelo botão **Liberar agora**.
 - Os materiais aparecem no diário, no painel do dia e na linha do tempo (SPEC-073), agrupados por fase; o professor vê também os ocultos, com a marca do motivo.
@@ -42,14 +42,17 @@ Uma aula tem **materiais de momentos diferentes**: os slides e o roteiro que o e
 
 ### 3.1. Frontend (Next.js & SCSS Modules)
 
-**Diálogo de conteúdo da aula (`SessionContentForm`, professor).** Ganha a seção **Materiais**, com a lista dos materiais da aula na ordem do professor e dois botões: **Enviar arquivo** e **Adicionar link**. Cada material tem:
+**Diálogo de conteúdo da aula (`SessionContentForm`, professor).** Ganha a seção **Materiais**, com **quatro áreas, uma por fase**, nesta ordem: **Sempre visível**, **Só durante a aula**, **Durante e depois da aula** e **Só depois da aula**. Cada área mostra os materiais dela, na ordem do professor, e tem uma **zona de soltar arquivos**: o professor **arrasta um ou vários arquivos** para a área e cada um vira um material daquela fase. Como alternativa para quem não arrasta (teclado, celular), a zona tem o botão **Escolher arquivos**, que abre o seletor do navegador. Cada área tem também o botão **Adicionar link**, que inclui um link na fase dela.
 
-- **Título** (1 a 120 caracteres);
+A área onde o material foi solto define a **fase**; o **tipo** começa pela fase (Sempre visível → Slides; Só durante e Durante e depois → Exercícios; Só depois → Resolução dos exercícios) e o professor muda os dois depois. Cada material tem:
+
+- **Título** (1 a 120 caracteres; para um arquivo, começa pelo nome dele sem a extensão);
 - **Tipo:** Slides, Exercícios, Resolução dos exercícios ou Referência;
-- **Quando a turma vê:** Sempre, Durante a aula, Depois da aula, ou Durante e depois da aula; quando inclui "depois", a data e hora opcionais de liberação (por padrão, o fim da aula);
+- **Fase:** Sempre, Só durante, Durante e depois ou Só depois, para passar o material de uma área para outra;
+- nas fases que incluem "depois", a data e hora opcionais de liberação (por padrão, o fim da aula);
 - o botão **Liberar agora** (só para material ainda oculto), **Subir**, **Descer** e **Remover**.
 
-O envio de arquivo lê o arquivo no navegador e valida antes de enviar (PDF até 25 MB e até 100 páginas, sem senha; PNG, JPEG ou WebP até 10 MB), como o envio da SPEC-053 e da SPEC-068, com uma barra de progresso. A lista de materiais é gravada **por material** (cada envio, edição, reordenação ou remoção é uma chamada), não junto com o Salvar do conteúdo, para o arquivo grande não travar o resto. Erros aparecem junto do material.
+O envio de arquivo lê o arquivo no navegador e valida antes de enviar (PDF até 25 MB e até 100 páginas, sem senha; PNG, JPEG ou WebP até 10 MB), como o envio da SPEC-053 e da SPEC-068. Cada arquivo mostra o seu estado (**Enviando…**, enviado ou o erro), sem a porcentagem: o navegador não informa o avanço de um envio feito por `fetch`. Vários arquivos soltos de uma vez são enviados um depois do outro, e um recusado não impede os outros. A lista de materiais é gravada **por material** (cada envio, edição, reordenação ou remoção é uma chamada), não junto com o Salvar do conteúdo, para o arquivo grande não travar o resto. Erros aparecem junto do material.
 
 **Onde o estudante vê (`SessionDiary` e painel do dia, SPEC-073).** A seção **Materiais** lista os materiais visíveis agora, agrupados por fase (**Sempre**, **Durante a aula**, **Depois da aula**), cada um com o ícone do tipo, o título, o tamanho (arquivo) ou o domínio (link), e a ação: **Abrir** (link, em outra aba com `rel="noopener noreferrer"`) ou **Baixar** (arquivo, por endereço assinado, obtido na hora do clique para não vencer). O estudante não vê os ocultos nem um "há N materiais ocultos".
 
@@ -68,7 +71,7 @@ Módulo `schedule`:
 - **RN-03 (quem grava):** só a docente dona e o administrador (SPEC-042 RN-08). Gravar material **não** marca a aula como alterada, não pede motivo nem envia e-mail (SPEC-053 RN-03). Pode-se gravar em aula futura, de hoje, passada ou cancelada.
 - **RN-04 (quando o estudante vê):** avaliado no servidor, na leitura, em `America/Sao_Paulo`, a partir de dois momentos da aula:
   - a aula está **em andamento** quando está na janela da aula atual da SPEC-073 (de 15 minutos antes do início até o fim pelo horário, RN-01) ou quando uma sala ao vivo ligada a ela está ativa (RN-02);
-  - a aula **terminou** a partir do primeiro que ocorrer entre o fim pelo horário e o encerramento de uma sala ao vivo ligada a ela (`ended_at`).
+  - a aula **terminou** quando uma sala ao vivo ligada a ela foi encerrada (`ended_at`), ou quando o horário de fim passou **e nenhuma sala ligada a ela está ativa**: enquanto a sala está aberta a aula não terminou, mesmo depois do horário (SPEC-067 RN-07, sala aberta é sala aberta), para a resolução dos exercícios não aparecer com o professor ainda dando a aula.
 
   Com isso: `ALWAYS` é sempre visível; `DURING_CLASS` só enquanto a aula está em andamento (depois, volta a ficar oculto); `AFTER_CLASS` depois que a aula terminou; `DURING_AND_AFTER` a partir de a aula entrar em andamento, sem voltar a esconder. Em qualquer fase, a **data de liberação** (`release_at`), quando marcada e já atingida, deixa o material visível daí em diante; "Liberar agora" grava `release_at` com o agora do servidor. Aula **cancelada** não entra em andamento nem termina: só `ALWAYS` e os liberados por `release_at`.
 
@@ -156,9 +159,10 @@ Todas as rotas abaixo exigem a turma e a aula existentes (404 `session-not-found
 - [ ] **CA-07** (ubíquo): O download DEVE ser por endereço assinado de 15 minutos, com o tipo do arquivo gravado; a chave do objeto NUNCA DEVE conter o nome original.
 - [ ] **CA-08** (indesejado): SE quem grava não é a docente dona nem o administrador, ENTÃO O SISTEMA DEVE responder 403; SE a aula é de outra turma, 404.
 - [ ] **CA-09** (ubíquo): A aula com material DEVE contar como "tem conteúdo" na regeneração das aulas semanais e em `hasContent`; a linha do tempo DEVE trazer `materialCount` e o diário DEVE trazer `materials`, filtrados para o leitor.
-- [ ] **CA-10** (ubíquo): O diálogo de conteúdo DEVE ter a seção Materiais com Enviar arquivo (validado no navegador, com progresso), Adicionar link, título, tipo, as quatro fases, data de liberação, Liberar agora, Subir, Descer e Remover, cada ação gravada na hora, com erro junto do material.
+- [ ] **CA-10** (ubíquo): O diálogo de conteúdo DEVE ter a seção Materiais com **quatro áreas, uma por fase** (Sempre visível, Só durante a aula, Durante e depois da aula, Só depois da aula), cada uma com a lista dos materiais dela, Escolher arquivos (validado no navegador, com o estado Enviando…), Adicionar link, e, em cada material, título, tipo, fase, data de liberação, Liberar agora, Subir, Descer e Remover, cada ação gravada na hora, com erro junto do material.
 - [ ] **CA-11** (ubíquo): O diário, o painel do dia e a linha do tempo DEVEM mostrar os materiais agrupados por fase com ícone, título, tamanho ou domínio e Abrir ou Baixar (endereço obtido no clique); o professor DEVE ver também os ocultos com a marca do motivo e Liberar agora; o estudante NÃO DEVE ver nada dos ocultos.
 - [ ] **CA-12** (ubíquo): Stylelint, ESLint e `tsc` limpos; cores só dos tokens; alvos de 44 px; fase e motivo em texto.
+- [ ] **CA-13** (evento): QUANDO o professor arrasta um ou vários arquivos para uma das quatro áreas, O SISTEMA DEVE destacar a área enquanto o arquivo está sobre ela, validar cada arquivo no navegador, enviá-lo um depois do outro como material **daquela fase**, com o tipo inicial da fase e o título pelo nome do arquivo; SE um arquivo é recusado, ENTÃO DEVE mostrar o erro junto dele e seguir com os outros; arquivos soltos fora das áreas NÃO DEVEM ser abertos pelo navegador; o botão Escolher arquivos DEVE fazer o mesmo para quem não arrasta.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -176,7 +180,8 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 
 | Teste | Arquivo | Cobre |
 | :--- | :--- | :--- |
-| seção Materiais: enviar com validação e progresso, link, campos, as quatro fases, liberar, subir, descer, remover, erro junto do material | `SessionContentForm.test.tsx` | CA-10 |
+| seção Materiais: quatro áreas na ordem, lista de cada fase, Escolher arquivos com validação e o estado Enviando…, link na fase da área, campos (título, tipo, fase, liberação), passar de fase, liberar, subir, descer, remover, erro junto do material | `SessionContentForm.test.tsx` | CA-10 |
+| arrastar e soltar: destaque da área, vários arquivos em ordem, fase da área e tipo inicial, recusado não impede os outros, solto fora da área não é aberto | `SessionContentForm.test.tsx` | CA-13 |
 | grupos por fase, ícone, Abrir e Baixar (endereço no clique), ocultos só para o professor com o motivo, nada para o estudante | `SessionDiary.test.tsx` | CA-11 |
 | "N materiais" nos cards e material preparatório nas próximas | `ClassTimeline.test.tsx` | CA-11 |
 | chamadas e erros RFC 7807 | `scheduleService.test.ts` | CA-01 a CA-09 |
@@ -228,3 +233,4 @@ Nenhuma.
 | 16/10/2026 | Aruna Architect | Decisões do Tech Lead aplicadas: só PDF e imagens (D-01); quatro fases escolhidas pelo professor, com "só durante" voltando a esconder (D-02); limite de 50 por aula (D-03); "gabarito" vira "resolução dos exercícios" (D-04); a janela da aula segue os 15 minutos antes da SPEC-073. Resta a P-04 |
 | 16/10/2026 | Tech Lead | Aprovada ("Aprovo"), aceita a recomendação da P-04 (D-05). Status: `Aprovada` |
 | 16/10/2026 | Implementador | Renumerada de SPEC-072 para SPEC-074 (e a SPEC-071 de linha do tempo para SPEC-073), e a migração prevista de `00038` para `00039`, ao juntar a branch com a `projeto-tcc2`, onde a SPEC-071 e a SPEC-072 já são outras specs. O conteúdo da spec não mudou |
+| 16/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | O Tech Lead, ao ver o diálogo de conteúdo, apontou que a spec previa os materiais por fase mas a tela tinha só um campo de envio e nada de arrastar e soltar. Revisão: a seção Materiais passa a ter **quatro áreas, uma por fase**, cada uma com zona de **arrastar e soltar vários arquivos** e o botão Escolher arquivos (CA-10, CA-13); o tipo inicial vem da fase; o estado do envio é "Enviando…" e não uma barra de porcentagem (o `fetch` não informa o avanço). RN-04: sala ao vivo ligada ativa mantém a aula em andamento mesmo depois do horário de fim. Backend e contrato de API sem mudança. Status: `Aprovada` (pelo pedido do Tech Lead) |
