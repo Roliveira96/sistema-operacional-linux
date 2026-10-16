@@ -166,28 +166,30 @@ describe("SessionContentForm", () => {
   it("adds a link after checking the name and the https address next to each field", async () => {
     setup();
     const dialog = await ready();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Adicionar link" }));
-    expect(within(dialog).getByText("Informe o nome do link.")).toBeDefined();
-    fireEvent.change(within(dialog).getByLabelText("Nome do link"), { target: { value: "Slides" } });
-    fireEvent.change(within(dialog).getByLabelText("Endereço do link"), { target: { value: "http://x.com" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Adicionar link" }));
-    expect(within(dialog).getByText("O endereço deve começar com https://.")).toBeDefined();
-    fireEvent.change(within(dialog).getByLabelText("Endereço do link"), { target: { value: " https://slides.example.com/a " } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Adicionar link" }));
-    expect(within(dialog).getByText("https://slides.example.com/a")).toBeDefined();
-    expect((within(dialog).getByLabelText("Nome do link") as HTMLInputElement).value).toBe("");
+    const inLinks = within(within(dialog).getByRole("group", { name: "Links da aula" }));
+    fireEvent.click(inLinks.getByRole("button", { name: "Adicionar link" }));
+    expect(inLinks.getByText("Informe o nome do link.")).toBeDefined();
+    fireEvent.change(inLinks.getByLabelText("Nome do link"), { target: { value: "Slides" } });
+    fireEvent.change(inLinks.getByLabelText("Endereço do link"), { target: { value: "http://x.com" } });
+    fireEvent.click(inLinks.getByRole("button", { name: "Adicionar link" }));
+    expect(inLinks.getByText("O endereço deve começar com https://.")).toBeDefined();
+    fireEvent.change(inLinks.getByLabelText("Endereço do link"), { target: { value: " https://slides.example.com/a " } });
+    fireEvent.click(inLinks.getByRole("button", { name: "Adicionar link" }));
+    expect(inLinks.getByText("https://slides.example.com/a")).toBeDefined();
+    expect((inLinks.getByLabelText("Nome do link") as HTMLInputElement).value).toBe("");
   });
 
   it("stops at 10 links", async () => {
     const links = Array.from({ length: 10 }, (_, i) => ({ name: `L${i}`, url: `https://a.com/${i}`, position: i }));
     setup({ links });
     const dialog = await ready();
-    await within(dialog).findByText("L9");
-    fireEvent.change(within(dialog).getByLabelText("Nome do link"), { target: { value: "Mais um" } });
-    fireEvent.change(within(dialog).getByLabelText("Endereço do link"), { target: { value: "https://a.com/x" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Adicionar link" }));
-    expect(within(dialog).getByText("Uma aula pode ter até 10 links.")).toBeDefined();
-    expect(within(dialog).queryByText("Mais um")).toBeNull();
+    const inLinks = within(within(dialog).getByRole("group", { name: "Links da aula" }));
+    await inLinks.findByText("L9");
+    fireEvent.change(inLinks.getByLabelText("Nome do link"), { target: { value: "Mais um" } });
+    fireEvent.change(inLinks.getByLabelText("Endereço do link"), { target: { value: "https://a.com/x" } });
+    fireEvent.click(inLinks.getByRole("button", { name: "Adicionar link" }));
+    expect(inLinks.getByText("Uma aula pode ter até 10 links.")).toBeDefined();
+    expect(inLinks.queryByText("Mais um")).toBeNull();
   });
 
   it("puts the problems of the server on the field or at the top, and keeps the dialog open", async () => {
