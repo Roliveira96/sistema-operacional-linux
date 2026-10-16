@@ -79,13 +79,13 @@ func TestClassifyNoteImage(t *testing.T) {
 
 	// Non-AVIF/WebP formats are refused even if named .avif.
 	for name, head := range map[string][]byte{
-		"png":        pngHead,
-		"jpeg":       jpegHead,
-		"pdf":        pdfHead,
-		"gif":        []byte("GIF89a123456"),
-		"mp4 ftyp":   []byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'},
-		"short":      avifHead[:8],
-		"empty":      {},
+		"png":      pngHead,
+		"jpeg":     jpegHead,
+		"pdf":      pdfHead,
+		"gif":      []byte("GIF89a123456"),
+		"mp4 ftyp": []byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'},
+		"short":    avifHead[:8],
+		"empty":    {},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := domain.ClassifyNoteImage("fake.avif", 800, 600, 100, head)
