@@ -73,6 +73,14 @@ Regras:
 | Fase de visibilidade | `ALWAYS`, `DURING_CLASS`, `AFTER_CLASS`, `DURING_AND_AFTER` | Quando a turma vê o material: sempre; só com a aula em andamento; só depois que a aula terminou; desde que a aula entrou em andamento. No diálogo da aula, cada fase é uma área onde se solta o arquivo | `PRE_CLASS` (o "pré-aula" é o `ALWAYS`) | Proposto (SPEC-074) |
 | Aula em andamento / aula terminada | janela da aula atual (SPEC-073) e `LiveState` | Em andamento: de 15 minutos antes do início até o fim, ou com sala ao vivo ligada ativa; terminada: sala ligada encerrada, ou fim pelo horário sem sala ligada ativa | `Started`, `Finished` soltos | Proposto (SPEC-074) |
 | Liberação do material | `release_at` (rota `materials/{id}/release`) | Data e hora a partir da qual o material fica visível, em qualquer fase; "Liberar agora" grava o agora do servidor | `Unlock`, `Publish` | Proposto (SPEC-074) |
+| Pausa da rodada | `live:exercise:pause` / `PAUSED` | O professor para o cronômetro da rodada; o terminal dos alunos fica travado e a conferência é recusada até ele retomar | `Congelar` | Proposto (SPEC-071) |
+| Mais tempo | `live:exercise:extend` | Minutos a mais (de 1 a 30, até 60 no total) para a rodada em andamento, pausada ou encerrada; na encerrada, ela reabre para quem não concluiu | `Prorrogação` | Proposto (SPEC-071) |
+| Voltar para a aula | `live:exercise:close` / `CLOSED` | O professor fecha a rodada (encerrando-a antes, se ainda corria) e os alunos voltam ao palco; antes disso, ao fim do tempo, o terminal só trava | `Encerrar` (é outra coisa) | Proposto (SPEC-071) |
+| Aba de atendimento | `HelpTabs` | Aba do painel (até 4) com o terminal ao vivo, os comandos e a conversa particular de um aluno; abrir e fechar é só da tela do professor | `Mosaico` | Proposto (SPEC-071) |
+| Assumir o terminal (takeover) | `live:exercise:takeover`, `live:exercise:key`, `taken_over` | O professor digita no terminal do aluno, tecla a tecla, como no próprio; o aluno fica sem teclado até o controle ser devolvido e não ganha pontos na rodada | `Acesso remoto` | Proposto (SPEC-071) |
+| Aluno ocioso | `idle` | Card do aluno que manda progresso mas não executa comando há 60 s | `Inativo` | Proposto (SPEC-071) |
+| Aluno retido | `nearEnd` | Card destacado ("Perto do fim") de quem não concluiu quando resta até 20% do tempo, no mínimo o último minuto | — | Proposto (SPEC-071) |
+| Participante da rodada | `live_exercise_results.status` (`IN_PROGRESS`, `COMPLETED`, `NOT_COMPLETED`) | Linha de cada aluno da rodada, com os comandos, se pediu ajuda e se teve o terminal assumido | — | Proposto (SPEC-071) |
 | Aviso (mural) | `Announcement` | Comunicado da docente para a turma | `Notice`, `Post`, `Message` | Canônico |
 | Confirmação de leitura | `ReadReceipt` | Registro de ciência do estudante sobre um aviso | `Ack` | Canônico |
 

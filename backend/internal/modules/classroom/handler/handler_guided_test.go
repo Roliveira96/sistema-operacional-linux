@@ -130,7 +130,9 @@ func (f *fakeService) TakeoverKeyAllowed(_, student uuid.UUID) bool {
 	return f.exercise.takeover != nil && *f.exercise.takeover == student
 }
 
-func (f *fakeService) ExerciseTakenOver(session, student uuid.UUID) bool { return f.TakeoverKeyAllowed(session, student) }
+func (f *fakeService) ExerciseTakenOver(session, student uuid.UUID) bool {
+	return f.TakeoverKeyAllowed(session, student)
+}
 
 func (f *fakeService) ReleaseTakeoverOf(_, student uuid.UUID) bool {
 	f.mu.Lock()
@@ -422,7 +424,8 @@ func TestGuided_Snapshot(t *testing.T) {
 	assert.Equal(t, true, bruno["takenOver"])
 	ana := exerciseOfSnapshot(t, snapshotOf(t, w.dial(t, "student")))
 	assert.Equal(t, false, ana["takenOver"])
-	panel := exerciseOfSnapshot(t, snapshotOf(t, w.dialView(t, "teacher", "panel")))
+	fresh := w.dialView(t, "teacher", "panel") // it replaces the panel of the crowd
+	panel := exerciseOfSnapshot(t, snapshotOf(t, fresh))
 	for _, e := range panel["progress"].([]any) {
 		entry := e.(map[string]any)
 		switch entry["studentId"] {
@@ -436,8 +439,8 @@ func TestGuided_Snapshot(t *testing.T) {
 		}
 	}
 
-	cr.panel.send(t, typeExPause, `{"paused":true}`)
-	cr.panel.next(t, typeExPaused)
+	sendMsg(t, fresh, typeExPause, `{"paused":true}`)
+	readUntil(t, fresh, typeExPaused)
 	paused := exerciseOfSnapshot(t, snapshotOf(t, w.dial(t, "third")))
 	assert.Equal(t, "PAUSED", paused["status"])
 	assert.EqualValues(t, 0, paused["pausedSeconds"])

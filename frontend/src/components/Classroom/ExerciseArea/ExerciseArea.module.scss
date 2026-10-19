@@ -160,3 +160,49 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-success);
 }
+
+// SPEC-071: the terminal holds the private message of the teacher over it, at the top, so the last lines of the terminal stay in sight.
+.terminalBox {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.notice {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  left: var(--space-3);
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-primary);
+}
+
+.noticeText {
+  flex: 1 1 12rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+// The terminal is locked (paused, over, taken over by the teacher): said in words, with the color only repeating it.
+.lock {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-warning-line);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}

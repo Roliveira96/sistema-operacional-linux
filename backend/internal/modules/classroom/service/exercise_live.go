@@ -25,13 +25,17 @@ type exerciseMemory struct {
 	progress     map[uuid.UUID]exerciseProgress
 	attempts     map[uuid.UUID]int
 	watching     *uuid.UUID
+	// takeover is the student whose terminal the teacher took over now (SPEC-071)
+	takeover *uuid.UUID
 }
 
-// exerciseProgress is the last report of a student.
+// exerciseProgress is the last report of a student, with the most commands he reported and when that number last grew (SPEC-071 RN-09).
 type exerciseProgress struct {
-	met, total int
-	last       string
-	at         time.Time
+	met, total    int
+	last          string
+	at            time.Time
+	commands      int
+	lastCommandAt *time.Time
 }
 
 func (m *exerciseMemory) running() bool { return m.run != nil && m.run.Running() }
@@ -106,8 +110,9 @@ func (l *liveStates) armExercise(id, runID uuid.UUID, start func() (stop func())
 	m.timerRun, m.stop = runID, start()
 }
 
-// endExercise puts the ended round in memory, stops its timer and ends the observation; it returns the student who was being watched.
-func (l *liveStates) endExercise(id uuid.UUID, run domain.LiveExerciseRun) *uuid.UUID {
+// endExercise puts the ended round in memory, stops its timer and ends the observation and the takeover; it returns the student who was being
+// watched and the one who was taken over.
+func (l *liveStates) endExercise(id uuid.UUID, run domain.LiveExerciseRun) (watched, released *uuid.UUID) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	m := &l.of(id).exercise
@@ -116,18 +121,76 @@ func (l *liveStates) endExercise(id uuid.UUID, run domain.LiveExerciseRun) *uuid
 		m.stop()
 		m.stop = nil
 	}
-	watched := m.watching
-	m.watching = nil
-	return watched
+	m.timerRun = uuid.Nil
+	watched, released = m.watching, m.takeover
+	m.watching, m.takeover = nil, nil
+	return watched, released
 }
 
-// joinExercise puts the students in the round that runs; with none running, nobody joins.
-func (l *liveStates) joinExercise(id uuid.UUID, students ...uuid.UUID) {
+// disarmExercise stops the timer of the round, so that the next arming starts a new one: the end changed (SPEC-071).
+func (l *liveStates) disarmExercise(id uuid.UUID) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	m := &l.of(id).exercise
+	if m.stop != nil {
+		m.stop()
+		m.stop = nil
+	}
+	m.timerRun = uuid.Nil
+}
+
+// takeoverOf is the student whose terminal the teacher took over, nil when none.
+func (l *liveStates) takeoverOf(id uuid.UUID) *uuid.UUID {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	st, ok := l.rooms[id]
+	if !ok || st.exercise.takeover == nil {
+		return nil
+	}
+	s := *st.exercise.takeover
+	return &s
+}
+
+// setTakeover keeps the student taken over.
+func (l *liveStates) setTakeover(id, student uuid.UUID) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.of(id).exercise.takeover = &student
+}
+
+// releaseTakeover ends the takeover, if the student (any, with nil) is the one taken over, and returns who was.
+func (l *liveStates) releaseTakeover(id uuid.UUID, student *uuid.UUID) *uuid.UUID {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	st, ok := l.rooms[id]
+	if !ok || st.exercise.takeover == nil || (student != nil && *st.exercise.takeover != *student) {
+		return nil
+	}
+	was := st.exercise.takeover
+	st.exercise.takeover = nil
+	return was
+}
+
+// exerciseCommands are the commands that each student reported in the round.
+func (l *liveStates) exerciseCommands(id uuid.UUID) map[uuid.UUID]int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	out := map[uuid.UUID]int{}
+	if st, ok := l.rooms[id]; ok {
+		for student, p := range st.exercise.progress {
+			out[student] = p.commands
+		}
+	}
+	return out
+}
+
+// joinExercise puts the students in the round that runs and returns it; with none running, nobody joins.
+func (l *liveStates) joinExercise(id uuid.UUID, students ...uuid.UUID) *domain.LiveExerciseRun {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	st, ok := l.rooms[id]
 	if !ok || !st.exercise.running() {
-		return
+		return nil
 	}
 	m := &st.exercise
 	if m.participants == nil {
@@ -136,10 +199,12 @@ func (l *liveStates) joinExercise(id uuid.UUID, students ...uuid.UUID) {
 	for _, student := range students {
 		m.participants[student] = struct{}{}
 	}
+	return cloneRun(m.run)
 }
 
-// recordExerciseProgress keeps the last report of the student, who is then in the round.
-func (l *liveStates) recordExerciseProgress(id, student uuid.UUID, p exerciseProgress) {
+// recordExerciseProgress keeps the last report of the student, who is then in the round, and returns it as kept: the commands only grow, and the
+// moment of the last command is the moment of the first report or of the report in which they grew.
+func (l *liveStates) recordExerciseProgress(id, student uuid.UUID, p exerciseProgress) exerciseProgress {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	m := &l.of(id).exercise
@@ -147,7 +212,16 @@ func (l *liveStates) recordExerciseProgress(id, student uuid.UUID, p exercisePro
 		m.participants, m.progress, m.attempts = map[uuid.UUID]struct{}{}, map[uuid.UUID]exerciseProgress{}, map[uuid.UUID]int{}
 	}
 	m.participants[student] = struct{}{}
+	prev, had := m.progress[student]
+	switch {
+	case !had || p.commands > prev.commands:
+		at := p.at
+		p.lastCommandAt = &at
+	default:
+		p.commands, p.lastCommandAt = prev.commands, prev.lastCommandAt
+	}
 	m.progress[student] = p
+	return p
 }
 
 // countExerciseAttempt counts one more state of the student sent to be graded, and returns how many he has sent.

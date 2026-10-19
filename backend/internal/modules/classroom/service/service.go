@@ -109,6 +109,20 @@ type Repository interface {
 	CountCommands(ctx context.Context, sessionID uuid.UUID) (int64, error)
 	ListCommands(ctx context.Context, sessionID uuid.UUID) ([]domain.LiveTerminalCommand, error)
 	ListLinkedSessions(ctx context.Context, classSessionIDs []uuid.UUID) ([]LinkedRoom, error)
+
+	// The guided practice (SPEC-071). The changes of the round tell whether they changed it: each one only changes a round in the state it
+	// expects. ExtendExerciseRun with reopen returns domain.ErrExerciseRunning when another round of the room runs. The rows of the students
+	// (JoinExerciseRun, the marks, the end and the reopening) are one per student and round.
+	PauseExerciseRun(ctx context.Context, id uuid.UUID, at time.Time) (bool, error)
+	ResumeExerciseRun(ctx context.Context, run domain.LiveExerciseRun) (bool, error)
+	ExtendExerciseRun(ctx context.Context, run domain.LiveExerciseRun, reopen bool) (bool, error)
+	CloseExerciseRun(ctx context.Context, id uuid.UUID, at time.Time) (bool, error)
+	JoinExerciseRun(ctx context.Context, runID uuid.UUID, students []uuid.UUID) error
+	MarkExerciseHelp(ctx context.Context, runID, student uuid.UUID) error
+	MarkExerciseTakeover(ctx context.Context, runID, student uuid.UUID) error
+	FinishExerciseParticipants(ctx context.Context, runID uuid.UUID, commands map[uuid.UUID]int) error
+	ReopenExerciseParticipants(ctx context.Context, runID uuid.UUID) error
+	ListExerciseParticipants(ctx context.Context, runID uuid.UUID) ([]domain.ExerciseParticipant, error)
 }
 
 // ModuleBlock is a block of the lesson of a module, as the room shows it.
@@ -917,6 +931,9 @@ func (s *Service) RaiseHand(ctx context.Context, sessionID, studentID uuid.UUID,
 		return nil, err
 	}
 	if err := s.repo.RaiseHand(ctx, sessionID, studentID, text, s.now()); err != nil {
+		return nil, err
+	}
+	if err := s.markExerciseHelp(ctx, sessionID, studentID); err != nil {
 		return nil, err
 	}
 	return s.repo.ListHandRaises(ctx, sessionID)

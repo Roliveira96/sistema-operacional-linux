@@ -62,23 +62,23 @@ func exerciseResultBody(st service.ExerciseState) gin.H {
 // exerciseSnapshot is the `exercise` of the snapshot: null with no round; else the round with its status and who ended it, and by role: the panel
 // gets the progress of each student of the round; a student gets his own result (null while he did not conclude) and nothing of the others'.
 // With the result shown, everybody gets it.
-func exerciseSnapshot(st *service.ExerciseState, panel bool, student uuid.UUID) any {
+func exerciseSnapshot(st *service.ExerciseState, panel bool, student uuid.UUID, takenOver bool) any {
 	if st == nil {
 		return nil
 	}
 	r := st.Run
 	body := exerciseRunBody(*st)
-	body["status"] = "RUNNING"
-	if !r.Running() {
-		body["status"] = "ENDED"
-	}
+	body["status"] = r.Status()
 	body["endedBy"], body["endedAt"], body["resultVisible"] = r.EndedBy, stampPtr(r.EndedAt), r.ResultVisible
+	body["pausedSeconds"], body["closedAt"] = r.PausedSeconds, stampPtr(r.ClosedAt) // SPEC-071
 	if panel {
 		progress := make([]gin.H, 0, len(st.Entries))
 		for _, e := range st.Entries {
 			item := gin.H{
 				"studentId": e.StudentID, "name": e.Name, "met": e.Met, "total": e.Total, "last": e.Last, "at": stampPtr(e.At),
 				"completedAt": nil, "elapsedSeconds": nil, "points": nil, "attempts": e.Attempts,
+				"commands": e.Commands, "lastCommandAt": stampPtr(e.LastCommandAt), "status": e.Status, "helpRequested": e.HelpRequested,
+				"takenOver": e.TakenOver, "takeoverOn": e.TakeoverOn,
 			}
 			if e.Result != nil {
 				item["completedAt"], item["elapsedSeconds"], item["points"] = stamp(e.Result.CompletedAt), e.Result.ElapsedSeconds, e.Result.Points
@@ -88,6 +88,7 @@ func exerciseSnapshot(st *service.ExerciseState, panel bool, student uuid.UUID) 
 		body["progress"] = progress
 	} else {
 		body["myResult"] = nil
+		body["takenOver"] = takenOver // the teacher has his terminal now (SPEC-071)
 		for _, res := range st.Results {
 			if res.StudentID == student {
 				body["myResult"] = gin.H{"completedAt": stamp(res.CompletedAt), "elapsedSeconds": res.ElapsedSeconds, "points": res.Points}
@@ -126,6 +127,7 @@ func (w wsHandler) exerciseEnded(room string, st service.ExerciseState) {
 	if st.Unwatched != nil {
 		w.watchStudent(room, *st.Unwatched, false)
 	}
+	w.released(room, st.Released)
 }
 
 // watchStudent tells a student, in every tab, that the teacher watches his terminal (on) or stopped.
@@ -228,6 +230,7 @@ func (w wsHandler) exerciseControl(ctx context.Context, room string, who hub.Ide
 		if watch.Previous != nil && (watch.Current == nil || *watch.Previous != *watch.Current) {
 			w.watchStudent(room, *watch.Previous, false)
 		}
+		w.released(room, watch.Released)
 		if watch.Current != nil {
 			w.watchStudent(room, *watch.Current, true)
 		}
@@ -268,7 +271,8 @@ func (w wsHandler) exerciseStudent(ctx context.Context, room string, who hub.Ide
 			w.reject(room, who, msg, err)
 			return
 		}
-		toThePanel(typeExerciseProgress, gin.H{"runId": p.RunID, "studentId": p.StudentID, "met": p.Met, "total": p.Total, "last": p.Last, "at": stamp(p.At)})
+		toThePanel(typeExerciseProgress, gin.H{"runId": p.RunID, "studentId": p.StudentID, "met": p.Met, "total": p.Total, "last": p.Last, "at": stamp(p.At),
+			"commands": p.Commands, "lastCommandAt": stampPtr(p.LastCommandAt)})
 	case typeExerciseScreen:
 		runID, screen, err := parseExerciseScreen(msg.Data)
 		if err != nil {
@@ -353,10 +357,11 @@ func parseExerciseWatch(data json.RawMessage) (*uuid.UUID, error) {
 // parseExerciseProgress reads the data of live:exercise:progress. The ranges and the last command are checked by the service.
 func parseExerciseProgress(data json.RawMessage) (service.ExerciseProgressInput, error) {
 	var d struct {
-		RunID *uuid.UUID `json:"runId"`
-		Met   *int       `json:"met"`
-		Total *int       `json:"total"`
-		Last  *string    `json:"last"`
+		RunID    *uuid.UUID `json:"runId"`
+		Met      *int       `json:"met"`
+		Total    *int       `json:"total"`
+		Last     *string    `json:"last"`
+		Commands *int       `json:"commands"`
 	}
 	if err := decodeExercise(data, &d); err != nil {
 		return service.ExerciseProgressInput{}, err
@@ -367,6 +372,9 @@ func parseExerciseProgress(data json.RawMessage) (service.ExerciseProgressInput,
 	in := service.ExerciseProgressInput{RunID: *d.RunID, Met: *d.Met, Total: *d.Total}
 	if d.Last != nil {
 		in.Last = *d.Last
+	}
+	if d.Commands != nil {
+		in.Commands = *d.Commands
 	}
 	return in, nil
 }

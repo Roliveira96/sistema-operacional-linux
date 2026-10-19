@@ -376,7 +376,7 @@ func TestExercise_TheDatabaseHoldsTheRules(t *testing.T) {
 	assert.NoError(t, save(run.ID, e.student.ID, 0, 0, 1), "zero seconds, zero points, one attempt")
 	assert.Error(t, save(run.ID, bruno.ID, -1, 10, 1), "elapsed time is not negative")
 	assert.Error(t, save(run.ID, bruno.ID, 10, -1, 1), "points are not negative")
-	assert.Error(t, save(run.ID, bruno.ID, 10, 10, 0), "at least one attempt")
+	assert.Error(t, save(run.ID, bruno.ID, 10, 10, -1), "attempts are not negative (SPEC-071: who did not conclude may have none)")
 	assert.Error(t, save(uuid.New(), bruno.ID, 10, 10, 1), "the round exists")
 	assert.Error(t, save(run.ID, uuid.New(), 10, 10, 1), "the student exists")
 	assert.Error(t, save(run.ID, e.student.ID, 10, 10, 1), "one result per student and round")

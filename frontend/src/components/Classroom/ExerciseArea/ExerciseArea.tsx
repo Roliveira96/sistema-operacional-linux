@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { Html } from "@/components/ContentRenderer/blocks";
 import type { ScreenElement } from "@/engine/terminalScreen";
+import type { TakeoverKey } from "@/hooks/useLiveClassroom";
 import { checkConditions } from "@/lib/exerciseConditions";
 import { messages } from "@/messages/pt-BR";
-import { classroomService, type ExerciseMyResult, type ExerciseVerdict, type LiveExercise, type LiveModuleContent } from "@/services/classroomService";
+import { classroomService, type ExerciseMyResult, type ExerciseVerdict, type LiveChatMessage, type LiveExercise, type LiveModuleContent } from "@/services/classroomService";
 import { exerciseSetup, type ExerciseSetup } from "./exerciseMachine";
 import { clearExercise, forgetOtherRuns, loadExercise, saveExercise } from "./exerciseStorage";
 import { ExerciseClock } from "./ExerciseClock";
@@ -37,8 +38,14 @@ export interface ExerciseAreaProps {
   away: boolean;
   /** The teacher watches the terminal of this student, so its picture goes to him. */
   watched: boolean;
-  /** How far the student is; says whether the room took it. */
-  onProgress(progress: { runId: string; met: number; total: number; last: string }): boolean;
+  /** SPEC-071: the teacher has the terminal of this student now, and where his keys come from. */
+  takenOver?: boolean;
+  takeoverTeacher?: string | null;
+  onTakeoverKey?(listener: (key: TakeoverKey) => void): () => void;
+  /** SPEC-071 RN-13: the last private message of the teacher in this round, shown over the terminal. */
+  notice?: LiveChatMessage | null;
+  /** How far the student is, with the commands he ran; says whether the room took it. */
+  onProgress(progress: { runId: string; met: number; total: number; last: string; commands: number }): boolean;
   /** The picture of the terminal of the student; says whether the room took it. */
   onScreen(runId: string, screen: ScreenElement): boolean;
 }
@@ -54,13 +61,14 @@ export function ExerciseArea(props: ExerciseAreaProps) {
   return <Round key={props.exercise.runId} {...props} />;
 }
 
-function Round({ classId, userId, exercise, away, watched, onProgress, onScreen }: ExerciseAreaProps) {
-  const running = exercise.status === "RUNNING";
+function Round({ classId, userId, exercise, away, watched, takenOver = false, onTakeoverKey, notice = null, onProgress, onScreen }: ExerciseAreaProps) {
+  // The student stays in the area while the round runs, is paused or ended, until the class goes back to the lesson (SPEC-071 section 3.1).
+  const active = exercise.status !== "CLOSED";
   const result = exercise.resultVisible ? exercise.result : undefined;
   // The module is needed to run the exercise and to show how the teacher did it, and for nothing else.
-  const needed = running || result !== undefined;
-  // He saw the round run in this page: only then is he told that it ended; a round already over when he came in or reloaded says nothing.
-  const [saw] = useState(running);
+  const needed = active || result !== undefined;
+  // He saw the round in this page: only then is he told that it ended; a round already over when he came in or reloaded says nothing.
+  const [saw] = useState(active);
   const [resultClosed, setResultClosed] = useState(false);
   const [noticeClosed, setNoticeClosed] = useState(false);
   // What the check of the server said of the student: the room tells it only in the snapshot, so it is kept here for the end of the round, and the room's
@@ -70,10 +78,10 @@ function Round({ classId, userId, exercise, away, watched, onProgress, onScreen 
   const [loaded, setLoaded] = useState<Loaded>({ kind: "loading" });
 
   useEffect(() => forgetOtherRuns(exercise.runId), [exercise.runId]);
-  // A round that ended needs no machine kept.
+  // The machine is kept while the round can still get more time; a closed round needs none (SPEC-071 RN-03).
   useEffect(() => {
-    if (!running) clearExercise(exercise.runId);
-  }, [running, exercise.runId]);
+    if (!active) clearExercise(exercise.runId);
+  }, [active, exercise.runId]);
   useEffect(() => {
     if (!needed) return;
     let active = true;
@@ -87,12 +95,25 @@ function Round({ classId, userId, exercise, away, watched, onProgress, onScreen 
   }, [classId, needed]);
   const setup = useMemo(() => (loaded.kind === "ready" ? exerciseSetup(loaded.module, exercise.blockId, exercise.index) : null), [loaded, exercise.blockId, exercise.index]);
 
-  if (running) {
-    // The shell stays the same while the exercise loads, so it is one element for the whole round.
+  if (result && !resultClosed) return <ExerciseResult exercise={exercise} result={result} userId={userId} mine={mine} solution={setup?.item.solution ?? null} onBack={() => setResultClosed(true)} />;
+  if (active) {
+    // The shell stays the same while the exercise loads, pauses and ends, so it is one element, with one terminal, for the whole round.
     return (
       <section className={styles.area} aria-label={m.region} hidden={away}>
         {setup ? (
-          <Workspace classId={classId} exercise={exercise} setup={setup} mine={mine} watched={watched} onPassed={setPassed} onProgress={onProgress} onScreen={onScreen} />
+          <Workspace
+            classId={classId}
+            exercise={exercise}
+            setup={setup}
+            mine={mine}
+            watched={watched}
+            takenOver={takenOver}
+            onTakeoverKey={onTakeoverKey}
+            notice={notice}
+            onPassed={setPassed}
+            onProgress={onProgress}
+            onScreen={onScreen}
+          />
         ) : loaded.kind === "loading" ? (
           <p className={styles.note} role="status">
             {m.loading}
@@ -106,7 +127,7 @@ function Round({ classId, userId, exercise, away, watched, onProgress, onScreen 
     );
   }
 
-  if (result) return resultClosed ? null : <ExerciseResult exercise={exercise} result={result} userId={userId} mine={mine} solution={setup?.item.solution ?? null} onBack={() => setResultClosed(true)} />;
+  if (result) return null;
   // The end is told to who saw the round run in this page; the personal gain is told to whoever has one, also when he came after the end (SPEC-065 CA-09).
   if (noticeClosed || resultClosed || (!saw && !mine)) return null;
   return (
@@ -122,7 +143,9 @@ function Round({ classId, userId, exercise, away, watched, onProgress, onScreen 
   );
 }
 
-interface WorkspaceProps extends Pick<ExerciseAreaProps, "classId" | "exercise" | "watched" | "onProgress" | "onScreen"> {
+interface WorkspaceProps extends Pick<ExerciseAreaProps, "classId" | "exercise" | "watched" | "onTakeoverKey" | "onProgress" | "onScreen"> {
+  takenOver: boolean;
+  notice: LiveChatMessage | null;
   setup: ExerciseSetup;
   /** What the student made of the round, when he concluded. */
   mine: ExerciseMyResult | null;
@@ -132,8 +155,19 @@ interface WorkspaceProps extends Pick<ExerciseAreaProps, "classId" | "exercise" 
 
 type Phase = "idle" | "checking" | "rejected" | "failed";
 
-function Workspace({ classId, exercise, setup, mine, watched, onPassed, onProgress, onScreen }: WorkspaceProps) {
+function Workspace({ classId, exercise, setup, mine, watched, takenOver, onTakeoverKey, notice, onPassed, onProgress, onScreen }: WorkspaceProps) {
   const { runId } = exercise;
+  const running = exercise.status === "RUNNING";
+  // The teacher gave the control back: told until something else happens.
+  const [released, setReleased] = useState(false);
+  const [wasTaken, setWasTaken] = useState(takenOver);
+  if (wasTaken !== takenOver) {
+    setWasTaken(takenOver);
+    setReleased(!takenOver);
+  }
+  // The private message over the terminal, until the student closes it; only while the round runs or is paused (SPEC-071 RN-13).
+  const [closedNotice, setClosedNotice] = useState<string | null>(null);
+  const showNotice = notice !== null && notice.id !== closedNotice && exercise.status !== "ENDED";
   const { item, layers, scenario } = setup;
   const total = item.conditions.length;
   // The machine the terminal starts on: the one kept in the browser when the page was reloaded, else the scenario of the module, which is then prepared.
@@ -145,9 +179,9 @@ function Workspace({ classId, exercise, setup, mine, watched, onPassed, onProgre
   const [phase, setPhase] = useState<Phase>("idle");
 
   // What the callbacks of the terminal and of the timers read is the latest render's, and what must not wait for a render.
-  const latest = useRef({ onProgress, onScreen, conditions: item.conditions, done: mine !== null });
+  const latest = useRef({ onProgress, onScreen, conditions: item.conditions, done: mine !== null, running });
   useEffect(() => {
-    latest.current = { onProgress, onScreen, conditions: item.conditions, done: latest.current.done || mine !== null };
+    latest.current = { onProgress, onScreen, conditions: item.conditions, done: latest.current.done || mine !== null, running };
   });
   const machine = useRef<unknown>(null);
   const checking = useRef({ busy: false, sent: "" });
@@ -162,16 +196,17 @@ function Workspace({ classId, exercise, setup, mine, watched, onPassed, onProgre
   }, []);
 
   // Where the student is now, which the beat tells again.
-  const now = useRef({ met: 0, last: "" });
-  const pace = useRef<{ progress: Paced<{ met: number; last: string; beat?: boolean }>; screen: Paced<ScreenElement>; save: Paced<unknown> } | null>(null);
+  const now = useRef({ met: 0, last: "", commands: 0 });
+  const pace = useRef<{ progress: Paced<{ met: number; last: string; commands: number; beat?: boolean }>; screen: Paced<ScreenElement>; save: Paced<unknown> } | null>(null);
   useEffect(() => {
-    // The room already knows what it was told last: the same progress is not told again.
+    // The room already knows what it was told last: the same progress is not told again. Nothing is told while the round is paused or over.
     let told = "";
     const made = {
-      progress: createPaced<{ met: number; last: string; beat?: boolean }>(({ met: count, last, beat }) => {
-        const key = `${count}|${last}`;
+      progress: createPaced<{ met: number; last: string; commands: number; beat?: boolean }>(({ met: count, last, commands, beat }) => {
+        if (!latest.current.running) return true;
+        const key = `${count}|${last}|${commands}`;
         if (!beat && key === told) return true;
-        const went = latest.current.onProgress({ runId, met: count, total, last });
+        const went = latest.current.onProgress({ runId, met: count, total, last, commands });
         if (went) told = key;
         return went;
       }, PROGRESS_MS),
@@ -210,7 +245,7 @@ function Workspace({ classId, exercise, setup, mine, watched, onPassed, onProgre
   const submit = async (snapshot: unknown): Promise<void> => {
     const body = JSON.stringify(snapshot);
     const turn = checking.current;
-    if (turn.busy || turn.sent === body || latest.current.done) return;
+    if (turn.busy || turn.sent === body || latest.current.done || !latest.current.running) return;
     turn.busy = true;
     turn.sent = body;
     setPhase("checking");
@@ -245,13 +280,13 @@ function Workspace({ classId, exercise, setup, mine, watched, onPassed, onProgre
     }
   };
 
-  const handleChange = (snapshot: unknown, last: string) => {
+  const handleChange = (snapshot: unknown, last: string, commands: number) => {
     machine.current = snapshot;
     const { done, missing } = checkConditions(item.conditions, snapshot);
     const count = total - missing.length;
-    now.current = { met: count, last };
+    now.current = { met: count, last, commands };
     setMet(count);
-    pace.current?.progress.push({ met: count, last });
+    pace.current?.progress.push({ met: count, last, commands });
     pace.current?.save.push(snapshot);
     if (done) void submit(snapshot);
   };
@@ -270,11 +305,50 @@ function Workspace({ classId, exercise, setup, mine, watched, onPassed, onProgre
         <article className={styles.statement} aria-label={m.statement} tabIndex={0}>
           <Html html={item.description} />
         </article>
-        <ExerciseTerminal initialState={start.state} layers={layers} prepare={start.prepare} readOnly={mine !== null} onChange={handleChange} onScreen={handleScreen} />
+        <div className={styles.terminalBox}>
+          <ExerciseTerminal
+            initialState={start.state}
+            layers={layers}
+            prepare={start.prepare}
+            readOnly={mine !== null || !running}
+            takenOver={takenOver}
+            onTakeoverKey={onTakeoverKey}
+            onChange={handleChange}
+            onScreen={handleScreen}
+          />
+          {showNotice && (
+            <aside className={styles.notice} role="note" aria-label={m.noticeTitle}>
+              <strong>{m.noticeTitle}</strong>
+              <p className={styles.noticeText}>{notice.text}</p>
+              <Button variant="ghost" size="sm" onClick={() => setClosedNotice(notice.id)}>
+                {m.noticeClose}
+              </Button>
+            </aside>
+          )}
+        </div>
       </div>
+      {exercise.status === "PAUSED" ? (
+        <p className={styles.lock} role="status">
+          {m.pausedNotice}
+        </p>
+      ) : exercise.status === "ENDED" ? (
+        <p className={styles.lock} role="status">
+          {exercise.endedBy === "TEACHER" ? m.endedByTeacher : exercise.endedBy === "SESSION" ? m.ended : m.timeUp}
+        </p>
+      ) : takenOver ? (
+        <p className={styles.lock} role="status">
+          {m.takenOver}
+        </p>
+      ) : (
+        released && (
+          <p className={styles.feedback} role="status">
+            {m.released}
+          </p>
+        )
+      )}
       {mine ? (
         <p className={styles.feedback} role="status">
-          <strong>{m.passed(mine.points, mmss(mine.elapsedSeconds))}</strong> <span>{m.readOnly}</span>
+          <strong>{mine.points === 0 ? m.passedHelped : m.passed(mine.points, mmss(mine.elapsedSeconds))}</strong> <span>{m.readOnly}</span>
         </p>
       ) : phase === "checking" ? (
         <p className={styles.feedback} role="status">

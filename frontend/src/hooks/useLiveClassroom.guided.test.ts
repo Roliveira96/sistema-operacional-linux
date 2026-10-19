@@ -160,7 +160,7 @@ describe("useLiveClassroom, the guided practice (SPEC-071)", () => {
     expect(result.current.exerciseProgress["u-1"]).toMatchObject({ commands: 4, lastCommandAt: "2026-10-14T10:00:10Z", helpRequested: true, takenOver: true });
     act(() => socket().receive("live:exercise:takeover", { studentId: "u-1", on: false }));
     expect(result.current.takeover).toBeNull();
-    expect(result.current.exerciseProgress["u-1"].takenOver).toBe(true);
+    expect(result.current.exerciseProgress["u-1"]?.takenOver).toBe(true);
     act(() => socket().receive("live:exercise:takeover", { studentId: "u-2", on: true }));
     expect(result.current.takeover).toBe("u-2");
     expect(result.current.exerciseProgress["u-2"]?.takenOver).toBe(true);
@@ -175,7 +175,7 @@ describe("useLiveClassroom, the guided practice (SPEC-071)", () => {
       panel.result.current.pauseExercise(true);
       panel.result.current.extendExercise(2);
       panel.result.current.closeExercise();
-      panel.result.current.takeover("u-1", true);
+      panel.result.current.takeoverStudent("u-1", true);
       panel.result.current.sendTakeoverKey("u-1", { key: "c", ctrl: true });
       panel.result.current.sendTakeoverPaste("u-1", "ls -l\n");
     });
@@ -193,7 +193,7 @@ describe("useLiveClassroom, the guided practice (SPEC-071)", () => {
         other.result.current.pauseExercise(true);
         other.result.current.extendExercise(2);
         other.result.current.closeExercise();
-        other.result.current.takeover("u-1", true);
+        other.result.current.takeoverStudent("u-1", true);
         other.result.current.sendTakeoverKey("u-1", { key: "a" });
         other.result.current.sendTakeoverPaste("u-1", "x");
       });
