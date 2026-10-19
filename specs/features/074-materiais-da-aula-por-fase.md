@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-074 |
-| **Status** | Implementada |
+| **Status** | Rascunho |
 | **Data de criação** | 16/10/2026 |
-| **Última revisão** | 16/10/2026 (implementada) |
+| **Última revisão** | 19/10/2026 (revisão pedida pelo Tech Lead: vários arquivos, fase padrão "Durante a aula", projetar um material na sala; volta a Rascunho) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -25,13 +25,16 @@ Uma aula tem **materiais de momentos diferentes**: os slides e o roteiro que o e
 ## 2. Objetivos (Goals)
 
 - Cada aula da agenda tem uma **lista de materiais**: arquivo (PDF ou imagem) ou link, com título, tipo (slides, exercícios, resolução dos exercícios, referência) e **fase de visibilidade**, escolhida pelo professor: sempre, só durante a aula, só depois da aula, ou durante e depois da aula. No diálogo da aula, cada fase é uma **área** própria onde o professor **arrasta os arquivos**.
+- O professor envia **quantos arquivos quiser** (até 50 por aula) como materiais: apresentações, exercícios, resoluções, o que vai valer no trabalho, documentos que só exibe na aula. A fase de cada um é escolha dele; **o arquivo que ele não classificou nasce em "Durante a aula"** (D-06).
+- Todo arquivo que o estudante lê ou baixa chega **só** pelos materiais, com a regra das fases: a apresentação única da SPEC-053 sai do conteúdo da aula (D-07, D-08).
+- Para projetar na aula ao vivo, o professor escolhe, **dentro da sala**, um PDF ou uma imagem dos materiais da aula (D-08).
 - O **servidor decide** o que o estudante vê em cada momento, pelo relógio dele e pela janela da aula atual (SPEC-073): o estudante nunca recebe o que não está liberado, nem a existência dele.
 - O que é "depois da aula" **se libera sozinho** quando a aula termina (pelo horário ou quando o professor encerra a sala ao vivo ligada à aula), por data e hora marcadas, ou na hora, pelo botão **Liberar agora**.
 - Os materiais aparecem no diário, no painel do dia e na linha do tempo (SPEC-073), agrupados por fase; o professor vê também os ocultos, com a marca do motivo.
 
 ### 2.1. Fora de escopo (Non-Goals)
 
-- Projetar um material no palco da aula ao vivo (o professor continua enviando a apresentação pela sala, SPEC-068) e mostrar materiais na janela de apresentação.
+- Projetar um link no palco: só PDF e imagem se projetam. O envio de arquivo direto pela sala (SPEC-068) continua como é.
 - Materiais da turma inteira, fora de uma aula (os links da turma da SPEC-048 continuam como são), e o `StudyMaterial` dos módulos de ensino.
 - Formatos além de PDF, PNG, JPEG e WebP (D-01). Gravações de aula (não há vídeo, SPEC-051).
 - Notificar o estudante quando um material é liberado. Copiar materiais entre aulas.
@@ -51,6 +54,12 @@ A área onde o material foi solto define a **fase**; o **tipo** começa pela fas
 - **Fase:** Sempre, Só durante, Durante e depois ou Só depois, para passar o material de uma área para outra;
 - nas fases que incluem "depois", a data e hora opcionais de liberação (por padrão, o fim da aula);
 - o botão **Liberar agora** (só para material ainda oculto), **Subir**, **Descer** e **Remover**.
+
+**Enviar arquivos (fase padrão).** No alto da seção Materiais há uma área **Enviar arquivos**, por clique ou arrastando e soltando, que aceita **vários arquivos de uma vez**. Cada arquivo entra como material na fase **Durante a aula**, com o tipo inicial dessa fase, e o professor muda a fase (e o tipo) depois, no próprio material ou passando-o para outra área. As quatro áreas por fase continuam: o arquivo solto ou escolhido dentro de uma delas entra **naquela** fase (CA-13).
+
+**Sem apresentação no diálogo.** O diálogo não tem mais o campo **Apresentação** nem a área **Enviar PDF** da SPEC-053: todo arquivo da aula é enviado em Materiais. O painel da aula e o diário deixam de mostrar **Ver apresentação**.
+
+**Projetar na sala ao vivo (professor).** No painel do professor da sala (`TeacherPanel`, seção Arquivos, SPEC-068), quando a sala está **ligada a uma aula** (`classSessionId`), aparece o bloco **Materiais da aula** com os materiais de arquivo (PDF e imagem) dessa aula, na ordem do professor, cada um com o título, o tipo e o botão **Projetar**. O professor vê também os que ainda estão ocultos para a turma: projetar não muda a visibilidade. **Projetar** chama a rota da seção 5 e, com a apresentação devolvida, a coloca no palco como o "Projetar" da lista de arquivos da sala. Sala avulsa não tem o bloco, e link não tem **Projetar**.
 
 O envio de arquivo lê o arquivo no navegador e valida antes de enviar (PDF até 25 MB e até 100 páginas, sem senha; PNG, JPEG ou WebP até 10 MB), como o envio da SPEC-053 e da SPEC-068. Cada arquivo mostra o seu estado (**Enviando…**, enviado ou o erro), sem a porcentagem: o navegador não informa o avanço de um envio feito por `fetch`. Vários arquivos soltos de uma vez são enviados um depois do outro, e um recusado não impede os outros. A lista de materiais é gravada **por material** (cada envio, edição, reordenação ou remoção é uma chamada), não junto com o Salvar do conteúdo, para o arquivo grande não travar o resto. Erros aparecem junto do material.
 
@@ -79,6 +88,8 @@ Módulo `schedule`:
 - **RN-05 (leitura pelo professor):** a docente dona e o administrador leem todos os materiais, cada um com `visibleNow` e, quando oculto, `hiddenUntil` (`CLASS_START`, `CLASS_END`, `CLASS_OVER` para o "só durante" de aula que terminou, `CLASS_CANCELED` para a aula cancelada, ou a data e hora da liberação, quando ela marcada vem antes do momento da fase, ou quando a fase não volta mais).
 - **RN-06 (exclusão):** lógica; o objeto no bucket fica. A aula excluída (avulsa apagada, SPEC-042) leva os materiais junto, logicamente.
 - **RN-07 (regeneração):** a aula que tem material conta como "tem conteúdo" para a regeneração das aulas semanais (SPEC-053 RN-05) e para `hasContent`.
+- **RN-08 (projetar um material):** o `classroom` declara a porta `LessonMaterials` (devolve título, chave do objeto, páginas e tipo do arquivo de um **material de arquivo** de uma aula da turma), implementada em `cmd/api` pelo serviço do `schedule`, nunca pelo repositório. Projetar cria uma apresentação da turma (`slide_decks`) com a **mesma chave de objeto** (o arquivo não é copiado), o título do material, as páginas e o `kind` pelo tipo do arquivo (PDF, ou IMAGE para PNG, JPEG e WebP); se a turma já tem uma apresentação não excluída com essa chave, **reaproveita-a**, sem gastar o limite de 100 (SPEC-053 RN-07). O material pode ser de qualquer aula da turma. A exclusão lógica de um dos dois mantém o objeto, então o outro continua abrindo. Só quem conduz a sala (docente dona e administrador) projeta.
+- **RN-09 (a apresentação sai do conteúdo da aula):** a gravação e a leitura do conteúdo (SPEC-053) deixam de ter `deckId` e `deck`; a coluna `class_sessions.deck_id` fica **sem uso** (sai numa migração futura, sem perder dado agora). Aula que tinha apresentação continua com ela na lista de arquivos da sala ao vivo, mas perde a ligação com a aula. "Iniciar aula ao vivo" a partir da aula não leva apresentação: o professor projeta um material dentro da sala (RN-08).
 
 ## 4. Modelo de Dados (Data Model)
 
@@ -139,6 +150,15 @@ Todas as rotas abaixo exigem a turma e a aula existentes (404 `session-not-found
 
 **Leituras da SPEC-073:** a linha do tempo ganha, em cada aula, `materialCount` (os visíveis ao leitor); o diário ganha `materials`, a mesma lista da rota de listagem, já filtrada. **Calendário (SPEC-053):** `hasContent` passa a considerar os materiais (RN-07).
 
+**`POST /api/v1/classes/{id}/live/decks/from-material`** (módulo `classroom`): põe um material de arquivo da turma na lista de apresentações da turma, para ser projetado (RN-08).
+
+- **Papéis autorizados:** docente dona e administrador.
+- **Corpo:** `materialId` (uuid).
+- **Resposta (201 se criou, 200 se reaproveitou):** a apresentação, como no envio da SPEC-068 (`id`, `title`, `pageCount`, `kind`, `downloadUrl` assinada de 15 minutos, `createdAt`). Quem chama a põe no palco pelo mesmo comando de WebSocket do "Projetar" da SPEC-068.
+- **Erros:** 400 `material-not-projectable` (o material é um link); 403 `forbidden`; 404 `material-not-found` (inexistente, excluído, ou de aula de outra turma); 409 `deck-limit-exceeded` (só quando seria criada uma apresentação nova e a turma já tem 100).
+
+**Mudança na SPEC-053 (RN-09):** `PUT` e `GET /api/v1/classes/{id}/sessions/{sessionId}/content` deixam de ter `deckId` e `deck`.
+
 ## 6. Impacto e Riscos (Impact & Risks)
 
 - **Resolução dos exercícios visível antes da hora.** Mitigação: a filtragem é no servidor (RN-04), com testes de fronteira (um minuto antes e depois do início da janela e do fim, sala ao vivo encerrada, liberação marcada, aula cancelada); o endereço de download do oculto responde 404 ao estudante.
@@ -146,6 +166,8 @@ Todas as rotas abaixo exigem a turma e a aula existentes (404 `session-not-found
 - **Arquivo malicioso ou grande demais.** Mitigação: validação por assinatura e limites lidos durante o envio (SPEC-068, RN-02); chave gerada; URL de 15 minutos; link só https, aberto com `rel="noopener noreferrer"`.
 - **Acoplamento com `classroom` pela validação.** Mitigação: porta declarada no `schedule`, implementada em `cmd/api` (como `content_refs.go`); o `schedule` não importa o `classroom`.
 - **Fuso e virada de dia.** Mitigação: a mesma janela da aula atual da SPEC-073, em `America/Sao_Paulo`, com testes.
+- **Aula com apresentação ligada antes desta revisão** perde a ligação (RN-09); as apresentações continuam na lista da sala. Mitigação: nada se apaga e o professor projeta o material pela sala.
+- **Material projetado vira apresentação da turma** (a mesma chave de objeto). Mitigação: reaproveita a que já existe e só gasta o limite de 100 na primeira vez; exclusão lógica mantém o objeto.
 - **Espaço no MinIO.** Mitigação: 50 materiais por aula, 25 MB por PDF e 10 MB por imagem; exclusão lógica mantém o objeto, como as apresentações.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
@@ -163,6 +185,11 @@ Todas as rotas abaixo exigem a turma e a aula existentes (404 `session-not-found
 - [x] **CA-11** (ubíquo): O diário, o painel do dia e a linha do tempo DEVEM mostrar os materiais agrupados por fase com ícone, título, tamanho ou domínio e Abrir ou Baixar (endereço obtido no clique); o professor DEVE ver também os ocultos com a marca do motivo e Liberar agora; o estudante NÃO DEVE ver nada dos ocultos.
 - [x] **CA-12** (ubíquo): Stylelint, ESLint e `tsc` limpos; cores só dos tokens; alvos de 44 px; fase e motivo em texto.
 - [x] **CA-13** (evento): QUANDO o professor arrasta um ou vários arquivos para uma das quatro áreas, O SISTEMA DEVE destacar a área enquanto o arquivo está sobre ela, validar cada arquivo no navegador, enviá-lo um depois do outro como material **daquela fase**, com o tipo inicial da fase e o título pelo nome do arquivo; SE um arquivo é recusado, ENTÃO DEVE mostrar o erro junto dele e seguir com os outros; arquivos soltos fora das áreas NÃO DEVEM ser abertos pelo navegador; o botão Escolher arquivos DEVE fazer o mesmo para quem não arrasta.
+- [ ] **CA-14** (evento): QUANDO o professor escolhe ou arrasta um ou vários arquivos para a área **Enviar arquivos** (sem escolher uma das quatro áreas), O SISTEMA DEVE enviar cada um, um depois do outro, como material da fase **Durante a aula** (`DURING_CLASS`) com o tipo inicial dessa fase e o título pelo nome do arquivo, com a mesma validação, o mesmo limite de 50 por aula e o mesmo tratamento de arquivo recusado do CA-13; o professor DEVE conseguir mudar a fase depois.
+- [ ] **CA-15** (ubíquo): A gravação do conteúdo da aula NÃO DEVE aceitar `deckId` e a leitura NÃO DEVE trazer `deck`, para nenhum papel (RN-09); o estudante vê arquivos só pelos materiais, filtrados pela fase (CA-04).
+- [ ] **CA-16** (evento): QUANDO a docente dona ou o administrador pede para projetar um material de arquivo (PDF ou imagem) de uma aula da turma, O SISTEMA DEVE criar a apresentação da turma com a mesma chave de objeto, o título, as páginas e o `kind` do arquivo, ou reaproveitar a que já tem essa chave, e devolvê-la com endereço assinado; SE o material é um link, ENTÃO DEVE recusar com 400 `material-not-projectable`; SE é inexistente, excluído ou de outra turma, com 404 `material-not-found`; SE quem pede não conduz a sala, com 403; SE a turma já tem 100 apresentações e seria criada uma nova, com 409.
+- [ ] **CA-17** (estado): ENQUANTO a sala ao vivo está ligada a uma aula, o painel do professor DEVE mostrar o bloco **Materiais da aula** com os materiais de arquivo da aula (inclusive os ocultos à turma) e **Projetar** em cada um, que DEVE pôr a apresentação no palco; a sala avulsa NÃO DEVE ter o bloco.
+- [ ] **CA-18** (ubíquo): O diálogo de conteúdo NÃO DEVE ter o campo Apresentação nem a área Enviar PDF; o painel da aula e o diário NÃO DEVEM mostrar "Ver apresentação"; "Iniciar aula ao vivo" NÃO DEVE enviar `deckId`.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -171,6 +198,10 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 **Backend, `schedule/domain`:** `TestMaterial_Validate` (título, tipo, fase, https, uma origem só, limite de 50) cobre CA-01, CA-02; `TestMaterial_VisibleAt` (as quatro fases; um minuto antes e depois do início da janela de 15 minutos e do fim; sala ligada ativa e encerrada; "só durante" depois do fim; liberação marcada em cada fase; aula cancelada) cobre CA-04, CA-05.
 
 **Backend, `schedule/service` (portas de teste para arquivos, salas ao vivo e armazenamento):** `TestAddFileMaterial_ClassifiesAndStoresWithGeneratedKey` (CA-01, CA-07), `TestAddFileMaterial_RejectsFormatSizeAndLimit` (CA-01), `TestAddLinkMaterial` (CA-02), `TestUpdateMaterial_ReordersAndKeepsSource` e `TestDeleteMaterial_Logical` (CA-03), `TestMaterials_NoOverrideNoMail` (CA-03), `TestListMaterials_StudentSeesOnlyVisible` e `TestDownload_HiddenIs404ForStudent` (CA-04), `TestRelease_NowAndAlreadyVisible` (CA-05), `TestListMaterials_TeacherSeesHiddenUntil` (CA-06), `TestMaterials_Permissions` (CA-08), `TestHasContent_CountsMaterials` e `TestRegenerationKeepsSessionsWithMaterials` (CA-09).
+
+**Backend, `schedule/service` (CA-15):** `TestSaveContent_IgnoresDeckAndContentHasNoDeck` (gravar e ler o conteúdo sem apresentação, para docente, administrador e estudante).
+
+**Backend, `classroom/service` (CA-16, porta de teste para os materiais):** `TestProjectMaterial_CreatesDeckWithSameKey`, `TestProjectMaterial_ReusesDeckOfSameKey` (não gasta o limite), `TestProjectMaterial_LinkIsNotProjectable`, `TestProjectMaterial_OtherClassOrDeletedIs404`, `TestProjectMaterial_LimitOnlyWhenNew`, `TestProjectMaterial_OnlyWhoRunsTheClass`; `classroom/handler`: `TestProjectMaterialRoute` (201, 200, 400, 403, 404, 409 e os `type` da seção 5).
 
 **Backend, `schedule/repository` (PostgreSQL real):** `TestMaterials_OneSourceConstraint`, `TestMaterials_PositionReorder`, `TestMaterials_SoftDeleteWithSession` (CA-01, CA-03, CA-06).
 
@@ -181,6 +212,9 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | Teste | Arquivo | Cobre |
 | :--- | :--- | :--- |
 | seção Materiais: quatro áreas na ordem, lista de cada fase, Escolher arquivos com validação e o estado Enviando…, link na fase da área, campos (título, tipo, fase, liberação), passar de fase, liberar, subir, descer, remover, erro junto do material | `SessionMaterials.test.tsx` (a seção) e `SessionContentForm.test.tsx` (a seção dentro do diálogo) | CA-10 |
+| área Enviar arquivos: clique e arrastar, vários arquivos de uma vez em ordem, cada um entra em "Durante a aula" com o tipo inicial da fase, recusado não impede os outros, o limite de 50, e mudar a fase depois | `SessionMaterials.test.tsx` | CA-14 |
+| bloco Materiais da aula no painel do professor da sala: só com sala ligada a aula, lista PDF e imagem (sem link), inclusive ocultos, Projetar chama a rota e põe no palco | `TeacherPanel.test.tsx` e `FilesPanel.test.tsx` | CA-17 |
+| diálogo sem Apresentação nem Enviar PDF; painel da aula e diário sem "Ver apresentação"; "Iniciar aula ao vivo" sem `deckId` | `SessionContentForm.test.tsx`, `SessionContentView.test.tsx`, `scheduleService.test.ts` | CA-18 |
 | arrastar e soltar: destaque da área, vários arquivos em ordem, fase da área e tipo inicial, recusado não impede os outros, solto fora da área não é aberto | `SessionMaterials.test.tsx` | CA-13 |
 | grupos por fase, ícone, Abrir e Baixar (endereço no clique), ocultos só para o professor com o motivo, nada para o estudante | `SessionDiary.test.tsx` | CA-11 |
 | "N materiais" nos cards e material preparatório nas próximas | `ClassTimeline.test.tsx` | CA-11 |
@@ -197,6 +231,8 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 3. **Arquivos a criar ou alterar:** `backend/migrations/00039_session_materials.sql`; `backend/internal/modules/schedule/{domain,repository,service,handler}/**`; `backend/cmd/api/main.go` e `backend/cmd/api/material_refs.go` (novo); `frontend/src/services/scheduleService.ts`; `frontend/src/components/SessionContentForm/**`; `frontend/src/components/SessionMaterials/**` (novo); `frontend/src/components/SessionDiary/**`; `frontend/src/components/ClassTimeline/**`; `frontend/src/messages/pt-BR.ts`; `specs/GLOSSARY.md`.
 4. **Definição de pronto:** CA marcados, testes da seção 8 verdes, cobertura acima de 80%, nenhuma violação de `ARCHITECTURE.md`, status `Implementada`.
 
+5. **Escopo da revisão de 19/10/2026 (arquivos a criar ou alterar, além dos da lista acima):** `backend/internal/modules/classroom/**` (porta `LessonMaterials`, `ProjectMaterial` e a rota `from-material`); `backend/internal/modules/schedule/service/content.go`, `handler/**` e `domain/**` (sem `deckId` e `deck`; a porta `Decks` e `WithContentRefs` perdem o uso de apresentação); `backend/cmd/api/main.go` e `content_refs.go` (adaptador da porta nova, sem o adaptador de apresentação); `frontend/src/services/scheduleService.ts` e `classroomService.ts`; `frontend/src/components/SessionContentForm/**`, `SessionMaterials/**`, `SessionDiary/**` (`SessionContentView`), `Classroom/TeacherPanel/**` e `Classroom/FilesPanel/**`; `frontend/src/messages/pt-BR.ts`. Nenhuma migração: `class_sessions.deck_id` fica sem uso (RN-09).
+
 ## 10. Pendências para aprovação
 
 ### Decisões do Tech Lead (16/10/2026)
@@ -207,6 +243,9 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | D-02 | O professor escolhe a fase de cada material: sempre, só durante a aula, só depois da aula, ou durante e depois (era P-02) |
 | D-03 | Há limite, mas acima de 20, porque a professora gosta de incluir PDFs: **50 por aula** (era P-03; o número é recomendação da Aruna Architect) |
 | D-04 | Não há "gabarito" da aula; o que se libera depois da aula é a **resolução dos exercícios** (tipo `EXERCISE_SOLUTION`) |
+| D-06 | (19/10/2026, a pedido do Tech Lead) O professor pode subir **n arquivos** (apresentações, resoluções, o que vai no trabalho, documentos só para a aula) e decide a fase de cada um; **todo arquivo enviado sem fase escolhida fica em "Durante a aula"** |
+| D-07 | (19/10/2026) O estudante só vê arquivos pela regra das fases: a apresentação da SPEC-053 deixa de chegar a ele |
+| D-08 | (19/10/2026, opção B da P-01) A apresentação sai do diálogo de conteúdo; para projetar, o professor escolhe um PDF ou uma imagem dos materiais da aula **dentro da sala ao vivo** |
 | D-05 | O encerramento da sala ao vivo só libera o "depois da aula" quando a sala está **ligada** à aula (RN-04); sala avulsa não libera nada (era P-04, recomendação aceita na aprovação) |
 
 ### Pendências
@@ -235,3 +274,4 @@ Nenhuma.
 | 16/10/2026 | Implementador | Renumerada de SPEC-072 para SPEC-074 (e a SPEC-071 de linha do tempo para SPEC-073), e a migração prevista de `00038` para `00039`, ao juntar a branch com a `projeto-tcc2`, onde a SPEC-071 e a SPEC-072 já são outras specs. O conteúdo da spec não mudou |
 | 16/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | O Tech Lead, ao ver o diálogo de conteúdo, apontou que a spec previa os materiais por fase mas a tela tinha só um campo de envio e nada de arrastar e soltar. Revisão: a seção Materiais passa a ter **quatro áreas, uma por fase**, cada uma com zona de **arrastar e soltar vários arquivos** e o botão Escolher arquivos (CA-10, CA-13); o tipo inicial vem da fase; o estado do envio é "Enviando…" e não uma barra de porcentagem (o `fetch` não informa o avanço). RN-04: sala ao vivo ligada ativa mantém a aula em andamento mesmo depois do horário de fim. Contrato de API: só o motivo novo `CLASS_CANCELED` no `hiddenUntil` (aula cancelada); o resto do backend sem mudança. Termos novos no `GLOSSARY.md`. Status: `Aprovada` (pelo pedido do Tech Lead) |
 | 16/10/2026 | Implementador | Implementada: migração `00039`; `schedule` (domínio da visibilidade e do motivo do oculto, serviço, rotas, repositório) e `cmd/api/material_refs.go`; no frontend, `SessionMaterials` (quatro áreas com arrastar e soltar), `DiaryMaterials` e a marca "N materiais" da linha do tempo. A seção Materiais ficou num componente próprio, `components/SessionMaterials`, usado pelo diálogo. A liberação ("Liberar em") grava ao sair do campo, e não a cada tecla. Conferida com capturas de tela em 390 e 1280 px. Status: `Implementada` |
+| 19/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | Revisão pedida pelo Tech Lead: o professor sobe vários arquivos e escolhe a fase de cada um, e o arquivo sem fase escolhida fica em "Durante a aula" (D-06, CA-14); o estudante só vê arquivos pela regra das fases (D-07); escolhida a opção B da P-01: a apresentação sai do diálogo e do conteúdo da aula, e a sala ao vivo projeta um PDF ou imagem dos materiais (D-08, RN-08, RN-09, CA-15 a CA-18, rota `from-material`). Volta a Rascunho; sem pendências |
