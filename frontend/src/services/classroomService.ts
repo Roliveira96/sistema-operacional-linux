@@ -303,6 +303,17 @@ export interface MyLiveRoom {
   startedAt: string;
 }
 
+/** A command the teacher ran in the presentation window of a live classroom, as the server kept it (SPEC-073). */
+export interface LiveTerminalCommand {
+  terminal: number;
+  command: string;
+  /** null when the command was interrupted and had no exit status. */
+  exitStatus: number | null;
+  output: string;
+  outputTruncated: boolean;
+  ranAt: string;
+}
+
 /** Live classroom REST client (SPEC-051, sections 5.1 to 5.7; SPEC-071, sections 5.1 to 5.5). */
 export function createClassroomService(client: HttpClient = httpClient) {
   const live = (classId: string) => `/classes/${classId}/live`;
@@ -328,6 +339,9 @@ export function createClassroomService(client: HttpClient = httpClient) {
     saveNotes: (classId: string, sessionId: string, content: string) =>
       client.put<{ sessionId: string; savedLength: number; updatedAt: string }>(`${live(classId)}/sessions/${sessionId}/notes`, { content }),
     getNotes: (classId: string, sessionId: string) => client.get<LiveNote>(`${live(classId)}/sessions/${sessionId}/notes`),
+    /** The commands the teacher ran in a live classroom, in the order they ran (SPEC-073). */
+    listCommands: async (classId: string, sessionId: string) =>
+      (await client.get<{ sessionId: string; commands: LiveTerminalCommand[] }>(`${live(classId)}/sessions/${sessionId}/commands`)).commands,
     listNoteBlocks: async (classId: string, sessionId: string) =>
       (await client.get<{ items: LiveNoteBlock[] }>(`${live(classId)}/sessions/${sessionId}/note-blocks`)).items,
     createNoteBlock: (classId: string, sessionId: string, contentMarkdown: string) =>

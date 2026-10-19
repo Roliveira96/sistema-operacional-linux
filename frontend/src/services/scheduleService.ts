@@ -54,6 +54,9 @@ export interface SessionContent {
   module?: { id: string; title: string } | null;
   deck?: { id: string; title: string; pageCount: number; downloadUrl: string } | null;
   links: SessionContentLink[];
+  /** The notes of the teacher (SPEC-073): the public ones come to everybody; the private ones only to the teacher, and are absent for a student. */
+  teacherNotes?: string;
+  teacherPrivateNotes?: string;
 }
 
 /** What the teacher saves: an empty or absent field clears the value. */
@@ -63,6 +66,43 @@ export interface SessionContentInput {
   moduleId?: string;
   deckId?: string;
   links: { name: string; url: string }[];
+  teacherNotes?: string;
+  teacherPrivateNotes?: string;
+}
+
+/** A lesson of the timeline of the class (SPEC-073, section 5): the session with its instants and the rooms linked to it. */
+export interface TimelineEntry extends Session {
+  startsAt: string;
+  endsAt: string;
+  liveSessionCount: number;
+  commandCount: number;
+}
+
+/** The three blocks of the class at the now of the server, and the open room of the class, linked to a lesson or not (SPEC-073 RN-01, RN-02). */
+export interface Timeline {
+  now: string;
+  current: TimelineEntry | null;
+  past: TimelineEntry[];
+  upcoming: TimelineEntry[];
+  liveSessionId: string | null;
+}
+
+/** A room of the live classroom linked to a lesson, with how many commands the teacher ran in it. */
+export interface DiaryLiveSession {
+  id: string;
+  title: string;
+  status: "ACTIVE" | "FINISHED";
+  startedAt: string;
+  endedAt: string | null;
+  durationMinutes: number;
+  commandCount: number;
+}
+
+/** The diary of a lesson (SPEC-073 RN-04): the lesson, its content and the rooms linked to it. */
+export interface SessionDiary {
+  session: TimelineEntry;
+  content: SessionContent;
+  liveSessions: DiaryLiveSession[];
 }
 
 export interface ClassEvent {
@@ -176,6 +216,10 @@ export function createScheduleService(client: HttpClient = httpClient) {
       client.patch<Session>(`/classes/${classId}/sessions/${sessionId}`, input),
     revertSession: (classId: string, sessionId: string) => client.delete<Session>(`/classes/${classId}/sessions/${sessionId}/override`),
     getSessionContent: (classId: string, sessionId: string) => client.get<SessionContent>(`/classes/${classId}/sessions/${sessionId}/content`),
+    /** The timeline of the class, as the server splits it now (SPEC-073). */
+    timeline: (classId: string) => client.get<Timeline>(`/classes/${classId}/sessions/timeline`),
+    /** The diary of a lesson: its content and the live classes linked to it (SPEC-073). */
+    getDiary: (classId: string, sessionId: string) => client.get<SessionDiary>(`/classes/${classId}/sessions/${sessionId}/diary`),
     saveSessionContent: (classId: string, sessionId: string, input: SessionContentInput) =>
       client.put<SessionContent>(`/classes/${classId}/sessions/${sessionId}/content`, input),
     createSession: (classId: string, input: SessionInput) => client.post<Session>(`/classes/${classId}/sessions`, input),

@@ -124,12 +124,15 @@ describe("SessionContentForm", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
 
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    // the notes of the teacher go along, empty when there are none (SPEC-073 CA-10)
     expect(save).toHaveBeenCalledWith("c-1", "s-26", {
       topic: "Usuários e grupos",
       description: "<p>Veremos chmod.</p>",
       moduleId: "m-2",
       deckId: "d-1",
       links: [{ name: "Meet", url: "https://meet.google.com/abc" }],
+      teacherNotes: "",
+      teacherPrivateNotes: "",
     });
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -145,7 +148,7 @@ describe("SessionContentForm", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Remover link: Meet" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save.mock.lastCall?.[2]).toEqual({ topic: "", description: "<p>Veremos chmod.</p>", moduleId: "", deckId: "", links: [] });
+    expect(save.mock.lastCall?.[2]).toEqual({ topic: "", description: "<p>Veremos chmod.</p>", moduleId: "", deckId: "", links: [], teacherNotes: "", teacherPrivateNotes: "" });
   });
 
   it("refuses a topic of more than 120 characters next to the field, without calling the server", async () => {
@@ -277,6 +280,64 @@ describe("SessionContentForm", () => {
       expect(upload).not.toHaveBeenCalled();
     });
 
+    // SPEC-053 CA-15: the teachers drop the file on the area instead of choosing it.
+    describe("dropping the file on the area", () => {
+      const area = (dialog: HTMLElement) => within(dialog).getByText("Arraste o PDF aqui ou clique para escolher").closest("label") as HTMLElement;
+      const drop = (dialog: HTMLElement, ...files: File[]) => fireEvent.drop(area(dialog), { dataTransfer: { files, types: ["Files"] } });
+
+      it("sends the dropped PDF and selects it, like the one chosen by click", async () => {
+        setup();
+        const dialog = await ready();
+        readPdfInfo.mockResolvedValue({ pageCount: 4 });
+        const upload = vi.spyOn(classroomService, "uploadDeck").mockResolvedValue({ id: "d-7", title: "Aula 3 - Permissões", pageCount: 4, downloadUrl: "https://minio/d-7" });
+        const file = pdf();
+        drop(dialog, file, new File(["%PDF-1.7"], "outro.pdf", { type: "application/pdf" }));
+        await waitFor(() => expect(upload).toHaveBeenCalledWith("c-1", file, "Aula 3 - Permissões", 4));
+        expect(upload).toHaveBeenCalledTimes(1);
+        const deck = within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement;
+        await waitFor(() => expect(deck.value).toBe("d-7"));
+      });
+
+      it("refuses a dropped file that is not a PDF, before sending", async () => {
+        setup();
+        const dialog = await ready();
+        const upload = vi.spyOn(classroomService, "uploadDeck");
+        drop(dialog, new File(["x"], "foto.png", { type: "image/png" }));
+        expect(await within(dialog).findByText("Escolha um arquivo PDF.")).toBeDefined();
+        expect(upload).not.toHaveBeenCalled();
+      });
+
+      it("highlights the area while a file is over it", async () => {
+        setup();
+        const dialog = await ready();
+        const target = area(dialog);
+        expect(target.getAttribute("data-dragging")).toBeNull();
+        fireEvent.dragEnter(target, { dataTransfer: { types: ["Files"] } });
+        expect(target.getAttribute("data-dragging")).toBe("true");
+        fireEvent.dragLeave(target, { dataTransfer: { types: ["Files"] } });
+        expect(target.getAttribute("data-dragging")).toBeNull();
+        fireEvent.dragEnter(target, { dataTransfer: { types: ["Files"] } });
+        fireEvent.drop(target, { dataTransfer: { files: [], types: ["Files"] } });
+        expect(target.getAttribute("data-dragging")).toBeNull();
+      });
+
+      it("ignores a file dropped while another one is being sent", async () => {
+        setup();
+        const dialog = await ready();
+        readPdfInfo.mockResolvedValue({ pageCount: 2 });
+        let finish: (deck: { id: string; title: string; pageCount: number; downloadUrl: string }) => void = () => undefined;
+        const upload = vi.spyOn(classroomService, "uploadDeck").mockReturnValue(new Promise((resolve) => (finish = resolve)));
+        drop(dialog, pdf());
+        await waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
+        drop(dialog, new File(["%PDF-1.7"], "segundo.pdf", { type: "application/pdf" }));
+        await Promise.resolve();
+        expect(readPdfInfo).toHaveBeenCalledTimes(1);
+        finish({ id: "d-8", title: "Aula 3 - Permissões", pageCount: 2, downloadUrl: "https://minio/d-8" });
+        await waitFor(() => expect((within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement).value).toBe("d-8"));
+        expect(upload).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it("shows the refusals of the server", async () => {
       setup();
       const dialog = await ready();
@@ -288,5 +349,68 @@ describe("SessionContentForm", () => {
       choose(dialog, pdf());
       await waitFor(() => expect(within(dialog).getByText("Não foi possível enviar a apresentação.")).toBeDefined());
     });
+  });
+});
+
+// SPEC-073 CA-10: the notes of the teacher in the dialog of the content
+describe("notes of the teacher (SPEC-073)", () => {
+  it("opens with the notes filled in, saves them with the content and closes", async () => {
+    const { save, onSaved } = setup({ ...saved, teacherNotes: "<p>Vimos chmod.</p>", teacherPrivateNotes: "<p>Rever o fork.</p>" });
+    const dialog = await ready();
+    await waitFor(() => expect(within(dialog).getByRole("textbox", { name: "Anotações da aula (a turma vê)" }).textContent).toContain("Vimos chmod."));
+    expect(within(dialog).getByRole("textbox", { name: "Anotações privadas (só você vê)" }).textContent).toContain("Rever o fork.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.lastCall?.[2]).toMatchObject({ topic: "Permissões de arquivos", teacherNotes: "<p>Vimos chmod.</p>", teacherPrivateNotes: "<p>Rever o fork.</p>" });
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+  });
+
+  it("sends empty notes when there are none, and puts a note over the limit next to its field", async () => {
+    const { save, onClose } = setup(saved);
+    const dialog = await ready();
+    await waitFor(() => expect((within(dialog).getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.lastCall?.[2]).toMatchObject({ teacherNotes: "", teacherPrivateNotes: "" });
+
+    save.mockRejectedValueOnce(new ApiProblemError({ type: "content-too-long", status: 400, field: "teacherPrivateNotes" }, 400));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    expect(await within(dialog).findByText("As anotações podem ter até 20.000 caracteres.")).toBeDefined();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// SPEC-073 CA-10: each of the three editors shows its name and says who reads what is written in it
+describe("labels and help of the editors (SPEC-073 CA-10)", () => {
+  const editors = [
+    { name: "Descrição do conteúdo", hint: "A turma vê este texto na agenda da turma." },
+    { name: "Anotações da aula (a turma vê)", hint: "Registro do que aconteceu na aula: a turma vê assim que você salvar." },
+    { name: "Anotações privadas (só você vê)", hint: "Lembretes seus sobre esta aula. Nenhum estudante vê." },
+  ];
+
+  it("shows the name of each editor on the screen, and not only to the screen reader", async () => {
+    setup();
+    const dialog = await ready();
+    for (const { name } of editors) {
+      // the editor has a label of its own for the screen reader; the one on the screen is the other (the editors open a moment after the dialog)
+      await waitFor(() => expect(within(dialog).getAllByText(name), name).toHaveLength(2));
+    }
+  });
+
+  it("tells who reads what is written, and ties that line to the editor", async () => {
+    setup();
+    const dialog = await ready();
+    for (const { name, hint } of editors) {
+      const line = within(dialog).getByText(hint);
+      expect(line.id, name).not.toBe("");
+      expect((await within(dialog).findByRole("textbox", { name })).getAttribute("aria-describedby"), name).toBe(line.id);
+    }
+  });
+
+  it("gives each editor a different line, so the three are not alike", async () => {
+    setup();
+    const dialog = await ready();
+    const ids = editors.map(({ hint }) => within(dialog).getByText(hint).id);
+    expect(new Set(ids).size).toBe(3);
   });
 });

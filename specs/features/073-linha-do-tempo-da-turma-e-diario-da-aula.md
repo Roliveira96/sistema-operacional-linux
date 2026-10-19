@@ -1,11 +1,11 @@
-# SPEC-071: Linha do Tempo da Turma e Diário da Aula (anotações e comandos do professor)
+# SPEC-073: Linha do Tempo da Turma e Diário da Aula (anotações e comandos do professor)
 
 | Campo | Valor |
 | :--- | :--- |
-| **ID** | SPEC-071 |
-| **Status** | Aprovada |
+| **ID** | SPEC-073 |
+| **Status** | Implementada |
 | **Data de criação** | 16/10/2026 |
-| **Última revisão** | 16/10/2026 (aprovada) |
+| **Última revisão** | 16/10/2026 (CA-12 e CA-13 implementados) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -14,7 +14,7 @@
 | **Prioridade** | Alta |
 | **Depende de** | SPEC-042 (agenda), SPEC-051 (sala ao vivo), SPEC-053 (conteúdo de cada aula), SPEC-055 (janela de apresentação e painel), SPEC-056 (espelho do terminal), SPEC-060 (executar exemplos na aula) |
 | **Substitui** | Nenhuma. Amplia o conteúdo da aula da SPEC-053 |
-| **Fontes canônicas** | Texto trazido pelo Tech Lead em 16/10/2026 (seções "Interface abaixo do calendário" e "Ciclo de vida do conteúdo", parte das anotações do docente) e a decisão dele no mesmo dia: "os comandos que o professor digita devem ser salvos". As seções do texto sobre materiais por fase (SPEC-072), caderno do aluno (spec em andamento por outra pessoa), terminal com módulo pré-selecionado e presença ficam fora desta spec |
+| **Fontes canônicas** | Texto trazido pelo Tech Lead em 16/10/2026 (seções "Interface abaixo do calendário" e "Ciclo de vida do conteúdo", parte das anotações do docente) e a decisão dele no mesmo dia: "os comandos que o professor digita devem ser salvos". As seções do texto sobre materiais por fase (SPEC-074), caderno do aluno (spec em andamento por outra pessoa), terminal com módulo pré-selecionado e presença ficam fora desta spec |
 
 ---
 
@@ -33,8 +33,8 @@ O professor também não tem onde registrar, por aula, **o que de fato aconteceu
 
 ### 2.1. Fora de escopo (Non-Goals)
 
-- **Anotações do estudante** (caderno por aula, anotações na sala ao vivo): spec própria, em andamento por outra pessoa. Esta spec não toca `live_classroom_notes`, o `StudentNotesPanel` nem as rotas de anotações da SPEC-051; o diário não mostra nada do estudante.
-- Materiais com visibilidade por fase (pré-aula, durante, pós-aula), gabaritos e arquivos além dos já previstos na SPEC-053: ficam na SPEC-072, que acrescenta os materiais ao diário desta spec.
+- **Anotações do estudante** (caderno por aula, anotações na sala ao vivo): é a SPEC-072 (caderno dinâmico de anotações em aula), já implementada. Esta spec não toca `live_classroom_notes`, o `StudentNotesPanel` nem as rotas de anotações da SPEC-051; o diário não mostra nada do estudante.
+- Materiais com visibilidade por fase (pré-aula, durante, pós-aula), gabaritos e arquivos além dos já previstos na SPEC-053: ficam na SPEC-074, que acrescenta os materiais ao diário desta spec.
 - Frequência, presença e telemetria de engajamento: spec própria, futura.
 - O estudante ter terminal próprio ou trocar de módulo na aula ao vivo (contradiz a SPEC-054): spec própria, futura.
 - Reproduzir os comandos gravados no terminal do estudante ("replay") ou gravar a tela da aula.
@@ -53,6 +53,10 @@ O professor também não tem onde registrar, por aula, **o que de fato aconteceu
 - **Aulas passadas.** As 3 aulas mais recentes já terminadas, cada uma num card recolhido com a data, o tema e a marca "N comandos" (quando houve sala ao vivo com comandos). O botão **Ver diário** expande o card com o diário da aula.
 - **Próximas aulas.** As 5 aulas seguintes, com data, horário, tema, sala ou link e, quando a aula tem conteúdo, os links e a apresentação (o material preparatório da SPEC-053). **Ver detalhes** expande o diário (só o conteúdo e as anotações).
 
+**Ações dos cards (todos os blocos).** Cada card de aula tem o botão que abre o diário dela: **Ver diário** nas passadas e **Ver detalhes** na atual e nas próximas. Ele existe **sempre** na atual e nas passadas; nas próximas, **sempre para o professor** e, para o estudante, só quando a aula tem conteúdo (não há o que ver numa aula vazia). O diário aberto num card, sem nada registrado, diz "Nada registrado nesta aula ainda." (no painel do dia do calendário, não), e o professor tem ao lado os botões de editar abaixo. O professor dono e o administrador têm, em **todos** os cards, os botões **Conteúdo da aula** e **Alterar esta aula**, que abrem os mesmos diálogos do painel do dia do calendário (SPEC-053 e SPEC-042); ao salvar, a linha do tempo e o calendário são lidos de novo. O estudante nunca vê esses dois botões.
+
+**Aparência dos cards.** Cada card tem a **data em destaque** à esquerda (o dia grande e o mês pequeno; cheia nas próximas, só contorno nas passadas e na cor de destaque na atual), o título e, abaixo, a linha do dia da semana, do horário, da sala (num chip) e das marcas; as ações ficam à direita numa tela larga e abaixo, com altura de 44 px, numa estreita, e os dois botões de editar ficam agrupados e separados do que abre o diário. Os três blocos têm só um rótulo discreto com uma linha, e um bloco sem aulas é uma caixa tracejada.
+
 A linha do tempo é consultada ao abrir a aba Agenda, a cada 60 segundos enquanto a aba está visível e quando a aba volta a ficar visível; falha na consulta esconde a linha do tempo sem mensagem e a próxima consulta tenta de novo (padrão da SPEC-067). Estados: carregando (esqueleto de três cards), sem aulas (turma sem encontros: o mesmo estado vazio do calendário) e erro silencioso.
 
 **Diário da aula (`SessionDiary`, todos).** O mesmo componente aparece expandido na linha do tempo e no painel do dia do calendário (abaixo do conteúdo da SPEC-053), com as seções, nesta ordem, cada uma só quando tem algo:
@@ -63,6 +67,8 @@ A linha do tempo é consultada ao abrir a aba Agenda, a cada 60 segundos enquant
 - **Aulas ao vivo desta aula:** uma entrada por sala ao vivo ligada à aula (título, início, fim, duração) com a lista dos **comandos do professor**, na ordem em que rodaram: o número do terminal, a linha digitada, o código de saída (verde para 0, vermelho para os outros, "interrompido" quando não há código), a saída recolhida (**Ver saída**) e o botão **Copiar** da linha. A lista é carregada quando a entrada é expandida.
 
 **Diálogo de conteúdo da aula (`SessionContentForm`, professor).** Ganha dois campos de texto formatado, com o mesmo editor da descrição: **Anotações da aula (a turma vê)** e **Anotações privadas (só você vê)**. Gravadas com o resto do conteúdo, pelo botão Salvar.
+
+**Rótulo e ajuda dos editores.** Cada um dos três editores do diálogo (a descrição e as duas anotações) tem o **rótulo visível** em cima e, logo abaixo, uma **linha de ajuda** que diz quem lê o texto: na descrição, "A turma vê este texto na agenda da turma."; nas anotações da aula, "Registro do que aconteceu na aula: a turma vê assim que você salvar."; nas privadas, "Lembretes seus sobre esta aula. Nenhum estudante vê." O editor só tem rótulo para leitor de tela, então o rótulo visível é de quem o usa, e a linha de ajuda é ligada ao editor (`aria-describedby`).
 
 **Janela de apresentação (professor).** Cada comando concluído no terminal da aula (digitado à mão ou executado pelo ▶ da SPEC-060) é enviado ao servidor uma vez, com o terminal, a linha, o código de saída e a saída impressa (cortada em 4.000 caracteres, com a marca de corte). Nada muda na tela. O adaptador do terminal (`engine/terminalWindow.ts`) ganha o retorno `onCommandRun`, lido de fora do `engine/core` como o `execute` já lê a saída e o histórico; se a leitura de fora não bastar, esta spec autoriza um aviso mínimo, só de notificação, em `engine/core/terminal/`, coberto pela conformidade da SPEC-030 (precedente da SPEC-051, P-Q1).
 
@@ -88,7 +94,7 @@ Botões do padrão `Button`, tema único escuro, só tokens, alvos de 44 px, tex
 
 ## 4. Modelo de Dados (Data Model)
 
-Migração `00037`.
+Migração `00038`.
 
 Colunas novas em `class_sessions`:
 
@@ -156,22 +162,24 @@ Cada **aula** traz: `id`, `date`, `startTime`, `endTime`, `startsAt` e `endsAt` 
 - **Acoplamento entre `schedule` e `classroom`.** Mitigação: porta declarada no `schedule` e implementada em `cmd/api`, como na SPEC-053; nenhum repositório atravessa a fronteira.
 - **Leitura de dentro do terminal legado** (histórico, status e saída por terminal). Mitigação: leitura de fora, no adaptador, coberta por `terminalWindow.test.ts` e pela conformidade da SPEC-030; aviso mínimo em `engine/core/terminal/` só se necessário, como a SPEC-051 autorizou.
 - **Senha na gravação.** Mitigação: RN-08 e teste com `su` (a linha gravada é `su`, a saída não contém a senha).
-- **Conflito com a spec de anotações do estudante** (outra pessoa). Mitigação: esta spec não toca nada do estudante (2.1); o `SessionDiary` é um componente com seções independentes, onde a outra spec pode acrescentar a dela.
+- **Conflito com a spec de anotações do estudante** (SPEC-072). Mitigação: esta spec não toca nada do estudante (2.1); o `SessionDiary` é um componente com seções independentes, onde o caderno da SPEC-072 pode ser ligado ao diário numa revisão futura.
 - **Consultas a mais na aba Agenda** (calendário, sala ativa e agora a linha do tempo, a cada 60 s). Mitigação: só com a aba visível; a linha do tempo resolve tudo numa chamada (as contagens por aula vêm numa consulta agregada).
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (ubíquo): A linha do tempo DEVE trazer, calculados no servidor em `America/Sao_Paulo` e só com aulas não canceladas, as 3 aulas passadas mais recentes, a aula atual (de 15 minutos antes do início até o fim; a de início mais cedo se houver mais de uma) e as 5 próximas, com os campos da seção 5.
-- [ ] **CA-02** (estado): ENQUANTO a turma tem sala ao vivo ativa ligada a uma aula, O SISTEMA DEVE tratar essa aula como a atual, mesmo fora do horário, e informar `liveSessionId`; ENQUANTO a sala ativa não tem vínculo, os blocos NÃO DEVEM mudar e `liveSessionId` DEVE vir mesmo assim.
-- [ ] **CA-03** (evento): QUANDO a docente dona ou o administrador grava o conteúdo com anotações públicas e privadas, O SISTEMA DEVE guardá-las só nessa aula, sem marcar a aula como alterada, pedir motivo nem enviar e-mail; SE passam do limite, ENTÃO DEVE recusar com 400 apontando o campo.
-- [ ] **CA-04** (ubíquo): As anotações privadas NUNCA DEVEM sair para o estudante, em nenhuma rota (conteúdo, diário, linha do tempo); as públicas DEVEM sair para todos que leem a aula.
-- [ ] **CA-05** (evento): QUANDO a janela de apresentação envia `live:terminal:command` válido, O SISTEMA DEVE gravá-lo com o momento do servidor; SE vem do painel, de estudante ou da sala de espera, ou é inválido, ENTÃO DEVE descartar com auditoria sem gravar; SE a sala já tem 2.000 comandos, ENTÃO DEVE descartar com auditoria.
-- [ ] **CA-06** (ubíquo): A leitura dos comandos de uma sala DEVE devolvê-los na ordem em que rodaram à docente dona, ao administrador e ao estudante com matrícula ativa, durante e depois da sala; sala de outra turma DEVE dar 404.
-- [ ] **CA-07** (ubíquo): A aba Agenda DEVE mostrar, abaixo do calendário, os blocos Aula atual (com a marca "Agora", ou "Começa às HH:MM" nos 15 minutos antes, e o botão certo para o papel e o estado, ou "Nenhuma aula agora" com a próxima), Aulas passadas (recolhidas, com a marca de comandos) e Próximas aulas (com o material preparatório); a consulta DEVE repetir a cada 60 s só com a aba visível e falhar em silêncio.
-- [ ] **CA-08** (ubíquo): O diário DEVE aparecer no painel do dia e nos cards expandidos, com as anotações públicas, as privadas só para o professor (com "Só você vê"), o conteúdo e as salas ao vivo com os comandos (terminal, linha, código de saída, saída recolhida e Copiar) carregados ao expandir.
-- [ ] **CA-09** (evento): QUANDO o professor conclui um comando na janela de apresentação, digitado ou pelo ▶ da SPEC-060, O SISTEMA DEVE enviá-lo uma única vez com o terminal, a linha, o código de saída e a saída cortada em 4.000 caracteres; o painel, a sala do aluno e o terminal do exercício do aluno NÃO DEVEM enviar nada; a senha digitada no `su` NÃO DEVE aparecer na linha nem na saída.
-- [ ] **CA-10** (ubíquo): O diálogo de conteúdo DEVE ter os campos "Anotações da aula (a turma vê)" e "Anotações privadas (só você vê)", gravados com o Salvar, com erro junto do campo.
-- [ ] **CA-11** (ubíquo): `engine/core` NÃO DEVE mudar (salvo o aviso mínimo autorizado na seção 3.1, coberto pela conformidade); nada das anotações do estudante (SPEC-051) DEVE mudar; Stylelint, ESLint e `tsc` limpos; cores só dos tokens; alvos de 44 px; blocos e marcas legíveis por leitor de tela.
+- [x] **CA-01** (ubíquo): A linha do tempo DEVE trazer, calculados no servidor em `America/Sao_Paulo` e só com aulas não canceladas, as 3 aulas passadas mais recentes, a aula atual (de 15 minutos antes do início até o fim; a de início mais cedo se houver mais de uma) e as 5 próximas, com os campos da seção 5.
+- [x] **CA-02** (estado): ENQUANTO a turma tem sala ao vivo ativa ligada a uma aula, O SISTEMA DEVE tratar essa aula como a atual, mesmo fora do horário, e informar `liveSessionId`; ENQUANTO a sala ativa não tem vínculo, os blocos NÃO DEVEM mudar e `liveSessionId` DEVE vir mesmo assim.
+- [x] **CA-03** (evento): QUANDO a docente dona ou o administrador grava o conteúdo com anotações públicas e privadas, O SISTEMA DEVE guardá-las só nessa aula, sem marcar a aula como alterada, pedir motivo nem enviar e-mail; SE passam do limite, ENTÃO DEVE recusar com 400 apontando o campo.
+- [x] **CA-04** (ubíquo): As anotações privadas NUNCA DEVEM sair para o estudante, em nenhuma rota (conteúdo, diário, linha do tempo); as públicas DEVEM sair para todos que leem a aula.
+- [x] **CA-05** (evento): QUANDO a janela de apresentação envia `live:terminal:command` válido, O SISTEMA DEVE gravá-lo com o momento do servidor; SE vem do painel, de estudante ou da sala de espera, ou é inválido, ENTÃO DEVE descartar com auditoria sem gravar; SE a sala já tem 2.000 comandos, ENTÃO DEVE descartar com auditoria.
+- [x] **CA-06** (ubíquo): A leitura dos comandos de uma sala DEVE devolvê-los na ordem em que rodaram à docente dona, ao administrador e ao estudante com matrícula ativa, durante e depois da sala; sala de outra turma DEVE dar 404.
+- [x] **CA-07** (ubíquo): A aba Agenda DEVE mostrar, abaixo do calendário, os blocos Aula atual (com a marca "Agora", ou "Começa às HH:MM" nos 15 minutos antes, e o botão certo para o papel e o estado, ou "Nenhuma aula agora" com a próxima), Aulas passadas (recolhidas, com a marca de comandos) e Próximas aulas (com o material preparatório); a consulta DEVE repetir a cada 60 s só com a aba visível e falhar em silêncio.
+- [x] **CA-08** (ubíquo): O diário DEVE aparecer no painel do dia e nos cards expandidos, com as anotações públicas, as privadas só para o professor (com "Só você vê"), o conteúdo e as salas ao vivo com os comandos (terminal, linha, código de saída, saída recolhida e Copiar) carregados ao expandir.
+- [x] **CA-09** (evento): QUANDO o professor conclui um comando na janela de apresentação, digitado ou pelo ▶ da SPEC-060, O SISTEMA DEVE enviá-lo uma única vez com o terminal, a linha, o código de saída e a saída cortada em 4.000 caracteres; o painel, a sala do aluno e o terminal do exercício do aluno NÃO DEVEM enviar nada; a senha digitada no `su` NÃO DEVE aparecer na linha nem na saída.
+- [x] **CA-10** (ubíquo): O diálogo de conteúdo DEVE ter os campos "Anotações da aula (a turma vê)" e "Anotações privadas (só você vê)", gravados com o Salvar, com erro junto do campo; e cada um dos três editores do diálogo (a descrição e as duas anotações) DEVE ter o rótulo visível e a linha de ajuda que diz quem lê o texto, ligada ao editor por `aria-describedby`.
+- [x] **CA-11** (ubíquo): `engine/core` NÃO DEVE mudar (salvo o aviso mínimo autorizado na seção 3.1, coberto pela conformidade); nada das anotações do estudante (SPEC-051) DEVE mudar; Stylelint, ESLint e `tsc` limpos; cores só dos tokens; alvos de 44 px; blocos e marcas legíveis por leitor de tela.
+- [x] **CA-12** (ubíquo): Cada card da linha do tempo DEVE ter o botão que abre o diário da aula: sempre na aula atual e nas passadas; nas próximas, sempre para o professor e, para o estudante, só quando a aula tem conteúdo; o diário aberto num card, sem nada registrado, DEVE dizer "Nada registrado nesta aula ainda."
+- [x] **CA-13** (evento): QUANDO o professor dono ou o administrador aciona "Conteúdo da aula" ou "Alterar esta aula" num card da linha do tempo, O SISTEMA DEVE abrir, para aquela aula, o mesmo diálogo do painel do dia do calendário e, ao salvar, DEVE ler de novo a linha do tempo e o calendário; o estudante NÃO DEVE ter esses botões.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -198,7 +206,9 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | Teste | Arquivo | Cobre |
 | :--- | :--- | :--- |
 | três blocos, marca Agora e "Começa às", botões por papel e estado, "Nenhuma aula agora", cards recolhidos e marca de comandos, consulta a cada 60 s só visível, falha silenciosa | `ClassTimeline.test.tsx` | CA-07 |
-| seções do diário por papel, comandos ao expandir, Copiar | `SessionDiary.test.tsx` | CA-08 |
+| botão do diário em todos os cards (próxima sem conteúdo: só o professor); "Conteúdo da aula" e "Alterar esta aula" em todos os cards do professor e em nenhum do estudante; os botões chamam o diálogo da aula certa | `ClassTimeline.test.tsx` | CA-12, CA-13 |
+| seções do diário por papel, comandos ao expandir, Copiar; diário vazio diz "Nada registrado nesta aula ainda." | `SessionDiary.test.tsx` | CA-08, CA-12 |
+| "Conteúdo da aula" e "Alterar esta aula" abertos pela linha do tempo, e a linha do tempo lida de novo ao salvar | `classes/[id]/page.test.tsx` | CA-13 |
 | diário no painel do dia | `ClassCalendar.test.tsx` | CA-08 |
 | dois campos novos, Salvar, erro junto do campo | `SessionContentForm.test.tsx` | CA-10 |
 | `onCommandRun` para comando digitado e para `execute`, uma vez cada, terminal certo, status e saída; `su` sem a senha; conformidade continua passando | `engine/terminalWindow.test.ts` | CA-09, CA-11 |
@@ -213,8 +223,8 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 ## 9. Contexto Final da IA (AI Final Context Execution)
 
 1. **Pré-leitura obrigatória:** `AI_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `GLOSSARY.md`, SPEC-042, 051, 053, 055, 056, 060, 067; `schedule/service/content.go` (portas `Decks` e `Modules` e `cmd/api/content_refs.go`), `schedule/service/service.go` (`readableClass`, calendário), `classroom/service/service.go` (`ListSessions`), `classroom/handler/ws.go` (tabela de tipos de mensagem, `Dropped`, o caso de `live:terminal:screen` e o do chat), `engine/terminalWindow.ts` (`execute`, `history`, `watchScreen`), `hooks/useLiveClassroom.ts`, `components/Classroom/MirroredModuleView`, `components/ClassCalendar/ClassCalendar.tsx` (`SessionContentBlock`, painel do dia), `components/SessionContentForm`, `app/app/classes/[id]/page.tsx` (aba Agenda e o aviso da sala ativa).
-2. **Ordem de execução:** termos novos no `GLOSSARY.md`; testes vermelhos do backend e commit `test`; migração `00037`; `schedule` (domain da linha do tempo, repository, service com a porta, handler); `classroom` (domain do comando, repository, service, mensagem no `ws.go`, rota de leitura); composição em `cmd/api` (`diary_refs.go`); testes vermelhos do frontend e commit `test`; adaptador do terminal; `useLiveClassroom` e `MirroredModuleView`; serviços; `SessionDiary`; `ClassTimeline`; painel do dia e diálogo de conteúdo; página da turma; mensagens.
-3. **Arquivos a criar ou alterar:** `backend/migrations/00037_session_diary.sql`; `backend/internal/modules/schedule/{domain,repository,service,handler}/**`; `backend/internal/modules/classroom/{domain,repository,service,handler}/**`; `backend/cmd/api/main.go` e `backend/cmd/api/diary_refs.go` (novo); `frontend/src/engine/terminalWindow.ts` e teste; `frontend/src/hooks/useLiveClassroom.ts`; `frontend/src/services/scheduleService.ts` e `classroomService.ts`; `frontend/src/components/ClassTimeline/**` (novo); `frontend/src/components/SessionDiary/**` (novo); `frontend/src/components/ClassCalendar/**`; `frontend/src/components/SessionContentForm/**`; `frontend/src/components/Classroom/MirroredModuleView/**`; `frontend/src/app/app/classes/[id]/page.tsx` e teste; `frontend/src/messages/pt-BR.ts`; `specs/GLOSSARY.md`. Nada em `StudentNotesPanel`, `live_classroom_notes` ou nas rotas de anotações da SPEC-051.
+2. **Ordem de execução:** termos novos no `GLOSSARY.md`; testes vermelhos do backend e commit `test`; migração `00038`; `schedule` (domain da linha do tempo, repository, service com a porta, handler); `classroom` (domain do comando, repository, service, mensagem no `ws.go`, rota de leitura); composição em `cmd/api` (`diary_refs.go`); testes vermelhos do frontend e commit `test`; adaptador do terminal; `useLiveClassroom` e `MirroredModuleView`; serviços; `SessionDiary`; `ClassTimeline`; painel do dia e diálogo de conteúdo; página da turma; mensagens.
+3. **Arquivos a criar ou alterar:** `backend/migrations/00038_session_diary.sql`; `backend/internal/modules/schedule/{domain,repository,service,handler}/**`; `backend/internal/modules/classroom/{domain,repository,service,handler}/**`; `backend/cmd/api/main.go` e `backend/cmd/api/diary_refs.go` (novo); `frontend/src/engine/terminalWindow.ts` e teste; `frontend/src/hooks/useLiveClassroom.ts`; `frontend/src/services/scheduleService.ts` e `classroomService.ts`; `frontend/src/components/ClassTimeline/**` (novo); `frontend/src/components/SessionDiary/**` (novo); `frontend/src/components/ClassCalendar/**`; `frontend/src/components/SessionContentForm/**`; `frontend/src/components/Classroom/MirroredModuleView/**`; `frontend/src/app/app/classes/[id]/page.tsx` e teste; `frontend/src/messages/pt-BR.ts`; `specs/GLOSSARY.md`. Nada em `StudentNotesPanel`, `live_classroom_notes` ou nas rotas de anotações da SPEC-051.
 4. **Definição de pronto:** CA marcados, testes da seção 8 verdes, cobertura acima de 80%, nenhuma violação de `ARCHITECTURE.md`, `engine/core` intocado (ou só o aviso autorizado), status `Implementada`.
 
 ## 10. Pendências para aprovação
@@ -224,8 +234,8 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 | ID | Decisão |
 | :--- | :--- |
 | D-01 | Os comandos que o professor digita na aula ao vivo são gravados no servidor e ficam no diário da aula |
-| D-02 | O texto trazido é dividido em specs pequenas: esta (linha do tempo e diário), a SPEC-072 (materiais por fase) e, depois, presença e o terminal do aluno |
-| D-03 | As anotações do estudante ficam fora: outra pessoa já faz a spec delas |
+| D-02 | O texto trazido é dividido em specs pequenas: esta (linha do tempo e diário), a SPEC-074 (materiais por fase) e, depois, presença e o terminal do aluno |
+| D-03 | As anotações do estudante ficam fora: têm spec própria, a SPEC-072 |
 | D-04 | A aula atual começa **15 minutos antes** do horário de início (era P-01) |
 | D-05 | Ficam guardados até 4.000 caracteres de saída por comando e 2.000 comandos por sala (era P-02) |
 | D-06 | Todo comando do professor na aula, digitado ou executado pelo ▶, fica registrado na ordem em que rodou, para o aluno replicar depois; o aluno lê a lista durante e depois da sala (era P-03) |
@@ -254,3 +264,10 @@ Nenhuma.
 | 16/10/2026 | Aruna Architect | Caderno do estudante retirado (D-03): outra pessoa faz a spec das anotações do aluno. Saem a tabela `class_session_notebooks`, as rotas de caderno, a regra do caderno na sala e a antiga P-01 |
 | 16/10/2026 | Aruna Architect | Decisões do Tech Lead aplicadas: aula atual 15 minutos antes do início (D-04), limites de saída e de comandos (D-05), registro de todo comando, digitado ou pelo ▶, lido durante e depois (D-06). Sem pendências |
 | 16/10/2026 | Tech Lead | Aprovada ("Aprovo"). Status: `Aprovada` |
+| 16/10/2026 | Implementador | Implementada. Backend: migração `00038`, `SplitTimeline` e anotações no `schedule`, comandos no `classroom` (domain, repository, service, `live:terminal:command` no hub e rota de leitura), porta `LiveSessions` em `cmd/api/diary_refs.go`. Frontend: `onCommandRun` no adaptador do terminal (lido de fora, sem tocar `engine/core`), `sendTerminalCommand` no hook, `ClassTimeline`, `SessionDiary` (com `SessionContentView`, que o painel do dia passou a usar), campos de anotações no diálogo de conteúdo e a linha do tempo na aba Agenda. Desvios: o teste de uma consulta só das contagens ficou no repositório do `classroom` (`TestLinkedSessions_WithTheirCommandCounts`), porque o `schedule` reaproveita `ListSessions` e as contagens vêm pela porta; o teste da senha usa `passwd`, que pede a senha pelo mesmo caminho do `su`; o painel do dia, com o diário, lê o conteúdo pela leitura do diário (uma chamada), e os dois testes da SPEC-053 que conferiam o corpo exato do salvar passaram a incluir `teacherNotes` e `teacherPrivateNotes` vazios |
+| 16/10/2026 | Implementador | Renumerada de SPEC-071 para SPEC-073 (e a SPEC-072 de materiais para SPEC-074), e a migração de `00037` para `00038`, ao juntar a branch com a `projeto-tcc2`: lá já existem a SPEC-071 (prática guiada em aula), a SPEC-072 (caderno dinâmico de anotações) e a migração `00037`. O conteúdo da spec não mudou |
+| 16/10/2026 | Aruna Architect | Falha achada em uso pelo Tech Lead: na aba Agenda os cards da linha do tempo não tinham botão (a próxima aula sem conteúdo não abria nada) e o professor não tinha como editar a aula por eles; o "Conteúdo da aula" e o "Alterar esta aula" só existiam no painel do dia do calendário. Acrescentados as ações dos cards, o diário vazio com mensagem e os CA-12 e CA-13; volta a Aprovada |
+| 16/10/2026 | Implementador | CA-12 e CA-13 implementados: um único card (`EntryCard`) para os três blocos, com o botão do diário, os botões Conteúdo da aula e Alterar esta aula do professor e, no diário aberto num card, a mensagem de nada registrado (`showEmpty`, desligada no painel do dia). Nenhum desvio |
+| 16/10/2026 | Implementador | Aparência dos cards refeita a pedido do Tech Lead (data em destaque, ações agrupadas, chip da sala, caixa tracejada para o vazio, alvos de 44 px no celular); só estilo e marcação, sem mudar o comportamento nem os critérios de aceite |
+| 16/10/2026 | Aruna Architect | Falha achada em uso pelo Tech Lead: os três editores do diálogo de conteúdo estavam sem rótulo na tela (o editor só tem rótulo para leitor de tela) e nada dizia quem lê cada texto. O CA-10 passa a pedir o rótulo visível e a linha de ajuda em cada editor |
+| 16/10/2026 | Implementador | Rótulo visível e linha de ajuda dos três editores do diálogo implementados (CA-10): o rótulo é do formulário, não do editor, como no `ClassForm`; cada linha de ajuda é ligada ao editor por `aria-describedby`. Achado fora do escopo: o editor grava o `data-placeholder`, mas nenhum estilo nem extensão o desenha, em nenhum formulário que o usa; fica para o Tech Lead decidir |

@@ -155,6 +155,7 @@ type Service struct {
 	richText  *htmlsafe.Sanitizer
 	decks     Decks
 	modules   Modules
+	live      LiveSessions
 }
 
 // New creates the service. publicURL is the address of the application, used in the e-mails.

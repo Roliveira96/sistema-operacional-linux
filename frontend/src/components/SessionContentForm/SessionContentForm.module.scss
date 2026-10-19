@@ -1,6 +1,8 @@
 @use "@/styles/mixins" as mixins;
 
-// Dialog of the content of a lesson (SPEC-053, section 3.1).
+// Dialog of the content of a lesson (SPEC-053, section 3.1): a fixed header, a
+// body that scrolls in three sections (plan, diary, materials) and a fixed
+// footer, so Save is always in reach.
 .backdrop {
   position: fixed;
   inset: 0;
@@ -10,28 +12,47 @@
   justify-content: center;
   padding: var(--space-4);
   background: var(--color-overlay);
+  backdrop-filter: blur(4px);
 }
 
 .modal {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
   width: 100%;
-  max-width: 40rem;
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: var(--space-5);
+  max-width: 46rem;
+  max-height: min(92vh, 60rem);
+  overflow: hidden;
   border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-md);
 }
 
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: none;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .title {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.status {
+  padding: var(--space-5);
 }
 
 .muted {
@@ -43,7 +64,47 @@
 .form {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+// A section: a discreet title with a line, like the blocks of the timeline (SPEC-073).
+.section {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
+  min-width: 0;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+  }
 }
 
 .field {
@@ -54,8 +115,32 @@
 }
 
 .label {
-  font-size: var(--font-size-xs);
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  color: var(--color-text-body);
+}
+
+// The private notes stand apart: only the teacher reads them.
+.private {
+  padding: var(--space-3);
+  border: 1px dashed var(--color-warning-line);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-faint);
+}
+
+// The name of an editor and, under it, who reads what is written in it.
+.fieldHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.hint {
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
@@ -68,12 +153,89 @@
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
+  transition: border-color var(--duration-fast) ease;
+
+  &::placeholder {
+    color: var(--color-text-secondary);
+  }
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+  }
+
+  &:focus {
+    border-color: var(--color-accent);
+  }
 
   @include mixins.focusable;
 
   &[aria-invalid="true"] {
     border-color: var(--color-danger);
   }
+}
+
+// The area that receives the PDF, by click or by drop (SPEC-053 CA-15).
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-4);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) ease,
+    background var(--duration-fast) ease;
+
+  &:hover {
+    border-color: var(--color-accent);
+  }
+
+  &:focus-within {
+    @include mixins.focus-ring;
+  }
+
+  &[data-dragging="true"] {
+    border-color: var(--color-accent);
+    border-style: solid;
+    background: var(--color-orange-faint);
+  }
+
+  &[data-busy="true"] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+}
+
+.dropIcon {
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  color: var(--color-accent);
+}
+
+.dropHint {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.dropLimits {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+// The real input stays for the click and the keyboard, out of sight.
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .fieldError {
@@ -89,6 +251,11 @@
   margin: 0;
   padding: 0;
   border: 0;
+
+  > legend {
+    padding: 0;
+    margin-bottom: var(--space-3);
+  }
 }
 
 .links {
@@ -107,8 +274,10 @@
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
   border-radius: var(--radius-md);
-  background-color: var(--color-surface-sunken);
+  background-color: var(--color-surface-raised);
 }
 
 .linkText {
@@ -132,15 +301,31 @@
   color: var(--color-text-secondary);
 }
 
+// The row that adds a link: a dashed box, so it reads as "new".
 .addLink {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-3);
   align-items: start;
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
 
   @include mixins.from("md") {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
     align-items: end;
+  }
+}
+
+// Module and presentation side by side on a wide screen.
+.pair {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  align-items: start;
+
+  @include mixins.from("md") {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -150,6 +335,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-danger-line);
   border-radius: var(--radius-md);
   background-color: var(--color-danger-subtle);
   color: var(--color-danger);
@@ -158,7 +344,11 @@
 
 .actions {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
 }

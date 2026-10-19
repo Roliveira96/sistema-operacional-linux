@@ -28,9 +28,27 @@ export interface CommandResult {
   output: string;
 }
 
+/** A command that ran in the window, as the live classroom keeps it for the diary of the lesson (SPEC-073). */
+export interface CommandRun {
+  /** The terminal tab it ran in (1 to 3). */
+  terminal: number;
+  /** The line as the shell keeps it in its history: never what was typed at a password prompt. */
+  command: string;
+  /** The exit status, or null when there was none. */
+  exitStatus: number | null;
+  /** What the command printed, without the prompt line, cut at 4,000 characters. */
+  output: string;
+  outputTruncated: boolean;
+}
+
 export interface TerminalWindowCallbacks {
   /** Called after every command with the serialized machine. */
   onCommand(snapshot: unknown): void;
+  /**
+   * Called once for each command that ran, typed by hand or by a step, with the terminal, the line, the exit status and the output (SPEC-073).
+   * Only the presentation window of the live classroom asks for it.
+   */
+  onCommandRun?(run: CommandRun): void;
   /**
    * Called with the picture of the whole window as soon as it mounts and at every change: at most once every 100 ms and only when it changed
    * (SPEC-056). Only the teacher's window asks for it, to send it to the class. With the picture comes the locator of its text, which tells where
@@ -94,6 +112,54 @@ export function cleanOutput(printed: string, command: string): string {
   const prompt = /^\S+@\S+:\S*[#$]\s*$/;
   while (lines.length > 0 && (lines[lines.length - 1]!.trim() === "" || prompt.test(lines[lines.length - 1]!))) lines.pop();
   return lines.join("\n");
+}
+
+/** The most of the output of a command the live classroom keeps (SPEC-073 RN-05). */
+const RUN_OUTPUT_MAX = 4000;
+
+/** What the watcher of the commands reads of a terminal: its screen and its shell session. */
+interface WatchedTerminal {
+  elemento: HTMLElement;
+  sessao: { atual(): { escopo: { ultimoStatus: number } }; historico: string[] } | null;
+}
+
+/**
+ * Watches the terminals of the window for the commands that ran, from outside the legacy terminal (SPEC-073 CA-09, CA-11). After each command, the
+ * terminal whose shell history grew is the one that ran it: the line is the last of that history (what is typed at a password prompt never goes
+ * there), the status is the one of its scope, and the output is what its screen got since the command before, without the prompt line and the
+ * command, as `cleanOutput` does for the steps. A terminal first seen at its first command has no mark: its output starts at the echo of the line.
+ */
+function commandWatcher(report: (run: CommandRun) => void) {
+  const marks = new Map<WatchedTerminal, { history: number; lines: number }>();
+  const linesOf = (terminal: WatchedTerminal) =>
+    Array.from(terminal.elemento.querySelectorAll<HTMLElement>(".term-linhas > .term-linha"), (line) => line.textContent ?? "");
+  const fromEcho = (lines: string[], command: string) => {
+    const at = lines.findIndex((line) => line.trimEnd().endsWith(command));
+    return at >= 0 ? lines.slice(at) : lines;
+  };
+  return {
+    check(terminals: Array<WatchedTerminal | null>) {
+      terminals.forEach((terminal, index) => {
+        if (!terminal) return;
+        const history = terminal.sessao?.historico ?? [];
+        const lines = linesOf(terminal);
+        const mark = marks.get(terminal);
+        if (history.length > (mark?.history ?? 0)) {
+          const command = history[history.length - 1] ?? "";
+          const since = mark && mark.lines <= lines.length ? lines.slice(mark.lines) : fromEcho(lines, command);
+          const output = Array.from(cleanOutput(since.join("\n"), command));
+          report({
+            terminal: index + 1,
+            command,
+            exitStatus: terminal.sessao?.atual().escopo.ultimoStatus ?? null,
+            output: output.slice(0, RUN_OUTPUT_MAX).join(""),
+            outputTruncated: output.length > RUN_OUTPUT_MAX,
+          });
+        }
+        marks.set(terminal, { history: history.length, lines: lines.length });
+      });
+    },
+  };
 }
 
 const PREPARING_MESSAGE = "Preparando máquina…\n";
@@ -299,11 +365,21 @@ export async function mountTerminalWindow(
   };
 
   let machine = build(snapshot);
-  const notify = () => callbacks.onCommand(Serializador.paraJson(machine));
+  // SPEC-073: the presentation window asks for each command that ran; it is read from outside, after the window tells that a command ended.
+  const watcher = callbacks.onCommandRun ? commandWatcher(callbacks.onCommandRun) : null;
+  let terminalsOf: () => Array<TerminalInternals | null> = () => [];
+  const notify = () => {
+    callbacks.onCommand(Serializador.paraJson(machine));
+    watcher?.check(terminalsOf());
+  };
   const window3 = new JanelaDeTerminais(container, machine, { aoExecutar: notify });
+  terminalsOf = () => (window3 as unknown as WindowInternals).terminais;
+  // the marks of the terminal that is open at the mount, so its first command is read from where it starts
+  watcher?.check(terminalsOf());
 
   /** The legacy terminal keeps these as plain (TypeScript-private) fields. */
   interface TerminalInternals {
+    elemento: HTMLElement;
     maquina: typeof machine;
     sessao: {
       atual(): {

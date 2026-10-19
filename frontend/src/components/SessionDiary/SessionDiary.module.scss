@@ -1,0 +1,184 @@
+// The diary of the lesson (SPEC-073): the notes of the teacher, the content and the live classes with their commands.
+.diary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-hairline);
+}
+
+.headingRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.tag {
+  padding: 1px 6px;
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  color: var(--color-orange-text);
+  background-color: var(--color-orange-faint);
+}
+
+.text {
+  overflow-wrap: anywhere;
+
+  p {
+    margin: 0 0 var(--space-2);
+  }
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.rooms,
+.commands {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.room {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.roomHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.roomTitle {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.command {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.commandRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.terminal {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.line {
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background-color: var(--color-code-bg);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.status {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.statusOk {
+  color: var(--color-success);
+}
+
+.statusError {
+  color: var(--color-danger);
+}
+
+.statusNone {
+  color: var(--color-text-secondary);
+}
+
+.output {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  max-height: 16rem;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-body);
+  background-color: var(--color-code-bg);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+// What a lesson covers (SPEC-053, section 3.1), in the diary and in the panel of the day.
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-hairline);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+
+  a {
+    color: var(--color-accent);
+  }
+}
+
+.contentTopic {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.contentText {
+  overflow-wrap: anywhere;
+
+  p {
+    margin: 0 0 var(--space-2);
+  }
+}
+
+.contentLinks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

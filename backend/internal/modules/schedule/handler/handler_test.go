@@ -49,6 +49,9 @@ type fakeService struct {
 	sessionID    uuid.UUID
 	savedContent service.ContentInput
 	content      service.SessionContent
+	// SPEC-073
+	timeline service.Timeline
+	diary    service.Diary
 }
 
 func (f *fakeService) Meetings(ctx context.Context, a service.Actor, classID uuid.UUID) ([]domain.WeeklyMeeting, error) {

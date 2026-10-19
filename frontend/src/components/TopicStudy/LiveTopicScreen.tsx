@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { LiveHeaderStatus } from "@/components/Classroom/LiveHeaderStatus/LiveHeaderStatus";
 import { MirroredModuleView, type StepRunner } from "@/components/Classroom/MirroredModuleView/MirroredModuleView";
+import type { CommandRun } from "@/engine/terminalWindow";
 import { placeContent, scrollFraction } from "@/components/Classroom/FixedStage/stage";
 import { MATERIAL_HIGHLIGHT, materialRangeOf, materialSelectionOf, showHighlight, terminalSelectionOf } from "@/components/Classroom/selection/selection";
 import type { ScreenElement, ScreenLocator } from "@/engine/terminalScreen";
@@ -40,6 +41,8 @@ export interface TopicLive {
   onRead?(blockId: string): void;
   /** The teacher's terminal tells the picture of its window (SPEC-056). */
   onScreen?(tree: ScreenElement): void;
+  /** The teacher's terminal tells each command that ran, for the diary of the lesson (SPEC-073). */
+  onCommandRun?(run: CommandRun): void;
   /** The teacher scrolls the material; the position is a fraction of what can be scrolled (SPEC-057). */
   onMaterialScroll?(y: number): void;
   /** The teacher moves the divider; `ratio` is the part of the stage the material takes (SPEC-057). */
@@ -102,7 +105,7 @@ function blockUnderReading(panel: HTMLElement): string | null {
  * teacher's, and the student only follows them (SPEC-057).
  */
 export function LiveTopicScreen({ live }: { live: TopicLive }) {
-  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, terminalScroll, startedAt, handCount = 0, onHand, handRaised, onRead, onScreen, onMaterialScroll, onSplit, onSelection, onTerminalScroll, onRunFailed } = live;
+  const { module, role, terminal, focusBlockId, materialScroll = 0, split, selection, terminalScroll, startedAt, handCount = 0, onHand, handRaised, onRead, onScreen, onCommandRun, onMaterialScroll, onSplit, onSelection, onTerminalScroll, onRunFailed } = live;
   const teacher = role === "teacher";
   const script = useMemo(() => buildTopicScript(module.blocks), [module.blocks]);
   const panel = useRef<HTMLDivElement>(null);
@@ -322,6 +325,7 @@ export function LiveTopicScreen({ live }: { live: TopicLive }) {
             terminal={terminal}
             initialState={module.scenario}
             onScreen={onScreen}
+            onCommandRun={teacher ? onCommandRun : undefined}
             onLocator={(found) => {
               locator.current = found;
             }}

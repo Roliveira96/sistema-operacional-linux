@@ -536,3 +536,92 @@ describe("picture of the screen for the live classroom (SPEC-056)", () => {
     for (const gone of ["setReadOnly", "showInput", "printScreen", "syncMachine"]) expect(win).not.toHaveProperty(gone);
   });
 });
+
+// SPEC-073 CA-09, CA-11: the commands the teacher runs in the presentation window, for the diary of the lesson
+describe("commands of the teacher for the live classroom (SPEC-073)", () => {
+  const key = (target: Element, name: string) => target.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+  const type = (container: HTMLElement, text: string) => {
+    const screen = container.querySelector(".term-tela") as HTMLElement;
+    for (const letter of text) key(screen, letter);
+    return screen;
+  };
+
+  const mountRuns = async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const onCommandRun = vi.fn();
+    mounted = await mountTerminalWindow(container, null, { onCommand: vi.fn(), onCommandRun });
+    mounted.setSpeed(100);
+    return { container, win: mounted, onCommandRun };
+  };
+
+  it("reports a step that was run, once, with the terminal, the line, the exit status and the output", async () => {
+    const { win, onCommandRun } = await mountRuns();
+    await win.run({ command: "echo ola-mundo" });
+    expect(onCommandRun).toHaveBeenCalledTimes(1);
+    expect(onCommandRun).toHaveBeenCalledWith({ terminal: 1, command: "echo ola-mundo", exitStatus: 0, output: "ola-mundo", outputTruncated: false });
+
+    await win.run({ command: "ls /nao-existe" });
+    expect(onCommandRun).toHaveBeenCalledTimes(2);
+    const failed = onCommandRun.mock.calls[1]![0];
+    expect(failed.command).toBe("ls /nao-existe");
+    expect(failed.exitStatus).not.toBe(0);
+    expect(failed.output).toContain("/nao-existe");
+  });
+
+  it("reports what the teacher types by hand, in the terminal where he typed it", async () => {
+    const { container, win, onCommandRun } = await mountRuns();
+    const screen = type(container, "echo digitado");
+    key(screen, "Enter");
+    await vi.waitFor(() => expect(onCommandRun).toHaveBeenCalledTimes(1));
+    expect(onCommandRun).toHaveBeenCalledWith({ terminal: 1, command: "echo digitado", exitStatus: 0, output: "digitado", outputTruncated: false });
+
+    await win.run({ command: "whoami", terminal: 2, login: { user: "ricardo", password: "123" } });
+    await vi.waitFor(() => expect(onCommandRun).toHaveBeenCalledTimes(2));
+    expect(onCommandRun.mock.calls[1]![0]).toMatchObject({ terminal: 2, command: "whoami", exitStatus: 0, output: "ricardo" });
+  });
+
+  it("reports nothing for an empty line, and nothing when nobody asked for the commands", async () => {
+    const { container, onCommandRun } = await mountRuns();
+    key(type(container, ""), "Enter");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(onCommandRun).not.toHaveBeenCalled();
+
+    const { win, onCommand } = await mount();
+    await win.run({ command: "echo sem-ouvinte" });
+    expect(onCommand).toHaveBeenCalled();
+  });
+
+  // RN-08: the line comes from the history of the shell, which never has a password; the output never shows one either
+  it("never reports what the teacher types at a password prompt", async () => {
+    const { container, onCommandRun } = await mountRuns();
+    const screen = type(container, "passwd");
+    key(screen, "Enter");
+    await vi.waitFor(() => expect(container.textContent).toContain("Nova senha:"));
+    type(container, "segredo-secreto");
+    key(screen, "Enter");
+    await vi.waitFor(() => expect(container.textContent).toContain("Redigite a nova senha:"));
+    type(container, "segredo-secreto");
+    key(screen, "Enter");
+    await vi.waitFor(() => expect(onCommandRun).toHaveBeenCalledTimes(1));
+    expect(onCommandRun.mock.calls[0]![0].command).toBe("passwd");
+    expect(JSON.stringify(onCommandRun.mock.calls)).not.toContain("segredo-secreto");
+  });
+
+  it("cuts the output at 4,000 characters and says so", async () => {
+    const { win, onCommandRun } = await mountRuns();
+    // long lines are sent at once, without the typing (SPEC-032): what is reported is the same
+    win.setInstant(true);
+    const chunk = "x".repeat(1500);
+    await win.run({ command: `echo ${chunk} > /tmp/muito` });
+    await win.run({ command: `echo ${chunk} >> /tmp/muito` });
+    await win.run({ command: `echo ${chunk} >> /tmp/muito` });
+    onCommandRun.mockClear();
+    await win.run({ command: "cat /tmp/muito" });
+    expect(onCommandRun).toHaveBeenCalledTimes(1);
+    const run = onCommandRun.mock.calls[0]![0];
+    expect(run.command).toBe("cat /tmp/muito");
+    expect(run.output).toHaveLength(4000);
+    expect(run.outputTruncated).toBe(true);
+  });
+});

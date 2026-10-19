@@ -210,7 +210,8 @@ func migrationParts(t *testing.T, prefix string) (up, down string) {
 // runMigration runs the statements of one part of a migration, one by one, as goose does: the driver takes a single command at a time.
 func runMigration(t *testing.T, e env, part string) {
 	t.Helper()
-	for _, statement := range strings.Split(part, ";\n") {
+	// The migration file has CRLF line endings when it was checked out on Windows; goose reads it either way, and so must this split.
+	for _, statement := range strings.Split(strings.ReplaceAll(part, "\r\n", "\n"), ";\n") {
 		if strings.TrimSpace(statement) != "" {
 			require.NoError(t, e.db.Conn(e.ctx).Exec(statement).Error, statement)
 		}
