@@ -1,13 +1,14 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
+import { messages } from "@/messages/pt-BR";
 import { scheduleService } from "@/services/scheduleService";
 import { octoberCalendar } from "@/test/scheduleFixtures";
 import CalendarPage from "./page";
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth: vi.fn() }));
 
-function asRole(role: "TEACHER" | "STUDENT") {
+function asRole(role: "ADMIN" | "TEACHER" | "STUDENT") {
   vi.mocked(useAuth).mockReturnValue({
     user: { userId: "u-1", email: "u@x.br", role, status: "ACTIVE", mustChangePassword: false, sessionCreatedAt: "", sessionExpiresAt: "" },
     refresh: vi.fn(),
@@ -41,5 +42,20 @@ describe("CalendarPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /19 de outubro/ }));
     expect(screen.queryByRole("button", { name: "Selecionar período" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Incluir evento" })).toBeNull();
+  });
+
+  // Holidays moved into the calendar screen (ajustes gerais): only the administrator reaches them, from here.
+  it("shows the holidays link to an administrator, pointing to /app/admin/holidays", () => {
+    asRole("ADMIN");
+    vi.spyOn(scheduleService, "myCalendar").mockResolvedValue(octoberCalendar());
+    render(<CalendarPage />);
+    expect(screen.getByRole("link", { name: messages.schedule.holidays.nav }).getAttribute("href")).toBe("/app/admin/holidays");
+  });
+
+  it.each(["TEACHER", "STUDENT"] as const)("does not show the holidays link to a %s", (role) => {
+    asRole(role);
+    vi.spyOn(scheduleService, "myCalendar").mockResolvedValue(octoberCalendar());
+    render(<CalendarPage />);
+    expect(screen.queryByRole("link", { name: messages.schedule.holidays.nav })).toBeNull();
   });
 });
