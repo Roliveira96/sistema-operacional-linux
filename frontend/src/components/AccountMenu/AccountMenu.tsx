@@ -156,6 +156,12 @@ export function AccountMenu({ user, loadClasses = () => classService.myClasses()
           <Link href="/app/profile" className={styles.profile} onClick={close}>
             {m.myProfile}
           </Link>
+          {isAdmin && (
+            // Engine conformance (SPEC-030) is the administrator's alone; it moved here from the bar.
+            <Link href="/app/admin/conformidade" className={styles.profile} onClick={close}>
+              {messages.conformance.nav}
+            </Link>
+          )}
           <hr className={styles.divider} />
           <button type="button" className={styles.logout} onClick={leave}>
             {messages.auth.logout}
