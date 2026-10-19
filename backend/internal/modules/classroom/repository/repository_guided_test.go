@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -314,7 +315,9 @@ func TestExercise_TheDatabaseHoldsTheParticipantRules(t *testing.T) {
 	e := newEnv(t)
 	s := e.openRoom(t)
 	run := e.startRun(t, s, domain.DifficultyEasy, 5, e.now)
+	ra := 2000000
 	insert := func(status string, completed bool) error {
+		ra++
 		var at any
 		var elapsed, points any
 		if completed {
@@ -322,7 +325,7 @@ func TestExercise_TheDatabaseHoldsTheParticipantRules(t *testing.T) {
 		}
 		return e.db.Conn(e.ctx).Exec(`INSERT INTO live_exercise_results (id, run_id, student_id, status, completed_at, elapsed_seconds, points, attempts,
 			commands, help_requested, taken_over, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, false, false, now(), now())`,
-			uuid.New(), run.ID, e.newStudent(t, uuid.NewString()[:7], "X").ID, status, at, elapsed, points).Error
+			uuid.New(), run.ID, e.newStudent(t, strconv.Itoa(ra), "X").ID, status, at, elapsed, points).Error
 	}
 	assert.Error(t, insert(domain.ParticipantCompleted, false))
 	assert.Error(t, insert(domain.ParticipantInProgress, true))

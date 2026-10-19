@@ -50,6 +50,11 @@ export interface TerminalWindow {
    * for it, up to 30 s, so whoever needs the answer at once asks first (SPEC-060). A terminal that is not open is not busy: a step opens it.
    */
   isBusy(terminal: number): boolean;
+  /**
+   * True while a command runs in a terminal that is open, the one that is not waiting for the keyboard: typing is lost then, and only Ctrl+C or Ctrl+Z
+   * is heard. An open editor or a question is not running (SPEC-071: the keys of the teacher wait while it runs).
+   */
+  isRunning(): boolean;
   /** Like run, and also gives what the command printed, to show the error of a command that failed. */
   execute(step: TerminalStep): Promise<CommandResult>;
   setSpeed(speed: number): void;
@@ -389,6 +394,10 @@ export async function mountTerminalWindow(
     isBusy(terminal) {
       const open = (window3 as unknown as WindowInternals).terminais[terminal - 1];
       return Boolean(open) && !open!.estaLivre();
+    },
+
+    isRunning() {
+      return (window3 as unknown as WindowInternals).terminais.some((open) => open?.estado === "ocupado");
     },
 
     setSpeed(speed) {

@@ -390,6 +390,17 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
             onWatch={live.watchStudent}
             onTip={(studentId) => openConversation({ studentId })}
             onSendTip={(text) => live.sendChat(text, "all")}
+            takeover={live.takeover}
+            hands={live.hands.map((hand) => hand.studentId)}
+            chat={live.chat}
+            connected={live.connected}
+            onPause={live.pauseExercise}
+            onExtend={live.extendExercise}
+            onClose={live.closeExercise}
+            onTakeover={live.takeoverStudent}
+            onKey={live.sendTakeoverKey}
+            onPaste={live.sendTakeoverPaste}
+            onSendChat={live.sendChat}
           />
 
           <section className={styles.stage} aria-labelledby="stage-title">

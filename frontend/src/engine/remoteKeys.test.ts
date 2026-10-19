@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { deliverKey, deliverPaste, isRemoteKey, type RemoteKey } from "./remoteKeys";
+import { deliverKey, deliverPaste, isRemoteKey, remoteKeyboard, type RemoteKey } from "./remoteKeys";
 import { mountTerminalWindow, type TerminalWindow } from "./terminalWindow";
 
 // SPEC-071 CA-07: the keys of the teacher reach the terminal of the student as if he typed them, with the real engine.
@@ -49,6 +49,7 @@ describe("remoteKeys, in the shell", () => {
     type(container, "echo abx");
     keys(container, "Backspace", "c", "Home", "End", "ArrowLeft", "ArrowRight", "Enter");
     await vi.waitFor(() => expect(win.history().at(-1)).toBe("echo abc"));
+    await vi.waitFor(() => expect(win.isRunning()).toBe(false));
     keys(container, "ArrowUp", "Enter");
     await vi.waitFor(() => expect(win.history().filter((c) => c === "echo abc")).toHaveLength(2));
   });
@@ -80,10 +81,30 @@ describe("remoteKeys, in the shell", () => {
     await vi.waitFor(() => expect(win.isBusy(1)).toBe(false));
   });
 
-  it("pastes several lines, each one run as a command", async () => {
+  it("pastes several lines, each one run as a command, the next line waiting for the command before it", async () => {
     const { container, win } = await mount();
-    deliverPaste(container, "echo primeira\necho segunda\n");
+    const keyboard = remoteKeyboard(container, () => win.isRunning());
+    keyboard.paste("echo primeira\necho segunda\n");
     await vi.waitFor(() => expect(win.history().slice(-2)).toEqual(["echo primeira", "echo segunda"]));
+  });
+
+  it("keeps the keys typed while a command runs for when it ends, and gives Ctrl+C at once", async () => {
+    const { container, win } = await mount();
+    const keyboard = remoteKeyboard(container, () => win.isRunning());
+    for (const char of "sleep 30") keyboard.key({ key: char });
+    keyboard.key({ key: "Enter" });
+    await vi.waitFor(() => expect(win.isRunning()).toBe(true));
+    for (const char of "echo depois") keyboard.key({ key: char });
+    keyboard.key({ key: "Enter" });
+    keyboard.key({ key: "c", ctrl: true });
+    await vi.waitFor(() => expect(win.history().at(-1)).toBe("echo depois"));
+    keyboard.stop();
+  });
+
+  it("pastes one line with the low-level delivery when nothing runs", async () => {
+    const { container, win } = await mount();
+    deliverPaste(container, "echo direto\n");
+    await vi.waitFor(() => expect(win.history().at(-1)).toBe("echo direto"));
   });
 });
 

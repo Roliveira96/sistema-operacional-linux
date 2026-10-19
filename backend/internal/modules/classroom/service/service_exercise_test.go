@@ -599,7 +599,9 @@ func TestExercise_EndsWithTheLesson(t *testing.T) {
 	assert.Equal(t, x.now, *run.EndedAt)
 	assert.Equal(t, []string{"exercise", "room"}, x.order, "the room is told that the round ended before it is told that the lesson did")
 	require.Len(t, x.events, 1)
-	assert.Equal(t, run, x.events[0].state.Run)
+	ended := run
+	ended.ClosedAt = nil // SPEC-071: the round is closed after the room is told that it ended
+	assert.Equal(t, ended, x.events[0].state.Run)
 	require.NotNil(t, x.events[0].state.Unwatched)
 	assert.Equal(t, x.carla.UserID, *x.events[0].state.Unwatched)
 	assert.Empty(t, x.timers.running())
@@ -807,7 +809,11 @@ func TestExerciseProgress_KeptInMemory(t *testing.T) {
 	after, err := fresh.ExerciseOf(ctx, x.room.ID, true)
 	require.NoError(t, err)
 	require.NotNil(t, after)
-	assert.Empty(t, after.Entries, "the progress was never kept")
+	// SPEC-071 RN-08: the students of the round are kept, with no progress
+	for _, e := range after.Entries {
+		assert.Zero(t, e.Met, "the progress was never kept")
+		assert.Nil(t, e.At, "the progress was never kept")
+	}
 }
 
 // Covers SPEC-065 CA-14 and section 3.1 (live:exercise:progress): a progress that is not valid, of another round, or out of the round that runs
@@ -1153,12 +1159,13 @@ func TestExerciseOf_State(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, after)
 	assert.Len(t, after.Results, 2)
-	assert.Equal(t, 2, after.Participants, "the ones who concluded are in the round, even if the memory of who was online was lost")
+	assert.Equal(t, 3, after.Participants, "SPEC-071 RN-08: the rows of the students keep who was in the round, even if the memory of who was online was lost")
 	got := make([]string, len(after.Entries))
 	for i, e := range after.Entries {
 		got[i] = e.Name
 	}
-	assert.Equal(t, []string{"Ana", "Bruno"}, got)
+	// SPEC-071 RN-08: the panel reads the rows of the students, so Carla, who did not conclude, is listed too
+	assert.Equal(t, []string{"Ana", "Bruno", "Carla"}, got)
 }
 
 // Covers SPEC-065 CA-12: who joins the room while the round runs is in the round; with no round, or after it ended, nobody joins it.

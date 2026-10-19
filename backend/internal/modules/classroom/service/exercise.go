@@ -72,6 +72,9 @@ type ExerciseStartInput struct {
 // ExerciseState is the state of a round at a moment. Participants is how many students were in it. Results are the ones who concluded, in the
 // order of the scoreboard; Entries, only when asked for, are the students of the round with their progress and result (the panel's reading).
 // Unwatched is the student whose terminal the teacher was watching when the round ended: his observation ended with it.
+//
+// SPEC-071: Released is the student whose takeover ended with the change; Reopened tells that more time made an ended round run again; Ended
+// tells that going back to the lesson ended the round that ran.
 type ExerciseState struct {
 	Run          domain.LiveExerciseRun
 	Now          time.Time
@@ -79,40 +82,65 @@ type ExerciseState struct {
 	Results      []domain.ExerciseResultEntry
 	Entries      []ExerciseEntry
 	Unwatched    *uuid.UUID
+	Released     *uuid.UUID
+	Reopened     bool
+	Ended        bool
 }
 
 // ExerciseEntry is a student of the round for the panel: his last progress (zero when he sent none), his attempts and, if he concluded, his
 // result.
+//
+// SPEC-071: the commands he reported and when the last one came, his status, whether he raised his hand in the round, whether the teacher took
+// over his terminal in the round, and whether he does now.
 type ExerciseEntry struct {
-	StudentID  uuid.UUID
-	Name       string
-	Met, Total int
-	Last       string
-	At         *time.Time
-	Attempts   int
-	Result     *domain.ExerciseResultEntry
+	StudentID     uuid.UUID
+	Name          string
+	Met, Total    int
+	Last          string
+	At            *time.Time
+	Attempts      int
+	Result        *domain.ExerciseResultEntry
+	Commands      int
+	LastCommandAt *time.Time
+	Status        string
+	HelpRequested bool
+	TakenOver     bool
+	TakeoverOn    bool
 }
 
-// ExerciseWatch is the change of the observation: the student that the teacher watched before and the one he watches now (nil: none).
+// ExerciseWatch is the change of the observation: the student that the teacher watched before and the one he watches now (nil: none), and the
+// student whose takeover ended with it (SPEC-071 RN-06).
 type ExerciseWatch struct {
 	Previous *uuid.UUID
 	Current  *uuid.UUID
+	Released *uuid.UUID
 }
 
-// ExerciseProgressInput is the report of a student: the round, how many conditions he met of how many, and the last command he typed.
+// ExerciseTakeover is the change of the takeover of a student: on or off, and, on, the name of the teacher, for the notice of the student.
+type ExerciseTakeover struct {
+	Student     uuid.UUID
+	On          bool
+	TeacherName string
+}
+
+// ExerciseProgressInput is the report of a student: the round, how many conditions he met of how many, the last command he typed and how many
+// commands he ran in the round (SPEC-071).
 type ExerciseProgressInput struct {
 	RunID      uuid.UUID
 	Met, Total int
 	Last       string
+	Commands   int
 }
 
-// ExerciseProgress is a report that was taken, with the moment of the server.
+// ExerciseProgress is a report that was taken, with the moment of the server, the commands kept and when the last one came.
 type ExerciseProgress struct {
-	RunID      uuid.UUID
-	StudentID  uuid.UUID
-	Met, Total int
-	Last       string
-	At         time.Time
+	RunID         uuid.UUID
+	StudentID     uuid.UUID
+	Met, Total    int
+	Last          string
+	At            time.Time
+	Commands      int
+	LastCommandAt *time.Time
 }
 
 // ExerciseSubmitInput is the state that a student sends to be graded, for the round that he says.
@@ -157,7 +185,7 @@ func (s *Service) currentRound(ctx context.Context, sessionID uuid.UUID) (run do
 		st, _, err := s.endRound(ctx, run, run.EndsAt, domain.EndedByTimer, true)
 		return st.Run, true, err
 	}
-	if run.Running() {
+	if run.Running() && !run.Paused() {
 		s.armRoundTimer(run)
 	}
 	return run, true, nil
@@ -182,34 +210,61 @@ func (s *Service) endRound(ctx context.Context, run domain.LiveExerciseRun, at t
 	if err := run.End(at, by); err != nil {
 		return ExerciseState{Run: run}, false, err
 	}
-	unwatched := s.live.endExercise(run.SessionID, run)
-	state := ExerciseState{Run: run, Now: s.now(), Participants: s.participantCount(run.SessionID), Unwatched: unwatched}
+	unwatched, released := s.live.endExercise(run.SessionID, run)
+	// who did not conclude is NOT_COMPLETED, with the commands he reported (SPEC-071 RN-08)
+	if err := s.repo.FinishExerciseParticipants(ctx, run.ID, s.live.exerciseCommands(run.SessionID)); err != nil {
+		return ExerciseState{Run: run}, true, err
+	}
+	state := ExerciseState{Run: run, Now: s.now(), Participants: s.participantCount(run.SessionID), Unwatched: unwatched, Released: released}
 	if notify && s.onExerciseEnded != nil {
 		s.onExerciseEnded(run.SessionID, state)
 	}
 	return state, true, nil
 }
 
-// endRoundWithLesson ends the round that runs because the lesson ends.
+// endRoundWithLesson ends the round that runs because the lesson ends, and closes it (SPEC-071 section 3.1).
 func (s *Service) endRoundWithLesson(ctx context.Context, sessionID uuid.UUID) error {
 	run, has, err := s.currentRound(ctx, sessionID)
-	if err != nil || !has || !run.Running() {
+	if err != nil || !has || run.Closed() {
 		return err
 	}
-	_, _, err = s.endRound(ctx, run, s.now(), domain.EndedBySession, true)
-	return err
+	if run.Running() {
+		st, _, err := s.endRound(ctx, run, s.now(), domain.EndedBySession, true)
+		if err != nil {
+			return err
+		}
+		run = st.Run
+	}
+	return s.closeRound(ctx, run)
+}
+
+// closeRound keeps that the class went back to the lesson after the round that ended.
+func (s *Service) closeRound(ctx context.Context, run domain.LiveExerciseRun) error {
+	if run.Closed() {
+		return nil
+	}
+	if err := run.Close(s.now()); err != nil {
+		return err
+	}
+	if _, err := s.repo.CloseExerciseRun(ctx, run.ID, *run.ClosedAt); err != nil {
+		return err
+	}
+	s.live.setExerciseRun(run.SessionID, run)
+	return nil
 }
 
 // armRoundTimer gives the round that runs a timer that ends it at the end of its time; once, however many times it is asked.
 func (s *Service) armRoundTimer(run domain.LiveExerciseRun) {
 	s.live.armExercise(run.SessionID, run.ID, func() func() {
-		return s.after(max(run.EndsAt.Sub(s.now()), 0), func() { s.expireRound(run.SessionID, run.ID) })
+		end := run.EndsAt
+		return s.after(max(end.Sub(s.now()), 0), func() { s.expireRound(run.SessionID, run.ID, end) })
 	})
 }
 
 // expireRound is what the timer does: it ends the round by the timer, at the end of its time, if it still runs. A failure is told to the hook;
-// the round is then found over and ended on the next reading.
-func (s *Service) expireRound(sessionID, runID uuid.UUID) {
+// the round is then found over and ended on the next reading. A paused round is not ended, and a round that got more time gets a timer for its
+// new end (SPEC-071): the end that the timer was armed for is no longer the end of the round.
+func (s *Service) expireRound(sessionID, runID uuid.UUID, end time.Time) {
 	ctx := context.Background()
 	run, has, _ := s.live.exerciseRun(sessionID)
 	if !has || run.ID != runID {
@@ -219,7 +274,12 @@ func (s *Service) expireRound(sessionID, runID uuid.UUID) {
 			return
 		}
 	}
-	if !run.Running() {
+	if !run.Running() || run.Paused() {
+		return
+	}
+	if !run.EndsAt.Equal(end) {
+		s.live.disarmExercise(sessionID)
+		s.armRoundTimer(run)
 		return
 	}
 	if _, _, err := s.endRound(ctx, run, run.EndsAt, domain.EndedByTimer, true); err != nil {
@@ -275,6 +335,9 @@ func (s *Service) StartExercise(ctx context.Context, actor Actor, sessionID uuid
 		return ExerciseState{}, err
 	}
 	s.live.startExercise(sessionID, run, in.Online)
+	if err := s.repo.JoinExerciseRun(ctx, run.ID, in.Online); err != nil {
+		return ExerciseState{}, err
+	}
 	s.armRoundTimer(run)
 	return ExerciseState{Run: run, Now: s.now(), Participants: s.participantCount(sessionID)}, nil
 }
@@ -332,7 +395,7 @@ func (s *Service) WatchExercise(ctx context.Context, actor Actor, sessionID uuid
 		return ExerciseWatch{}, err
 	}
 	if student == nil {
-		return ExerciseWatch{Previous: s.live.watchExercise(sessionID, nil)}, nil
+		return ExerciseWatch{Previous: s.live.watchExercise(sessionID, nil), Released: s.live.releaseTakeover(sessionID, nil)}, nil
 	}
 	run, has, err := s.currentRound(ctx, sessionID)
 	if err != nil {
@@ -344,7 +407,11 @@ func (s *Service) WatchExercise(ctx context.Context, actor Actor, sessionID uuid
 	if !s.live.isExerciseParticipant(sessionID, *student) {
 		return ExerciseWatch{}, domain.ErrNotInExerciseRun
 	}
-	return ExerciseWatch{Previous: s.live.watchExercise(sessionID, student), Current: student}, nil
+	w := ExerciseWatch{Previous: s.live.watchExercise(sessionID, student), Current: student}
+	if taken := s.live.takeoverOf(sessionID); taken != nil && *taken != *student {
+		w.Released = s.live.releaseTakeover(sessionID, taken) // the teacher watches another student: the takeover ends (SPEC-071 RN-06)
+	}
+	return w, nil
 }
 
 // ExerciseScreenAllowed tells whether the picture of a terminal is taken from the student: only from the one the teacher watches, in the round
@@ -359,9 +426,16 @@ func (s *Service) ExerciseWatching(sessionID, student uuid.UUID) bool {
 	return s.live.exerciseWatched(sessionID, nil, student)
 }
 
-// JoinExercise puts the students in the round that runs, for who comes into the room in the middle of it; with none running, nothing happens.
+// JoinExercise puts the students in the round that runs, for who comes into the room in the middle of it, each with his row (SPEC-071 RN-08);
+// with none running, nothing happens. A row that could not be kept is told to the hook of the failures.
 func (s *Service) JoinExercise(sessionID uuid.UUID, students ...uuid.UUID) {
-	s.live.joinExercise(sessionID, students...)
+	run := s.live.joinExercise(sessionID, students...)
+	if run == nil || len(students) == 0 {
+		return
+	}
+	if err := s.repo.JoinExerciseRun(context.Background(), run.ID, students); err != nil {
+		s.exerciseFailed(sessionID, err)
+	}
 }
 
 // RecordExerciseProgress keeps in memory how far a student is, and returns the report with the moment of the server. It is never saved. The
@@ -378,7 +452,10 @@ func (s *Service) RecordExerciseProgress(ctx context.Context, sessionID, student
 	if !run.Running() {
 		return ExerciseProgress{}, domain.ErrExerciseEnded
 	}
-	if !domain.ValidExerciseProgress(in.Met, in.Total) {
+	if run.Paused() {
+		return ExerciseProgress{}, domain.ErrExercisePaused
+	}
+	if !domain.ValidExerciseProgress(in.Met, in.Total) || !domain.ValidExerciseCommands(in.Commands) {
 		return ExerciseProgress{}, domain.ErrInvalidExerciseProgress
 	}
 	last, err := domain.NormalizeExerciseLast(in.Last)
@@ -386,8 +463,9 @@ func (s *Service) RecordExerciseProgress(ctx context.Context, sessionID, student
 		return ExerciseProgress{}, err
 	}
 	at := s.now()
-	s.live.recordExerciseProgress(sessionID, student, exerciseProgress{met: in.Met, total: in.Total, last: last, at: at})
-	return ExerciseProgress{RunID: run.ID, StudentID: student, Met: in.Met, Total: in.Total, Last: last, At: at}, nil
+	p := s.live.recordExerciseProgress(sessionID, student, exerciseProgress{met: in.Met, total: in.Total, last: last, at: at, commands: in.Commands})
+	return ExerciseProgress{RunID: run.ID, StudentID: student, Met: in.Met, Total: in.Total, Last: last, At: at, Commands: p.commands,
+		LastCommandAt: p.lastCommandAt}, nil
 }
 
 // ExerciseOf returns the state of the round of the room for who connects: the one that runs or the last that ended, nil when the room never
@@ -418,6 +496,18 @@ func (s *Service) roundState(ctx context.Context, run domain.LiveExerciseRun, wi
 	for _, id := range participants {
 		crowd[id] = struct{}{}
 	}
+	var rows map[uuid.UUID]domain.ExerciseParticipant
+	if withProgress { // the rows of the students: their status, the help and the takeover (SPEC-071)
+		list, err := s.repo.ListExerciseParticipants(ctx, run.ID)
+		if err != nil {
+			return ExerciseState{}, err
+		}
+		rows = make(map[uuid.UUID]domain.ExerciseParticipant, len(list))
+		for _, p := range list {
+			rows[p.StudentID] = p
+			crowd[p.StudentID] = struct{}{}
+		}
+	}
 	concluded := make(map[uuid.UUID]*domain.ExerciseResultEntry, len(results))
 	for i := range results {
 		crowd[results[i].StudentID] = struct{}{}
@@ -430,23 +520,32 @@ func (s *Service) roundState(ctx context.Context, run domain.LiveExerciseRun, wi
 
 	var unnamed []uuid.UUID
 	for id := range crowd {
-		if concluded[id] == nil {
+		if concluded[id] == nil && rows[id].Name == "" {
 			unnamed = append(unnamed, id)
 		}
 	}
+	takeover := s.live.takeoverOf(run.SessionID)
 	names, err := s.repo.UserNames(ctx, unnamed)
 	if err != nil {
 		return ExerciseState{}, err
 	}
 	state.Entries = make([]ExerciseEntry, 0, len(crowd))
 	for id := range crowd {
-		entry := ExerciseEntry{StudentID: id, Name: names[id], Attempts: attempts[id]}
+		entry := ExerciseEntry{StudentID: id, Name: names[id], Attempts: attempts[id], Status: domain.ParticipantInProgress}
+		if row, ok := rows[id]; ok {
+			entry.Status, entry.Commands, entry.HelpRequested, entry.TakenOver = row.Status, row.Commands, row.HelpRequested, row.TakenOver
+			if entry.Name == "" {
+				entry.Name = row.Name
+			}
+		}
 		if p, ok := progress[id]; ok {
 			at := p.at
 			entry.Met, entry.Total, entry.Last, entry.At = p.met, p.total, p.last, &at
+			entry.Commands, entry.LastCommandAt = max(entry.Commands, p.commands), p.lastCommandAt
 		}
+		entry.TakeoverOn = takeover != nil && *takeover == id
 		if r := concluded[id]; r != nil {
-			entry.Name, entry.Attempts, entry.Result = r.Name, r.Attempts, r
+			entry.Name, entry.Attempts, entry.Result, entry.Status = r.Name, r.Attempts, r, domain.ParticipantCompleted
 		}
 		state.Entries = append(state.Entries, entry)
 	}
@@ -511,8 +610,9 @@ func (s *Service) SubmitExercise(ctx context.Context, actor Actor, classID uuid.
 	if !passed {
 		return ExerciseSubmitResult{Run: run}, nil
 	}
+	// the repository gives no points to who had his terminal taken over (SPEC-071 RN-07), whatever the takeover in memory says
 	res := domain.LiveExerciseResult{RunID: run.ID, StudentID: actor.UserID, CompletedAt: now.Truncate(time.Microsecond), // the precision of the column
-		ElapsedSeconds: run.ElapsedAt(now), Points: run.PointsAt(now), Attempts: attempts}
+		ElapsedSeconds: run.ElapsedAt(now), Points: run.PointsAt(now), Attempts: attempts, Commands: s.live.exerciseCommands(session.ID)[actor.UserID]}
 	saved, created, err := s.repo.SaveExerciseResult(ctx, &res)
 	if err != nil {
 		return ExerciseSubmitResult{}, err

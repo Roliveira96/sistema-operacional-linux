@@ -15,7 +15,9 @@ import (
 
 // ---- SPEC-071: the guided practice of the lesson ----
 
-func (x *exWorld) run() domain.LiveExerciseRun { return x.repo.exercise.runs[len(x.repo.exercise.runs)-1] }
+func (x *exWorld) run() domain.LiveExerciseRun {
+	return x.repo.exercise.runs[len(x.repo.exercise.runs)-1]
+}
 
 func (x *exWorld) participant(student uuid.UUID) domain.ExerciseParticipant {
 	return x.repo.exercise.participants[[2]uuid.UUID{x.run().ID, student}]

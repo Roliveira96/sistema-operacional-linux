@@ -73,6 +73,11 @@ interface State {
   watchedByTeacher: boolean;
   /** The student the panel watches, null for nobody. */
   watching: string | null;
+  /** SPEC-071: the teacher has the terminal of this student now, with his name (only the student is told). */
+  takenOver: boolean;
+  takeoverTeacher: string | null;
+  /** SPEC-071: the student whose terminal the panel took over, null for nobody. */
+  takeover: string | null;
   /** Where the student stands; null until the server says (SPEC-054 CA-01). */
   admission: AdmissionState | null;
   admissions: LiveAdmissions;
@@ -99,6 +104,9 @@ const initial: State = {
   watchedScreen: null,
   watchedByTeacher: false,
   watching: null,
+  takenOver: false,
+  takeoverTeacher: null,
+  takeover: null,
   admission: null,
   admissions: { waiting: [], admitted: [] },
   startedAt: null,
@@ -142,6 +150,8 @@ const readOnline = (value: unknown): string[] => (Array.isArray(value) ? value.f
 
 const DIFFICULTIES: ReadonlySet<unknown> = new Set<ExerciseDifficulty>(["EASY", "MEDIUM", "HARD"]);
 const ENDED_BY: ReadonlySet<unknown> = new Set(["TIMER", "TEACHER", "SESSION"]);
+const STATUSES: ReadonlySet<unknown> = new Set(["RUNNING", "PAUSED", "ENDED", "CLOSED"]);
+const PARTICIPANT: ReadonlySet<unknown> = new Set(["IN_PROGRESS", "COMPLETED", "NOT_COMPLETED"]);
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const when = (value: unknown): value is string => typeof value === "string" && !Number.isNaN(Date.parse(value));
 const whole = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
@@ -172,7 +182,19 @@ function readProgress(value: unknown): ExerciseProgressEntry | null {
   if (finite(value.elapsedSeconds)) entry.elapsedSeconds = value.elapsedSeconds;
   if (finite(value.points)) entry.points = value.points;
   if (finite(value.attempts)) entry.attempts = value.attempts;
+  if (whole(value.commands)) entry.commands = value.commands;
+  if (when(value.lastCommandAt)) entry.lastCommandAt = value.lastCommandAt;
+  if (PARTICIPANT.has(value.status)) entry.status = value.status as ExerciseProgressEntry["status"];
+  if (typeof value.helpRequested === "boolean") entry.helpRequested = value.helpRequested;
+  if (typeof value.takenOver === "boolean") entry.takenOver = value.takenOver;
   return entry;
+}
+
+/** The student the panel took over, from the snapshot: the one whose takeover is on. */
+function readTakeover(value: unknown): string | null {
+  const list = record(value) && Array.isArray(value.progress) ? value.progress : [];
+  const on = list.find((item: unknown) => record(item) && item.takeoverOn === true && text(item.studentId)) as Record<string, unknown> | undefined;
+  return on ? (on.studentId as string) : null;
 }
 
 /** The round of the exercise, in the form of the snapshot and of the start: null for anything that has not the shape of one (SPEC-065). */
@@ -188,12 +210,14 @@ function readExercise(value: unknown): LiveExercise | null {
     durationSeconds: value.durationSeconds,
     startedAt: value.startedAt,
     endsAt: value.endsAt,
-    status: value.status === "ENDED" ? "ENDED" : "RUNNING",
+    status: STATUSES.has(value.status) ? (value.status as LiveExercise["status"]) : "RUNNING",
     resultVisible: value.resultVisible === true,
     skewMs: when(value.now) ? Date.parse(value.now) - Date.now() : 0,
   };
   if (ENDED_BY.has(value.endedBy)) exercise.endedBy = value.endedBy as LiveExercise["endedBy"];
   if (when(value.endedAt)) exercise.endedAt = value.endedAt;
+  if (whole(value.pausedSeconds)) exercise.pausedSeconds = value.pausedSeconds;
+  if (when(value.closedAt)) exercise.closedAt = value.closedAt;
   if (exercise.resultVisible) {
     const result = readResult(value.result);
     if (result) exercise.result = result;
@@ -325,6 +349,9 @@ function apply(state: State, message: LiveMessage): State {
         watchedScreen: null,
         watchedByTeacher: false,
         watching: null,
+        takenOver: record(s.exercise) && s.exercise.takenOver === true,
+        takeoverTeacher: null,
+        takeover: readTakeover(s.exercise),
       };
     }
     // The server tells no restart: a new slide starts at the top, and a new module (SPEC-057 CA-05).
@@ -420,14 +447,48 @@ function apply(state: State, message: LiveMessage): State {
     // The round of the practical exercise (SPEC-065): a new one clears what the last one left, and what names another round changes nothing.
     case "live:exercise:started": {
       const exercise = readExercise({ ...data, status: "RUNNING", resultVisible: false, myResult: null });
-      return exercise ? { ...state, exercise, exerciseProgress: {}, watchedScreen: null, watchedByTeacher: false, watching: null } : state;
+      return exercise ? { ...state, exercise, exerciseProgress: {}, watchedScreen: null, watchedByTeacher: false, watching: null, takenOver: false, takeover: null } : state;
     }
     case "live:exercise:ended": {
       if (!state.exercise || data.runId !== state.exercise.runId) return state;
       const ended: LiveExercise = { ...state.exercise, status: "ENDED", skewMs: when(data.now) ? Date.parse(data.now) - Date.now() : state.exercise.skewMs };
       if (ENDED_BY.has(data.by)) ended.endedBy = data.by as LiveExercise["endedBy"];
       if (when(data.endedAt)) ended.endedAt = data.endedAt;
-      return { ...state, exercise: ended, watchedScreen: null, watchedByTeacher: false, watching: null };
+      return { ...state, exercise: ended, watchedScreen: null, watchedByTeacher: false, watching: null, takenOver: false, takeover: null };
+    }
+    // SPEC-071: the pause, more time and going back to the lesson. What names another round changes nothing.
+    case "live:exercise:paused": {
+      if (!state.exercise || data.runId !== state.exercise.runId || typeof data.paused !== "boolean" || !when(data.endsAt)) return state;
+      const next: LiveExercise = { ...state.exercise, status: data.paused ? "PAUSED" : "RUNNING", endsAt: data.endsAt, skewMs: when(data.now) ? Date.parse(data.now) - Date.now() : state.exercise.skewMs };
+      if (whole(data.pausedSeconds)) next.pausedSeconds = data.pausedSeconds;
+      return { ...state, exercise: next, ...(data.paused ? { takenOver: false, takeover: null } : {}) };
+    }
+    case "live:exercise:extended": {
+      if (!state.exercise || data.runId !== state.exercise.runId || !when(data.endsAt) || !finite(data.durationSeconds)) return state;
+      const next: LiveExercise = { ...state.exercise, endsAt: data.endsAt, durationSeconds: data.durationSeconds, skewMs: when(data.now) ? Date.parse(data.now) - Date.now() : state.exercise.skewMs };
+      if (data.reopened === true) {
+        next.status = "RUNNING";
+        next.resultVisible = false;
+        delete next.endedBy;
+        delete next.endedAt;
+        delete next.result;
+      }
+      return { ...state, exercise: next };
+    }
+    case "live:exercise:closed": {
+      if (!state.exercise || data.runId !== state.exercise.runId) return state;
+      const next: LiveExercise = { ...state.exercise, status: "CLOSED" };
+      if (when(data.closedAt)) next.closedAt = data.closedAt;
+      return { ...state, exercise: next, watchedScreen: null, watchedByTeacher: false, watching: null, takenOver: false, takeover: null };
+    }
+    // The takeover: the student is told {on, teacherName}, the panel {studentId, on}.
+    case "live:exercise:takeover": {
+      if (typeof data.on !== "boolean") return state;
+      if (!text(data.studentId)) return { ...state, takenOver: data.on, takeoverTeacher: data.on && typeof data.teacherName === "string" ? data.teacherName : state.takeoverTeacher };
+      if (!data.on) return { ...state, takeover: state.takeover === data.studentId ? null : state.takeover };
+      const before = state.exerciseProgress[data.studentId];
+      const marked: ExerciseProgressEntry = { met: 0, total: 0, last: "", at: "", ...before, studentId: data.studentId, takenOver: true };
+      return { ...state, takeover: data.studentId, exerciseProgress: { ...state.exerciseProgress, [data.studentId]: marked } };
     }
     case "live:exercise:result": {
       if (!state.exercise || data.runId !== state.exercise.runId) return state;
@@ -547,6 +608,20 @@ const connectToServer: Connect = (classId, handlers, view) => openLiveSocket(cla
 const RETRY_FIRST_MS = 1000;
 const RETRY_MAX_MS = 10_000;
 
+/** A key of the teacher on the terminal of the student, or a text he pasted (SPEC-071 section 3.3). */
+export type TakeoverKey = { key: string; ctrl?: boolean; alt?: boolean; shift?: boolean } | { paste: string };
+
+/** The most characters of a paste of the teacher (SPEC-071 section 3.3). */
+const PASTE_MAX = 2000;
+
+/** A key of the teacher as the room gives it, with nothing that has not its shape; null for anything else. */
+function readTakeoverKey(value: unknown): TakeoverKey | null {
+  if (!record(value)) return null;
+  if (typeof value.paste === "string" && value.paste !== "") return { paste: value.paste };
+  if (!text(value.key)) return null;
+  return { key: value.key, ctrl: value.ctrl === true, alt: value.alt === true, shift: value.shift === true };
+}
+
 export interface UseLiveClassroomOptions {
   classId: string;
   /** The teacher (and the administrator) controls the room; a student only follows it. */
@@ -569,6 +644,8 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
   // The last picture the presenter window told: the server keeps it in memory only and a message sent while the socket is not open is lost, so it
   // is told again at every connection (SPEC-056 section 4).
   const lastScreen = useRef<ScreenElement | null>(null);
+  // Who listens to the keys of the teacher (the terminal of the student taken over); they are not state, they go to the terminal as they come (SPEC-071).
+  const keyListeners = useRef(new Set<(key: TakeoverKey) => void>());
 
   useEffect(() => {
     finished.current = state.ended;
@@ -592,6 +669,11 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
         onMessage: (message) => {
           if (!active) return;
           if (message.type === "live:ended") finished.current = true;
+          if (message.type === "live:exercise:key") {
+            const key = readTakeoverKey(message.data);
+            if (key) keyListeners.current.forEach((listener) => listener(key));
+            return;
+          }
           dispatch({ kind: "message", message });
         },
         onClose: () => {
@@ -624,6 +706,10 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
     [canControl],
   );
   const sendOnly = useCallback((type: string, data: unknown) => socket.current?.send(type, data), []);
+  const onTakeoverKey = useCallback((listener: (key: TakeoverKey) => void) => {
+    keyListeners.current.add(listener);
+    return () => void keyListeners.current.delete(listener);
+  }, []);
 
   // The scroll of the slide, the scroll of the material, the divider and the selection, each at its own pace (SPEC-057). What goes out is sent by the
   // latest render, so a window that lost the control sends nothing even if a position was waiting.
@@ -765,12 +851,44 @@ export function useLiveClassroom({ classId, role, view, connect = connectToServe
       sendOnly("live:exercise:watch", { studentId });
       dispatch({ kind: "local", message: { type: "live:exercise:watching", data: { studentId } } });
     },
-    /** How far the student is: the conditions he meets out of the ones the exercise has, and his last command; says whether it went (SPEC-065). */
-    sendExerciseProgress: ({ runId, met, total, last = "" }: { runId: string; met: number; total: number; last?: string }): boolean => {
+    /**
+     * How far the student is: the conditions he meets out of the ones the exercise has, his last command and, when told, how many commands he ran (SPEC-071);
+     * says whether it went (SPEC-065).
+     */
+    sendExerciseProgress: ({ runId, met, total, last = "", commands }: { runId: string; met: number; total: number; last?: string; commands?: number }): boolean => {
       if (role !== "student" || !connected || !whole(met) || !whole(total) || met > total || total > 100) return false;
-      sendOnly("live:exercise:progress", { runId, met, total, last: Array.from(last.replace(/\p{Cc}/gu, "")).slice(0, 200).join("") });
+      const body: Record<string, unknown> = { runId, met, total, last: Array.from(last.replace(/\p{Cc}/gu, "")).slice(0, 200).join("") };
+      if (commands !== undefined && whole(commands)) body.commands = Math.min(commands, 10_000);
+      sendOnly("live:exercise:progress", body);
       return true;
     },
+    /** The teacher pauses the round, or resumes it; only the panel does (SPEC-071 RN-01). */
+    pauseExercise: (paused: boolean) => {
+      if (onPanel) sendOnly("live:exercise:pause", { paused });
+    },
+    /** The teacher gives the round more minutes, also to the round that ended (RN-02). */
+    extendExercise: (minutes: number) => {
+      if (onPanel) sendOnly("live:exercise:extend", { minutes });
+    },
+    /** The teacher goes back to the lesson (RN-04). */
+    closeExercise: () => {
+      if (onPanel) sendOnly("live:exercise:close", {});
+    },
+    /** The teacher takes over the terminal of the student, or gives it back (RN-05, RN-06). */
+    takeoverStudent: (studentId: string, on: boolean) => {
+      if (onPanel) sendOnly("live:exercise:takeover", { studentId, on });
+    },
+    /** A key of the teacher for the terminal he took over. */
+    sendTakeoverKey: (studentId: string, key: { key: string; ctrl?: boolean; alt?: boolean; shift?: boolean }) => {
+      if (onPanel && key.key !== "") sendOnly("live:exercise:key", { studentId, key: key.key, ctrl: key.ctrl === true, alt: key.alt === true, shift: key.shift === true });
+    },
+    /** A text the teacher pasted on the terminal he took over: from 1 to 2,000 characters. */
+    sendTakeoverPaste: (studentId: string, text: string) => {
+      const length = Array.from(text).length;
+      if (onPanel && length > 0 && length <= PASTE_MAX) sendOnly("live:exercise:key", { studentId, paste: text });
+    },
+    /** Listens to the keys of the teacher on the terminal of this student; gives what stops listening. The same function at every render. */
+    onTakeoverKey,
     /** The picture of the terminal of the student, which goes out only while the teacher watches him. */
     sendExerciseScreen: (runId: string, screen: ScreenElement): boolean => {
       if (role !== "student" || !connected || !state.watchedByTeacher) return false;

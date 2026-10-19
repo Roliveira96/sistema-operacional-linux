@@ -41,6 +41,28 @@ const (
 
 	// The bonus of speed is up to this fraction of the base points, in proportion to the time that was left.
 	exerciseBonusDivisor = 2
+
+	// SPEC-071: the four states of a round, and the three of a student in it.
+	ExerciseStatusRunning = "RUNNING"
+	ExerciseStatusPaused  = "PAUSED"
+	ExerciseStatusEnded   = "ENDED"
+	ExerciseStatusClosed  = "CLOSED"
+
+	ParticipantInProgress   = "IN_PROGRESS"
+	ParticipantCompleted    = "COMPLETED"
+	ParticipantNotCompleted = "NOT_COMPLETED"
+
+	// More time is from 1 to 30 minutes at a time, and a round has up to 60 minutes in all.
+	MaxExerciseExtraMinutes    = 30
+	MaxExerciseDurationSeconds = MaxExerciseMinutes * 60
+
+	// MaxExerciseCommands is the most commands that a student reports in a round.
+	MaxExerciseCommands = 10000
+
+	// A key of the takeover is a name of up to 20 characters; a paste is up to 2,000 characters; the panel sends up to 40 a second.
+	MaxTakeoverKeyLength   = 20
+	MaxTakeoverPasteLength = 2000
+	TakeoverKeysPerSecond  = 40
 )
 
 // Errors of the exercise of the lesson.
@@ -55,6 +77,17 @@ var (
 	ErrNoExerciseResult        = errors.New("the student has no result in this exercise round")
 	ErrInvalidExerciseEnd      = errors.New("a round ends by the timer, by the teacher or by the lesson")
 	ErrNotInExerciseRun        = errors.New("the student is not in this exercise round")
+
+	// SPEC-071
+	ErrExercisePaused           = errors.New("the exercise round is paused")
+	ErrExerciseNotPaused        = errors.New("the exercise round is not paused")
+	ErrExerciseClosed           = errors.New("the class went back to the lesson after this exercise round")
+	ErrInvalidExerciseExtension = errors.New("more time is from 1 to 30 minutes")
+	ErrExerciseTooLong          = errors.New("a round has up to 60 minutes in all")
+	ErrTakeoverUnavailable      = errors.New("the teacher only takes over the terminal of the student he watches, online and who did not conclude")
+	ErrTakeoverBusy             = errors.New("the teacher already took over the terminal of another student")
+	ErrNoTakeover               = errors.New("the terminal of this student is not taken over")
+	ErrInvalidTakeoverKey       = errors.New("a key is a name of 1 to 20 characters and a paste is 1 to 2000 characters, with no control characters")
 )
 
 // ValidExerciseDifficulty tells whether the level is one of the three.
@@ -134,6 +167,10 @@ type LiveExerciseRun struct {
 	EndedAt         *time.Time
 	EndedBy         *string
 	ResultVisible   bool
+	// SPEC-071: the start of the pause that is on, the seconds of the pauses that ended, and when the class went back to the lesson
+	PausedAt      *time.Time
+	PausedSeconds int
+	ClosedAt      *time.Time
 }
 
 // TableName maps LiveExerciseRun to its table.
@@ -148,8 +185,86 @@ func StartExerciseRun(sessionID, blockID uuid.UUID, index int, title, difficulty
 	}
 }
 
-// Running tells whether the round has not ended.
+// Running tells whether the round has not ended; a paused round has not.
 func (r LiveExerciseRun) Running() bool { return r.EndedAt == nil }
+
+// Paused tells whether the teacher paused the round and did not resume it.
+func (r LiveExerciseRun) Paused() bool { return r.Running() && r.PausedAt != nil }
+
+// Closed tells whether the class went back to the lesson after the round.
+func (r LiveExerciseRun) Closed() bool { return r.ClosedAt != nil }
+
+// Status is the state of the round: RUNNING, PAUSED, ENDED or CLOSED (SPEC-071 section 3.1).
+func (r LiveExerciseRun) Status() string {
+	switch {
+	case r.Closed():
+		return ExerciseStatusClosed
+	case !r.Running():
+		return ExerciseStatusEnded
+	case r.Paused():
+		return ExerciseStatusPaused
+	}
+	return ExerciseStatusRunning
+}
+
+// Pause stops the clock of a running round (SPEC-071 RN-01).
+func (r *LiveExerciseRun) Pause(at time.Time) error {
+	switch {
+	case !r.Running():
+		return ErrExerciseEnded
+	case r.Paused():
+		return ErrExercisePaused
+	}
+	r.PausedAt = &at
+	return nil
+}
+
+// Resume starts the clock again: the end is the moment of the resume plus the time that was left, and the pause is counted.
+func (r *LiveExerciseRun) Resume(at time.Time) error {
+	if !r.Paused() {
+		return ErrExerciseNotPaused
+	}
+	paused := max(at.Sub(*r.PausedAt), 0)
+	r.EndsAt = r.EndsAt.Add(paused)
+	r.PausedSeconds += int(paused / time.Second)
+	r.PausedAt = nil
+	return nil
+}
+
+// Extend gives the round more minutes, from 1 to 30, up to 60 in all (SPEC-071 RN-02). A round that runs, or is paused, ends later; a round that
+// ended runs again from now, with no end and the result hidden (reopened); a closed round never does.
+func (r *LiveExerciseRun) Extend(minutes int, now time.Time) (reopened bool, err error) {
+	if minutes < 1 || minutes > MaxExerciseExtraMinutes {
+		return false, ErrInvalidExerciseExtension
+	}
+	if r.Closed() {
+		return false, ErrExerciseClosed
+	}
+	extra := time.Duration(minutes) * time.Minute
+	if r.DurationSeconds+int(extra/time.Second) > MaxExerciseDurationSeconds {
+		return false, ErrExerciseTooLong
+	}
+	r.DurationSeconds += int(extra / time.Second)
+	if r.Running() {
+		r.EndsAt = r.EndsAt.Add(extra)
+		return false, nil
+	}
+	r.EndedAt, r.EndedBy, r.ResultVisible = nil, nil, false
+	r.EndsAt = now.Add(extra)
+	return true, nil
+}
+
+// Close is the class going back to the lesson after the round ended (SPEC-071 RN-04); once.
+func (r *LiveExerciseRun) Close(at time.Time) error {
+	switch {
+	case r.Running():
+		return ErrExerciseRunning
+	case r.Closed():
+		return ErrExerciseClosed
+	}
+	r.ClosedAt = &at
+	return nil
+}
 
 // Duration is the time that the round was given.
 func (r LiveExerciseRun) Duration() time.Duration {
@@ -157,8 +272,10 @@ func (r LiveExerciseRun) Duration() time.Duration {
 }
 
 // Expired tells whether the round still runs after its time was up: the server ends it at endsAt, and finding one like this means that it
-// was not ended yet.
-func (r LiveExerciseRun) Expired(now time.Time) bool { return r.Running() && !now.Before(r.EndsAt) }
+// was not ended yet. A paused round never expires.
+func (r LiveExerciseRun) Expired(now time.Time) bool {
+	return r.Running() && !r.Paused() && !now.Before(r.EndsAt)
+}
 
 // End takes the round from running to ended, with the moment and the reason. Ending twice keeps the first end (ErrExerciseEnded).
 func (r *LiveExerciseRun) End(at time.Time, by string) error {
@@ -167,6 +284,10 @@ func (r *LiveExerciseRun) End(at time.Time, by string) error {
 	}
 	if !r.Running() {
 		return ErrExerciseEnded
+	}
+	if r.PausedAt != nil { // the pause lasts up to the end
+		r.PausedSeconds += int(max(at.Sub(*r.PausedAt), 0) / time.Second)
+		r.PausedAt = nil
 	}
 	r.EndedAt, r.EndedBy = &at, &by
 	return nil
@@ -184,15 +305,18 @@ func (r *LiveExerciseRun) ShowResult(visible bool) error {
 // AcceptsAnswerAt tells whether the round still takes the answer of a student at `now`: while it runs, and up to ExerciseSubmitGrace after it
 // ended, for the one that was in transit (ErrExerciseEnded after that). A running round that is expired is ended by the service before this.
 func (r LiveExerciseRun) AcceptsAnswerAt(now time.Time) error {
+	if r.Paused() {
+		return ErrExercisePaused
+	}
 	if r.EndedAt != nil && now.After(r.EndedAt.Add(ExerciseSubmitGrace)) {
 		return ErrExerciseEnded
 	}
 	return nil
 }
 
-// ElapsedAt is the time that a student took, in whole seconds from the start of the round; never negative.
+// ElapsedAt is the time that a student took, in whole seconds from the start of the round, without the pauses; never negative.
 func (r LiveExerciseRun) ElapsedAt(completedAt time.Time) int {
-	return max(int(completedAt.Sub(r.StartedAt)/time.Second), 0)
+	return max(int(completedAt.Sub(r.StartedAt)/time.Second)-r.PausedSeconds, 0)
 }
 
 // PointsAt are the points of a student who concluded at that moment: the time left is what is between the moment and the end of the time of
@@ -201,8 +325,48 @@ func (r LiveExerciseRun) PointsAt(completedAt time.Time) int {
 	return ExercisePoints(r.Difficulty, r.Duration(), r.EndsAt.Sub(completedAt))
 }
 
+// PointsFor are the points of a student who concluded at that moment: none when the teacher took over his terminal in the round (SPEC-071
+// RN-07), else PointsAt.
+func (r LiveExerciseRun) PointsFor(completedAt time.Time, takenOver bool) int {
+	if takenOver {
+		return 0
+	}
+	return r.PointsAt(completedAt)
+}
+
+// ValidExerciseCommands tells whether the commands that a student reports are from 0 to 10,000.
+func ValidExerciseCommands(n int) bool { return n >= 0 && n <= MaxExerciseCommands }
+
+// ValidateTakeoverKey checks the name of a key that the teacher pressed in the takeover: valid text of 1 to 20 characters, none of them a control.
+func ValidateTakeoverKey(key string) error {
+	if key == "" || !utf8.ValidString(key) || utf8.RuneCountInString(key) > MaxTakeoverKeyLength {
+		return ErrInvalidTakeoverKey
+	}
+	for _, r := range key {
+		if unicode.IsControl(r) {
+			return ErrInvalidTakeoverKey
+		}
+	}
+	return nil
+}
+
+// ValidateTakeoverPaste checks a text that the teacher pasted in the takeover: valid text of 1 to 2,000 characters, with line breaks and tabs and
+// no other control character.
+func ValidateTakeoverPaste(text string) error {
+	if text == "" || !utf8.ValidString(text) || utf8.RuneCountInString(text) > MaxTakeoverPasteLength {
+		return ErrInvalidTakeoverKey
+	}
+	for _, r := range text {
+		if unicode.IsControl(r) && r != '\n' && r != '\t' && r != '\r' {
+			return ErrInvalidTakeoverKey
+		}
+	}
+	return nil
+}
+
 // LiveExerciseResult is the conclusion of one student in one round: when, how long it took, the points and how many times he sent his state to
-// be graded. A student has at most one in a round, and a round only keeps the ones who concluded.
+// be graded. It is the row of the participant (SPEC-071 RN-08) when its status is COMPLETED; a student has at most one row in a round. The
+// commands, the help and the takeover are of the participant.
 type LiveExerciseResult struct {
 	database.Model
 	RunID          uuid.UUID
@@ -211,6 +375,21 @@ type LiveExerciseResult struct {
 	ElapsedSeconds int
 	Points         int
 	Attempts       int
+	Status         string `gorm:"default:COMPLETED"`
+	Commands       int
+	HelpRequested  bool
+	TakenOver      bool
+}
+
+// ExerciseParticipant is a student of a round as the repository keeps him (SPEC-071 RN-08): his status, the commands he reported, whether he
+// raised his hand during the round and whether the teacher took over his terminal.
+type ExerciseParticipant struct {
+	StudentID     uuid.UUID
+	Name          string
+	Status        string
+	Commands      int
+	HelpRequested bool
+	TakenOver     bool
 }
 
 // TableName maps LiveExerciseResult to its table.

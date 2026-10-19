@@ -85,6 +85,14 @@ type Service interface {
 	RecordExerciseProgress(ctx context.Context, sessionID, student uuid.UUID, in service.ExerciseProgressInput) (service.ExerciseProgress, error)
 	ExerciseOf(ctx context.Context, sessionID uuid.UUID, withProgress bool) (*service.ExerciseState, error)
 	SubmitExercise(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.ExerciseSubmitInput) (service.ExerciseSubmitResult, error)
+	// the guided practice (SPEC-071)
+	PauseExercise(ctx context.Context, actor service.Actor, sessionID uuid.UUID, paused bool) (service.ExerciseState, error)
+	ExtendExercise(ctx context.Context, actor service.Actor, sessionID uuid.UUID, minutes int) (service.ExerciseState, error)
+	CloseExercise(ctx context.Context, actor service.Actor, sessionID uuid.UUID) (service.ExerciseState, error)
+	TakeoverExercise(ctx context.Context, actor service.Actor, sessionID, student uuid.UUID, on, online bool) (service.ExerciseTakeover, error)
+	TakeoverKeyAllowed(sessionID, student uuid.UUID) bool
+	ExerciseTakenOver(sessionID, student uuid.UUID) bool
+	ReleaseTakeoverOf(sessionID, student uuid.UUID) bool
 }
 
 // Limiter says whether a key may do something again now, and if not, how long it has to wait.
@@ -115,6 +123,8 @@ type Handler struct {
 	submits  Limiter
 	after    service.AfterFunc
 	windows  stageWindows
+	// keys limits the keys of the takeover, by connection of the panel (SPEC-071)
+	keys Limiter
 }
 
 // New creates the handler and the hub of its rooms.
@@ -126,6 +136,7 @@ func New(svc Service, auth authn.Validator, log *zap.Logger, opts Options) *Hand
 	if h.submits == nil {
 		h.submits = ratelimit.New(1, domain.ExerciseSubmitInterval)
 	}
+	h.keys = ratelimit.New(domain.TakeoverKeysPerSecond, time.Second)
 	h.upgrader = websocket.Upgrader{CheckOrigin: originChecker(opts)}
 	h.hub = hub.New(hubConfig(), wsHandler{h}, log)
 	return h
@@ -642,6 +653,8 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("class-archived", err.Error())
 	case errors.Is(err, domain.ErrDeckLimit):
 		return problem.Conflict("deck-limit-exceeded", err.Error())
+	case errors.Is(err, domain.ErrExercisePaused):
+		return problem.Conflict("exercise-paused", err.Error())
 	case errors.Is(err, domain.ErrNoExerciseRun):
 		return problem.NotFound("exercise-run-not-found", err.Error())
 	case errors.Is(err, domain.ErrExerciseEnded):

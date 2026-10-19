@@ -36,7 +36,7 @@ describe("ExerciseTerminal", () => {
     expect(screen.getByRole("status").textContent).toBe("Carregando o terminal…");
     await ready();
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith(none(), "");
+    expect(onChange).toHaveBeenCalledWith(none(), "", 0); // SPEC-071: and the commands of the student
   });
 
   it("opens the window on the machine it was given, once", async () => {
@@ -70,10 +70,10 @@ describe("ExerciseTerminal", () => {
     render(terminal({ prepare: true, layers: [layer("a", "mkdir /a", "touch /a/x")] }));
     await ready();
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenLastCalledWith(none(), "");
+    expect(onChange).toHaveBeenLastCalledWith(none(), "", 0);
     h.type("mkdir /dois", half());
     expect(onChange).toHaveBeenCalledTimes(2);
-    expect(onChange).toHaveBeenLastCalledWith(half(), "mkdir /dois");
+    expect(onChange).toHaveBeenLastCalledWith(half(), "mkdir /dois", 1); // the preparation is not counted
   });
 
   it("gives the whole machine, with its processes, as the window has it, and not what the command told", async () => {
@@ -81,7 +81,7 @@ describe("ExerciseTerminal", () => {
     await ready();
     h.set({ ...machine(), processos: [{ pid: 1 }] });
     h.mounted!.callbacks.onCommand({ onlyTheMachine: true });
-    expect(onChange).toHaveBeenLastCalledWith({ ...machine(), processos: [{ pid: 1 }] }, "");
+    expect(onChange).toHaveBeenLastCalledWith({ ...machine(), processos: [{ pid: 1 }] }, "", 0);
   });
 
   it("tells the picture of its window", async () => {
