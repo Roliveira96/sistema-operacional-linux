@@ -15,6 +15,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	assessmenthandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/assessment/handler"
+	assessmentrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/assessment/repository"
+	assessmentservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/assessment/service"
 	authhandler "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/auth/handler"
 	authrepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/auth/repository"
 	authservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/auth/service"
@@ -234,6 +237,19 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	contentAuthor := contentservice.NewAuthor(contentRepo, log)
 	contentVersions := contentservice.NewVersions(contentRepo, log)
 	contentExercises := contentservice.NewExercises(contentRepo, log)
+	// The assessments of the classes on the calendar (SPEC-075). What they read from the other modules goes through the services of those modules, in
+	// the adapters of assessment_refs.go; the grades module does not exist yet, so no assessment has homologated grades (D-12).
+	assessmentClassesRef := assessmentClasses{classes: classService}
+	assessmentService := assessmentservice.New(assessmentrepository.New(db), assessmentservice.Ports{
+		Classes: assessmentClassesRef, Students: assessmentClassesRef, Users: assessmentClassesRef,
+		Lessons: assessmentLessons{schedule: scheduleService}, Modules: assessmentModules{modules: moduleService},
+		Questions:    assessmentQuestions{bank: contentExercises, questions: contentReader},
+		Homologation: noHomologation{},
+	}, time.Now)
+	assessmentHandler := assessmenthandler.New(assessmentService, auth)
+	// The calendars carry the assessments, and the bank of questions keeps what a scheduled assessment needs (SPEC-075 RN-17, RN-18).
+	scheduleService.WithAssessments(scheduleAssessments{assessments: assessmentService})
+	contentExercises.WithAssessmentUse(assessmentService)
 	contentAuthorHandler := contenthandler.NewAuthor(contentAuthor, auth, authoringLimiter)
 	contentVersionHandler := contenthandler.NewVersions(contentVersions, auth, ratelimit.New(120, time.Minute))
 	contentImageHandler := contenthandler.NewImages(contentservice.NewImages(store, log, 2), auth, ratelimit.New(30, time.Minute))
@@ -296,6 +312,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		scheduleHandler,
 		classLinkHandler,
 		classroomHandler,
+		assessmentHandler,
 	)
 	mcpOAuthHandler.RegisterRoot(engine)
 	mcpHandler.Register(engine)

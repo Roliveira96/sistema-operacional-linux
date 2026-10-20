@@ -492,6 +492,16 @@ func (r *Reader) ExerciseQuestion(ctx context.Context, questionID uuid.UUID, v V
 	return q, nil
 }
 
+// Question reads a question by its id, whatever its usage and status, with the answer key and with no one to authorize. It is for the modules that
+// check the module of the question and decide who may see it themselves (SPEC-075 RN-16).
+func (r *Reader) Question(ctx context.Context, id uuid.UUID) (domain.Question, error) {
+	q, err := r.store.FindQuestion(ctx, id)
+	if errors.Is(err, ErrNotFound) {
+		return domain.Question{}, ErrQuestionNotFound
+	}
+	return q, err
+}
+
 // TopicScenario returns the prepared machine of the module topic (SPEC-016
 // 5.1), or nil when the module has none and the default machine applies. The
 // student machine is prepared on top of it by the snapshots of the module and

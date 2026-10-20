@@ -23,6 +23,8 @@ var (
 	ErrExerciseIncomplete = errors.New("an exercise without conditions of finalization cannot be published")
 	// ErrInvalidLinks means the links are not a combination the bank accepts (an exclusive exercise is in the assessment only).
 	ErrInvalidLinks = errors.New("an exclusive exercise must be linked to the assessment and not to the practice")
+	// ErrQuestionInUse means a scheduled assessment holds the question, or needs the stock it gives, so it cannot leave the assessment bank (SPEC-075 RN-18).
+	ErrQuestionInUse = errors.New("the question is in a scheduled assessment and cannot leave the assessment bank")
 	// ErrInvalidStatus means the status is not DRAFT or PUBLISHED.
 	ErrInvalidStatus = errors.New("the status must be DRAFT or PUBLISHED")
 	// ErrKindChange means a save tried to change the kind of an existing question (SPEC-035 5.1).
@@ -110,9 +112,17 @@ type ExerciseStore interface {
 	SaveBankSetup(ctx context.Context, moduleID uuid.UUID, setup json.RawMessage) error
 }
 
+// AssessmentUse is what the assessments tell the bank, so the bank does not take from a scheduled assessment what it needs (SPEC-075 RN-18): which
+// questions a SCHEDULED manual assessment lists, and the biggest quantity of each level a SCHEDULED draw of the module asks for.
+type AssessmentUse interface {
+	InScheduledAssessment(ctx context.Context, questionID uuid.UUID) (bool, error)
+	DrawDemand(ctx context.Context, moduleID uuid.UUID) (map[string]int, error)
+}
+
 // Exercises is the use case of the exercises of the module and its bank (SPEC-023).
 type Exercises struct {
 	store ExerciseStore
+	use   AssessmentUse
 	san   *domain.HTMLSanitizer
 	log   *zap.Logger
 	now   func() time.Time
@@ -121,6 +131,63 @@ type Exercises struct {
 // NewExercises creates the service.
 func NewExercises(store ExerciseStore, log *zap.Logger) *Exercises {
 	return &Exercises{store: store, san: domain.NewHTMLSanitizer(), log: log.Named("exercises"), now: microNow}
+}
+
+// WithAssessmentUse plugs in the assessments, which make the bank refuse to delete, unpublish or unlink a question they need (SPEC-075 RN-18).
+// Without them the bank behaves as it always did.
+func (s *Exercises) WithAssessmentUse(use AssessmentUse) *Exercises {
+	s.use = use
+	return s
+}
+
+// inAssessmentBank tells whether the question can be drawn or listed by an assessment: published and linked to the assessment (SPEC-075 RN-05).
+func inAssessmentBank(q domain.Question) bool {
+	return q.Status == domain.StatusPublished && q.InAssessment
+}
+
+// guardRemoval refuses what takes the question out of the assessment bank while a scheduled assessment holds it, or while the bank would be left
+// with fewer questions of its level than a scheduled draw asks for (SPEC-075 RN-18). A question that is not in the assessment bank gives nothing
+// to hold, so its removal is free.
+func (s *Exercises) guardRemoval(ctx context.Context, moduleID, id uuid.UUID) error {
+	if s.use == nil {
+		return nil
+	}
+	current, err := s.store.FindExercise(ctx, moduleID, id)
+	if err != nil {
+		return err
+	}
+	if !inAssessmentBank(current.Question) {
+		return nil
+	}
+	held, err := s.use.InScheduledAssessment(ctx, id)
+	if err != nil {
+		return err
+	}
+	if held {
+		return ErrQuestionInUse
+	}
+	demand, err := s.use.DrawDemand(ctx, moduleID)
+	if err != nil {
+		return err
+	}
+	asked := demand[current.Difficulty]
+	if asked == 0 {
+		return nil
+	}
+	bank, err := s.store.ListExercises(ctx, moduleID)
+	if err != nil {
+		return err
+	}
+	stock := 0
+	for _, r := range bank {
+		if r.Difficulty == current.Difficulty && inAssessmentBank(r.Question) {
+			stock++
+		}
+	}
+	if stock-1 < asked {
+		return ErrQuestionInUse
+	}
+	return nil
 }
 
 // authorize lets ADMIN and the TEACHER who owns the module through (SPEC-023 RN-02).
@@ -307,6 +374,11 @@ func (s *Exercises) SetLinks(ctx context.Context, who Actor, moduleID, id uuid.U
 			return ExerciseRecord{}, &IncompleteError{Fields: missing}
 		}
 	}
+	if !(links.Assessment && status == domain.StatusPublished) {
+		if err := s.guardRemoval(ctx, moduleID, id); err != nil {
+			return ExerciseRecord{}, err
+		}
+	}
 	record, err := s.store.SetLinks(ctx, moduleID, id, links, status, s.now())
 	if err != nil {
 		return ExerciseRecord{}, err
@@ -318,6 +390,9 @@ func (s *Exercises) SetLinks(ctx context.Context, who Actor, moduleID, id uuid.U
 // Delete removes an exercise from the bank, with the progress of the students in it (RN-09).
 func (s *Exercises) Delete(ctx context.Context, who Actor, moduleID, id uuid.UUID) error {
 	if err := s.authorize(ctx, moduleID, who); err != nil {
+		return err
+	}
+	if err := s.guardRemoval(ctx, moduleID, id); err != nil {
 		return err
 	}
 	if err := s.store.DeleteExercise(ctx, moduleID, id, s.now()); err != nil {

@@ -103,6 +103,8 @@ type Calendar struct {
 	Periods  []domain.SpecialPeriod
 	Holidays []domain.Holiday
 	Meetings []domain.WeeklyMeeting
+	// Assessments are the assessments of the classes in the range, given by the assessment module (SPEC-075 RN-17).
+	Assessments []CalendarAssessment
 }
 
 // Repository is the persistence the service needs.
@@ -166,6 +168,7 @@ type Service struct {
 	live      LiveSessions
 	files     MaterialFiles
 	store     MaterialStore
+	assess    AssessmentSource
 }
 
 // New creates the service. publicURL is the address of the application, used in the e-mails.
@@ -602,7 +605,7 @@ func checkRange(from, to time.Time) error {
 	return nil
 }
 
-func (s *Service) calendar(ctx context.Context, classIDs []uuid.UUID, from, to time.Time) (Calendar, error) {
+func (s *Service) calendar(ctx context.Context, actor Actor, classIDs []uuid.UUID, from, to time.Time) (Calendar, error) {
 	var cal Calendar
 	var err error
 	if cal.Classes, err = s.repo.ListClasses(ctx, classIDs); err != nil {
@@ -636,6 +639,11 @@ func (s *Service) calendar(ctx context.Context, classIDs []uuid.UUID, from, to t
 			cal.Holidays = append(cal.Holidays, h)
 		}
 	}
+	if s.assess != nil {
+		if cal.Assessments, err = s.assess.CalendarAssessments(ctx, actor, classIDs, from, to); err != nil {
+			return Calendar{}, err
+		}
+	}
 	return cal, nil
 }
 
@@ -647,7 +655,7 @@ func (s *Service) ClassCalendar(ctx context.Context, actor Actor, classID uuid.U
 	if _, err := s.readableClass(ctx, actor, classID); err != nil {
 		return Calendar{}, err
 	}
-	return s.calendar(ctx, []uuid.UUID{classID}, from, to)
+	return s.calendar(ctx, actor, []uuid.UUID{classID}, from, to)
 }
 
 // MyCalendar returns the calendar of every class of the teacher, or of every class where the student has an active
@@ -669,7 +677,7 @@ func (s *Service) MyCalendar(ctx context.Context, actor Actor, from, to time.Tim
 	if err != nil {
 		return Calendar{}, err
 	}
-	return s.calendar(ctx, ids, from, to)
+	return s.calendar(ctx, actor, ids, from, to)
 }
 
 // Holidays lists the holidays of a year.

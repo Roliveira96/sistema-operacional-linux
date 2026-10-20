@@ -179,6 +179,34 @@ type calendarJSON struct {
 	Periods  []periodJSON  `json:"periods"`
 	Holidays []holidayJSON `json:"holidays"`
 	Meetings []meetingJSON `json:"meetings"`
+	// Assessments carry only the public form of an assessment and, for the teacher, the count of eligible students and the composition (SPEC-075).
+	Assessments []assessmentJSON `json:"assessments"`
+}
+
+type assessmentJSON struct {
+	ID               uuid.UUID  `json:"id"`
+	ClassID          uuid.UUID  `json:"classId"`
+	ClassSessionID   *uuid.UUID `json:"classSessionId,omitempty"`
+	Title            string     `json:"title"`
+	Description      string     `json:"description"`
+	Type             string     `json:"type"`
+	Status           string     `json:"status"`
+	Phase            string     `json:"phase"`
+	StartsAt         string     `json:"startsAt"`
+	EndsAt           string     `json:"endsAt"`
+	DurationMinutes  *int       `json:"durationMinutes,omitempty"`
+	MaxScore         float64    `json:"maxScore"`
+	CancelReason     *string    `json:"cancelReason,omitempty"`
+	EligibleStudents *int       `json:"eligibleStudents,omitempty"`
+	Composition      *string    `json:"composition,omitempty"`
+}
+
+func toAssessmentJSON(a service.CalendarAssessment) assessmentJSON {
+	return assessmentJSON{
+		ID: a.ID, ClassID: a.ClassID, ClassSessionID: a.ClassSessionID, Title: a.Title, Description: a.Description, Type: a.Type, Status: a.Status,
+		Phase: a.Phase, StartsAt: a.StartsAt.In(domain.Location()).Format(time.RFC3339), EndsAt: a.EndsAt.In(domain.Location()).Format(time.RFC3339),
+		DurationMinutes: a.DurationMinutes, MaxScore: a.MaxScore, CancelReason: a.CancelReason, EligibleStudents: a.EligibleStudents, Composition: a.Composition,
+	}
 }
 
 func formatDate(t time.Time) string { return domain.Day(t).Format(dateLayout) }
@@ -224,7 +252,7 @@ func toHolidayJSON(h domain.Holiday) holidayJSON {
 }
 
 func toCalendarJSON(c service.Calendar) calendarJSON {
-	out := calendarJSON{Classes: []classJSON{}, Sessions: []sessionJSON{}, Events: []eventJSON{}, Periods: []periodJSON{}, Holidays: []holidayJSON{}, Meetings: []meetingJSON{}}
+	out := calendarJSON{Classes: []classJSON{}, Sessions: []sessionJSON{}, Events: []eventJSON{}, Periods: []periodJSON{}, Holidays: []holidayJSON{}, Meetings: []meetingJSON{}, Assessments: []assessmentJSON{}}
 	for _, x := range c.Classes {
 		out.Classes = append(out.Classes, classJSON{ID: x.ID, Name: x.Name, CourseCode: x.CourseCode, Color: x.Color,
 			StartDate: formatDate(x.StartDate), EndDate: formatDate(x.EndDate)})
@@ -243,6 +271,9 @@ func toCalendarJSON(c service.Calendar) calendarJSON {
 	}
 	for _, x := range c.Meetings {
 		out.Meetings = append(out.Meetings, toMeetingJSON(x))
+	}
+	for _, x := range c.Assessments {
+		out.Assessments = append(out.Assessments, toAssessmentJSON(x))
 	}
 	return out
 }
