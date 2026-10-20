@@ -102,3 +102,44 @@ describe("describeAssessmentError", () => {
     expect(describeAssessmentError(new Error("x"))).toBe("Não foi possível concluir. Tente de novo.");
   });
 });
+
+// SPEC-076, section 5: the clearance of the students and the own access of the student.
+describe("assessmentService: clearances (SPEC-076)", () => {
+  it("lists the clearances of an assessment", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    vi.mocked(c.get).mockResolvedValue({ requiresClearance: true, items: [], counts: { pending: 0, approved: 0, rejected: 0 }, serverNow: "2026-10-21T10:00:00-03:00" });
+    await expect(svc.clearances("c-1", "a-1")).resolves.toMatchObject({ requiresClearance: true });
+    expect(c.get).toHaveBeenCalledWith("/classes/c-1/assessments/a-1/clearances");
+  });
+
+  it("approves everybody who waits with the action alone, and decides student by student with the status and the reason", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    await svc.decideClearances("c-1", "a-1", { action: "APPROVE_ALL" });
+    expect(c.post).toHaveBeenLastCalledWith("/classes/c-1/assessments/a-1/clearances", { action: "APPROVE_ALL" });
+    const update = {
+      action: "UPDATE" as const,
+      students: [
+        { studentId: "s-1", status: "REJECTED" as const, rejectionReason: "Reprovada por faltas" },
+        { studentId: "s-2", status: "APPROVED" as const },
+      ],
+    };
+    await svc.decideClearances("c-1", "a-1", update);
+    expect(c.post).toHaveBeenLastCalledWith("/classes/c-1/assessments/a-1/clearances", update);
+  });
+
+  it("reads the own access of the student", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    vi.mocked(c.get).mockResolvedValue({ allowed: false, reason: "NOT_CLEARED", modality: "IN_PERSON", requiresClearance: true, clearance: { status: "PENDING" }, serverNow: "x" });
+    await expect(svc.myAccess("c-1", "a-1")).resolves.toMatchObject({ reason: "NOT_CLEARED" });
+    expect(c.get).toHaveBeenCalledWith("/classes/c-1/assessments/a-1/my-access");
+  });
+
+  it("explains the errors of the clearance", () => {
+    expect(describeAssessmentError(problem("invalid-clearance", 400))).toBe("A lista de habilitações tem algum problema: confira a ação, os alunos e o motivo.");
+    expect(describeAssessmentError(problem("clearance-not-required", 409))).toBe("Esta avaliação não exige a habilitação dos alunos.");
+    expect(describeAssessmentError(problem("clearance-locked", 409))).toBe("O aluno já começou a prova: a habilitação dele não pode mais mudar.");
+  });
+});
