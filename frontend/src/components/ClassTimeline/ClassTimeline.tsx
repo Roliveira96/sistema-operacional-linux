@@ -31,6 +31,8 @@ export interface ClassTimelineProps {
   /** The teacher opens the content of the lesson of a card, and changes the lesson (SPEC-073 CA-13); a button is drawn only for a handler that is given. */
   onEditContent?: (session: TimelineEntry) => void;
   onEditSession?: (session: TimelineEntry) => void;
+  /** The teacher turns the current or an upcoming lesson into an assessment (SPEC-075 CA-25); a button is drawn only for a handler that is given. */
+  onConvert?: (session: TimelineEntry) => void;
   /** Changing it reads the timeline again. */
   reloadKey?: number;
 }
@@ -46,7 +48,7 @@ function dayOf(entry: TimelineEntry): string {
  * The timeline of the class under the calendar (SPEC-073, 3.1): the current lesson, the past ones folded, and the upcoming ones. It asks the server
  * when it opens, every minute while the tab is in view and when the tab comes back into view; a failed reading hides it until the next one.
  */
-export function ClassTimeline({ classId, courseCode, role, load, loadDiary, loadCommands, liveHref, onStartLive, onEditContent, onEditSession, reloadKey = 0 }: ClassTimelineProps) {
+export function ClassTimeline({ classId, courseCode, role, load, loadDiary, loadCommands, liveHref, onStartLive, onEditContent, onEditSession, onConvert, reloadKey = 0 }: ClassTimelineProps) {
   const [data, setData] = useState<Timeline | null>(null);
   const baseId = useId();
 
@@ -72,7 +74,7 @@ export function ClassTimeline({ classId, courseCode, role, load, loadDiary, load
   if (!data) return null;
   const { current, past, upcoming, liveSessionId, now } = data;
   const next = upcoming[0];
-  const cardProps = { classId, courseCode, role, loadDiary, loadCommands, onEditContent, onEditSession };
+  const cardProps = { classId, courseCode, role, loadDiary, loadCommands, onEditContent, onEditSession, onConvert };
 
   return (
     <section className={styles.timeline} aria-label={m.region}>
@@ -179,6 +181,7 @@ interface EntryCardProps {
   canExpand: boolean;
   onEditContent?: (session: TimelineEntry) => void;
   onEditSession?: (session: TimelineEntry) => void;
+  onConvert?: (session: TimelineEntry) => void;
   /** The mark of the current lesson ("Agora", or the time it starts); its card is the one in evidence. */
   badge?: string;
   /** The way into the live class, or the way to start it, of the current lesson. */
@@ -191,7 +194,7 @@ interface EntryCardProps {
  * A lesson of the timeline: the day, the topic and, when there were, the commands. Its diary opens under it, and the teacher edits the content and
  * the lesson from its buttons, the same dialogs of the panel of the day of the calendar (SPEC-073 CA-12, CA-13).
  */
-function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, expandLabel, canExpand, onEditContent, onEditSession, badge, live, past }: EntryCardProps) {
+function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, expandLabel, canExpand, onEditContent, onEditSession, onConvert, badge, live, past }: EntryCardProps) {
   const [open, setOpen] = useState(false);
   const teacher = role === "teacher";
   const Root = badge ? "article" : "li";
@@ -233,6 +236,11 @@ function EntryCard({ entry, courseCode, classId, role, loadDiary, loadCommands, 
         {teacher && onEditSession && (
           <Button variant="secondary" size="md" onClick={() => onEditSession(entry)}>
             {m.editSession}
+          </Button>
+        )}
+        {teacher && onConvert && !past && (
+          <Button variant="secondary" size="md" onClick={() => onConvert(entry)}>
+            {messages.assessments.convert}
           </Button>
         )}
       </div>

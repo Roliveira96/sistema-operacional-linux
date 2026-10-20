@@ -63,7 +63,7 @@ describe("ClassCalendar with assessments", () => {
 
     setup({}, false);
     fireEvent.click(await day(/^sexta-feira, 23 de outubro/));
-    expect(screen.getByText("Prova 1")).toBeDefined();
+    expect(within(panel("sexta-feira, 23 de outubro de 2026")).getByText("Prova 1")).toBeDefined();
     expect(screen.queryByText(/alunos elegíveis/)).toBeNull();
     expect(screen.queryByText(/Composição/)).toBeNull();
   });

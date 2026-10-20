@@ -33,7 +33,7 @@ function setup(role: "teacher" | "student", over: { room?: ActiveRoom; list?: Li
   vi.spyOn(classroomService, "getActive").mockResolvedValue(over.room ?? { hasActiveSession: false });
   vi.spyOn(classroomService, "listSessions").mockResolvedValue(over.list ?? []);
   vi.spyOn(scheduleService, "classCalendar").mockResolvedValue({
-    classes: [], events: [], periods: [], holidays: [], meetings: [],
+    classes: [], events: [], periods: [], holidays: [], meetings: [], assessments: [],
     sessions: [
       { id: "cs-1", classId: "c-1", date: isoDate(new Date()), startTime: "08:20", endTime: "10:00", lessonCount: 2, mode: "IN_PERSON", status: "SCHEDULED", origin: "WEEKLY", overridden: false, onHoliday: false },
       { id: "cs-2", classId: "c-1", date: isoDate(new Date()), startTime: "13:50", endTime: "15:30", lessonCount: 2, mode: "IN_PERSON", status: "CANCELED", origin: "WEEKLY", overridden: true, onHoliday: false },
@@ -198,7 +198,7 @@ describe("LiveClassPanel", () => {
   it("says when it cannot load, and tries again", async () => {
     const getActive = vi.spyOn(classroomService, "getActive").mockRejectedValueOnce(new Error("down")).mockResolvedValue({ hasActiveSession: false });
     vi.spyOn(classroomService, "listSessions").mockResolvedValue([]);
-    vi.spyOn(scheduleService, "classCalendar").mockResolvedValue({ classes: [], sessions: [], events: [], periods: [], holidays: [], meetings: [] });
+    vi.spyOn(scheduleService, "classCalendar").mockResolvedValue({ classes: [], sessions: [], events: [], periods: [], holidays: [], meetings: [], assessments: [] });
     render(<LiveClassPanel classId="c-1" role="student" archived={false} />);
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Não foi possível carregar a aula ao vivo.");

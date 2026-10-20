@@ -252,6 +252,17 @@
   background-color: var(--color-accent-subtle);
 }
 
+// An assessment of the day (SPEC-075): the kind is in the name of the day, the color only helps the eye.
+.badgeAssessment {
+  color: var(--color-warning);
+  background-color: var(--color-warning-subtle);
+
+  &[data-canceled="true"] {
+    color: var(--color-text-secondary);
+    background-color: var(--color-surface-sunken);
+  }
+}
+
 .sessionItem {
   font-size: var(--font-size-xs);
   padding: 1px 4px;
@@ -416,6 +427,12 @@
 .tagExtra {
   color: var(--color-accent);
   background-color: var(--color-accent-subtle);
+}
+
+.tagAssessment {
+  align-self: flex-start;
+  color: var(--color-warning);
+  background-color: var(--color-warning-subtle);
 }
 
 .tagLive {

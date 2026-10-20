@@ -587,7 +587,9 @@ describe("assessments from the class page (SPEC-075)", () => {
     vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
     render(<ClassPage params={params} />);
     fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 26 de outubro/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Transformar em avaliação" }));
+    // the timeline under the calendar offers it too, so the button is looked for in the panel of the day
+    const panel = screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" });
+    fireEvent.click(within(panel).getByRole("button", { name: "Transformar em avaliação" }));
     expect(pushMock).toHaveBeenCalledWith("/app/classes/c-1/assessments/new?sessionId=s-26");
   });
 

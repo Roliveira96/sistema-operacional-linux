@@ -1,3 +1,4 @@
+import type { CalendarAssessment } from "./assessmentService";
 import { classroomService } from "./classroomService";
 import { httpClient, type HttpClient } from "./httpClient";
 
@@ -203,6 +204,8 @@ export interface CalendarData {
   periods: SpecialPeriod[];
   holidays: Holiday[];
   meetings: Meeting[];
+  /** The assessments of the days: always present, empty when there are none (SPEC-075 RN-17). */
+  assessments: CalendarAssessment[];
 }
 
 export interface SessionInput {

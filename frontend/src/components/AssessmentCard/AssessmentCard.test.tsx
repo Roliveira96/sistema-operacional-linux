@@ -69,7 +69,7 @@ describe("AssessmentCard", () => {
     await advance(1000);
     expect(timer()).toBe("01:29:59");
     await advance(59_000);
-    expect(timer()).toBe("01:28:59");
+    expect(timer()).toBe("01:29:00");
   });
 
   it("counts with the server clock, whatever the clock of the browser says", async () => {

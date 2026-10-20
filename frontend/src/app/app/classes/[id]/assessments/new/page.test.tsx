@@ -117,7 +117,9 @@ describe("new assessment page", () => {
   });
 
   it("says when what the form needs could not be read, and tries again", async () => {
-    vi.spyOn(moduleService, "listModules").mockRejectedValueOnce(new Error("down")).mockResolvedValue({ items: [], total: 0, page: 1, limit: 100 });
+    vi.spyOn(moduleService, "listModules")
+      .mockRejectedValueOnce(new Error("down"))
+      .mockResolvedValue({ items: [{ id: "mod-1", title: "Permissões de arquivos" }] as never, total: 1, page: 1, limit: 100 });
     vi.spyOn(classService, "listMembers").mockResolvedValue([]);
     render(<NewAssessmentPage params={params} />);
     expect((await screen.findByRole("alert")).textContent).toContain("Não foi possível carregar os dados da avaliação.");

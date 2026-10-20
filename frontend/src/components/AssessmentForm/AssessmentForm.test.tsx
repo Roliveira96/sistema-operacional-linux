@@ -236,7 +236,7 @@ describe("AssessmentForm", () => {
     await include("Criar a pasta");
     fireEvent.click(screen.getByRole("button", { name: "Distribuir igualmente" }));
     open("Observações privadas");
-    type(screen.getByLabelText("Observações privadas"), "Conferir o lab 02");
+    type(screen.getByRole("textbox", { name: "Observações privadas" }), "Conferir o lab 02");
     fireEvent.click(save());
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ teacherPrivateNotes: "Conferir o lab 02" })));
   });
