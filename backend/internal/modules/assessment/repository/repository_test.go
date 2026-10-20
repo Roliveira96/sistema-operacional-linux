@@ -90,7 +90,7 @@ func (e env) assessment(mutate ...func(*domain.Assessment)) domain.Assessment {
 	a := domain.Assessment{
 		ClassID: e.class.ID, ModuleID: e.module.ID, Title: "Prova 1", Description: "Leia com atenção.", Type: domain.TypeExam, Status: domain.StatusScheduled,
 		MaxScore: domain.Points(10), StartsAt: at(21, 9, 0), EndsAt: at(21, 11, 0), Composition: domain.CompositionManual, Audience: domain.AudienceAllClass,
-		CreatedBy: e.teacher.ID, UpdatedBy: e.teacher.ID,
+		Modality: domain.ModalityInPerson, CreatedBy: e.teacher.ID, UpdatedBy: e.teacher.ID,
 	}
 	for _, m := range mutate {
 		m(&a)
@@ -589,10 +589,11 @@ func tablesOf(t *testing.T, e env) map[string]bool {
 }
 
 // Covers SPEC-075 CA-30 (section 4): migration 00041 creates the five tables, going down takes them away and leaves the rest of the schema, and
-// going up again brings them back ready to use.
+// going up again brings them back ready to use. Migration 00042 (SPEC-076) hangs on these tables, so it goes down first and comes back last.
 func TestMigration00041_UpAndDown(t *testing.T) {
 	e := newEnv(t) // every migration was applied by the helper
 	up, down := migrationParts(t, "00041_")
+	up2, down2 := migrationParts(t, "00042_")
 
 	five := []string{"assessments", "assessment_items", "assessment_draw_rules", "assessment_students", "assessment_events"}
 	for _, name := range five {
@@ -600,6 +601,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	}
 	e.create(t)
 
+	runMigration(t, e, down2)
 	runMigration(t, e, down)
 	assert.Empty(t, tablesOf(t, e), "the Down took the five tables away")
 	var classes int64
@@ -607,6 +609,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	assert.Equal(t, int64(1), classes)
 
 	runMigration(t, e, up)
+	runMigration(t, e, up2)
 	for _, name := range five {
 		assert.True(t, tablesOf(t, e)[name], name+" is back after going up again")
 	}

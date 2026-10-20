@@ -81,7 +81,7 @@ func TestAssessmentsWiredLikeTheComposition(t *testing.T) {
 	assessments := assessmentservice.New(assessmentrepository.New(db), assessmentservice.Ports{
 		Classes: people, Students: people, Users: people,
 		Lessons: assessmentLessons{schedule: scheduleService}, Modules: assessmentModules{modules: moduleService},
-		Questions: assessmentQuestions{bank: contentExercises, questions: contentReader}, Homologation: noHomologation{},
+		Questions: assessmentQuestions{bank: contentExercises, questions: contentReader}, Homologation: noHomologation{}, Attempts: noAttempts{},
 	}, time.Now)
 	scheduleService.WithAssessments(scheduleAssessments{assessments: assessments})
 	contentExercises.WithAssessmentUse(assessments)
@@ -105,6 +105,21 @@ func TestAssessmentsWiredLikeTheComposition(t *testing.T) {
 	assert.Equal(t, "Profa. Sediane", created.CreatedByName, "the names read through the class service")
 	assert.True(t, created.StartsAt.Equal(tomorrow.Add(9*time.Hour)), "the date and the start time of the lesson, in Brasília")
 
+	// SPEC-076: an exam is in person and requires the clearance, the student waits for it, and approving all lets them in once it opens
+	assert.Equal(t, assessmentdomain.ModalityInPerson, created.Modality)
+	assert.True(t, created.RequiresClearance)
+	assert.Equal(t, assessmentservice.ClearanceCounts{Pending: 1}, created.ClearanceCounts)
+	waiting, err := assessments.MyAccess(ctx, pupil, class.ID, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, assessmentdomain.AccessNotOpenYet, waiting.Reason)
+	require.NotNil(t, waiting.Clearance)
+	assert.Equal(t, assessmentdomain.ClearancePending, waiting.Clearance.Status)
+	cleared, err := assessments.Decide(ctx, owner, class.ID, created.ID, assessmentservice.ClearanceInput{Action: assessmentservice.ClearanceApproveAll})
+	require.NoError(t, err, "the composition root plugs an AttemptCheck that says nobody started")
+	assert.Equal(t, assessmentservice.ClearanceCounts{Approved: 1}, cleared.Counts)
+	assert.Equal(t, "Ana", cleared.Items[0].Name, "the names read through the class service")
+	assert.Equal(t, "Profa. Sediane", cleared.Items[0].ClearedByName)
+
 	// the student sees it, in the public form; the teacher sees the detail with the questions and the history
 	public, err := assessments.Public(ctx, pupil, class.ID, created.ID)
 	require.NoError(t, err)
@@ -113,8 +128,9 @@ func TestAssessmentsWiredLikeTheComposition(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, detail.Items, 3)
 	assert.Equal(t, "Criar a pasta", detail.Items[0].Title, "the title of the question, read through the content services")
-	require.Len(t, detail.Events, 1)
+	require.Len(t, detail.Events, 2, "the creation and the decision of the clearance")
 	assert.Equal(t, "Profa. Sediane", detail.Events[0].ActorName)
+	assert.Equal(t, assessmentdomain.EventClearanceUpdated, detail.Events[1].Kind)
 	preview, err := assessments.Preview(ctx, owner, class.ID, created.ID)
 	require.NoError(t, err)
 	require.Len(t, preview.Questions, 3)

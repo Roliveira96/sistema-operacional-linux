@@ -19,6 +19,10 @@ type fakeRepo struct {
 	students    map[uuid.UUID][]uuid.UUID
 	events      map[uuid.UUID][]domain.Event
 	writes      int // how many times an assessment was written (Create or Save)
+
+	// the decisions of the clearance (SPEC-076): by assessment, then by student, one row each
+	clearances     map[uuid.UUID]map[uuid.UUID]domain.Clearance
+	clearanceSaves int // how many times a batch of decisions was written
 }
 
 func newFakeRepo() *fakeRepo {
@@ -28,6 +32,7 @@ func newFakeRepo() *fakeRepo {
 		rules:       map[uuid.UUID][]domain.DrawRule{},
 		students:    map[uuid.UUID][]uuid.UUID{},
 		events:      map[uuid.UUID][]domain.Event{},
+		clearances:  map[uuid.UUID]map[uuid.UUID]domain.Clearance{},
 	}
 }
 
@@ -82,6 +87,30 @@ func (f *fakeRepo) Save(_ context.Context, a *domain.Assessment, rep service.Rep
 		e.AssessmentID = a.ID
 		f.events[a.ID] = append(f.events[a.ID], *e)
 	}
+	return nil
+}
+
+func (f *fakeRepo) Clearances(_ context.Context, id uuid.UUID) ([]domain.Clearance, error) {
+	var out []domain.Clearance
+	for _, c := range f.clearances[id] {
+		out = append(out, c)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].StudentID.String() < out[j].StudentID.String() })
+	return out, nil
+}
+
+// SaveClearances writes the whole batch and its event, or nothing: one row for each student, the last decision wins.
+func (f *fakeRepo) SaveClearances(_ context.Context, id uuid.UUID, rows []domain.Clearance, e domain.Event) error {
+	f.clearanceSaves++
+	if f.clearances[id] == nil {
+		f.clearances[id] = map[uuid.UUID]domain.Clearance{}
+	}
+	for _, row := range rows {
+		row.AssessmentID = id
+		f.clearances[id][row.StudentID] = row
+	}
+	e.AssessmentID = id
+	f.events[id] = append(f.events[id], e)
 	return nil
 }
 
@@ -308,6 +337,13 @@ func (f *fakeQuestions) Sample(_ context.Context, moduleID uuid.UUID, level doma
 		n = len(all)
 	}
 	return all[:n], nil
+}
+
+// fakeAttempts says which students already started the attempt (SPEC-076 RN-07).
+type fakeAttempts struct{ started map[[2]uuid.UUID]bool }
+
+func (f *fakeAttempts) HasStarted(_ context.Context, assessmentID, studentID uuid.UUID) (bool, error) {
+	return f.started[[2]uuid.UUID{assessmentID, studentID}], nil
 }
 
 // fakeHomologation answers whether an assessment has homologated grades.

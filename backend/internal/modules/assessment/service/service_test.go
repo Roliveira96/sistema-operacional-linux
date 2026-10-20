@@ -33,6 +33,7 @@ type fixture struct {
 	modules   *fakeModules
 	questions *fakeQuestions
 	homolog   *fakeHomologation
+	attempts  *fakeAttempts
 	users     *fakeUsers
 	svc       *service.Service
 	now       time.Time
@@ -59,6 +60,7 @@ func newFixture(t *testing.T) *fixture {
 		modules:   &fakeModules{assigned: map[[2]uuid.UUID]service.Module{}},
 		questions: &fakeQuestions{bank: map[uuid.UUID]bankQuestion{}},
 		homolog:   &fakeHomologation{homologated: map[uuid.UUID]bool{}},
+		attempts:  &fakeAttempts{started: map[[2]uuid.UUID]bool{}},
 		users:     &fakeUsers{names: map[uuid.UUID]string{}},
 	}
 	f.teacher = service.Actor{UserID: uuid.New(), Role: authn.RoleTeacher}
@@ -87,7 +89,7 @@ func newFixture(t *testing.T) *fixture {
 	f.hard = f.addQuestions(4, domain.DifficultyHard)
 
 	f.svc = service.New(f.repo, service.Ports{
-		Classes: f.classes, Students: f.students, Lessons: f.lessons, Modules: f.modules, Questions: f.questions, Homologation: f.homolog, Users: f.users,
+		Classes: f.classes, Students: f.students, Lessons: f.lessons, Modules: f.modules, Questions: f.questions, Homologation: f.homolog, Attempts: f.attempts, Users: f.users,
 	}, func() time.Time { return f.now })
 	return f
 }

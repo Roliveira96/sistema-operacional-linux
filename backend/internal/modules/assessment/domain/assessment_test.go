@@ -109,7 +109,7 @@ func valid() domain.Assessment {
 	return domain.Assessment{
 		Title: "Prova 1", Description: "Leia com atenção.", Type: domain.TypeExam, Status: domain.StatusScheduled,
 		MaxScore: domain.Points(10), StartsAt: at(21, 9, 0), EndsAt: at(21, 11, 0),
-		Composition: domain.CompositionManual, Audience: domain.AudienceAllClass,
+		Composition: domain.CompositionManual, Audience: domain.AudienceAllClass, Modality: domain.ModalityInPerson,
 	}
 }
 
