@@ -84,7 +84,7 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 
 ### 3.2. Backend (Go: módulo `assessment`, com integração em `schedule` e `content`)
 
-Módulo novo `backend/internal/modules/assessment/` com `domain`, `service`, `repository` e `handler`, conforme `ARCHITECTURE.md`, seção 3.2. O `assessment` não acessa o repository de outro módulo: lê turma, matrículas, aulas e questões pelas interfaces públicas dos services de `classgroup`, `schedule`, `student` e `content`, declaradas no `assessment` (inversão de dependência). Datas e horários seguem a SPEC-042 RN-13: interpretados em `America/Sao_Paulo`, entrando e saindo da API em ISO 8601 com deslocamento. O relógio é sempre o do servidor.
+Módulo novo `backend/internal/modules/assessment/` com `domain`, `service`, `repository` e `handler`, conforme `ARCHITECTURE.md`, seção 3.2. O `assessment` não acessa o repository de outro módulo: lê turma, matrículas, aulas, módulos, questões e nomes de usuário pelas interfaces públicas dos services de `classgroup`, `schedule`, `student`, `coursemodule`, `content` e `user`, declaradas no `assessment` (inversão de dependência); os nomes de quem criou, alterou e agiu no histórico (RN-15) vêm da interface de usuários. Datas e horários seguem a SPEC-042 RN-13: interpretados em `America/Sao_Paulo`, entrando e saindo da API em ISO 8601 com deslocamento. O relógio é sempre o do servidor.
 
 - **RN-01 (autorização):** só a docente dona da turma e o administrador escrevem. Lê o detalhe completo a docente dona e o administrador. O estudante com matrícula `ACTIVE` lê só os dados públicos das avaliações em que é elegível (RN-08). Sem sessão, 401; papel ou dono errado, 403; avaliação de outra turma ou inexistente, 404.
 - **RN-02 (dados):** título de 1 a 150 caracteres; instruções gerais em texto puro de até 5.000 caracteres (quebras de linha preservadas); tipo `EXAM` ou `ASSIGNMENT`; nota máxima maior que 0 e até 100, com no máximo 2 casas decimais; duração individual opcional em minutos inteiros, de 5 até o tamanho do período. Sem duração, o aluno usa o período inteiro. Status guardado: `SCHEDULED` ou `CANCELED`.
@@ -99,7 +99,7 @@ Módulo novo `backend/internal/modules/assessment/` com `domain`, `service`, `re
 - **RN-11 (reagendamento):** em `UPCOMING`, início e término podem mudar, com as validações da RN-03 (inclusive início no futuro). Em `RUNNING`, o início não muda e o novo término deve ser posterior ao término atual (só prorrogar), com justificativa obrigatória (D-07). Em `ENDED` ou `CANCELED`, recusa: `assessment-ended` ou `assessment-canceled`. Cada reagendamento grava o evento `RESCHEDULED` com as datas antigas e novas, o autor e o motivo. Se a avaliação nasceu de uma aula, a aula não se move.
 - **RN-12 (cancelamento):** exige motivo de 1 a 500 caracteres (`reason-required`). Passa o status para `CANCELED` e grava quem cancelou, quando e o motivo. `CANCELED` é terminal: nenhuma operação o desfaz e nenhuma alteração (exceto as observações privadas) é aceita depois. Cancelar uma avaliação já cancelada é `assessment-canceled`. Se existir nota homologada na avaliação, a operação é recusada com `grades-homologated`; como ainda não existe módulo de notas, o service declara a interface `HomologationCheck` e o composition root liga uma implementação que responde "nenhuma" até a spec das notas (D-12). Cancelar não altera a aula de origem: ela segue como aula regular da agenda e o vínculo fica só como histórico (D-09).
 - **RN-13 (observações privadas):** texto puro de até 5.000 caracteres, opcional, gravado por rota própria a qualquer momento e em qualquer fase, inclusive depois de cancelada. Só a docente dona e o administrador leem e gravam (como a SPEC-073 RN-03; D-10). Gravar **não** conta como alteração da avaliação: não muda `updated_by`, `updated_at`, não gera evento, não pede motivo. Nunca sai nas respostas do estudante nem em lista ou calendário de estudante.
-- **RN-14 (decisão de acesso):** o service público oferece `AccessOf(estudante, avaliação)` e responde `ALLOWED` só quando a avaliação está `SCHEDULED`, a fase é `RUNNING` e o estudante é elegível; caso contrário responde o motivo: `CANCELED`, `NOT_ELIGIBLE`, `NOT_OPEN_YET` ou `ENDED`. Não há rota HTTP; é a interface que a spec das tentativas vai consumir. Assim, avaliação cancelada nunca devolve `ALLOWED`.
+- **RN-14 (decisão de acesso):** o service público oferece `AccessOf(estudante, avaliação)` e responde `ALLOWED` só quando a avaliação está `SCHEDULED`, a fase é `RUNNING` e o estudante é elegível; caso contrário responde o motivo: `CANCELED`, `NOT_ELIGIBLE`, `NOT_OPEN_YET` ou `ENDED`. Não há rota HTTP; é a interface que a spec das tentativas vai consumir. Assim, avaliação cancelada nunca devolve `ALLOWED`. Quando mais de um motivo vale, vale o primeiro desta ordem: `NOT_ELIGIBLE`, `CANCELED`, `NOT_OPEN_YET`, `ENDED`, para quem não é elegível não aprender nada sobre a avaliação.
 - **RN-15 (auditoria):** a avaliação guarda `created_by`, `updated_by` e `updated_at` (padrão da SPEC-049) e, em tabela só de inclusão, os eventos `CREATED`, `UPDATED` (com os nomes dos campos alterados, nunca os valores das observações), `RESCHEDULED` e `CANCELED`, cada um com autor, instante, motivo e, no reagendamento, as datas antigas e novas. Eventos não se alteram nem se apagam. Só a docente dona e o administrador leem o histórico.
 - **RN-16 (pré-visualização):** só a docente dona e o administrador. Devolve as questões na ordem, com enunciado, tipo, nível, peso, resposta correta e justificativa; no sorteio, as regras por nível, o estoque e um exemplo sorteado (não gravado).
 - **RN-17 (calendário, módulo `schedule`):** `GET /classes/:id/calendar` e `GET /me/calendar` passam a trazer `assessments` do intervalo. O `schedule` declara a interface de que precisa e o `assessment` a implementa, ligadas no composition root (D-08). Para a docente e o administrador vêm as avaliações de suas turmas; para o estudante, só as elegíveis, no formato `AssessmentPublic`, incluindo as canceladas.
@@ -115,7 +115,7 @@ Migração nova com o próximo número livre depois de `00040` (conferir em `ori
 | Campo | Tipo | Obrigatório | Restrições | Descrição / Regra |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | uuid | Sim | PK | UUIDv7 |
-| `class_id` | uuid | Sim | FK `class_groups` | Turma (RN-01) |
+| `class_id` | uuid | Sim | FK `classes` | Turma (RN-01) |
 | `module_id` | uuid | Sim | FK `course_modules` | Módulo de onde saem as questões (RN-05) |
 | `class_session_id` | uuid | Não | FK `class_sessions` | Aula de origem, quando houve conversão (RN-04) |
 | `title` | text | Sim | 1 a 150 caracteres | RN-02 |
@@ -180,7 +180,7 @@ Migração nova com o próximo número livre depois de `00040` (conferir em `ori
 | `changed_fields` | text[] | Não | só em `UPDATED` | Nomes dos campos alterados |
 | `created_at` | timestamptz | Sim | | Instante do evento |
 
-**Relacionamentos:** `assessments` N:1 `class_groups`, N:1 `course_modules`, N:1 `class_sessions` (opcional); 1:N com `assessment_items`, `assessment_draw_rules`, `assessment_students` e `assessment_events`.
+**Relacionamentos:** `assessments` N:1 `classes`, N:1 `course_modules`, N:1 `class_sessions` (opcional); 1:N com `assessment_items`, `assessment_draw_rules`, `assessment_students` e `assessment_events`.
 
 **Índices e unicidades:** `(class_id, starts_at)` com `deleted_at` nulo; `(class_id, status)`; unicidade `(assessment_id, question_id)` em `assessment_items`; unicidade `(assessment_id, difficulty)` em `assessment_draw_rules`; unicidade `(assessment_id, student_id)` em `assessment_students`; unicidade parcial de `class_session_id` onde `status = 'SCHEDULED'` e `deleted_at` é nulo (uma aula, no máximo uma avaliação ativa).
 
@@ -190,7 +190,7 @@ Migração nova com o próximo número livre depois de `00040` (conferir em `ori
 
 ## 5. Contrato de API (API Contract)
 
-Erros RFC 7807 com os slugs abaixo e os comuns do projeto (`malformed-request`, `invalid-uuid`, `not-authenticated`, `forbidden`, `class-not-found`, `assessment-not-found`). Campos em `camelCase`. Todas as rotas exigem sessão.
+Erros RFC 7807 com os slugs abaixo e os comuns do projeto (`malformed-request`, `invalid-uuid`, `not-authenticated`, `forbidden`, `class-not-found`, `assessment-not-found`). Campos em `camelCase`. Um valor ilegível no corpo ou na query (data que não é data, número que é texto, id que não é UUID, fase ou status que não existe) é 400 `malformed-request`; um id ilegível na rota é 400 `invalid-uuid`. Todas as rotas exigem sessão.
 
 ### 5.1. Objetos de resposta
 
@@ -210,7 +210,7 @@ Erros RFC 7807 com os slugs abaixo e os comuns do projeto (`malformed-request`, 
 | `durationMinutes` | inteiro | Não | Duração individual |
 | `maxScore` | decimal | Sim | Nota máxima |
 | `cancelReason` | texto | Não | Só com `CANCELED` |
-| `serverNow` | data e hora | Sim | Relógio do servidor, para a contagem regressiva |
+| `serverNow` | data e hora | Sim | Relógio do servidor, para a contagem regressiva. No detalhe vem no objeto; nas listas vem uma vez só, fora dos itens, e o calendário não o traz |
 
 **`AssessmentSummary`** (docente dona e administrador): tudo de `AssessmentPublic` mais `moduleId`, `moduleTitle`, `composition`, `audience`, `eligibleStudents` (quantidade), `totalQuestions`, `frozen`, `teacherPrivateNotes`, `createdBy`, `createdByName`, `updatedBy`, `updatedByName`, `updatedAt`, `canceledBy`, `canceledAt`.
 
@@ -235,7 +235,7 @@ Erros RFC 7807 com os slugs abaixo e os comuns do projeto (`malformed-request`, 
 | `startsAt`, `endsAt` | data e hora | Sim, salvo com `classSessionId` | RN-03 |
 | `composition` | texto | Sim | `MANUAL` ou `DRAW` |
 | `items` | lista de `questionId` e `weight` | Só em `MANUAL` | RN-06 |
-| `draw` | `total` e, por nível, `quantity` e `pointsPerQuestion` | Só em `DRAW` | RN-07 |
+| `draw` | `total` e a lista `rules`, com um item por nível (`difficulty`, `quantity`, `pointsPerQuestion`) | Só em `DRAW` | RN-07 |
 | `audience` | texto | Não (padrão `ALL_CLASS`) | RN-08 |
 | `studentIds` | lista de uuid | Só em `SELECTED` | RN-08 |
 | `teacherPrivateNotes` | texto | Não | RN-13 |
@@ -314,7 +314,7 @@ Erros RFC 7807 com os slugs abaixo e os comuns do projeto (`malformed-request`, 
 - **Resposta de sucesso:** 200 com `items` (`questionId`, `title`, `kind`, `difficulty`) e `stock` (quantidade por nível).
 - **Erros:** 409 `module-not-assigned`.
 
-**Rotas existentes que mudam (RN-17):** `GET /api/v1/classes/:id/calendar` e `GET /api/v1/me/calendar` ganham `assessments` na resposta; o limite de 62 dias da SPEC-042 continua. Na `content`, as rotas que excluem, despublicam ou mudam o vínculo de uma questão passam a poder responder 409 `question-in-use` (RN-18).
+**Rotas existentes que mudam (RN-17):** `GET /api/v1/classes/:id/calendar` e `GET /api/v1/me/calendar` ganham `assessments` na resposta, sempre presente (lista vazia sem avaliações); o limite de 62 dias da SPEC-042 continua. Cada item tem os campos de `AssessmentPublic` sem `serverNow` e, para a docente e o administrador, também `eligibleStudents` e `composition`. Na `content`, as rotas que excluem, despublicam ou mudam o vínculo de uma questão passam a poder responder 409 `question-in-use` (RN-18).
 
 ## 6. Impacto e Riscos (Impact & Risks)
 
@@ -496,3 +496,5 @@ Nenhuma. O Tech Lead decidiu em 20/10/2026, ao aprovar a spec, todas as pendênc
 | 20/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir das duas Tech Specs que ele trouxe em 20/10/2026 (módulo de avaliações e provas no calendário; adendo de reagendamento, cancelamento e observações privadas), conferidas contra o canônico, o glossário e o código. Quinze pendências abertas (D-01 a D-15), todas com recomendação |
 | 20/10/2026 | Tech Lead | Aprovada. Decisões D-01 a D-15 fechadas: aceitou as recomendações dos pontos D-01 a D-04 e das pendências D-05 a D-15 como estavam na spec, e esclareceu a D-09 (aula convertida e cancelamento: sem duas opções no diálogo; a aula segue regular e a avaliação cancelada fica registrada com o motivo) |
 | 20/10/2026 | Aruna Architect | Seção 10 esvaziada: as quinze pendências viraram decisões D-01 a D-15, incorporadas ao texto; `P-xx` renomeado para `D-xx` nas referências. O glossário ganhou as notas de `AssessmentWindow` (D-02) e `DrawRule` (D-04) |
+| 20/10/2026 | Aruna Architect | Correção de nome, sem mudança de requisito: a tabela da turma é `classes` (e não `class_groups`, que é só o nome do tipo em Go), na seção 4. Achado ao escrever os testes do repository |
+| 20/10/2026 | Aruna Architect | Esclarecimentos de contrato, sem mudança de requisito, achados ao escrever os testes e registrados antes do código (o Tech Lead pode vetar qualquer um): (1) o `assessment` lê nomes de usuário por uma interface `Users` (RN-15, seção 5.1); (2) `AccessOf` tem ordem de motivos, `NOT_ELIGIBLE` primeiro (RN-14); (3) `serverNow` vem no objeto do detalhe e uma vez só nas listas, e o calendário não o traz (5.1); (4) o corpo do sorteio é `total` mais a lista `rules` (5.2); (5) valor ilegível no corpo ou na query é `malformed-request` (5); (6) `assessments` do calendário é sempre presente e, para a docente, traz `eligibleStudents` e `composition` (5.2) |
