@@ -5,6 +5,7 @@ import { Button } from "@/components/Button/Button";
 import { messages } from "@/messages/pt-BR";
 import { classroomService, type ClassroomService, type DeckKind, type DeckSummary } from "@/services/classroomService";
 import { ApiProblemError } from "@/services/httpClient";
+import { scheduleService, type ScheduleService, type SessionMaterial } from "@/services/scheduleService";
 import { readPdfInfo } from "../SlidePresenter/pdfRenderer";
 import styles from "./FilesPanel.module.scss";
 
@@ -53,7 +54,10 @@ export interface FilesPanelProps {
   classId: string;
   /** Puts the presentation on the stage of the room (the panel of the teacher asks the server, which tells everybody). */
   onProject(deckId: string): void;
-  service?: Pick<ClassroomService, "listDecks" | "uploadDeck">;
+  /** The lesson of the schedule this room is linked to: its materials are offered to be projected (SPEC-074 CA-17). */
+  classSessionId?: string | null;
+  service?: Pick<ClassroomService, "listDecks" | "uploadDeck" | "projectMaterial">;
+  lessonService?: Pick<ScheduleService, "materials">;
   readPdf?: (file: File) => Promise<{ pageCount: number }>;
 }
 
@@ -61,7 +65,7 @@ export interface FilesPanelProps {
  * The files of the class that the teacher sends with the class going on, and puts on the stage (SPEC-068): a PDF or an image, by the button or by
  * dropping it here, and the list of what the class already has, each with its Project button.
  */
-export function FilesPanel({ classId, onProject, service = classroomService, readPdf = readPdfInfo }: FilesPanelProps) {
+export function FilesPanel({ classId, classSessionId, onProject, service = classroomService, lessonService = scheduleService, readPdf = readPdfInfo }: FilesPanelProps) {
   const id = useId();
   const [decks, setDecks] = useState<DeckSummary[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -176,6 +180,80 @@ export function FilesPanel({ classId, onProject, service = classroomService, rea
               <span className={styles.meta}>{m.kind[deck.kind ?? "PDF"]}</span>
               <span className={styles.meta}>{m.slides(deck.pageCount)}</span>
               <Button variant="secondary" size="sm" aria-label={m.projectLabel(deck.title)} onClick={() => onProject(deck.id)}>
+                {m.project}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {classSessionId && <LessonMaterials classId={classId} classSessionId={classSessionId} onProject={onProject} service={service} lessonService={lessonService} />}
+    </section>
+  );
+}
+
+interface LessonMaterialsProps {
+  classId: string;
+  classSessionId: string;
+  onProject(deckId: string): void;
+  service: Pick<ClassroomService, "projectMaterial">;
+  lessonService: Pick<ScheduleService, "materials">;
+}
+
+/**
+ * The files of the materials of the lesson this room is linked to, each with Project: the server makes a presentation of the class out of it and the
+ * teacher puts it on the stage. The teacher sees the ones the class does not see yet; projecting does not change what the class sees (SPEC-074 CA-17).
+ */
+function LessonMaterials({ classId, classSessionId, onProject, service, lessonService }: LessonMaterialsProps) {
+  const id = useId();
+  const [files, setFiles] = useState<SessionMaterial[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    lessonService.materials(classId, classSessionId).then(
+      (list) => active && setFiles(list.filter((x) => x.source === "FILE")),
+      () => active && setLoadFailed(true),
+    );
+    return () => {
+      active = false;
+    };
+  }, [classId, classSessionId, lessonService]);
+
+  const project = async (material: SessionMaterial) => {
+    setError(null);
+    try {
+      onProject((await service.projectMaterial(classId, material.id)).id);
+    } catch (problem) {
+      setError(problem instanceof ApiProblemError && problem.type === "deck-limit-exceeded" ? m.errors.deckLimit : m.lesson.projectError);
+    }
+  };
+
+  return (
+    <section className={styles.lesson} aria-labelledby={`${id}-lesson`}>
+      <h4 id={`${id}-lesson`} className={styles.lessonTitle}>
+        {m.lesson.title}
+      </h4>
+      <p className={styles.help}>{m.lesson.help}</p>
+      {loadFailed && (
+        <p className={`${styles.row} ${styles.failed}`} role="alert">
+          {m.lesson.loadError}
+        </p>
+      )}
+      {error && (
+        <p className={`${styles.row} ${styles.failed}`} role="alert">
+          {error}
+        </p>
+      )}
+      {files && files.length === 0 && <p className={styles.hint}>{m.lesson.empty}</p>}
+      {files && files.length > 0 && (
+        <ul className={styles.list} aria-label={m.lesson.title}>
+          {files.map((material) => (
+            <li key={material.id} className={styles.item}>
+              <span className={styles.name}>{material.title}</span>
+              {!material.visibleNow && <span className={styles.meta}>{m.lesson.hidden}</span>}
+              <Button variant="secondary" size="sm" aria-label={m.projectLabel(material.title)} onClick={() => void project(material)}>
                 {m.project}
               </Button>
             </li>

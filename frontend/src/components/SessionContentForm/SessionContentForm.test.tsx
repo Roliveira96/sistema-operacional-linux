@@ -160,10 +160,6 @@ describe("SessionContentForm", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
     await waitFor(() => expect(within(dialog).getByLabelText("Tema").getAttribute("aria-invalid")).toBe("true"));
 
-    save.mockRejectedValueOnce(new ApiProblemError({ type: "deck-not-found", status: 404 }, 404));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
-    expect((await within(dialog).findByRole("alert")).textContent).toMatch(/apresentação não está mais disponível/);
-
     save.mockRejectedValueOnce(new ApiProblemError({ type: "module-not-found", status: 404 }, 404));
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
     await waitFor(() => expect(within(dialog).getByRole("alert").textContent).toMatch(/módulo não está mais disponível/));

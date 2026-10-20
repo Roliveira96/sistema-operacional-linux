@@ -52,7 +52,6 @@ export interface SessionContent {
   topic?: string;
   description?: string;
   module?: { id: string; title: string } | null;
-  deck?: { id: string; title: string; pageCount: number; downloadUrl: string } | null;
   links: SessionContentLink[];
   /** The notes of the teacher (SPEC-073): the public ones come to everybody; the private ones only to the teacher, and are absent for a student. */
   teacherNotes?: string;
@@ -64,7 +63,6 @@ export interface SessionContentInput {
   topic?: string;
   description?: string;
   moduleId?: string;
-  deckId?: string;
   links: { name: string; url: string }[];
   teacherNotes?: string;
   teacherPrivateNotes?: string;
@@ -320,15 +318,14 @@ export const scheduleService = createScheduleService();
 
 /**
  * Starts the live class from a lesson of the calendar (SPEC-053 RN-08, CA-11): the topic is the title (the name of the class when the
- * lesson has none), and the module and the presentation of the lesson come along, tied to it. If the class already has a live class
- * going, the server answers with that one.
+ * lesson has none), and the module of the lesson comes along, tied to it; the teacher projects a material of the lesson inside the room
+ * (SPEC-074 RN-09). If the class already has a live class going, the server answers with that one.
  */
 export async function startLiveFromSession(classId: string, session: Session, fallbackTitle: string) {
   const content = session.hasContent ? await scheduleService.getSessionContent(classId, session.id) : null;
   return classroomService.startSession(classId, {
     title: content?.topic?.trim() || fallbackTitle,
     classSessionId: session.id,
-    ...(content?.deck ? { deckId: content.deck.id } : {}),
     ...(content?.module ? { initialModuleId: content.module.id } : {}),
   });
 }

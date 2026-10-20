@@ -203,6 +203,8 @@ export function SessionMaterials({ classId, sessionId, service = scheduleService
       )}
       {!items && !loadFailed && <p className={styles.muted}>{m.loading}</p>}
 
+      {items && <SendAll onFiles={(files) => enqueue(files, START_PHASE)} />}
+
       {items && (
         <div className={styles.zones}>
           {PHASES.map((phase) => (
@@ -229,28 +231,15 @@ export function SessionMaterials({ classId, sessionId, service = scheduleService
   );
 }
 
-interface ZoneProps {
-  phase: MaterialVisibility;
-  items: SessionMaterial[];
-  pending: Pending[];
-  errors: Record<string, string>;
-  dragging: boolean;
-  onDragging: (on: boolean) => void;
-  onFiles: (files: File[]) => void;
-  onDismiss: (id: number) => void;
-  onAddLink: (title: string, url: string) => Promise<void>;
-  onChange: (material: SessionMaterial, patch: Parameters<Service["updateMaterial"]>[3]) => void;
-  onRelease: (material: SessionMaterial) => void;
-  onRemove: (material: SessionMaterial) => void;
-  onMove: (material: SessionMaterial, neighbour: SessionMaterial) => void;
-}
+/** The phase of a file that was sent with none chosen: it starts "Só durante a aula" (SPEC-074 CA-14, D-06). */
+const START_PHASE: MaterialVisibility = "DURING_CLASS";
 
-/** The area of a phase: its materials, the files on their way, and the place to drop files, choose them or add a link. */
-function Zone({ phase, items, pending, errors, dragging, onDragging, onFiles, onDismiss, onAddLink, onChange, onRelease, onRemove, onMove }: ZoneProps) {
-  const id = useId();
-  // dragenter and dragleave come for every element the file crosses inside the area: the count tells when it really left
+/**
+ * The drag and drop of files over an area, and the choosing of them by click. dragenter and dragleave come for every element the file crosses
+ * inside the area, so the count tells when it really left.
+ */
+function useFileDrop(onDragging: (on: boolean) => void, onFiles: (files: File[]) => void) {
   const depth = useRef(0);
-
   const enter = (event: DragEvent) => {
     if (!isFileDrag(event)) return;
     event.preventDefault();
@@ -276,6 +265,49 @@ function Zone({ phase, items, pending, errors, dragging, onDragging, onFiles, on
     event.target.value = ""; // the same file can be chosen again
     if (files.length > 0) onFiles(files);
   };
+  return { enter, leave, drop, chosen };
+}
+
+/** The area to send files with no phase chosen, one or many: they all start in the phase "Só durante a aula" (SPEC-074 CA-14). */
+function SendAll({ onFiles }: { onFiles: (files: File[]) => void }) {
+  const id = useId();
+  const [dragging, setDragging] = useState(false);
+  const { enter, leave, drop, chosen } = useFileDrop(setDragging, onFiles);
+  return (
+    <div className={styles.sendAll}>
+      <label htmlFor={`${id}-all`} className={styles.sendAllLabel}>
+        {m.sendAll}
+      </label>
+      {/* The drop area is a label of the same input, so a click still opens the file picker. */}
+      <label htmlFor={`${id}-all`} className={styles.sendAllArea} data-dragging={dragging ? "true" : undefined} onDragEnter={enter} onDragOver={enter} onDragLeave={leave} onDrop={drop}>
+        <span className={styles.sendAllHint}>{m.sendAllHint}</span>
+        <span className={styles.sendAllNote}>{m.sendAllNote}</span>
+        <input id={`${id}-all`} className={styles.sendAllInput} type="file" multiple accept={ACCEPT} onChange={chosen} />
+      </label>
+    </div>
+  );
+}
+
+interface ZoneProps {
+  phase: MaterialVisibility;
+  items: SessionMaterial[];
+  pending: Pending[];
+  errors: Record<string, string>;
+  dragging: boolean;
+  onDragging: (on: boolean) => void;
+  onFiles: (files: File[]) => void;
+  onDismiss: (id: number) => void;
+  onAddLink: (title: string, url: string) => Promise<void>;
+  onChange: (material: SessionMaterial, patch: Parameters<Service["updateMaterial"]>[3]) => void;
+  onRelease: (material: SessionMaterial) => void;
+  onRemove: (material: SessionMaterial) => void;
+  onMove: (material: SessionMaterial, neighbour: SessionMaterial) => void;
+}
+
+/** The area of a phase: its materials, the files on their way, and the place to drop files, choose them or add a link. */
+function Zone({ phase, items, pending, errors, dragging, onDragging, onFiles, onDismiss, onAddLink, onChange, onRelease, onRemove, onMove }: ZoneProps) {
+  const id = useId();
+  const { enter, leave, drop, chosen } = useFileDrop(onDragging, onFiles);
 
   return (
     <section className={styles.zone} aria-labelledby={`${id}-title`} data-dragging={dragging ? "true" : undefined} onDragEnter={enter} onDragOver={enter} onDragLeave={leave} onDrop={drop}>

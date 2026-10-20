@@ -330,6 +330,8 @@ export function createClassroomService(client: HttpClient = httpClient) {
       return client.post<LiveDeck>(`${live(classId)}/decks`, form);
     },
     listDecks: async (classId: string) => (await client.get<{ decks: DeckSummary[] }>(`${live(classId)}/decks`)).decks,
+    /** Makes a presentation of the class out of a file material of a lesson, to be projected (SPEC-074 RN-08); the same one if it already is. */
+    projectMaterial: (classId: string, materialId: string) => client.post<LiveDeck>(`${live(classId)}/decks/from-material`, { materialId }),
     getActive: (classId: string) => client.get<ActiveRoom>(`${live(classId)}/active`),
     /** The open rooms of the classes where the student is enrolled, the newest first (SPEC-067). */
     listMyLive: async () => (await client.get<{ items: MyLiveRoom[] }>("/me/live")).items,

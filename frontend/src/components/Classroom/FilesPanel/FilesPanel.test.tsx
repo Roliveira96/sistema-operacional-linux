@@ -19,7 +19,7 @@ const pdf = (name = "Aula 3.pdf") => new File(["%PDF-1.7"], name, { type: "appli
 const png = (name = "Esquema novo.png") => new File(["x"], name, { type: "image/png" });
 
 function setup(over: Record<string, unknown> = {}) {
-  const service = { listDecks: vi.fn().mockResolvedValue(decks), uploadDeck: vi.fn().mockResolvedValue(uploaded()) };
+  const service = { listDecks: vi.fn().mockResolvedValue(decks), uploadDeck: vi.fn().mockResolvedValue(uploaded()), projectMaterial: vi.fn() };
   const onProject = vi.fn();
   const readPdf = vi.fn().mockResolvedValue({ pageCount: 12 });
   const view = render(<FilesPanel classId="c-1" onProject={onProject} service={service} readPdf={readPdf} {...over} />);
