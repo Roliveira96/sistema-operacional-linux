@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AccessTokensSection } from "@/components/AccessTokensSection/AccessTokensSection";
 import { StudentAvatarUpload } from "@/components/StudentAvatarUpload/StudentAvatarUpload";
@@ -101,6 +102,14 @@ export default function ProfilePage() {
       </div>
 
       {(user.role === "ADMIN" || user.role === "TEACHER") && <AccessTokensSection />}
+
+      <div className={styles.card}>
+        <h2 className={styles.cardTitle}>{messages.home.security}</h2>
+        <p className={styles.subtitle}>{messages.auth.change.voluntarySubtitle}</p>
+        <Link href="/app/profile/security" className={styles.securityLink}>
+          {messages.home.security}
+        </Link>
+      </div>
     </main>
   );
 }

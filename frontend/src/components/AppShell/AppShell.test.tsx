@@ -111,14 +111,12 @@ describe("AppShell", () => {
     expect(screen.queryByText(/^RA /)).toBeNull();
   });
 
-  // Covers SPEC-030 CA-01: the engine conformance button is the administrator's alone.
-  it.each([["ADMIN", true], ["TEACHER", false], ["STUDENT", false]] as const)("%s sees the engine conformance link: %s", (role, visible) => {
+  // The engine conformance moved to the account menu (ajustes gerais): it is no longer in the bar for anyone.
+  it.each(["ADMIN", "TEACHER", "STUDENT"] as const)("does not show the engine conformance link in the bar for %s", (role) => {
     signIn(role);
     vi.mocked(getStudentProfile).mockResolvedValue({ id: "1", name: "Aluno", academicId: "1234567", email: "a@b.c", createdAt: "" });
     renderShell();
-    const link = screen.queryByRole("link", { name: messages.conformance.nav });
-    expect(link !== null).toBe(visible);
-    if (link) expect(link.getAttribute("href")).toBe("/app/admin/conformidade");
+    expect(screen.queryByRole("link", { name: messages.conformance.nav })).toBeNull();
   });
 
   // Covers SPEC-015: the bar follows the pattern of the study screen.
@@ -168,23 +166,24 @@ describe("AppShell", () => {
     expect(screen.getByRole("button", { name: "Professora" }).getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("keeps the security link and ends the session on Sair", () => {
+  // Account security moved into the profile screen (ajustes gerais): the bar no longer carries the link.
+  it("does not show the security link in the bar, and ends the session on Sair", () => {
     signIn("TEACHER");
     renderShell();
 
-    expect(screen.getByRole("link", { name: messages.home.security }).getAttribute("href")).toBe("/app/profile/security");
+    expect(screen.queryByRole("link", { name: messages.home.security })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Professora" }));
     fireEvent.click(screen.getByRole("button", { name: messages.auth.logout }));
     expect(logout).toHaveBeenCalledTimes(1);
   });
 
-  // SPEC-042, section 3.1.4: everyone has the calendar; administrators also the holidays.
-  it.each([["ADMIN", true], ["TEACHER", false], ["STUDENT", false]] as const)("%s sees Calendário, and Feriados: %s", (role, holidays) => {
+  // SPEC-042, section 3.1.4: everyone has the calendar; the holidays moved into the calendar screen (ajustes gerais).
+  it.each(["ADMIN", "TEACHER", "STUDENT"] as const)("%s sees Calendário in the bar, but no longer Feriados", (role) => {
     signIn(role);
     vi.mocked(getStudentProfile).mockResolvedValue({ id: "1", name: "Aluno", academicId: "1234567", email: "a@b.c", createdAt: "" });
     renderShell();
     expect(screen.getByRole("link", { name: "Calendário" }).getAttribute("href")).toBe("/app/calendar");
-    expect(screen.queryByRole("link", { name: "Feriados" }) !== null).toBe(holidays);
+    expect(screen.queryByRole("link", { name: "Feriados" })).toBeNull();
   });
 
   // SPEC-043: Mobile navigation menu
@@ -211,7 +210,7 @@ describe("AppShell", () => {
       expect(within(mobileNav).getByRole("link", { name: messages.students.title })).toBeDefined();
       expect(within(mobileNav).getByRole("link", { name: messages.modules.title })).toBeDefined();
       expect(within(mobileNav).getByRole("link", { name: messages.schedule.page.nav })).toBeDefined();
-      expect(within(mobileNav).getByRole("link", { name: messages.home.security })).toBeDefined();
+      expect(within(mobileNav).queryByRole("link", { name: messages.home.security })).toBeNull();
       expect(within(mobileNav).queryByRole("link", { name: messages.conformance.nav })).toBeNull();
       expect(within(mobileNav).queryByRole("link", { name: messages.schedule.holidays.nav })).toBeNull();
 
@@ -220,16 +219,16 @@ describe("AppShell", () => {
       expect(screen.getByRole("button", { name: messages.shell.openMenu }).getAttribute("aria-expanded")).toBe("false");
     });
 
-    it("shows admin-specific links in the mobile menu for administrators", () => {
+    it("no longer shows conformance or holidays in the mobile menu for administrators", () => {
       signIn("ADMIN");
       renderShell();
       fireEvent.click(screen.getByRole("button", { name: messages.shell.openMenu }));
       const mobileNav = screen.getByRole("navigation", { name: messages.shell.mobileNavAriaLabel });
-      expect(within(mobileNav).getByRole("link", { name: messages.conformance.nav })).toBeDefined();
-      expect(within(mobileNav).getByRole("link", { name: messages.schedule.holidays.nav })).toBeDefined();
+      expect(within(mobileNav).queryByRole("link", { name: messages.conformance.nav })).toBeNull();
+      expect(within(mobileNav).queryByRole("link", { name: messages.schedule.holidays.nav })).toBeNull();
     });
 
-    it("shows only calendar and security for students in the mobile menu", async () => {
+    it("shows only calendar for students in the mobile menu, with no security link", async () => {
       signIn("STUDENT");
       vi.mocked(getStudentProfile).mockResolvedValue({ id: "1", name: "Aluno", academicId: "1234567", email: "a@b.c", createdAt: "" });
       renderShell();
@@ -238,7 +237,7 @@ describe("AppShell", () => {
       expect(within(mobileNav).queryByRole("link", { name: messages.classes.title })).toBeNull();
       expect(within(mobileNav).queryByRole("link", { name: messages.students.title })).toBeNull();
       expect(within(mobileNav).getByRole("link", { name: messages.schedule.page.nav })).toBeDefined();
-      expect(within(mobileNav).getByRole("link", { name: messages.home.security })).toBeDefined();
+      expect(within(mobileNav).queryByRole("link", { name: messages.home.security })).toBeNull();
     });
 
     it("closes the mobile menu when a mobile nav link is clicked", () => {

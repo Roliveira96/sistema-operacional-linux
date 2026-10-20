@@ -103,4 +103,17 @@ describe("ProfilePage", () => {
     await waitFor(() => expect(screen.getByText(messages.students.profile.title)).toBeDefined());
     expect(screen.queryByText("Acesso por agentes (MCP)") !== null).toBe(role !== "STUDENT");
   });
+
+  // Account security moved into the profile screen (ajustes gerais): every role reaches it from here.
+  it.each(["ADMIN", "TEACHER", "STUDENT"] as const)("shows the account security link to %s", async (role) => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { userId: "u-1", name: "X", email: "x@utfpr.edu.br", role, status: "ACTIVE", mustChangePassword: false, sessionCreatedAt: "", sessionExpiresAt: "" },
+      logout: vi.fn(),
+      refresh: vi.fn(),
+    });
+    vi.mocked(getStudentProfile).mockResolvedValue({ id: "u-1", name: "X", academicId: "1", email: "x@utfpr.edu.br", whatsapp: "", discord: "", avatarUrl: "", createdAt: "" });
+    render(<ProfilePage />);
+    await waitFor(() => expect(screen.getByText(messages.students.profile.title)).toBeDefined());
+    expect(screen.getByRole("link", { name: messages.home.security }).getAttribute("href")).toBe("/app/profile/security");
+  });
 });

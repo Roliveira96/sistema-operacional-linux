@@ -225,6 +225,23 @@ describe("AccountMenu", () => {
     expect(loadClasses).not.toHaveBeenCalled();
   });
 
+  // Engine conformance moved into the account menu (ajustes gerais): the administrator reaches it from here.
+  it("an administrator sees the engine conformance link that leads to /app/admin/conformidade and closes the panel", () => {
+    const { trigger, panel } = setup({ user: { name: "Admin", email: "a@utfpr.edu.br", role: "ADMIN" } });
+    fireEvent.click(trigger());
+    const link = screen.getByRole("link", { name: messages.conformance.nav });
+    expect(link).toHaveAttribute("href", "/app/admin/conformidade");
+    fireEvent.click(link);
+    expect(panel()).toBeNull();
+  });
+
+  it.each(["TEACHER", "STUDENT"] as const)("does not show the engine conformance link to a %s", (role) => {
+    const user = role === "TEACHER" ? teacher : student;
+    const { trigger } = setup({ user });
+    fireEvent.click(trigger());
+    expect(screen.queryByRole("link", { name: messages.conformance.nav })).toBeNull();
+  });
+
   it("shows no email line when the session has none", () => {
     const { trigger } = setup({ user: { name: "Sem Email" } });
     fireEvent.click(trigger());
