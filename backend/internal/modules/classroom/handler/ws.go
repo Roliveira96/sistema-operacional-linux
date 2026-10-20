@@ -126,10 +126,10 @@ func hubConfig() hub.Config {
 			// a command is the line, up to 4,000 characters of output and little else; it counts against the budget of its sender (SPEC-073)
 			typeTerminalCommand: {MaxBytes: 8 * kib, ControllerOnly: true, Kind: viewPresenter, Limited: true},
 			typeStageBlank:      {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter},
-			typeStageScroll:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true, CoalesceKey: scrollKey},
-			typeStageSplit:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
-			typeStageZoom:      {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
-			typeStageSelection: {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
+			typeStageScroll:     {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true, CoalesceKey: scrollKey},
+			typeStageSplit:      {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
+			typeStageZoom:       {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
+			typeStageSelection:  {MaxBytes: kib, ControllerOnly: true, Kind: viewPresenter, Coalesce: true},
 			// the request for the full screen is from either window of the teacher, so it has no Kind; it is tiny
 			typeStageFullscreen: {MaxBytes: 256, ControllerOnly: true, Coalesce: true},
 			// the waiting room and the hands are the panel's
