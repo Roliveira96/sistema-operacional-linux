@@ -95,17 +95,38 @@ export function secondsLeft(endsAt: string, skewMs: number, now: number): number
   return Math.max(0, Math.ceil((Date.parse(endsAt) - (now + skewMs)) / 1000));
 }
 
-export type CardState = "doing" | "done" | "silent";
+export type CardState = "doing" | "done" | "silent" | "idle";
+
+/** A student who runs no command for longer than this is "Ocioso" (SPEC-071 RN-10). */
+export const IDLE_TIMEOUT_MS = 60_000;
 
 /**
  * Where a student stands: done when he finished; without signal when more than 15 s went by since his last progress, or since the start of the round when he
- * never sent one (`serverNow` is the time of the server, as the times of the progress are).
+ * never sent one (`serverNow` is the time of the server, as the times of the progress are); idle when the progress comes but no command came for 60 s
+ * (SPEC-071 RN-10). While the round is paused nobody sends anything, so nobody is without signal or idle.
  */
-export function cardState(entry: ExerciseProgressEntry | undefined, startedAt: string, serverNow: number): CardState {
+export function cardState(entry: ExerciseProgressEntry | undefined, startedAt: string, serverNow: number, paused = false): CardState {
   if (entry?.completedAt) return "done";
+  if (paused) return "doing";
   const last = Date.parse(entry?.at ?? "");
   const since = Number.isFinite(last) ? last : Date.parse(startedAt);
-  return serverNow - since > SIGNAL_TIMEOUT_MS ? "silent" : "doing";
+  if (serverNow - since > SIGNAL_TIMEOUT_MS) return "silent";
+  const command = Date.parse(entry?.lastCommandAt ?? "");
+  const quiet = Number.isFinite(command) ? command : Date.parse(startedAt);
+  return serverNow - quiet > IDLE_TIMEOUT_MS ? "idle" : "doing";
+}
+
+/** The round is near its end: what is left is up to 20% of its time, and at least the last minute (SPEC-071 RN-11). */
+export function nearEnd(secondsLeftNow: number, durationSeconds: number): boolean {
+  return secondsLeftNow <= Math.max(0.2 * durationSeconds, 60);
+}
+
+/** The minutes more that the teacher gives at a time: from 1 to 30, and 2 when he says none (SPEC-071 RN-02). */
+export const DEFAULT_EXTRA_MINUTES = 2;
+
+export function clampExtraMinutes(typed: string | number): number {
+  const minutes = typed === "" ? Number.NaN : Math.trunc(Number(typed));
+  return Number.isFinite(minutes) ? Math.min(30, Math.max(1, minutes)) : DEFAULT_EXTRA_MINUTES;
 }
 
 /** What the chat gets for a tip: the text and the command of reference on a line of its own, clean as the chat takes it (SPEC-065 CA-08). */

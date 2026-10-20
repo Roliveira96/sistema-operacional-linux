@@ -376,7 +376,7 @@ func TestExercise_TheDatabaseHoldsTheRules(t *testing.T) {
 	assert.NoError(t, save(run.ID, e.student.ID, 0, 0, 1), "zero seconds, zero points, one attempt")
 	assert.Error(t, save(run.ID, bruno.ID, -1, 10, 1), "elapsed time is not negative")
 	assert.Error(t, save(run.ID, bruno.ID, 10, -1, 1), "points are not negative")
-	assert.Error(t, save(run.ID, bruno.ID, 10, 10, 0), "at least one attempt")
+	assert.Error(t, save(run.ID, bruno.ID, 10, 10, -1), "attempts are not negative (SPEC-071: who did not conclude may have none)")
 	assert.Error(t, save(uuid.New(), bruno.ID, 10, 10, 1), "the round exists")
 	assert.Error(t, save(run.ID, uuid.New(), 10, 10, 1), "the student exists")
 	assert.Error(t, save(run.ID, e.student.ID, 10, 10, 1), "one result per student and round")
@@ -406,7 +406,7 @@ func TestMigration00035_CreatesTheTablesAndTakesThemBack(t *testing.T) {
 	up, down := migrationParts(t, "00035_")
 
 	columns, indexes := exerciseTables(t, e)
-	// SPEC-071: the migration 00038, applied after this one, adds the columns of the pause, of the close and of the participants
+	// SPEC-071: the migration 00040, applied after this one, adds the columns of the pause, of the close and of the participants
 	assert.ElementsMatch(t, []string{"block_id", "closed_at", "created_at", "deleted_at", "difficulty", "duration_seconds", "ended_at", "ended_by", "ends_at", "exercise_index", "id",
 		"paused_at", "paused_seconds", "result_visible", "session_id", "started_at", "title", "updated_at"}, columns["live_exercise_runs"])
 	assert.ElementsMatch(t, []string{"attempts", "commands", "completed_at", "created_at", "deleted_at", "elapsed_seconds", "help_requested", "id", "points", "run_id",
@@ -440,7 +440,7 @@ func TestMigration00035_CreatesTheTablesAndTakesThemBack(t *testing.T) {
 	columns, _ = exerciseTables(t, e)
 	assert.Len(t, columns["live_exercise_runs"], 15)
 	assert.Len(t, columns["live_exercise_results"], 10)
-	guidedUp, _ := migrationParts(t, "00038_") // SPEC-071: the tables as the code uses them now
+	guidedUp, _ := migrationParts(t, "00040_") // SPEC-071: the tables as the code uses them now
 	runMigration(t, e, guidedUp)
 	_, err = e.repo.CurrentExerciseRun(e.ctx, s.ID)
 	assert.ErrorIs(t, err, domain.ErrNoExerciseRun, "the tables come back empty")

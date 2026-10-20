@@ -388,3 +388,208 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+// ---- SPEC-071: the guided practice ----
+
+.controlsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.extend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.extraField {
+  inline-size: 4.5rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  font: inherit;
+  color: var(--color-text-primary);
+}
+
+// The question before going back to the lesson: in the section, over nothing, with the warnings in words.
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-warning-line);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.warn {
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-warning);
+}
+
+// A student who runs no command for a minute, and the ones near the end without finishing.
+.idle {
+  border-color: var(--color-border-strong);
+}
+
+.idle .state {
+  background-color: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+}
+
+.card[data-near="true"] {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 1px var(--color-danger-line);
+}
+
+.near,
+.helped {
+  align-self: flex-start;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.near {
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
+
+.helped {
+  background-color: var(--color-info-subtle);
+  color: var(--color-text-primary);
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hand {
+  flex: none;
+}
+
+// The tabs of help: the one with the hand up or a new message pulses, and says so to who does not see it (its name is read with the mark).
+.helpTabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tabList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabItem {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background-color: var(--color-surface);
+
+  &[data-selected="true"] {
+    border-color: var(--color-accent);
+    background-color: var(--color-surface-raised);
+  }
+}
+
+.tab,
+.tabClose {
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+}
+
+.tab[data-attention="true"] {
+  color: var(--color-warning);
+  animation: pulse 1.2s ease-in-out infinite;
+
+  &::after {
+    content: " •";
+  }
+}
+
+.tabClose {
+  padding-inline: var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab[data-attention="true"] {
+    animation: none;
+  }
+}
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.terminalBody[data-controlling="true"] {
+  outline: 2px solid var(--color-danger);
+  outline-offset: 2px;
+}
+
+.terminalBody:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.controlling {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background-color: var(--color-danger-subtle);
+  color: var(--color-text-primary);
+}
+
+.tabColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+
+  @include mixins.from("lg") {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+}
+
+.history {
+  max-block-size: 16rem;
+  margin: 0;
+  padding-left: var(--space-5);
+  overflow-y: auto;
+  font-size: var(--font-size-sm);
+
+  code {
+    overflow-wrap: anywhere;
+  }
+}

@@ -112,6 +112,15 @@ export interface ExerciseProgressEntry {
   elapsedSeconds?: number;
   points?: number;
   attempts?: number;
+  /** SPEC-071: how many commands he ran and when the last one came (RN-09, RN-10). */
+  commands?: number;
+  lastCommandAt?: string;
+  /** SPEC-071 RN-08: IN_PROGRESS, COMPLETED or NOT_COMPLETED. */
+  status?: "IN_PROGRESS" | "COMPLETED" | "NOT_COMPLETED";
+  /** He raised his hand during the round. */
+  helpRequested?: boolean;
+  /** The teacher took over his terminal in the round, so he gets no points (RN-07). */
+  takenOver?: boolean;
 }
 
 /** The round of a practical exercise of the live class, as the room tells it (SPEC-065). There is one at a time; the last one stays until the next. */
@@ -125,7 +134,12 @@ export interface LiveExercise {
   durationSeconds: number;
   startedAt: string;
   endsAt: string;
-  status: "RUNNING" | "ENDED";
+  /** SPEC-071 section 3.1: running, paused, ended (the students still in the area, the terminal locked) and closed (the class went back to the lesson). */
+  status: "RUNNING" | "PAUSED" | "ENDED" | "CLOSED";
+  /** The seconds of the pauses that ended. */
+  pausedSeconds?: number;
+  /** When the class went back to the lesson. */
+  closedAt?: string;
   endedBy?: "TIMER" | "TEACHER" | "SESSION";
   endedAt?: string;
   resultVisible: boolean;

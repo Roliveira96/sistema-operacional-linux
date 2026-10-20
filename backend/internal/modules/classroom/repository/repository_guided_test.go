@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -274,11 +275,11 @@ func TestExerciseParticipants_FinishAndReopen(t *testing.T) {
 	assert.Equal(t, 5, got[bruno.ID].Commands, "a smaller number does not take the commands back")
 }
 
-// Covers SPEC-071 CA-16 and section 4: the migration 00038 adds the columns of the pause, of the close and of the participants; the results of
+// Covers SPEC-071 CA-16 and section 4: the migration 00040 adds the columns of the pause, of the close and of the participants; the results of
 // SPEC-065 become COMPLETED and the rounds that ended before it are closed; going down takes the columns back and keeps only the conclusions.
-func TestMigration00038_AddsTheColumnsAndTakesThemBack(t *testing.T) {
+func TestMigration00040_AddsTheColumnsAndTakesThemBack(t *testing.T) {
 	e := newEnv(t)
-	up, down := migrationParts(t, "00038_")
+	up, down := migrationParts(t, "00040_")
 	columns, _ := exerciseTables(t, e)
 	for _, c := range []string{"paused_at", "paused_seconds", "closed_at"} {
 		assert.Contains(t, columns["live_exercise_runs"], c)
@@ -306,7 +307,7 @@ func TestMigration00038_AddsTheColumnsAndTakesThemBack(t *testing.T) {
 	got := participantsOf(t, e, old.ID)
 	assert.Equal(t, domain.ParticipantCompleted, got[e.student.ID].Status, "the results of SPEC-065 are conclusions")
 	closed := e.readRun(t, old.ID)
-	assert.Equal(t, domain.ExerciseStatusClosed, closed.Status(), "a round that ended before 00038 is closed: the class went back to the lesson")
+	assert.Equal(t, domain.ExerciseStatusClosed, closed.Status(), "a round that ended before 00040 is closed: the class went back to the lesson")
 }
 
 // Covers SPEC-071 section 4: the database refuses a result that says COMPLETED with no time, and one that has a time but is not COMPLETED.
@@ -314,7 +315,9 @@ func TestExercise_TheDatabaseHoldsTheParticipantRules(t *testing.T) {
 	e := newEnv(t)
 	s := e.openRoom(t)
 	run := e.startRun(t, s, domain.DifficultyEasy, 5, e.now)
+	ra := 2000000
 	insert := func(status string, completed bool) error {
+		ra++
 		var at any
 		var elapsed, points any
 		if completed {
@@ -322,7 +325,7 @@ func TestExercise_TheDatabaseHoldsTheParticipantRules(t *testing.T) {
 		}
 		return e.db.Conn(e.ctx).Exec(`INSERT INTO live_exercise_results (id, run_id, student_id, status, completed_at, elapsed_seconds, points, attempts,
 			commands, help_requested, taken_over, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, false, false, now(), now())`,
-			uuid.New(), run.ID, e.newStudent(t, uuid.NewString()[:7], "X").ID, status, at, elapsed, points).Error
+			uuid.New(), run.ID, e.newStudent(t, strconv.Itoa(ra), "X").ID, status, at, elapsed, points).Error
 	}
 	assert.Error(t, insert(domain.ParticipantCompleted, false))
 	assert.Error(t, insert(domain.ParticipantInProgress, true))

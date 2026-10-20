@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { messages } from "@/messages/pt-BR";
@@ -63,11 +63,18 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
   // The round of the practical exercise (SPEC-065): while it runs the area of the exercise is in the place of the stage, and the student can look at the lesson
   // without stopping it. The choice is for the round it was made in, so a new round starts in the exercise.
   const exercise = live.exercise ?? null;
-  const exerciseRunning = exercise !== null && exercise.status === "RUNNING";
+  // The area is there while the round runs, is paused or ended and its result is not shown, until the class goes back to the lesson (SPEC-071 section 3.1).
+  const exerciseRunning = exercise !== null && exercise.status !== "CLOSED" && !(exercise.resultVisible && exercise.result);
   const [awayFrom, setAwayFrom] = useState<string | null>(null);
   const away = exerciseRunning && awayFrom === exercise.runId;
   const frame = useRef<HTMLElement>(null);
   const back = `/app/classes/${classId}`;
+  // The last private message of the teacher in this round, which the area shows over the terminal (SPEC-071 RN-13).
+  const teacherNotice = useMemo(() => {
+    if (!exercise) return null;
+    const since = Date.parse(exercise.startedAt);
+    return [...live.chat].reverse().find((message) => message.from === "TEACHER" && message.scope === "private" && Date.parse(message.createdAt) >= since) ?? null;
+  }, [live.chat, exercise]);
 
   // The teacher asked for the full screen: the room goes into focus mode and tries the full screen of the browser (SPEC-059).
   const requested = live.fullscreenRequested;
@@ -219,6 +226,10 @@ export function LiveClassroom({ classId, userId, session }: LiveClassroomProps) 
               exercise={exercise}
               away={away}
               watched={live.watchedByTeacher}
+              takenOver={live.takenOver}
+              takeoverTeacher={live.takeoverTeacher}
+              onTakeoverKey={live.onTakeoverKey}
+              notice={teacherNotice}
               onProgress={live.sendExerciseProgress}
               onScreen={live.sendExerciseScreen}
             />

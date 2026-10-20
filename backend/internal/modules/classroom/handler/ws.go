@@ -76,6 +76,17 @@ const (
 	typeExerciseResult   = "live:exercise:result"
 	typeExerciseDone     = "live:exercise:done"
 
+	// SPEC-071: the guided practice. The panel pauses, gives more time, goes back to the lesson, takes over the terminal of a student and types
+	// on it; the server tells the pause, the time, the close and the takeover, and gives the keys to the student taken over.
+	typeExercisePause    = "live:exercise:pause"
+	typeExerciseExtend   = "live:exercise:extend"
+	typeExerciseClose    = "live:exercise:close"
+	typeExerciseTakeover = "live:exercise:takeover"
+	typeExerciseKey      = "live:exercise:key"
+	typeExercisePaused   = "live:exercise:paused"
+	typeExerciseExtended = "live:exercise:extended"
+	typeExerciseClosed   = "live:exercise:closed"
+
 	// clearSelectionData is the data of the message that takes the selection away, as it goes to the others
 	clearSelectionData = `{"clear":true}`
 
@@ -146,6 +157,13 @@ func hubConfig() hub.Config {
 			typeExerciseWatch:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
 			typeExerciseProgress: {MaxBytes: kib, Limited: true},
 			typeExerciseScreen:   {MaxBytes: 256 * kib, Limited: true, Coalesce: true},
+			// the guided practice is the panel's; a key is small, a paste is up to 2,000 characters, which are up to 8,000 bytes or more when the
+			// client escapes them; the keys have their own limit of 40 a second, in the handler (SPEC-071)
+			typeExercisePause:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeExerciseExtend:   {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeExerciseClose:    {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeExerciseTakeover: {MaxBytes: kib, ControllerOnly: true, Kind: viewPanel},
+			typeExerciseKey:      {MaxBytes: 16 * kib, ControllerOnly: true, Kind: viewPanel},
 		},
 		MaxViewers:    100,
 		MaxWaiting:    200,
@@ -299,7 +317,7 @@ func (w wsHandler) snapshot(ctx context.Context, room, kind, student string) (hu
 		if err != nil {
 			return hub.Message{}, err
 		}
-		body["exercise"] = exerciseSnapshot(round, true, uuid.Nil)
+		body["exercise"] = exerciseSnapshot(round, true, uuid.Nil, false)
 	case viewPresenter:
 		delete(body, "onlineCount")
 	default:
@@ -317,7 +335,7 @@ func (w wsHandler) snapshot(ctx context.Context, room, kind, student string) (hu
 		if err != nil {
 			return hub.Message{}, err
 		}
-		body["exercise"] = exerciseSnapshot(round, false, owner)
+		body["exercise"] = exerciseSnapshot(round, false, owner, w.h.svc.ExerciseTakenOver(sessionOf(room), owner))
 	}
 	return hub.Message{Type: typeSnapshot, Data: mustMarshal(body)}, nil
 }
@@ -358,6 +376,9 @@ func (w wsHandler) Left(room string, who hub.Identity) {
 		// who waits is not online in the room; the line only changes when the teacher decides
 	case who.Role == hub.Viewer:
 		w.presence(room)
+		if isStudent(who) {
+			w.leftExercise(room, who)
+		}
 	case who.Role == hub.Controller:
 		// The safety net counts the hours from the moment the teacher left (SPEC-051 RN-03).
 		if err := w.h.svc.TeacherPresence(context.Background(), sessionOf(room)); err != nil {
@@ -584,6 +605,8 @@ func (w wsHandler) Message(ctx context.Context, room string, who hub.Identity, m
 		w.chat(ctx, room, who, msg)
 	case typeExerciseStart, typeExerciseEnd, typeExerciseReveal, typeExerciseWatch:
 		w.exerciseControl(ctx, room, who, msg)
+	case typeExercisePause, typeExerciseExtend, typeExerciseClose, typeExerciseTakeover, typeExerciseKey:
+		w.guidedControl(ctx, room, who, msg)
 	case typeExerciseProgress, typeExerciseScreen:
 		w.exerciseStudent(ctx, room, who, msg)
 	}

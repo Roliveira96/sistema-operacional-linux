@@ -4,9 +4,10 @@ import { useId, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import type { ScreenElement } from "@/engine/terminalScreen";
 import { messages } from "@/messages/pt-BR";
-import type { AdmissionEntry, ExerciseProgressEntry, LiveExercise } from "@/services/classroomService";
+import type { AdmissionEntry, ChatTarget, ExerciseProgressEntry, LiveChatMessage, LiveExercise } from "@/services/classroomService";
 import styles from "./ExerciseBoard.module.scss";
 import { clampMinutes, DEFAULT_MINUTES, hintsOf, mmss, type BoardExercise } from "./exercises";
+import { BackToLesson, ExtendControl } from "./GuidedControls";
 import { RunningExercise } from "./RunningExercise";
 
 const m = messages.classroom.exerciseBoard;
@@ -89,10 +90,16 @@ interface EndedExerciseProps {
   nameOf(studentId: string): string;
   onReveal(visible: boolean): void;
   onNewRound(): void;
+  onExtend(minutes: number): void;
+  onClose(): void;
 }
 
-/** The round that ended (SPEC-065 3.3): why it ended, who finished and how many did not, the decision of showing the result, and the way to a new round. */
-function EndedExercise({ exercise, students, progress, canControl, nameOf, onReveal, onNewRound }: EndedExerciseProps) {
+/**
+ * The round that ended (SPEC-065 3.3): why it ended, who finished and how many did not, the decision of showing the result. While the students are still in
+ * the area (ENDED), more time or going back to the lesson; once the class went back (CLOSED), the way to a new round (SPEC-071 section 3.5).
+ */
+function EndedExercise({ exercise, students, progress, canControl, nameOf, onReveal, onNewRound, onExtend, onClose }: EndedExerciseProps) {
+  const closed = exercise.status === "CLOSED";
   const finished = Object.values(progress)
     .filter((entry) => entry.completedAt)
     .map((entry) => ({ id: entry.studentId, name: nameOf(entry.studentId), seconds: entry.elapsedSeconds ?? 0, points: entry.points ?? 0 }))
@@ -128,12 +135,17 @@ function EndedExercise({ exercise, students, progress, canControl, nameOf, onRev
       {notFinished > 0 ? <p className={styles.muted}>{m.notFinished(notFinished)}</p> : finished.length > 0 && <p className={styles.muted}>{m.allFinished}</p>}
 
       <div className={styles.actions}>
+        {!closed && <ExtendControl canControl={canControl} onExtend={onExtend} />}
         <Button variant={visible ? "primary" : "secondary"} size="sm" aria-pressed={visible} disabled={!canControl} onClick={() => onReveal(!visible)}>
           {visible ? m.hide : m.reveal}
         </Button>
-        <Button variant="ghost" size="sm" onClick={onNewRound}>
-          {m.newRound}
-        </Button>
+        {closed ? (
+          <Button variant="ghost" size="sm" onClick={onNewRound}>
+            {m.newRound}
+          </Button>
+        ) : (
+          <BackToLesson canControl={canControl} secondsLeft={null} notFinished={notFinished} onClose={onClose} />
+        )}
       </div>
       {visible && (
         <p className={styles.muted} role="status">
@@ -169,19 +181,61 @@ export interface ExerciseBoardProps {
   onTip(studentId: string): void;
   /** Sends the text of a tip to the whole class, by the chat, and says whether it went. */
   onSendTip(text: string): boolean;
+  /** SPEC-071: the student taken over, the students with the hand up, the chat of the room and the controls of the guided practice. */
+  takeover?: string | null;
+  hands?: string[];
+  chat?: LiveChatMessage[];
+  connected?: boolean;
+  onPause?(paused: boolean): void;
+  onExtend?(minutes: number): void;
+  onClose?(): void;
+  onTakeover?(studentId: string, on: boolean): void;
+  onKey?(studentId: string, key: { key: string; ctrl: boolean; alt: boolean; shift: boolean }): void;
+  onPaste?(studentId: string, text: string): void;
+  onSendChat?(text: string, to: ChatTarget): boolean;
 }
+
+const nothing = () => undefined;
+const notSent = () => false;
 
 /**
  * The section "Exercício ao vivo" of the panel of the teacher (SPEC-065 3.3), in the three states of a round: no round (the list of the exercises of the
  * module, to start one), running (the clock, the cards, the terminal of a student, the tips) and ended (the summary and the result). It shows what it is
  * given and decides nothing: the room does.
  */
-export function ExerciseBoard({ exercise, exercises, admitted, online, progress, watching, watchedScreen, canControl, classOnSlides = false, onStart, onEnd, onReveal, onWatch, onTip, onSendTip }: ExerciseBoardProps) {
+export function ExerciseBoard({
+  exercise,
+  exercises,
+  admitted,
+  online,
+  progress,
+  watching,
+  watchedScreen,
+  canControl,
+  classOnSlides = false,
+  takeover = null,
+  hands = [],
+  chat = [],
+  connected = true,
+  onStart,
+  onEnd,
+  onReveal,
+  onWatch,
+  onTip,
+  onSendTip,
+  onPause = nothing,
+  onExtend = nothing,
+  onClose = nothing,
+  onTakeover = nothing,
+  onKey = nothing,
+  onPaste = nothing,
+  onSendChat = notSent,
+}: ExerciseBoardProps) {
   const titleId = useId();
   // The round that "Nova rodada" sent away: the list is back until another round comes, and a reload brings the ended round back.
   const [dismissed, setDismissed] = useState<string | null>(null);
 
-  const round = exercise && !(exercise.status === "ENDED" && exercise.runId === dismissed) ? exercise : null;
+  const round = exercise && !(exercise.status === "CLOSED" && exercise.runId === dismissed) ? exercise : null;
   // No module and no round: nothing to start and nothing to follow.
   if (!round && exercises === null) return null;
 
@@ -196,7 +250,7 @@ export function ExerciseBoard({ exercise, exercises, admitted, online, progress,
       </h2>
       {!round ? (
         <ExerciseList exercises={exercises ?? []} canControl={canControl} onStart={onStart} />
-      ) : round.status === "RUNNING" ? (
+      ) : round.status === "RUNNING" || round.status === "PAUSED" ? (
         <RunningExercise
           exercise={round}
           students={students}
@@ -206,14 +260,35 @@ export function ExerciseBoard({ exercise, exercises, admitted, online, progress,
           hints={hintsOf(exercises, round)}
           canControl={canControl}
           classOnSlides={classOnSlides}
+          takeover={takeover}
+          hands={hands}
+          chat={chat}
+          connected={connected}
           nameOf={nameOf}
           onEnd={onEnd}
           onWatch={onWatch}
           onTip={onTip}
           onSendTip={onSendTip}
+          onPause={onPause}
+          onExtend={onExtend}
+          onClose={onClose}
+          onTakeover={onTakeover}
+          onKey={onKey}
+          onPaste={onPaste}
+          onSendChat={onSendChat}
         />
       ) : (
-        <EndedExercise exercise={round} students={students} progress={progress} canControl={canControl} nameOf={nameOf} onReveal={onReveal} onNewRound={() => setDismissed(round.runId)} />
+        <EndedExercise
+          exercise={round}
+          students={students}
+          progress={progress}
+          canControl={canControl}
+          nameOf={nameOf}
+          onReveal={onReveal}
+          onNewRound={() => setDismissed(round.runId)}
+          onExtend={onExtend}
+          onClose={onClose}
+        />
       )}
     </section>
   );
