@@ -22,18 +22,17 @@ func contentPath(classID, sessionID uuid.UUID) string {
 func TestContentRoutes(t *testing.T) {
 	srv, svc, userID := setup(authn.RoleTeacher)
 	defer srv.Close()
-	classID, sessionID, moduleID, deckID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	classID, sessionID, moduleID := uuid.New(), uuid.New(), uuid.New()
 	path := contentPath(classID, sessionID)
 	svc.content = service.SessionContent{
 		Topic:       "Permissões",
 		Description: "<p>chmod</p>",
 		Module:      &service.Module{ID: moduleID, Title: "Módulo de permissões"},
-		Deck:        &service.Deck{ID: deckID, Title: "Slides", PageCount: 12, DownloadURL: "https://files.example/deck.pdf"},
 		Links:       []domain.SessionLink{{Position: 0, Name: "Meet", URL: "https://meet.google.com/abc"}, {Position: 1, Name: "Vídeo", URL: "https://example.com/v"}},
 	}
 
 	status, body := call(t, srv, http.MethodPut, path, map[string]any{
-		"topic": "Permissões", "description": "<p>chmod</p>", "moduleId": moduleID.String(), "deckId": deckID.String(),
+		"topic": "Permissões", "description": "<p>chmod</p>", "moduleId": moduleID.String(),
 		"links": []map[string]any{{"name": "Meet", "url": "https://meet.google.com/abc"}, {"name": "Vídeo", "url": "https://example.com/v"}},
 	})
 	require.Equal(t, http.StatusOK, status, body)
@@ -43,16 +42,12 @@ func TestContentRoutes(t *testing.T) {
 	assert.Equal(t, "Permissões", svc.savedContent.Topic)
 	assert.Equal(t, "<p>chmod</p>", svc.savedContent.Description)
 	assert.Equal(t, &moduleID, svc.savedContent.ModuleID)
-	assert.Equal(t, &deckID, svc.savedContent.DeckID)
 	assert.Equal(t, []domain.LinkInput{{Name: "Meet", URL: "https://meet.google.com/abc"}, {Name: "Vídeo", URL: "https://example.com/v"}}, svc.savedContent.Links)
 	assert.Equal(t, "Permissões", body["topic"])
 	assert.Equal(t, "<p>chmod</p>", body["description"])
 	assert.Equal(t, moduleID.String(), body["module"].(map[string]any)["id"])
 	assert.Equal(t, "Módulo de permissões", body["module"].(map[string]any)["title"])
-	deck := body["deck"].(map[string]any)
-	assert.Equal(t, deckID.String(), deck["id"])
-	assert.EqualValues(t, 12, deck["pageCount"])
-	assert.Equal(t, "https://files.example/deck.pdf", deck["downloadUrl"])
+	assert.NotContains(t, body, "deck", "the presentation is not part of the content any more (SPEC-074 CA-15)")
 	links := body["links"].([]any)
 	require.Len(t, links, 2)
 	assert.Equal(t, "Meet", links[0].(map[string]any)["name"])
@@ -73,7 +68,7 @@ func TestContentRouteEmpty(t *testing.T) {
 	assert.Equal(t, "", body["topic"])
 	assert.Equal(t, "", body["description"])
 	assert.Nil(t, body["module"])
-	assert.Nil(t, body["deck"])
+	assert.NotContains(t, body, "deck")
 	assert.Equal(t, []any{}, body["links"])
 }
 
@@ -103,7 +98,6 @@ func TestContentRouteErrors(t *testing.T) {
 	}{
 		{domain.ErrForbidden, http.StatusForbidden, "forbidden"},
 		{domain.ErrSessionNotFound, http.StatusNotFound, "session-not-found"},
-		{domain.ErrDeckNotFound, http.StatusNotFound, "deck-not-found"},
 		{domain.ErrModuleNotFound, http.StatusNotFound, "module-not-found"},
 		{domain.ErrClassNotFound, http.StatusNotFound, "class-not-found"},
 	}
@@ -134,12 +128,16 @@ func TestContentRouteChecksTheRequest(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, status)
 	assert.Equal(t, "malformed-request", out["type"])
 
-	for _, field := range []string{"moduleId", "deckId"} {
+	for _, field := range []string{"moduleId"} {
 		status, out = call(t, srv, http.MethodPut, path, map[string]any{field: "not-a-uuid"})
 		assert.Equal(t, http.StatusBadRequest, status, field)
 		assert.Equal(t, "invalid-session-content", out["type"])
 		assert.Equal(t, field, out["field"])
 	}
+
+	// A deckId is not a field of the content any more: it is not even read (SPEC-074 CA-15).
+	status, _ = call(t, srv, http.MethodPut, path, map[string]any{"deckId": "not-a-uuid"})
+	assert.Equal(t, http.StatusOK, status)
 
 	// An empty body clears the content: nothing set, no links.
 	status, _ = call(t, srv, http.MethodPut, path, map[string]any{})

@@ -427,3 +427,68 @@ describe("SessionMaterials: editing a material, saved on the spot (SPEC-074 CA-0
     expect(await within(row("Roteiro")).findByText("Este material não existe mais. Feche e abra o conteúdo da aula.")).toBeDefined();
   });
 });
+
+// SPEC-074 CA-14 and D-06: the area to send files with no phase chosen, where they start in "Só durante a aula"
+describe("SessionMaterials: the area Enviar arquivos (SPEC-074 CA-14)", () => {
+  const files = (list: File[]) => ({ dataTransfer: { files: list, types: ["Files"] } });
+  const area = () => screen.getByText("Arraste os arquivos aqui ou clique para escolher");
+
+  it("has an area at the top to choose several files at once", async () => {
+    await setup();
+    const input = screen.getByLabelText("Enviar arquivos") as HTMLInputElement;
+    expect(input.type).toBe("file");
+    expect(input.multiple).toBe(true);
+    expect(input.accept).toBe("application/pdf,image/png,image/jpeg,image/webp");
+  });
+
+  it("sends each chosen file, one after the other, to the phase Durante a aula, with the kind that starts that phase", async () => {
+    const { service } = await setup([]);
+    const slides = pdf("Slides 1.pdf");
+    fireEvent.change(screen.getByLabelText("Enviar arquivos"), { target: { files: [slides, png("quadro.png")] } });
+    await waitFor(() => expect(service.addFileMaterial).toHaveBeenCalledTimes(2));
+    expect(readPdf).toHaveBeenCalledWith(slides);
+    expect(service.addFileMaterial.mock.calls[0]![3]).toEqual({ title: "Slides 1", kind: "EXERCISES", visibility: "DURING_CLASS" });
+    expect(service.addFileMaterial.mock.calls[0]![4]).toBe(7);
+    expect(service.addFileMaterial.mock.calls[1]![3]).toEqual({ title: "quadro", kind: "EXERCISES", visibility: "DURING_CLASS" });
+    const during = zone("Só durante a aula");
+    expect(await within(during).findByRole("group", { name: "quadro" })).toBeDefined();
+    expect(within(during).getByRole("group", { name: "Slides 1" })).toBeDefined();
+  });
+
+  it("takes the files dropped on it, lights up while the files are over it, and sends them the same way", async () => {
+    const { service } = await setup([]);
+    const label = area().closest("label")!;
+    expect(label.getAttribute("data-dragging")).toBeNull();
+    fireEvent.dragEnter(area(), files([pdf("a.pdf")]));
+    expect(label.getAttribute("data-dragging")).toBe("true");
+    fireEvent.drop(area(), files([pdf("a.pdf"), pdf("b.pdf")]));
+    expect(label.getAttribute("data-dragging")).toBeNull();
+    await waitFor(() => expect(service.addFileMaterial).toHaveBeenCalledTimes(2));
+    expect(service.addFileMaterial.mock.calls.map((c) => c[3])).toEqual([
+      { title: "a", kind: "EXERCISES", visibility: "DURING_CLASS" },
+      { title: "b", kind: "EXERCISES", visibility: "DURING_CLASS" },
+    ]);
+  });
+
+  it("refuses what is not valid, next to the file, and sends the others", async () => {
+    const { service } = await setup([]);
+    fireEvent.drop(area(), files([new File(["x"], "video.mp4", { type: "video/mp4" }), png("ok.png")]));
+    const during = zone("Só durante a aula");
+    expect(await within(during).findByText(/video\.mp4/)).toBeDefined();
+    expect(within(during).getByText("Formato não aceito. Envie um PDF ou uma imagem PNG, JPEG ou WebP.")).toBeDefined();
+    await waitFor(() => expect(service.addFileMaterial).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not take what is dragged and is not a file", async () => {
+    await setup([]);
+    fireEvent.dragEnter(area(), { dataTransfer: { files: [], types: ["text/plain"] } });
+    expect(area().closest("label")!.getAttribute("data-dragging")).toBeNull();
+  });
+
+  it("leaves the four areas as they are: a file dropped on one of them keeps the phase of that one", async () => {
+    const { service } = await setup([]);
+    fireEvent.drop(zone("Só depois da aula"), files([pdf("resolucao.pdf")]));
+    await waitFor(() => expect(service.addFileMaterial).toHaveBeenCalledTimes(1));
+    expect(service.addFileMaterial.mock.calls[0]![3]).toEqual({ title: "resolucao", kind: "EXERCISE_SOLUTION", visibility: "AFTER_CLASS" });
+  });
+});

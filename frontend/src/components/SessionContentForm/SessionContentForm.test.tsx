@@ -32,22 +32,19 @@ const saved: SessionContent = {
   topic: "Permissões de arquivos",
   description: "<p>Veremos chmod.</p>",
   module: { id: "m-1", title: "Linux na prática" },
-  deck: { id: "d-1", title: "Slides 1", pageCount: 12, downloadUrl: "https://minio/d-1.pdf" },
   links: [{ name: "Meet", url: "https://meet.google.com/abc", position: 0 }],
 };
 
-let classDecks: Array<{ id: string; title: string; pageCount: number; createdAt: string }> = [];
-
 function setup(content: SessionContent = { links: [] }) {
   vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: modules, total: 2, page: 1, limit: 100 });
-  vi.spyOn(classroomService, "listDecks").mockResolvedValue(classDecks);
+  const listDecks = vi.spyOn(classroomService, "listDecks").mockResolvedValue([]);
   vi.spyOn(scheduleService, "materials").mockResolvedValue([]);
   const get = vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue(content);
   const save = vi.spyOn(scheduleService, "saveSessionContent").mockResolvedValue(content);
   const onSaved = vi.fn();
   const onClose = vi.fn();
   render(<SessionContentForm classId="c-1" session={lesson} onSaved={onSaved} onClose={onClose} />);
-  return { get, save, onSaved, onClose };
+  return { get, save, listDecks, onSaved, onClose };
 }
 
 async function ready() {
@@ -56,7 +53,6 @@ async function ready() {
 
 beforeEach(() => {
   readPdfInfo.mockReset();
-  classDecks = [];
 });
 afterEach(() => {
   cleanup();
@@ -73,50 +69,17 @@ describe("SessionContentForm", () => {
     expect(within(dialog).getByText("Meet")).toBeDefined();
     expect(within(dialog).getByText("https://meet.google.com/abc")).toBeDefined();
     await waitFor(() => expect((within(dialog).getByLabelText("Módulo de ensino") as HTMLSelectElement).value).toBe("m-1"));
-    expect((within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement).value).toBe("d-1");
     expect(within(dialog).getByRole("textbox", { name: "Descrição do conteúdo" }).textContent).toContain("Veremos chmod.");
   });
 
-  it("lists the modules the teacher can use, with none as an option, and the presentation as none", async () => {
+  it("lists the modules the teacher can use, with none as an option", async () => {
     setup();
     const dialog = await ready();
     const select = (await within(dialog).findByLabelText("Módulo de ensino")) as HTMLSelectElement;
     await waitFor(() => expect(Array.from(select.options).map((o) => o.textContent)).toEqual(["Nenhum", "Linux na prática", "Redes"]));
-    const deck = within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement;
-    expect(Array.from(deck.options).map((o) => o.textContent)).toEqual(["Nenhuma"]);
   });
 
-  // SPEC-053 CA-13: the presentations of the class are listed, most recent first
-  it("lists the presentations of the class, with none as an option, and selects the one of the lesson", async () => {
-    classDecks = [
-      { id: "d-2", title: "Slides 2", pageCount: 8, createdAt: "2026-10-02" },
-      { id: "d-1", title: "Slides 1", pageCount: 12, createdAt: "2026-10-01" },
-    ];
-    const { get } = setup(saved);
-    const dialog = await ready();
-    const deck = (await within(dialog).findByLabelText("Apresentação (PDF)")) as HTMLSelectElement;
-    await waitFor(() => expect(Array.from(deck.options).map((o) => o.textContent)).toEqual(["Nenhuma", "Slides 2", "Slides 1"]));
-    expect(deck.value).toBe("d-1");
-    expect(classroomService.listDecks).toHaveBeenCalledWith("c-1");
-    expect(get).toHaveBeenCalled();
-  });
-
-  it("keeps the presentation of the lesson as an option when the list does not bring it, and works when the list fails", async () => {
-    setup(saved);
-    const dialog = await ready();
-    const deck = (await within(dialog).findByLabelText("Apresentação (PDF)")) as HTMLSelectElement;
-    await waitFor(() => expect(Array.from(deck.options).map((o) => o.textContent)).toEqual(["Nenhuma", "Slides 1"]));
-    cleanup();
-    vi.restoreAllMocks();
-    vi.spyOn(classroomService, "listDecks").mockRejectedValue(new Error("down"));
-    vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: modules, total: 2, page: 1, limit: 100 });
-    vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue({ links: [] });
-    render(<SessionContentForm classId="c-1" session={lesson} onSaved={vi.fn()} onClose={vi.fn()} />);
-    const again = (await screen.findByLabelText("Apresentação (PDF)")) as HTMLSelectElement;
-    expect(Array.from(again.options).map((o) => o.textContent)).toEqual(["Nenhuma"]);
-  });
-
-  it("saves the topic, the module, the presentation and the links at once and closes", async () => {
+  it("saves the topic, the module and the links at once and closes", async () => {
     const { save, onSaved, onClose } = setup(saved);
     const dialog = await ready();
     await waitFor(() => expect((within(dialog).getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
@@ -130,7 +93,6 @@ describe("SessionContentForm", () => {
       topic: "Usuários e grupos",
       description: "<p>Veremos chmod.</p>",
       moduleId: "m-2",
-      deckId: "d-1",
       links: [{ name: "Meet", url: "https://meet.google.com/abc" }],
       teacherNotes: "",
       teacherPrivateNotes: "",
@@ -139,17 +101,16 @@ describe("SessionContentForm", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("clears what is emptied: no module, no presentation, no links, no topic", async () => {
+  it("clears what is emptied: no module, no links, no topic", async () => {
     const { save } = setup(saved);
     const dialog = await ready();
     await waitFor(() => expect((within(dialog).getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
     fireEvent.change(within(dialog).getByLabelText("Tema"), { target: { value: "" } });
     fireEvent.change(within(dialog).getByLabelText("Módulo de ensino"), { target: { value: "" } });
-    fireEvent.change(within(dialog).getByLabelText("Apresentação (PDF)"), { target: { value: "" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Remover link: Meet" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save.mock.lastCall?.[2]).toEqual({ topic: "", description: "<p>Veremos chmod.</p>", moduleId: "", deckId: "", links: [], teacherNotes: "", teacherPrivateNotes: "" });
+    expect(save.mock.lastCall?.[2]).toEqual({ topic: "", description: "<p>Veremos chmod.</p>", moduleId: "", links: [], teacherNotes: "", teacherPrivateNotes: "" });
   });
 
   it("refuses a topic of more than 120 characters next to the field, without calling the server", async () => {
@@ -243,116 +204,6 @@ describe("SessionContentForm", () => {
     expect(get).toHaveBeenCalledTimes(2);
   });
 
-  describe("sending the PDF of the presentation", () => {
-    const pdf = () => new File(["%PDF-1.7"], "Aula 3 - Permissões.pdf", { type: "application/pdf" });
-    const choose = (dialog: HTMLElement, file: File) => fireEvent.change(within(dialog).getByLabelText("Enviar PDF"), { target: { files: [file] } });
-
-    it("reads it in the browser, sends it and already selects it", async () => {
-      setup();
-      const dialog = await ready();
-      readPdfInfo.mockResolvedValue({ pageCount: 7 });
-      const upload = vi.spyOn(classroomService, "uploadDeck").mockResolvedValue({ id: "d-9", title: "Aula 3 - Permissões", pageCount: 7, downloadUrl: "https://minio/d-9" });
-      const file = pdf();
-      choose(dialog, file);
-      await waitFor(() => expect(upload).toHaveBeenCalledWith("c-1", file, "Aula 3 - Permissões", 7));
-      const deck = within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement;
-      await waitFor(() => expect(deck.value).toBe("d-9"));
-      expect(Array.from(deck.options).map((o) => o.textContent)).toContain("Aula 3 - Permissões");
-    });
-
-    it("refuses what is not a PDF, is too big, has too many pages or cannot be read, before sending", async () => {
-      setup();
-      const dialog = await ready();
-      const upload = vi.spyOn(classroomService, "uploadDeck");
-
-      choose(dialog, new File(["x"], "foto.png", { type: "image/png" }));
-      expect(await within(dialog).findByText("Escolha um arquivo PDF.")).toBeDefined();
-
-      const big = pdf();
-      Object.defineProperty(big, "size", { value: 26 * 1024 * 1024 });
-      choose(dialog, big);
-      expect(await within(dialog).findByText("O PDF pode ter até 25 MB.")).toBeDefined();
-
-      readPdfInfo.mockResolvedValueOnce({ pageCount: 101 });
-      choose(dialog, pdf());
-      expect(await within(dialog).findByText("O PDF pode ter até 100 páginas.")).toBeDefined();
-
-      readPdfInfo.mockRejectedValueOnce(new Error("password"));
-      choose(dialog, pdf());
-      expect(await within(dialog).findByText(/Não foi possível ler o PDF/)).toBeDefined();
-      expect(upload).not.toHaveBeenCalled();
-    });
-
-    // SPEC-053 CA-15: the teachers drop the file on the area instead of choosing it.
-    describe("dropping the file on the area", () => {
-      const area = (dialog: HTMLElement) => within(dialog).getByText("Arraste o PDF aqui ou clique para escolher").closest("label") as HTMLElement;
-      const drop = (dialog: HTMLElement, ...files: File[]) => fireEvent.drop(area(dialog), { dataTransfer: { files, types: ["Files"] } });
-
-      it("sends the dropped PDF and selects it, like the one chosen by click", async () => {
-        setup();
-        const dialog = await ready();
-        readPdfInfo.mockResolvedValue({ pageCount: 4 });
-        const upload = vi.spyOn(classroomService, "uploadDeck").mockResolvedValue({ id: "d-7", title: "Aula 3 - Permissões", pageCount: 4, downloadUrl: "https://minio/d-7" });
-        const file = pdf();
-        drop(dialog, file, new File(["%PDF-1.7"], "outro.pdf", { type: "application/pdf" }));
-        await waitFor(() => expect(upload).toHaveBeenCalledWith("c-1", file, "Aula 3 - Permissões", 4));
-        expect(upload).toHaveBeenCalledTimes(1);
-        const deck = within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement;
-        await waitFor(() => expect(deck.value).toBe("d-7"));
-      });
-
-      it("refuses a dropped file that is not a PDF, before sending", async () => {
-        setup();
-        const dialog = await ready();
-        const upload = vi.spyOn(classroomService, "uploadDeck");
-        drop(dialog, new File(["x"], "foto.png", { type: "image/png" }));
-        expect(await within(dialog).findByText("Escolha um arquivo PDF.")).toBeDefined();
-        expect(upload).not.toHaveBeenCalled();
-      });
-
-      it("highlights the area while a file is over it", async () => {
-        setup();
-        const dialog = await ready();
-        const target = area(dialog);
-        expect(target.getAttribute("data-dragging")).toBeNull();
-        fireEvent.dragEnter(target, { dataTransfer: { types: ["Files"] } });
-        expect(target.getAttribute("data-dragging")).toBe("true");
-        fireEvent.dragLeave(target, { dataTransfer: { types: ["Files"] } });
-        expect(target.getAttribute("data-dragging")).toBeNull();
-        fireEvent.dragEnter(target, { dataTransfer: { types: ["Files"] } });
-        fireEvent.drop(target, { dataTransfer: { files: [], types: ["Files"] } });
-        expect(target.getAttribute("data-dragging")).toBeNull();
-      });
-
-      it("ignores a file dropped while another one is being sent", async () => {
-        setup();
-        const dialog = await ready();
-        readPdfInfo.mockResolvedValue({ pageCount: 2 });
-        let finish: (deck: { id: string; title: string; pageCount: number; downloadUrl: string }) => void = () => undefined;
-        const upload = vi.spyOn(classroomService, "uploadDeck").mockReturnValue(new Promise((resolve) => (finish = resolve)));
-        drop(dialog, pdf());
-        await waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
-        drop(dialog, new File(["%PDF-1.7"], "segundo.pdf", { type: "application/pdf" }));
-        await Promise.resolve();
-        expect(readPdfInfo).toHaveBeenCalledTimes(1);
-        finish({ id: "d-8", title: "Aula 3 - Permissões", pageCount: 2, downloadUrl: "https://minio/d-8" });
-        await waitFor(() => expect((within(dialog).getByLabelText("Apresentação (PDF)") as HTMLSelectElement).value).toBe("d-8"));
-        expect(upload).toHaveBeenCalledTimes(1);
-      });
-    });
-
-    it("shows the refusals of the server", async () => {
-      setup();
-      const dialog = await ready();
-      readPdfInfo.mockResolvedValue({ pageCount: 3 });
-      const upload = vi.spyOn(classroomService, "uploadDeck").mockRejectedValueOnce(new ApiProblemError({ type: "deck-limit-exceeded", status: 409 }, 409));
-      choose(dialog, pdf());
-      expect(await within(dialog).findByText("Esta turma já tem 100 apresentações.")).toBeDefined();
-      upload.mockRejectedValueOnce(new Error("boom"));
-      choose(dialog, pdf());
-      await waitFor(() => expect(within(dialog).getByText("Não foi possível enviar a apresentação.")).toBeDefined());
-    });
-  });
 });
 
 // SPEC-073 CA-10: the notes of the teacher in the dialog of the content
@@ -435,12 +286,6 @@ describe("SessionContentForm: materials (SPEC-074 CA-10)", () => {
     expect(within(dialog).getAllByLabelText("Escolher arquivos")).toHaveLength(4);
   });
 
-  it("explains that the presentation of the lesson is the one projected in the live class, and that the files of the class are in the materials", async () => {
-    setup(saved);
-    const dialog = await ready();
-    expect(within(dialog).getByText("É a que você projeta na aula ao vivo. Os arquivos que a turma abre e baixa ficam em Materiais da aula, abaixo.")).toBeDefined();
-  });
-
   it("does not save the materials with the content: they are saved on the spot", async () => {
     const { save } = setup(saved);
     const dialog = await ready();
@@ -448,5 +293,29 @@ describe("SessionContentForm: materials (SPEC-074 CA-10)", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(Object.keys(save.mock.calls[0]![2])).not.toContain("materials");
+  });
+});
+
+// SPEC-074 D-08 and CA-18: the presentation left the dialog; the files of the lesson are the materials, and the room projects one of them
+describe("SessionContentForm: without a presentation (SPEC-074 CA-18)", () => {
+  it("has no field for a presentation and no area to send a PDF, and does not ask for the presentations of the class", async () => {
+    const { listDecks } = setup(saved);
+    const dialog = await ready();
+    await within(dialog).findByRole("heading", { level: 3, name: "Materiais da aula" });
+    expect(within(dialog).queryByLabelText("Apresentação (PDF)")).toBeNull();
+    expect(within(dialog).queryByLabelText("Enviar PDF")).toBeNull();
+    expect(within(dialog).queryByText(/Arraste o PDF aqui/)).toBeNull();
+    expect(within(dialog).queryByText(/É a que você projeta/)).toBeNull();
+    expect(listDecks).not.toHaveBeenCalled();
+  });
+
+  it("saves the content without a presentation, even if the server still brought one", async () => {
+    const stale = { ...saved, deck: { id: "d-1", title: "Slides 1", pageCount: 12, downloadUrl: "https://minio/d-1.pdf" } } as unknown as SessionContent;
+    const { save } = setup(stale);
+    const dialog = await ready();
+    await waitFor(() => expect((within(dialog).getByLabelText("Tema") as HTMLInputElement).value).toBe("Permissões de arquivos"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(Object.keys(save.mock.calls[0]![2]).sort()).toEqual(["description", "links", "moduleId", "teacherNotes", "teacherPrivateNotes", "topic"]);
   });
 });

@@ -187,3 +187,68 @@ describe("FilesPanel", () => {
     expect(service.uploadDeck).not.toHaveBeenCalled();
   });
 });
+
+// SPEC-074 CA-17 and D-08: the files of the lesson the room is linked to, to project one of them
+describe("FilesPanel: materials of the lesson (SPEC-074 CA-17)", () => {
+  const file = (over: Record<string, unknown>) => ({
+    id: "mat-1", position: 0, title: "Slides 01", kind: "SLIDES", visibility: "AFTER_CLASS", releaseAt: null, source: "FILE",
+    fileName: "slides.pdf", contentType: "application/pdf", sizeBytes: 1024, pageCount: 12, visibleNow: false, hiddenUntil: "CLASS_END", ...over,
+  });
+  const lessonList = [
+    file({}),
+    file({ id: "mat-2", position: 1, title: "Quadro", contentType: "image/png", fileName: "quadro.png", pageCount: 1, visibility: "ALWAYS", visibleNow: true, hiddenUntil: undefined }),
+    file({ id: "mat-3", position: 2, title: "Referência", source: "LINK", url: "https://example.com/doc", fileName: undefined, contentType: undefined, pageCount: undefined }),
+  ];
+
+  function setupLesson(over: Record<string, unknown> = {}) {
+    const service = { listDecks: vi.fn().mockResolvedValue([]), uploadDeck: vi.fn(), projectMaterial: vi.fn().mockResolvedValue(uploaded({ id: "d-9", title: "Slides 01" })) };
+    const lessonService = { materials: vi.fn().mockResolvedValue(lessonList) };
+    const onProject = vi.fn();
+    render(<FilesPanel classId="c-1" classSessionId="cs-1" onProject={onProject} service={service} lessonService={lessonService} readPdf={vi.fn()} {...over} />);
+    return { service, lessonService, onProject };
+  }
+
+  it("reads the materials of the lesson and lists the files, the hidden ones too, and not the links, each with Projetar", async () => {
+    const { lessonService } = setupLesson();
+    const block = await screen.findByRole("region", { name: "Materiais da aula" });
+    expect(lessonService.materials).toHaveBeenCalledWith("c-1", "cs-1");
+    const items = within(block).getAllByRole("listitem");
+    expect(items.map((i) => within(i).getByText(/Slides 01|Quadro/).textContent)).toEqual(["Slides 01", "Quadro"]);
+    expect(within(block).queryByText("Referência")).toBeNull();
+    expect(within(block).getByRole("button", { name: "Projetar Slides 01" })).toBeDefined();
+    expect(within(block).getByRole("button", { name: "Projetar Quadro" })).toBeDefined();
+  });
+
+  it("asks the server to make the presentation of the material and then puts it on the stage", async () => {
+    const { service, onProject } = setupLesson();
+    fireEvent.click(await screen.findByRole("button", { name: "Projetar Slides 01" }));
+    await waitFor(() => expect(onProject).toHaveBeenCalledWith("d-9"));
+    expect(service.projectMaterial).toHaveBeenCalledWith("c-1", "mat-1");
+  });
+
+  it("tells why it could not project, and does not put anything on the stage", async () => {
+    const { service, onProject } = setupLesson();
+    service.projectMaterial.mockRejectedValueOnce(new ApiProblemError({ type: "deck-limit-exceeded", status: 409 }, 409));
+    fireEvent.click(await screen.findByRole("button", { name: "Projetar Slides 01" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Esta turma já tem 100 apresentações.");
+    service.projectMaterial.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(screen.getByRole("button", { name: "Projetar Quadro" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Não foi possível projetar este material."));
+    expect(onProject).not.toHaveBeenCalled();
+  });
+
+  it("says when the lesson has no file, and when the materials cannot be read", async () => {
+    setupLesson({ lessonService: { materials: vi.fn().mockResolvedValue([lessonList[2]]) } });
+    expect(await screen.findByText("Esta aula ainda não tem arquivos nos materiais.")).toBeDefined();
+    cleanup();
+    setupLesson({ lessonService: { materials: vi.fn().mockRejectedValue(new Error("offline")) } });
+    expect((await screen.findByText("Não foi possível ler os materiais da aula.")).getAttribute("role")).toBe("alert");
+  });
+
+  it("has no block of the materials, and does not read them, when the room is not linked to a lesson", async () => {
+    const { lessonService } = setupLesson({ classSessionId: null });
+    await screen.findByText("Esquema").catch(() => undefined);
+    expect(screen.queryByRole("region", { name: "Materiais da aula" })).toBeNull();
+    expect(lessonService.materials).not.toHaveBeenCalled();
+  });
+});
