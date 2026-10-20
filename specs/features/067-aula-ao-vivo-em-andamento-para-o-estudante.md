@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-067 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 15/10/2026 |
 | **Última revisão** | 15/10/2026 (aprovada) |
 | **Autor** | Aruna Architect |
@@ -104,21 +104,21 @@ Não se aplica nesta spec: não há mudança de schema. O endpoint lê `live_cla
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO o estudante com matrícula `ACTIVE` pede `GET /api/v1/me/live` e uma das suas turmas tem sala ao vivo aberta, O SISTEMA DEVE responder 200 com um item contendo turma, nome da turma, id da sala, título e início (RN-01, RN-02, RN-03).
-- [ ] **CA-02** (estado): ENQUANTO nenhuma turma do estudante tem sala aberta, O SISTEMA DEVE responder 200 com lista vazia (RN-04).
-- [ ] **CA-03** (indesejado): SE a matrícula do estudante na turma não está `ACTIVE`, ou a sala foi encerrada, ou a turma foi excluída, ENTÃO O SISTEMA NÃO DEVE incluir a sala na resposta (RN-01, RN-02).
-- [ ] **CA-04** (indesejado): SE quem pede é docente ou administrador, ENTÃO O SISTEMA DEVE responder 403 `forbidden`; SE não há sessão, ENTÃO 401 `not-authenticated` (RN-05).
-- [ ] **CA-05** (ubíquo): O SISTEMA NÃO DEVE devolver, no item, nenhum campo além dos do contrato (RN-03).
-- [ ] **CA-06** (estado): ENQUANTO há sala aberta numa turma do estudante, O SISTEMA DEVE mostrar a faixa em toda tela de `/app/**`, com o título, o nome da turma e o botão "Entrar na aula" apontando para `/app/classes/{id}/live`.
-- [ ] **CA-07** (estado): ENQUANTO duas turmas do estudante têm sala aberta, O SISTEMA DEVE mostrar uma linha para cada uma.
-- [ ] **CA-08** (estado): ENQUANTO não há sala aberta, O SISTEMA NÃO DEVE mostrar a faixa nem reservar espaço para ela.
-- [ ] **CA-09** (estado): ENQUANTO o estudante está dentro da sala ao vivo (`/app/classes/{id}/live`), O SISTEMA NÃO DEVE mostrar a faixa.
-- [ ] **CA-10** (ubíquo): O SISTEMA NÃO DEVE mostrar a faixa para docente nem para administrador.
-- [ ] **CA-11** (evento): QUANDO passam 20 segundos com a aba visível, O SISTEMA DEVE consultar de novo e mostrar ou esconder a faixa conforme a resposta; QUANDO a aba volta a ficar visível, DEVE consultar na hora; ENQUANTO a aba está escondida, NÃO DEVE consultar.
-- [ ] **CA-12** (indesejado): SE a consulta falha, ENTÃO O SISTEMA DEVE esconder a faixa, sem mensagem de erro, e tentar de novo na próxima consulta.
-- [ ] **CA-13** (ubíquo): O SISTEMA DEVE fazer a consulta só pelo serviço de classroom, e o botão DEVE ter alvo de toque de no mínimo 44 px, nos temas claro e escuro.
-- [ ] **CA-14** (estado): ENQUANTO a sala continua aberta depois do horário da aula da agenda (docente tirando dúvidas), O SISTEMA DEVE continuar devolvendo a sala e mostrando a faixa, até a docente encerrá-la (RN-07).
-- [ ] **CA-15** (estado): ENQUANTO o estudante tem salas abertas em mais de uma turma, O SISTEMA DEVE devolver todas, da mais recente para a mais antiga, e a faixa DEVE mostrar as linhas nessa ordem (RN-08).
+- [x] **CA-01** (evento): QUANDO o estudante com matrícula `ACTIVE` pede `GET /api/v1/me/live` e uma das suas turmas tem sala ao vivo aberta, O SISTEMA DEVE responder 200 com um item contendo turma, nome da turma, id da sala, título e início (RN-01, RN-02, RN-03).
+- [x] **CA-02** (estado): ENQUANTO nenhuma turma do estudante tem sala aberta, O SISTEMA DEVE responder 200 com lista vazia (RN-04).
+- [x] **CA-03** (indesejado): SE a matrícula do estudante na turma não está `ACTIVE`, ou a sala foi encerrada, ou a turma foi excluída, ENTÃO O SISTEMA NÃO DEVE incluir a sala na resposta (RN-01, RN-02).
+- [x] **CA-04** (indesejado): SE quem pede é docente ou administrador, ENTÃO O SISTEMA DEVE responder 403 `forbidden`; SE não há sessão, ENTÃO 401 `not-authenticated` (RN-05).
+- [x] **CA-05** (ubíquo): O SISTEMA NÃO DEVE devolver, no item, nenhum campo além dos do contrato (RN-03).
+- [x] **CA-06** (estado): ENQUANTO há sala aberta numa turma do estudante, O SISTEMA DEVE mostrar a faixa em toda tela de `/app/**`, com o título, o nome da turma e o botão "Entrar na aula" apontando para `/app/classes/{id}/live`.
+- [x] **CA-07** (estado): ENQUANTO duas turmas do estudante têm sala aberta, O SISTEMA DEVE mostrar uma linha para cada uma.
+- [x] **CA-08** (estado): ENQUANTO não há sala aberta, O SISTEMA NÃO DEVE mostrar a faixa nem reservar espaço para ela.
+- [x] **CA-09** (estado): ENQUANTO o estudante está dentro da sala ao vivo (`/app/classes/{id}/live`), O SISTEMA NÃO DEVE mostrar a faixa.
+- [x] **CA-10** (ubíquo): O SISTEMA NÃO DEVE mostrar a faixa para docente nem para administrador.
+- [x] **CA-11** (evento): QUANDO passam 20 segundos com a aba visível, O SISTEMA DEVE consultar de novo e mostrar ou esconder a faixa conforme a resposta; QUANDO a aba volta a ficar visível, DEVE consultar na hora; ENQUANTO a aba está escondida, NÃO DEVE consultar.
+- [x] **CA-12** (indesejado): SE a consulta falha, ENTÃO O SISTEMA DEVE esconder a faixa, sem mensagem de erro, e tentar de novo na próxima consulta.
+- [x] **CA-13** (ubíquo): O SISTEMA DEVE fazer a consulta só pelo serviço de classroom, e o botão DEVE ter alvo de toque de no mínimo 44 px, nos temas claro e escuro.
+- [x] **CA-14** (estado): ENQUANTO a sala continua aberta depois do horário da aula da agenda (docente tirando dúvidas), O SISTEMA DEVE continuar devolvendo a sala e mostrando a faixa, até a docente encerrá-la (RN-07).
+- [x] **CA-15** (estado): ENQUANTO o estudante tem salas abertas em mais de uma turma, O SISTEMA DEVE devolver todas, da mais recente para a mais antiga, e a faixa DEVE mostrar as linhas nessa ordem (RN-08).
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -153,3 +153,4 @@ Nenhuma. Decisões do Tech Lead em 15/10/2026, aprovadas como recomendadas: faix
 | :--- | :--- | :--- |
 | 15/10/2026 | Aruna Architect | Criação em Rascunho, a pedido do Tech Lead |
 | 15/10/2026 | Aruna Architect | Aprovada pelo Tech Lead, com a observação de que pode haver mais de uma aula ao mesmo tempo e de que há docentes que mantêm a sala aberta para tirar dúvidas: RN-07, RN-08, CA-14, CA-15 e testes correspondentes; pendências P-01 e P-02 resolvidas como recomendado |
+| 20/10/2026 | Implementador | Implementada, com CA-01 a CA-15 conferidos contra o código e os testes. Backend (CA-01 a CA-05, CA-14, CA-15): `handler_myrooms_test.go`, `service_myrooms_test.go` e `repository_myrooms_test.go`. Tela (CA-06 a CA-12): `LiveNowBanner.test.tsx` e `AppShell.test.tsx` (CA-09 e CA-10). CA-13 conferida no código: a consulta passa só por `classroomService.listMyLive` e o botão tem `min-height: 2.75rem` (44 px). Medição de cobertura e lint, a mesma da SPEC-071 (mesmos pacotes e pastas). Nenhum desvio |
