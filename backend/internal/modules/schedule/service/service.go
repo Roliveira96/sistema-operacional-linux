@@ -162,7 +162,6 @@ type Service struct {
 	now       func() time.Time
 	publicURL string
 	richText  *htmlsafe.Sanitizer
-	decks     Decks
 	modules   Modules
 	live      LiveSessions
 	files     MaterialFiles

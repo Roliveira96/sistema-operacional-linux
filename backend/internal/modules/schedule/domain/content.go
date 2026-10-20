@@ -25,7 +25,6 @@ const (
 var (
 	ErrInvalidSessionContent = errors.New("invalid class session content")
 	ErrContentTooLong        = errors.New("the description has more than 20000 characters")
-	ErrDeckNotFound          = errors.New("presentation not found")
 	ErrModuleNotFound        = errors.New("teaching module not found")
 )
 
@@ -49,7 +48,7 @@ type LinkInput struct {
 
 // HasOwnContent tells whether the lesson itself has content: the links and the materials are kept apart (SPEC-053 RN-05, SPEC-074 RN-07).
 func (s ClassSession) HasOwnContent() bool {
-	return s.Topic != nil || s.Description != nil || s.DeckID != nil || s.ModuleID != nil || s.TeacherNotes != nil || s.TeacherPrivateNotes != nil
+	return s.Topic != nil || s.Description != nil || s.ModuleID != nil || s.TeacherNotes != nil || s.TeacherPrivateNotes != nil
 }
 
 // NormalizeTopic trims the topic and checks its length; an empty topic means none (SPEC-053 RN-01).

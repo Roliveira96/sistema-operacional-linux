@@ -12,24 +12,10 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 )
 
-// Deck is a presentation of a class, with a signed address to read it (SPEC-053 RN-06).
-type Deck struct {
-	ID          uuid.UUID
-	Title       string
-	PageCount   int
-	DownloadURL string
-}
-
 // Module is a teaching module.
 type Module struct {
 	ID    uuid.UUID
 	Title string
-}
-
-// Decks is what the schedule needs from the presentations of the live classroom. It answers domain.ErrDeckNotFound for a presentation that does
-// not exist or is of another class (SPEC-053 RN-04); the classroom service implements it.
-type Decks interface {
-	Deck(ctx context.Context, classID, deckID uuid.UUID) (Deck, error)
 }
 
 // Modules is what the schedule needs from the teaching modules. It answers domain.ErrModuleNotFound for a module that does not exist or that the
@@ -38,9 +24,9 @@ type Modules interface {
 	Module(ctx context.Context, actor Actor, moduleID uuid.UUID) (Module, error)
 }
 
-// WithContentRefs plugs in the presentations and the teaching modules a lesson can point to.
-func (s *Service) WithContentRefs(decks Decks, modules Modules) *Service {
-	s.decks, s.modules = decks, modules
+// WithContentRefs plugs in the teaching modules a lesson can point to. (The presentation left the content of the lesson: SPEC-074 RN-09.)
+func (s *Service) WithContentRefs(modules Modules) *Service {
+	s.modules = modules
 	return s
 }
 
@@ -49,20 +35,18 @@ type ContentInput struct {
 	Topic       string
 	Description string
 	ModuleID    *uuid.UUID
-	DeckID      *uuid.UUID
 	Links       []domain.LinkInput
 	// The notes of the teacher (SPEC-073 RN-03), as rich text.
 	TeacherNotes        string
 	TeacherPrivateNotes string
 }
 
-// SessionContent is the content of a lesson, with the module and the presentation resolved. TeacherPrivateNotes is nil for a reader who may
+// SessionContent is the content of a lesson, with the module resolved. TeacherPrivateNotes is nil for a reader who may
 // not see the private notes (a student); for the teacher it is the text, empty when there is none (SPEC-073 RN-03).
 type SessionContent struct {
 	Topic               string
 	Description         string
 	Module              *Module
-	Deck                *Deck
 	Links               []domain.SessionLink
 	TeacherNotes        string
 	TeacherPrivateNotes *string
@@ -98,14 +82,6 @@ func (s *Service) SaveContent(ctx context.Context, actor Actor, classID, session
 	if err != nil {
 		return SessionContent{}, err
 	}
-	var deck *Deck
-	if in.DeckID != nil {
-		found, err := s.deck(ctx, classID, *in.DeckID)
-		if err != nil {
-			return SessionContent{}, err
-		}
-		deck = &found
-	}
 	var module *Module
 	if in.ModuleID != nil {
 		found, err := s.module(ctx, actor, *in.ModuleID)
@@ -120,23 +96,23 @@ func (s *Service) SaveContent(ctx context.Context, actor Actor, classID, session
 	if description != "" {
 		session.Description = &description
 	}
-	session.DeckID, session.ModuleID = in.DeckID, in.ModuleID
+	session.ModuleID = in.ModuleID
 	session.TeacherNotes, session.TeacherPrivateNotes = notes, private
 	// the materials are saved apart (SPEC-074), but a lesson that has one has content (RN-07)
 	materials, err := s.materialsOf(ctx, sessionID)
 	if err != nil {
 		return SessionContent{}, err
 	}
-	session.HasContent = topic != nil || description != "" || in.DeckID != nil || in.ModuleID != nil || len(links) > 0 || notes != nil || private != nil || len(materials) > 0
+	session.HasContent = topic != nil || description != "" || in.ModuleID != nil || len(links) > 0 || notes != nil || private != nil || len(materials) > 0
 	if err := s.repo.SaveContent(ctx, &session, links); err != nil {
 		return SessionContent{}, err
 	}
 	privateText := derefString(private)
-	return SessionContent{Topic: derefString(topic), Description: description, Module: module, Deck: deck, Links: links,
+	return SessionContent{Topic: derefString(topic), Description: description, Module: module, Links: links,
 		TeacherNotes: derefString(notes), TeacherPrivateNotes: &privateText}, nil
 }
 
-// Content reads the content of a lesson. A module the reader cannot use, or a presentation that is gone, is left out (SPEC-053 RN-06).
+// Content reads the content of a lesson. A module the reader cannot use is left out (SPEC-053 RN-06).
 func (s *Service) Content(ctx context.Context, actor Actor, classID, sessionID uuid.UUID) (SessionContent, error) {
 	if _, err := s.readableClass(ctx, actor, classID); err != nil {
 		return SessionContent{}, err
@@ -155,13 +131,6 @@ func (s *Service) Content(ctx context.Context, actor Actor, classID, sessionID u
 		private := derefString(session.TeacherPrivateNotes)
 		out.TeacherPrivateNotes = &private
 	}
-	if session.DeckID != nil {
-		if deck, err := s.deck(ctx, classID, *session.DeckID); err == nil {
-			out.Deck = &deck
-		} else if !errors.Is(err, domain.ErrDeckNotFound) {
-			return SessionContent{}, err
-		}
-	}
 	if session.ModuleID != nil {
 		if module, err := s.module(ctx, actor, *session.ModuleID); err == nil {
 			out.Module = &module
@@ -170,13 +139,6 @@ func (s *Service) Content(ctx context.Context, actor Actor, classID, sessionID u
 		}
 	}
 	return out, nil
-}
-
-func (s *Service) deck(ctx context.Context, classID, deckID uuid.UUID) (Deck, error) {
-	if s.decks == nil {
-		return Deck{}, domain.ErrDeckNotFound
-	}
-	return s.decks.Deck(ctx, classID, deckID)
 }
 
 func (s *Service) module(ctx context.Context, actor Actor, moduleID uuid.UUID) (Module, error) {

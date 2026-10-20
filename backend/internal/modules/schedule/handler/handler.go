@@ -456,8 +456,6 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("already-visible", err.Error())
 	case errors.Is(err, domain.ErrMaterialNotFound):
 		return problem.NotFound("material-not-found", err.Error())
-	case errors.Is(err, domain.ErrDeckNotFound):
-		return problem.NotFound("deck-not-found", err.Error())
 	case errors.Is(err, domain.ErrModuleNotFound):
 		return problem.NotFound("module-not-found", err.Error())
 	case errors.Is(err, domain.ErrForbidden):

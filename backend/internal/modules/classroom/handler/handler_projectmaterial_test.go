@@ -129,6 +129,6 @@ func TestProjectMaterialRouteErrors(t *testing.T) {
 	assert.Len(t, svc.calls, before, "a bad request never reaches the service")
 
 	// no login, no route
-	code, _ := w.call(t, "nobody", http.MethodPost, w.path("/decks/from-material"), material)
+	code, _ := w.call(t, "", http.MethodPost, w.path("/decks/from-material"), material)
 	assert.Equal(t, http.StatusUnauthorized, code)
 }

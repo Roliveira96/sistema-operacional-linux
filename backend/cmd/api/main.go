@@ -211,8 +211,10 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 
 	moduleRepo := coursemodulerepository.New(db)
 	moduleService := coursemoduleservice.New(moduleRepo)
-	// A lesson can point to a presentation and to a teaching module (SPEC-053 RN-04).
-	scheduleService.WithContentRefs(scheduleDecks{classroom: classroomService}, scheduleModules{modules: moduleService})
+	// A lesson can point to a teaching module (SPEC-053 RN-04); the presentation left its content (SPEC-074 RN-09).
+	scheduleService.WithContentRefs(scheduleModules{modules: moduleService})
+	// The teacher projects, in the live classroom, a file of the materials of a lesson (SPEC-074 RN-08).
+	classroomService.WithLessonMaterials(classroomMaterials{schedule: scheduleService})
 	// The timeline and the diary of the lessons read the rooms of the live classroom (SPEC-073).
 	scheduleService.WithLiveSessions(scheduleLive{classroom: classroomService})
 	// The materials of a lesson: the files are checked by the rule of the presentations and kept in the bucket (SPEC-074).

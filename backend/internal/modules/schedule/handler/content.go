@@ -15,7 +15,6 @@ type contentRequest struct {
 	Topic       string  `json:"topic"`
 	Description string  `json:"description"`
 	ModuleID    *string `json:"moduleId"`
-	DeckID      *string `json:"deckId"`
 	Links       []struct {
 		Name string `json:"name"`
 		URL  string `json:"url"`
@@ -29,13 +28,6 @@ type contentModuleJSON struct {
 	Title string    `json:"title"`
 }
 
-type contentDeckJSON struct {
-	ID          uuid.UUID `json:"id"`
-	Title       string    `json:"title"`
-	PageCount   int       `json:"pageCount"`
-	DownloadURL string    `json:"downloadUrl"`
-}
-
 type contentLinkJSON struct {
 	Name     string `json:"name"`
 	URL      string `json:"url"`
@@ -46,7 +38,6 @@ type contentJSON struct {
 	Topic       string             `json:"topic"`
 	Description string             `json:"description"`
 	Module      *contentModuleJSON `json:"module"`
-	Deck        *contentDeckJSON   `json:"deck"`
 	Links       []contentLinkJSON  `json:"links"`
 	// The notes of the teacher (SPEC-073): the private ones are left out for who may not read them.
 	TeacherNotes        string  `json:"teacherNotes"`
@@ -57,9 +48,6 @@ func toContentJSON(c service.SessionContent) contentJSON {
 	out := contentJSON{Topic: c.Topic, Description: c.Description, Links: []contentLinkJSON{}, TeacherNotes: c.TeacherNotes, TeacherPrivateNotes: c.TeacherPrivateNotes}
 	if c.Module != nil {
 		out.Module = &contentModuleJSON{ID: c.Module.ID, Title: c.Module.Title}
-	}
-	if c.Deck != nil {
-		out.Deck = &contentDeckJSON{ID: c.Deck.ID, Title: c.Deck.Title, PageCount: c.Deck.PageCount, DownloadURL: c.Deck.DownloadURL}
 	}
 	for _, l := range c.Links {
 		out.Links = append(out.Links, contentLinkJSON{Name: l.Name, URL: l.URL, Position: l.Position})
@@ -101,12 +89,7 @@ func (h *Handler) saveContent(c *gin.Context) {
 		fail(c, toProblem(err))
 		return
 	}
-	deckID, err := optionalUUID("deckId", req.DeckID)
-	if err != nil {
-		fail(c, toProblem(err))
-		return
-	}
-	in := service.ContentInput{Topic: req.Topic, Description: req.Description, ModuleID: moduleID, DeckID: deckID,
+	in := service.ContentInput{Topic: req.Topic, Description: req.Description, ModuleID: moduleID,
 		TeacherNotes: req.TeacherNotes, TeacherPrivateNotes: req.TeacherPrivateNotes}
 	for _, l := range req.Links {
 		in.Links = append(in.Links, domain.LinkInput{Name: l.Name, URL: l.URL})
