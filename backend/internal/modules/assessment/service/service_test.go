@@ -470,7 +470,8 @@ func TestEligibility_AllClassIncludesWhoEnrollsLaterAndExcludesWhoLeft(t *testin
 
 	visible := func(s service.Student, id uuid.UUID) bool {
 		_, err := f.svc.Public(ctx, f.as(s), f.class.ID, id)
-		if errors.Is(err, domain.ErrAssessmentNotFound) {
+		// not eligible is a 404 whichever the way: no assessment for her, or no active enrollment, which does not reveal the class either
+		if errors.Is(err, domain.ErrAssessmentNotFound) || errors.Is(err, domain.ErrClassNotFound) {
 			return false
 		}
 		require.NoError(t, err)

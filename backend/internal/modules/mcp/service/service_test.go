@@ -493,6 +493,7 @@ func TestExerciseServiceErrorsMapToTypes(t *testing.T) {
 		contentservice.ErrInvalidExerciseOrder: domain.TypeValidation,
 		contentservice.ErrExerciseNotFound:     domain.TypeExerciseNotFound,
 		contentservice.ErrForbidden:            domain.TypeModuleNotFound,
+		contentservice.ErrQuestionInUse:        domain.TypeQuestionInUse, // SPEC-075 RN-18
 	} {
 		e.f.Fail["Exercises.Create"] = err
 		_, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: e.mid(), Title: "x", Difficulty: "EASY"})
