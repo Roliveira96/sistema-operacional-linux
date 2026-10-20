@@ -551,3 +551,72 @@ describe("actions of the timeline cards (SPEC-073 CA-13)", () => {
     expect(within(region).queryByRole("button", { name: "Alterar esta aula" })).toBeNull();
   });
 });
+
+// SPEC-075: the way to the assessments of the class, and "Transformar em avaliação" on a lesson
+describe("assessments from the class page (SPEC-075)", () => {
+  const myClass = {
+    id: theClass.id, name: theClass.name, courseCode: theClass.courseCode, semester: theClass.semester, status: "ACTIVE" as const,
+    summary: "", syllabus: "", institutionalGuidelines: "", startDate: theClass.startDate, endDate: theClass.endDate,
+    scheduleDescription: "", enableVirtualClassroom: false,
+  };
+  const upcoming = (id: string, date: string) => ({
+    id, classId: "c-1", date, startTime: "08:20", endTime: "10:20", lessonCount: 2, mode: "IN_PERSON", status: "SCHEDULED", origin: "WEEKLY",
+    overridden: false, onHoliday: false, hasContent: false, startsAt: `${date}T08:20:00-03:00`, endsAt: `${date}T10:20:00-03:00`, liveSessionCount: 0, commandCount: 0, materialCount: 0,
+  });
+
+  beforeEach(() => pushMock.mockClear());
+
+  it("links the teacher and the student to the assessments of the class", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    render(<ClassPage params={params} />);
+    expect((await screen.findByRole("link", { name: "Avaliações" })).getAttribute("href")).toBe("/app/classes/c-1/assessments");
+    cleanup();
+
+    asRole("STUDENT");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue(myClass);
+    render(<ClassPage params={params} />);
+    expect((await screen.findByRole("link", { name: "Avaliações" })).getAttribute("href")).toBe("/app/classes/c-1/assessments");
+  });
+
+  it("opens the form of a new assessment made from the lesson of the calendar", async () => {
+    asRole("TEACHER");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    render(<ClassPage params={params} />);
+    fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 26 de outubro/ }));
+    // the timeline under the calendar offers it too, so the button is looked for in the panel of the day
+    const panel = screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" });
+    fireEvent.click(within(panel).getByRole("button", { name: "Transformar em avaliação" }));
+    expect(pushMock).toHaveBeenCalledWith("/app/classes/c-1/assessments/new?sessionId=s-26");
+  });
+
+  it("opens the form of a new assessment made from the lesson of the timeline", async () => {
+    asRole("TEACHER");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    vi.mocked(scheduleService.timeline).mockReset().mockResolvedValue({
+      now: "2026-10-13T10:00:00-03:00", current: null, past: [], upcoming: [upcoming("s-22", "2026-10-22")], liveSessionId: null,
+    } as never);
+    render(<ClassPage params={params} />);
+    const region = await screen.findByRole("region", { name: "Linha do tempo da turma" });
+    fireEvent.click(within(region).getByRole("button", { name: "Transformar em avaliação" }));
+    expect(pushMock).toHaveBeenCalledWith("/app/classes/c-1/assessments/new?sessionId=s-22");
+  });
+
+  it("does not offer it to the student", async () => {
+    asRole("STUDENT");
+    searchParams = new URLSearchParams("tab=schedule");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue(myClass);
+    vi.mocked(scheduleService.timeline).mockReset().mockResolvedValue({
+      now: "2026-10-13T10:00:00-03:00", current: null, past: [], upcoming: [upcoming("s-22", "2026-10-22")], liveSessionId: null,
+    } as never);
+    render(<ClassPage params={params} />);
+    await screen.findByRole("region", { name: "Linha do tempo da turma" });
+    fireEvent.click(await screen.findByRole("button", { name: /^segunda-feira, 26 de outubro/ }));
+    expect(screen.queryByRole("button", { name: "Transformar em avaliação" })).toBeNull();
+  });
+});

@@ -32,6 +32,7 @@ export default function CalendarPage() {
         showClassFilter
         editable={false}
         classHref={(id) => `/app/classes/${id}?tab=schedule`}
+        assessmentHref={(a) => `/app/classes/${a.classId}/assessments/${a.id}`}
       />
     </div>
   );

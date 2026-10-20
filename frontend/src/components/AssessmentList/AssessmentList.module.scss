@@ -1,0 +1,116 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.top {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.muted {
+  margin: 0;
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.problem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-primary);
+  background: var(--color-danger-subtle);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-sm);
+}
+
+// The table scrolls sideways on a narrow screen instead of breaking the page.
+.scroll {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+
+  th,
+  td {
+    padding: var(--space-3);
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-hairline);
+  }
+
+  th {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  tr[data-canceled="true"] td {
+    color: var(--color-text-secondary);
+  }
+}
+
+.title {
+  min-width: 10rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.phase {
+  display: inline-block;
+  padding: 0.125rem var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  color: var(--color-info-text);
+  background: var(--color-info-faint);
+  border: 1px solid var(--color-info-line);
+  border-radius: var(--radius-pill);
+
+  &[data-phase="RUNNING"] {
+    color: var(--color-success);
+    background: var(--color-success-faint);
+    border-color: var(--color-success-line);
+  }
+
+  &[data-phase="ENDED"] {
+    color: var(--color-text-secondary);
+    background: transparent;
+    border-color: var(--color-border);
+  }
+
+  &[data-phase="CANCELED"] {
+    color: var(--color-danger);
+    background: var(--color-danger-faint);
+    border-color: var(--color-danger-line);
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 12rem;
+}
+
+.reason {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}

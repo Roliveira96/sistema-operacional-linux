@@ -284,7 +284,7 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
 
   const loadCalendar = useCallback(
     async (from: string, to: string) => {
-      if (!id) return { classes: [], sessions: [], events: [], periods: [], holidays: [], meetings: [] };
+      if (!id) return { classes: [], sessions: [], events: [], periods: [], holidays: [], meetings: [], assessments: [] };
       const res = await scheduleService.classCalendar(id, from, to);
       setCachedCalendar(res);
       return res;
@@ -524,12 +524,17 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
               {messages.classes.statusBadge[data.status]}
             </span>
           </div>
-          {!isStudent && (
-            <Link href={`/app/classes/${data.id}/settings`} className={styles.secondaryButton}>
-              <IconSettings />
-              {m.settings}
+          <div className={styles.heroActions}>
+            <Link href={`/app/classes/${data.id}/assessments`} className={styles.secondaryButton}>
+              {messages.assessments.link}
             </Link>
-          )}
+            {!isStudent && (
+              <Link href={`/app/classes/${data.id}/settings`} className={styles.secondaryButton}>
+                <IconSettings />
+                {m.settings}
+              </Link>
+            )}
+          </div>
         </div>
         <h1 className={styles.title}>{data.name}</h1>
         {data.summary && <p className={styles.summary}>{data.summary}</p>}
@@ -643,6 +648,8 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             onEditEvent={(e) => setEditingEvent(e)}
             onDeletePeriod={handleDeletePeriod}
             onSelectPeriod={(first, last) => setSelectedPeriodRange({ first, last })}
+            assessmentHref={(a) => `/app/classes/${a.classId}/assessments/${a.id}`}
+            onConvertSession={(s) => router.push(`/app/classes/${id}/assessments/new?sessionId=${s.id}`)}
           />
           {/* The timeline of the class under the calendar (SPEC-073 CA-07). */}
           <ClassTimeline
@@ -656,6 +663,7 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             onStartLive={(s) => handleStartLive(s, data.name)}
             onEditContent={isStudent ? undefined : (s) => setContentSession(s)}
             onEditSession={isStudent ? undefined : (s) => setEditingSession(s)}
+            onConvert={isStudent ? undefined : (s) => router.push(`/app/classes/${id}/assessments/new?sessionId=${s.id}`)}
             reloadKey={calendarReload}
           />
           </>

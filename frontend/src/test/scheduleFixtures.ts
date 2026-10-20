@@ -34,6 +34,7 @@ export function octoberCalendar(): CalendarData {
     events: [{ id: "e-1", classId: "c-1", title: "Palestra: o kernel", description: "", date: "2026-10-22", allDay: false, startTime: "19:00", endTime: "21:00", location: "Auditório" }],
     periods: [{ id: "p-1", classId: "c-1", firstDay: "2026-10-26", lastDay: "2026-10-28", action: "ONLINE", label: "Semana online", onlineUrl: "https://meet.google.com/xyz" }],
     holidays: [{ id: "h-1", date: "2026-10-12", name: "Nossa Senhora Aparecida", scope: "NATIONAL", active: true }],
+    assessments: [],
     meetings: [
       { id: "m-1", classId: "c-1", weekday: 1, startTime: "08:20", endTime: "10:00", lessonCount: 2, mode: "IN_PERSON", room: "B-204" },
       { id: "m-2", classId: "c-1", weekday: 3, startTime: "13:50", endTime: "15:30", lessonCount: 2, mode: "IN_PERSON", room: "B-204" },

@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { SessionContentView } from "@/components/SessionDiary/SessionContentView";
 import { SessionDiary } from "@/components/SessionDiary/SessionDiary";
+import { convertedSessionIds, formatScore, isOnDay, periodOnDay, situationOf } from "@/lib/assessment";
 import { addMonths, isoDate, monthGrid, sameDay } from "@/lib/calendar";
 import { messages } from "@/messages/pt-BR";
+import type { CalendarAssessment } from "@/services/assessmentService";
 import type { LiveTerminalCommand } from "@/services/classroomService";
 import type {
   CalendarData,
@@ -48,6 +50,10 @@ export interface ClassCalendarProps {
   loadCommands?: (liveSessionId: string) => Promise<LiveTerminalCommand[]>;
   /** Who reads the diary: the teacher gets his private notes. Without it, who can edit is the teacher. */
   role?: "teacher" | "student";
+  /** Where an assessment lives; the card of an assessment links there (SPEC-075). */
+  assessmentHref?: (assessment: CalendarAssessment) => string;
+  /** The teacher turns a lesson into an assessment (SPEC-075 CA-25); a button is drawn only for a handler that is given. */
+  onConvertSession?: (session: Session) => void;
 }
 
 /** What a lesson covers: topic, description, links, module and presentation, for whoever reads the lesson (SPEC-053, 3.1). */
@@ -108,6 +114,8 @@ export function ClassCalendar({
   loadDiary,
   loadCommands,
   role,
+  assessmentHref,
+  onConvertSession,
 }: ClassCalendarProps) {
   const [currentDate, setCurrentDate] = useState<Date>(
     new Date(initialMonth.getFullYear(), initialMonth.getMonth(), 1),
@@ -238,6 +246,13 @@ export function ClassCalendar({
       (p) => !selectedClassId || p.classId === selectedClassId || filteredClassIds.has(p.classId),
     ) ?? [];
 
+  const filteredAssessments =
+    data?.assessments?.filter((a) => !selectedClassId || a.classId === selectedClassId || filteredClassIds.has(a.classId)) ?? [];
+
+  // A lesson that became an assessment is drawn once, as the assessment; the lesson comes back if the assessment is canceled (SPEC-075 D-09).
+  const converted = convertedSessionIds(filteredAssessments);
+  const visibleSessions = filteredSessions.filter((s) => !converted.has(s.id));
+
   const holidays = data?.holidays.filter((h) => h.active) ?? [];
 
   // Indicators
@@ -264,7 +279,8 @@ export function ClassCalendar({
     data.sessions.length === 0 &&
     (data.meetings?.length ?? 0) === 0 &&
     data.events.length === 0 &&
-    data.periods.length === 0;
+    data.periods.length === 0 &&
+    (data.assessments?.length ?? 0) === 0;
 
   if (error) {
     return (
@@ -290,8 +306,9 @@ export function ClassCalendar({
 
   const selectedDayIso = selectedDay ? isoDate(selectedDay) : null;
   const selectedDaySessions = selectedDayIso
-    ? filteredSessions.filter((s) => s.date === selectedDayIso)
+    ? visibleSessions.filter((s) => s.date === selectedDayIso)
     : [];
+  const selectedDayAssessments = selectedDayIso ? filteredAssessments.filter((a) => isOnDay(a, selectedDayIso)) : [];
   const selectedDayEvents = selectedDayIso
     ? filteredEvents.filter((e) => e.date === selectedDayIso)
     : [];
@@ -442,7 +459,10 @@ export function ClassCalendar({
             const dayHolidays = holidays.filter((h) => h.date === dIso);
 
             // Sessions
-            const daySessions = filteredSessions.filter((s) => s.date === dIso);
+            const daySessions = visibleSessions.filter((s) => s.date === dIso);
+
+            // Assessments
+            const dayAssessments = filteredAssessments.filter((a) => isOnDay(a, dIso));
             const canceledSessions = daySessions.filter((s) => s.status === "CANCELED");
             const scheduledSessions = daySessions.filter((s) => s.status === "SCHEDULED");
             const hasOnlineSession = daySessions.some((s) => s.mode === "ONLINE");
@@ -480,6 +500,11 @@ export function ClassCalendar({
 
             dayEvents.forEach((e) => {
               labelParts.push(messages.schedule.calendar.event(e.title));
+            });
+
+            dayAssessments.forEach((a) => {
+              const kind = messages.assessments.typeInline[a.type] ?? "";
+              labelParts.push(`${kind}${a.status === "CANCELED" ? " cancelada" : ""}: ${a.title}`);
             });
 
             dayPeriods.forEach((p) => {
@@ -545,6 +570,16 @@ export function ClassCalendar({
                       className={`${styles.badge} ${styles.badgeEvent}`}
                     >
                       {e.title}
+                    </span>
+                  ))}
+
+                  {dayAssessments.map((a) => (
+                    <span
+                      key={a.id}
+                      className={`${styles.badge} ${styles.badgeAssessment}`}
+                      data-canceled={a.status === "CANCELED" ? "true" : undefined}
+                    >
+                      {a.status === "CANCELED" ? <s>{a.title}</s> : a.title}
                     </span>
                   ))}
 
@@ -765,6 +800,15 @@ export function ClassCalendar({
                         {messages.schedule.calendar.editContent}
                       </button>
                     )}
+                    {editable && onConvertSession && s.status !== "CANCELED" && (
+                      <button
+                        type="button"
+                        className={styles.navBtn}
+                        onClick={() => onConvertSession(s)}
+                      >
+                        {messages.assessments.convert}
+                      </button>
+                    )}
                     {liveHref && s.id === liveClassSessionId && (
                       <Link href={liveHref} className={styles.navBtn}>
                         {editable ? messages.schedule.calendar.backToLive : messages.schedule.calendar.enterLive}
@@ -780,6 +824,37 @@ export function ClassCalendar({
                       </button>
                     )}
                   </div>
+                </div>
+              );
+            })}
+
+            {selectedDayAssessments.map((a) => {
+              const canceled = a.status === "CANCELED";
+              return (
+                <div key={a.id} className={styles.itemCard}>
+                  <div className={styles.itemInfo}>
+                    <span className={`${styles.tag} ${styles.tagAssessment}`}>{messages.assessments.type[a.type]}</span>
+                    <span className={styles.itemTitle}>{canceled ? <s>{a.title}</s> : a.title}</span>
+                    <div className={styles.itemMeta}>
+                      <span>{periodOnDay(a)}</span>
+                      <span>{messages.assessments.duration(a.durationMinutes)}</span>
+                      <span>{messages.assessments.maxScore(formatScore(a.maxScore))}</span>
+                      <span className={`${styles.tag} ${canceled ? styles.tagCanceled : ""}`}>{situationOf(a)}</span>
+                      {a.eligibleStudents !== undefined && <span>{messages.assessments.eligible(a.eligibleStudents)}</span>}
+                      {a.composition && <span>{messages.assessments.compositionIs(messages.assessments.composition[a.composition] ?? "")}</span>}
+                    </div>
+                    {canceled && (
+                      <div className={styles.itemMeta}>
+                        <strong>{messages.assessments.canceledBanner}</strong>
+                        {a.cancelReason && <span>{a.cancelReason}</span>}
+                      </div>
+                    )}
+                  </div>
+                  {assessmentHref && (
+                    <Link href={assessmentHref(a)} aria-label={messages.assessments.viewNamed(a.title)} className={styles.navBtn}>
+                      {messages.assessments.view}
+                    </Link>
+                  )}
                 </div>
               );
             })}
@@ -828,6 +903,7 @@ export function ClassCalendar({
             ))}
 
             {selectedDaySessions.length === 0 &&
+              selectedDayAssessments.length === 0 &&
               selectedDayEvents.length === 0 &&
               selectedDayHolidays.length === 0 &&
               selectedDayPeriods.length === 0 && (
