@@ -245,3 +245,14 @@ describe("classroomService, atomic note blocks and private note images (SPEC-071
   });
 });
 
+// SPEC-074 section 5: a material of a lesson becomes a presentation of the class, to be projected
+describe("classroomService, projecting a material of the lesson (SPEC-074 CA-16)", () => {
+  const http: HttpClient = { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
+
+  it("asks for the presentation of a material and gets it, with its address", async () => {
+    const deck = { id: "d-9", title: "Slides 01", pageCount: 12, kind: "PDF", downloadUrl: "https://minio/x" };
+    vi.mocked(http.post).mockResolvedValueOnce(deck);
+    expect(await createClassroomService(http).projectMaterial("c-1", "mat-1")).toEqual(deck);
+    expect(http.post).toHaveBeenCalledWith("/classes/c-1/live/decks/from-material", { materialId: "mat-1" });
+  });
+});

@@ -47,6 +47,8 @@ type TimelineEntry struct {
 	Session          domain.ClassSession
 	LiveSessionCount int
 	CommandCount     int
+	// MaterialCount is how many materials the reader sees in the lesson (SPEC-074 CA-09).
+	MaterialCount int
 }
 
 // Timeline is the three blocks of the class at the now of the server, and the open room of the class, linked to a lesson or not.
@@ -63,6 +65,8 @@ type Diary struct {
 	Entry        TimelineEntry
 	Content      SessionContent
 	LiveSessions []LiveSummary
+	// Materials are the ones the reader sees: all for the teacher, the visible ones for a student (SPEC-074).
+	Materials []MaterialView
 }
 
 // Timeline splits the lessons of the class at the now of the server (SPEC-073 RN-01). The lesson linked to the open room is the current one,
@@ -126,8 +130,16 @@ func (s *Service) Timeline(ctx context.Context, actor Actor, classID uuid.UUID) 
 	if err != nil {
 		return Timeline{}, err
 	}
+	ids := make([]uuid.UUID, len(all))
+	for i, x := range all {
+		ids[i] = x.ID
+	}
+	materials, err := s.repo.ListMaterials(ctx, ids)
+	if err != nil {
+		return Timeline{}, err
+	}
 	entry := func(x domain.ClassSession) TimelineEntry {
-		e := TimelineEntry{Session: x, LiveSessionCount: len(rooms[x.ID])}
+		e := TimelineEntry{Session: x, LiveSessionCount: len(rooms[x.ID]), MaterialCount: materialCount(actor, x, rooms[x.ID], materials[x.ID], now)}
 		for _, r := range rooms[x.ID] {
 			e.CommandCount += r.CommandCount
 		}
@@ -165,11 +177,16 @@ func (s *Service) Diary(ctx context.Context, actor Actor, classID, sessionID uui
 	if linked == nil {
 		linked = []LiveSummary{}
 	}
-	entry := TimelineEntry{Session: session, LiveSessionCount: len(linked)}
+	list, err := s.materialsOf(ctx, sessionID)
+	if err != nil {
+		return Diary{}, err
+	}
+	now := s.now()
+	entry := TimelineEntry{Session: session, LiveSessionCount: len(linked), MaterialCount: materialCount(actor, session, linked, list, now)}
 	for _, r := range linked {
 		entry.CommandCount += r.CommandCount
 	}
-	return Diary{Entry: entry, Content: content, LiveSessions: linked}, nil
+	return Diary{Entry: entry, Content: content, LiveSessions: linked, Materials: materialViews(actor, session, linked, list, now)}, nil
 }
 
 // linkedRooms reads, in one go, the rooms linked to the lessons; without the live classroom plugged in, there are none.

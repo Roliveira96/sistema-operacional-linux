@@ -1,24 +1,20 @@
 "use client";
 
-import { type DragEvent, type FormEvent, useEffect, useId, useState } from "react";
+import { type FormEvent, useEffect, useId, useState } from "react";
 import { Button } from "@/components/Button/Button";
-import { readPdfInfo } from "@/components/Classroom/SlidePresenter/pdfRenderer";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
+import { SessionMaterials } from "@/components/SessionMaterials/SessionMaterials";
 import { messages } from "@/messages/pt-BR";
-import { classroomService } from "@/services/classroomService";
 import { ApiProblemError } from "@/services/httpClient";
 import { moduleService, type CourseModuleSummary } from "@/services/moduleService";
 import { scheduleService, type Session, type SessionContent } from "@/services/scheduleService";
 import styles from "./SessionContentForm.module.scss";
 
 const m = messages.schedule.content;
-const pdf = messages.classroom.panel.errors;
 
 const TOPIC_MAX = 120;
 const LINK_NAME_MAX = 80;
 const MAX_LINKS = 10;
-const MAX_PAGES = 100;
-const MAX_BYTES = 25 * 1024 * 1024;
 
 export interface SessionContentFormProps {
   classId: string;
@@ -48,7 +44,7 @@ function isHttps(address: string): boolean {
   }
 }
 
-/** The dialog where the teacher says what one lesson covers: topic, description, links, module and presentation (SPEC-053, 3.1). */
+/** The dialog where the teacher says what one lesson covers: topic, description, links, module and materials (SPEC-053, 3.1; SPEC-074). */
 export function SessionContentForm({ classId, session, onSaved, onClose }: SessionContentFormProps) {
   const baseId = useId();
   const [content, setContent] = useState<SessionContent | null>(null);
@@ -62,19 +58,14 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
   const [teacherPrivateNotes, setTeacherPrivateNotes] = useState("");
   const [links, setLinks] = useState<Link[]>([]);
   const [moduleId, setModuleId] = useState("");
-  const [deckId, setDeckId] = useState("");
-  const [classDecks, setClassDecks] = useState<Option[]>([]);
-  const [uploaded, setUploaded] = useState<Option[]>([]);
   const [linkName, setLinkName] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
 
   const [errors, setErrors] = useState<
-    Partial<Record<"topic" | "description" | "teacherNotes" | "teacherPrivateNotes" | "linkName" | "linkUrl" | "links" | "file", string>>
+    Partial<Record<"topic" | "description" | "teacherNotes" | "teacherPrivateNotes" | "linkName" | "linkUrl" | "links", string>>
   >({});
   const [banner, setBanner] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -96,7 +87,6 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
         setTeacherPrivateNotes(loaded.teacherPrivateNotes ?? "");
         setLinks(loaded.links.map((l) => ({ name: l.name, url: l.url })));
         setModuleId(loaded.module?.id ?? "");
-        setDeckId(loaded.deck?.id ?? "");
         setLoadFailed(false);
       },
       () => active && setLoadFailed(true),
@@ -117,18 +107,6 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
     };
   }, []);
 
-  // The presentations of the class, the most recent first (SPEC-053 CA-13).
-  useEffect(() => {
-    let active = true;
-    classroomService.listDecks(classId).then(
-      (res) => active && setClassDecks(res.map((d) => ({ id: d.id, title: d.title }))),
-      () => undefined,
-    );
-    return () => {
-      active = false;
-    };
-  }, [classId]);
-
   const retry = () => {
     setLoadFailed(false);
     setAttempt((n) => n + 1);
@@ -136,12 +114,6 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
 
   // The module of the lesson may not be among the ones listed (it can be of another teacher): keep it as an option.
   const moduleOptions = content?.module && !modules.some((x) => x.id === content.module?.id) ? [...modules, content.module] : modules;
-
-  // The list, plus the one of the lesson and the ones sent here when the list did not bring them yet.
-  const deckOptions = [...classDecks];
-  for (const extra of [...(content?.deck ? [{ id: content.deck.id, title: content.deck.title }] : []), ...uploaded]) {
-    if (!deckOptions.some((d) => d.id === extra.id)) deckOptions.push(extra);
-  }
 
   const addLink = () => {
     const name = linkName.trim();
@@ -159,33 +131,6 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
     setLinkUrl("");
   };
 
-  /** Validates and sends the presentation, chosen by click or dropped on the area (SPEC-053 CA-15). */
-  const sendFile = async (file: File | undefined) => {
-    setErrors((prev) => ({ ...prev, file: undefined }));
-    if (!file) return;
-    const fail = (message: string) => setErrors((prev) => ({ ...prev, file: message }));
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) return fail(pdf.notPdf);
-    if (file.size > MAX_BYTES) return fail(pdf.tooBig);
-    let pageCount: number;
-    try {
-      ({ pageCount } = await readPdfInfo(file));
-    } catch {
-      return fail(pdf.invalidPdf);
-    }
-    if (pageCount > MAX_PAGES) return fail(pdf.tooManyPages);
-    setUploading(true);
-    try {
-      const title = file.name.replace(/\.pdf$/i, "").trim().slice(0, 120) || file.name;
-      const deck = await classroomService.uploadDeck(classId, file, title, pageCount);
-      setUploaded((prev) => [...prev.filter((d) => d.id !== deck.id), { id: deck.id, title: deck.title }]);
-      setDeckId(deck.id);
-    } catch (err) {
-      fail(err instanceof ApiProblemError && err.type === "deck-limit-exceeded" ? pdf.deckLimit : m.errors.upload);
-    } finally {
-      setUploading(false);
-    }
-  };
-
   /** Puts a problem of the server on the field it is about, or at the top. */
   const showProblem = (err: unknown) => {
     if (err instanceof ApiProblemError) {
@@ -201,7 +146,6 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
         if (field === "teacherPrivateNotes") return setErrors({ teacherPrivateNotes: m.errors.notesTooLong });
         return setErrors({ description: m.errors.descriptionTooLong });
       }
-      if (err.type === "deck-not-found") return setBanner(m.errors.deckGone);
       if (err.type === "module-not-found") return setBanner(m.errors.moduleGone);
       if (err.type === "forbidden") return setBanner(m.errors.forbidden);
       if (err.type === "session-not-found") return setBanner(m.errors.sessionGone);
@@ -220,7 +164,7 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
     setErrors({});
     setSaving(true);
     try {
-      await scheduleService.saveSessionContent(classId, session.id, { topic: name, description, moduleId, deckId, links, teacherNotes, teacherPrivateNotes });
+      await scheduleService.saveSessionContent(classId, session.id, { topic: name, description, moduleId, links, teacherNotes, teacherPrivateNotes });
       onSaved();
       onClose();
     } catch (err) {
@@ -230,26 +174,6 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
     }
   };
 
-  const busy = saving || uploading;
-
-  // Only a drag that carries files lights the area up; the first dropped file is the one sent.
-  const carriesFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files");
-  const dragOver = (event: DragEvent<HTMLLabelElement>) => {
-    if (!carriesFiles(event)) return;
-    event.preventDefault();
-    if (!busy) setDragging(true);
-  };
-  const dragLeave = (event: DragEvent<HTMLLabelElement>) => {
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-    setDragging(false);
-  };
-  const dropFile = (event: DragEvent<HTMLLabelElement>) => {
-    event.preventDefault();
-    setDragging(false);
-    if (busy) return;
-    const file = event.dataTransfer?.files?.[0];
-    if (file) void sendFile(file);
-  };
   const titleId = `${baseId}-title`;
 
   return (
@@ -423,72 +347,23 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
                   {errors.links && <span className={styles.fieldError}>{errors.links}</span>}
                 </fieldset>
 
-                <div className={styles.pair}>
-                  <div className={styles.field}>
-                    <label htmlFor={`${baseId}-module`} className={styles.label}>
-                      {m.moduleLabel}
-                    </label>
-                    <select id={`${baseId}-module`} className={styles.input} value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
-                      <option value="">{m.moduleNone}</option>
-                      {moduleOptions.map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className={styles.field}>
-                    <label htmlFor={`${baseId}-deck`} className={styles.label}>
-                      {m.deckLabel}
-                    </label>
-                    <select id={`${baseId}-deck`} className={styles.input} value={deckId} onChange={(e) => setDeckId(e.target.value)}>
-                      <option value="">{m.deckNone}</option>
-                      {deckOptions.map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
                 <div className={styles.field}>
-                  <label htmlFor={`${baseId}-file`} className={styles.label}>
-                    {m.uploadLabel}
+                  <label htmlFor={`${baseId}-module`} className={styles.label}>
+                    {m.moduleLabel}
                   </label>
-                  {/* The drop area: a label of the same input, so a click still opens the file picker. */}
-                  <label
-                    htmlFor={`${baseId}-file`}
-                    className={styles.dropzone}
-                    data-dragging={dragging ? "true" : undefined}
-                    data-busy={busy ? "true" : undefined}
-                    onDragEnter={dragOver}
-                    onDragOver={dragOver}
-                    onDragLeave={dragLeave}
-                    onDrop={dropFile}
-                  >
-                    <span className={styles.dropIcon} aria-hidden="true">
-                      ⇪
-                    </span>
-                    <span className={styles.dropHint}>{m.dropHint}</span>
-                    <span className={styles.dropLimits}>{m.dropLimits}</span>
-                    <input
-                      id={`${baseId}-file`}
-                      className={styles.fileInput}
-                      type="file"
-                      accept="application/pdf,.pdf"
-                      disabled={busy}
-                      onChange={(e) => {
-                        void sendFile(e.target.files?.[0]);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                  {uploading && <span className={styles.muted}>{m.uploading}</span>}
-                  {errors.file && <span className={styles.fieldError}>{errors.file}</span>}
+                  <select id={`${baseId}-module`} className={styles.input} value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
+                    <option value="">{m.moduleNone}</option>
+                    {moduleOptions.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.title}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </section>
+
+              {/* The materials are saved on the spot, one by one: they are not part of the Save of the content (SPEC-074). */}
+              <SessionMaterials classId={classId} sessionId={session.id} />
 
               {banner && (
                 <div className={styles.error} role="alert">
@@ -501,7 +376,7 @@ export function SessionContentForm({ classId, session, onSaved, onClose }: Sessi
               <Button variant="secondary" onClick={onClose} disabled={saving}>
                 {m.cancel}
               </Button>
-              <Button type="submit" disabled={busy}>
+              <Button type="submit" disabled={saving}>
                 {saving ? m.saving : m.save}
               </Button>
             </div>

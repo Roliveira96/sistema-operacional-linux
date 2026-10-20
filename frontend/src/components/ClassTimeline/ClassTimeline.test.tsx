@@ -10,6 +10,7 @@ const entry = (id: string, date: string, start: string, end: string, over: Parti
   endsAt: `${date}T${end}:00-03:00`,
   liveSessionCount: 0,
   commandCount: 0,
+  materialCount: 0,
   ...over,
 });
 
@@ -30,6 +31,7 @@ const diaryOf = (e: TimelineEntry): SessionDiary => ({
   session: e,
   content: { topic: e.topic, links: [], teacherNotes: `<p>Notas de ${e.id}</p>` },
   liveSessions: [],
+  materials: [],
 });
 
 // The visibility of the tab, which jsdom keeps always visible.
@@ -296,5 +298,27 @@ describe("actions of the cards (SPEC-073 CA-12, CA-13)", () => {
     expect(within(current).getByText("Notas de s-19")).toBeDefined();
     fireEvent.click(within(current).getByRole("button", { name: "Recolher" }));
     expect(within(current).queryByText("Notas de s-19")).toBeNull();
+  });
+});
+
+// SPEC-074 CA-11: the cards say how many materials the lesson has, as many as the reader sees
+describe("materials in the cards (SPEC-074 CA-11)", () => {
+  it("says how many materials each lesson has, in the singular for one, and nothing for none", async () => {
+    setup("student", {
+      current: entry("s-19", "2026-10-19", "08:20", "10:00", { topic: "Permissões de arquivos", hasContent: true, materialCount: 3 }),
+      past: [entry("s-14", "2026-10-14", "13:50", "15:30", { topic: "Processos", hasContent: true, materialCount: 1 })],
+      upcoming: [entry("s-21", "2026-10-21", "13:50", "15:30", { topic: "Usuários e grupos", hasContent: true, materialCount: 2 }), entry("s-26", "2026-10-26", "08:20", "10:00")],
+    });
+    await flush();
+    expect(within(block("Aula atual")).getByText("3 materiais")).toBeDefined();
+    expect(within(block("Aulas passadas")).getByText("1 material")).toBeDefined();
+    expect(within(block("Próximas aulas")).getByText("2 materiais")).toBeDefined();
+    expect(screen.getAllByText(/^\d+ (material|materiais)$/)).toHaveLength(3);
+  });
+
+  it("lets a student open an upcoming lesson that has materials only, to see the ones that come before the class", async () => {
+    setup("student", { upcoming: [entry("s-21", "2026-10-21", "13:50", "15:30", { hasContent: true, materialCount: 1 })] });
+    await flush();
+    expect(within(block("Próximas aulas")).getByRole("button", { name: "Ver detalhes" })).toBeDefined();
   });
 });

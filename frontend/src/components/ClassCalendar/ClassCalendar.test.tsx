@@ -184,7 +184,6 @@ describe("ClassCalendar", () => {
       topic: "Permissões de arquivos",
       description: "<p>Veremos <strong>chmod</strong>.</p>",
       module: { id: "m-1", title: "Linux na prática" },
-      deck: { id: "d-1", title: "Slides 1", pageCount: 12, downloadUrl: "https://minio/d-1.pdf" },
       links: [{ name: "Meet", url: "https://meet.google.com/abc", position: 0 }],
     };
     const withContent = () => {
@@ -204,7 +203,7 @@ describe("ClassCalendar", () => {
     });
 
     // CA-10
-    it("shows the content to whoever reads the lesson: topic, description, links, module and presentation", async () => {
+    it("shows the content to whoever reads the lesson: topic, description, links and module", async () => {
       const loadContent = vi.fn().mockResolvedValue(content);
       setup({ load: vi.fn().mockResolvedValue(withContent()), loadContent });
       await screen.findByRole("heading", { name: "outubro de 2026" });
@@ -219,11 +218,19 @@ describe("ClassCalendar", () => {
       expect(meet.getAttribute("target")).toBe("_blank");
       expect(meet.getAttribute("rel")).toBe("noopener noreferrer");
       expect(within(panel).getByRole("link", { name: "Linux na prática" }).getAttribute("href")).toBe("/app/modules/m-1");
-      const deck = within(panel).getByRole("link", { name: "Ver apresentação" });
-      expect(deck.getAttribute("href")).toBe("https://minio/d-1.pdf");
-      expect(deck.getAttribute("rel")).toBe("noopener noreferrer");
       expect(within(panel).queryByRole("button", { name: "Conteúdo da aula" })).toBeNull();
       expect(within(panel).queryByRole("button", { name: "Iniciar aula ao vivo" })).toBeNull();
+    });
+
+    // SPEC-074 CA-18: the presentation left the content of the lesson; the files are the materials
+    it("does not show a link to a presentation, even if the server still sends one", async () => {
+      const stale = { ...content, deck: { id: "d-1", title: "Slides 1", pageCount: 12, downloadUrl: "https://minio/d-1.pdf" } } as unknown as SessionContent;
+      setup({ load: vi.fn().mockResolvedValue(withContent()), loadContent: vi.fn().mockResolvedValue(stale) });
+      await screen.findByRole("heading", { name: "outubro de 2026" });
+      fireEvent.click(monday26());
+      const panel = screen.getByRole("region", { name: "segunda-feira, 26 de outubro de 2026" });
+      expect(await within(panel).findByText(/Veremos/)).toBeDefined();
+      expect(within(panel).queryByRole("link", { name: "Ver apresentação" })).toBeNull();
     });
 
     it("does not load the content of a lesson that has none", async () => {

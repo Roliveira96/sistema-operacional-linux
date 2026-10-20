@@ -124,6 +124,15 @@ type Repository interface {
 	// SaveContent saves the lesson and replaces its links in one transaction (SPEC-053).
 	SaveContent(ctx context.Context, s *domain.ClassSession, links []domain.SessionLink) error
 	ListSessionLinks(ctx context.Context, sessionID uuid.UUID) ([]domain.SessionLink, error)
+	// The materials of the lessons (SPEC-074): ListMaterials gives, in the order of the teacher, the ones not deleted of each lesson in one reading.
+	ListMaterials(ctx context.Context, sessionIDs []uuid.UUID) (map[uuid.UUID][]domain.ClassSessionMaterial, error)
+	FindMaterial(ctx context.Context, id uuid.UUID) (domain.ClassSessionMaterial, error)
+	CreateMaterial(ctx context.Context, m *domain.ClassSessionMaterial) error
+	// SaveMaterials updates the title, kind, phase, release and position of the materials in one transaction.
+	SaveMaterials(ctx context.Context, list []domain.ClassSessionMaterial) error
+	DeleteMaterial(ctx context.Context, id uuid.UUID) error
+	// SetHasContent sets the flag of content of a lesson alone, so it is kept (or not) when the weekly lessons are regenerated.
+	SetHasContent(ctx context.Context, sessionID uuid.UUID, has bool) error
 
 	ListEvents(ctx context.Context, classIDs []uuid.UUID, from, to time.Time) ([]domain.ClassEvent, error)
 	FindEvent(ctx context.Context, id uuid.UUID) (domain.ClassEvent, error)
@@ -153,9 +162,10 @@ type Service struct {
 	now       func() time.Time
 	publicURL string
 	richText  *htmlsafe.Sanitizer
-	decks     Decks
 	modules   Modules
 	live      LiveSessions
+	files     MaterialFiles
+	store     MaterialStore
 }
 
 // New creates the service. publicURL is the address of the application, used in the e-mails.

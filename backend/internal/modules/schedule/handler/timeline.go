@@ -19,6 +19,7 @@ type timelineEntryJSON struct {
 	EndsAt           time.Time `json:"endsAt"`
 	LiveSessionCount int       `json:"liveSessionCount"`
 	CommandCount     int       `json:"commandCount"`
+	MaterialCount    int       `json:"materialCount"`
 }
 
 type timelineJSON struct {
@@ -43,13 +44,14 @@ type diaryJSON struct {
 	Session      timelineEntryJSON `json:"session"`
 	Content      contentJSON       `json:"content"`
 	LiveSessions []liveSummaryJSON `json:"liveSessions"`
+	Materials    []materialJSON    `json:"materials"`
 }
 
 func local(t time.Time) time.Time { return t.In(domain.Location()) }
 
 func toEntryJSON(e service.TimelineEntry) timelineEntryJSON {
 	return timelineEntryJSON{sessionJSON: toSessionJSON(e.Session), StartsAt: e.Session.StartsAt(), EndsAt: e.Session.EndsAt(),
-		LiveSessionCount: e.LiveSessionCount, CommandCount: e.CommandCount}
+		LiveSessionCount: e.LiveSessionCount, CommandCount: e.CommandCount, MaterialCount: e.MaterialCount}
 }
 
 func toEntriesJSON(list []service.TimelineEntry) []timelineEntryJSON {
@@ -114,5 +116,6 @@ func (h *Handler) diary(c *gin.Context) {
 		fail(c, toProblem(err))
 		return
 	}
-	c.JSON(http.StatusOK, diaryJSON{Session: toEntryJSON(d.Entry), Content: toContentJSON(d.Content), LiveSessions: toLiveJSON(d.LiveSessions)})
+	c.JSON(http.StatusOK, diaryJSON{Session: toEntryJSON(d.Entry), Content: toContentJSON(d.Content), LiveSessions: toLiveJSON(d.LiveSessions),
+		Materials: toMaterialsJSON(d.Materials, isStaff(actor))})
 }

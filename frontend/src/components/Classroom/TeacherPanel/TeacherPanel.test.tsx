@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useLiveClassroom } from "@/hooks/useLiveClassroom";
 import { classroomService, type LiveModuleContent, type LiveSession } from "@/services/classroomService";
 import { moduleService } from "@/services/moduleService";
+import { scheduleService } from "@/services/scheduleService";
 import { TeacherPanel } from "./TeacherPanel";
 
 const styleOf = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -227,6 +228,31 @@ describe("TeacherPanel", () => {
     await flush();
     expect(screen.queryByTestId("thumbs")).toBeNull();
     expect((screen.getByRole("img", { name: "Esquema" }) as HTMLImageElement).src).toBe("https://minio/e.png");
+  });
+
+  // SPEC-074 CA-17: the materials of the lesson the room is linked to, in the panel of the teacher
+  it("shows the files of the lesson the room is linked to, and projects one of them on the stage", async () => {
+    const f = live();
+    vi.spyOn(scheduleService, "materials").mockResolvedValue([
+      { id: "mat-1", position: 0, title: "Slides 01", kind: "SLIDES", visibility: "AFTER_CLASS", releaseAt: null, source: "FILE", fileName: "slides.pdf", contentType: "application/pdf", sizeBytes: 1024, pageCount: 12, visibleNow: false },
+    ] as never);
+    vi.spyOn(classroomService, "projectMaterial").mockResolvedValue({ id: "d-9", title: "Slides 01", pageCount: 12, kind: "PDF", downloadUrl: "https://x" });
+    render(<TeacherPanel {...props()} session={{ ...session, classSessionId: "cs-1" }} />);
+    await flush();
+    expect(scheduleService.materials).toHaveBeenCalledWith("c-1", "cs-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Projetar Slides 01" }));
+    await flush();
+    expect(classroomService.projectMaterial).toHaveBeenCalledWith("c-1", "mat-1");
+    expect(f.selectDeck).toHaveBeenCalledWith("d-9");
+  });
+
+  it("has no materials of a lesson when the room is not linked to one", async () => {
+    live();
+    const materials = vi.spyOn(scheduleService, "materials").mockResolvedValue([]);
+    render(<TeacherPanel {...props()} />);
+    await flush();
+    expect(materials).not.toHaveBeenCalled();
+    expect(screen.queryByRole("region", { name: "Materiais da aula" })).toBeNull();
   });
 
   // SPEC-068: the files of the class, with the class going on, and the choice of what is on the stage

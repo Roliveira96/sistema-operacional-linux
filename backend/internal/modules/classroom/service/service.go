@@ -48,6 +48,8 @@ type Repository interface {
 	ListDecks(ctx context.Context, classID uuid.UUID) ([]domain.SlideDeck, error)
 	CreateDeck(ctx context.Context, d *domain.SlideDeck) error
 	FindDeck(ctx context.Context, id uuid.UUID) (domain.SlideDeck, error)
+	// FindDeckByObjectKey gives the presentation of the class that points to the object, or domain.ErrDeckNotFound (SPEC-074 RN-08).
+	FindDeckByObjectKey(ctx context.Context, classID uuid.UUID, key string) (domain.SlideDeck, error)
 
 	// RaiseHand queues the hand with its question ("" is none). A hand of the student that is already waiting only takes the new
 	// question and keeps its place in the queue (SPEC-058).
@@ -156,6 +158,8 @@ type Service struct {
 	onEnded func(sessionID uuid.UUID)
 	live    *liveStates
 	modules Modules
+	// the materials of the lessons that the teacher can project (SPEC-074)
+	lessonMaterials LessonMaterials
 
 	// the exercise of the lesson (SPEC-065)
 	exercises        Exercises

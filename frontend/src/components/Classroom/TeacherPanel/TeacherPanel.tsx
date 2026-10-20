@@ -342,7 +342,7 @@ export function TeacherPanel({ classId, session, beep = webAudioBeep, loader }: 
             ))}
           </ol>
 
-          <FilesPanel classId={classId} onProject={live.selectDeck} />
+          <FilesPanel classId={classId} classSessionId={session.classSessionId} onProject={live.selectDeck} />
 
           <section className={styles.summary} aria-label={t.summary.title}>
             <dl className={styles.facts}>

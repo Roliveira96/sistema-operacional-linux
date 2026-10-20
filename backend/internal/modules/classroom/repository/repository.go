@@ -198,6 +198,13 @@ func (r *Repository) FindDeck(ctx context.Context, id uuid.UUID) (domain.SlideDe
 	return d, notFound(err, domain.ErrDeckNotFound)
 }
 
+// FindDeckByObjectKey gives the presentation of the class that points to the object, or domain.ErrDeckNotFound (SPEC-074 RN-08).
+func (r *Repository) FindDeckByObjectKey(ctx context.Context, classID uuid.UUID, key string) (domain.SlideDeck, error) {
+	var d domain.SlideDeck
+	err := r.db.Conn(ctx).Where("class_id = ? AND object_key = ?", classID, key).Order("created_at").First(&d).Error
+	return d, notFound(err, domain.ErrDeckNotFound)
+}
+
 // ---- raised hands ----
 
 // RaiseHand puts the student in the queue with his question ("" is none, kept as null). A hand of his that is already waiting only takes

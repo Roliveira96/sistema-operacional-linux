@@ -67,6 +67,8 @@ var (
 	ErrModuleNotFound       = errors.New("teaching module not found")
 	ErrNotesNotFound        = errors.New("no notes of the student in this live classroom")
 	ErrDeckLimit            = errors.New("the class already has 100 presentations")
+	ErrMaterialNotFound     = errors.New("material not found")
+	ErrMaterialNotProjectable = errors.New("the material is a link: only a PDF or an image can be projected")
 	ErrActiveSessionExists  = errors.New("the class already has a live classroom open")
 	ErrInvalidBlock         = errors.New("the block must have an id of up to 64 characters")
 	ErrNotAdmitted          = errors.New("the teacher has not admitted you to this live classroom")

@@ -52,6 +52,8 @@ type fakeService struct {
 	// SPEC-073
 	timeline service.Timeline
 	diary    service.Diary
+	// SPEC-074
+	mat materialCalls
 }
 
 func (f *fakeService) Meetings(ctx context.Context, a service.Actor, classID uuid.UUID) ([]domain.WeeklyMeeting, error) {

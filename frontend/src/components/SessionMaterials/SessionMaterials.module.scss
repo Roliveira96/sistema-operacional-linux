@@ -1,0 +1,339 @@
+@use "@/styles/mixins" as mixins;
+
+// The materials of a lesson in the content dialog (SPEC-074, section 3.1): one area for each phase, where the files are dropped.
+
+.materials {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.help,
+.hint,
+.muted {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.zones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+// An area. While a file is over it, it lights up: the one that will get the file.
+.zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised);
+
+  @include mixins.transition(border-color, background-color);
+
+  &[data-dragging="true"] {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent-subtle);
+  }
+}
+
+.zoneHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.zoneTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  min-width: 0;
+}
+
+// A file on its way, or one that was refused.
+.pending {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.fileName {
+  min-width: 0;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.fileError {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+}
+
+// The place to drop files.
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+// the area under the file
+.dropOn {
+  border-color: var(--color-accent);
+}
+
+.dropText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.dropTextOn {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dropActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+// The real input stays in the page for the keyboard and the screen reader; the label is the button.
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+
+  &:focus-visible + label {
+    @include mixins.focus-ring;
+  }
+}
+
+.linkForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.linkActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.input {
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+
+  @include mixins.focusable;
+
+  &[aria-invalid="true"] {
+    border-color: var(--color-danger);
+  }
+}
+
+.fieldError {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+}
+
+// A material.
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+}
+
+.rowTop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+// The file or the site, and why the material is hidden, in a line under the title.
+.detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+
+  > span {
+    overflow-wrap: anywhere;
+  }
+}
+
+.hiddenTag {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+  font-weight: var(--font-weight-semibold);
+}
+
+.rowFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-3);
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+// The area to send files with no phase chosen: they start in "Só durante a aula" (SPEC-074 CA-14).
+.sendAll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sendAllLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.sendAllArea {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-4);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) ease,
+    background var(--duration-fast) ease;
+
+  &:hover {
+    border-color: var(--color-accent);
+  }
+
+  &:focus-within {
+    @include mixins.focus-ring;
+  }
+
+  &[data-dragging="true"] {
+    border-color: var(--color-accent);
+    border-style: solid;
+    background: var(--color-orange-faint);
+  }
+}
+
+.sendAllHint {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.sendAllNote {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+// The real input stays for the click and the keyboard, out of sight.
+.sendAllInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

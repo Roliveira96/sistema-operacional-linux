@@ -27,6 +27,13 @@ type ScheduleService interface {
 	Content(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (service.SessionContent, error)
 	Timeline(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Timeline, error)
 	Diary(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (service.Diary, error)
+	Materials(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) ([]service.MaterialView, error)
+	AddFileMaterial(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, in service.FileMaterialInput) (service.MaterialView, error)
+	AddLinkMaterial(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID, in service.LinkMaterialInput) (service.MaterialView, error)
+	UpdateMaterial(ctx context.Context, actor service.Actor, classID, sessionID, materialID uuid.UUID, change service.MaterialChange) (service.MaterialView, error)
+	ReleaseMaterial(ctx context.Context, actor service.Actor, classID, sessionID, materialID uuid.UUID) (service.MaterialView, error)
+	DeleteMaterial(ctx context.Context, actor service.Actor, classID, sessionID, materialID uuid.UUID) error
+	MaterialDownload(ctx context.Context, actor service.Actor, classID, sessionID, materialID uuid.UUID) (service.Download, error)
 	CreateExtraSession(ctx context.Context, actor service.Actor, classID uuid.UUID, session domain.ClassSession) (domain.ClassSession, error)
 	DeleteExtraSession(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) error
 	CreateEvent(ctx context.Context, actor service.Actor, classID uuid.UUID, event domain.ClassEvent) (domain.ClassEvent, error)
@@ -67,6 +74,13 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.DELETE("/classes/:id/sessions/:sessionId/override", h.revertSession)
 	g.PUT("/classes/:id/sessions/:sessionId/content", h.saveContent)
 	g.GET("/classes/:id/sessions/:sessionId/content", h.content)
+	g.GET("/classes/:id/sessions/:sessionId/materials", h.materials)
+	g.POST("/classes/:id/sessions/:sessionId/materials/files", h.addFileMaterial)
+	g.POST("/classes/:id/sessions/:sessionId/materials/links", h.addLinkMaterial)
+	g.PATCH("/classes/:id/sessions/:sessionId/materials/:materialId", h.updateMaterial)
+	g.POST("/classes/:id/sessions/:sessionId/materials/:materialId/release", h.releaseMaterial)
+	g.GET("/classes/:id/sessions/:sessionId/materials/:materialId/download", h.materialDownload)
+	g.DELETE("/classes/:id/sessions/:sessionId/materials/:materialId", h.deleteMaterial)
 	g.POST("/classes/:id/events", h.createEvent)
 	g.PATCH("/classes/:id/events/:eventId", h.updateEvent)
 	g.DELETE("/classes/:id/events/:eventId", h.deleteEvent)
@@ -428,8 +442,20 @@ func toProblem(err error) *problem.Problem {
 		return withField(problem.BadRequest("invalid-session-content", err.Error()))
 	case errors.Is(err, domain.ErrContentTooLong):
 		return withField(problem.BadRequest("content-too-long", err.Error()))
-	case errors.Is(err, domain.ErrDeckNotFound):
-		return problem.NotFound("deck-not-found", err.Error())
+	case errors.Is(err, domain.ErrInvalidMaterial):
+		return withField(problem.BadRequest("invalid-material", err.Error()))
+	case errors.Is(err, domain.ErrInvalidMaterialFile):
+		return withField(problem.BadRequest("invalid-file", err.Error()))
+	case errors.Is(err, domain.ErrNotAFile):
+		return problem.BadRequest("not-a-file", err.Error())
+	case errors.Is(err, domain.ErrMaterialFileTooLarge):
+		return problem.PayloadTooLarge(err.Error())
+	case errors.Is(err, domain.ErrMaterialLimitExceeded):
+		return problem.Conflict("material-limit-exceeded", err.Error())
+	case errors.Is(err, domain.ErrAlreadyVisible):
+		return problem.Conflict("already-visible", err.Error())
+	case errors.Is(err, domain.ErrMaterialNotFound):
+		return problem.NotFound("material-not-found", err.Error())
 	case errors.Is(err, domain.ErrModuleNotFound):
 		return problem.NotFound("module-not-found", err.Error())
 	case errors.Is(err, domain.ErrForbidden):

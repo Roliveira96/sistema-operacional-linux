@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveTerminalCommand } from "@/services/classroomService";
-import type { SessionDiary as Diary } from "@/services/scheduleService";
+import type { SessionDiary as Diary, SessionMaterial } from "@/services/scheduleService";
 import { session } from "@/test/scheduleFixtures";
 import { SessionDiary } from "./SessionDiary";
 
@@ -13,7 +13,7 @@ afterEach(() => {
 const lesson = session({ id: "s-26", date: "2026-10-26", topic: "Permissões de arquivos", hasContent: true });
 
 const diary = (over: Partial<Diary> = {}): Diary => ({
-  session: { ...lesson, startsAt: "2026-10-26T08:20:00-03:00", endsAt: "2026-10-26T10:00:00-03:00", liveSessionCount: 1, commandCount: 2 },
+  session: { ...lesson, startsAt: "2026-10-26T08:20:00-03:00", endsAt: "2026-10-26T10:00:00-03:00", liveSessionCount: 1, commandCount: 2, materialCount: 0 },
   content: {
     topic: "Permissões de arquivos",
     description: "<p>Veremos <strong>chmod</strong>.</p>",
@@ -24,6 +24,7 @@ const diary = (over: Partial<Diary> = {}): Diary => ({
   liveSessions: [
     { id: "live-1", title: "Aula de segunda", status: "FINISHED", startedAt: "2026-10-26T08:25:00-03:00", endedAt: "2026-10-26T10:00:00-03:00", durationMinutes: 95, commandCount: 2 },
   ],
+  materials: [],
   ...over,
 });
 
@@ -181,5 +182,111 @@ describe("diary with nothing registered (SPEC-073 CA-12)", () => {
     render(<SessionDiary classId="c-1" session={lesson} role="student" load={load} loadCommands={vi.fn()} showEmpty />);
     expect(await screen.findByText("Nada registrado nesta aula ainda.")).toBeDefined();
     expect(screen.queryByText("Segredo")).toBeNull();
+  });
+});
+
+// SPEC-074 CA-11: the materials of the lesson, by phase
+describe("materials of the lesson (SPEC-074 CA-11)", () => {
+  const item = (over: Partial<SessionMaterial> & Pick<SessionMaterial, "id" | "title" | "visibility">): SessionMaterial => ({
+    position: 0, kind: "REFERENCE", releaseAt: null, source: "LINK", url: "https://example.com/doc", visibleNow: true, ...over,
+  });
+  const roteiro = item({ id: "m-1", title: "Roteiro", kind: "SLIDES", visibility: "ALWAYS", source: "FILE", url: undefined, fileName: "roteiro.pdf", contentType: "application/pdf", sizeBytes: 2 * 1024 * 1024, pageCount: 12 });
+  const lista = item({ id: "m-2", title: "Lista 1", kind: "EXERCISES", visibility: "DURING_CLASS", source: "FILE", url: undefined, fileName: "lista.pdf", sizeBytes: 300 * 1024 });
+  const apoio = item({ id: "m-3", title: "Apoio", kind: "REFERENCE", visibility: "DURING_AND_AFTER", url: "https://docs.example.org/guia" });
+  const resolucao = item({ id: "m-4", title: "Resolução", kind: "EXERCISE_SOLUTION", visibility: "AFTER_CLASS", source: "FILE", url: undefined, fileName: "res.pdf", sizeBytes: 1024 });
+
+  function withMaterials(materials: SessionMaterial[], role: "teacher" | "student" = "student", service: Partial<Record<"materialDownload" | "releaseMaterial", ReturnType<typeof vi.fn>>> = {}) {
+    const load = vi.fn().mockResolvedValue(diary({ materials }));
+    const fake = { materialDownload: vi.fn(), releaseMaterial: vi.fn(), ...service };
+    render(<SessionDiary classId="c-1" session={lesson} role={role} load={load} loadCommands={vi.fn()} service={fake as never} />);
+    return fake;
+  }
+
+  it("lists the materials by phase, in the order of the phases, each with its type, its size or its site and its action", async () => {
+    withMaterials([resolucao, apoio, lista, roteiro]);
+    expect(await screen.findByRole("heading", { level: 4, name: "Materiais" })).toBeDefined();
+    const groups = screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"));
+    expect(groups).toEqual(["Sempre", "Durante a aula", "Durante e depois da aula", "Depois da aula"]);
+
+    const always = screen.getByRole("group", { name: "Sempre" });
+    expect(within(always).getByText("Roteiro")).toBeDefined();
+    expect(within(always).getByText("Slides")).toBeDefined();
+    expect(within(always).getByText(/2,0 MB/)).toBeDefined();
+    expect(within(always).getByRole("button", { name: "Baixar Roteiro" })).toBeDefined();
+    expect(within(screen.getByRole("group", { name: "Durante a aula" })).getByText("Exercícios")).toBeDefined();
+    expect(within(screen.getByRole("group", { name: "Depois da aula" })).getByText("Resolução dos exercícios")).toBeDefined();
+
+    const both = screen.getByRole("group", { name: "Durante e depois da aula" });
+    expect(within(both).getByText(/docs\.example\.org/)).toBeDefined();
+    const open = within(both).getByRole("link", { name: "Abrir Apoio" });
+    expect(open.getAttribute("href")).toBe("https://docs.example.org/guia");
+    expect(open.getAttribute("target")).toBe("_blank");
+    expect(open.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  it("leaves out the phases that have nothing, and the whole section when there is nothing", async () => {
+    withMaterials([roteiro]);
+    await screen.findByRole("heading", { level: 4, name: "Materiais" });
+    expect(screen.getAllByRole("group")).toHaveLength(1);
+    cleanup();
+
+    withMaterials([]);
+    await waitFor(() => expect(screen.queryByText("Carregando o diário…")).toBeNull());
+    expect(screen.queryByRole("heading", { name: "Materiais" })).toBeNull();
+  });
+
+  it("asks for the address of a file when it is clicked, so it does not expire before, and opens it", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const materialDownload = vi.fn().mockResolvedValue({ downloadUrl: "https://files.example/k?ttl=15m", expiresAt: "2026-10-26T08:35:00-03:00" });
+    withMaterials([roteiro], "student", { materialDownload });
+    await screen.findByRole("heading", { name: "Materiais" });
+    expect(materialDownload).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Baixar Roteiro" }));
+    await waitFor(() => expect(open).toHaveBeenCalledWith("https://files.example/k?ttl=15m", "_blank", "noopener,noreferrer"));
+    expect(materialDownload).toHaveBeenCalledWith("c-1", "s-26", "m-1");
+  });
+
+  it("says when the address of a file cannot be had", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    withMaterials([roteiro], "student", { materialDownload: vi.fn().mockRejectedValue(new Error("down")) });
+    fireEvent.click(await screen.findByRole("button", { name: "Baixar Roteiro" }));
+    expect(await screen.findByText("Não foi possível baixar o arquivo.")).toBeDefined();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("shows the student nothing about what is hidden: no mark, no release, no count", async () => {
+    withMaterials([roteiro]);
+    await screen.findByRole("heading", { name: "Materiais" });
+    expect(screen.queryByText(/Oculto/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Liberar agora/ })).toBeNull();
+  });
+
+  it("shows the teacher the hidden ones with the reason, and releases one now", async () => {
+    const hidden = { ...resolucao, visibleNow: false, hiddenUntil: "CLASS_END" };
+    const releaseMaterial = vi.fn().mockResolvedValue({ ...hidden, visibleNow: true, hiddenUntil: undefined });
+    withMaterials([roteiro, hidden, { ...lista, visibleNow: false, hiddenUntil: "2026-10-26T11:00:00-03:00" }], "teacher", { releaseMaterial });
+    await screen.findByRole("heading", { name: "Materiais" });
+    expect(within(screen.getByRole("group", { name: "Depois da aula" })).getByText("Oculto até o fim da aula")).toBeDefined();
+    expect(within(screen.getByRole("group", { name: "Durante a aula" })).getByText("Oculto até 26/10 11:00")).toBeDefined();
+    expect(screen.queryAllByRole("button", { name: /Liberar agora/ })).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Liberar agora Resolução" }));
+    await waitFor(() => expect(releaseMaterial).toHaveBeenCalledWith("c-1", "s-26", "m-4"));
+    await waitFor(() => expect(screen.queryByText("Oculto até o fim da aula")).toBeNull());
+    expect(screen.queryAllByRole("button", { name: /Liberar agora/ })).toHaveLength(1);
+  });
+
+  it("says why it could not release", async () => {
+    const hidden = { ...resolucao, visibleNow: false, hiddenUntil: "CLASS_END" };
+    withMaterials([hidden], "teacher", { releaseMaterial: vi.fn().mockRejectedValue(new Error("down")) });
+    fireEvent.click(await screen.findByRole("button", { name: "Liberar agora Resolução" }));
+    expect(await screen.findByText("Não foi possível liberar o material.")).toBeDefined();
+  });
+
+  it("does not say nothing was registered for a lesson that has materials only", async () => {
+    const load = vi.fn().mockResolvedValue(diary({ content: { links: [] }, liveSessions: [], materials: [roteiro] }));
+    render(<SessionDiary classId="c-1" session={lesson} role="student" load={load} loadCommands={vi.fn()} showEmpty service={{ materialDownload: vi.fn(), releaseMaterial: vi.fn() } as never} />);
+    expect(await screen.findByRole("heading", { name: "Materiais" })).toBeDefined();
+    expect(screen.queryByText("Nada registrado nesta aula ainda.")).toBeNull();
   });
 });

@@ -22,14 +22,6 @@ func twoSessions(t *testing.T, e env) []domain.ClassSession {
 	return list
 }
 
-func (e env) deck(t *testing.T) uuid.UUID {
-	t.Helper()
-	id := uuid.New()
-	require.NoError(t, e.db.Conn(e.ctx).Exec(`INSERT INTO slide_decks (id, class_id, uploaded_by, title, object_key, page_count, created_at, updated_at)
-		VALUES (?, ?, ?, 'Slides', 'classes/x/decks/x.pdf', 12, NOW(), NOW())`, id, e.class.ID, e.teacher.ID).Error)
-	return id
-}
-
 func links(t *testing.T, session uuid.UUID, names ...string) []domain.SessionLink {
 	t.Helper()
 	in := make([]domain.LinkInput, len(names))
@@ -46,9 +38,8 @@ func TestRepository_SaveContent(t *testing.T) {
 	e := newEnv(t)
 	sessions := twoSessions(t, e)
 	target, other := sessions[0], sessions[1]
-	deck := e.deck(t)
 
-	target.Topic, target.Description, target.DeckID, target.HasContent = str("Permissões"), str("<p>chmod</p>"), &deck, true
+	target.Topic, target.Description, target.HasContent = str("Permissões"), str("<p>chmod</p>"), true
 	require.NoError(t, e.repo.SaveContent(e.ctx, &target, links(t, target.ID, "meet", "video", "slides")))
 
 	found, err := e.repo.FindSession(e.ctx, target.ID)
@@ -56,7 +47,6 @@ func TestRepository_SaveContent(t *testing.T) {
 	require.NotNil(t, found.Topic)
 	assert.Equal(t, "Permissões", *found.Topic)
 	assert.Equal(t, "<p>chmod</p>", *found.Description)
-	assert.Equal(t, &deck, found.DeckID)
 	assert.True(t, found.HasContent)
 
 	list, err := e.repo.ListSessionLinks(e.ctx, target.ID)

@@ -240,9 +240,15 @@ func (r *Repository) ListSessionLinks(ctx context.Context, sessionID uuid.UUID) 
 	return links, err
 }
 
-// DeleteSession removes a session (soft delete).
+// DeleteSession removes a session (soft delete), and its materials with it (SPEC-074 RN-06).
 func (r *Repository) DeleteSession(ctx context.Context, id uuid.UUID) error {
-	return r.db.Conn(ctx).Where("id = ?", id).Delete(&domain.ClassSession{}).Error
+	return r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
+		conn := r.db.Conn(txCtx)
+		if err := conn.Where("session_id = ?", id).Delete(&domain.ClassSessionMaterial{}).Error; err != nil {
+			return err
+		}
+		return conn.Where("id = ?", id).Delete(&domain.ClassSession{}).Error
+	})
 }
 
 // ListEvents returns the events of the classes between from and to.

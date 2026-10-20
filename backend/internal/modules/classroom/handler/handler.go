@@ -30,6 +30,7 @@ type Service interface {
 	EndSession(ctx context.Context, actor service.Actor, classID, sessionID uuid.UUID) (domain.LiveClassroomSession, error)
 	UploadDeck(ctx context.Context, actor service.Actor, classID uuid.UUID, in service.UploadInput) (service.DeckView, error)
 	ListDecks(ctx context.Context, actor service.Actor, classID uuid.UUID) ([]domain.SlideDeck, error)
+	ProjectMaterial(ctx context.Context, actor service.Actor, classID, materialID uuid.UUID) (service.DeckView, bool, error)
 	GetActive(ctx context.Context, actor service.Actor, classID uuid.UUID) (service.Active, error)
 	SelectDeck(ctx context.Context, actor service.Actor, sessionID, deckID uuid.UUID) (service.DeckView, error)
 	ListMyLive(ctx context.Context, actor service.Actor) ([]service.StudentRoom, error)
@@ -160,6 +161,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/live/sessions/:sessionId/end", h.end)
 	g.POST("/classes/:id/live/decks", h.upload)
 	g.GET("/classes/:id/live/decks", h.decks)
+	g.POST("/classes/:id/live/decks/from-material", h.projectMaterial)
 	g.GET("/classes/:id/live/active", h.active)
 	g.GET("/classes/:id/live/module", h.module)
 	g.GET("/classes/:id/live/sessions", h.sessions)
@@ -480,6 +482,38 @@ func (h *Handler) module(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"moduleId": view.ID, "title": view.Title, "blocks": blocks, "scenario": view.Scenario, "setup": view.Setup})
 }
 
+// projectMaterial makes a presentation of the class out of a file material of a lesson, to be put on the stage like any other (SPEC-074 RN-08).
+// It answers 201 for a new presentation and 200 for the one that was already there.
+func (h *Handler) projectMaterial(c *gin.Context) {
+	actor, classID, ok := requestOf(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		MaterialID string `json:"materialId"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, problem.BadRequest("malformed-request", "The request body is not valid JSON."))
+		return
+	}
+	materialID, ok := uuidParam(c, req.MaterialID, "materialId")
+	if !ok {
+		return
+	}
+	view, created, err := h.svc.ProjectMaterial(c.Request.Context(), actor, classID, materialID)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	body := deckJSON(view)
+	body["createdAt"] = view.Deck.CreatedAt
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	c.JSON(status, body)
+}
+
 // decks lists the presentations of the class, without the address to download them (SPEC-053).
 func (h *Handler) decks(c *gin.Context) {
 	actor, classID, ok := requestOf(c)
@@ -627,6 +661,10 @@ func toProblem(err error) *problem.Problem {
 		return problem.NotFound("class-not-found", err.Error())
 	case errors.Is(err, domain.ErrSessionNotFound):
 		return problem.NotFound("session-not-found", err.Error())
+	case errors.Is(err, domain.ErrMaterialNotFound):
+		return problem.NotFound("material-not-found", err.Error())
+	case errors.Is(err, domain.ErrMaterialNotProjectable):
+		return problem.BadRequest("material-not-projectable", err.Error())
 	case errors.Is(err, domain.ErrDeckNotFound):
 		return problem.NotFound("deck-not-found", err.Error())
 	case errors.Is(err, domain.ErrClassSessionNotFound):

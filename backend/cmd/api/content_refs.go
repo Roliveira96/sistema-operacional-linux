@@ -15,18 +15,21 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 )
 
-// scheduleDecks lets the schedule read the presentations of the live classroom, through its service and never its repository (SPEC-053 RN-04).
-type scheduleDecks struct{ classroom *classroomservice.Service }
+// classroomMaterials lets the live classroom read the file of a material of a lesson, through the schedule service and never its repository
+// (SPEC-074 RN-08).
+type classroomMaterials struct{ schedule *scheduleservice.Service }
 
-func (d scheduleDecks) Deck(ctx context.Context, classID, deckID uuid.UUID) (scheduleservice.Deck, error) {
-	view, err := d.classroom.DeckOfClass(ctx, classID, deckID)
-	if errors.Is(err, classroomdomain.ErrDeckNotFound) {
-		return scheduleservice.Deck{}, scheduledomain.ErrDeckNotFound
+func (m classroomMaterials) MaterialFile(ctx context.Context, classID, materialID uuid.UUID) (classroomservice.LessonMaterial, error) {
+	file, err := m.schedule.ProjectableFile(ctx, classID, materialID)
+	switch {
+	case errors.Is(err, scheduledomain.ErrMaterialNotFound):
+		return classroomservice.LessonMaterial{}, classroomdomain.ErrMaterialNotFound
+	case errors.Is(err, scheduledomain.ErrNotAFile):
+		return classroomservice.LessonMaterial{}, classroomdomain.ErrMaterialNotProjectable
+	case err != nil:
+		return classroomservice.LessonMaterial{}, err
 	}
-	if err != nil {
-		return scheduleservice.Deck{}, err
-	}
-	return scheduleservice.Deck{ID: view.Deck.ID, Title: view.Deck.Title, PageCount: view.Deck.PageCount, DownloadURL: view.DownloadURL}, nil
+	return classroomservice.LessonMaterial{Title: file.Title, ObjectKey: file.ObjectKey, ContentType: file.ContentType, PageCount: file.PageCount}, nil
 }
 
 // scheduleModules lets the schedule check a teaching module as the actor would see it, through the course module service.

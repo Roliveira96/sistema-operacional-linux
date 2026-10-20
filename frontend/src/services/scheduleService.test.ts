@@ -89,12 +89,12 @@ describe("scheduleService", () => {
   it("reads and saves the content of a lesson", async () => {
     const c = client();
     const svc = createScheduleService(c);
-    const content = { topic: "Permissões", description: "<p>x</p>", module: { id: "m-1", title: "Linux" }, deck: null, links: [] };
+    const content = { topic: "Permissões", description: "<p>x</p>", module: { id: "m-1", title: "Linux" }, links: [] };
     vi.mocked(c.get).mockResolvedValueOnce(content);
     await expect(svc.getSessionContent("c-1", "s-1")).resolves.toEqual(content);
     expect(c.get).toHaveBeenCalledWith("/classes/c-1/sessions/s-1/content");
 
-    const input = { topic: "Permissões", description: "<p>x</p>", moduleId: "m-1", deckId: "d-1", links: [{ name: "Meet", url: "https://meet.google.com/a" }] };
+    const input = { topic: "Permissões", description: "<p>x</p>", moduleId: "m-1", links: [{ name: "Meet", url: "https://meet.google.com/a" }] };
     vi.mocked(c.put).mockResolvedValueOnce(content);
     await expect(svc.saveSessionContent("c-1", "s-1", input)).resolves.toEqual(content);
     expect(c.put).toHaveBeenCalledWith("/classes/c-1/sessions/s-1/content", input);
@@ -107,11 +107,13 @@ describe("startLiveFromSession", () => {
   const lesson = (over = {}) => ({ id: "s-1", classId: "c-1", date: "2026-10-26", startTime: "08:20", endTime: "10:00", lessonCount: 2, mode: "IN_PERSON" as const, status: "SCHEDULED" as const, origin: "WEEKLY" as const, overridden: false, onHoliday: false, ...over });
   const started = { id: "r-1", classId: "c-1", title: "x", status: "ACTIVE" as const, displayMode: "SLIDES" as const, currentSlide: 1, startedAt: "" };
 
-  it("uses the topic, the module and the deck of the lesson, linked to it", async () => {
-    vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue({ topic: "Permissões", module: { id: "m-1", title: "Linux" }, deck: { id: "d-1", title: "S", pageCount: 3, downloadUrl: "https://x" }, links: [] });
+  it("uses the topic and the module of the lesson, linked to it, and no presentation (SPEC-074 CA-18)", async () => {
+    // an answer of the server from before SPEC-074 D-08, which still carried the presentation of the lesson
+    const stale = { topic: "Permissões", module: { id: "m-1", title: "Linux" }, deck: { id: "d-1", title: "S", pageCount: 3, downloadUrl: "https://x" }, links: [] };
+    vi.spyOn(scheduleService, "getSessionContent").mockResolvedValue(stale as never);
     const start = vi.spyOn(classroomService, "startSession").mockResolvedValue(started);
     await startLiveFromSession("c-1", lesson({ topic: "Permissões", hasContent: true }), "Sistemas Operacionais");
-    expect(start).toHaveBeenCalledWith("c-1", { title: "Permissões", classSessionId: "s-1", deckId: "d-1", initialModuleId: "m-1" });
+    expect(start).toHaveBeenCalledWith("c-1", { title: "Permissões", classSessionId: "s-1", initialModuleId: "m-1" });
   });
 
   it("uses the name of the class when the lesson has no topic and does not read a content it does not have", async () => {

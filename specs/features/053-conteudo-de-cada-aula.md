@@ -5,7 +5,7 @@
 | **ID** | SPEC-053 |
 | **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
-| **Última revisão** | 14/10/2026 (implementada) |
+| **Última revisão** | 19/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -26,9 +26,9 @@ A aula ao vivo (SPEC-051) é iniciada só pela visão geral, sem ligação com a
 
 ## 2. Objetivos (Goals)
 
-- Cada aula (cada data do calendário) tem o **seu conteúdo**, editável pelo professor: tema, descrição, links, módulo de ensino e apresentação em PDF.
+- Cada aula (cada data do calendário) tem o **seu conteúdo**, editável pelo professor: tema, descrição, links, módulo de ensino. Os arquivos da aula são os materiais da SPEC-074.
 - O estudante matriculado vê o conteúdo de cada aula na agenda.
-- A aula ao vivo pode ser iniciada **a partir da aula do dia**, usando o tema, o módulo e a apresentação dela.
+- A aula ao vivo pode ser iniciada **a partir da aula do dia**, usando o tema e o módulo dela; a apresentação o professor projeta dentro da sala, a partir dos materiais (SPEC-074).
 - Mudar o conteúdo de uma aula não é "alterar a aula": não manda e-mail, não marca a aula como alterada e não pede motivo.
 
 ### 2.1. Fora de escopo (Non-Goals)
@@ -52,26 +52,26 @@ A aula ao vivo (SPEC-051) é iniciada só pela visão geral, sem ligação com a
 - **Apresentação (PDF):** lista das apresentações da turma, com "Nenhuma", e a área **Enviar PDF**, que lê o arquivo no navegador, valida (PDF, até 25 MB, até 100 páginas, sem senha), envia e já seleciona a nova apresentação. Reaproveita o envio da SPEC-051. O arquivo chega por clique (escolher no computador) ou **arrastando e soltando** sobre a área, que fica destacada enquanto o arquivo está sobre ela; os dois caminhos têm a mesma validação e o mesmo envio. Soltar mais de um arquivo usa só o primeiro; com um envio em andamento, a área não aceita outro.
 - O botão **Salvar** grava tudo de uma vez; erros de campo aparecem junto do campo.
 
-**Ver o conteúdo (todos).** O painel da aula mostra, quando houver: o tema (também no marcador do dia, no lugar do código da disciplina), a descrição, os links como ligações que abrem em outra aba (`rel="noopener noreferrer"`), o módulo (para o estudante, uma ligação para o módulo) e a apresentação (**Ver apresentação**, que abre o PDF por endereço assinado). Aula sem conteúdo continua como hoje.
+**Ver o conteúdo (todos).** O painel da aula mostra, quando houver: o tema (também no marcador do dia, no lugar do código da disciplina), a descrição, os links como ligações que abrem em outra aba (`rel="noopener noreferrer"`), o módulo (para o estudante, uma ligação para o módulo) e os arquivos, pelos materiais da aula (SPEC-074). Aula sem conteúdo continua como hoje.
 
-**Aula ao vivo a partir da aula (professor e administrador).** O painel da aula ganha **Iniciar aula ao vivo**: inicia a sala com o tema como título (ou o nome da disciplina se não houver tema), o módulo e a apresentação da aula, ligada a ela (`classSessionId`); se já existe aula ativa na turma, leva a ela. O botão "Iniciar aula" da visão geral continua para a aula avulsa.
+**Aula ao vivo a partir da aula (professor e administrador).** O painel da aula ganha **Iniciar aula ao vivo**: inicia a sala com o tema como título (ou o nome da disciplina se não houver tema), e o módulo da aula, ligada a ela (`classSessionId`), sem apresentação: o professor projeta um material da aula dentro da sala (SPEC-074); se já existe aula ativa na turma, leva a ela. O botão "Iniciar aula" da visão geral continua para a aula avulsa.
 
 **Entrar na aula ao vivo pela agenda (todos).** Quando a turma tem aula ao vivo ativa, a aba Agenda mostra, acima do calendário, o aviso **Aula ao vivo em andamento: *título*** com o botão **Entrar na aula**, para o estudante e para o professor. Se a aula ao vivo está ligada a uma aula do calendário, o painel dessa aula mostra a marca **Ao vivo agora** e o botão **Entrar na aula ao vivo** (para o professor, **Voltar para a aula ao vivo**, no lugar de "Iniciar aula ao vivo"). Os botões levam à sala (`/app/classes/:id/live`).
 
 Botões do padrão `Button`, tema único escuro, só tokens, alvos de 44 px, textos no arquivo de mensagens.
 
-**Aparência do diálogo.** Cabeçalho fixo (título e uma linha de apoio), corpo com rolagem e rodapé fixo com Cancelar e Salvar, para salvar sem rolar até o fim. O corpo tem três seções com rótulo discreto e linha: **Planejamento** (tema e descrição), **Diário da aula** (as anotações da SPEC-073, as privadas num bloco destacado) e **Materiais** (links, módulo e apresentação lado a lado numa tela larga, e o envio do PDF). O rótulo visível e a linha de ajuda dos editores são os da SPEC-073 (CA-10).
+**Aparência do diálogo.** Cabeçalho fixo (título e uma linha de apoio), corpo com rolagem e rodapé fixo com Cancelar e Salvar, para salvar sem rolar até o fim. O corpo tem três seções com rótulo discreto e linha: **Planejamento** (tema e descrição), **Diário da aula** (as anotações da SPEC-073, as privadas num bloco destacado) e **Materiais** (links e módulo lado a lado numa tela larga, e os materiais da SPEC-074). O rótulo visível e a linha de ajuda dos editores são os da SPEC-073 (CA-10).
 
 ### 3.2. Backend (Go — Camada de Módulo/Service)
 
 - **RN-01 (conteúdo da aula):** cada aula tem tema (opcional, 1 a 120 caracteres), descrição (opcional, HTML filtrado pelo mesmo filtro da ementa), módulo de ensino (opcional), apresentação (opcional) e até 10 links (nome de 1 a 80 caracteres e endereço https de até 2.000, como na SPEC-048).
 - **RN-02 (gravação):** o conteúdo é gravado de uma vez (substitui o anterior). Só a docente dona da turma e o administrador gravam (como a SPEC-042 RN-08). Pode-se gravar o conteúdo de aula futura, de hoje e de aula passada, e de aula cancelada.
 - **RN-03 (não é alteração):** gravar o conteúdo **não** marca a aula como alterada (`overridden`), **não** exige motivo e **não** envia e-mail.
-- **RN-04 (vínculos):** a apresentação precisa ser da mesma turma e o módulo precisa existir e estar disponível ao docente; senão, 404. Os dois são checados pelos serviços dos módulos de origem, nunca pelo repositório deles.
+- **RN-04 (vínculos):** o módulo precisa existir e estar disponível ao docente; senão, 404. É checado pelo serviço do módulo de origem, nunca pelo repositório dele. (A apresentação saiu do conteúdo da aula, SPEC-074 RN-09.)
 - **RN-05 (a aula com conteúdo não some):** a regeneração das aulas semanais (SPEC-042 RN-02) mantém toda aula que tem conteúdo, como já mantém as alteradas à mão. Se o encontro semanal for removido, as aulas com conteúdo continuam no calendário.
 - **RN-06 (leitura):** o estudante com matrícula ativa, o docente dono e o administrador leem o conteúdo (SPEC-042 RN-08). O calendário traz o tema e se há conteúdo; o conteúdo completo vem por leitura própria.
 - **RN-07 (apresentações por turma):** o limite de apresentações por turma da SPEC-051 sobe de 20 para **100**, porque cada aula pode ter a sua (um semestre tem mais de 30 aulas).
-- **RN-08 (iniciar a partir da aula):** é só o início da sala já previsto na SPEC-051 (`classSessionId`, `deckId` e `initialModuleId`); nenhuma regra nova no servidor.
+- **RN-08 (iniciar a partir da aula):** é só o início da sala já previsto na SPEC-051 (`classSessionId` e `initialModuleId`, sem `deckId`); nenhuma regra nova no servidor.
 
 ## 4. Modelo de Dados (Data Model)
 
@@ -82,7 +82,7 @@ Colunas novas em `class_sessions` (migração 00031):
 | `topic` | text | Não | de 1 a 120 caracteres | Tema da aula |
 | `description` | text | Não | HTML filtrado | Descrição do conteúdo |
 | `module_id` | uuid | Não | FK `course_modules` | Módulo de ensino da aula |
-| `deck_id` | uuid | Não | FK `slide_decks` | Apresentação da aula |
+| `deck_id` | uuid | Não | FK `slide_decks` | **Sem uso** desde 19/10/2026 (SPEC-074 RN-09): não é mais gravada nem lida; a coluna sai numa migração futura |
 
 Tabela nova `class_session_links`:
 
@@ -102,7 +102,7 @@ Tabela nova `class_session_links`:
 **`PUT /api/v1/classes/{id}/sessions/{sessionId}/content`**: grava o conteúdo da aula (RN-02).
 
 - **Papéis autorizados:** docente dona e administrador.
-- **Corpo:** `topic` (texto, opcional), `description` (HTML, opcional), `moduleId` (opcional), `deckId` (opcional), `links` (lista de `name` e `url`, de 0 a 10). Campo ausente ou vazio limpa o valor.
+- **Corpo:** `topic` (texto, opcional), `description` (HTML, opcional), `moduleId` (opcional), `links` (lista de `name` e `url`, de 0 a 10). Campo ausente ou vazio limpa o valor.
 - **Resposta (200):** o conteúdo gravado, no formato da leitura.
 - **Erros (RFC 7807):**
 
@@ -112,15 +112,15 @@ Tabela nova `class_session_links`:
 | 400 | `content-too-long` | descrição acima do limite |
 | 403 | `forbidden` | quem não é a docente dona nem administrador |
 | 404 | `session-not-found` | aula inexistente ou de outra turma |
-| 404 | `deck-not-found` / `module-not-found` | apresentação de outra turma ou módulo inexistente (RN-04) |
+| 404 | `module-not-found` | módulo inexistente (RN-04) |
 
 **`GET /api/v1/classes/{id}/sessions/{sessionId}/content`**: lê o conteúdo.
 
 - **Papéis autorizados:** docente dona, administrador e estudante com matrícula ativa.
-- **Resposta (200):** `topic`, `description`, `module` (identificador e título), `deck` (identificador, título, número de lâminas e `downloadUrl` assinada de 15 minutos) e `links` (nome, endereço e posição); vazio se a aula não tem conteúdo.
+- **Resposta (200):** `topic`, `description`, `module` (identificador e título) e `links` (nome, endereço e posição); vazio se a aula não tem conteúdo.
 - **Erros:** 403 `forbidden`; 404 `session-not-found`.
 
-**`GET /api/v1/classes/{id}/live/decks`**: lista as apresentações da turma, para o professor escolher uma já enviada (módulo `classroom`).
+**`GET /api/v1/classes/{id}/live/decks`**: lista as apresentações da turma, para a lista de arquivos da sala ao vivo (módulo `classroom`). Desde 19/10/2026 só a sala a usa; o diálogo de conteúdo não a chama mais.
 
 - **Papéis autorizados:** docente dona e administrador.
 - **Resposta (200):** `decks`: lista, da mais recente para a mais antiga, com `id`, `title`, `pageCount` e `createdAt` (sem endereço de download).
@@ -141,17 +141,17 @@ Tabela nova `class_session_links`:
 - [ ] **CA-01** (evento): QUANDO o professor dono da turma grava o conteúdo de uma aula, O SISTEMA DEVE guardar tema, descrição, módulo, apresentação e links só nessa aula, sem alterar as outras.
 - [ ] **CA-02** (evento): QUANDO o conteúdo é gravado, O SISTEMA NÃO DEVE marcar a aula como alterada, pedir motivo nem enviar e-mail.
 - [ ] **CA-03** (indesejado): SE o tema, um nome ou um endereço é inválido, ou há mais de 10 links, ou a descrição passa do limite, ENTÃO O SISTEMA DEVE recusar com 400 apontando o campo, sem gravar nada.
-- [ ] **CA-04** (indesejado): SE a apresentação é de outra turma ou o módulo não existe, ENTÃO O SISTEMA DEVE recusar com 404 (`deck-not-found` ou `module-not-found`).
+- [ ] **CA-04** (indesejado): SE o módulo não existe, ENTÃO O SISTEMA DEVE recusar com 404 (`module-not-found`). (A apresentação saiu do conteúdo da aula: SPEC-074 CA-15.)
 - [ ] **CA-05** (indesejado): SE quem grava não é a docente dona nem o administrador, ENTÃO O SISTEMA DEVE responder 403; o estudante só lê, e só se tem matrícula ativa.
 - [ ] **CA-06** (evento): QUANDO as aulas semanais são regeneradas, O SISTEMA DEVE manter as aulas que têm conteúdo, inclusive se o encontro semanal foi removido.
-- [ ] **CA-07** (ubíquo): O calendário DEVE trazer `topic` e `hasContent` de cada aula, e a leitura própria DEVE trazer o conteúdo completo com a apresentação por endereço assinado de 15 minutos.
+- [ ] **CA-07** (ubíquo): O calendário DEVE trazer `topic` e `hasContent` de cada aula, e a leitura própria DEVE trazer o conteúdo completo, sem apresentação (SPEC-074 CA-15).
 - [ ] **CA-08** (ubíquo): O limite de apresentações por turma DEVE ser de 100.
-- [ ] **CA-09** (ubíquo): No painel de uma aula, o professor DEVE ter o botão "Conteúdo da aula" com os campos tema, descrição, links, módulo e apresentação (com envio de PDF), e DEVE conseguir salvar; erros de campo DEVEM aparecer junto do campo.
-- [ ] **CA-10** (ubíquo): O painel da aula DEVE mostrar o conteúdo a quem lê (tema, descrição, links que abrem em outra aba com `rel="noopener noreferrer"`, módulo e apresentação), e o tema DEVE aparecer no marcador do dia.
-- [ ] **CA-11** (evento): QUANDO o professor aciona "Iniciar aula ao vivo" no painel de uma aula, O SISTEMA DEVE iniciar a sala ligada a essa aula, com o tema como título, o módulo e a apresentação da aula; SE já há aula ativa, ENTÃO DEVE levar a ela.
-- [ ] **CA-13** (evento): QUANDO o professor abre o diálogo de conteúdo, O SISTEMA DEVE listar as apresentações da turma (do mais recente para o mais antigo) para ele escolher; só a docente dona e o administrador podem listar.
+- [ ] **CA-09** (ubíquo): No painel de uma aula, o professor DEVE ter o botão "Conteúdo da aula" com os campos tema, descrição, links e módulo (sem apresentação: SPEC-074 CA-18), e DEVE conseguir salvar; erros de campo DEVEM aparecer junto do campo.
+- [ ] **CA-10** (ubíquo): O painel da aula DEVE mostrar o conteúdo a quem lê (tema, descrição, links que abrem em outra aba com `rel="noopener noreferrer"`, módulo; os arquivos vêm pelos materiais, SPEC-074), e o tema DEVE aparecer no marcador do dia.
+- [ ] **CA-11** (evento): QUANDO o professor aciona "Iniciar aula ao vivo" no painel de uma aula, O SISTEMA DEVE iniciar a sala ligada a essa aula, com o tema como título, e o módulo da aula, sem apresentação (SPEC-074 CA-16); SE já há aula ativa, ENTÃO DEVE levar a ela.
+- [ ] **CA-13** (evento, só na rota): QUANDO a docente dona ou o administrador pede a lista das apresentações da turma (`GET /live/decks`, usada pela sala ao vivo), O SISTEMA DEVE devolvê-las da mais recente para a mais antiga; os demais papéis NÃO PODEM listar. O diálogo de conteúdo não a usa mais (SPEC-074 D-08).
 - [ ] **CA-14** (estado): ENQUANTO a turma tem aula ao vivo ativa, a aba Agenda DEVE mostrar o aviso com o título e o botão "Entrar na aula" (estudante e professor), e o painel da aula ligada a ela DEVE mostrar "Ao vivo agora" e o botão de entrar (no professor, "Voltar para a aula ao vivo", sem "Iniciar aula ao vivo"); nas outras aulas, nada muda.
-- [ ] **CA-15** (evento): QUANDO o professor arrasta um arquivo e o solta na área "Enviar PDF" do diálogo de conteúdo, O SISTEMA DEVE tratá-lo como o arquivo escolhido pelo clique (mesma validação, envio e seleção da apresentação) e DEVE destacar a área enquanto o arquivo está sobre ela; com um envio em andamento, DEVE ignorar o arquivo solto.
+- [ ] **CA-15** (obsoleto, SPEC-074 D-08): a área "Enviar PDF" saiu do diálogo; o arrastar e soltar dos arquivos da aula passa a ser o CA-13 e o CA-14 da SPEC-074.
 - [ ] **CA-12** (ubíquo): Stylelint e ESLint DEVEM ficar sem erros e as cores DEVEM vir dos tokens.
 
 ## 8. Plano de Testes (Test Plan)
@@ -165,6 +165,7 @@ Escritos antes do código e rodados vermelhos primeiro (SPEC-038).
 - **Backend, `classroom` (lista):** `TestListDecks` (ordem, só da turma, papéis e 403 e 404) no serviço e no handler. Cobre CA-13.
 - **Backend, `classroom` (limite):** `TestUploadDeck_SuccessAndMaxLimit` passa a testar 100. Cobre CA-08.
 - **Frontend, serviço e componentes:** diálogo "Conteúdo da aula" (campos, salvar, erros junto do campo, envio de PDF com validação no navegador) cobre CA-09; soltar um PDF na área de envio (envia e seleciona), soltar um arquivo que não é PDF (recusa), o destaque ao arrastar por cima e o arquivo solto ignorado durante um envio cobrem CA-15; painel da aula (mostra o conteúdo, tema no marcador) cobre CA-10; "Iniciar aula ao vivo" cobre CA-11, para docente e sem o botão para estudante.
+- **Mudam com a revisão de 19/10/2026 (SPEC-074 D-08):** saem os testes da apresentação no diálogo (campo, envio de PDF, arrastar e soltar do CA-15) e `TestSaveContent_ForeignDeckOrMissingModule` perde a parte da apresentação; entram os testes do CA-15 a CA-18 da SPEC-074.
 - **Frontend (CA-14):** `ClassCalendar` mostra a marca e o botão só na aula ligada à sala ativa, para estudante e professor; a página da turma mostra o aviso na aba Agenda e some quando não há aula ativa.
 - **Manual:** na aba Horários, abrir a aula de segunda e a de terça, dar um conteúdo diferente a cada uma, enviar um PDF, entrar como estudante e ver cada conteúdo, e iniciar a aula ao vivo a partir da aula do dia.
 - **Cobertura:** acima de 80% no escopo (`go test -cover` e Vitest).
@@ -194,3 +195,6 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: tema, descrição, links, módulo
 | 16/10/2026 | Implementador | Aparência do diálogo refeita a pedido do Tech Lead (cabeçalho e rodapé fixos, seções Planejamento, Diário da aula e Materiais, anotações privadas destacadas); só estilo e marcação, sem mudar o comportamento nem os critérios de aceite |
 | 16/10/2026 | Aruna Architect | Pedido do Tech Lead: os professores enviam a apresentação arrastando e soltando o arquivo. A área Enviar PDF passa a aceitar arquivo solto, com o destaque ao arrastar; acrescentado o CA-15; volta a Aprovada |
 | 16/10/2026 | Implementador | CA-15 implementado: a área Enviar PDF é um `label` do mesmo `input` (o clique e o teclado continuam abrindo o seletor), recebe o arquivo solto pelo mesmo `sendFile` do clique, fica destacada (`data-dragging`) com arquivo por cima e ignora o que é solto durante um envio. Nenhum desvio |
+| 19/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | Revisão pedida pelo Tech Lead (SPEC-074 D-06 a D-08): a apresentação sai do conteúdo da aula e do diálogo (campo, Enviar PDF e arrastar e soltar do CA-15); o professor projeta um PDF ou imagem dos materiais dentro da sala. CA-04, CA-07, CA-09, CA-10, CA-11 e CA-13 ajustados e CA-15 obsoleto. Volta a Rascunho |
+| 19/10/2026 | Tech Lead | Aprovada ("Aprovado."), com a opção B da P-01 e a área geral Enviar arquivos. Status: `Aprovada` |
+| 19/10/2026 | Implementador | Revisão implementada junto com a SPEC-074: sem apresentação no diálogo, no painel da aula, no diário e na leitura e gravação do conteúdo; "Iniciar aula ao vivo" não leva `deckId`; `GET /live/decks` fica para a lista de arquivos da sala. Nenhum desvio |

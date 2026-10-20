@@ -15,22 +15,6 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
 )
 
-// fakeDecks answers for the presentations of the classes, like the classroom service does.
-type fakeDecks struct {
-	decks map[uuid.UUID]struct {
-		class uuid.UUID
-		deck  service.Deck
-	}
-}
-
-func (d fakeDecks) Deck(_ context.Context, classID, deckID uuid.UUID) (service.Deck, error) {
-	found, ok := d.decks[deckID]
-	if !ok || found.class != classID {
-		return service.Deck{}, domain.ErrDeckNotFound
-	}
-	return found.deck, nil
-}
-
 // fakeModules answers for the teaching modules; a hidden one is refused to students, like the course module service does.
 type fakeModules struct {
 	titles map[uuid.UUID]string
@@ -48,7 +32,6 @@ func (m fakeModules) Module(_ context.Context, actor service.Actor, id uuid.UUID
 type contentFixture struct {
 	*fixture
 	sessions []domain.ClassSession
-	deck     uuid.UUID
 	module   uuid.UUID
 	admin    service.Actor
 	student  service.Actor
@@ -57,17 +40,11 @@ type contentFixture struct {
 func newContentFixture(t *testing.T) *contentFixture {
 	t.Helper()
 	f := newFixture(t)
-	c := &contentFixture{fixture: f, sessions: f.setup(t), deck: uuid.New(), module: uuid.New()}
+	c := &contentFixture{fixture: f, sessions: f.setup(t), module: uuid.New()}
 	c.admin = service.Actor{UserID: uuid.New(), Role: authn.RoleAdmin}
 	c.student = service.Actor{UserID: f.ana.UserID, Role: authn.RoleStudent}
-	decks := fakeDecks{decks: map[uuid.UUID]struct {
-		class uuid.UUID
-		deck  service.Deck
-	}{
-		c.deck: {class: f.class.ID, deck: service.Deck{ID: c.deck, Title: "Slides da aula", PageCount: 12, DownloadURL: "https://files.example/deck.pdf?ttl=900"}},
-	}}
 	modules := fakeModules{titles: map[uuid.UUID]string{c.module: "Permissões"}, hidden: map[uuid.UUID]bool{}}
-	f.svc.WithContentRefs(decks, modules)
+	f.svc.WithContentRefs(modules)
 	return c
 }
 
@@ -76,7 +53,6 @@ func (c *contentFixture) full() service.ContentInput {
 		Topic:       "  Permissões de arquivos  ",
 		Description: "<p>Veremos <strong>chmod</strong>.</p>",
 		ModuleID:    &c.module,
-		DeckID:      &c.deck,
 		Links: []domain.LinkInput{
 			{Name: "Meet", URL: "https://meet.google.com/abc"},
 			{Name: "Vídeo", URL: "https://example.com/video"},
@@ -94,8 +70,6 @@ func TestSaveContent_OwnerAndAdmin(t *testing.T) {
 	assert.Contains(t, got.Description, "<strong>chmod</strong>")
 	require.NotNil(t, got.Module)
 	assert.Equal(t, "Permissões", got.Module.Title)
-	require.NotNil(t, got.Deck)
-	assert.Equal(t, 12, got.Deck.PageCount)
 	require.Len(t, got.Links, 2)
 	assert.Equal(t, []string{"Meet", "Vídeo"}, []string{got.Links[0].Name, got.Links[1].Name})
 
@@ -103,7 +77,6 @@ func TestSaveContent_OwnerAndAdmin(t *testing.T) {
 	require.NotNil(t, stored.Topic)
 	assert.Equal(t, "Permissões de arquivos", *stored.Topic)
 	assert.True(t, stored.HasContent)
-	assert.Equal(t, &c.deck, stored.DeckID)
 	assert.Equal(t, &c.module, stored.ModuleID)
 	assert.Len(t, c.repo.links[stored.ID], 2)
 
@@ -111,7 +84,6 @@ func TestSaveContent_OwnerAndAdmin(t *testing.T) {
 	got, err = c.svc.SaveContent(ctx, c.admin, c.class.ID, c.sessions[0].ID, service.ContentInput{Topic: "Outro tema"})
 	require.NoError(t, err)
 	assert.Equal(t, "Outro tema", got.Topic)
-	assert.Nil(t, got.Deck)
 	assert.Empty(t, got.Links)
 	assert.Empty(t, c.repo.links[c.sessions[0].ID], "the links of before are replaced")
 }
@@ -128,7 +100,6 @@ func TestSaveContent_OnlyThatSession(t *testing.T) {
 	first, second, third := c.repo.sessions[c.sessions[0].ID], c.repo.sessions[c.sessions[1].ID], c.repo.sessions[c.sessions[2].ID]
 	assert.Equal(t, "Permissões de arquivos", *first.Topic)
 	assert.Equal(t, "Processos", *second.Topic)
-	assert.Nil(t, second.DeckID)
 	assert.False(t, third.HasContent, "the other lessons are untouched")
 	assert.Nil(t, third.Topic)
 }
@@ -215,15 +186,13 @@ func TestSaveContent_SanitizesTheDescription(t *testing.T) {
 	assert.NotContains(t, got.Description, "onclick")
 }
 
-// Covers SPEC-053 CA-04 and RN-04: the presentation must be of the class and the module must exist.
-func TestSaveContent_ForeignDeckOrMissingModule(t *testing.T) {
+// Covers SPEC-053 CA-04 and RN-04: the module must exist (the presentation is no longer part of the content, SPEC-074 RN-09).
+func TestSaveContent_MissingModule(t *testing.T) {
 	c := newContentFixture(t)
 	ctx := context.Background()
 	id := c.sessions[0].ID
-	other, missing := uuid.New(), uuid.New()
-	_, err := c.svc.SaveContent(ctx, c.teacher, c.class.ID, id, service.ContentInput{DeckID: &other})
-	assert.ErrorIs(t, err, domain.ErrDeckNotFound)
-	_, err = c.svc.SaveContent(ctx, c.teacher, c.class.ID, id, service.ContentInput{ModuleID: &missing})
+	missing := uuid.New()
+	_, err := c.svc.SaveContent(ctx, c.teacher, c.class.ID, id, service.ContentInput{ModuleID: &missing})
 	assert.ErrorIs(t, err, domain.ErrModuleNotFound)
 	assert.False(t, c.repo.sessions[id].HasContent, "nothing was saved")
 }
@@ -262,9 +231,8 @@ func TestContent_Permissions(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrSessionNotFound)
 }
 
-// Covers SPEC-053 CA-07: the reading brings the presentation with its signed address and the module; a module that the reader
-// cannot see is left out instead of failing.
-func TestContent_ReadsDeckAndModule(t *testing.T) {
+// Covers SPEC-053 CA-07: the reading brings the module; a module that the reader cannot see is left out instead of failing.
+func TestContent_ReadsModule(t *testing.T) {
 	c := newContentFixture(t)
 	ctx := context.Background()
 	id := c.sessions[0].ID
@@ -273,16 +241,13 @@ func TestContent_ReadsDeckAndModule(t *testing.T) {
 
 	got, err := c.svc.Content(ctx, c.student, c.class.ID, id)
 	require.NoError(t, err)
-	require.NotNil(t, got.Deck)
-	assert.Equal(t, "https://files.example/deck.pdf?ttl=900", got.Deck.DownloadURL)
 	require.NotNil(t, got.Module)
 	assert.Equal(t, c.module, got.Module.ID)
 
-	c.svc.WithContentRefs(fakeDecks{decks: nil}, fakeModules{titles: map[uuid.UUID]string{c.module: "Permissões"}, hidden: map[uuid.UUID]bool{c.module: true}})
+	c.svc.WithContentRefs(fakeModules{titles: map[uuid.UUID]string{c.module: "Permissões"}, hidden: map[uuid.UUID]bool{c.module: true}})
 	got, err = c.svc.Content(ctx, c.student, c.class.ID, id)
 	require.NoError(t, err)
 	assert.Nil(t, got.Module, "a module the student cannot see is left out")
-	assert.Nil(t, got.Deck, "a presentation that is gone is left out")
 	assert.Equal(t, "Permissões de arquivos", got.Topic)
 	assert.Len(t, got.Links, 2)
 }
@@ -295,7 +260,6 @@ func TestContent_EmptyLesson(t *testing.T) {
 	assert.Empty(t, got.Topic)
 	assert.Empty(t, got.Description)
 	assert.Nil(t, got.Module)
-	assert.Nil(t, got.Deck)
 	assert.Empty(t, got.Links)
 }
 
@@ -313,7 +277,6 @@ func TestSaveContent_ClearsWhenEmpty(t *testing.T) {
 	assert.False(t, cleared.HasContent)
 	assert.Nil(t, cleared.Topic)
 	assert.Nil(t, cleared.Description)
-	assert.Nil(t, cleared.DeckID)
 	assert.Nil(t, cleared.ModuleID)
 	assert.Empty(t, c.repo.links[id])
 }
