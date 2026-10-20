@@ -334,6 +334,12 @@ func (s *Service) AccessOf(ctx context.Context, studentID, id uuid.UUID) (domain
 	if err != nil {
 		return "", err
 	}
+	return s.accessFor(ctx, a, studentID, eligible)
+}
+
+// accessFor is the decision of AccessOf for one student (SPEC-076 RN-08). The reasons come in this order: not eligible, canceled, not open yet,
+// ended and, last, not cleared.
+func (s *Service) accessFor(ctx context.Context, a domain.Assessment, studentID uuid.UUID, eligible map[uuid.UUID]bool) (domain.Access, error) {
 	switch {
 	case !eligible[studentID]:
 		return domain.AccessNotEligible, nil
@@ -345,6 +351,16 @@ func (s *Service) AccessOf(ctx context.Context, studentID, id uuid.UUID) (domain
 		return domain.AccessNotOpenYet, nil
 	case domain.PhaseEnded:
 		return domain.AccessEnded, nil
+	}
+	if !a.RequiresClearance {
+		return domain.AccessAllowed, nil
+	}
+	row, err := s.clearanceOf(ctx, a.ID, studentID)
+	if err != nil {
+		return "", err
+	}
+	if row == nil || row.Status != domain.ClearanceApproved {
+		return domain.AccessNotCleared, nil
 	}
 	return domain.AccessAllowed, nil
 }

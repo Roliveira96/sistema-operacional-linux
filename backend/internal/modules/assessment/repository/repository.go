@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/assessment/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/assessment/service"
@@ -231,6 +232,36 @@ func (r *Repository) Save(ctx context.Context, a *domain.Assessment, rep service
 			return appendEvent(tx, a.ID, e)
 		}
 		return nil
+	})
+}
+
+// Clearances gives the decisions of the teacher about the students of the assessment, the oldest first.
+func (r *Repository) Clearances(ctx context.Context, id uuid.UUID) ([]domain.Clearance, error) {
+	var rows []domain.Clearance
+	err := r.db.Conn(ctx).Where("assessment_id = ?", id).Order("cleared_at, id").Find(&rows).Error
+	return rows, err
+}
+
+// SaveClearances writes the decisions and appends the event in one transaction (SPEC-076 RN-12): a student has one row, so a new decision about them
+// takes the place of the old one (D-07); when one row is refused, none of the others stays, and neither does the event.
+func (r *Repository) SaveClearances(ctx context.Context, assessmentID uuid.UUID, rows []domain.Clearance, e domain.Event) error {
+	return r.db.WithinTransaction(ctx, func(ctx context.Context) error {
+		tx := r.db.Conn(ctx)
+		for i := range rows {
+			id, err := newID()
+			if err != nil {
+				return err
+			}
+			rows[i].ID, rows[i].AssessmentID = id, assessmentID
+			err = tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "assessment_id"}, {Name: "student_id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"status", "rejection_reason", "cleared_by", "cleared_at", "updated_at"}),
+			}).Create(&rows[i]).Error
+			if err != nil {
+				return fmt.Errorf("save the clearance of a student: %w", err)
+			}
+		}
+		return appendEvent(tx, assessmentID, &e)
 	})
 }
 

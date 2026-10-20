@@ -34,6 +34,9 @@ type AssessmentService interface {
 	ListPublic(ctx context.Context, a service.Actor, classID uuid.UUID, f service.ListFilter) ([]service.Public, error)
 	Preview(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Preview, error)
 	EligibleQuestions(ctx context.Context, a service.Actor, classID uuid.UUID, f service.QuestionFilter) (service.QuestionPage, error)
+	Clearances(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.ClearanceList, error)
+	Decide(ctx context.Context, a service.Actor, classID, id uuid.UUID, in service.ClearanceInput) (service.ClearanceList, error)
+	MyAccess(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.MyAccess, error)
 }
 
 // Handler serves the assessment routes.
@@ -57,6 +60,9 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/assessments/:assessmentId/cancel", h.cancel)
 	g.PUT("/classes/:id/assessments/:assessmentId/private-notes", h.notes)
 	g.GET("/classes/:id/assessment-questions", h.questions)
+	g.GET("/classes/:id/assessments/:assessmentId/clearances", h.clearances)
+	g.POST("/classes/:id/assessments/:assessmentId/clearances", h.decide)
+	g.GET("/classes/:id/assessments/:assessmentId/my-access", h.myAccess)
 }
 
 func fail(c *gin.Context, p *problem.Problem) {
@@ -124,6 +130,8 @@ func toProblem(err error) *problem.Problem {
 		return problem.BadRequest("draw-mismatch", err.Error())
 	case errors.Is(err, domain.ErrQuestionNotEligible):
 		return problem.BadRequest("question-not-eligible", err.Error())
+	case errors.Is(err, domain.ErrInvalidClearance):
+		return problem.BadRequest("invalid-clearance", err.Error())
 	case errors.Is(err, domain.ErrStudentNotInClass):
 		return problem.BadRequest("student-not-in-class", err.Error())
 	case errors.Is(err, domain.ErrReasonRequired):
@@ -148,6 +156,10 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("assessment-canceled", err.Error())
 	case errors.Is(err, domain.ErrGradesHomologated):
 		return problem.Conflict("grades-homologated", err.Error())
+	case errors.Is(err, domain.ErrClearanceNotRequired):
+		return problem.Conflict("clearance-not-required", err.Error())
+	case errors.Is(err, domain.ErrClearanceLocked):
+		return problem.Conflict("clearance-locked", err.Error())
 	}
 	return nil
 }
@@ -186,20 +198,33 @@ type createRequest struct {
 	Audience            string        `json:"audience"`
 	StudentIDs          []string      `json:"studentIds"`
 	TeacherPrivateNotes *string       `json:"teacherPrivateNotes"`
+	Modality            *string       `json:"modality"`
+	RequiresClearance   *bool         `json:"requiresClearance"`
 }
 
 type updateRequest struct {
-	Title           *string        `json:"title"`
-	Description     *string        `json:"description"`
-	ModuleID        *string        `json:"moduleId"`
-	Type            *string        `json:"type"`
-	MaxScore        *float64       `json:"maxScore"`
-	DurationMinutes *int           `json:"durationMinutes"`
-	Composition     *string        `json:"composition"`
-	Items           *[]itemRequest `json:"items"`
-	Draw            *drawRequest   `json:"draw"`
-	Audience        *string        `json:"audience"`
-	StudentIDs      *[]string      `json:"studentIds"`
+	Title             *string        `json:"title"`
+	Description       *string        `json:"description"`
+	ModuleID          *string        `json:"moduleId"`
+	Type              *string        `json:"type"`
+	MaxScore          *float64       `json:"maxScore"`
+	DurationMinutes   *int           `json:"durationMinutes"`
+	Composition       *string        `json:"composition"`
+	Items             *[]itemRequest `json:"items"`
+	Draw              *drawRequest   `json:"draw"`
+	Audience          *string        `json:"audience"`
+	StudentIDs        *[]string      `json:"studentIds"`
+	Modality          *string        `json:"modality"`
+	RequiresClearance *bool          `json:"requiresClearance"`
+}
+
+// modalityPtr hands the modality over as it came: the service refuses the one it does not know.
+func modalityPtr(raw *string) *domain.Modality {
+	if raw == nil {
+		return nil
+	}
+	m := domain.Modality(*raw)
+	return &m
 }
 
 func parseUUID(raw string) (uuid.UUID, bool) {
@@ -290,7 +315,7 @@ func (h *Handler) create(c *gin.Context) {
 		ClassSessionID: session, ModuleID: module, Title: req.Title, Description: req.Description, Type: domain.Type(req.Type),
 		MaxScore: domain.Points(req.MaxScore), DurationMinutes: req.DurationMinutes, StartsAt: startsAt, EndsAt: endsAt,
 		Composition: domain.Composition(req.Composition), Items: items, Draw: parseDraw(req.Draw), Audience: domain.Audience(req.Audience),
-		StudentIDs: students, PrivateNotes: req.TeacherPrivateNotes,
+		StudentIDs: students, PrivateNotes: req.TeacherPrivateNotes, Modality: modalityPtr(req.Modality), RequiresClearance: req.RequiresClearance,
 	}
 	got, err := h.svc.Create(c.Request.Context(), actor, classID, in)
 	if err != nil {
@@ -428,7 +453,10 @@ func (h *Handler) update(c *gin.Context) {
 		malformed(c)
 		return
 	}
-	in := service.UpdateInput{Title: req.Title, Description: req.Description, ModuleID: module, DurationMinutes: req.DurationMinutes, Draw: parseDraw(req.Draw)}
+	in := service.UpdateInput{
+		Title: req.Title, Description: req.Description, ModuleID: module, DurationMinutes: req.DurationMinutes, Draw: parseDraw(req.Draw),
+		Modality: modalityPtr(req.Modality), RequiresClearance: req.RequiresClearance,
+	}
 	if req.Type != nil {
 		t := domain.Type(*req.Type)
 		in.Type = &t

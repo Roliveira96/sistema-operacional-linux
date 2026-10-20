@@ -58,6 +58,9 @@ type summaryJSON struct {
 	ModuleTitle         string             `json:"moduleTitle"`
 	Composition         domain.Composition `json:"composition"`
 	Audience            domain.Audience    `json:"audience"`
+	Modality            domain.Modality    `json:"modality"`
+	RequiresClearance   bool               `json:"requiresClearance"`
+	ClearanceCounts     countsJSON         `json:"clearanceCounts"`
 	EligibleStudents    int                `json:"eligibleStudents"`
 	TotalQuestions      int                `json:"totalQuestions"`
 	Frozen              bool               `json:"frozen"`
@@ -74,7 +77,7 @@ type summaryJSON struct {
 func toSummary(s service.Summary) summaryJSON {
 	return summaryJSON{
 		publicJSON: toPublic(s.Public), ModuleID: s.ModuleID, ModuleTitle: s.ModuleTitle, Composition: s.Composition, Audience: s.Audience,
-		EligibleStudents: s.EligibleStudents, TotalQuestions: s.TotalQuestions, Frozen: s.Frozen, TeacherPrivateNotes: s.TeacherPrivateNotes,
+		Modality: s.Modality, RequiresClearance: s.RequiresClearance, ClearanceCounts: toCounts(s.ClearanceCounts), EligibleStudents: s.EligibleStudents, TotalQuestions: s.TotalQuestions, Frozen: s.Frozen, TeacherPrivateNotes: s.TeacherPrivateNotes,
 		CreatedBy: s.CreatedBy, CreatedByName: s.CreatedByName, UpdatedBy: s.UpdatedBy, UpdatedByName: s.UpdatedByName, UpdatedAt: iso(s.UpdatedAt),
 		CanceledBy: s.CanceledBy, CanceledAt: isoPtr(s.CanceledAt),
 	}

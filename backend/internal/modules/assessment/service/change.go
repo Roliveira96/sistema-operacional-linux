@@ -22,6 +22,9 @@ type UpdateInput struct {
 	Draw               *Draw
 	Audience           *domain.Audience
 	StudentIDs         *[]uuid.UUID
+	// the modality and the requirement are part of what freezes at the start (SPEC-076 RN-03)
+	Modality          *domain.Modality
+	RequiresClearance *bool
 }
 
 // Update changes the configuration of an assessment (RN-10, RN-15). From the start on, the composition is frozen: only the title, the
@@ -39,7 +42,7 @@ func (s *Service) Update(ctx context.Context, actor Actor, classID, id uuid.UUID
 	}
 	now := s.now()
 	composes := in.ModuleID != nil || in.Type != nil || in.MaxScore != nil || in.DurationMinutes != nil || in.Composition != nil ||
-		in.Items != nil || in.Draw != nil
+		in.Items != nil || in.Draw != nil || in.Modality != nil || in.RequiresClearance != nil
 	if composes && a.Frozen(now) {
 		return Summary{}, domain.ErrAssessmentFrozen
 	}
@@ -61,6 +64,14 @@ func (s *Service) Update(ctx context.Context, actor Actor, classID, id uuid.UUID
 	if in.MaxScore != nil {
 		n.MaxScore = *in.MaxScore
 		changed = append(changed, "max_score")
+	}
+	if in.Modality != nil {
+		n.Modality = *in.Modality
+		changed = append(changed, "modality")
+	}
+	if in.RequiresClearance != nil {
+		n.RequiresClearance = *in.RequiresClearance
+		changed = append(changed, "requires_clearance")
 	}
 	if in.DurationMinutes != nil {
 		n.DurationMinutes = in.DurationMinutes

@@ -453,7 +453,7 @@ func TestRepository_ListsInRangeByOverlap(t *testing.T) {
 	e := newEnv(t)
 	span := func(sd, sh, ed, eh int) func(*domain.Assessment) {
 		return func(a *domain.Assessment) {
-			a.Type, a.StartsAt, a.EndsAt = domain.TypeAssignment, at(sd, sh, 0), at(ed, eh, 0)
+			a.Type, a.Modality, a.StartsAt, a.EndsAt = domain.TypeAssignment, domain.ModalityOnline, at(sd, sh, 0), at(ed, eh, 0) // an assignment is only online (SPEC-076)
 		}
 	}
 	before := e.create(t, span(18, 9, 19, 9))       // ends before the range

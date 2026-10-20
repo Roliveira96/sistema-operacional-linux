@@ -245,6 +245,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		Lessons: assessmentLessons{schedule: scheduleService}, Modules: assessmentModules{modules: moduleService},
 		Questions:    assessmentQuestions{bank: contentExercises, questions: contentReader},
 		Homologation: noHomologation{},
+		Attempts:     noAttempts{},
 	}, time.Now)
 	assessmentHandler := assessmenthandler.New(assessmentService, auth)
 	// The calendars carry the assessments, and the bank of questions keeps what a scheduled assessment needs (SPEC-075 RN-17, RN-18).
