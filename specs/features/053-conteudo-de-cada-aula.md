@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-053 |
-| **Status** | Aprovada |
+| **Status** | Implementada |
 | **Data de criação** | 14/10/2026 |
-| **Última revisão** | 19/10/2026 (revisão de 19/10/2026 aprovada) |
+| **Última revisão** | 19/10/2026 (implementada) |
 | **Autor** | Aruna Architect |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -197,3 +197,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: tema, descrição, links, módulo
 | 16/10/2026 | Implementador | CA-15 implementado: a área Enviar PDF é um `label` do mesmo `input` (o clique e o teclado continuam abrindo o seletor), recebe o arquivo solto pelo mesmo `sendFile` do clique, fica destacada (`data-dragging`) com arquivo por cima e ignora o que é solto durante um envio. Nenhum desvio |
 | 19/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | Revisão pedida pelo Tech Lead (SPEC-074 D-06 a D-08): a apresentação sai do conteúdo da aula e do diálogo (campo, Enviar PDF e arrastar e soltar do CA-15); o professor projeta um PDF ou imagem dos materiais dentro da sala. CA-04, CA-07, CA-09, CA-10, CA-11 e CA-13 ajustados e CA-15 obsoleto. Volta a Rascunho |
 | 19/10/2026 | Tech Lead | Aprovada ("Aprovado."), com a opção B da P-01 e a área geral Enviar arquivos. Status: `Aprovada` |
+| 19/10/2026 | Implementador | Revisão implementada junto com a SPEC-074: sem apresentação no diálogo, no painel da aula, no diário e na leitura e gravação do conteúdo; "Iniciar aula ao vivo" não leva `deckId`; `GET /live/decks` fica para a lista de arquivos da sala. Nenhum desvio |
