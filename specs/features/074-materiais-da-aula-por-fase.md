@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-074 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 16/10/2026 |
-| **Última revisão** | 19/10/2026 (revisão pedida pelo Tech Lead: vários arquivos, fase padrão "Durante a aula", projetar um material na sala; volta a Rascunho) |
+| **Última revisão** | 19/10/2026 (revisão de 19/10/2026 aprovada) |
 | **Autor** | Aruna Architect (redigida pelo Claude a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -275,3 +275,4 @@ Nenhuma.
 | 16/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | O Tech Lead, ao ver o diálogo de conteúdo, apontou que a spec previa os materiais por fase mas a tela tinha só um campo de envio e nada de arrastar e soltar. Revisão: a seção Materiais passa a ter **quatro áreas, uma por fase**, cada uma com zona de **arrastar e soltar vários arquivos** e o botão Escolher arquivos (CA-10, CA-13); o tipo inicial vem da fase; o estado do envio é "Enviando…" e não uma barra de porcentagem (o `fetch` não informa o avanço). RN-04: sala ao vivo ligada ativa mantém a aula em andamento mesmo depois do horário de fim. Contrato de API: só o motivo novo `CLASS_CANCELED` no `hiddenUntil` (aula cancelada); o resto do backend sem mudança. Termos novos no `GLOSSARY.md`. Status: `Aprovada` (pelo pedido do Tech Lead) |
 | 16/10/2026 | Implementador | Implementada: migração `00039`; `schedule` (domínio da visibilidade e do motivo do oculto, serviço, rotas, repositório) e `cmd/api/material_refs.go`; no frontend, `SessionMaterials` (quatro áreas com arrastar e soltar), `DiaryMaterials` e a marca "N materiais" da linha do tempo. A seção Materiais ficou num componente próprio, `components/SessionMaterials`, usado pelo diálogo. A liberação ("Liberar em") grava ao sair do campo, e não a cada tecla. Conferida com capturas de tela em 390 e 1280 px. Status: `Implementada` |
 | 19/10/2026 | Aruna Architect (Claude, a pedido do Tech Lead) | Revisão pedida pelo Tech Lead: o professor sobe vários arquivos e escolhe a fase de cada um, e o arquivo sem fase escolhida fica em "Durante a aula" (D-06, CA-14); o estudante só vê arquivos pela regra das fases (D-07); escolhida a opção B da P-01: a apresentação sai do diálogo e do conteúdo da aula, e a sala ao vivo projeta um PDF ou imagem dos materiais (D-08, RN-08, RN-09, CA-15 a CA-18, rota `from-material`). Volta a Rascunho; sem pendências |
+| 19/10/2026 | Tech Lead | Aprovada ("Aprovado."), com a opção B da P-01 e a área geral Enviar arquivos. Status: `Aprovada` |
