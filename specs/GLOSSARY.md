@@ -199,6 +199,29 @@ Regras:
 | Log de comandos | `CommandLog` | Sequência cronológica de comandos executados | `History` | Canônico |
 | Pacote de contingência | `ContingencyProof` (arquivo `.proof`) | Envelope cifrado para entrega offline | `Backup` | Canônico |
 
+## 4.1. Avaliações no calendário da turma (SPEC-075)
+
+Termos propostos pela SPEC-075 (Rascunho). Dependem das pendências P-02 e P-04 dela, que podem ajustar as linhas `AssessmentWindow` e `DrawRule` da seção 4.
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Status da avaliação | `SCHEDULED`, `CANCELED` | Agendada ou cancelada (terminal). Não confundir com o status da tentativa | `ACTIVE`, `CANCELLED` (com dois L), `DRAFT` (fora de escopo da SPEC-075) | Proposto (SPEC-075) |
+| Fase da avaliação | `UPCOMING`, `RUNNING`, `ENDED` | Calculada pelo relógio do servidor e nunca guardada: antes do início, em andamento (do início ao término) e encerrada | `STARTED`, `FINISHED` | Proposto (SPEC-075) |
+| Nota máxima | `max_score` (`maxScore`) | Pontuação total da avaliação: a soma dos pesos (manual) ou de quantidade × pontos (sorteio) | `total_score`; `peso` (é o peso na média, fora de escopo) | Proposto (SPEC-075) |
+| Duração individual | `duration_minutes` | Tempo que cada aluno tem para fazer a avaliação, opcional; sem ela vale o período inteiro | `time_limit` | Proposto (SPEC-075) |
+| Composição da avaliação | `composition` (`MANUAL`, `DRAW`) | Como as questões entram: escolhidas uma a uma com peso, ou sorteadas por nível | `mode` | Proposto (SPEC-075) |
+| Questão da avaliação | `AssessmentItem` (tabela `assessment_items`) | Questão escolhida na composição manual, com posição e peso | `Row`, `Entry` | Proposto (SPEC-075) |
+| Público da avaliação | `audience` (`ALL_CLASS`, `SELECTED`) | Toda a turma ou só os alunos escolhidos (tabela `assessment_students`) | `scope` | Proposto (SPEC-075) |
+| Aluno elegível | — | Estudante com matrícula `ACTIVE` que pode ver e fazer a avaliação: qualquer um da turma em `ALL_CLASS`, ou o da lista em `SELECTED` | `Participant` (é o da rodada de exercício) | Proposto (SPEC-075) |
+| Congelamento da avaliação | `frozen` | A partir do início, a composição, os pesos, o sorteio, a nota máxima, o tipo e a duração não mudam | `Lock` (é o bloqueio da tentativa) | Proposto (SPEC-075) |
+| Reagendamento | `reschedule` (evento `RESCHEDULED`) | Mudança do início e do término; com a avaliação em andamento, só se prorroga o término | `Move`, `Postpone` | Proposto (SPEC-075) |
+| Cancelamento da avaliação | `cancel` (evento `CANCELED`) | Ato da docente com motivo obrigatório; a avaliação continua visível, riscada e com o motivo. Não confundir com o `CANCELED` da aula nem com o cancelamento de tentativa | `Delete`, `Annul` (é a anulação da prova) | Proposto (SPEC-075) |
+| Observações privadas da avaliação | `teacher_private_notes` (de `assessments`) | Texto interno da docente, que nunca chega ao estudante. Não confundir com `ProctorNote` (da tentativa) nem com as anotações privadas da aula | — | Proposto (SPEC-075) |
+| Evento da avaliação | `AssessmentEvent` (tabela `assessment_events`) | Histórico só de inclusão da avaliação: criada, alterada, reagendada e cancelada, com quem, quando, motivo e datas. Não confundir com `TimelineEvent` (da tentativa) | `Log`, `Audit` solto | Proposto (SPEC-075) |
+| Pré-visualização | `preview` | Visão da docente com enunciados, gabaritos e pontuação, em qualquer fase | — | Proposto (SPEC-075) |
+| Decisão de acesso | `AccessOf` (resultados `ALLOWED`, `CANCELED`, `NOT_ELIGIBLE`, `NOT_OPEN_YET`, `ENDED`) | Interface do service que diz se um estudante pode entrar numa avaliação agora; a spec das tentativas a consome | `canStart` | Proposto (SPEC-075) |
+| Transformar em avaliação | `classSessionId` (de `assessments`) | Criar a avaliação a partir de uma aula da agenda, aproveitando horário, tema e módulo, sem alterar a aula | `Convert` na interface | Proposto (SPEC-075) |
+
 ## 5. Condução da prova e auditoria
 
 | Português | Código (EN) | Definição | Evitar | Status |
