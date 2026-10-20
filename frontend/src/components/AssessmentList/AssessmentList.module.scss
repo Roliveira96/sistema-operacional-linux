@@ -109,6 +109,29 @@
   min-width: 12rem;
 }
 
+.waiting {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
+
+// The warning under an exam about to start, or already on, with students who are not cleared yet.
+.warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-primary);
+  background: var(--color-warning-faint);
+  border: 1px solid var(--color-warning-line);
+  border-radius: var(--radius-sm);
+
+  > span {
+    flex: 1 1 14rem;
+  }
+}
+
 .reason {
   margin: var(--space-2) 0 0;
   font-size: var(--font-size-xs);

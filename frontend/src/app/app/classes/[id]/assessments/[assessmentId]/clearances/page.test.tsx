@@ -37,7 +37,7 @@ const after = (...changes: Array<[string, Partial<ClearanceList["items"][number]
 describe("clearances page", () => {
   it("shows the students by state, the counters and the way back to the assessment", async () => {
     const { read } = setup();
-    expect(await screen.findByRole("heading", { name: "Habilitações" })).toBeDefined();
+    expect(await screen.findByRole("table")).toBeDefined();
     expect(read).toHaveBeenCalledWith("c-1", "a-1");
     expect(screen.getByText("Prova 1: permissões")).toBeDefined();
     expect(screen.getByRole("link", { name: "Voltar para a avaliação" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1");
@@ -69,7 +69,7 @@ describe("clearances page", () => {
   it("clears a student on their own row, and the ones already cleared have no clearing to do", async () => {
     const { decide } = setup();
     decide.mockResolvedValue(after(["s-1", { status: "APPROVED", clearedByName: "Profa. Sediane", clearedAt: "2026-10-21T10:00:00-03:00" }]));
-    await screen.findByRole("heading", { name: "Habilitações" });
+    await screen.findByRole("table");
     expect((screen.getByRole("button", { name: "Habilitar Bruno Lima" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Habilitar Ana Souza" }));
     await waitFor(() => expect(decide).toHaveBeenCalledWith("c-1", "a-1", { action: "UPDATE", students: [{ studentId: "s-1", status: "APPROVED" }] }));
@@ -79,7 +79,7 @@ describe("clearances page", () => {
   it("clears again a student who was refused", async () => {
     const { decide } = setup();
     decide.mockResolvedValue(after(["s-3", { status: "APPROVED", rejectionReason: undefined }]));
-    await screen.findByRole("heading", { name: "Habilitações" });
+    await screen.findByRole("table");
     expect((screen.getByRole("button", { name: "Habilitar Carla Dias" }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Habilitar Carla Dias" }));
     await waitFor(() => expect(decide).toHaveBeenCalledWith("c-1", "a-1", { action: "UPDATE", students: [{ studentId: "s-3", status: "APPROVED" }] }));
@@ -88,7 +88,7 @@ describe("clearances page", () => {
   it("refuses a student through the dialog, with the reason, and without it", async () => {
     const { decide } = setup();
     decide.mockResolvedValue(after(["s-1", { status: "REJECTED", rejectionReason: "Faltas", clearedByName: "Profa. Sediane", clearedAt: "2026-10-21T10:00:00-03:00" }]));
-    await screen.findByRole("heading", { name: "Habilitações" });
+    await screen.findByRole("table");
     fireEvent.click(screen.getByRole("button", { name: "Recusar Ana Souza" }));
     const dialog = screen.getByRole("dialog", { name: "Recusar a habilitação de Ana Souza" });
     fireEvent.change(within(dialog).getByLabelText("Motivo (opcional)"), { target: { value: "Faltas" } });
@@ -107,14 +107,14 @@ describe("clearances page", () => {
 
   it("does not offer to refuse who is already refused", async () => {
     setup();
-    await screen.findByRole("heading", { name: "Habilitações" });
+    await screen.findByRole("table");
     expect((screen.getByRole("button", { name: "Recusar Carla Dias" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("keeps the dialog open and says why when the server refuses the decision", async () => {
     const { decide } = setup();
     decide.mockRejectedValue(problem("clearance-locked", 409));
-    await screen.findByRole("heading", { name: "Habilitações" });
+    await screen.findByRole("table");
     fireEvent.click(screen.getByRole("button", { name: "Recusar Ana Souza" }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Recusar" }));
     expect((await within(screen.getByRole("dialog")).findByRole("alert")).textContent).toBe("O aluno já começou a prova: a habilitação dele não pode mais mudar.");

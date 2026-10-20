@@ -1,0 +1,50 @@
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text-body);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  p {
+    margin: 0;
+  }
+}
+
+.modality {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.pending,
+.approved {
+  padding: var(--space-3);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-sm);
+}
+
+.pending {
+  color: var(--color-warning);
+  background: var(--color-warning-faint);
+  border: 1px solid var(--color-warning-line);
+}
+
+.approved {
+  color: var(--color-success);
+  background: var(--color-success-faint);
+  border: 1px solid var(--color-success-line);
+}
+
+// The fixed banner of a refusal: it says so in words, and the reason follows.
+.rejected {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  color: var(--color-text-primary);
+  background: var(--color-danger-faint);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-sm);
+}
