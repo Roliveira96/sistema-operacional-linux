@@ -224,7 +224,7 @@ Termos da SPEC-075 (Aprovada em 20/10/2026). As decisões D-02 e D-04 dela ajust
 
 ## 4.2. Modalidade e habilitação para a prova presencial (SPEC-076)
 
-Termos propostos pela SPEC-076 (Rascunho). Dependem das pendências P-02, P-03 e P-06 dela.
+Termos da SPEC-076 (Aprovada em 20/10/2026).
 
 | Português | Código (EN) | Definição | Evitar | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -258,6 +258,6 @@ Termos propostos pela SPEC-076 (Rascunho). Dependem das pendências P-02, P-03 e
 
 Divergências encontradas em `docs/arquitetura/transicao-backend.md`. Nenhuma spec que dependa delas pode ser aprovada antes de resolvê-las:
 
-1. **Status da tentativa:** a seção 3.1 lista `EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO` e `BLOQUEADO_DOCENTE`; a seção 6.4 usa `BLOQUEADO_CAUTELAR`, `ENCERRADO_DOCENTE`, `CONCLUIDO` e `ANULADO_DISCIPLINAR`. É preciso definir a lista final.
+1. **Status da tentativa:** a seção 3.1 lista `EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO` e `BLOQUEADO_DOCENTE`; a seção 6.4 usa `BLOQUEADO_CAUTELAR`, `ENCERRADO_DOCENTE`, `CONCLUIDO` e `ANULADO_DISCIPLINAR`. É preciso definir a lista final. A monografia (seção "Bloqueio e Encerramento da Prova pelo Professor") nomeia `BLOQUEADO_DOCENTE` o estado do **encerramento** e o documento canônico 6.4.1 o chama `ENCERRADO_DOCENTE`; a spec das tentativas decide (SPEC-076, seção 2.2).
 2. ~~**Exercício × Questão**~~ — resolvido em 08/10/2026 (SPEC-011): tudo é `Question`; exercício é o uso `EXERCISE`.
 3. **Modelo de avaliação:** o documento canônico vincula `Avaliacao` direto à turma e não prevê modelos reutilizáveis. `AssessmentTemplate` é proposta nova.

@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-076 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 20/10/2026 |
 | **Última revisão** | 20/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -43,10 +43,10 @@ Toda IA implementadora deve tratar esta lista como proibição.
 - Tudo o que está na seção 2.2: projeção, cockpit, espelho do terminal, pedido de ajuda e bloqueio ou encerramento da prova de um aluno.
 - Iniciar a prova pelo estudante, o token de sala e a tentativa (spec das tentativas). Nesta spec **não existe** campo de token nem botão de iniciar.
 - Habilitação em avaliação `ONLINE` ou em atividade.
-- Guardar o histórico completo de cada decisão sobre cada aluno: fica o último estado de cada aluno e um evento por ação (P-07).
+- Guardar o histórico completo de cada decisão sobre cada aluno: fica o último estado de cada aluno e um evento por ação (D-07).
 - Avisar o aluno da decisão por e-mail ou por outro meio.
 - Voltar um aluno decidido para "aguardando". Muda-se de habilitado para recusado e de recusado para habilitado, nunca para aguardando.
-- Mostrar a modalidade no calendário do estudante: o `AssessmentPublic` da SPEC-075 não muda; a modalidade chega ao estudante só pela consulta do próprio acesso (P-08).
+- Mostrar a modalidade no calendário do estudante: o `AssessmentPublic` da SPEC-075 não muda; a modalidade chega ao estudante só pela consulta do próprio acesso (D-08).
 - Janela de aplicação por avaliação (repescagem do mesmo exame com habilitação própria). Segunda chamada continua sendo outra avaliação (SPEC-075 D-02).
 - Qualquer mudança em `frontend/src/engine/core/`.
 
@@ -60,9 +60,9 @@ A Tech Spec original traz, além do que está nos objetivos, os itens abaixo. El
 4. **Intervenção por infração:** interromper a prova de um aluno em flagrante de desvio (ex.: cola), com motivo obrigatório, derrubada da conexão, o evento `session:blocked` ao aluno com o motivo e o registro na linha do tempo de auditoria.
 5. **Aceite próprio da projeção:** o conteúdo do evento de projeção nunca carrega notas nem dados de auditoria forense (teste de integração).
 
-Dúvidas que a spec futura precisa decidir (não bloqueiam a SPEC-076):
+Decisão tomada e dúvidas que a spec futura ainda precisa decidir (nada disto bloqueia a SPEC-076):
 
-- O "bloquear por infração" da Tech Spec (rota de bloqueio, status `BLOQUEADO_DOCENTE`, derrubada da conexão) corresponde a qual das três ações do canônico 6.4.1: bloqueio cautelar e reversível, encerramento com a nota calculada normalmente, ou anulação depois da prova, que é nota zero? E qual é a lista final de status da tentativa (conflito 1 do glossário)?
+- **Decidido pelo Tech Lead em 20/10/2026, conforme a monografia (seção "Bloqueio e Encerramento da Prova pelo Professor"):** o flagrante de cola em sala é **encerramento** compulsório: a docente encerra a tentativa daquele aluno, a sessão passa a `BLOQUEADO_DOCENTE` com a justificativa registrada e o terminal é interrompido na hora. A **anulação** (nota zero) é ato posterior, na revisão e homologação de notas, respaldada pelo registro forense da ocorrência, sem se confundir com o encerramento operacional. O **bloqueio cautelar** (evento `session:blocked`, reversível, com a devolução do tempo Δt) fica só para pausas temporárias. Segue em aberto, para a spec das tentativas: o nome final do estado do encerramento (a monografia usa `BLOQUEADO_DOCENTE`; o documento canônico 6.4.1 usa `ENCERRADO_DOCENTE`) e o nome do estado do bloqueio cautelar (conflito 1 do glossário).
 - A projeção é uma segunda janela da docente já logada (padrão da janela de apresentação, SPEC-055) ou um endereço aberto sem login?
 - A projeção identifica quem pediu ajuda pelo nome ou pela estação? O sistema não tem o conceito de estação.
 - O telão mostra o token de sala?
@@ -92,14 +92,14 @@ As regras entram no módulo `assessment` da SPEC-075. Datas e relógio seguem a 
 - **RN-01 (modalidade):** a avaliação tem a modalidade `IN_PERSON` ou `ONLINE`. Sem informar, vale `IN_PERSON` para `EXAM` e `ONLINE` para `ASSIGNMENT`. Uma `ASSIGNMENT` só pode ser `ONLINE`; se vier presencial, 400 `invalid-assessment`.
 - **RN-02 (exigir habilitação):** a avaliação tem `requires_clearance`. Só uma avaliação `IN_PERSON` pode exigir; em `ONLINE` o campo é sempre falso, e ligá-lo é 400 `invalid-assessment`. Sem informar, vale verdadeiro para `IN_PERSON` e falso para `ONLINE`. A docente pode desligar a exigência de uma prova presencial.
 - **RN-03 (congelamento):** a `modality` e o `requires_clearance` entram na lista do congelamento da SPEC-075 RN-10: a partir de `startsAt` a troca é recusada com `assessment-frozen`. As decisões de habilitação **não** congelam: a docente continua decidindo com a prova em andamento, para o aluno que chega atrasado (RN-06).
-- **RN-04 (estados da habilitação):** o estado de um aluno é `PENDING` (aguardando), `APPROVED` (habilitado) ou `REJECTED` (recusado). `PENDING` **não é guardado**: é a ausência de decisão. Só `APPROVED` e `REJECTED` têm linha (P-06).
+- **RN-04 (estados da habilitação):** o estado de um aluno é `PENDING` (aguardando), `APPROVED` (habilitado) ou `REJECTED` (recusado). `PENDING` **não é guardado**: é a ausência de decisão. Só `APPROVED` e `REJECTED` têm linha (D-06).
 - **RN-05 (quem entra na lista):** os alunos **elegíveis** da avaliação, pela SPEC-075 RN-08 (matrícula `ACTIVE` e, em `SELECTED`, estar na lista). Quem passa a ser elegível depois, ou chega por matrícula nova, aparece aguardando. A decisão de quem deixa de ser elegível é ignorada (e a linha fica guardada).
-- **RN-06 (decidir):** a docente dona e o administrador decidem, com a avaliação `SCHEDULED`, com a exigência ligada e antes do término (em `UPCOMING` ou `RUNNING`). Há duas ações: `APPROVE_ALL`, que habilita todos os elegíveis que **aguardam** e não mexe em quem já foi recusado (P-04); e `UPDATE`, com uma lista de alunos, cada um com o novo estado (`APPROVED` ou `REJECTED`) e, na recusa, o motivo opcional de até 300 caracteres em texto puro. Motivo em branco é guardado vazio. Motivo com `APPROVED` é recusado. Aluno que não é elegível, repetido na lista ou lista vazia em `UPDATE` são recusados. Tudo ou nada (RN-12).
+- **RN-06 (decidir):** a docente dona e o administrador decidem, com a avaliação `SCHEDULED`, com a exigência ligada e antes do término (em `UPCOMING` ou `RUNNING`). Há duas ações: `APPROVE_ALL`, que habilita todos os elegíveis que **aguardam** e não mexe em quem já foi recusado (D-04); e `UPDATE`, com uma lista de alunos, cada um com o novo estado (`APPROVED` ou `REJECTED`) e, na recusa, o motivo opcional de até 300 caracteres em texto puro. Motivo em branco é guardado vazio. Motivo com `APPROVED` é recusado. Aluno que não é elegível, repetido na lista ou lista vazia em `UPDATE` são recusados. Tudo ou nada (RN-12).
 - **RN-07 (depois que o aluno começou):** a decisão sobre um aluno que já iniciou a tentativa é recusada com `clearance-locked`; daí em diante a intervenção é a da spec das tentativas. Como a tentativa ainda não existe, o `assessment` declara a interface `AttemptCheck` e o composition root liga uma implementação que responde "ninguém começou" até a spec das tentativas.
 - **RN-08 (decisão de acesso):** `AccessOf` (SPEC-075 RN-14) ganha o resultado `NOT_CLEARED`: com a exigência ligada, o aluno que não está `APPROVED` (aguardando ou recusado) recebe `NOT_CLEARED` em vez de `ALLOWED`. A ordem dos motivos fica `NOT_ELIGIBLE`, `CANCELED`, `NOT_OPEN_YET`, `ENDED` e, por último, `NOT_CLEARED`. Sem a exigência, nada muda.
 - **RN-09 (consulta do próprio acesso):** o estudante elegível consulta o próprio acesso e recebe se pode entrar, o motivo (o resultado de `AccessOf`), a modalidade, se há exigência e, havendo, o próprio estado de habilitação com o motivo da recusa. Quem não é elegível recebe 404 `assessment-not-found`.
 - **RN-10 (privacidade):** o estado de um aluno nunca chega a outro. A lista de habilitações, os contadores e o motivo das recusas são só da docente dona e do administrador. O estudante recebe só o próprio estado.
-- **RN-11 (auditoria):** cada linha guarda quem decidiu, quando e o motivo da recusa. Cada ação (um `APPROVE_ALL` ou um `UPDATE`) grava um evento `CLEARANCE_UPDATED` no histórico da avaliação (SPEC-075 RN-15), com autor e instante, e o nome de campo `clearances` em `changed_fields`. Quem decidiu por último vale; a decisão anterior sobre o mesmo aluno não fica guardada (P-07).
+- **RN-11 (auditoria):** cada linha guarda quem decidiu, quando e o motivo da recusa. Cada ação (um `APPROVE_ALL` ou um `UPDATE`) grava um evento `CLEARANCE_UPDATED` no histórico da avaliação (SPEC-075 RN-15), com autor e instante, e o nome de campo `clearances` em `changed_fields`. Quem decidiu por último vale; a decisão anterior sobre o mesmo aluno não fica guardada (D-07).
 - **RN-12 (transação):** uma ação de habilitação grava todas as linhas e o evento numa transação só.
 - **RN-13 (aviso e contadores):** o resumo da avaliação para a docente traz os contadores de aguardando, habilitados e recusados dos elegíveis. O aviso de "alunos ainda não habilitados" é decidido pela tela: avaliação presencial com exigência, `SCHEDULED`, aguardando maior que zero e, em `UPCOMING`, início em até 30 minutos, ou `RUNNING`.
 
@@ -316,22 +316,22 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-Cada pendência traz uma recomendação. A spec foi escrita **seguindo as recomendações**; se alguma for decidida de outro jeito, a seção indicada muda. **Uma spec só pode ser aprovada com esta tabela vazia.**
+Nenhuma. O Tech Lead decidiu em 20/10/2026, ao aprovar a spec, todas as pendências que ela tinha. As decisões estão incorporadas às seções 2, 3, 4, 5 e 7; esta tabela só as registra.
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | **Escopo.** A Tech Spec mistura duas entregas: a modalidade e a habilitação dos alunos (A) e a projeção, o cockpit e a intervenção sobre a prova (B). A B depende de sessão de prova, token, fila de ajuda e canal do cockpit, que só existem no rascunho 052, e ainda tem uma dúvida de fundo (a primeira da seção 2.2) sobre o que "bloquear" significa. | Esta spec entrega só a A. A B fica registrada na seção 2.2, sem perder nada, e vira spec própria depois da spec das tentativas. |
-| P-02 | **Nomes.** A Tech Spec usa `PRESENCIAL`/`REMOTA`, "homologação" e rotas e tabelas em português. O glossário já tem a modalidade da aula como `IN_PERSON` e `ONLINE` (e proíbe `REMOTE`), e "homologação" já é a de **nota** (`GradeApproval`). Todo código e toda rota são em inglês, sob `/classes/:id/assessments/...`. | Modalidade `IN_PERSON` e `ONLINE`. Para a decisão da docente sobre quem entra na prova, o termo "habilitação" (`clearance`, tabela `assessment_clearances`, estados `PENDING`, `APPROVED`, `REJECTED`), deixando "homologação" só para a nota. Rotas em inglês, como na SPEC-075. |
-| P-03 | **Modalidade e tipo.** A Tech Spec dá `PRESENCIAL` como padrão para tudo e não diz o que fazer com a atividade (prazo de dias, sem token). | `ASSIGNMENT` só pode ser `ONLINE`; `EXAM` pode ser as duas; sem informar, a prova é presencial e a atividade é online (RN-01). |
-| P-04 | **A exigência de habilitação.** A Tech Spec guarda o campo `exige_homologacao_presencial` mas não diz se a docente pode desligá-lo, nem o que "aprovar todos" faz com quem já foi recusado, nem até quando se decide. | A docente pode desligar a exigência de uma prova presencial. "Habilitar todos" habilita só quem aguarda e deixa o recusado como está (para não desfazer sem querer uma recusa). Decide-se até o término da avaliação e, depois que o aluno começou a tentativa, não mais (RN-06, RN-07). |
-| P-05 | **Congelar a modalidade.** A SPEC-075 RN-10 não lista a modalidade nem a exigência entre o que congela no início. | Congelam a partir do início, como o tipo; as decisões de habilitação não congelam (RN-03). Isso acrescenta dois campos à lista da SPEC-075 RN-10. |
-| P-06 | **Estado "aguardando".** A Tech Spec guarda o estado `PENDENTE` como linha da tabela. | `PENDING` é derivado (quem não tem decisão), sem linha, e não se volta a ele depois de decidir (RN-04, seção 2.1). |
-| P-07 | **Histórico das decisões.** A Tech Spec guarda quem e quando por aluno, e a SPEC-075 já tem o histórico da avaliação. | Cada linha guarda o último estado, quem, quando e o motivo; cada ação grava um evento `CLEARANCE_UPDATED` no histórico da avaliação. A decisão anterior sobre o mesmo aluno não fica guardada (RN-11). |
-| P-08 | **Modalidade para o estudante.** A SPEC-075 tem uma lista exata de campos públicos, que os testes conferem. | A modalidade chega ao estudante só pela consulta do próprio acesso; o `AssessmentPublic` não muda. Mostrá-la no calendário fica para depois. |
-| P-09 | **Onde o estudante vê a recusa.** A Tech Spec fala da "tela de validação do token", que ainda não existe. | No detalhe da avaliação da SPEC-075, com um bloco de estado e, na recusa, o banner fixo com o motivo; a tela do token, quando existir, usa a mesma consulta `my-access` (3.1). |
-| P-10 | **Motivo da recusa e frase padrão.** A Tech Spec diz "opcional ou padrão" sem fixar a frase nem o limite. | Motivo de até 300 caracteres em texto puro; sem motivo, o aluno lê "Sua matrícula não foi habilitada para esta avaliação presencial." (texto de interface, no arquivo de mensagens). |
-| P-11 | **O aviso de "prestes a iniciar".** A Tech Spec não diz quanto é "prestes". | 30 minutos antes do início, e durante a prova, se houver quem aguarde (RN-13). |
-| P-12 | **Notificar o aluno.** A Tech Spec não pede aviso por e-mail da decisão. | Sem aviso ao aluno nesta spec (SPEC-075 D-06): ele vê o estado ao abrir a avaliação. |
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **Escopo.** A SPEC-076 fica só com a entrega A: a modalidade da avaliação e a habilitação prévia dos alunos pela docente. A entrega B (projeção no telão, espelho do terminal, cockpit em tempo real e bloqueios em sala) depende da máquina de estados das tentativas e fica reservada para a spec derivada do rascunho 052 (seção 2.2). |
+| D-02 | **Nomes e rotas.** Modalidade `IN_PERSON` e `ONLINE`; a decisão da docente sobre quem entra na prova é a **habilitação** (`clearance`, tabela `assessment_clearances`, estados `PENDING`, `APPROVED`, `REJECTED`); "homologação" fica só para o fechamento de notas. Rotas em inglês, sob `/classes/:id/assessments/...`. |
+| D-03 | **Modalidade e tipo.** A atividade só pode ser `ONLINE`; a prova pode ser as duas e nasce `IN_PERSON` por padrão; sem informar, a atividade nasce `ONLINE` (RN-01). |
+| D-04 | **A exigência de habilitação.** A docente pode desligar a exigência de uma prova presencial, dando acesso livre a todos os matriculados elegíveis. "Habilitar todos" atua só sobre quem está `PENDING` e preserva as recusas explícitas (`REJECTED`). Decide-se até o término da avaliação e, depois que o aluno começou a tentativa, não mais (RN-06, RN-07). |
+| D-05 | **Congelamento.** A modalidade e a exigência de habilitação entram na lista do congelamento da SPEC-075 RN-10, do início da avaliação em diante; as decisões de habilitação não congelam (RN-03). |
+| D-06 | **Estado "aguardando".** `PENDING` é derivado, não é guardado, e não se volta a ele depois de decidir (RN-04). |
+| D-07 | **Histórico das decisões.** Cada linha guarda o último estado, quem, quando e o motivo; cada ação grava um evento `CLEARANCE_UPDATED` no histórico da avaliação; a decisão anterior sobre o mesmo aluno não fica guardada (RN-11). |
+| D-08 | **Modalidade para o estudante.** Chega só pela consulta do próprio acesso; o `AssessmentPublic` da SPEC-075 não muda. |
+| D-09 | **Onde o estudante vê a recusa.** No detalhe da avaliação, com o bloco de estado e, na recusa, o banner fixo com o motivo; a futura tela do token usa a mesma consulta `my-access`. |
+| D-10 | **Motivo da recusa.** Até 300 caracteres em texto puro; sem motivo, o aluno lê a frase padrão "Sua matrícula não foi habilitada para esta avaliação presencial." (arquivo de mensagens). |
+| D-11 | **Aviso de "prestes a iniciar".** 30 minutos antes do início e durante a prova, se houver quem aguarde (RN-13). |
+| D-12 | **Notificar o aluno.** Sem aviso por e-mail nesta spec (SPEC-075 D-06): ele vê o estado ao abrir a avaliação. |
 
 ---
 
@@ -339,4 +339,6 @@ Cada pendência traz uma recomendação. A spec foi escrita **seguindo as recome
 
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
-| 20/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir da Tech Spec que ele trouxe em 20/10/2026, conferida contra o canônico (3.1, 4.3 e 6.4.1), o glossário, a SPEC-075 e o que já existe de aula ao vivo. A projeção, o cockpit e a intervenção ficam na seção 2.2 para a spec das tentativas. Doze pendências abertas (P-01 a P-12), todas com recomendação |
+| 20/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir da Tech Spec que ele trouxe em 20/10/2026, conferida contra o canônico (3.1, 4.3 e 6.4.1), o glossário, a SPEC-075 e o que já existe de aula ao vivo. A projeção, o cockpit e a intervenção ficam na seção 2.2 para a spec das tentativas. Doze pendências abertas (D-01 a D-12), todas com recomendação |
+| 20/10/2026 | Tech Lead | Aprovada. Decisões D-01 a D-12 fechadas: aceitou as recomendações dos cinco pontos e das pendências D-06 a D-12 como estavam na spec; decidiu o fluxo do flagrante de cola (encerramento compulsório, com anulação como ato posterior; bloqueio cautelar só para pausas), registrado na seção 2.2 para a spec das tentativas, conforme a monografia |
+| 20/10/2026 | Aruna Architect | Seção 10 esvaziada: as doze pendências viraram decisões D-01 a D-12, incorporadas ao texto; `P-xx` renomeado para `D-xx` nas referências. A decisão sobre o flagrante de cola entrou na seção 2.2 e a monografia entrou nas fontes. A SPEC-076 só é implementada depois da SPEC-075 estar verde e mesclada |
