@@ -284,6 +284,11 @@ type noHomologation struct{}
 
 func (noHomologation) HasHomologated(context.Context, uuid.UUID) (bool, error) { return false, nil }
 
+// noAttempts answers that nobody started the attempt of an assessment, until the spec of the attempts exists (SPEC-076 RN-07).
+type noAttempts struct{}
+
+func (noAttempts) HasStarted(context.Context, uuid.UUID, uuid.UUID) (bool, error) { return false, nil }
+
 // assessmentCalendar is the part of the assessment service the calendar uses.
 type assessmentCalendar interface {
 	Calendar(ctx context.Context, actor assessmentservice.Actor, classIDs []uuid.UUID, from, to time.Time) (assessmentservice.CalendarResult, error)

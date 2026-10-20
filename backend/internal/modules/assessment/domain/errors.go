@@ -22,6 +22,9 @@ var (
 	ErrClassNotFound         = errors.New("class not found")
 	ErrAssessmentNotFound    = errors.New("assessment not found")
 	ErrInsufficientStock     = errors.New("the module has too few questions in some level")
+	ErrInvalidClearance      = errors.New("the clearance is not valid")
+	ErrClearanceNotRequired  = errors.New("the assessment does not require the clearance of the students")
+	ErrClearanceLocked       = errors.New("the student already started the attempt")
 )
 
 // Shortage is a level of difficulty that the bank cannot supply: what the draw asks for and what there is.

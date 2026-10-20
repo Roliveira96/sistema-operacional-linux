@@ -31,6 +31,10 @@ type CreateInput struct {
 	Audience                 domain.Audience
 	StudentIDs               []uuid.UUID
 	PrivateNotes             *string
+	// Modality and RequiresClearance follow the type when they are not sent: an exam is in person and requires the clearance, an assignment is
+	// online (SPEC-076 RN-01, RN-02).
+	Modality          *domain.Modality
+	RequiresClearance *bool
 }
 
 // Create schedules an assessment (RN-02 to RN-08, RN-15, RN-19).
@@ -78,10 +82,18 @@ func (s *Service) Create(ctx context.Context, actor Actor, classID uuid.UUID, in
 	if audience == "" {
 		audience = domain.AudienceAllClass
 	}
+	modality := domain.DefaultModality(in.Type)
+	if in.Modality != nil {
+		modality = *in.Modality
+	}
+	requires := domain.DefaultRequiresClearance(modality)
+	if in.RequiresClearance != nil {
+		requires = *in.RequiresClearance
+	}
 	a := domain.Assessment{
 		ClassID: classID, ModuleID: *moduleID, ClassSessionID: in.ClassSessionID, Title: title, Description: in.Description, Type: in.Type,
-		Status: domain.StatusScheduled, MaxScore: in.MaxScore, DurationMinutes: in.DurationMinutes, StartsAt: *startsAt, EndsAt: *endsAt,
-		Composition: in.Composition, Audience: audience, CreatedBy: actor.UserID, UpdatedBy: actor.UserID,
+		Status: domain.StatusScheduled, Modality: modality, RequiresClearance: requires, MaxScore: in.MaxScore, DurationMinutes: in.DurationMinutes,
+		StartsAt: *startsAt, EndsAt: *endsAt, Composition: in.Composition, Audience: audience, CreatedBy: actor.UserID, UpdatedBy: actor.UserID,
 	}
 	a.CreatedAt, a.UpdatedAt = now, now
 	if in.PrivateNotes != nil {

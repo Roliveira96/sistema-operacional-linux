@@ -111,6 +111,12 @@ type HomologationCheck interface {
 	HasHomologated(ctx context.Context, assessmentID uuid.UUID) (bool, error)
 }
 
+// AttemptCheck says whether a student already started the attempt of an assessment (SPEC-076 RN-07). The attempts do not exist yet, so the
+// composition root plugs one that answers "nobody started" until the spec of the attempts.
+type AttemptCheck interface {
+	HasStarted(ctx context.Context, assessmentID, studentID uuid.UUID) (bool, error)
+}
+
 // Users gives the names of users, for who changed what (RN-15).
 type Users interface {
 	Names(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
@@ -124,6 +130,7 @@ type Ports struct {
 	Modules      Modules
 	Questions    Questions
 	Homologation HomologationCheck
+	Attempts     AttemptCheck
 	Users        Users
 }
 
@@ -145,6 +152,10 @@ type Repository interface {
 	Events(ctx context.Context, id uuid.UUID) ([]domain.Event, error)
 	// Save writes the assessment, replaces what Replacements carries and appends the event, in one transaction.
 	Save(ctx context.Context, a *domain.Assessment, rep Replacements, e *domain.Event) error
+	// Clearances gives the decisions of the teacher about the students of the assessment (SPEC-076).
+	Clearances(ctx context.Context, assessmentID uuid.UUID) ([]domain.Clearance, error)
+	// SaveClearances writes the decisions, one row for each student with the last one winning, and appends the event, in one transaction (RN-12).
+	SaveClearances(ctx context.Context, assessmentID uuid.UUID, rows []domain.Clearance, e domain.Event) error
 	// SaveNotes writes only the private notes: not updated_by, not updated_at, no event (RN-13).
 	SaveNotes(ctx context.Context, id uuid.UUID, notes *string) error
 	ListByClass(ctx context.Context, classID uuid.UUID) ([]domain.Assessment, error)
@@ -276,6 +287,9 @@ type Summary struct {
 	ModuleTitle         string
 	Composition         domain.Composition
 	Audience            domain.Audience
+	Modality            domain.Modality
+	RequiresClearance   bool
+	ClearanceCounts     ClearanceCounts
 	EligibleStudents    int
 	TotalQuestions      int
 	Frozen              bool
@@ -327,6 +341,7 @@ func publicOf(a domain.Assessment, now time.Time) Public {
 func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, error) {
 	sum := Summary{
 		Public: publicOf(a, s.now()), ModuleID: a.ModuleID, Composition: a.Composition, Audience: a.Audience, Frozen: a.Frozen(s.now()),
+		Modality: a.Modality, RequiresClearance: a.RequiresClearance,
 		TeacherPrivateNotes: a.TeacherPrivateNotes, CreatedBy: a.CreatedBy, UpdatedBy: a.UpdatedBy, UpdatedAt: a.UpdatedAt,
 		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt,
 	}
@@ -351,6 +366,9 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 		return Summary{}, err
 	}
 	sum.EligibleStudents = len(eligible)
+	if sum.ClearanceCounts, err = s.clearanceCounts(ctx, a, eligible); err != nil {
+		return Summary{}, err
+	}
 
 	ids := []uuid.UUID{a.CreatedBy, a.UpdatedBy}
 	if a.CanceledBy != nil {

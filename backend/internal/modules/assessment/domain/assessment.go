@@ -35,6 +35,25 @@ const (
 	TypeAssignment Type = "ASSIGNMENT"
 )
 
+// Modality is where the assessment is done (SPEC-076 RN-01): in the laboratory or at a distance.
+type Modality string
+
+const (
+	ModalityInPerson Modality = "IN_PERSON"
+	ModalityOnline   Modality = "ONLINE"
+)
+
+// DefaultModality is the modality of a type when nothing is said: an exam is in person and an assignment is online (RN-01).
+func DefaultModality(t Type) Modality {
+	if t == TypeExam {
+		return ModalityInPerson
+	}
+	return ModalityOnline
+}
+
+// DefaultRequiresClearance is whether a modality requires the clearance of the students when nothing is said: only the in-person one does (RN-02).
+func DefaultRequiresClearance(m Modality) bool { return m == ModalityInPerson }
+
 // Status is the stored state of an assessment. The phase of the clock is not stored (RN-03).
 type Status string
 
@@ -90,6 +109,8 @@ const (
 	AccessNotEligible Access = "NOT_ELIGIBLE"
 	AccessNotOpenYet  Access = "NOT_OPEN_YET"
 	AccessEnded       Access = "ENDED"
+	// AccessNotCleared is the last reason: the assessment requires the clearance and the student has not got it (SPEC-076 RN-08).
+	AccessNotCleared Access = "NOT_CLEARED"
 )
 
 var location = mustLoadLocation("America/Sao_Paulo")
@@ -115,6 +136,8 @@ type Assessment struct {
 	Description         string
 	Type                Type
 	Status              Status
+	Modality            Modality
+	RequiresClearance   bool
 	MaxScore            Score
 	DurationMinutes     *int
 	StartsAt            time.Time
@@ -157,6 +180,13 @@ func (a Assessment) Validate() error {
 		return ErrInvalidAssessment
 	}
 	if a.Type != TypeExam && a.Type != TypeAssignment {
+		return ErrInvalidAssessment
+	}
+	if a.Modality != ModalityInPerson && a.Modality != ModalityOnline {
+		return ErrInvalidAssessment
+	}
+	// an assignment is only online, and only an in-person assessment may require the clearance (SPEC-076 RN-01, RN-02)
+	if (a.Type == TypeAssignment && a.Modality != ModalityOnline) || (a.RequiresClearance && a.Modality != ModalityInPerson) {
 		return ErrInvalidAssessment
 	}
 	if a.Composition != CompositionManual && a.Composition != CompositionDraw {
@@ -333,6 +363,8 @@ const (
 	EventUpdated     EventKind = "UPDATED"
 	EventRescheduled EventKind = "RESCHEDULED"
 	EventCanceled    EventKind = "CANCELED"
+	// EventClearanceUpdated is one action of the teacher on the clearance of the students (SPEC-076 RN-11).
+	EventClearanceUpdated EventKind = "CLEARANCE_UPDATED"
 )
 
 // Event is a line of the history of an assessment: who did what, when and why. It is only ever added (RN-15).

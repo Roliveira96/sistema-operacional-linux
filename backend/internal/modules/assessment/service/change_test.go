@@ -302,10 +302,13 @@ func TestPrivateNotes_AnyPhaseAnyStatusAndNoAuditNoUpdatedBy(t *testing.T) {
 // ---- RN-14: the access decision ----
 
 // Covers SPEC-075 CA-17 (RN-14): ALLOWED only for an eligible student, with the assessment SCHEDULED and RUNNING; the other results say why not.
+// The exam here does not require the clearance of SPEC-076, which is what an exam did before it: with the requirement on, the table of
+// TestAccessOf_ClearanceDecisionTable applies (SPEC-076 RN-08, "sem a exigência, nada muda").
 func TestAccessOf_DecisionTable(t *testing.T) {
 	f := newFixture(t)
 	a := f.create(t, func(in *service.CreateInput) {
 		in.Audience, in.StudentIDs = domain.AudienceSelected, []uuid.UUID{f.ana.ID, f.bruno.ID}
+		in.RequiresClearance = ptr(false)
 	})
 
 	cases := []struct {

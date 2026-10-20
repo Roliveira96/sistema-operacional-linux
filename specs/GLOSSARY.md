@@ -222,6 +222,19 @@ Termos da SPEC-075 (Aprovada em 20/10/2026). As decisões D-02 e D-04 dela ajust
 | Decisão de acesso | `AccessOf` (resultados `ALLOWED`, `CANCELED`, `NOT_ELIGIBLE`, `NOT_OPEN_YET`, `ENDED`) | Interface do service que diz se um estudante pode entrar numa avaliação agora; a spec das tentativas a consome | `canStart` | Proposto (SPEC-075) |
 | Transformar em avaliação | `classSessionId` (de `assessments`) | Criar a avaliação a partir de uma aula da agenda, aproveitando horário, tema e módulo, sem alterar a aula | `Convert` na interface | Proposto (SPEC-075) |
 
+## 4.2. Modalidade e habilitação para a prova presencial (SPEC-076)
+
+Termos da SPEC-076 (Aprovada em 20/10/2026).
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Modalidade da avaliação | `modality` (`IN_PERSON`, `ONLINE`) | Se a avaliação é aplicada no laboratório ou a distância; os mesmos valores da modalidade da aula. A atividade (`ASSIGNMENT`) só é `ONLINE` | `REMOTE`, `VIRTUAL`, `PRESENCIAL`, `REMOTA` no código | Proposto (SPEC-076) |
+| Exigir habilitação | `requires_clearance` | A avaliação presencial só deixa entrar o aluno que a docente habilitou; só existe em `IN_PERSON` | `exige_homologacao` | Proposto (SPEC-076) |
+| Habilitação para a prova | `AssessmentClearance` (tabela `assessment_clearances`) | Decisão da docente sobre um aluno elegível: habilitado ou recusado, com quem decidiu, quando e o motivo da recusa. Não confundir com a homologação de nota (`GradeApproval`) | `Homologation`, `Eligibility` | Proposto (SPEC-076) |
+| Estado de habilitação | `PENDING` (aguardando, derivado), `APPROVED` (habilitado), `REJECTED` (recusado) | `PENDING` é a ausência de decisão e não é guardado | `PENDENTE`, `APROVADO`, `REJEITADO` | Proposto (SPEC-076) |
+| Motivo da recusa | `rejection_reason` | Texto opcional de até 300 caracteres que o aluno recusado lê; sem ele, a interface mostra uma frase padrão | `reason` solto (é o motivo do cancelamento ou do reagendamento) | Proposto (SPEC-076) |
+| Não habilitado | `NOT_CLEARED` (resultado de `AccessOf`) | O aluno elegível, com a avaliação aberta, mas ainda aguardando ou recusado numa avaliação que exige a habilitação | `NOT_APPROVED` | Proposto (SPEC-076) |
+
 ## 5. Condução da prova e auditoria
 
 | Português | Código (EN) | Definição | Evitar | Status |
@@ -245,6 +258,6 @@ Termos da SPEC-075 (Aprovada em 20/10/2026). As decisões D-02 e D-04 dela ajust
 
 Divergências encontradas em `docs/arquitetura/transicao-backend.md`. Nenhuma spec que dependa delas pode ser aprovada antes de resolvê-las:
 
-1. **Status da tentativa:** a seção 3.1 lista `EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO` e `BLOQUEADO_DOCENTE`; a seção 6.4 usa `BLOQUEADO_CAUTELAR`, `ENCERRADO_DOCENTE`, `CONCLUIDO` e `ANULADO_DISCIPLINAR`. É preciso definir a lista final.
+1. **Status da tentativa:** a seção 3.1 lista `EM_ANDAMENTO`, `FINALIZADO`, `TEMPO_ESGOTADO`, `CANCELADO` e `BLOQUEADO_DOCENTE`; a seção 6.4 usa `BLOQUEADO_CAUTELAR`, `ENCERRADO_DOCENTE`, `CONCLUIDO` e `ANULADO_DISCIPLINAR`. É preciso definir a lista final. A monografia (seção "Bloqueio e Encerramento da Prova pelo Professor") nomeia `BLOQUEADO_DOCENTE` o estado do **encerramento** e o documento canônico 6.4.1 o chama `ENCERRADO_DOCENTE`; a spec das tentativas decide (SPEC-076, seção 2.2).
 2. ~~**Exercício × Questão**~~ — resolvido em 08/10/2026 (SPEC-011): tudo é `Question`; exercício é o uso `EXERCISE`.
 3. **Modelo de avaliação:** o documento canônico vincula `Avaliacao` direto à turma e não prevê modelos reutilizáveis. `AssessmentTemplate` é proposta nova.
