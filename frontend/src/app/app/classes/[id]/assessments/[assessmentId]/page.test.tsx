@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
 import { assessmentService } from "@/services/assessmentService";
 import { problem } from "@/test/helpers";
-import { detail, preview, publicOf } from "@/test/assessmentFixtures";
+import { detail, myAccess, preview, publicOf } from "@/test/assessmentFixtures";
 import AssessmentPage from "./page";
 
 let searchParams = new URLSearchParams();
@@ -81,6 +81,32 @@ describe("assessment page", () => {
       expect(screen.getByText("Ana Souza (1000001)")).toBeDefined();
     });
 
+    // SPEC-076 CA-16
+    it("says the modality and has the way to the clearances of an in-person exam that requires it", async () => {
+      asRole("TEACHER");
+      vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ clearanceCounts: { pending: 3, approved: 29, rejected: 0 } }));
+      render(<AssessmentPage params={params} />);
+      await screen.findByRole("heading", { name: "Prova 1: permissões" });
+      expect(fact("Modalidade")).toBe("Presencial");
+      expect(screen.getByRole("link", { name: "Habilitações" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/clearances");
+      expect(screen.getByText("3 aguardando, 29 habilitados, 0 recusados")).toBeDefined();
+    });
+
+    it("has no clearances to show for an online assessment, nor for one that does not require them", async () => {
+      asRole("TEACHER");
+      vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ modality: "ONLINE", requiresClearance: false }));
+      render(<AssessmentPage params={params} />);
+      await screen.findByRole("heading", { name: "Prova 1: permissões" });
+      expect(fact("Modalidade")).toBe("Online");
+      expect(screen.queryByRole("link", { name: "Habilitações" })).toBeNull();
+      cleanup();
+
+      vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ requiresClearance: false }));
+      render(<AssessmentPage params={params} />);
+      await screen.findByRole("heading", { name: "Prova 1: permissões" });
+      expect(screen.queryByRole("link", { name: "Habilitações" })).toBeNull();
+    });
+
     it("has the way to edit, and to preview, which reads the answers only when asked", async () => {
       asRole("TEACHER");
       vi.spyOn(assessmentService, "get").mockResolvedValue(detail());
@@ -125,6 +151,20 @@ describe("assessment page", () => {
   });
 
   describe("student", () => {
+    beforeEach(() => {
+      vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess());
+    });
+
+    // SPEC-076 CA-17
+    it("shows the own state of the clearance below the card, from the own access", async () => {
+      asRole("STUDENT");
+      vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf());
+      render(<AssessmentPage params={params} />);
+      expect(await screen.findByText("Aguardando a habilitação da professora")).toBeDefined();
+      expect(assessmentService.myAccess).toHaveBeenCalledWith("c-1", "a-1");
+      expect(screen.getByText("Modalidade: Presencial")).toBeDefined();
+    });
+
     it("shows the card with the countdown and nothing that is the teacher's", async () => {
       asRole("STUDENT");
       const get = vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf({ startsAt: "2026-10-21T11:30:00-03:00", endsAt: "2026-10-21T13:30:00-03:00" }));

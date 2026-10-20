@@ -1,0 +1,101 @@
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 8rem;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  dt {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  dd {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+  }
+}
+
+// The table scrolls sideways on a narrow screen instead of breaking the page.
+.scroll {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+
+  th,
+  td {
+    padding: var(--space-3);
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-hairline);
+  }
+
+  th {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+}
+
+.name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.status {
+  display: inline-block;
+  padding: 0.125rem var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  border-radius: var(--radius-pill);
+
+  &[data-status="PENDING"] {
+    color: var(--color-warning);
+    background: var(--color-warning-faint);
+    border: 1px solid var(--color-warning-line);
+  }
+
+  &[data-status="APPROVED"] {
+    color: var(--color-success);
+    background: var(--color-success-faint);
+    border: 1px solid var(--color-success-line);
+  }
+
+  &[data-status="REJECTED"] {
+    color: var(--color-danger);
+    background: var(--color-danger-faint);
+    border: 1px solid var(--color-danger-line);
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 11rem;
+}

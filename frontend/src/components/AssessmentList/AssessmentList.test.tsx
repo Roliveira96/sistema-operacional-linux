@@ -21,6 +21,8 @@ function setup(over: Partial<AssessmentListProps> = {}) {
         startsAt: "2026-10-26T08:00:00-03:00",
         endsAt: "2026-10-30T23:59:00-03:00",
         durationMinutes: undefined,
+        modality: "ONLINE",
+        requiresClearance: false,
         maxScore: 5,
         eligibleStudents: 4,
         audience: "SELECTED",
@@ -39,11 +41,11 @@ describe("AssessmentList", () => {
   it("shows the kind, title, period, phase, maximum score, composition and eligible students of each assessment", () => {
     setup();
     const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
-    expect(headers).toEqual(["Tipo", "Título", "Período", "Situação", "Nota máxima", "Composição", "Elegíveis", "Ações"]);
+    expect(headers).toEqual(["Tipo", "Modalidade", "Título", "Período", "Situação", "Nota máxima", "Composição", "Elegíveis", "Ações"]);
     const exam = within(rowOf("Prova 1: permissões")).getAllByRole("cell").map((c) => c.textContent);
-    expect(exam.slice(0, 7)).toEqual(["Prova", "Prova 1: permissões", "23/10/2026, 09:00–11:00", "Agendada", "10,00", "Manual", "32"]);
+    expect(exam.slice(0, 8)).toEqual(["Prova", "Presencial", "Prova 1: permissões", "23/10/2026, 09:00–11:00", "Agendada", "10,00", "Manual", "32"]);
     const task = within(rowOf("Trabalho em duplas")).getAllByRole("cell").map((c) => c.textContent);
-    expect(task.slice(0, 7)).toEqual(["Atividade", "Trabalho em duplas", "26/10/2026 08:00 a 30/10/2026 23:59", "Agendada", "5,00", "Sorteio por nível", "4"]);
+    expect(task.slice(0, 8)).toEqual(["Atividade", "Online", "Trabalho em duplas", "26/10/2026 08:00 a 30/10/2026 23:59", "Agendada", "5,00", "Sorteio por nível", "4"]);
   });
 
   it("names each phase", () => {

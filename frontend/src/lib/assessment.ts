@@ -1,5 +1,5 @@
 import { messages } from "@/messages/pt-BR";
-import type { AssessmentBase, AssessmentDetail, CalendarAssessment, DrawRule, PickedQuestion } from "@/services/assessmentService";
+import type { AssessmentBase, AssessmentDetail, AssessmentSummary, CalendarAssessment, DrawRule, PickedQuestion } from "@/services/assessmentService";
 
 const m = messages.assessments;
 
@@ -61,6 +61,21 @@ export const isOnDay = (a: Pick<AssessmentBase, "startsAt" | "endsAt">, iso: str
 export const convertedSessionIds = (assessments: Pick<CalendarAssessment, "status" | "classSessionId">[]): Set<string> =>
   new Set(assessments.filter((a) => a.status === "SCHEDULED" && a.classSessionId).map((a) => a.classSessionId!));
 
+/** How long before the start the warning of the students who still wait for the clearance begins (SPEC-076 D-11). */
+const WARN_BEFORE_MS = 30 * 60_000;
+
+/**
+ * Whether the list warns that students are still not cleared (SPEC-076 RN-13): an in-person assessment that requires the clearance, scheduled, with
+ * students waiting, that starts in 30 minutes or less by the clock of the server, or that is running.
+ */
+export function needsClearanceWarning(a: AssessmentSummary, serverNow?: string): boolean {
+  if (a.status !== "SCHEDULED" || a.modality !== "IN_PERSON" || !a.requiresClearance || a.clearanceCounts.pending <= 0) return false;
+  if (a.phase === "RUNNING") return true;
+  if (a.phase !== "UPCOMING") return false;
+  const now = serverNow ? Date.parse(serverNow) : Date.now();
+  return Date.parse(a.startsAt) - now <= WARN_BEFORE_MS;
+}
+
 /** What the form starts from when the teacher edits an assessment that is saved. */
 export function formInitialOf(a: AssessmentDetail) {
   const items: PickedQuestion[] = a.items.map((i) => ({ questionId: i.questionId, title: i.title, kind: i.kind, difficulty: i.difficulty, weight: i.weight }));
@@ -78,6 +93,8 @@ export function formInitialOf(a: AssessmentDetail) {
     items,
     drawRules,
     audience: a.audience,
+    modality: a.modality,
+    requiresClearance: a.requiresClearance,
     studentIds: a.students.map((s) => s.studentId),
     teacherPrivateNotes: a.teacherPrivateNotes,
   };

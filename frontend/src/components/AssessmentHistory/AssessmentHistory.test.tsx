@@ -43,6 +43,22 @@ describe("AssessmentHistory", () => {
     );
   });
 
+  // SPEC-076 RN-11: each action on the clearance is one line, and the new fields have their names.
+  it("tells the actions on the clearance, and names the modality and the requirement", () => {
+    render(
+      <AssessmentHistory
+        events={[
+          { kind: "CLEARANCE_UPDATED", actorName: "Profa. Sediane", createdAt: "2026-10-21T09:30:00-03:00", changedFields: ["clearances"] },
+          { kind: "UPDATED", actorName: "Admin", createdAt: "2026-10-21T09:40:00-03:00", changedFields: ["modality", "requires_clearance", "max_score"] },
+        ]}
+      />,
+    );
+    expect(lines()).toEqual([
+      "Habilitações atualizadas por Profa. Sediane em 21/10/2026 às 09:30.",
+      "Alterada por Admin em 21/10/2026 às 09:40: modalidade, exigência de habilitação, nota máxima.",
+    ]);
+  });
+
   it("has a heading for the list, and says when there is nothing", () => {
     render(<AssessmentHistory events={[]} />);
     expect(screen.getByRole("heading", { name: "Histórico" })).toBeDefined();

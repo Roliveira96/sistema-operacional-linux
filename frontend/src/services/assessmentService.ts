@@ -9,6 +9,8 @@ export type AssessmentPhase = "UPCOMING" | "RUNNING" | "ENDED";
 export type Composition = "MANUAL" | "DRAW";
 export type Audience = "ALL_CLASS" | "SELECTED";
 export type Difficulty = "EASY" | "MEDIUM" | "HARD";
+export type Modality = "IN_PERSON" | "ONLINE";
+export type ClearanceStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 /** What every reader of an assessment gets (SPEC-075, section 5.1); the times are ISO 8601 in Brasília. */
 export interface AssessmentBase {
@@ -38,12 +40,21 @@ export interface CalendarAssessment extends AssessmentBase {
   composition?: Composition;
 }
 
+export interface ClearanceCounts {
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
 /** What the teacher and the administrator read in the list. */
 export interface AssessmentSummary extends AssessmentBase {
   moduleId: string;
   moduleTitle: string;
   composition: Composition;
   audience: Audience;
+  modality: Modality;
+  requiresClearance: boolean;
+  clearanceCounts: ClearanceCounts;
   eligibleStudents: number;
   totalQuestions: number;
   frozen: boolean;
@@ -79,7 +90,7 @@ export interface AssessmentStudent {
 }
 
 export interface AssessmentEvent {
-  kind: "CREATED" | "UPDATED" | "RESCHEDULED" | "CANCELED";
+  kind: "CREATED" | "UPDATED" | "RESCHEDULED" | "CANCELED" | "CLEARANCE_UPDATED";
   actorName: string;
   createdAt: string;
   reason?: string;
@@ -160,6 +171,42 @@ export interface AssessmentInput {
   audience?: Audience;
   studentIds?: string[];
   teacherPrivateNotes?: string;
+  /** Without them the server chooses by the type: an exam is in person and asks for the clearance, an assignment is online (SPEC-076 RN-01, RN-02). */
+  modality?: Modality;
+  requiresClearance?: boolean;
+}
+
+/** A student of the assessment with the state of the clearance (SPEC-076 section 5). */
+export interface ClearanceItem {
+  studentId: string;
+  name: string;
+  academicId: string;
+  status: ClearanceStatus;
+  rejectionReason?: string;
+  clearedAt?: string;
+  clearedByName?: string;
+}
+
+export interface ClearanceList {
+  requiresClearance: boolean;
+  items: ClearanceItem[];
+  counts: ClearanceCounts;
+  serverNow: string;
+}
+
+/** What the teacher does: clears everybody who waits, or decides student by student (RN-06). */
+export type ClearanceInput =
+  | { action: "APPROVE_ALL" }
+  | { action: "UPDATE"; students: { studentId: string; status: "APPROVED" | "REJECTED"; rejectionReason?: string }[] };
+
+/** What the student reads about their own access, and about no one else's (RN-09, RN-10). */
+export interface MyAccess {
+  allowed: boolean;
+  reason: "ALLOWED" | "CANCELED" | "NOT_OPEN_YET" | "ENDED" | "NOT_CLEARED";
+  modality: Modality;
+  requiresClearance: boolean;
+  clearance?: { status: ClearanceStatus; rejectionReason?: string };
+  serverNow: string;
 }
 
 /** What may change by the PATCH: the dates and the notes have routes of their own (RN-11, RN-13). */
@@ -194,6 +241,12 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     saveNotes: async (classId: string, id: string, notes: string) =>
       (await client.put<{ teacherPrivateNotes: string }>(`${base(classId)}/${id}/private-notes`, { teacherPrivateNotes: notes })).teacherPrivateNotes,
     preview: (classId: string, id: string) => client.get<PreviewData>(`${base(classId)}/${id}/preview`),
+    /** The eligible students with the state of the clearance, for the teacher and the administrator (SPEC-076). */
+    clearances: (classId: string, id: string) => client.get<ClearanceList>(`${base(classId)}/${id}/clearances`),
+    /** The answer is the list already updated. */
+    decideClearances: (classId: string, id: string, input: ClearanceInput) => client.post<ClearanceList>(`${base(classId)}/${id}/clearances`, input),
+    /** The own access of the student: whether they may enter, why, and the own state of the clearance. */
+    myAccess: (classId: string, id: string) => client.get<MyAccess>(`${base(classId)}/${id}/my-access`),
     /** The questions that may enter and the stock of each level, for the form (RN-05, RN-07). */
     eligibleQuestions: (classId: string, query: QuestionQuery) => {
       const qs = new URLSearchParams({ moduleId: query.moduleId });

@@ -148,3 +148,48 @@ describe("assessments page of the class", () => {
     });
   });
 });
+
+// SPEC-076 CA-15: the warning of the list, wired to the clearances.
+describe("assessments page: clearances (SPEC-076)", () => {
+  const soon = () =>
+    summary({
+      id: "a-1",
+      title: "Prova 1: permissões",
+      startsAt: "2026-10-21T10:30:00-03:00",
+      endsAt: "2026-10-21T12:00:00-03:00",
+      clearanceCounts: { pending: 3, approved: 29, rejected: 0 },
+    });
+
+  it("approves all who wait from the warning, and reads the list again", async () => {
+    asRole("TEACHER");
+    const list = vi.spyOn(assessmentService, "list").mockResolvedValue({ items: [soon()], serverNow: SERVER_NOW });
+    const decide = vi.spyOn(assessmentService, "decideClearances").mockResolvedValue({ requiresClearance: true, items: [], counts: { pending: 0, approved: 32, rejected: 0 }, serverNow: SERVER_NOW });
+    render(<AssessmentsPage params={params} />);
+    await screen.findByRole("table");
+    const warning = screen.getByRole("status");
+    expect(warning.textContent).toContain("3 alunos ainda não foram habilitados");
+    fireEvent.click(within(warning).getByRole("button", { name: "Habilitar todos" }));
+    await waitFor(() => expect(decide).toHaveBeenCalledWith("c-1", "a-1", { action: "APPROVE_ALL" }));
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  });
+
+  it("goes to the clearances from the warning", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "list").mockResolvedValue({ items: [soon()], serverNow: SERVER_NOW });
+    render(<AssessmentsPage params={params} />);
+    await screen.findByRole("table");
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Ver habilitações" }));
+    expect(pushMock).toHaveBeenLastCalledWith("/app/classes/c-1/assessments/a-1/clearances");
+  });
+
+  it("says why it could not approve all, and leaves the warning there", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "list").mockResolvedValue({ items: [soon()], serverNow: SERVER_NOW });
+    vi.spyOn(assessmentService, "decideClearances").mockRejectedValue(problem("assessment-ended", 409));
+    render(<AssessmentsPage params={params} />);
+    await screen.findByRole("table");
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Habilitar todos" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("A avaliação já terminou.");
+    expect(screen.getByRole("status").textContent).toContain("3 alunos ainda não foram habilitados");
+  });
+});

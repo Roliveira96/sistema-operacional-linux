@@ -14,6 +14,7 @@ import {
   type Difficulty,
   type DrawRule,
   type EligibleQuestions,
+  type Modality,
   type PickedQuestion,
   type QuestionQuery,
   type Stock,
@@ -47,6 +48,8 @@ export interface AssessmentFormInitial {
   audience?: Audience;
   studentIds?: string[];
   teacherPrivateNotes?: string | null;
+  modality?: Modality;
+  requiresClearance?: boolean;
 }
 
 /**
@@ -93,6 +96,10 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
   const [description, setDescription] = useState(initial.description ?? "");
   const [type, setType] = useState<AssessmentType>(initial.type ?? "EXAM");
   const [maxScore, setMaxScore] = useState(initial.maxScore ?? 10);
+  // an exam is in person and asks for the clearance, an assignment is online (SPEC-076 RN-01, RN-02)
+  const startModality: Modality = initial.modality ?? (initial.type === "ASSIGNMENT" ? "ONLINE" : "IN_PERSON");
+  const [modality, setModality] = useState<Modality>(startModality);
+  const [requires, setRequires] = useState(initial.requiresClearance ?? startModality === "IN_PERSON");
   const [duration, setDuration] = useState(initial.durationMinutes ? String(initial.durationMinutes) : "");
   const [starts, setStarts] = useState(toLocalInput(initial.startsAt));
   const [ends, setEnds] = useState(toLocalInput(initial.endsAt));
@@ -177,6 +184,8 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
       ...common,
       type,
       maxScore,
+      modality,
+      requiresClearance: modality === "IN_PERSON" && requires,
       ...(durationNumber !== undefined ? { durationMinutes: durationNumber } : {}),
       ...(editing ? {} : { startsAt: fromLocalInput(starts), endsAt: fromLocalInput(ends) }),
       composition,
@@ -189,6 +198,19 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
             },
           }),
     };
+  };
+
+  const changeType = (next: AssessmentType) => {
+    if (next === type) return;
+    setType(next);
+    // the modality and the requirement go back to what the new type has by default
+    const defaults: Modality = next === "ASSIGNMENT" ? "ONLINE" : "IN_PERSON";
+    setModality(defaults);
+    setRequires(defaults === "IN_PERSON");
+  };
+  const changeModality = (next: Modality) => {
+    setModality(next);
+    setRequires(next === "IN_PERSON");
   };
 
   const submit = async (e: FormEvent) => {
@@ -282,7 +304,7 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
           <div className={styles.row}>
             <div className={styles.field}>
               <label htmlFor={`${baseId}-type`}>{m.type}</label>
-              <select id={`${baseId}-type`} value={type} disabled={frozen} onChange={(e) => setType(e.target.value as AssessmentType)}>
+              <select id={`${baseId}-type`} value={type} disabled={frozen} onChange={(e) => changeType(e.target.value as AssessmentType)}>
                 <option value="EXAM">{messages.assessments.type.EXAM}</option>
                 <option value="ASSIGNMENT">{messages.assessments.type.ASSIGNMENT}</option>
               </select>
@@ -311,6 +333,35 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
           <p id={`${baseId}-duration-help`} className={durationOk ? styles.hint : styles.problem}>
             {durationOk ? m.durationHelp : m.durationRange(periodMinutes && periodMinutes > 0 ? periodMinutes : undefined)}
           </p>
+          <div className={styles.row}>
+            <div className={styles.field}>
+              <label htmlFor={`${baseId}-modality`}>{m.modality}</label>
+              <select
+                id={`${baseId}-modality`}
+                value={modality}
+                disabled={frozen}
+                aria-describedby={type === "ASSIGNMENT" ? `${baseId}-modality-why` : undefined}
+                onChange={(e) => changeModality(e.target.value as Modality)}
+              >
+                <option value="IN_PERSON" disabled={type === "ASSIGNMENT"}>
+                  {messages.assessments.modality.IN_PERSON}
+                </option>
+                <option value="ONLINE">{messages.assessments.modality.ONLINE}</option>
+              </select>
+              {type === "ASSIGNMENT" && (
+                <p id={`${baseId}-modality-why`} className={styles.hint}>
+                  {m.assignmentOnlineOnly}
+                </p>
+              )}
+            </div>
+            {modality === "IN_PERSON" && (
+              <label className={styles.choice}>
+                <input type="checkbox" checked={requires} disabled={frozen} onChange={(e) => setRequires(e.target.checked)} />
+                {m.requiresClearance}
+              </label>
+            )}
+          </div>
+          {frozen && <p className={styles.notice}>{m.frozenModality}</p>}
         </>,
       )}
 

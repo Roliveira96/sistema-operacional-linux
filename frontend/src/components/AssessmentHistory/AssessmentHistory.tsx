@@ -19,6 +19,8 @@ function lineOf(e: AssessmentEvent): string {
       return m.rescheduled(e.actorName, when, formatPeriod(e.oldStartsAt ?? "", e.oldEndsAt ?? ""), formatPeriod(e.newStartsAt ?? "", e.newEndsAt ?? "")) + reason;
     case "CANCELED":
       return m.canceled(e.actorName, when) + reason;
+    case "CLEARANCE_UPDATED":
+      return m.clearanceUpdated(e.actorName, when);
   }
 }
 

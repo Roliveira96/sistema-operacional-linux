@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { AssessmentAccessNotice } from "@/components/AssessmentAccessNotice/AssessmentAccessNotice";
 import { AssessmentCard } from "@/components/AssessmentCard/AssessmentCard";
 import { AssessmentHistory } from "@/components/AssessmentHistory/AssessmentHistory";
 import { AssessmentPreview, DrawRulesTable } from "@/components/AssessmentPreview/AssessmentPreview";
@@ -40,6 +41,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   const showPreview = !isStudent && (preview || asked);
 
   const loadPublic = useCallback(async () => (await assessmentService.get(classId!, assessmentId!)) as AssessmentPublic, [classId, assessmentId]);
+  const loadAccess = useCallback(() => assessmentService.myAccess(classId!, assessmentId!), [classId, assessmentId]);
   const loadPreview = useCallback(() => assessmentService.preview(classId!, assessmentId!), [classId, assessmentId]);
 
   useEffect(() => {
@@ -71,6 +73,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
       <main className={`${styles.container} ${styles.narrow}`}>
         {back}
         <AssessmentCard load={loadPublic} />
+        <AssessmentAccessNotice load={loadAccess} />
       </main>
     );
   }
@@ -100,8 +103,10 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   }
 
   const canceled = detail.status === "CANCELED";
+  const counts = detail.clearanceCounts;
   const facts: [string, string][] = [
     [p.facts.type, m.type[detail.type] ?? ""],
+    [p.facts.modality, m.modality[detail.modality] ?? ""],
     [p.facts.phase, situationOf(detail)],
     [p.facts.period, formatPeriod(detail.startsAt, detail.endsAt)],
     [p.facts.maxScore, formatScore(detail.maxScore)],
@@ -130,7 +135,13 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         <Button variant="secondary" onClick={() => setAsked(true)}>
           {p.preview}
         </Button>
+        {detail.modality === "IN_PERSON" && detail.requiresClearance && (
+          <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/clearances`} variant="secondary">
+            {p.clearances}
+          </ButtonLink>
+        )}
       </div>
+      {detail.modality === "IN_PERSON" && detail.requiresClearance && <p className={styles.text}>{p.clearanceCounts(counts.pending, counts.approved, counts.rejected)}</p>}
 
       <dl className={styles.facts}>
         {facts.map(([term, value]) => (
