@@ -189,8 +189,8 @@ Regras:
 | Avaliação | `Assessment` | Instância avaliativa vinculada a uma turma | `Evaluation`, `Test` | Canônico |
 | Prova | `EXAM` (tipo de `Assessment`) | Somativa, síncrona, cronometrada, presencial, com token de sala | `Test` | Canônico |
 | Atividade | `ASSIGNMENT` (tipo de `Assessment`) | Lista assíncrona com prazo em dias, sem token e sem telemetria síncrona | `Homework`, `Task` | Canônico |
-| Regra de sorteio | `DrawRule` | Percentual e pontuação uniforme por nível de dificuldade | `RandomRule` | Canônico |
-| Janela de aplicação | `AssessmentWindow` | Período em que a avaliação pode ser feita | `Slot`, `Schedule` | Canônico |
+| Regra de sorteio | `DrawRule` | Quantidade de questões e pontuação uniforme por nível de dificuldade; o percentual do total é só exibição derivada (SPEC-075 D-04, tabela `assessment_draw_rules`) | `RandomRule` | Canônico |
+| Janela de aplicação | `AssessmentWindow` | Período em que a avaliação pode ser feita. A SPEC-075 não a usa: início, término e público ficam na própria `Assessment` (D-02); fica reservada para uma spec futura de repescagem | `Slot`, `Schedule` | Canônico |
 | Tipo de janela | `REGULAR`, `RETAKE` (repescagem), `MAKEUP` (segunda chamada), `FREE_PRACTICE` (treino livre) | — | — | Canônico |
 | Token de liberação | `UnlockCode` | Código que a docente projeta em sala para liberar a prova | `Token` sozinho (confunde com token de autenticação), `Password` | Proposto |
 | Tentativa (sessão de avaliação) | `Attempt` | Execução de uma avaliação por um estudante em uma janela | `Session` (confunde com sessão de login e com o `Sessao` do legado), `Try` | Proposto |
@@ -201,7 +201,7 @@ Regras:
 
 ## 4.1. Avaliações no calendário da turma (SPEC-075)
 
-Termos propostos pela SPEC-075 (Rascunho). Dependem das pendências P-02 e P-04 dela, que podem ajustar as linhas `AssessmentWindow` e `DrawRule` da seção 4.
+Termos da SPEC-075 (Aprovada em 20/10/2026). As decisões D-02 e D-04 dela ajustaram as linhas `AssessmentWindow` e `DrawRule` da seção 4.
 
 | Português | Código (EN) | Definição | Evitar | Status |
 | :--- | :--- | :--- | :--- | :--- |
