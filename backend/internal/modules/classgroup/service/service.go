@@ -256,6 +256,18 @@ func (s *Service) GetClass(ctx context.Context, teacherID, classID uuid.UUID) (d
 	return class, nil
 }
 
+// Lookup reads a class without asking who wants it. It is for the modules that decide who may do what themselves (SPEC-075 RN-01): they compare
+// TeacherID with the actor.
+func (s *Service) Lookup(ctx context.Context, classID uuid.UUID) (domain.ClassGroup, error) {
+	return s.repo.FindClassByID(ctx, classID)
+}
+
+// ActiveMembers gives the students of a class with an ACTIVE enrollment, with their names, to the modules that decide who may do what themselves
+// (SPEC-075 RN-08).
+func (s *Service) ActiveMembers(ctx context.Context, classID uuid.UUID) ([]repository.EnrollmentWithUser, error) {
+	return s.repo.ListEnrollmentsByClass(ctx, classID, string(domain.EnrollmentActive))
+}
+
 // UpdateClass updates metadata, schedule or invite link configuration.
 func (s *Service) UpdateClass(ctx context.Context, teacherID, classID uuid.UUID, input UpdateClassInput) (domain.ClassGroup, error) {
 	class, err := s.repo.FindClassByID(ctx, classID)

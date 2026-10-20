@@ -49,6 +49,7 @@ const (
 	TypeExerciseNotFound   = "exercise-not-found"
 	TypeAnswerNotFound     = "answer-not-found"
 	TypeBlockConflict      = "block-conflict"
+	TypeQuestionInUse      = "question-in-use"
 	TypeForbidden          = "forbidden"
 	TypeRateLimited        = "rate-limited"
 	TypeInternal           = "internal-error"

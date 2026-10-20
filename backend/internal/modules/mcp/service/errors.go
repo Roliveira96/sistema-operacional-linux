@@ -56,6 +56,8 @@ func fail(err error, fc fieldContext) *domain.ToolError {
 		return invalid("conditions", "", "required: at least one condition of finalization")
 	case errors.Is(err, contentservice.ErrInvalidLinks):
 		return invalid("links", "", "an exclusive exercise needs assessment=true and practice=false")
+	case errors.Is(err, contentservice.ErrQuestionInUse):
+		return domain.NewToolError(http.StatusConflict, domain.TypeQuestionInUse, "The question is in a scheduled assessment, or the assessments need the questions of its level, so it cannot be deleted, unpublished or taken out of the assessment bank.")
 	case errors.Is(err, contentservice.ErrInvalidStatus):
 		return invalid("status", "", "must be DRAFT or PUBLISHED")
 	case errors.Is(err, contentservice.ErrInvalidDependency):

@@ -434,6 +434,8 @@ func exerciseFail(c *gin.Context, err error) {
 			}
 		}
 		err = problem.Validation("The question is missing what it needs to be published.", params...)
+	case errors.Is(err, service.ErrQuestionInUse):
+		err = problem.Conflict("question-in-use", "The question is in a scheduled assessment, or the assessments need the questions of its level, so it cannot leave the assessment bank.")
 	case errors.Is(err, service.ErrKindChange):
 		err = problem.Validation("The kind of a question cannot change.", problem.InvalidParam{Name: "kind", Reason: "cannot change"})
 	case errors.Is(err, service.ErrInvalidLinks):
