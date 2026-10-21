@@ -178,6 +178,9 @@ func (r *Repository) listManaged(ctx context.Context, teacherID *uuid.UUID, filt
 	if filter.Visibility != "" {
 		query = query.Where("visibility = ?", filter.Visibility)
 	}
+	if filter.ClassID != nil {
+		query = query.Where("id IN (SELECT module_id FROM module_class_assignments WHERE class_id = ?)", *filter.ClassID)
+	}
 	if filter.Search != "" {
 		s := "%" + strings.ToLower(filter.Search) + "%"
 		query = query.Where("(LOWER(title) LIKE ? OR LOWER(description) LIKE ?)", s, s)
