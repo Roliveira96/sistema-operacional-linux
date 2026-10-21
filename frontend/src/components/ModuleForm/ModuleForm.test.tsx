@@ -151,6 +151,24 @@ describe("ModuleForm", () => {
     );
   });
 
+  // SPEC-078 CA-14 (RN-05): a class can assign a public module to itself, so saving the module must not send the empty list of classes
+  // that would take that assignment away. Only a private module sends its classes.
+  it("when editing a module that is not private, sends no list of classes; a private one sends its own", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const { unmount } = render(<ModuleForm isEditing initialData={stored} onSubmit={onSubmit} />);
+    fill(/Slug/, "processos-2");
+    submit("Salvar Alterações");
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.lastCall?.[0]).not.toHaveProperty("classIds");
+    unmount();
+
+    render(<ModuleForm isEditing availableClasses={mockClasses} initialData={{ ...stored, visibility: "PRIVATE", assignedClassIds: ["c-1"] }} onSubmit={onSubmit} />);
+    fill(/Slug/, "processos-3");
+    submit("Salvar Alterações");
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+    expect(onSubmit.mock.lastCall?.[0]).toEqual(expect.objectContaining({ visibility: "PRIVATE", classIds: ["c-1"] }));
+  });
+
   it("shows the stored dates on the wall clock and sends them back unchanged", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ModuleForm isEditing initialData={stored} onSubmit={onSubmit} />);

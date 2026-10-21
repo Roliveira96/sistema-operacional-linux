@@ -150,6 +150,51 @@ describe("ClassPage (SPEC-041)", () => {
     expect(screen.getByRole("dialog", { name: /Adicionar estudantes/ })).toBeDefined();
   });
 
+  // SPEC-078 CA-02: the confirmation after saving the settings is shown once, and the address is cleaned so a reload does not show it again.
+  it("confirms that the settings were saved, once, and takes the mark out of the address", async () => {
+    asRole("TEACHER");
+    searchParams = new URLSearchParams("saved=1");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([]);
+    render(<ClassPage params={params} />);
+
+    expect((await screen.findByText("Configurações salvas.")).closest("[role=status]")).not.toBeNull();
+    expect(replaceMock).toHaveBeenCalledWith("/app/classes/c-1", { scroll: false });
+  });
+
+  it("keeps the tab in the address when it takes the saved mark out", async () => {
+    asRole("TEACHER");
+    searchParams = new URLSearchParams("tab=students&saved=1");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([]);
+    render(<ClassPage params={params} />);
+
+    expect(await screen.findByText("Configurações salvas.")).toBeDefined();
+    expect(replaceMock).toHaveBeenCalledWith("/app/classes/c-1?tab=students", { scroll: false });
+  });
+
+  it("does not confirm anything when the class was not just saved", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([]);
+    render(<ClassPage params={params} />);
+    await screen.findByRole("heading", { name: theClass.name });
+    expect(screen.queryByText("Configurações salvas.")).toBeNull();
+  });
+
+  // SPEC-078 CA-11: the summary is formatted text, shown with its formatting on the page of the class.
+  it("shows the summary with its formatting", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue({ ...theClass, summary: '<p>Use <code>ls -l</code> e leia <a href="https://utfpr.edu.br">o plano</a>.</p>' });
+    vi.spyOn(classService, "listMembers").mockResolvedValue([]);
+    const { container } = render(<ClassPage params={params} />);
+
+    await screen.findByRole("heading", { name: theClass.name });
+    expect(container.querySelector("code")?.textContent).toBe("ls -l");
+    expect(screen.getByRole("link", { name: "o plano" }).getAttribute("href")).toBe("https://utfpr.edu.br");
+    expect(container.textContent).not.toContain("<code>");
+  });
+
   it("changes the tab in the address", async () => {
     asRole("TEACHER");
     vi.spyOn(classService, "getClass").mockResolvedValue(theClass);

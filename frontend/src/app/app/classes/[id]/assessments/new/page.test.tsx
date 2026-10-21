@@ -134,4 +134,13 @@ describe("new assessment page", () => {
     expect(await screen.findByText("Esta turma ainda não tem módulo atribuído. Atribua um módulo à turma para montar a avaliação.")).toBeDefined();
     expect(screen.queryByTestId("mode")).toBeNull();
   });
+
+  // SPEC-078 CA-16: the notice says where a module is assigned to the class.
+  it("leads from the notice of no module to the settings of the class", async () => {
+    vi.spyOn(moduleService, "listModules").mockResolvedValue({ items: [], total: 0, page: 1, limit: 50 });
+    vi.spyOn(classService, "listMembers").mockResolvedValue([]);
+    render(<NewAssessmentPage params={params} />);
+    const link = await screen.findByRole("link", { name: "Atribuir módulos nas configurações da turma" });
+    expect(link.getAttribute("href")).toBe("/app/classes/c-1/settings");
+  });
 });
