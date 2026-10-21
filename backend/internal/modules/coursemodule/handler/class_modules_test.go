@@ -19,7 +19,12 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/server"
 )
 
-// modulesService adds to the fake service the writing of the modules of a class (SPEC-078).
+// SetClassModules makes the fake service of the other tests satisfy the interface of the handler; they do not use the route.
+func (f *fakeService) SetClassModules(context.Context, uuid.UUID, bool, uuid.UUID, []uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
+// modulesService is the fake service of the tests of the route that writes the modules of a class (SPEC-078).
 type modulesService struct {
 	*fakeService
 	err      error

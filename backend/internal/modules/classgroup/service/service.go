@@ -156,7 +156,7 @@ func (s *Service) CreateClass(ctx context.Context, teacherID uuid.UUID, input Cr
 		return domain.ClassGroup{}, err
 	}
 
-	summary, err := domain.NormalizeSummary(input.Summary)
+	summary, err := domain.NormalizeSummary(s.richText.Sanitize(input.Summary))
 	if err != nil {
 		return domain.ClassGroup{}, err
 	}
@@ -333,7 +333,7 @@ func (s *Service) UpdateClass(ctx context.Context, teacherID, classID uuid.UUID,
 		class.Color = color
 	}
 	if input.Summary != nil {
-		summary, err := domain.NormalizeSummary(*input.Summary)
+		summary, err := domain.NormalizeSummary(s.richText.Sanitize(*input.Summary))
 		if err != nil {
 			return domain.ClassGroup{}, err
 		}

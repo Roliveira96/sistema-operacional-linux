@@ -30,6 +30,7 @@ type CourseModuleService interface {
 	ListPublicModules(ctx context.Context, filter repository.ListFilter) (repository.ListResult, error)
 	ReorderExercises(ctx context.Context, moduleID, callerID uuid.UUID, isAdmin bool, exerciseIDs []uuid.UUID) error
 	ReorderModules(ctx context.Context, callerID uuid.UUID, isAdmin bool, moduleIDs []uuid.UUID) error
+	SetClassModules(ctx context.Context, callerID uuid.UUID, isAdmin bool, classID uuid.UUID, moduleIDs []uuid.UUID) ([]uuid.UUID, error)
 }
 
 // Handler manages course module HTTP endpoints.
@@ -72,6 +73,10 @@ func (h *Handler) Register(r gin.IRouter) {
 	teacherGroup.PATCH("/:id", h.updateModule)
 	teacherGroup.PUT("/order", h.reorderModules)
 	teacherGroup.PUT("/:id/exercises/order", h.reorderExercises)
+
+	// The modules of a class are written from the class (SPEC-078)
+	classGroup := r.Group("/classes", authn.Required(h.auth), authn.Roles(authn.RoleTeacher, authn.RoleAdmin))
+	classGroup.PUT("/:id/modules", h.setClassModules)
 }
 
 func (h *Handler) optionalAuth() gin.HandlerFunc {
@@ -459,6 +464,39 @@ func (h *Handler) reorderModules(c *gin.Context) {
 	})
 }
 
+type setClassModulesRequest struct {
+	ModuleIDs *[]uuid.UUID `json:"moduleIds"`
+}
+
+// setClassModules writes the set of modules of a class (SPEC-078 section 5).
+func (h *Handler) setClassModules(c *gin.Context) {
+	principal, ok := authn.FromContext(c.Request.Context())
+	if !ok {
+		fail(c, problem.Unauthorized("not-authenticated", "Authentication is required."))
+		return
+	}
+	classID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		fail(c, problem.BadRequest("invalid-uuid", "Invalid class ID format."))
+		return
+	}
+	var req setClassModulesRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.ModuleIDs == nil {
+		fail(c, problem.BadRequest("malformed-request", "Invalid request body."))
+		return
+	}
+
+	ids, err := h.svc.SetClassModules(c.Request.Context(), principal.UserID, principal.Role == authn.RoleAdmin, classID, *req.ModuleIDs)
+	if err != nil {
+		fail(c, toProblem(err))
+		return
+	}
+	if ids == nil {
+		ids = []uuid.UUID{}
+	}
+	c.JSON(http.StatusOK, gin.H{"moduleIds": ids})
+}
+
 func (h *Handler) toSummaryResponse(m domain.CourseModule, exercises, materials int64) moduleSummaryResponse {
 	return moduleSummaryResponse{
 		ID:              m.ID,
@@ -572,6 +610,17 @@ func toProblem(err error) *problem.Problem {
 		return problem.BadRequest("duplicate-exercise-order", err.Error())
 	case errors.Is(err, domain.ErrInvalidExerciseSequence):
 		return problem.BadRequest("invalid-exercise-sequence", err.Error())
+	case errors.Is(err, domain.ErrInvalidModules):
+		return problem.BadRequest("invalid-modules", err.Error())
+	case errors.Is(err, domain.ErrClassNotFound):
+		return problem.NotFound("class-not-found", err.Error())
+	case errors.Is(err, domain.ErrModuleNeedsClass):
+		p := problem.Conflict("module-needs-a-class", err.Error())
+		var needs *domain.ModuleNeedsClassError
+		if errors.As(err, &needs) {
+			p = p.WithExtension("moduleId", needs.ModuleID.String())
+		}
+		return p
 	case errors.Is(err, domain.ErrModuleNotFound):
 		return problem.NotFound("module-not-found", err.Error())
 	case errors.Is(err, domain.ErrModuleInactive):

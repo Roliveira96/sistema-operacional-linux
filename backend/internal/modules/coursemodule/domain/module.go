@@ -43,7 +43,24 @@ var (
 	ErrForbidden               = errors.New("user does not have permission for this module")
 	ErrDuplicateExerciseOrder  = errors.New("duplicate exercise or sequence order detected")
 	ErrInvalidExerciseSequence = errors.New("invalid exercise sequence order")
+
+	// The modules of a class (SPEC-078).
+	ErrClassNotFound    = errors.New("class not found")
+	ErrInvalidModules   = errors.New("the list of modules has a repeated or unknown module")
+	ErrModuleNeedsClass = errors.New("a private module needs at least one class")
 )
+
+// ModuleNeedsClassError says which private module would be left without a class by taking it from its only one. It matches ErrModuleNeedsClass.
+type ModuleNeedsClassError struct {
+	ModuleID uuid.UUID
+}
+
+func (e *ModuleNeedsClassError) Error() string {
+	return "module " + e.ModuleID.String() + ": " + ErrModuleNeedsClass.Error()
+}
+
+// Is makes errors.Is(err, ErrModuleNeedsClass) true.
+func (e *ModuleNeedsClassError) Is(target error) bool { return target == ErrModuleNeedsClass }
 
 // CourseModule represents a pedagogical learning unit.
 type CourseModule struct {

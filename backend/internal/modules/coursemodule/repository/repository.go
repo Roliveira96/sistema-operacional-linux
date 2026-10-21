@@ -500,3 +500,49 @@ func (r *Repository) ReorderModules(ctx context.Context, moduleIDs []uuid.UUID) 
 		return nil
 	})
 }
+
+// ClassTeacher is the teacher of a class, or domain.ErrClassNotFound (SPEC-078 RN-04).
+func (r *Repository) ClassTeacher(ctx context.Context, classID uuid.UUID) (uuid.UUID, error) {
+	var teachers []uuid.UUID
+	if err := r.db.Conn(ctx).Table("classes").Where("id = ? AND deleted_at IS NULL", classID).Pluck("teacher_id", &teachers).Error; err != nil {
+		return uuid.Nil, err
+	}
+	if len(teachers) == 0 {
+		return uuid.Nil, domain.ErrClassNotFound
+	}
+	return teachers[0], nil
+}
+
+// ClassModuleIDs are the modules assigned to a class, in the order they were assigned (SPEC-078 RN-03).
+func (r *Repository) ClassModuleIDs(ctx context.Context, classID uuid.UUID) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	err := r.db.Conn(ctx).Table("module_class_assignments AS a").
+		Joins("JOIN course_modules m ON m.id = a.module_id AND m.deleted_at IS NULL").
+		Where("a.class_id = ?", classID).
+		Order("a.created_at, a.id").
+		Pluck("a.module_id", &ids).Error
+	return ids, err
+}
+
+// ReplaceClassModules assigns the modules in add to the class and takes the ones in remove from it, all in one transaction (SPEC-078 RN-03).
+func (r *Repository) ReplaceClassModules(ctx context.Context, classID uuid.UUID, add, remove []uuid.UUID, assignedBy uuid.UUID) error {
+	return r.db.WithinTransaction(ctx, func(txCtx context.Context) error {
+		conn := r.db.Conn(txCtx)
+		if len(remove) > 0 {
+			if err := conn.Where("class_id = ? AND module_id IN ?", classID, remove).Delete(&domain.ModuleClassAssignment{}).Error; err != nil {
+				return err
+			}
+		}
+		for _, moduleID := range add {
+			assignmentID, err := uuid.NewV7()
+			if err != nil {
+				return fmt.Errorf("generate assignment id: %w", err)
+			}
+			assignment := domain.ModuleClassAssignment{ID: assignmentID, ModuleID: moduleID, ClassID: classID, AssignedBy: assignedBy, CreatedAt: time.Now()}
+			if err := conn.Create(&assignment).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
