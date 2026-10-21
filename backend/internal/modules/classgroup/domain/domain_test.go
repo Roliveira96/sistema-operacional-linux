@@ -186,3 +186,30 @@ func TestContentTooLongError(t *testing.T) {
 		t.Fatal("it must not match another error")
 	}
 }
+
+// Covers SPEC-078 CA-09 (RN-01): the summary arrives filtered as html. Its visible text has at most 300 characters and the html at most 5,000;
+// a summary with nothing visible is empty.
+func TestNormalizeSummary_VisibleTextAndHtmlLimits(t *testing.T) {
+	ok := "<p>" + strings.Repeat("a", domain.SummaryMaxLength) + "</p>"
+	if got, err := domain.NormalizeSummary(ok); err != nil || got != ok {
+		t.Fatalf("300 visible characters inside a paragraph: got %q, %v", got, err)
+	}
+	if _, err := domain.NormalizeSummary("<p>" + strings.Repeat("a", domain.SummaryMaxLength+1) + "</p>"); !errors.Is(err, domain.ErrSummaryTooLong) {
+		t.Fatalf("301 visible characters: expected ErrSummaryTooLong, got %v", err)
+	}
+
+	// little text, many marks: 4,998 characters of html pass and 5,002 do not
+	under := "<p>aaa</p>" + strings.Repeat("<br>", 1247)
+	if got, err := domain.NormalizeSummary(under); err != nil || got != under {
+		t.Fatalf("html under the limit: got %d characters, %v", len(got), err)
+	}
+	if _, err := domain.NormalizeSummary(under + "<br>"); !errors.Is(err, domain.ErrSummaryTooLong) {
+		t.Fatalf("html over the limit: expected ErrSummaryTooLong, got %v", err)
+	}
+
+	for _, empty := range []string{"<p></p>", "<p>  </p>", "<p><br></p>", "  "} {
+		if got, err := domain.NormalizeSummary(empty); err != nil || got != "" {
+			t.Fatalf("%q has nothing visible: got %q, %v", empty, got, err)
+		}
+	}
+}
