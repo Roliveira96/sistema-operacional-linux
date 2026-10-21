@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-079 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 21/10/2026 |
 | **Última revisão** | 21/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -77,7 +77,7 @@ Não se aplica nesta spec: nenhuma rota ou campo muda.
 ## 6. Impacto e Riscos (Impact & Risks)
 
 - **Testes do seletor da SPEC-075 que mudam.** Os que procuram a lista de escolhidas como lista, e o que procura o peso e a remoção, passam a achar linhas de tabela. **Mitigação:** o título da seção segue como título (`heading`) e os nomes de acessibilidade ("Peso de ...", "Remover ...", "Incluir ...") não mudam; só os ajustes inevitáveis entram no commit vermelho, com o motivo registrado na entrega.
-- **Peso 0 ao marcar a questão faz a linha nascer marcada como inválida.** Pode parecer agressivo. **Mitigação:** a mensagem diz o que fazer ("Informe o peso") e o tom é de aviso, sem alerta sonoro; o botão "Distribuir igualmente" resolve de uma vez (P-02).
+- **Peso 0 ao marcar a questão faz a linha nascer marcada como inválida.** Pode parecer agressivo. **Mitigação:** a mensagem diz o que fazer ("Informe o peso") e o tom é de aviso, sem alerta sonoro; o botão "Distribuir igualmente" resolve de uma vez (D-02).
 - **Largura em telas estreitas.** **Mitigação:** a rolagem horizontal na própria caixa e a largura mínima do título.
 - **Impacto em outros módulos:** nenhum além do formulário da avaliação, que passa a entregar a nota máxima ao seletor. **`legacy/`:** removida; sem impacto.
 
@@ -124,13 +124,13 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-Uma spec só pode ser aprovada com esta tabela vazia.
+Nenhuma. O Tech Lead decidiu em 21/10/2026, ao aprovar a spec, todas as pendências que ela tinha. As decisões estão incorporadas às seções 2, 3, 6, 7 e 8; esta tabela só as registra.
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | **Mostrar a porcentagem da nota** em cada linha (coluna *% da nota*). Não foi pedido, mas é o que a docente confere ao distribuir pontos. | Incluir. |
-| P-02 | **Peso inicial de uma questão marcada.** Hoje é 0, que a regra recusa. As opções: manter 0 e marcar a linha (esta spec), deixar a caixa vazia ou já dividir a nota em partes iguais. | Manter 0 e marcar a linha: não muda os dados nem o "Distribuir igualmente"; dividir sozinho tiraria da docente o controle dos pesos. |
-| P-03 | **Reordenar as questões.** A ordem é a da marcação, sem controle para mudar. | Fora desta spec; se a docente precisar, vira uma spec própria. |
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **Porcentagem da nota.** Cada linha mostra a coluna *% da nota*. |
+| D-02 | **Peso inicial.** Uma questão marcada continua entrando com peso 0, e a linha fica marcada como inválida até a docente informar o peso; não muda os dados nem o "Distribuir igualmente", e a nota não é dividida sozinha. |
+| D-03 | **Reordenar as questões** fica fora desta spec; se a docente precisar, vira uma spec própria. |
 
 ---
 
@@ -138,4 +138,6 @@ Uma spec só pode ser aprovada com esta tabela vazia.
 
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
-| 21/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir da queixa de 21/10/2026 sobre a caixa de valor sem rótulo na lista das questões escolhidas, conferida contra o código do seletor e a SPEC-075. Três pendências abertas (P-01 a P-03), todas com recomendação |
+| 21/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir da queixa de 21/10/2026 sobre a caixa de valor sem rótulo na lista das questões escolhidas, conferida contra o código do seletor e a SPEC-075. Três pendências abertas (D-01 a D-03), todas com recomendação |
+| 21/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das três pendências aceitas como estavam na spec: D-01 a D-03. Status: `Aprovada` |
+| 21/10/2026 | Aruna Architect | Seção 10 esvaziada: as três pendências viraram decisões D-01 a D-03, incorporadas ao texto; `P-xx` renomeado para `D-xx` nas referências |

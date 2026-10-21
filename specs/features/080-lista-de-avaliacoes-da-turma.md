@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-080 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 21/10/2026 |
 | **Última revisão** | 21/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -88,9 +88,9 @@ Não se aplica nesta spec: nenhuma rota ou campo muda.
 ## 6. Impacto e Riscos (Impact & Risks)
 
 - **Testes da SPEC-075 e da SPEC-076 que mudam.** Os da lista procuram cinco botões por linha e nove colunas; os do aviso procuram a linha de aviso. **Mitigação:** ajustados no commit vermelho, com o motivo registrado na entrega; o aviso e seus botões não mudam.
-- **Ações dentro de um menu ficam um clique mais longe.** **Mitigação:** só ficam no menu as de uso raro (pré-visualizar, reagendar, cancelar); *Editar* e o link do título, as de uso comum, ficam à vista (P-01).
+- **Ações dentro de um menu ficam um clique mais longe.** **Mitigação:** só ficam no menu as de uso raro (pré-visualizar, reagendar, cancelar); *Editar* e o link do título, as de uso comum, ficam à vista (D-01).
 - **O componente de menu de ações existente não conhece ação desabilitada.** **Mitigação:** ele ganha o campo de item desabilitado, com teste, sem mudar o que já faz (arquivo fora da lista da SPEC-075, justificado na seção 9).
-- **Agrupar por situação muda a ordem em que a docente vê as avaliações.** **Mitigação:** a ordem dentro de cada seção é a que serve a cada uma (a próxima primeiro; a mais recente primeiro nas passadas), registrada na seção 3.1 (P-02).
+- **Agrupar por situação muda a ordem em que a docente vê as avaliações.** **Mitigação:** a ordem dentro de cada seção é a que serve a cada uma (a próxima primeiro; a mais recente primeiro nas passadas), registrada na seção 3.1 (D-02).
 - **Impacto em outros módulos:** nenhum. **`legacy/`:** removida; sem impacto.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
@@ -141,14 +141,14 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-Uma spec só pode ser aprovada com esta tabela vazia.
+Nenhuma. O Tech Lead decidiu em 21/10/2026, ao aprovar a spec, todas as pendências que ela tinha. As decisões estão incorporadas às seções 2, 3, 6, 7 e 8; esta tabela só as registra.
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | **Quais ações ficam à vista.** Hoje são cinco botões. | À vista: o título (leva ao detalhe) e *Editar*. No menu *Mais ações*: *Pré-visualizar*, *Reagendar* e *Cancelar*. |
-| P-02 | **Agrupar por situação.** Hoje é uma lista só, do início mais recente para o mais antigo. | Quatro seções (*Em andamento*, *Agendadas*, *Encerradas*, *Canceladas*), com a próxima prova primeiro nas que vêm e a mais recente primeiro nas que passaram. |
-| P-03 | **Tela estreita.** | Cartões abaixo de 48 rem, em vez de rolagem lateral. |
-| P-04 | **Mostrar quando a avaliação foi criada**, para distinguir duas parecidas. Exige o campo `createdAt` no resumo da avaliação (hoje só o detalhe tem o histórico), ou seja, uma mudança de servidor. | Não incluir nesta spec: a duplicata já não se cria, e o título, o período e a nota distinguem as demais. |
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **Ações à vista.** O título (leva ao detalhe) e *Editar* ficam à vista; *Pré-visualizar*, *Reagendar* e *Cancelar* vão para o menu *Mais ações*. |
+| D-02 | **Seções por situação.** Quatro seções (*Em andamento*, *Agendadas*, *Encerradas*, *Canceladas*), com a próxima prova primeiro nas que vêm e a mais recente primeiro nas que passaram. |
+| D-03 | **Tela estreita.** Cartões abaixo de 48 rem, em vez de rolagem lateral. |
+| D-04 | **Data de criação na lista.** Não entra nesta spec: exigiria o campo `createdAt` no resumo da avaliação, ou seja, uma mudança de servidor; a duplicata já não se cria e o título, o período e a nota distinguem as demais. |
 
 ---
 
@@ -156,4 +156,6 @@ Uma spec só pode ser aprovada com esta tabela vazia.
 
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
-| 21/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 21/10/2026 de UX/UI para a tela da lista de avaliações, conferida contra o código da lista, as SPEC-075 e 076 e o componente de menu de ações que a plataforma já tem. Quatro pendências abertas (P-01 a P-04), todas com recomendação |
+| 21/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 21/10/2026 de UX/UI para a tela da lista de avaliações, conferida contra o código da lista, as SPEC-075 e 076 e o componente de menu de ações que a plataforma já tem. Quatro pendências abertas (D-01 a D-04), todas com recomendação |
+| 21/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das quatro pendências aceitas como estavam na spec: D-01 a D-04. Status: `Aprovada` |
+| 21/10/2026 | Aruna Architect | Seção 10 esvaziada: as quatro pendências viraram decisões D-01 a D-04, incorporadas ao texto; `P-xx` renomeado para `D-xx` nas referências |
