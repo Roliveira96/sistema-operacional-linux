@@ -219,7 +219,7 @@ func TestRepository_CheckConstraintsOnPeriodScoreAndWeights(t *testing.T) {
 		"score above 100":         func(a *domain.Assessment) { a.MaxScore = domain.Points(100.01) },
 		"empty title":             func(a *domain.Assessment) { a.Title = "" },
 		"title of 151":            func(a *domain.Assessment) { a.Title = strings.Repeat("a", 151) },
-		"instructions of 5001":    func(a *domain.Assessment) { a.Description = strings.Repeat("a", 5001) },
+		"instructions of 20001":   func(a *domain.Assessment) { a.Description = strings.Repeat("a", 20001) },
 		"notes of 5001":           func(a *domain.Assessment) { a.TeacherPrivateNotes = ptr(strings.Repeat("a", 5001)) },
 		"unknown type":            func(a *domain.Assessment) { a.Type = "QUIZ" },
 		"unknown status":          func(a *domain.Assessment) { a.Status = "DONE" },
