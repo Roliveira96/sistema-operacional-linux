@@ -79,7 +79,8 @@ describe("AssessmentForm instructions", () => {
     expect(dom.querySelectorAll("ol > li")).toHaveLength(2);
   });
 
-  it("sends the html of the editor, and an empty text when the editor is empty", async () => {
+  // A form that was sent stays locked while the page leaves (the fix of the double send), so each case has its own form.
+  it("sends the html of the editor", async () => {
     const { container, onSubmit } = setup({ description: "<p>Antiga</p>" });
     const { editor } = await editorOf(container);
 
@@ -89,13 +90,18 @@ describe("AssessmentForm instructions", () => {
     fireEvent.click(save());
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]![0]).toEqual(expect.objectContaining({ description: "<p>Nova <strong>regra</strong></p>" }));
+  });
+
+  it("sends an empty text when the editor is empty", async () => {
+    const { container, onSubmit } = setup({ description: "<p>Antiga</p>" });
+    const { editor } = await editorOf(container);
 
     act(() => {
       editor.chain().selectAll().deleteSelection().run();
     });
     fireEvent.click(save());
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
-    expect(onSubmit.mock.calls[1]![0]).toEqual(expect.objectContaining({ description: "" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0]![0]).toEqual(expect.objectContaining({ description: "" }));
   });
 
   it("locks the save above 20,000 characters of html and says why, and lets exactly 20,000 through", async () => {
