@@ -490,7 +490,7 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
           {composition === "MANUAL" ? (
             <>
               {moduleId ? (
-                <AssessmentQuestionPicker moduleId={moduleId} load={loadQuestions} selected={items} onChange={setItems} disabled={frozen} />
+                <AssessmentQuestionPicker moduleId={moduleId} load={loadQuestions} selected={items} onChange={setItems} disabled={frozen} maxScore={maxScore} />
               ) : (
                 <p className={styles.hint}>{m.chooseModuleFirst}</p>
               )}

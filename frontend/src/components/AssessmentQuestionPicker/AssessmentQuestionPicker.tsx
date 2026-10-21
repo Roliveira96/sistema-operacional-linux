@@ -24,14 +24,23 @@ export interface AssessmentQuestionPickerProps {
   onChange: (next: PickedQuestion[]) => void;
   /** An assessment that already started: the questions are only read. */
   disabled?: boolean;
+  /** The maximum score of the assessment, for the share each chosen question has of it (SPEC-079). */
+  maxScore?: number;
 }
+
+/** A weight the server takes: from 0.01 to 100, with at most 2 decimal places (SPEC-075 RN-06). */
+const validWeight = (weight: number) => {
+  const cents = Math.round(weight * 100);
+  return Number.isFinite(weight) && Math.abs(weight * 100 - cents) < 1e-6 && cents >= 1 && cents <= 10000;
+};
 
 /**
  * The manual composition of an assessment (SPEC-075 section 3.1): the eligible questions of the module, with a filter by level and kind and a
  * search by title, each one marked to enter, and below them the questions that were chosen, with the weight of each.
  */
-export function AssessmentQuestionPicker({ moduleId, load, selected, onChange, disabled = false }: AssessmentQuestionPickerProps) {
+export function AssessmentQuestionPicker({ moduleId, load, selected, onChange, disabled = false, maxScore }: AssessmentQuestionPickerProps) {
   const baseId = useId();
+  const headingId = `${baseId}-chosen`;
   const [difficulty, setDifficulty] = useState<Difficulty | "">("");
   const [kind, setKind] = useState("");
   const [search, setSearch] = useState("");
@@ -158,29 +167,71 @@ export function AssessmentQuestionPicker({ moduleId, load, selected, onChange, d
 
       {selected.length > 0 && (
         <section className={styles.chosen}>
-          <h3 className={styles.heading}>{m.chosen(selected.length)}</h3>
-          <ul className={styles.list}>
-            {selected.map((s) => (
-              <li key={s.questionId} className={styles.row}>
-                <span className={styles.name}>{s.title}</span>
-                <span className={styles.tag}>{messages.assessments.difficulty[s.difficulty]}</span>
-                <input
-                  type="number"
-                  className={styles.weight}
-                  aria-label={m.weight(s.title)}
-                  min={0}
-                  max={100}
-                  step={0.01}
-                  value={s.weight}
-                  disabled={disabled}
-                  onChange={(e) => setWeight(s.questionId, e.target.value === "" ? 0 : Number(e.target.value))}
-                />
-                <Button variant="ghost" aria-label={m.remove(s.title)} disabled={disabled} onClick={() => onChange(selected.filter((x) => x.questionId !== s.questionId))}>
-                  ×
-                </Button>
-              </li>
-            ))}
-          </ul>
+          <h3 id={headingId} className={styles.heading}>
+            {m.chosen(selected.length)}
+          </h3>
+          <div className={styles.scroll}>
+            <table className={styles.table} aria-labelledby={headingId}>
+              <thead>
+                <tr>
+                  <th scope="col" className={styles.position} aria-label={m.columns.positionName}>
+                    {m.columns.position}
+                  </th>
+                  <th scope="col">{m.columns.question}</th>
+                  <th scope="col">{m.columns.level}</th>
+                  <th scope="col">{m.columns.weight}</th>
+                  <th scope="col">{m.columns.share}</th>
+                  <th scope="col">
+                    <span className={styles.srOnly}>{m.columns.actions}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {selected.map((s, index) => {
+                  const valid = validWeight(s.weight);
+                  const problemId = `${baseId}-problem-${s.questionId}`;
+                  const share = valid && maxScore !== undefined && maxScore > 0 ? m.share(Math.round((s.weight / maxScore) * 100)) : m.noShare;
+                  return (
+                    <tr key={s.questionId} data-invalid={valid ? undefined : "true"}>
+                      <td className={styles.position}>{index + 1}</td>
+                      <td>
+                        <span className={styles.name}>{s.title}</span>
+                        {!valid && (
+                          <p id={problemId} className={styles.rowProblem}>
+                            {m.weightProblem}
+                          </p>
+                        )}
+                      </td>
+                      <td>
+                        <span className={styles.tag}>{messages.assessments.difficulty[s.difficulty]}</span>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          className={styles.weight}
+                          aria-label={m.weight(s.title)}
+                          aria-invalid={valid ? undefined : true}
+                          aria-describedby={valid ? undefined : problemId}
+                          min={0}
+                          max={100}
+                          step={0.01}
+                          value={s.weight}
+                          disabled={disabled}
+                          onChange={(e) => setWeight(s.questionId, e.target.value === "" ? 0 : Number(e.target.value))}
+                        />
+                      </td>
+                      <td className={styles.share}>{share}</td>
+                      <td>
+                        <Button variant="ghost" aria-label={m.remove(s.title)} disabled={disabled} onClick={() => onChange(selected.filter((x) => x.questionId !== s.questionId))}>
+                          {m.removeText}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </div>
