@@ -1,3 +1,5 @@
+@use "@/styles/mixins" as mixins;
+
 // Shared by the pages of the assessments of a class.
 .container {
   display: flex;
@@ -156,6 +158,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--color-text-body);
+}
+
+// The instructions: formatted text that the server filtered when it was saved (SPEC-077).
+.richText {
+  @include mixins.rich-text;
 }
 
 .plain {

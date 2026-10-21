@@ -1,3 +1,5 @@
+@use "@/styles/mixins" as mixins;
+
 .card {
   display: flex;
   flex-direction: column;
@@ -46,8 +48,7 @@
 }
 
 .description {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  @include mixins.rich-text;
 }
 
 .count {

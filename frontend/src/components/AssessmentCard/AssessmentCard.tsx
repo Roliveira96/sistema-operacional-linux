@@ -92,7 +92,10 @@ export function AssessmentCard({ load }: AssessmentCardProps) {
       <p>{formatPeriod(a.startsAt, a.endsAt)}</p>
       <p>{m.duration(a.durationMinutes)}</p>
       <p>{m.maxScore(formatScore(a.maxScore))}</p>
-      {a.description && <p className={styles.description}>{a.description}</p>}
+      {a.description && (
+        // HTML that the server filtered when the instructions were saved (SPEC-077 RN-01).
+        <div className={styles.description} dangerouslySetInnerHTML={{ __html: a.description }} />
+      )}
       {!canceled &&
         (a.phase === "UPCOMING" ? (
           <div className={styles.count}>

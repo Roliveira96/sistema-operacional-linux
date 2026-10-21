@@ -154,7 +154,12 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
 
       <section className={styles.section}>
         <h2 className={styles.heading}>{p.instructions}</h2>
-        <p className={styles.text}>{detail.description || "—"}</p>
+        {detail.description ? (
+          // HTML that the server filtered when the instructions were saved (SPEC-077 RN-01).
+          <div className={styles.richText} dangerouslySetInnerHTML={{ __html: detail.description }} />
+        ) : (
+          <p className={styles.text}>—</p>
+        )}
       </section>
       <section className={styles.section}>
         <h2 className={styles.heading}>{p.privateNotes}</h2>

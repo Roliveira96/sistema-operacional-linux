@@ -84,7 +84,7 @@ describe("AssessmentForm tab indicators", () => {
     expect(invalid("Período")).toBe(false);
     expect(invalid("Dados")).toBe(true);
     open("Dados");
-    type(screen.getByLabelText(/^Título/), "Prova 1");
+    type(screen.getByLabelText(/^Título/, { selector: "input" }), "Prova 1");
     open("Questões");
     expect(invalid("Dados")).toBe(false);
   });

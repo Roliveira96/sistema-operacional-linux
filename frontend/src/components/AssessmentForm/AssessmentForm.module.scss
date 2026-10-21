@@ -253,3 +253,60 @@
   justify-content: flex-end;
   gap: var(--space-3);
 }
+
+// What stops the save, as a list that names the tab of each reason (SPEC-077 D-03).
+.blockers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.blockerLink {
+  min-height: 2.75rem;
+  padding: 0 var(--space-1);
+  font: inherit;
+  color: var(--color-accent);
+  text-decoration: underline;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 1px;
+  }
+}
+
+// The mark of a tab that has something to fix (as in the form of a class, SPEC-044).
+.tabIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-left: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// The title of a field that is not a plain control: the visual editor names itself for assistive technology.
+.fieldLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}

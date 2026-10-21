@@ -30,7 +30,7 @@ const save = (name = "Agendar avaliação") => screen.getByRole("button", { name
 
 /** Fills the three tabs a manual exam needs, and leaves the questions for each test to choose. */
 function fillBasics() {
-  type(screen.getByLabelText(/^Título/), "Prova 1");
+  type(screen.getByLabelText(/^Título/, { selector: "input" }), "Prova 1");
   open("Período");
   type(screen.getByLabelText(/^Início/), "2026-10-23T09:00");
   type(screen.getByLabelText(/^Término/), "2026-10-23T11:00");
@@ -50,7 +50,7 @@ describe("AssessmentForm", () => {
     setup();
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Dados", "Período", "Questões", "Participantes", "Observações privadas"]);
     expect(tab("Dados").getAttribute("aria-selected")).toBe("true");
-    expect(within(screen.getByRole("tabpanel")).getByLabelText(/^Título/)).toBeDefined();
+    expect(within(screen.getByRole("tabpanel")).getByLabelText(/^Título/, { selector: "input" })).toBeDefined();
     open("Participantes");
     expect(tab("Participantes").getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("radio", { name: "Toda a turma" })).toBeDefined();
@@ -246,7 +246,7 @@ describe("AssessmentForm", () => {
   describe("the checks of the data", () => {
     it("refuses a title above 150 characters and a maximum score outside 0 to 100", () => {
       setup();
-      expect((screen.getByLabelText(/^Título/) as HTMLInputElement).maxLength).toBe(150);
+      expect((screen.getByLabelText(/^Título/, { selector: "input" }) as HTMLInputElement).maxLength).toBe(150);
       const score = screen.getByLabelText(/^Nota máxima/);
       type(score, "0");
       expect(save().disabled).toBe(true);
@@ -288,7 +288,7 @@ describe("AssessmentForm", () => {
 
     it("opens with the start, end, title and module of the lesson, all editable (CA-25)", () => {
       setup({ initial: lesson });
-      expect((screen.getByLabelText(/^Título/) as HTMLInputElement).value).toBe("Permissões de arquivos");
+      expect((screen.getByLabelText(/^Título/, { selector: "input" }) as HTMLInputElement).value).toBe("Permissões de arquivos");
       open("Período");
       expect((screen.getByLabelText(/^Início/) as HTMLInputElement).value).toBe("2026-10-21T08:20");
       expect((screen.getByLabelText(/^Término/) as HTMLInputElement).value).toBe("2026-10-21T10:00");
@@ -303,7 +303,7 @@ describe("AssessmentForm", () => {
       open("Questões");
       await include("Criar a pasta");
       fireEvent.click(screen.getByRole("button", { name: "Distribuir igualmente" }));
-      type(screen.getByLabelText(/^Título/), "Prova 1: permissões");
+      type(screen.getByLabelText(/^Título/, { selector: "input" }), "Prova 1: permissões");
       fireEvent.click(save());
       await waitFor(() =>
         expect(onSubmit).toHaveBeenCalledWith(
@@ -333,7 +333,7 @@ describe("AssessmentForm", () => {
 
     it("starts from the saved assessment, shows the dates without a field and sends them nowhere", async () => {
       const { onSubmit } = setup({ mode: "edit", initial: saved });
-      expect((screen.getByLabelText(/^Título/) as HTMLInputElement).value).toBe("Prova 1");
+      expect((screen.getByLabelText(/^Título/, { selector: "input" }) as HTMLInputElement).value).toBe("Prova 1");
       open("Período");
       expect(screen.queryByLabelText(/^Início/)).toBeNull();
       expect(screen.getByText("23/10/2026, 09:00–11:00")).toBeDefined();
@@ -371,14 +371,14 @@ describe("AssessmentForm", () => {
     it("warns that the composition cannot change and locks its fields, but not the title", () => {
       setup({ mode: "edit", initial: saved, frozen: true });
       open("Questões");
-      expect(screen.getByText("A avaliação já começou; a composição não pode mais mudar.")).toBeDefined();
+      expect(within(screen.getByRole("tabpanel")).getByText("A avaliação já começou; a composição não pode mais mudar.")).toBeDefined();
       for (const label of [/^Módulo/]) expect((screen.getByLabelText(label) as HTMLSelectElement).disabled).toBe(true);
       expect((screen.getByRole("radio", { name: "Sorteio por nível" }) as HTMLInputElement).disabled).toBe(true);
       expect((screen.getByRole("button", { name: "Distribuir igualmente" }) as HTMLButtonElement).disabled).toBe(true);
       expect((screen.getByLabelText("Peso de Criar a pasta") as HTMLInputElement).disabled).toBe(true);
       open("Dados");
       for (const label of [/^Nota máxima/, /^Duração individual/, "Tipo da avaliação"]) expect((screen.getByLabelText(label) as HTMLInputElement).disabled).toBe(true);
-      expect((screen.getByLabelText(/^Título/) as HTMLInputElement).disabled).toBe(false);
+      expect((screen.getByLabelText(/^Título/, { selector: "input" }) as HTMLInputElement).disabled).toBe(false);
       expect(screen.getByRole("textbox", { name: "Instruções gerais" }).getAttribute("contenteditable")).toBe("true");
     });
 

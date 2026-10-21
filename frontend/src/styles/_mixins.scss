@@ -78,3 +78,55 @@ $breakpoints: (
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
+
+// The look of formatted text that an author wrote in the visual editor and the server filtered (SPEC-041, SPEC-077): paragraphs, lists, commands,
+// quotes, titles and links.
+@mixin rich-text {
+  line-height: var(--line-height-body);
+  color: var(--color-text-body);
+  overflow-wrap: anywhere;
+
+  p,
+  ul,
+  ol,
+  blockquote {
+    margin: 0 0 var(--space-3);
+  }
+
+  > :last-child {
+    margin-bottom: 0;
+  }
+
+  h3,
+  h4 {
+    margin: var(--space-4) 0 var(--space-2);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+  }
+
+  blockquote {
+    padding-left: var(--space-3);
+    border-left: 3px solid var(--color-border);
+    color: var(--color-text-secondary);
+  }
+
+  code {
+    padding: 0.1em 0.35em;
+    border-radius: var(--radius-sm);
+    background: var(--color-code-bg);
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+
+  pre {
+    padding: var(--space-3);
+    overflow-x: auto;
+    border-radius: var(--radius-sm);
+    background: var(--color-code-bg);
+  }
+
+  a {
+    color: var(--color-accent);
+  }
+}

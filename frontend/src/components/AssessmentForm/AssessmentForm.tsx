@@ -3,7 +3,9 @@
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { AssessmentQuestionPicker } from "@/components/AssessmentQuestionPicker/AssessmentQuestionPicker";
 import { Button } from "@/components/Button/Button";
+import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import { equalWeights, formatPeriod, formatScore, fromLocalInput, sumWeights, toLocalInput } from "@/lib/assessment";
+import { descriptionHtml } from "@/lib/description";
 import { messages } from "@/messages/pt-BR";
 import {
   describeAssessmentError,
@@ -30,6 +32,8 @@ const LEVEL_LEGEND: Record<Difficulty, string> = { EASY: m.draw.easy, MEDIUM: m.
 const MAX_QUESTIONS = 50;
 const MAX_SCORE = 100;
 const MIN_DURATION = 5;
+/** The largest instructions, as html, as in the server (SPEC-077 RN-01). */
+const MAX_DESCRIPTION = 20000;
 
 /** What the form starts from: a lesson to convert (SPEC-075 CA-25), a saved assessment to edit, or nothing. */
 export interface AssessmentFormInitial {
@@ -92,8 +96,11 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
   const editing = mode === "edit";
 
   const [active, setActive] = useState<Tab>("data");
+  /** The tabs the teacher opened and left: only these show that something is missing (SPEC-077 D-03). */
+  const [left, setLeft] = useState<Tab[]>([]);
   const [title, setTitle] = useState(initial.title ?? "");
-  const [description, setDescription] = useState(initial.description ?? "");
+  // formatted text, stored as html; what was stored as plain text opens as one paragraph for each line
+  const [description, setDescription] = useState(descriptionHtml(initial.description ?? ""));
   const [type, setType] = useState<AssessmentType>(initial.type ?? "EXAM");
   const [maxScore, setMaxScore] = useState(initial.maxScore ?? 10);
   // an exam is in person and asks for the clearance, an assignment is online (SPEC-076 RN-01, RN-02)
@@ -155,24 +162,37 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
 
   const studentsOk = audience === "ALL_CLASS" || studentIds.length >= 1;
 
-  const blockers: string[] = [];
-  if (!title.trim()) blockers.push(m.blockers.title);
+  // each reason belongs to a tab, which the list says and the tab shows (SPEC-077 D-03)
+  const blockers: { tab: Tab; text: string }[] = [];
+  const block = (tab: Tab, text: string) => blockers.push({ tab, text });
+  const descriptionOk = description.length <= MAX_DESCRIPTION;
+  if (!title.trim()) block("data", m.blockers.title);
+  if (!descriptionOk) block("data", m.blockers.description);
   if (!frozen) {
-    if (!scoreOk) blockers.push(m.blockers.maxScore);
-    if (!periodOk) blockers.push(m.blockers.period);
-    if (!durationOk) blockers.push(m.blockers.duration);
-    if (!moduleId) blockers.push(m.blockers.module);
+    if (!scoreOk) block("data", m.blockers.maxScore);
+    if (!periodOk) block("period", m.blockers.period);
+    if (!durationOk) block("period", m.blockers.duration);
+    if (!moduleId) block("questions", m.blockers.module);
     if (composition === "MANUAL") {
-      if (items.length === 0) blockers.push(m.blockers.questions);
-      else if (!manualOk) blockers.push(m.blockers.weights);
+      if (items.length === 0) block("questions", m.blockers.questions);
+      else if (!manualOk) block("questions", m.blockers.weights);
     } else {
-      if (!drawOk) blockers.push(m.blockers.draw);
-      if (!stockOk) blockers.push(m.blockers.stock);
+      if (!drawOk) block("questions", m.blockers.draw);
+      if (!stockOk) block("questions", m.blockers.stock);
     }
   }
-  if (!studentsOk) blockers.push(m.blockers.students);
+  if (!studentsOk) block("participants", m.blockers.students);
   const blocked = blockers.length > 0;
   const blockedId = `${baseId}-blocked`;
+  const tabNoteId = `${baseId}-tab-note`;
+  const tabHasBlocker = (t: Tab) => active !== t && left.includes(t) && blockers.some((b) => b.tab === t);
+
+  /** Opens a tab, and remembers the one that was left. */
+  const go = (t: Tab) => {
+    if (t === active) return;
+    setLeft((tabs) => (tabs.includes(active) ? tabs : [...tabs, active]));
+    setActive(t);
+  };
 
   // ── what is sent ──────────────────────────────────────────────────────────
   const valueOf = (): AssessmentFormValue => {
@@ -237,7 +257,7 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
     if (next === null) return;
     e.preventDefault();
     const target = TABS[next]!;
-    setActive(target);
+    go(target);
     tabRefs.current[target]?.focus();
   };
 
@@ -264,6 +284,20 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
     });
   const diff = maxCents - (composition === "MANUAL" ? weightsCents : drawCents);
 
+  // The duration depends on the period, so it lives in the same tab as the dates (SPEC-077 CA-08, CA-09).
+  const durationField = (
+    <>
+      <div className={styles.field}>
+        <label htmlFor={`${baseId}-duration`}>{m.duration}</label>
+        <input id={`${baseId}-duration`} type="number" min={MIN_DURATION} step={1} value={duration} disabled={frozen} aria-describedby={`${baseId}-duration-help`} onChange={(e) => setDuration(e.target.value)} />
+      </div>
+      <p id={`${baseId}-duration-help`} className={durationOk ? styles.hint : styles.problem}>
+        {durationOk ? m.durationHelp : m.durationRange(periodMinutes && periodMinutes > 0 ? periodMinutes : undefined)}
+      </p>
+      {frozen && <p className={styles.notice}>{m.frozen}</p>}
+    </>
+  );
+
   return (
     <form className={styles.form} onSubmit={submit} noValidate>
       <div role="tablist" aria-label={m.tabsLabel} className={styles.tabs}>
@@ -279,14 +313,24 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
             aria-selected={active === t}
             aria-controls={panelId(t)}
             tabIndex={active === t ? 0 : -1}
+            data-invalid={tabHasBlocker(t) ? "true" : undefined}
+            aria-describedby={tabHasBlocker(t) ? tabNoteId : undefined}
             className={`${styles.tab} ${active === t ? styles.tabActive : ""}`}
-            onClick={() => setActive(t)}
+            onClick={() => go(t)}
             onKeyDown={(e) => onTabKeyDown(e, t)}
           >
             {m.tabs[t]}
+            {tabHasBlocker(t) && (
+              <span aria-hidden="true" className={styles.tabIcon}>
+                !
+              </span>
+            )}
           </button>
         ))}
       </div>
+      <span id={tabNoteId} className={styles.srOnly}>
+        {m.tabHasError}
+      </span>
 
       {panel(
         "data",
@@ -298,8 +342,20 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
             <input id={`${baseId}-title`} type="text" value={title} maxLength={150} required onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className={styles.field}>
-            <label htmlFor={`${baseId}-description`}>{m.description}</label>
-            <textarea id={`${baseId}-description`} value={description} maxLength={5000} rows={4} onChange={(e) => setDescription(e.target.value)} />
+            <span className={styles.fieldLabel} aria-hidden="true">
+              {m.description}
+            </span>
+            <RichTextEditor
+              label={m.description}
+              value={description}
+              onChange={setDescription}
+              placeholder={m.descriptionPlaceholder}
+              invalid={!descriptionOk}
+              describedBy={`${baseId}-description-help`}
+            />
+            <p id={`${baseId}-description-help`} className={descriptionOk ? styles.hint : styles.problem}>
+              {descriptionOk ? m.descriptionHelp : m.descriptionTooLong}
+            </p>
           </div>
           <div className={styles.row}>
             <div className={styles.field}>
@@ -325,15 +381,9 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
                 onChange={(e) => setMaxScore(e.target.value === "" ? 0 : Number(e.target.value))}
               />
             </div>
-            <div className={styles.field}>
-              <label htmlFor={`${baseId}-duration`}>{m.duration}</label>
-              <input id={`${baseId}-duration`} type="number" min={MIN_DURATION} step={1} value={duration} disabled={frozen} aria-describedby={`${baseId}-duration-help`} onChange={(e) => setDuration(e.target.value)} />
-            </div>
           </div>
-          <p id={`${baseId}-duration-help`} className={durationOk ? styles.hint : styles.problem}>
-            {durationOk ? m.durationHelp : m.durationRange(periodMinutes && periodMinutes > 0 ? periodMinutes : undefined)}
-          </p>
-          <div className={styles.row}>
+          <fieldset className={styles.group}>
+            <legend>{m.application}</legend>
             <div className={styles.field}>
               <label htmlFor={`${baseId}-modality`}>{m.modality}</label>
               <select
@@ -355,13 +405,18 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
               )}
             </div>
             {modality === "IN_PERSON" && (
-              <label className={styles.choice}>
-                <input type="checkbox" checked={requires} disabled={frozen} onChange={(e) => setRequires(e.target.checked)} />
-                {m.requiresClearance}
-              </label>
+              <div className={styles.field}>
+                <label className={styles.choice}>
+                  <input type="checkbox" checked={requires} disabled={frozen} aria-describedby={`${baseId}-clearance-help`} onChange={(e) => setRequires(e.target.checked)} />
+                  {m.requiresClearance}
+                </label>
+                <p id={`${baseId}-clearance-help`} className={styles.hint}>
+                  {m.requiresClearanceHelp}
+                </p>
+              </div>
             )}
-          </div>
-          {frozen && <p className={styles.notice}>{m.frozenModality}</p>}
+            {frozen && <p className={styles.notice}>{m.frozenModality}</p>}
+          </fieldset>
         </>,
       )}
 
@@ -371,6 +426,7 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
           <>
             <p className={styles.fact}>{formatPeriod(initial.startsAt ?? "", initial.endsAt ?? "")}</p>
             <p className={styles.hint}>{m.datesAreRescheduled}</p>
+            {durationField}
           </>
         ) : (
           <>
@@ -389,6 +445,7 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
               </div>
             </div>
             {periodError && <p className={styles.problem}>{periodError}</p>}
+            {durationField}
           </>
         ),
       )}
@@ -554,9 +611,18 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
         </p>
       )}
       {blocked && (
-        <p id={blockedId} className={styles.hint}>
-          {(editing ? m.blockedEdit : m.blockedCreate)(blockers.join("; "))}
-        </p>
+        <div id={blockedId} className={styles.hint}>
+          <p className={styles.hint}>{editing ? m.blockedEdit : m.blockedCreate}</p>
+          <ul className={styles.blockers}>
+            {blockers.map((b) => (
+              <li key={`${b.tab}-${b.text}`}>
+                <button type="button" className={styles.blockerLink} onClick={() => go(b.tab)}>
+                  {m.blockerIn(b.text, m.tabs[b.tab])}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <div className={styles.actions}>
         {onCancel && (
