@@ -19,6 +19,8 @@ function asRole(role: "TEACHER" | "STUDENT" | "ADMIN") {
 }
 
 const params = Promise.resolve({ id: "c-1" });
+/** Opens the menu Mais ações of the only assessment on the screen (SPEC-080). */
+const openMenu = () => fireEvent.click(screen.getByRole("button", { name: /^Mais ações de/ }));
 
 beforeEach(() => pushMock.mockClear());
 afterEach(() => {
@@ -49,11 +51,11 @@ describe("assessments page of the class", () => {
       await screen.findByRole("table");
       fireEvent.click(screen.getByRole("button", { name: "Nova avaliação" }));
       expect(pushMock).toHaveBeenLastCalledWith("/app/classes/c-1/assessments/new");
-      fireEvent.click(screen.getByRole("button", { name: /^Ver/ }));
-      expect(pushMock).toHaveBeenLastCalledWith("/app/classes/c-1/assessments/a-1");
+      expect(screen.getByRole("link", { name: "Prova 1: permissões" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1");
       fireEvent.click(screen.getByRole("button", { name: /^Editar/ }));
       expect(pushMock).toHaveBeenLastCalledWith("/app/classes/c-1/assessments/a-1/edit");
-      fireEvent.click(screen.getByRole("button", { name: /^Pré-visualizar/ }));
+      openMenu();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Pré-visualizar" }));
       expect(pushMock).toHaveBeenLastCalledWith("/app/classes/c-1/assessments/a-1?preview=1");
     });
 
@@ -61,7 +63,8 @@ describe("assessments page of the class", () => {
       const { list } = setup();
       const reschedule = vi.spyOn(assessmentService, "reschedule").mockResolvedValue({ ...summary(), serverNow: SERVER_NOW });
       await screen.findByRole("table");
-      fireEvent.click(screen.getByRole("button", { name: /^Reagendar/ }));
+      openMenu();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Reagendar" }));
       const dialog = screen.getByRole("dialog", { name: /^Reagendar avaliação/ });
       fireEvent.change(within(dialog).getByLabelText("Término"), { target: { value: "2026-10-23T12:00" } });
       fireEvent.click(within(dialog).getByRole("button", { name: "Reagendar" }));
@@ -76,7 +79,8 @@ describe("assessments page of the class", () => {
       const { list } = setup();
       const cancel = vi.spyOn(assessmentService, "cancel").mockResolvedValue({ ...summary({ status: "CANCELED" }), serverNow: SERVER_NOW });
       await screen.findByRole("table");
-      fireEvent.click(screen.getByRole("button", { name: /^Cancelar/ }));
+      openMenu();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Cancelar" }));
       const dialog = screen.getByRole("dialog", { name: /^Cancelar avaliação/ });
       fireEvent.change(within(dialog).getByLabelText(/Motivo/), { target: { value: "Falta de energia" } });
       fireEvent.click(within(dialog).getByRole("checkbox"));
@@ -90,7 +94,8 @@ describe("assessments page of the class", () => {
       setup();
       vi.spyOn(assessmentService, "cancel").mockRejectedValue(problem("grades-homologated", 409));
       await screen.findByRole("table");
-      fireEvent.click(screen.getByRole("button", { name: /^Cancelar/ }));
+      openMenu();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Cancelar" }));
       const dialog = screen.getByRole("dialog");
       fireEvent.change(within(dialog).getByLabelText(/Motivo/), { target: { value: "x" } });
       fireEvent.click(within(dialog).getByRole("checkbox"));

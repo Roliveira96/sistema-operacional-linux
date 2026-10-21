@@ -18,8 +18,8 @@ const waiting = (over: Partial<AssessmentSummary> = {}) =>
   });
 
 function setup(items: AssessmentSummary[]) {
-  const h = { onNew: vi.fn(), onRetry: vi.fn(), onView: vi.fn(), onEdit: vi.fn(), onPreview: vi.fn(), onReschedule: vi.fn(), onCancel: vi.fn(), onApproveAll: vi.fn(), onClearances: vi.fn() };
-  render(<AssessmentList status="ready" items={items} serverNow={SERVER_NOW} {...h} />);
+  const h = { onNew: vi.fn(), onRetry: vi.fn(), onEdit: vi.fn(), onPreview: vi.fn(), onReschedule: vi.fn(), onCancel: vi.fn(), onApproveAll: vi.fn(), onClearances: vi.fn() };
+  render(<AssessmentList status="ready" items={items} serverNow={SERVER_NOW} hrefOf={(a) => `/app/classes/c-1/assessments/${a.id}`} {...h} />);
   return h;
 }
 
@@ -28,24 +28,23 @@ const warning = () => screen.queryByRole("status");
 
 // SPEC-076 CA-15, RN-13: the modality and the students who wait are in the list, and the warning comes when the exam is about to start or is on.
 describe("AssessmentList: modality and clearance warning", () => {
-  it("has a column for the modality and counts who still waits in an in-person exam that requires the clearance", () => {
+  it("says the modality under the title and counts who still waits in an in-person exam that requires the clearance", () => {
     setup([
       waiting({ startsAt: "2026-10-23T09:00:00-03:00", endsAt: "2026-10-23T11:00:00-03:00" }),
       summary({ id: "a-2", title: "Prova online", modality: "ONLINE", requiresClearance: false, clearanceCounts: { pending: 32, approved: 0, rejected: 0 } }),
       summary({ id: "a-3", title: "Prova livre", requiresClearance: false, clearanceCounts: { pending: 32, approved: 0, rejected: 0 } }),
     ]);
-    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
-      "Tipo", "Modalidade", "Título", "Período", "Situação", "Nota máxima", "Composição", "Elegíveis", "Ações",
-    ]);
-    const cell = (title: string) => within(rowOf(title)).getAllByRole("cell")[1]!.textContent;
-    expect(cell("Prova 1: permissões")).toBe("Presencial3 aguardando");
-    expect(cell("Prova online")).toBe("Online");
-    expect(cell("Prova livre")).toBe("Presencial");
+    const first = (title: string) => within(rowOf(title)).getAllByRole("cell")[0]!;
+    expect(within(first("Prova 1: permissões")).getByText("Prova · Presencial · 10,00 pontos")).toBeDefined();
+    expect(within(first("Prova 1: permissões")).getByText("3 aguardando")).toBeDefined();
+    expect(within(first("Prova online")).getByText("Prova · Online · 10,00 pontos")).toBeDefined();
+    expect(within(first("Prova online")).queryByText(/aguardando/)).toBeNull();
+    expect(within(first("Prova livre")).queryByText(/aguardando/)).toBeNull();
   });
 
   it("says one student waits in the singular", () => {
     setup([waiting({ startsAt: "2026-10-23T09:00:00-03:00", endsAt: "2026-10-23T11:00:00-03:00", clearanceCounts: { pending: 1, approved: 31, rejected: 0 } })]);
-    expect(within(rowOf("Prova 1: permissões")).getAllByRole("cell")[1]!.textContent).toBe("Presencial1 aguardando");
+    expect(within(within(rowOf("Prova 1: permissões")).getAllByRole("cell")[0]!).getByText("1 aguardando")).toBeDefined();
   });
 
   it("warns when there are students waiting and the exam starts in 30 minutes or less, with the way to clear them all and to see them", () => {

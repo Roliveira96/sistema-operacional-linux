@@ -5,12 +5,13 @@ import { AssessmentList, type AssessmentListProps } from "./AssessmentList";
 
 afterEach(cleanup);
 
-const handlers = () => ({ onNew: vi.fn(), onRetry: vi.fn(), onView: vi.fn(), onEdit: vi.fn(), onPreview: vi.fn(), onReschedule: vi.fn(), onCancel: vi.fn() });
+const handlers = () => ({ onNew: vi.fn(), onRetry: vi.fn(), onEdit: vi.fn(), onPreview: vi.fn(), onReschedule: vi.fn(), onCancel: vi.fn() });
 
 function setup(over: Partial<AssessmentListProps> = {}) {
   const h = handlers();
   const props: AssessmentListProps = {
     status: "ready",
+    hrefOf: (a) => `/app/classes/c-1/assessments/${a.id}`,
     items: [
       summary({ id: "a-1", title: "Prova 1: permissões" }),
       summary({
@@ -36,19 +37,38 @@ function setup(over: Partial<AssessmentListProps> = {}) {
 
 const rowOf = (title: string) => screen.getByRole("row", { name: new RegExp(title) });
 
-// SPEC-075 CA-23.
+// SPEC-075 CA-23, as the list is shown after SPEC-080: five columns, the title is the link, and Editar is in view.
 describe("AssessmentList", () => {
-  it("shows the kind, title, period, phase, maximum score, composition and eligible students of each assessment", () => {
+  it("shows the assessment, the period, the situation and the students of each one, in five columns", () => {
     setup();
-    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
-    expect(headers).toEqual(["Tipo", "Modalidade", "Título", "Período", "Situação", "Nota máxima", "Composição", "Elegíveis", "Ações"]);
-    const exam = within(rowOf("Prova 1: permissões")).getAllByRole("cell").map((c) => c.textContent);
-    expect(exam.slice(0, 8)).toEqual(["Prova", "Presencial", "Prova 1: permissões", "23/10/2026, 09:00–11:00", "Agendada", "10,00", "Manual", "32"]);
-    const task = within(rowOf("Trabalho em duplas")).getAllByRole("cell").map((c) => c.textContent);
-    expect(task.slice(0, 8)).toEqual(["Atividade", "Online", "Trabalho em duplas", "26/10/2026 08:00 a 30/10/2026 23:59", "Agendada", "5,00", "Sorteio por nível", "4"]);
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Avaliação", "Período", "Situação", "Alunos", "Ações"]);
+    const exam = within(rowOf("Prova 1: permissões")).getAllByRole("cell");
+    expect(exam[0]!.textContent).toContain("Prova 1: permissões");
+    expect(within(exam[0]!).getByText("Prova · Presencial · 10,00 pontos")).toBeDefined();
+    expect(exam.slice(1, 4).map((c) => c.textContent)).toEqual(["23/10/2026, 09:00–11:00", "Agendada", "32"]);
+
+    const task = within(rowOf("Trabalho em duplas")).getAllByRole("cell");
+    expect(within(task[0]!).getByText("Atividade · Online · 5,00 pontos")).toBeDefined();
+    expect(task.slice(1, 4).map((c) => c.textContent)).toEqual(["26/10/2026 08:00 a 30/10/2026 23:59", "Agendada", "4"]);
   });
 
-  it("names each phase", () => {
+  it("does not show the composition in the list", () => {
+    setup();
+    expect(screen.queryByRole("columnheader", { name: "Composição" })).toBeNull();
+    expect(screen.queryByText("Sorteio por nível")).toBeNull();
+    expect(screen.queryByText("Manual")).toBeNull();
+  });
+
+  it("makes the title the link to the assessment, and strikes it through when it is canceled", () => {
+    setup({ items: [summary({ id: "a-1", title: "Prova 1: permissões" }), summary({ id: "a-3", title: "Desfeita", status: "CANCELED", cancelReason: "Falta de energia" })] });
+    expect(screen.getByRole("link", { name: "Prova 1: permissões" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1");
+    const canceled = screen.getByRole("link", { name: "Desfeita" });
+    expect(canceled.getAttribute("href")).toBe("/app/classes/c-1/assessments/a-3");
+    expect(canceled.querySelector("s")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /^Ver/ })).toBeNull();
+  });
+
+  it("names each situation on the row, and puts each assessment in its section", () => {
     setup({
       items: [
         summary({ id: "a-1", title: "Em curso", phase: "RUNNING" }),
@@ -61,42 +81,27 @@ describe("AssessmentList", () => {
     expect(within(rowOf("Desfeita")).getByText("Cancelada")).toBeDefined();
   });
 
-  it("offers every action while the assessment is still ahead, and runs the one that is pressed", () => {
-    const { onView, onEdit, onPreview, onReschedule, onCancel } = setup();
-    const row = within(rowOf("Prova 1: permissões"));
-    for (const name of ["Ver", "Editar", "Pré-visualizar", "Reagendar", "Cancelar"]) {
-      expect((row.getByRole("button", { name: new RegExp(`^${name}`) }) as HTMLButtonElement).disabled).toBe(false);
-    }
-    fireEvent.click(row.getByRole("button", { name: /^Ver/ }));
-    fireEvent.click(row.getByRole("button", { name: /^Editar/ }));
-    fireEvent.click(row.getByRole("button", { name: /^Pré-visualizar/ }));
-    fireEvent.click(row.getByRole("button", { name: /^Reagendar/ }));
-    fireEvent.click(row.getByRole("button", { name: /^Cancelar/ }));
-    for (const fn of [onView, onEdit, onPreview, onReschedule, onCancel]) expect(fn).toHaveBeenCalledWith(expect.objectContaining({ id: "a-1" }));
+  it("keeps Editar in view, and runs it", () => {
+    const { onEdit } = setup();
+    const edit = within(rowOf("Prova 1: permissões")).getByRole("button", { name: "Editar Prova 1: permissões" }) as HTMLButtonElement;
+    expect(edit.disabled).toBe(false);
+    fireEvent.click(edit);
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "a-1" }));
   });
 
-  it("disables an action the phase does not allow and says why, in text", () => {
-    setup({
-      items: [
-        summary({ id: "a-2", title: "Passada", phase: "ENDED" }),
-        summary({ id: "a-3", title: "Desfeita", status: "CANCELED", cancelReason: "Falta de energia" }),
-      ],
-    });
-    const ended = within(rowOf("Passada"));
-    const reschedule = ended.getByRole("button", { name: /^Reagendar/ }) as HTMLButtonElement;
-    expect(reschedule.disabled).toBe(true);
-    expect(ended.getByText("A avaliação já terminou.")).toBeDefined();
-    expect(reschedule.getAttribute("aria-describedby")).toBe(ended.getByText("A avaliação já terminou.").id);
-    expect((ended.getByRole("button", { name: /^Editar/ }) as HTMLButtonElement).disabled).toBe(false);
+  it("disables Editar in a canceled assessment and says why, in text tied to the button", () => {
+    setup({ items: [summary({ id: "a-3", title: "Desfeita", status: "CANCELED", cancelReason: "Falta de energia" })] });
+    const row = within(rowOf("Desfeita"));
+    const edit = row.getByRole("button", { name: "Editar Desfeita" }) as HTMLButtonElement;
+    expect(edit.disabled).toBe(true);
+    const reason = row.getByText("A avaliação está cancelada.");
+    expect(edit.getAttribute("aria-describedby")).toBe(reason.id);
+  });
 
-    const canceled = within(rowOf("Desfeita"));
-    for (const name of ["Editar", "Reagendar", "Cancelar"]) {
-      expect((canceled.getByRole("button", { name: new RegExp(`^${name}`) }) as HTMLButtonElement).disabled).toBe(true);
-    }
-    expect(canceled.getAllByText("A avaliação está cancelada.").length).toBeGreaterThan(0);
-    // reading and previewing never stop
-    expect((canceled.getByRole("button", { name: /^Ver/ }) as HTMLButtonElement).disabled).toBe(false);
-    expect((canceled.getByRole("button", { name: /^Pré-visualizar/ }) as HTMLButtonElement).disabled).toBe(false);
+  it("keeps Editar on in an ended assessment, which only cannot be rescheduled", () => {
+    setup({ items: [summary({ id: "a-2", title: "Passada", phase: "ENDED" })] });
+    expect((within(rowOf("Passada")).getByRole("button", { name: "Editar Passada" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(within(rowOf("Passada")).getByText("A avaliação já terminou.")).toBeDefined();
   });
 
   it("has the button of a new assessment at the top", () => {
