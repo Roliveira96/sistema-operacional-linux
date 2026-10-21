@@ -83,14 +83,14 @@ Não se aplica nesta spec: nenhuma rota ou campo muda.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (estado): ENQUANTO há questões escolhidas, A seção DEVE mostrar uma tabela com os cabeçalhos *#*, *Questão*, *Nível*, *Peso (pontos)* e *% da nota* sempre visíveis, e cada caixa de peso DEVE manter o nome "Peso de <título>" para leitor de tela.
-- [ ] **CA-02** (estado): ENQUANTO há questões escolhidas, CADA linha DEVE mostrar sua posição de 1 a N, e ao remover uma questão os números DEVEM se refazer sem buracos.
-- [ ] **CA-03** (estado): ENQUANTO o peso de uma linha está vazio, é 0, passa de 100 ou tem mais de 2 casas decimais, A linha DEVE marcar a caixa como inválida e mostrar "Informe o peso: de 0,01 a 100, com até 2 casas." ligada à caixa; QUANDO o valor passa a valer, a marca e a mensagem DEVEM sumir.
-- [ ] **CA-04** (estado): ENQUANTO o peso e a nota máxima valem, CADA linha DEVE mostrar a parte da nota em porcentagem inteira; SE o peso é inválido ou a nota máxima não vale, ENTÃO DEVE mostrar um traço.
-- [ ] **CA-05** (evento): QUANDO a docente aciona "Remover" numa linha, O SISTEMA DEVE tirar a questão da escolha; o botão DEVE ter o texto visível "Remover", o nome "Remover <título>" e no mínimo 44 px.
-- [ ] **CA-06** (estado): ENQUANTO a avaliação já começou, A tabela DEVE continuar à vista, com as caixas de peso e os botões de remover desabilitados.
+- [x] **CA-01** (estado): ENQUANTO há questões escolhidas, A seção DEVE mostrar uma tabela com os cabeçalhos *#*, *Questão*, *Nível*, *Peso (pontos)* e *% da nota* sempre visíveis, e cada caixa de peso DEVE manter o nome "Peso de <título>" para leitor de tela.
+- [x] **CA-02** (estado): ENQUANTO há questões escolhidas, CADA linha DEVE mostrar sua posição de 1 a N, e ao remover uma questão os números DEVEM se refazer sem buracos.
+- [x] **CA-03** (estado): ENQUANTO o peso de uma linha está vazio, é 0, passa de 100 ou tem mais de 2 casas decimais, A linha DEVE marcar a caixa como inválida e mostrar "Informe o peso: de 0,01 a 100, com até 2 casas." ligada à caixa; QUANDO o valor passa a valer, a marca e a mensagem DEVEM sumir.
+- [x] **CA-04** (estado): ENQUANTO o peso e a nota máxima valem, CADA linha DEVE mostrar a parte da nota em porcentagem inteira; SE o peso é inválido ou a nota máxima não vale, ENTÃO DEVE mostrar um traço.
+- [x] **CA-05** (evento): QUANDO a docente aciona "Remover" numa linha, O SISTEMA DEVE tirar a questão da escolha; o botão DEVE ter o texto visível "Remover", o nome "Remover <título>" e no mínimo 44 px.
+- [x] **CA-06** (estado): ENQUANTO a avaliação já começou, A tabela DEVE continuar à vista, com as caixas de peso e os botões de remover desabilitados.
 - [ ] **CA-07** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`; a tabela DEVE ter navegação por teclado, contraste AA e nenhuma cor fora dos tokens.
-- [ ] **CA-08** (ubíquo): Stylelint, ESLint e `tsc` limpos; cobertura acima de 80% no escopo.
+- [x] **CA-08** (ubíquo): Stylelint, ESLint e `tsc` limpos; cobertura acima de 80% no escopo.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -141,3 +141,4 @@ Nenhuma. O Tech Lead decidiu em 21/10/2026, ao aprovar a spec, todas as pendênc
 | 21/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir da queixa de 21/10/2026 sobre a caixa de valor sem rótulo na lista das questões escolhidas, conferida contra o código do seletor e a SPEC-075. Três pendências abertas (D-01 a D-03), todas com recomendação |
 | 21/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das três pendências aceitas como estavam na spec: D-01 a D-03. Status: `Aprovada` |
 | 21/10/2026 | Aruna Architect | Seção 10 esvaziada: as três pendências viraram decisões D-01 a D-03, incorporadas ao texto; `P-xx` renomeado para `D-xx` nas referências |
+| 21/10/2026 | Implementador | Implementada, menos a conferência à mão: CA-01 a CA-06 e CA-08 marcados; o CA-07 segue aberto porque o contraste AA, a aparência da linha marcada e a rolagem lateral no tema escuro só se conferem à mão (roteiro manual, itens 1 a 3, ainda não feito), por isso o status continua `Aprovada`. Medido: `tsc`, ESLint e Stylelint limpos; as pastas `AssessmentQuestionPicker`, `AssessmentForm` e as páginas de avaliação passam no Vitest (127 testes); cobertura: `AssessmentQuestionPicker` 98,2% das linhas e 95,9% dos ramos, `AssessmentForm` 98,8% e 93,9%. Testes alterados depois do vermelho: nenhum. Testes que já passavam de nascença: `shows no table while no question is chosen`, que fica como proteção. Esclarecimento sem mudança de requisito: o peso vazio na caixa já virava 0 na escolha (como antes), então o caso "vazio" da CA-03 aparece como 0; e o seletor ganhou a propriedade opcional `maxScore`, que o formulário passa. Nenhum desvio de requisito |
