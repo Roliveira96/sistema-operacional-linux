@@ -141,6 +141,7 @@ export function AssessmentList({ status, items, hrefOf, onNew, onRetry, onEdit, 
                           </Button>
                           <ActionMenu
                             wide
+                            floating
                             label={m.list.moreLabel(a.title)}
                             text={m.list.moreText}
                             actions={[
