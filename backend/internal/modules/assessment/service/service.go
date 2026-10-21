@@ -4,12 +4,14 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/assessment/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/htmlsafe"
 )
 
 // Actor is who makes a request.
@@ -170,14 +172,25 @@ type Repository interface {
 
 // Service implements the use cases of the assessments.
 type Service struct {
-	repo  Repository
-	ports Ports
-	now   func() time.Time
+	repo     Repository
+	ports    Ports
+	now      func() time.Time
+	richText *htmlsafe.Sanitizer
 }
 
 // New creates the service. now is the clock of the server.
 func New(repo Repository, ports Ports, now func() time.Time) *Service {
-	return &Service{repo: repo, ports: ports, now: now}
+	return &Service{repo: repo, ports: ports, now: now, richText: htmlsafe.NewRichText()}
+}
+
+// instructions filters the instructions of an assessment like the syllabus of a class (SPEC-077 RN-01): no images, videos, scripts or event
+// attributes. Text with nothing visible is stored empty. The limit is checked by the domain, on what is stored.
+func (s *Service) instructions(markup string) string {
+	filtered := strings.TrimSpace(s.richText.Sanitize(markup))
+	if htmlsafe.PlainText(filtered) == "" {
+		return ""
+	}
+	return filtered
 }
 
 // Now is the clock of the server, for the answers that carry it (countdowns count by it).

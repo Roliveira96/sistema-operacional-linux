@@ -13,10 +13,10 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 )
 
-// Limits of SPEC-075 RN-02, RN-06, RN-07 and RN-13.
+// Limits of SPEC-075 RN-02, RN-06, RN-07 and RN-13. The instructions are html, up to 20,000 characters after the filter (SPEC-077 RN-01).
 const (
 	MaxTitleLength       = 150
-	MaxDescriptionLength = 5000
+	MaxDescriptionLength = 20000
 	MaxNotesLength       = 5000
 	MaxReasonLength      = 500
 	MinDurationMinutes   = 5
