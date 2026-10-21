@@ -511,6 +511,18 @@
   @include mixins.focusable;
 }
 
+// A menu button that says what it is, instead of the three dots.
+.menuText {
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--space-4);
+}
+
+// An action that is off stays readable, and says why through its reason.
+.menuItemOff {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 // The icons share a column, so the labels line up.
 .menuIcon {
   display: inline-block;

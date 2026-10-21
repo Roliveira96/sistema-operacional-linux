@@ -123,7 +123,7 @@ export default function AssessmentsPage({ params }: { params: Promise<{ id: stri
             onClearances={(a) => router.push(`${base}/${a.id}/clearances`)}
             onNew={() => router.push(`${base}/new`)}
             onRetry={retry}
-            onView={(a) => router.push(`${base}/${a.id}`)}
+            hrefOf={(a) => `${base}/${a.id}`}
             onEdit={(a) => router.push(`${base}/${a.id}/edit`)}
             onPreview={(a) => router.push(`${base}/${a.id}?preview=1`)}
             onReschedule={(assessment) => setDialog({ kind: "reschedule", assessment })}

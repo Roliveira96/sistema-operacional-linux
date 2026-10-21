@@ -99,3 +99,22 @@ export function formInitialOf(a: AssessmentDetail) {
     teacherPrivateNotes: a.teacherPrivateNotes,
   };
 }
+
+/** The situations a list is divided in, in the order they are shown (SPEC-080 D-02). */
+export const SITUATIONS = ["RUNNING", "UPCOMING", "ENDED", "CANCELED"] as const;
+export type Situation = (typeof SITUATIONS)[number];
+
+/** The situation of an assessment: a canceled one is "CANCELED" in any phase. */
+export const situationKey = (a: Pick<AssessmentBase, "status" | "phase">): Situation => (a.status === "CANCELED" ? "CANCELED" : a.phase);
+
+/**
+ * The assessments by situation, with what matters now first (SPEC-080 CA-01, CA-02): the ones that are on and the ones that come are ordered
+ * by the start, the next first; the ones that are over and the canceled ones, the latest first. A situation with nothing is left out.
+ */
+export function groupBySituation<T extends Pick<AssessmentBase, "status" | "phase" | "startsAt">>(items: T[]): { situation: Situation; items: T[] }[] {
+  return SITUATIONS.map((situation) => {
+    const ahead = situation === "RUNNING" || situation === "UPCOMING";
+    const own = items.filter((a) => situationKey(a) === situation).sort((x, y) => (Date.parse(x.startsAt) - Date.parse(y.startsAt)) * (ahead ? 1 : -1));
+    return { situation, items: own };
+  }).filter((group) => group.items.length > 0);
+}

@@ -29,7 +29,21 @@
   border-radius: var(--radius-sm);
 }
 
-// The table scrolls sideways on a narrow screen instead of breaking the page.
+// One section for each situation (SPEC-080 D-02).
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+// The table scrolls sideways on a window between a card and a full table instead of breaking the page.
 .scroll {
   overflow-x: auto;
   background: var(--color-surface);
@@ -66,10 +80,32 @@
   }
 }
 
-.title {
-  min-width: 10rem;
+// The cell of the assessment: the title as the link, and under it what it is.
+.main {
+  min-width: 14rem;
+}
+
+.titleLink {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-accent);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.details {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .phase {
@@ -102,9 +138,11 @@
   }
 }
 
+// Editar in view, and the menu Mais ações beside it.
 .actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   min-width: 12rem;
 }
@@ -136,4 +174,51 @@
   margin: var(--space-2) 0 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+}
+
+// On a narrow screen each assessment is a card, with no sideways scroll (SPEC-080 D-03).
+@media (width < 48rem) {
+  .scroll {
+    overflow: visible;
+    background: transparent;
+    border: 0;
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+  }
+
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .table tr {
+    margin-bottom: var(--space-3);
+    padding: var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  .table td {
+    padding: var(--space-1) 0;
+    border: 0;
+  }
+
+  .table td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+  }
+
+  .table td.actions::before {
+    content: none;
+  }
 }

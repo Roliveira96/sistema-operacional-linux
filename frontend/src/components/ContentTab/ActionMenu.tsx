@@ -10,6 +10,10 @@ export interface MenuAction {
   danger?: boolean;
   /** An emoji before the label; it only decorates, the label says it all. */
   icon?: string;
+  /** The action is off: it stays in the menu and can take the focus, so its reason is read, but choosing it does nothing. */
+  disabled?: boolean;
+  /** The id of the text that says why the action is off. */
+  describedBy?: string;
 }
 
 interface ActionMenuProps {
@@ -18,13 +22,15 @@ interface ActionMenuProps {
   /** Text shown on the button. */
   text: string;
   actions: MenuAction[];
+  /** The button shows its text as a labelled button, not as the round button of the three dots. */
+  wide?: boolean;
 }
 
 /**
  * A menu of actions on one row. Opens with Enter, Space or the down arrow, moves with the
  * arrows, and closes with Escape, a click outside or a choice.
  */
-export function ActionMenu({ label, text, actions }: ActionMenuProps) {
+export function ActionMenu({ label, text, actions, wide = false }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -67,7 +73,7 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
       <button
         ref={button}
         type="button"
-        className={`${styles.smallButton} ${styles.dots}`}
+        className={wide ? `${styles.smallButton} ${styles.menuText}` : `${styles.smallButton} ${styles.dots}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -98,8 +104,11 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
               }}
               type="button"
               role="menuitem"
-              className={`${styles.menuItem} ${action.danger ? styles.menuDanger : ""}`}
+              className={`${styles.menuItem} ${action.danger ? styles.menuDanger : ""} ${action.disabled ? styles.menuItemOff : ""}`}
+              aria-disabled={action.disabled || undefined}
+              aria-describedby={action.describedBy}
               onClick={() => {
+                if (action.disabled) return;
                 close(false);
                 action.onSelect();
               }}

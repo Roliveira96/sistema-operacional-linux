@@ -12,7 +12,7 @@ function setup(items: AssessmentSummary[]) {
 }
 
 const on = (id: string, title: string, day: number, over: Partial<AssessmentSummary> = {}) =>
-  summary({ id, title, startsAt: `2026-10-${day}T09:00:00-03:00`, endsAt: `2026-10-${day}T11:00:00-03:00`, ...over });
+  summary({ id, title, startsAt: `2026-10-${String(day).padStart(2, "0")}T09:00:00-03:00`, endsAt: `2026-10-${String(day).padStart(2, "0")}T11:00:00-03:00`, ...over });
 
 const headings = () => screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
 /** The titles of a section, in the order they are shown. */
