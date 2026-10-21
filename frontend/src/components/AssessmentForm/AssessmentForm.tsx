@@ -213,16 +213,20 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
     setRequires(next === "IN_PERSON");
   };
 
+  // The ref closes the door in the same tick; the state only shows it. A save that worked stays locked: the page leaves for the next screen, and
+  // an unlocked form in the meantime let a second press create the assessment twice.
+  const sending = useRef(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (blocked || busy) return;
+    if (blocked || busy || sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(null);
     try {
       await onSubmit(valueOf());
     } catch (cause) {
       setError(describeAssessmentError(cause));
-    } finally {
+      sending.current = false;
       setBusy(false);
     }
   };
