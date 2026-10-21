@@ -81,4 +81,11 @@ describe("AssessmentList menu of actions", () => {
     expect(screen.getByRole("menuitem", { name: "Pré-visualizar" }).getAttribute("aria-disabled")).toBeNull();
     for (const name of ["Reagendar", "Cancelar"]) expect(screen.getByRole("menuitem", { name }).getAttribute("aria-disabled")).toBe("true");
   });
+
+  // The menu opened inside the box that scrolls sideways and was cut by it, most of all in the last row.
+  it("floats over the page, so the box of the table does not cut it", () => {
+    setup([exam()]);
+    fireEvent.click(more("Prova 1: permissões"));
+    expect(screen.getByRole("menu").style.position).toBe("fixed");
+  });
 });
