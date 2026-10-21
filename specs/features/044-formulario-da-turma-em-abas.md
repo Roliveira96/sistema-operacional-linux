@@ -208,3 +208,4 @@ Nenhuma. Decisões do Tech Lead em 14/10/2026: quatro abas; abas dentro do `Clas
 | 14/10/2026 | Implementador | Implementados CA-19 e CA-22 reescritos: um calendário só e aplicação automática dos horários válidos (pausa de 600 ms). Foco do campo com erro passou a `useLayoutEffect` para não correr com a troca de aba |
 | 14/10/2026 | Aruna Architect | Pedido do Tech Lead: seletor de cor com bolinhas, sem os nomes das cores (CA-23); volta a Aprovada |
 | 14/10/2026 | Implementador | CA-23 implementado: seletor de cor com bolinhas, nome só como nome acessível e dica, anel na escolhida |
+| 21/10/2026 | Aruna Architect | Sobreposição pela SPEC-078 (aprovada em 21/10/2026): a aba *Informações* ganha quatro grupos, a opção de sala virtual sai da aba *Horários* (seção 3.1.1) e vai para o grupo *Encontros virtuais*, o horário em texto livre só aparece com texto gravado, e o botão de salvar fica numa barra de ações fixa |
