@@ -268,3 +268,51 @@ func TestCourseModuleRepository(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), studentListFiltered.TotalCount)
 }
+
+// SPEC-010: the classId filter of the listing keeps only the modules assigned to that class. The assessment form relies on it to offer only
+// modules the class may use (SPEC-075 RN-05).
+func TestListModules_ClassIDFilterKeepsOnlyAssignedModules(t *testing.T) {
+	db := dbtest.Open(t)
+	repo := repository.New(db)
+	ctx := context.Background()
+
+	name := "Prof. Filtro"
+	teacher := userdomain.User{Name: &name, Email: "filtro@utfpr.edu.br", Role: userdomain.RoleTeacher, Status: userdomain.StatusActive}
+	require.NoError(t, userrepository.New(db).Create(ctx, &teacher))
+
+	now := time.Now().Truncate(time.Microsecond)
+	newClass := func(code string) classdomain.ClassGroup {
+		c := classdomain.ClassGroup{TeacherID: teacher.ID, Name: code, CourseCode: code, Semester: "2026/2", StartDate: now, EndDate: now.Add(60 * 24 * time.Hour), Status: classdomain.ClassStatusActive}
+		require.NoError(t, classrepo.New(db).CreateClass(ctx, &c, nil, now))
+		return c
+	}
+	target, other := newClass("SO01"), newClass("SO02")
+
+	newModule := func(title string, classIDs ...uuid.UUID) domain.CourseModule {
+		m := domain.CourseModule{TeacherID: teacher.ID, Title: title, Visibility: domain.VisibilityPrivate, Status: domain.ModuleStatusActive}
+		m.ID, _ = uuid.NewV7()
+		require.NoError(t, repo.CreateModule(ctx, &m, classIDs, teacher.ID))
+		return m
+	}
+	assigned := newModule("Assigned to the target class", target.ID)
+	newModule("Assigned to another class", other.ID)
+	newModule("Assigned to no class")
+
+	filter := repository.ListFilter{ClassID: &target.ID, Page: 1, Limit: 50}
+
+	byTeacher, err := repo.ListTeacherModules(ctx, teacher.ID, filter)
+	require.NoError(t, err)
+	require.Len(t, byTeacher.Items, 1)
+	assert.Equal(t, assigned.ID, byTeacher.Items[0].ID)
+	assert.Equal(t, int64(1), byTeacher.TotalCount)
+
+	byAdmin, err := repo.ListAllModules(ctx, filter)
+	require.NoError(t, err)
+	require.Len(t, byAdmin.Items, 1)
+	assert.Equal(t, assigned.ID, byAdmin.Items[0].ID)
+
+	// without the filter all three come back
+	unfiltered, err := repo.ListTeacherModules(ctx, teacher.ID, repository.ListFilter{Page: 1, Limit: 50})
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), unfiltered.TotalCount)
+}
