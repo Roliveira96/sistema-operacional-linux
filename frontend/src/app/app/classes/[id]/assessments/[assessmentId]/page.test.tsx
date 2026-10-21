@@ -60,6 +60,27 @@ describe("assessment page", () => {
       expect(screen.getByText("Criada por Profa. Sediane em 20/10/2026 às 16:00.")).toBeDefined();
     });
 
+    // SPEC-077 CA-11: the instructions of the teacher view are formatted text too, and a dash when empty.
+    it("shows the instructions with their formatting, and a dash when there are none", async () => {
+      asRole("TEACHER");
+      vi.spyOn(assessmentService, "get").mockResolvedValue(
+        detail({ description: '<p>Use <code>ls -l</code> e veja <a href="https://utfpr.edu.br">o site</a>.</p><ol><li>Um</li><li>Dois</li></ol>' }),
+      );
+      const { container, unmount } = render(<AssessmentPage params={params} />);
+      await screen.findByRole("heading", { name: "Prova 1: permissões" });
+      const section = screen.getByRole("heading", { name: "Instruções gerais" }).closest("section")!;
+      expect(section.querySelector("code")?.textContent).toBe("ls -l");
+      expect(within(section).getByRole("link", { name: "o site" }).getAttribute("href")).toBe("https://utfpr.edu.br");
+      expect(within(section).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Um", "Dois"]);
+      expect(container.textContent).not.toContain("<code>");
+      unmount();
+
+      vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ description: "" }));
+      render(<AssessmentPage params={params} />);
+      await screen.findByRole("heading", { name: "Prova 1: permissões" });
+      expect(screen.getByRole("heading", { name: "Instruções gerais" }).closest("section")!.textContent).toContain("—");
+    });
+
     it("says there are no notes, and shows the rules of a draw and the chosen students", async () => {
       asRole("TEACHER");
       vi.spyOn(assessmentService, "get").mockResolvedValue(

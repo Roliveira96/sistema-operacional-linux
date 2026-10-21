@@ -379,7 +379,7 @@ describe("AssessmentForm", () => {
       open("Dados");
       for (const label of [/^Nota máxima/, /^Duração individual/, "Tipo da avaliação"]) expect((screen.getByLabelText(label) as HTMLInputElement).disabled).toBe(true);
       expect((screen.getByLabelText(/^Título/) as HTMLInputElement).disabled).toBe(false);
-      expect((screen.getByLabelText(/^Instruções gerais/) as HTMLTextAreaElement).disabled).toBe(false);
+      expect(screen.getByRole("textbox", { name: "Instruções gerais" }).getAttribute("contenteditable")).toBe("true");
     });
 
     it("lets the audience grow and never shrink", async () => {

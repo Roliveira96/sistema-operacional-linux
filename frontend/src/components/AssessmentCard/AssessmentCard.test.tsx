@@ -46,13 +46,25 @@ const timer = () => screen.queryByRole("timer")?.textContent;
 // SPEC-075 CA-27 and CA-28, section 3.1 (the student).
 describe("AssessmentCard", () => {
   it("shows the label, the title, the period, the duration, the maximum score and the instructions", async () => {
-    await setup(soon({ description: "Traga o documento com foto.\nSem consulta." }));
+    await setup(soon({ description: "<p>Traga o documento com foto.</p><ul><li>Sem consulta.</li></ul>" }));
     expect(screen.getByText("Prova")).toBeDefined();
     expect(screen.getByRole("heading", { name: "Prova 1: permissões" })).toBeDefined();
     expect(screen.getByText("21/10/2026, 11:30–13:30")).toBeDefined();
     expect(screen.getByText("Duração: 60 minutos")).toBeDefined();
     expect(screen.getByText("Nota máxima: 10,00")).toBeDefined();
-    expect(screen.getByText(/Traga o documento com foto\./).textContent).toBe("Traga o documento com foto.\nSem consulta.");
+    expect(screen.getByText("Traga o documento com foto.").tagName).toBe("P");
+    expect(screen.getByRole("listitem").textContent).toBe("Sem consulta.");
+  });
+
+  // SPEC-077 CA-11: the instructions are formatted text, shown with their formatting.
+  it("shows the instructions with their formatting: commands, lists and links are elements, not text", async () => {
+    const { container } = await setup(
+      soon({ description: '<p>Use <code>ls -l</code> e leia <a href="https://utfpr.edu.br">o regulamento</a>.</p><ol><li>Um</li><li>Dois</li></ol>' }),
+    );
+    expect(container.querySelector("code")?.textContent).toBe("ls -l");
+    expect(screen.getByRole("link", { name: "o regulamento" }).getAttribute("href")).toBe("https://utfpr.edu.br");
+    expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Um", "Dois"]);
+    expect(container.textContent).not.toContain("<code>");
   });
 
   it("calls an assignment an activity, and says it uses the whole period when it has no duration", async () => {
