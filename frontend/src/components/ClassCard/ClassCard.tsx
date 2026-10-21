@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
+import { descriptionText } from "@/lib/description";
 import { messages } from "@/messages/pt-BR";
 import type { ClassSummary } from "@/services/classService";
 import styles from "./ClassCard.module.scss";
@@ -131,6 +132,8 @@ const ARCHIVE_RETENTION_DAYS = 30;
 
 export function ClassCard({ classGroup, onArchive, onDelete }: ClassCardProps) {
   const [copied, setCopied] = useState(false);
+  // the summary is formatted text; the card shows only what it says (SPEC-078 CA-11)
+  const summary = descriptionText(classGroup.summary ?? "");
 
   const handleCopyLink = () => {
     if (!classGroup.inviteLinkToken) return;
@@ -202,9 +205,9 @@ export function ClassCard({ classGroup, onArchive, onDelete }: ClassCardProps) {
           </Link>
         </h3>
 
-        {classGroup.summary && (
-          <p className={styles.summary} title={classGroup.summary}>
-            {classGroup.summary}
+        {summary && (
+          <p className={styles.summary} title={summary}>
+            {summary}
           </p>
         )}
       </header>

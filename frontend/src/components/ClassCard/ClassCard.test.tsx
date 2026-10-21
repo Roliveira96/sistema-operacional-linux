@@ -123,7 +123,8 @@ describe("ClassCard", () => {
     const { container } = render(<ClassCard classGroup={{ ...mockClass, summary: html }} />);
     const summary = screen.getByText("Linux na prática, do shell ao kernel.");
     expect(summary.getAttribute("title")).toBe("Linux na prática, do shell ao kernel.");
-    expect(container.querySelector("strong, code, p p")).toBeNull();
+    expect(summary.children).toHaveLength(0);
+    expect(summary.querySelector("strong, code")).toBeNull();
     expect(container.textContent).not.toContain("<strong>");
   });
 

@@ -21,6 +21,8 @@ describe("ClassForm accessibility", () => {
 
   it("gives every control of every tab a name, and groups with a legend", () => {
     render(<ClassForm onSubmit={vi.fn()} classId="c-1" loadModules={vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 50 })} />);
+    // the groups are in the tab that is open at first
+    for (const name of ["Identificação", "Apresentação", "Vigência", "Encontros virtuais"]) expect(screen.getByRole("group", { name })).toBeDefined();
     for (const tab of screen.getAllByRole("tab")) {
       fireEvent.click(tab);
       const panel = document.getElementById(tab.getAttribute("aria-controls")!)!;
@@ -28,6 +30,5 @@ describe("ClassForm accessibility", () => {
         expect(named(control), `${tab.textContent}: ${control.outerHTML}`).toBeTruthy();
       }
     }
-    for (const name of ["Identificação", "Apresentação", "Vigência", "Encontros virtuais"]) expect(screen.getByRole("group", { name })).toBeDefined();
   });
 });

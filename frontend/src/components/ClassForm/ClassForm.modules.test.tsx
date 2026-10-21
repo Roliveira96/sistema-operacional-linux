@@ -33,6 +33,7 @@ function setup(over: Partial<React.ComponentProps<typeof ClassForm>> = {}) {
   const onSubmit = vi.fn().mockResolvedValue(undefined);
   const loadModules = vi.fn().mockResolvedValue(modules);
   render(<ClassForm onSubmit={onSubmit} initialData={saved} classId="c-1" loadModules={loadModules} initialModuleIds={["m-1"]} submitLabel="Salvar Alterações" {...over} />);
+  fireEvent.click(screen.getByRole("tab", { name: "Conteúdo" })); // the modules are in this tab
   return { onSubmit, loadModules };
 }
 

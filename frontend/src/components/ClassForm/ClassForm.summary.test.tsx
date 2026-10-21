@@ -85,8 +85,8 @@ describe("ClassForm summary", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ClassForm onSubmit={onSubmit} />);
     fillRequired();
-    // 300 characters of text, each one a link of its own: over 5,000 characters of html
-    const links = Array.from({ length: 300 }, (_, i) => `<a href="https://example.test/${i}/${"p".repeat(20)}">a</a>`).join("");
+    // 100 links of two letters, 299 characters of text and over 5,000 characters of html
+    const links = Array.from({ length: 100 }, (_, i) => `<a href="https://example.test/${i}/${"p".repeat(20)}">aa</a>`).join(" ");
     write(`<p>${links}</p>`);
     create();
     await waitFor(() => expect(summaryError()).toMatch(/formatação demais/));

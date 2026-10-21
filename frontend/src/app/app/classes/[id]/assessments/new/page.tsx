@@ -86,7 +86,9 @@ export default function NewAssessmentPage({ params }: { params: Promise<{ id: st
           {m.page.loading}
         </p>
       ) : ready.modules.length === 0 ? (
-        <p className={styles.notice}>{m.page.noModule}</p>
+        <p className={styles.notice}>
+          {m.page.noModule} <Link href={`/app/classes/${id}/settings`}>{m.page.noModuleLink}</Link>
+        </p>
       ) : (
         <AssessmentForm
           mode="create"

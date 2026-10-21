@@ -258,6 +258,9 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
         ? "students"
         : "overview";
   const justCreated = searchParams.get("created") === "1";
+  // The settings lead back here with ?saved=1: the confirmation is remembered and the mark leaves the address, so a reload does not repeat it (SPEC-078).
+  const [justSaved] = useState(() => searchParams.get("saved") === "1");
+  const savedMarkCleaned = useRef(false);
 
   const [id, setId] = useState<string | null>(null);
   const [classData, setClassData] = useState<ClassGroup | null>(null);
@@ -281,6 +284,15 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
   const [newStudentOpen, setNewStudentOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const addButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!justSaved || !id || savedMarkCleaned.current) return;
+    savedMarkCleaned.current = true;
+    const rest = new URLSearchParams(searchParams.toString());
+    rest.delete("saved");
+    const query = rest.toString();
+    router.replace(`/app/classes/${id}${query ? `?${query}` : ""}`, { scroll: false });
+  }, [justSaved, id, router, searchParams]);
 
   const loadCalendar = useCallback(
     async (from: string, to: string) => {
@@ -537,7 +549,10 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </div>
         <h1 className={styles.title}>{data.name}</h1>
-        {data.summary && <p className={styles.summary}>{data.summary}</p>}
+        {data.summary && (
+          // HTML filtered by the server when it was saved (SPEC-078 RN-01).
+          <div className={`${styles.summary} ${styles.richText}`} dangerouslySetInnerHTML={{ __html: data.summary }} />
+        )}
 
         {!isStudent && classData && (
           <div className={styles.stats}>
@@ -560,6 +575,11 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
       {justCreated && (
         <div className={styles.successBanner} role="status">
           {m.createdBanner}
+        </div>
+      )}
+      {justSaved && (
+        <div className={styles.successBanner} role="status">
+          {m.savedBanner}
         </div>
       )}
       {feedback && (
