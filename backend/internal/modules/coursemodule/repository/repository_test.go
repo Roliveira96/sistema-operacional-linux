@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"fmt"
 	"context"
 	"testing"
 	"time"
@@ -315,4 +316,31 @@ func TestListModules_ClassIDFilterKeepsOnlyAssignedModules(t *testing.T) {
 	unfiltered, err := repo.ListTeacherModules(ctx, teacher.ID, repository.ListFilter{Page: 1, Limit: 50})
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), unfiltered.TotalCount)
+}
+
+// SPEC-010: the page size defaults to 10 and goes up to 50. Asking for more gives 50, not the default: the pickers that ask for 100 must
+// see every module they can.
+func TestListModules_PageSizeAboveTheMaximumIsCappedNotReset(t *testing.T) {
+	db := dbtest.Open(t)
+	repo := repository.New(db)
+	ctx := context.Background()
+
+	name := "Prof. Pagina"
+	teacher := userdomain.User{Name: &name, Email: "pagina@utfpr.edu.br", Role: userdomain.RoleTeacher, Status: userdomain.StatusActive}
+	require.NoError(t, userrepository.New(db).Create(ctx, &teacher))
+	for i := 0; i < 12; i++ {
+		m := domain.CourseModule{TeacherID: teacher.ID, Title: fmt.Sprintf("Module %02d", i), Visibility: domain.VisibilityAuthenticated, Status: domain.ModuleStatusActive}
+		m.ID, _ = uuid.NewV7()
+		require.NoError(t, repo.CreateModule(ctx, &m, nil, teacher.ID))
+	}
+
+	above, err := repo.ListTeacherModules(ctx, teacher.ID, repository.ListFilter{Page: 1, Limit: 100})
+	require.NoError(t, err)
+	assert.Len(t, above.Items, 12)
+	assert.Equal(t, 50, above.Limit)
+
+	missing, err := repo.ListTeacherModules(ctx, teacher.ID, repository.ListFilter{Page: 1})
+	require.NoError(t, err)
+	assert.Len(t, missing.Items, 10)
+	assert.Equal(t, 10, missing.Limit)
 }
