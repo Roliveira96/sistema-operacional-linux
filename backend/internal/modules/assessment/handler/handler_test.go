@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,6 +46,8 @@ type fakeService struct {
 	classID, id uuid.UUID
 	questionID  uuid.UUID
 	scenario    json.RawMessage
+	checked     json.RawMessage
+	passed      bool
 	create      service.CreateInput
 	update      service.UpdateInput
 	reschedule  service.RescheduleInput
@@ -106,6 +109,12 @@ func (f *fakeService) QuestionScenario(_ context.Context, a service.Actor, class
 	f.saw("QuestionScenario", a)
 	f.classID, f.id, f.questionID = classID, id, questionID
 	return f.scenario, f.err
+}
+
+func (f *fakeService) CheckQuestion(_ context.Context, a service.Actor, classID, id, questionID uuid.UUID, snapshot json.RawMessage) (bool, error) {
+	f.saw("CheckQuestion", a)
+	f.classID, f.id, f.questionID, f.checked = classID, id, questionID, snapshot
+	return f.passed, f.err
 }
 
 func (f *fakeService) SaveNotes(_ context.Context, a service.Actor, classID, id uuid.UUID, notes string) (string, error) {
@@ -847,6 +856,60 @@ func TestHandler_QuestionScenario(t *testing.T) {
 	} {
 		svc.err = c.err
 		status, body := call(t, srv, http.MethodGet, path, nil)
+		assert.Equal(t, c.status, status, c.err.Error())
+		assert.Equal(t, c.typ, body["type"], c.err.Error())
+	}
+}
+
+// Covers SPEC-085 CA-01, CA-02, CA-03, CA-04 (section 5): the route of the check sends the machine to the service and answers only passed; the
+// errors have their slug and status; a body that is not JSON or that has no machine is refused, and a body above 2 MB is too large.
+func TestHandler_CheckQuestion(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id, question := uuid.New(), uuid.New(), uuid.New()
+	path := assessmentPath(classID, id) + "/questions/" + question.String() + "/check"
+	machineJSON := map[string]any{"snapshot": map[string]any{"formato": "exame-so/maquina", "versao": 1}}
+
+	svc.passed = true
+	status, body := call(t, srv, http.MethodPost, path, machineJSON)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, sorted("passed"), keysOf(body), "only whether it passed: no condition, no solution")
+	assert.Equal(t, true, body["passed"])
+	assert.Equal(t, []string{"CheckQuestion"}, svc.calls)
+	assert.Equal(t, question, svc.questionID)
+	assert.JSONEq(t, `{"formato":"exame-so/maquina","versao":1}`, string(svc.checked))
+
+	svc.passed = false
+	_, body = call(t, srv, http.MethodPost, path, machineJSON)
+	assert.Equal(t, false, body["passed"])
+
+	status, body = call(t, srv, http.MethodPost, path, map[string]any{})
+	assert.Equal(t, http.StatusBadRequest, status, "a body with no machine")
+	assert.Equal(t, "snapshot-required", body["type"])
+	status, body = call(t, srv, http.MethodPost, path, "{")
+	assert.Equal(t, http.StatusBadRequest, status)
+	assert.Equal(t, "malformed-request", body["type"])
+
+	big := map[string]any{"snapshot": map[string]any{"padding": strings.Repeat("x", 2<<20)}}
+	status, body = call(t, srv, http.MethodPost, path, big)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, status)
+	assert.Equal(t, "file-too-large", body["type"])
+
+	for _, c := range []struct {
+		err    error
+		status int
+		typ    string
+	}{
+		{domain.ErrSnapshotRequired, http.StatusBadRequest, "snapshot-required"},
+		{domain.ErrInvalidSnapshot, http.StatusBadRequest, "invalid-snapshot"},
+		{domain.ErrInvalidQuestion, http.StatusBadRequest, "invalid-question"},
+		{domain.ErrForbidden, http.StatusForbidden, "forbidden"},
+		{domain.ErrClassNotFound, http.StatusNotFound, "class-not-found"},
+		{domain.ErrAssessmentNotFound, http.StatusNotFound, "assessment-not-found"},
+		{domain.ErrQuestionNotFound, http.StatusNotFound, "question-not-found"},
+	} {
+		svc.err = c.err
+		status, body := call(t, srv, http.MethodPost, path, machineJSON)
 		assert.Equal(t, c.status, status, c.err.Error())
 		assert.Equal(t, c.typ, body["type"], c.err.Error())
 	}

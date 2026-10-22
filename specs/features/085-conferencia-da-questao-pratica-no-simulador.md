@@ -117,7 +117,7 @@ Não se aplica nesta spec: nenhuma tabela, coluna ou valor de enumeração muda;
 | 404 | `class-not-found` | A turma não existe |
 | 404 | `assessment-not-found` | A avaliação não existe nessa turma |
 | 404 | `question-not-found` | A questão não é da avaliação, ou não existe |
-| 413 | `payload-too-large` | O estado passa de 2 MB |
+| 413 | `file-too-large` | O estado passa de 2 MB |
 
 ## 6. Impacto e Riscos (Impact & Risks)
 

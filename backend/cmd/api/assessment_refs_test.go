@@ -434,3 +434,32 @@ func TestAssessmentQuestions_ScenarioComesFromTheContentModule(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, none)
 }
+
+// Covers SPEC-085 CA-01, CA-02, CA-03 (RN-01, RN-02): the machine is graded with the engine and the conditions of the question, the same as the
+// practice does: a machine that meets them passes, one that does not fails; a state that is not a machine and a question that does not use the
+// terminal are invalid; one that does not exist is not found.
+func TestAssessmentQuestions_CheckGradesTheMachineWithTheConditionsOfTheQuestion(t *testing.T) {
+	practical := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindPractical, Difficulty: "EASY", Title: "Criar a pasta",
+		ValidationConditions: json.RawMessage(`[{"type":"DIRECTORY_EXISTS","path":"/srv/x"}]`),
+	}
+	boolean := contentdomain.Question{ID: uuid.New(), Kind: contentdomain.KindTheoreticalBoolean, Difficulty: "EASY", Title: "rm -r"}
+	q := assessmentQuestions{questions: fakeQuestionReader{questions: map[uuid.UUID]contentdomain.Question{practical.ID: practical, boolean.ID: boolean}}}
+
+	passed, err := q.Check(ctx, practical.ID, json.RawMessage(machineWithTheFolder))
+	require.NoError(t, err)
+	assert.True(t, passed, "the machine has the folder")
+	passed, err = q.Check(ctx, practical.ID, json.RawMessage(emptyMachineJSON))
+	require.NoError(t, err)
+	assert.False(t, passed, "the machine does not")
+
+	for _, snapshot := range []string{`{`, `"pass"`, `{"formato":"outro","versao":1}`, `{"formato":"exame-so/maquina","versao":2}`} {
+		passed, err := q.Check(ctx, practical.ID, json.RawMessage(snapshot))
+		assert.ErrorIs(t, err, assessmentdomain.ErrInvalidSnapshot, snapshot)
+		assert.False(t, passed)
+	}
+	_, err = q.Check(ctx, boolean.ID, json.RawMessage(machineWithTheFolder))
+	assert.ErrorIs(t, err, assessmentdomain.ErrInvalidQuestion, "a question without a terminal")
+	_, err = q.Check(ctx, uuid.New(), json.RawMessage(machineWithTheFolder))
+	assert.ErrorIs(t, err, assessmentdomain.ErrQuestionNotFound)
+}
