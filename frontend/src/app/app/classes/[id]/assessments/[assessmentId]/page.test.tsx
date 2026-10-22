@@ -210,3 +210,30 @@ describe("assessment page", () => {
     });
   });
 });
+
+// SPEC-081 CA-01, D-01: the teacher and the administrator get the way to the simulator in the page of the assessment, next to the preview.
+describe("assessment page, simulator", () => {
+  it("offers Simulate exam to the teacher, as a link to the simulator, also when the assessment is canceled", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail());
+    const { unmount } = render(<AssessmentPage params={params} />);
+    await screen.findByRole("heading", { name: "Prova 1: permissões" });
+    expect(screen.getByRole("link", { name: "Simular prova" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/simulate");
+    expect(screen.getByRole("button", { name: "Pré-visualizar" })).toBeDefined();
+    unmount();
+
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ status: "CANCELED", cancelReason: "Feriado" }));
+    render(<AssessmentPage params={params} />);
+    await screen.findByText("Feriado", { exact: false });
+    expect(screen.getByRole("link", { name: "Simular prova" })).toBeDefined();
+  });
+
+  it("does not offer it to the student", async () => {
+    asRole("STUDENT");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf());
+    vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess());
+    render(<AssessmentPage params={params} />);
+    await screen.findByRole("heading", { name: "Prova 1: permissões" });
+    expect(screen.queryByRole("link", { name: "Simular prova" })).toBeNull();
+  });
+});
