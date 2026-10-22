@@ -68,16 +68,23 @@ export function ActionMenu({ label, text, actions, wide = false, floating = fals
     };
   }, [open, floating]);
 
-  // Places a floating menu before it is painted: fixed on the window, under the button and on its right edge, or above it when it does not fit.
+  // Places a floating menu before it is painted: fixed on the window, under the button and on its right edge (on its left edge when the button is
+  // near the left of the window, as in a card), or above it when it does not fit.
   useLayoutEffect(() => {
     const menu = list.current;
     if (!open || !floating || !menu || !button.current) return;
     const trigger = button.current.getBoundingClientRect();
     const room = window.innerHeight - trigger.bottom - GAP;
     const above = menu.offsetHeight > room && trigger.top > room;
+    const edge = GAP * 2;
     menu.style.position = "fixed";
-    menu.style.left = "auto";
-    menu.style.right = `${Math.max(window.innerWidth - trigger.right, GAP * 2)}px`;
+    if (trigger.right - menu.offsetWidth >= edge) {
+      menu.style.left = "auto";
+      menu.style.right = `${Math.max(window.innerWidth - trigger.right, edge)}px`;
+    } else {
+      menu.style.left = `${Math.min(Math.max(trigger.left, edge), Math.max(window.innerWidth - menu.offsetWidth - edge, edge))}px`;
+      menu.style.right = "auto";
+    }
     menu.style.top = above ? "auto" : `${trigger.bottom + GAP}px`;
     menu.style.bottom = above ? `${window.innerHeight - trigger.top + GAP}px` : "auto";
   }, [open, floating]);
