@@ -246,6 +246,15 @@ Termos da SPEC-081 (Rascunho em 22/10/2026).
 | Visão do aluno (na simulação) | `StudentView` | O conteúdo de uma questão como o aluno o recebe, sem a resposta correta: alternativas, colunas, limite de caracteres. Vem na pré-visualização, no campo `studentView` | `Public`, `Safe` | Proposto (SPEC-081) |
 | Resposta simulada | `simulatedResponse` | O que a docente respondeu como aluno no simulador; vive só na memória da página e não é uma `QuestionSubmission` | `Submission`, `Answer` | Proposto (SPEC-081) |
 
+## 4.4. Início da prova presencial (SPEC-083)
+
+Termos da SPEC-083 (Rascunho em 22/10/2026).
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Início da prova | `started_at`, `started_by` (rota `POST .../assessments/:assessmentId/start`, evento `STARTED`) | O ato da docente de iniciar a prova presencial, dentro do período marcado: registra quem e quando, não se desfaz e é o que libera a habilitação dos alunos. Não muda a fase da avaliação, que segue o relógio | `open`, `release` (o token de liberação é outro assunto), `begin` | Proposto (SPEC-083) |
+| Prova não iniciada | `NOT_STARTED` (resultado de `AccessOf`) | A prova presencial já está em andamento pelo relógio, mas a docente ainda não a iniciou; vem depois de `ENDED` e antes de `NOT_CLEARED` | `NOT_OPEN` (já é `NOT_OPEN_YET`, que é antes do horário) | Proposto (SPEC-083) |
+
 ## 5. Condução da prova e auditoria
 
 | Português | Código (EN) | Definição | Evitar | Status |
