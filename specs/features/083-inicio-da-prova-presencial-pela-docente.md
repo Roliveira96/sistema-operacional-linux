@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-083 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 22/10/2026 |
 | **Última revisão** | 22/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -206,17 +206,17 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-Dúvidas e escolhas em aberto, cada uma com uma recomendação. **Uma spec só pode ser aprovada com esta tabela vazia.** O texto acima já segue as recomendações; se o Tech Lead decidir diferente, a seção correspondente é revisada antes da aprovação.
+Nenhuma. O Tech Lead decidiu em 22/10/2026, ao aprovar a spec, todas as pendências que ela tinha, com as recomendações como estavam. As decisões estão incorporadas às seções 2, 3, 5, 6, 7 e 8; esta tabela só as registra.
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| D-01 | **Quando a docente pode iniciar.** Só a partir do horário marcado e até o término, ou a qualquer momento antes do término. | Só a partir do horário marcado (fase `RUNNING`). Quem quer começar mais cedo reagenda a prova, que continua sendo o que define o dia e a hora; assim o início da docente nunca contradiz o que o aluno vê no calendário. |
-| D-02 | **As provas presenciais já gravadas.** O que fazer com as que estão em andamento e com as decisões de habilitação que já existem. | Não iniciar nenhuma pela migração: as em andamento esperam a docente iniciar, as encerradas ficam encerradas. Manter as decisões já gravadas, que passam a valer depois do início. |
-| D-03 | **Prova presencial sem a exigência de habilitação.** Precisa ser iniciada? | Sim. O início é o que abre a porta da sala; a habilitação é o controle de **quem** entra. Sem exigência, todos os elegíveis entram assim que a docente inicia. |
-| D-04 | **Tempo real e pedido de entrada.** A lista de habilitações se atualiza sozinha e o aluno pede para entrar, como na sala de espera da aula ao vivo, ou a lista traz todos os elegíveis e a docente atualiza. | Sem tempo real e sem pedido de entrada nesta spec: todos os elegíveis aparecem aguardando desde o início e a docente usa *Atualizar*. O pedido de entrada e o canal ao vivo nascem com a tentativa e o cockpit. |
-| D-05 | **Desfazer e encerrar.** A docente pode desfazer o início ou encerrar a prova antes do término. | Não nesta spec. O início não se desfaz; encerrar antes do término depende da tentativa e da entrega das provas. |
-| D-06 | **Onde fica o botão.** Só no detalhe, ou também no aviso da linha da lista. | Nos dois, com o mesmo diálogo: o aviso da lista é onde a docente já está olhando quando a prova pode começar. |
-| D-07 | **O aviso de 30 minutos antes.** Mantê-lo ou tirá-lo. | Tirá-lo. Antes do início da prova não há o que habilitar, e o aviso novo ("já pode ser iniciada") cumpre o papel de lembrar a docente. |
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **Quando a docente pode iniciar.** Só a partir do horário marcado (fase `RUNNING`) e até o término; quem quer começar mais cedo reagenda. |
+| D-02 | **As provas presenciais já gravadas.** Nenhuma é iniciada pela migração: as em andamento esperam a docente iniciar e as encerradas ficam encerradas; as decisões de habilitação já gravadas ficam e valem depois do início. |
+| D-03 | **Prova presencial sem a exigência de habilitação.** Também precisa ser iniciada; sem a exigência, todos os elegíveis entram assim que a docente inicia. |
+| D-04 | **Tempo real e pedido de entrada.** Sem tempo real e sem pedido de entrada nesta spec: todos os elegíveis aparecem aguardando desde o início e a docente usa *Atualizar*; o canal ao vivo e o pedido de entrada nascem com a tentativa e o cockpit. |
+| D-05 | **Desfazer e encerrar.** Não nesta spec: o início não se desfaz e encerrar antes do término depende da tentativa. |
+| D-06 | **Onde fica o botão.** No detalhe e no aviso da linha da lista, com o mesmo diálogo. |
+| D-07 | **O aviso de 30 minutos antes.** Sai. |
 
 ---
 
@@ -225,3 +225,5 @@ Dúvidas e escolhas em aberto, cada uma com uma recomendação. **Uma spec só p
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 22/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 22/10/2026 de que, na prova presencial, a docente inicie a prova e habilite os alunos a partir daí, e não antes. Conferida contra as SPEC-075 e 076, o código da decisão de acesso e da habilitação e os rascunhos da tentativa. Sete pendências abertas (D-01 a D-07), todas com recomendação |
+| 22/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das sete pendências aceitas como estavam na spec: D-01 a D-07. Status: `Aprovada` |
+| 22/10/2026 | Aruna Architect | Seção 10 esvaziada: as sete pendências viraram decisões D-01 a D-07, incorporadas ao texto |
