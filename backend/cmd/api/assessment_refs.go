@@ -129,6 +129,7 @@ type exerciseBank interface {
 
 type questionReader interface {
 	Question(ctx context.Context, id uuid.UUID) (contentdomain.Question, error)
+	QuestionScenario(ctx context.Context, id uuid.UUID) (json.RawMessage, error)
 }
 
 // assessmentQuestions gives the assessments the bank of the questions of a module. A question is eligible when it is published and in the
@@ -288,6 +289,11 @@ func (q assessmentQuestions) Contents(ctx context.Context, ids []uuid.UUID) (map
 		out[id] = contentOf(question)
 	}
 	return out, nil
+}
+
+// Scenario is the machine a question starts from, read through the content module: nil when the question has none of its own (SPEC-084 RN-01).
+func (q assessmentQuestions) Scenario(ctx context.Context, id uuid.UUID) (json.RawMessage, error) {
+	return q.questions.QuestionScenario(ctx, id)
 }
 
 func (q assessmentQuestions) Sample(ctx context.Context, moduleID uuid.UUID, level assessmentdomain.Difficulty, n int) ([]assessmentservice.QuestionContent, error) {

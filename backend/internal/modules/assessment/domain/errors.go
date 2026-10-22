@@ -28,6 +28,7 @@ var (
 	ErrAssessmentNotStarted     = errors.New("the teacher has not started the exam yet")
 	ErrAssessmentAlreadyStarted = errors.New("the exam was already started")
 	ErrAssessmentNotOpenYet     = errors.New("the exam has not reached its start time yet")
+	ErrQuestionNotFound         = errors.New("the question is not part of the assessment")
 )
 
 // Shortage is a level of difficulty that the bank cannot supply: what the draw asks for and what there is.

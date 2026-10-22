@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -123,6 +124,8 @@ type Questions interface {
 	Eligible(ctx context.Context, moduleID uuid.UUID, ids []uuid.UUID) ([]Question, error)
 	Pool(ctx context.Context, f QuestionFilter) (QuestionPage, error)
 	Contents(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]QuestionContent, error)
+	// Scenario gives the machine a question starts from, or nil when it has none of its own (SPEC-084 RN-01).
+	Scenario(ctx context.Context, questionID uuid.UUID) (json.RawMessage, error)
 	// Sample draws n eligible questions of the level.
 	Sample(ctx context.Context, moduleID uuid.UUID, level domain.Difficulty, n int) ([]QuestionContent, error)
 }

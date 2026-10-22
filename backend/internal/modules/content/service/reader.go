@@ -502,6 +502,23 @@ func (r *Reader) Question(ctx context.Context, id uuid.UUID) (domain.Question, e
 	return q, err
 }
 
+// QuestionScenario returns the machine a question starts from, or nil when it has no scenario of its own and the default machine applies. It
+// reads any question by its id, whatever its usage, and checks no one: the module that asks decides who may see it (SPEC-084 RN-02).
+func (r *Reader) QuestionScenario(ctx context.Context, id uuid.UUID) (json.RawMessage, error) {
+	q, err := r.Question(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if q.ScenarioID == nil {
+		return nil, nil
+	}
+	scenario, err := r.store.FindScenario(ctx, *q.ScenarioID)
+	if err != nil {
+		return nil, err
+	}
+	return scenario.Snapshot, nil
+}
+
 // TopicScenario returns the prepared machine of the module topic (SPEC-016
 // 5.1), or nil when the module has none and the default machine applies. The
 // student machine is prepared on top of it by the snapshots of the module and

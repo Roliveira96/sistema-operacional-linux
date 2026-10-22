@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -28,6 +29,7 @@ type AssessmentService interface {
 	Reschedule(ctx context.Context, a service.Actor, classID, id uuid.UUID, in service.RescheduleInput) (service.Summary, error)
 	Cancel(ctx context.Context, a service.Actor, classID, id uuid.UUID, reason string) (service.Summary, error)
 	Start(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Summary, error)
+	QuestionScenario(ctx context.Context, a service.Actor, classID, id, questionID uuid.UUID) (json.RawMessage, error)
 	SaveNotes(ctx context.Context, a service.Actor, classID, id uuid.UUID, notes string) (string, error)
 	Detail(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Detail, error)
 	Public(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Public, error)
@@ -60,6 +62,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.PUT("/classes/:id/assessments/:assessmentId/schedule", h.reschedule)
 	g.POST("/classes/:id/assessments/:assessmentId/cancel", h.cancel)
 	g.POST("/classes/:id/assessments/:assessmentId/start", h.start)
+	g.GET("/classes/:id/assessments/:assessmentId/questions/:questionId/scenario", h.questionScenario)
 	g.PUT("/classes/:id/assessments/:assessmentId/private-notes", h.notes)
 	g.GET("/classes/:id/assessment-questions", h.questions)
 	g.GET("/classes/:id/assessments/:assessmentId/clearances", h.clearances)
@@ -164,6 +167,8 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("assessment-already-started", err.Error())
 	case errors.Is(err, domain.ErrAssessmentNotOpenYet):
 		return problem.Conflict("assessment-not-open-yet", err.Error())
+	case errors.Is(err, domain.ErrQuestionNotFound):
+		return problem.NotFound("question-not-found", err.Error())
 	case errors.Is(err, domain.ErrClearanceNotRequired):
 		return problem.Conflict("clearance-not-required", err.Error())
 	case errors.Is(err, domain.ErrClearanceLocked):
@@ -593,6 +598,36 @@ func (h *Handler) start(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, summaryResponse{summaryJSON: toSummary(got), ServerNow: iso(h.svc.Now())})
+}
+
+type scenarioResponse struct {
+	QuestionID uuid.UUID       `json:"questionId"`
+	Snapshot   json.RawMessage `json:"snapshot,omitempty"`
+}
+
+func (h *Handler) questionScenario(c *gin.Context) {
+	actor, ok := actorOf(c)
+	if !ok {
+		return
+	}
+	classID, ok := uuidParam(c, "id")
+	if !ok {
+		return
+	}
+	id, ok := uuidParam(c, "assessmentId")
+	if !ok {
+		return
+	}
+	questionID, ok := uuidParam(c, "questionId")
+	if !ok {
+		return
+	}
+	snapshot, err := h.svc.QuestionScenario(c.Request.Context(), actor, classID, id, questionID)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, scenarioResponse{QuestionID: questionID, Snapshot: snapshot})
 }
 
 type notesRequest struct {
