@@ -9,7 +9,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRouteParams } from "@/hooks/useRouteParams";
 import { messages } from "@/messages/pt-BR";
 import { assessmentService, describeAssessmentError, type AssessmentDetail } from "@/services/assessmentService";
-import { practiceService } from "@/services/practiceService";
 import styles from "../../page.module.scss";
 import own from "./page.module.scss";
 
@@ -33,7 +32,7 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
   const [attempt, setAttempt] = useState(0);
 
   const loadPreview = useCallback(() => assessmentService.preview(classId!, assessmentId!), [classId, assessmentId]);
-  const loadScenario = useCallback((questionId: string) => practiceService.scenario(questionId), []);
+  const loadScenario = useCallback((questionId: string) => assessmentService.questionScenario(classId!, assessmentId!, questionId), [classId, assessmentId]);
 
   useEffect(() => {
     if (isStudent && classId && assessmentId) router.replace(backHref);

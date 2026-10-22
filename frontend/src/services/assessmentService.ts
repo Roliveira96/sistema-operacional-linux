@@ -254,6 +254,9 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     cancel: (classId: string, id: string, reason: string) => client.post<Now<AssessmentSummary>>(`${base(classId)}/${id}/cancel`, { reason }),
     /** Starts an in-person exam that is running: from then on the teacher clears the students (SPEC-083). It has no body and cannot be undone. */
     start: (classId: string, id: string) => client.post<Now<AssessmentSummary>>(`${base(classId)}/${id}/start`),
+    /** The machine a question of the assessment starts from, for the terminal of the simulator; null when it has none of its own (SPEC-084 RN-01). */
+    questionScenario: async (classId: string, id: string, questionId: string) =>
+      (await client.get<{ questionId: string; snapshot?: unknown }>(`${base(classId)}/${id}/questions/${encodeURIComponent(questionId)}/scenario`)).snapshot ?? null,
     saveNotes: async (classId: string, id: string, notes: string) =>
       (await client.put<{ teacherPrivateNotes: string }>(`${base(classId)}/${id}/private-notes`, { teacherPrivateNotes: notes })).teacherPrivateNotes,
     preview: (classId: string, id: string) => client.get<PreviewData>(`${base(classId)}/${id}/preview`),
