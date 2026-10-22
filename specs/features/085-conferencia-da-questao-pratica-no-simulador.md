@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-085 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 22/10/2026 |
 | **Última revisão** | 22/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -184,14 +184,14 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-Escolhas em aberto, cada uma com uma recomendação. **Uma spec só pode ser aprovada com esta tabela vazia.** O texto acima já segue as recomendações.
+Nenhuma. O Tech Lead decidiu em 22/10/2026, ao aprovar a spec, todas as pendências que ela tinha, com as recomendações como estavam. As decisões estão incorporadas às seções 2, 3, 6, 7 e 8; esta tabela só as registra.
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| D-01 | **Quando conferir.** Sozinho, depois dos comandos, ou só quando a docente aciona um botão *Conferir*. | Sozinho: 1 segundo depois do último comando, como o simulado da `main` fazia em tempo real e como a docente espera ("fiz o comando certo e a prova não deu como resolvida"). Um botão exigiria lembrar de apertá-lo. |
-| D-02 | **O que a questão resolvida faz.** Só marcar, ou também travar e passar para a seguinte, como o simulado da `main`. | Só marcar: no navegador e na coluna da questão, contando como respondida. Não trava nem avança, porque a docente está testando e pode querer mexer mais; o *Reset Máquina* e o *Refazer* tiram a marca. |
-| D-03 | **O que dizer quando ainda não está resolvida.** Dizer o que falta, ou nada. | Nada. A questão continua "sem resposta"; dizer o que falta revelaria as condições da correção, que são do servidor. |
-| D-04 | **A aba *Professor* na questão prática.** | A *Resposta simulada* diz "Resolvida no terminal" ou "Não resolvida", no lugar de "Não respondida": a docente vê o que o simulador concluiu, sem nota. |
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **Quando conferir.** Sozinho, 1 segundo depois do último comando, e não por um botão *Conferir*. |
+| D-02 | **O que a questão resolvida faz.** Só marcar (no navegador e na coluna da questão, contando como respondida); não trava nem avança; o *Reset Máquina* e o *Refazer* tiram a marca. |
+| D-03 | **O que dizer quando ainda não está resolvida.** Nada: continua "sem resposta" e não se diz o que falta. |
+| D-04 | **A aba *Professor* na questão prática.** A *Resposta simulada* diz "Resolvida no terminal" ou "Não resolvida", sem nota. |
 
 ---
 
@@ -200,3 +200,5 @@ Escolhas em aberto, cada uma com uma recomendação. **Uma spec só pode ser apr
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 22/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, depois de ele ter feito o comando certo no terminal do simulador e a prova não ter dado a questão como resolvida. Reverte a escolha "sem conferir" da SPEC-084, que ele havia feito ao pedi-la, e que passa a valer só para as questões teóricas. Conferida contra a conferência da prática (`Check`, `ParseMachine`), as condições (`Grade`) e o simulado da `main`. Quatro pendências abertas (D-01 a D-04), todas com recomendação |
+| 22/10/2026 | Tech Lead | Aprovada ("aprovo."), com as recomendações das quatro pendências aceitas como estavam na spec: D-01 a D-04. Status: `Aprovada` |
+| 22/10/2026 | Aruna Architect | Seção 10 esvaziada: as quatro pendências viraram decisões D-01 a D-04, incorporadas ao texto |
