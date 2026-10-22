@@ -43,6 +43,8 @@ type fakeService struct {
 	actor service.Actor
 
 	classID, id uuid.UUID
+	questionID  uuid.UUID
+	scenario    json.RawMessage
 	create      service.CreateInput
 	update      service.UpdateInput
 	reschedule  service.RescheduleInput
@@ -98,6 +100,12 @@ func (f *fakeService) Start(_ context.Context, a service.Actor, classID, id uuid
 	f.saw("Start", a)
 	f.classID, f.id = classID, id
 	return f.summary, f.err
+}
+
+func (f *fakeService) QuestionScenario(_ context.Context, a service.Actor, classID, id, questionID uuid.UUID) (json.RawMessage, error) {
+	f.saw("QuestionScenario", a)
+	f.classID, f.id, f.questionID = classID, id, questionID
+	return f.scenario, f.err
 }
 
 func (f *fakeService) SaveNotes(_ context.Context, a service.Actor, classID, id uuid.UUID, notes string) (string, error) {
@@ -804,4 +812,42 @@ func TestHandler_PreviewAndEligibleQuestions(t *testing.T) {
 	status, resp := call(t, srv, http.MethodGet, classPath(classID)+"/assessment-questions", nil)
 	assert.Equal(t, http.StatusBadRequest, status, "the module is required")
 	assert.Equal(t, "malformed-request", resp["type"])
+}
+
+// Covers SPEC-084 CA-14 (section 5): the route of the scenario of a question answers the question and the machine, and no machine when the question has
+// none; the errors have their slug and status.
+func TestHandler_QuestionScenario(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id, question := uuid.New(), uuid.New(), uuid.New()
+	path := assessmentPath(classID, id) + "/questions/" + question.String() + "/scenario"
+
+	svc.scenario = json.RawMessage(`{"files":{"/a":"x"}}`)
+	status, body := call(t, srv, http.MethodGet, path, nil)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, []string{"QuestionScenario"}, svc.calls)
+	assert.Equal(t, question, svc.questionID)
+	assert.Equal(t, question.String(), body["questionId"])
+	assert.Equal(t, sorted("questionId", "snapshot"), keysOf(body))
+	assert.Equal(t, map[string]any{"files": map[string]any{"/a": "x"}}, body["snapshot"])
+
+	svc.scenario = nil
+	_, body = call(t, srv, http.MethodGet, path, nil)
+	assert.Equal(t, sorted("questionId"), keysOf(body), "a question without a scenario has no snapshot")
+
+	for _, c := range []struct {
+		err    error
+		status int
+		typ    string
+	}{
+		{domain.ErrForbidden, http.StatusForbidden, "forbidden"},
+		{domain.ErrClassNotFound, http.StatusNotFound, "class-not-found"},
+		{domain.ErrAssessmentNotFound, http.StatusNotFound, "assessment-not-found"},
+		{domain.ErrQuestionNotFound, http.StatusNotFound, "question-not-found"},
+	} {
+		svc.err = c.err
+		status, body := call(t, srv, http.MethodGet, path, nil)
+		assert.Equal(t, c.status, status, c.err.Error())
+		assert.Equal(t, c.typ, body["type"], c.err.Error())
+	}
 }

@@ -184,6 +184,11 @@ func (f *fakeBank) List(_ context.Context, who contentservice.Actor, _ uuid.UUID
 
 type fakeQuestionReader struct {
 	questions map[uuid.UUID]contentdomain.Question
+	scenarios map[uuid.UUID]json.RawMessage
+}
+
+func (f fakeQuestionReader) QuestionScenario(_ context.Context, id uuid.UUID) (json.RawMessage, error) {
+	return f.scenarios[id], nil
 }
 
 func (f fakeQuestionReader) Question(_ context.Context, id uuid.UUID) (contentdomain.Question, error) {
@@ -414,4 +419,18 @@ func TestScheduleAssessments_TheTeacherGetsTheCountAndTheCompositionTheStudentDo
 	assert.Equal(t, 24, *got[0].EligibleStudents)
 	require.NotNil(t, got[0].Composition)
 	assert.Equal(t, "DRAW", *got[0].Composition)
+}
+
+// Covers SPEC-084 CA-14 (RN-01): the machine of a question comes from the content module, and a question without a scenario gives none.
+func TestAssessmentQuestions_ScenarioComesFromTheContentModule(t *testing.T) {
+	with, without := uuid.New(), uuid.New()
+	q := assessmentQuestions{questions: fakeQuestionReader{scenarios: map[uuid.UUID]json.RawMessage{with: json.RawMessage(`{"machine":"x"}`)}}}
+
+	got, err := q.Scenario(ctx, with)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"machine":"x"}`, string(got))
+
+	none, err := q.Scenario(ctx, without)
+	require.NoError(t, err)
+	assert.Nil(t, none)
 }

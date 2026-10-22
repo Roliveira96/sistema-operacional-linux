@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -24,5 +25,27 @@ func TestReader_QuestionReadsAnyQuestionByIdForAnotherModule(t *testing.T) {
 
 	store.question = nil
 	_, err = r.Question(context.Background(), q.ID)
+	assert.ErrorIs(t, err, ErrQuestionNotFound)
+}
+
+// Covers SPEC-084 RN-01, RN-02: another module reads the machine a question starts from, whatever its usage, with no one to authorize; a question
+// without a scenario of its own gives none, and one that does not exist is not found.
+func TestReader_QuestionScenarioGivesTheMachineOfAnyQuestion(t *testing.T) {
+	scenarioID := uuid.New()
+	q := domain.Question{ID: uuid.New(), ModuleID: uuid.New(), Kind: domain.KindPractical, Usage: domain.UsageAssessment, Status: domain.StatusDraft, ScenarioID: &scenarioID}
+	store := &fakeReadStore{question: &q, scenario: &domain.Scenario{ID: scenarioID, Snapshot: json.RawMessage(`{"machine":"x"}`)}}
+	r := NewReader(&fakeAccess{}, store)
+
+	got, err := r.QuestionScenario(context.Background(), q.ID)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"machine":"x"}`, string(got), "even a draft and one that is only for the assessment")
+
+	q.ScenarioID = nil
+	got, err = r.QuestionScenario(context.Background(), q.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got, "no scenario of its own: the default machine applies")
+
+	store.question = nil
+	_, err = r.QuestionScenario(context.Background(), q.ID)
 	assert.ErrorIs(t, err, ErrQuestionNotFound)
 }

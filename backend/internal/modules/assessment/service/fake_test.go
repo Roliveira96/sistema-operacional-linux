@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"time"
 
@@ -281,6 +282,7 @@ type bankQuestion struct {
 	Published bool
 	In        bool // in_assessment
 	Deleted   bool
+	Scenario  json.RawMessage // the machine the question starts from; none is the default machine (SPEC-084)
 }
 
 func (b bankQuestion) eligible(moduleID uuid.UUID) bool {
@@ -312,6 +314,10 @@ func (f *fakeQuestions) Pool(_ context.Context, filter service.QuestionFilter) (
 	sort.Slice(page.Items, func(i, j int) bool { return page.Items[i].Title < page.Items[j].Title })
 	page.Total = len(page.Items)
 	return page, nil
+}
+
+func (f *fakeQuestions) Scenario(_ context.Context, id uuid.UUID) (json.RawMessage, error) {
+	return f.bank[id].Scenario, nil
 }
 
 func (f *fakeQuestions) Contents(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]service.QuestionContent, error) {
