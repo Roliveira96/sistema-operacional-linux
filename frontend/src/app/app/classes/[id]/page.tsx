@@ -9,6 +9,7 @@ import { ClassCalendar } from "@/components/ClassCalendar/ClassCalendar";
 import { ClassLinks } from "@/components/ClassLinks/ClassLinks";
 import { ClassTimeline } from "@/components/ClassTimeline/ClassTimeline";
 import { LiveClassPanel } from "@/components/Classroom/LiveClassPanel/LiveClassPanel";
+import { ClassAssessments } from "@/components/ClassAssessments/ClassAssessments";
 import { ClassMembersTable } from "@/components/ClassMembersTable/ClassMembersTable";
 import { EventForm } from "@/components/EventForm/EventForm";
 import { InviteLinkCard } from "@/components/InviteLinkCard/InviteLinkCard";
@@ -36,6 +37,7 @@ import { ApiProblemError } from "@/services/httpClient";
 import {
   IconBook,
   IconCalendar,
+  IconClipboardCheck,
   IconChevronRight,
   IconClock,
   IconFileUp,
@@ -57,7 +59,7 @@ import styles from "./page.module.scss";
 const m = messages.classes.page;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-type Tab = "overview" | "schedule" | "students";
+type Tab = "overview" | "schedule" | "assessments" | "students";
 type LoadState = "loading" | "ready" | "notFound" | "error";
 /** The fields of a class shown on its overview, read by the teacher or by an enrolled student. */
 type Presentation = Pick<
@@ -254,9 +256,11 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
   const tab: Tab =
     paramTab === "schedule"
       ? "schedule"
-      : !isStudent && paramTab === "students"
-        ? "students"
-        : "overview";
+      : paramTab === "assessments"
+        ? "assessments"
+        : !isStudent && paramTab === "students"
+          ? "students"
+          : "overview";
   const justCreated = searchParams.get("created") === "1";
   // The settings lead back here with ?saved=1: the confirmation is remembered and the mark leaves the address, so a reload does not repeat it (SPEC-078).
   const [justSaved] = useState(() => searchParams.get("saved") === "1");
@@ -537,9 +541,6 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             </span>
           </div>
           <div className={styles.heroActions}>
-            <Link href={`/app/classes/${data.id}/assessments`} className={styles.secondaryButton}>
-              {messages.assessments.link}
-            </Link>
             {!isStudent && (
               <Link href={`/app/classes/${data.id}/settings`} className={styles.secondaryButton}>
                 <IconSettings />
@@ -614,6 +615,16 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
           <IconCalendar />
           {messages.schedule.tab}
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "assessments"}
+          className={`${styles.tab} ${tab === "assessments" ? styles.tabActive : ""}`}
+          onClick={() => changeTab("assessments")}
+        >
+          <IconClipboardCheck />
+          {messages.assessments.link}
+        </button>
         {!isStudent && (
           <button
             type="button"
@@ -687,6 +698,8 @@ export default function ClassPage({ params }: { params: Promise<{ id: string }> 
             reloadKey={calendarReload}
           />
           </>
+        ) : tab === "assessments" ? (
+          <ClassAssessments classId={data.id} />
         ) : members.length === 0 ? (
           <section className={styles.onboarding} aria-labelledby="empty-title">
             <span className={styles.onboardingIcon}>

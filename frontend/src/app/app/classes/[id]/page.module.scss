@@ -305,13 +305,16 @@
 }
 
 // Tabs.
+// The four tabs do not always fit: the bar scrolls by itself, and the page does not (SPEC-082 CA-07).
 .tabs {
   display: flex;
   gap: var(--space-1);
+  overflow-x: auto;
   border-bottom: 1px solid var(--color-border);
 }
 
 .tab {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);

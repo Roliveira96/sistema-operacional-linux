@@ -70,7 +70,7 @@ export default function NewAssessmentPage({ params }: { params: Promise<{ id: st
 
   return (
     <main className={`${styles.container} ${styles.narrow}`}>
-      <Link href={`/app/classes/${id}/assessments`} className={styles.back}>
+      <Link href={`/app/classes/${id}?tab=assessments`} className={styles.back}>
         {m.back.toList}
       </Link>
       <h1 className={styles.title}>{m.page.newTitle}</h1>
@@ -101,7 +101,7 @@ export default function NewAssessmentPage({ params }: { params: Promise<{ id: st
             const created = await assessmentService.create(id!, value as AssessmentInput);
             router.push(`/app/classes/${id}/assessments/${created.id}`);
           }}
-          onCancel={() => router.push(`/app/classes/${id}/assessments`)}
+          onCancel={() => router.push(`/app/classes/${id}?tab=assessments`)}
         />
       )}
     </main>

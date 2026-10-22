@@ -61,7 +61,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   }, [classId, assessmentId, isStudent, attempt]);
 
   const back = (
-    <Link href={`/app/classes/${classId}/assessments`} className={styles.back}>
+    <Link href={`/app/classes/${classId}?tab=assessments`} className={styles.back}>
       {m.back.toList}
     </Link>
   );

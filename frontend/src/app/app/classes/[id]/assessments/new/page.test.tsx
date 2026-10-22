@@ -116,7 +116,7 @@ describe("new assessment page", () => {
     mockReads();
     render(<NewAssessmentPage params={params} />);
     expect((await screen.findByRole("link", { name: "Voltar para as avaliações" })).getAttribute("href")).toBe("/app/classes/c-1?tab=assessments");
-    fireEvent.click(screen.getByRole("button", { name: "cancelar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "cancelar" }));
     expect(pushMock).toHaveBeenCalledWith("/app/classes/c-1?tab=assessments");
   });
 

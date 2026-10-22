@@ -230,8 +230,8 @@ describe("ClassPage (SPEC-041)", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Sistemas Operacionais" })).toBeDefined();
     expect(screen.getByText("threads")).toBeDefined();
     expect(screen.getByText(/Profa. Sediane/)).toBeDefined();
-    // SPEC-042 gives the student the "Agenda" tab; the students tab stays for the teacher only.
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Visão geral", "Agenda"]);
+    // SPEC-042 gives the student the "Agenda" tab and SPEC-082 the "Avaliações" tab; the students tab stays for the teacher only.
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Visão geral", "Agenda", "Avaliações"]);
     expect(screen.queryByRole("tab", { name: /Estudantes/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Adicionar estudantes" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Configurações" })).toBeNull();
