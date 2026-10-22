@@ -337,8 +337,8 @@ func (s *Service) AccessOf(ctx context.Context, studentID, id uuid.UUID) (domain
 	return s.accessFor(ctx, a, studentID, eligible)
 }
 
-// accessFor is the decision of AccessOf for one student (SPEC-076 RN-08). The reasons come in this order: not eligible, canceled, not open yet,
-// ended and, last, not cleared.
+// accessFor is the decision of AccessOf for one student (SPEC-076 RN-08, SPEC-083 RN-05). The reasons come in this order: not eligible, canceled,
+// not open yet, ended, not started and, last, not cleared.
 func (s *Service) accessFor(ctx context.Context, a domain.Assessment, studentID uuid.UUID, eligible map[uuid.UUID]bool) (domain.Access, error) {
 	switch {
 	case !eligible[studentID]:
@@ -351,6 +351,9 @@ func (s *Service) accessFor(ctx context.Context, a domain.Assessment, studentID 
 		return domain.AccessNotOpenYet, nil
 	case domain.PhaseEnded:
 		return domain.AccessEnded, nil
+	}
+	if a.Modality == domain.ModalityInPerson && a.StartedAt == nil {
+		return domain.AccessNotStarted, nil
 	}
 	if !a.RequiresClearance {
 		return domain.AccessAllowed, nil

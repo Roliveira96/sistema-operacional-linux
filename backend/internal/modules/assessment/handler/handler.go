@@ -27,6 +27,7 @@ type AssessmentService interface {
 	Update(ctx context.Context, a service.Actor, classID, id uuid.UUID, in service.UpdateInput) (service.Summary, error)
 	Reschedule(ctx context.Context, a service.Actor, classID, id uuid.UUID, in service.RescheduleInput) (service.Summary, error)
 	Cancel(ctx context.Context, a service.Actor, classID, id uuid.UUID, reason string) (service.Summary, error)
+	Start(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Summary, error)
 	SaveNotes(ctx context.Context, a service.Actor, classID, id uuid.UUID, notes string) (string, error)
 	Detail(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Detail, error)
 	Public(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Public, error)
@@ -58,6 +59,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.PATCH("/classes/:id/assessments/:assessmentId", h.update)
 	g.PUT("/classes/:id/assessments/:assessmentId/schedule", h.reschedule)
 	g.POST("/classes/:id/assessments/:assessmentId/cancel", h.cancel)
+	g.POST("/classes/:id/assessments/:assessmentId/start", h.start)
 	g.PUT("/classes/:id/assessments/:assessmentId/private-notes", h.notes)
 	g.GET("/classes/:id/assessment-questions", h.questions)
 	g.GET("/classes/:id/assessments/:assessmentId/clearances", h.clearances)
@@ -156,6 +158,12 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("assessment-canceled", err.Error())
 	case errors.Is(err, domain.ErrGradesHomologated):
 		return problem.Conflict("grades-homologated", err.Error())
+	case errors.Is(err, domain.ErrAssessmentNotStarted):
+		return problem.Conflict("assessment-not-started", err.Error())
+	case errors.Is(err, domain.ErrAssessmentAlreadyStarted):
+		return problem.Conflict("assessment-already-started", err.Error())
+	case errors.Is(err, domain.ErrAssessmentNotOpenYet):
+		return problem.Conflict("assessment-not-open-yet", err.Error())
 	case errors.Is(err, domain.ErrClearanceNotRequired):
 		return problem.Conflict("clearance-not-required", err.Error())
 	case errors.Is(err, domain.ErrClearanceLocked):
@@ -559,6 +567,27 @@ func (h *Handler) cancel(c *gin.Context) {
 		return
 	}
 	got, err := h.svc.Cancel(c.Request.Context(), actor, classID, id, req.Reason)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, summaryResponse{summaryJSON: toSummary(got), ServerNow: iso(h.svc.Now())})
+}
+
+func (h *Handler) start(c *gin.Context) {
+	actor, ok := actorOf(c)
+	if !ok {
+		return
+	}
+	classID, ok := uuidParam(c, "id")
+	if !ok {
+		return
+	}
+	id, ok := uuidParam(c, "assessmentId")
+	if !ok {
+		return
+	}
+	got, err := h.svc.Start(c.Request.Context(), actor, classID, id)
 	if err != nil {
 		failWith(c, err)
 		return

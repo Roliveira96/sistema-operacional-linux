@@ -334,6 +334,10 @@ type Summary struct {
 	UpdatedAt           time.Time
 	CanceledBy          *uuid.UUID
 	CanceledAt          *time.Time
+	// StartedAt, StartedBy and StartedByName are the start of an in-person exam by the teacher; empty until it happens (SPEC-083 RN-07).
+	StartedAt     *time.Time
+	StartedBy     *uuid.UUID
+	StartedByName string
 }
 
 // ItemView is a question of the composition with what the teacher needs to recognize it.
@@ -376,7 +380,7 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 		Public: publicOf(a, s.now()), ModuleID: a.ModuleID, Composition: a.Composition, Audience: a.Audience, Frozen: a.Frozen(s.now()),
 		Modality: a.Modality, RequiresClearance: a.RequiresClearance,
 		TeacherPrivateNotes: a.TeacherPrivateNotes, CreatedBy: a.CreatedBy, UpdatedBy: a.UpdatedBy, UpdatedAt: a.UpdatedAt,
-		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt,
+		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt, StartedAt: a.StartedAt, StartedBy: a.StartedBy,
 	}
 	if module, ok, err := s.ports.Modules.ModuleOfClass(ctx, a.ClassID, a.ModuleID); err != nil {
 		return Summary{}, err
@@ -407,10 +411,16 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 	if a.CanceledBy != nil {
 		ids = append(ids, *a.CanceledBy)
 	}
+	if a.StartedBy != nil {
+		ids = append(ids, *a.StartedBy)
+	}
 	names, err := s.ports.Users.Names(ctx, ids)
 	if err != nil {
 		return Summary{}, err
 	}
 	sum.CreatedByName, sum.UpdatedByName = names[a.CreatedBy], names[a.UpdatedBy]
+	if a.StartedBy != nil {
+		sum.StartedByName = names[*a.StartedBy]
+	}
 	return sum, nil
 }
