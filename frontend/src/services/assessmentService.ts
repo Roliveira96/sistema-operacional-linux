@@ -134,6 +134,15 @@ export interface QuestionQuery {
   pageSize?: number;
 }
 
+/** What the student receives of a question, without the answer; only the fields of its kind come (SPEC-081 section 5). */
+export interface StudentView {
+  choices?: { id: string; html: string }[];
+  columns?: { left: { id: string; text: string }[]; right: { id: string; text: string }[] };
+  /** The alternatives or the columns are shown in a different order each time unless this is false. */
+  shuffle?: boolean;
+  maxLength?: number;
+}
+
 /** A question of the preview, with what only the teacher reads. */
 export interface PreviewContent {
   questionId: string;
@@ -143,6 +152,7 @@ export interface PreviewContent {
   statement: string;
   answerKey: string;
   explanation: string;
+  studentView: StudentView;
 }
 export interface PreviewQuestion extends PreviewContent {
   position: number;

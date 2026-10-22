@@ -8,19 +8,19 @@ afterEach(() => vi.restoreAllMocks());
 describe("simulatedQuestions", () => {
   it("takes the questions of a manual composition in order, with the weight of each", () => {
     const list = simulatedQuestions(simulation());
-    expect(list.map((q) => [q.position, q.id, q.weight])).toEqual([
+    expect(list.map((q) => [q.position, q.questionId, q.weight])).toEqual([
       [1, "q-bool", 2],
       [2, "q-single", 2],
       [3, "q-match", 2],
       [4, "q-disc", 2],
       [5, "q-prac", 2],
     ]);
-    expect(list[1]!.view.choices).toHaveLength(3);
+    expect(list[1]!.studentView.choices).toHaveLength(3);
   });
 
   it("takes the sample of a draw, numbered from 1, with the points of the level of each question (D-04)", () => {
     const list = simulatedQuestions(drawSimulation());
-    expect(list.map((q) => [q.position, q.id, q.weight])).toEqual([
+    expect(list.map((q) => [q.position, q.questionId, q.weight])).toEqual([
       [1, "q-bool", 3],
       [2, "q-disc", 7],
     ]);

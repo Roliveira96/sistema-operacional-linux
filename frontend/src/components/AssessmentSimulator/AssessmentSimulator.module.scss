@@ -1,0 +1,268 @@
+@use "@/styles/mixins" as mixins;
+
+.simulator {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.banner {
+  flex: 1 1 18rem;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  background: var(--color-warning-faint);
+  border: 1px solid var(--color-warning-line);
+  border-radius: var(--radius-sm);
+}
+
+.situation {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+// The two views have the same width; each one scrolls by itself when a question is long.
+.panes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: 80vh;
+  padding: var(--space-4);
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.paneTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.examTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.richText {
+  @include mixins.rich-text;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+
+  > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  dt {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.label {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.simulated {
+  padding: var(--space-3);
+  color: var(--color-text-primary);
+  background: var(--color-info-faint);
+  border: 1px solid var(--color-info-line);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.links {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.timer {
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+}
+
+// One button for each question, as big as a touch target.
+.navigator {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-body);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+
+  @include mixins.focusable;
+
+  &[aria-current="step"] {
+    color: var(--color-accent-contrast);
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+}
+
+.stepDone:not([aria-current="step"]) {
+  color: var(--color-success);
+  border-color: var(--color-success-line);
+}
+
+.worth {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.notice,
+.note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.notice {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-raised);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.count {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.over {
+  color: var(--color-danger);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--color-text-secondary);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  @include mixins.focusable;
+}
+
+.problem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-primary);
+  background: var(--color-danger-subtle);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-sm);
+}
+
+// Below 48 rem the exam does not fit, and neither does the simulator: only the notice (SPEC-081 D-02).
+.narrow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--color-text-primary);
+  background: var(--color-warning-faint);
+  border: 1px solid var(--color-warning-line);
+  border-radius: var(--radius-sm);
+
+  p {
+    margin: 0;
+  }
+}

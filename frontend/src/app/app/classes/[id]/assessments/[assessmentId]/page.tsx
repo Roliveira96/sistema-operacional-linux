@@ -135,6 +135,9 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         <Button variant="secondary" onClick={() => setAsked(true)}>
           {p.preview}
         </Button>
+        <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/simulate`} variant="secondary">
+          {p.simulate}
+        </ButtonLink>
         {detail.modality === "IN_PERSON" && detail.requiresClearance && (
           <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/clearances`} variant="secondary">
             {p.clearances}

@@ -24,6 +24,12 @@
   border-radius: var(--radius-md);
 }
 
+// The question that the student view of the simulator has open.
+.current {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
 .head {
   display: flex;
   flex-wrap: wrap;
