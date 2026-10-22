@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AssessmentDialog } from "@/components/AssessmentDialog/AssessmentDialog";
 import dialog from "@/components/AssessmentDialog/AssessmentDialog.module.scss";
 import { DrawRulesTable, QuestionBlock } from "@/components/AssessmentPreview/AssessmentPreview";
@@ -58,6 +58,17 @@ function orderOf(question: SimulatedQuestion): Order {
 }
 
 type Phase = "intro" | "answering" | "done";
+
+/** What the simulator keeps of the checks of the practical questions: the waits that run, the last state of each machine, the ones being checked and the solved ones. */
+const newChecks = () => ({
+  timers: new Map<string, ReturnType<typeof setTimeout>>(),
+  latest: new Map<string, unknown>(),
+  running: new Set<string>(),
+  again: new Set<string>(),
+  solved: new Set<string>(),
+  /** Grows each time the machine of a question is formatted, so an answer that was on its way is known to be of the old machine. */
+  generation: new Map<string, number>(),
+});
 type Tab = "student" | "teacher";
 
 /** Whether the question is answered in the terminal: a question of command Linux (SPEC-084). */
@@ -69,6 +80,8 @@ export interface AssessmentSimulatorProps {
   load: () => Promise<PreviewData>;
   /** Reads the machine a question of command Linux starts from; null is the default machine (SPEC-084). */
   loadScenario: (questionId: string) => Promise<unknown>;
+  /** Asks the server whether the machine meets the conditions of a question of command Linux; it only says yes or no and stores nothing (SPEC-085). */
+  checkQuestion: (questionId: string, snapshot: unknown) => Promise<boolean>;
   /** Where "back to the assessment" goes. */
   backHref: string;
 }
@@ -93,7 +106,10 @@ export function AssessmentSimulator(props: AssessmentSimulatorProps) {
   return <Simulator {...props} />;
 }
 
-function Simulator({ detail, load, loadScenario, backHref }: AssessmentSimulatorProps) {
+/** How long the terminal has to be without a command before the machine of the question is sent to be checked (SPEC-085 D-01). */
+const CHECK_WAIT_MS = 1000;
+
+function Simulator({ detail, load, loadScenario, checkQuestion, backHref }: AssessmentSimulatorProps) {
   const baseId = useId();
   const [tab, setTab] = useState<Tab>("student");
   const [data, setData] = useState<PreviewData | null>(null);
@@ -108,11 +124,28 @@ function Simulator({ detail, load, loadScenario, backHref }: AssessmentSimulator
   const [remaining, setRemaining] = useState<number | null>(null);
   const [timeUp, setTimeUp] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  /** The practical questions the server gave as solved, and the one whose check failed last (SPEC-085). */
+  const [solved, setSolved] = useState<Record<string, boolean>>({});
+  const [checkFailed, setCheckFailed] = useState<string | null>(null);
+  const checks = useRef(newChecks());
+  const check = useRef(checkQuestion);
+  useEffect(() => {
+    check.current = checkQuestion;
+  });
 
   const questions = useMemo(() => (data ? simulatedQuestions(data) : []), [data]);
   const isDraw = detail.composition === "DRAW";
 
+  /** Forgets what was checked: the waits that run, the machines that were sent and the marks of solved. */
+  const forgetChecks = useCallback(() => {
+    for (const timer of checks.current.timers.values()) clearTimeout(timer);
+    checks.current = newChecks();
+    setSolved({});
+    setCheckFailed(null);
+  }, []);
+
   const restart = useCallback(() => {
+    forgetChecks();
     setPhase("intro");
     setCurrent(0);
     setResponses({});
@@ -121,6 +154,81 @@ function Simulator({ detail, load, loadScenario, backHref }: AssessmentSimulator
     setRemaining(null);
     setTimeUp(false);
     setConfirming(false);
+  }, [forgetChecks]);
+
+  /** Sends the last state of the machine of a question to be checked, one check at a time for the question; a state that came meanwhile goes after (CA-05). */
+  const runCheck = useCallback(async (id: string) => {
+    const c = checks.current;
+    if (c.solved.has(id)) return;
+    if (c.running.has(id)) {
+      c.again.add(id);
+      return;
+    }
+    c.running.add(id);
+    try {
+      do {
+        c.again.delete(id);
+        const generation = c.generation.get(id) ?? 0;
+        try {
+          const passed = await check.current(id, c.latest.get(id));
+          // the machine was formatted or the exam was done again while the server answered: the answer is of a machine that is gone
+          if (checks.current !== c || (c.generation.get(id) ?? 0) !== generation) continue;
+          setCheckFailed((failed) => (failed === id ? null : failed));
+          if (passed) {
+            c.solved.add(id);
+            setSolved((all) => ({ ...all, [id]: true }));
+          }
+        } catch {
+          if (checks.current === c) setCheckFailed(id);
+        }
+      } while (checks.current === c && c.again.has(id) && !c.solved.has(id));
+    } finally {
+      c.running.delete(id);
+    }
+  }, []);
+
+  /** A command ran in the terminal: after a second without another one, the last machine goes to be checked. */
+  const machineChanged = useCallback(
+    (id: string, snapshot: unknown) => {
+      const c = checks.current;
+      if (c.solved.has(id)) return;
+      c.latest.set(id, snapshot);
+      clearTimeout(c.timers.get(id));
+      c.timers.set(
+        id,
+        setTimeout(() => {
+          c.timers.delete(id);
+          void runCheck(id);
+        }, CHECK_WAIT_MS),
+      );
+    },
+    [runCheck],
+  );
+
+  /** The machine of a question was formatted: it is back at the start, so it is not solved and what was waiting to be checked is of the old one. */
+  const machineFormatted = useCallback((id: string) => {
+    const c = checks.current;
+    clearTimeout(c.timers.get(id));
+    c.timers.delete(id);
+    c.latest.delete(id);
+    c.again.delete(id);
+    c.solved.delete(id);
+    c.generation.set(id, (c.generation.get(id) ?? 0) + 1);
+    setSolved((all) => ({ ...all, [id]: false }));
+    setCheckFailed((failed) => (failed === id ? null : failed));
+  }, []);
+
+  // nothing waits to be checked once the exam leaves the screen of the questions, or when the simulator goes away
+  useEffect(() => {
+    if (phase === "answering") return;
+    for (const timer of checks.current.timers.values()) clearTimeout(timer);
+    checks.current.timers.clear();
+  }, [phase]);
+  useEffect(() => {
+    const pending = checks;
+    return () => {
+      for (const timer of pending.current.timers.values()) clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -171,7 +279,9 @@ function Simulator({ detail, load, loadScenario, backHref }: AssessmentSimulator
   };
 
   const answer = (id: string, value: SimulatedResponse) => setResponses((all) => ({ ...all, [id]: value }));
-  const answeredCount = questions.filter((q) => isAnswered(responses[q.questionId])).length;
+  /** A question is done when it has an answer or, a practical one, when the server gave it as solved. */
+  const isDone = (q: SimulatedQuestion) => !!solved[q.questionId] || isAnswered(responses[q.questionId]);
+  const answeredCount = questions.filter(isDone).length;
   const open = phase === "answering" ? questions[current] : undefined;
   const hasTerminal = questions.some(isPractical);
   const tabIds = { student: { tab: `${baseId}-tab-student`, panel: `${baseId}-panel-student` }, teacher: { tab: `${baseId}-tab-teacher`, panel: `${baseId}-panel-teacher` } };
@@ -275,8 +385,8 @@ function Simulator({ detail, load, loadScenario, backHref }: AssessmentSimulator
                       <li key={q.questionId}>
                         <button
                           type="button"
-                          className={`${styles.step} ${isAnswered(responses[q.questionId]) ? styles.stepDone : ""}`}
-                          aria-label={s.answering.navItem(i + 1, isAnswered(responses[q.questionId]))}
+                          className={`${styles.step} ${isDone(q) ? styles.stepDone : ""}`}
+                          aria-label={s.answering.navItem(i + 1, solved[q.questionId] ? "solved" : isDone(q) ? "answered" : "blank")}
                           aria-current={i === current ? "step" : undefined}
                           onClick={() => setCurrent(i)}
                         >
@@ -288,6 +398,16 @@ function Simulator({ detail, load, loadScenario, backHref }: AssessmentSimulator
                   <p className={styles.worth}>{m.points(formatScore(open.weight))}</p>
                   <Html html={open.statement} />
                   <Answer key={open.questionId} question={open} response={responses[open.questionId]} order={orders[open.questionId]} onChange={(value) => answer(open.questionId, value)} />
+                  {solved[open.questionId] && (
+                    <p role="status" className={styles.solvedNote}>
+                      {s.answering.solved}
+                    </p>
+                  )}
+                  {checkFailed === open.questionId && (
+                    <p role="status" className={styles.notice}>
+                      {s.answering.checkFailed}
+                    </p>
+                  )}
                   <div className={styles.footer}>
                     <Button variant="secondary" disabled={current === 0} onClick={() => setCurrent((n) => n - 1)}>
                       {s.answering.previous}
@@ -297,7 +417,9 @@ function Simulator({ detail, load, loadScenario, backHref }: AssessmentSimulator
                     </Button>
                   </div>
                 </div>
-                {hasTerminal && <ExamTerminal questionId={isPractical(open) ? open.questionId : null} loadScenario={loadScenario} />}
+                {hasTerminal && (
+                  <ExamTerminal questionId={isPractical(open) ? open.questionId : null} loadScenario={loadScenario} onCommand={machineChanged} onFormat={machineFormatted} />
+                )}
               </div>
             </div>
           )}
@@ -342,7 +464,7 @@ function Simulator({ detail, load, loadScenario, backHref }: AssessmentSimulator
               <QuestionBlock key={q.questionId} question={q} position={q.position} weight={q.weight} current={open === q}>
                 <p className={styles.label}>{s.teacher.simulated}</p>
                 <div data-testid="simulated" className={styles.simulated}>
-                  <Simulated question={q} response={responses[q.questionId]} order={orders[q.questionId]} />
+                  <Simulated question={q} response={responses[q.questionId]} order={orders[q.questionId]} solved={!!solved[q.questionId]} />
                 </div>
               </QuestionBlock>
             ))}
@@ -403,7 +525,9 @@ function WrittenAnswer({ question, html, onChange }: { question: SimulatedQuesti
 }
 
 /** What the teacher answered as a student, written for the teacher to compare with the key. */
-function Simulated({ question, response, order }: { question: SimulatedQuestion; response: SimulatedResponse | undefined; order: Order | undefined }) {
+function Simulated({ question, response, order, solved }: { question: SimulatedQuestion; response: SimulatedResponse | undefined; order: Order | undefined; solved: boolean }) {
+  // a practical question is answered in the terminal: the server says whether it was solved (SPEC-085 D-04)
+  if (isPractical(question)) return <span>{solved ? s.teacher.solved : s.teacher.notSolved}</span>;
   if (response === undefined || !isAnswered(response)) return <span>{s.teacher.notAnswered}</span>;
   if (typeof response === "boolean") return <span>{response ? content.trueFalse.true : content.trueFalse.false}</span>;
   if (typeof response === "string") {

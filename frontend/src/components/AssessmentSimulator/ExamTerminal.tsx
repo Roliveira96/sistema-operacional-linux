@@ -18,6 +18,10 @@ export interface ExamTerminalProps {
   questionId: string | null;
   /** Reads the machine a question starts from; null is the default machine. */
   loadScenario: (questionId: string) => Promise<unknown>;
+  /** A command ran in the machine of the question that is open; the exam checks the machine (SPEC-085). */
+  onCommand?: (questionId: string, snapshot: unknown) => void;
+  /** The machine of the question was formatted and is back where the question starts. */
+  onFormat?: (questionId: string) => void;
 }
 
 /**
@@ -25,7 +29,7 @@ export interface ExamTerminalProps {
  * first time it opens, and gets back what the student left in it when the student returns; Reset Máquina formats only the machine of the open question.
  * It has nothing of the study of a module: no pasting of commands, sound, narration, saving or loading of machines, or panel of processes (D-04).
  */
-export function ExamTerminal({ questionId, loadScenario }: ExamTerminalProps) {
+export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: ExamTerminalProps) {
   const host = useRef<HTMLDivElement>(null);
   const terminal = useRef<TerminalWindow | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -34,12 +38,14 @@ export function ExamTerminal({ questionId, loadScenario }: ExamTerminalProps) {
   const scenarios = useRef(new Map<string, unknown>());
   const open = useRef<string | null>(questionId);
   const read = useRef(loadScenario);
+  const tell = useRef({ onCommand, onFormat });
   const [failed, setFailed] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     read.current = loadScenario;
+    tell.current = { onCommand, onFormat };
   });
 
   // The window opens once and goes away with the exam; the commands keep the machine of the open question up to date.
@@ -54,7 +60,9 @@ export function ExamTerminal({ questionId, loadScenario }: ExamTerminalProps) {
     let cleanup = () => {};
     mountTerminalWindow(container, null, {
       onCommand: (snapshot) => {
-        if (open.current) machines.current.set(open.current, snapshot);
+        if (!open.current) return;
+        machines.current.set(open.current, snapshot);
+        tell.current.onCommand?.(open.current, snapshot);
       },
     }).then(
       (mounted) => {
@@ -113,6 +121,7 @@ export function ExamTerminal({ questionId, loadScenario }: ExamTerminalProps) {
     const start = scenarios.current.get(id) ?? null;
     await machine.resetAnimated(start);
     machines.current.set(id, start);
+    tell.current.onFormat?.(id);
   };
 
   return (

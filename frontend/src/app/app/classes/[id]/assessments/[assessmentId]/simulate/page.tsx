@@ -32,6 +32,7 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
   const [attempt, setAttempt] = useState(0);
 
   const loadPreview = useCallback(() => assessmentService.preview(classId!, assessmentId!), [classId, assessmentId]);
+  const checkQuestion = useCallback((questionId: string, snapshot: unknown) => assessmentService.checkQuestion(classId!, assessmentId!, questionId, snapshot), [classId, assessmentId]);
   const loadScenario = useCallback((questionId: string) => assessmentService.questionScenario(classId!, assessmentId!, questionId), [classId, assessmentId]);
 
   useEffect(() => {
@@ -75,7 +76,7 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
           {m.page.loading}
         </p>
       )}
-      {detail && <AssessmentSimulator detail={detail} load={loadPreview} loadScenario={loadScenario} backHref={backHref} />}
+      {detail && <AssessmentSimulator detail={detail} load={loadPreview} loadScenario={loadScenario} checkQuestion={checkQuestion} backHref={backHref} />}
     </main>
   );
 }

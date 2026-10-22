@@ -257,6 +257,9 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     /** The machine a question of the assessment starts from, for the terminal of the simulator; null when it has none of its own (SPEC-084 RN-01). */
     questionScenario: async (classId: string, id: string, questionId: string) =>
       (await client.get<{ questionId: string; snapshot?: unknown }>(`${base(classId)}/${id}/questions/${encodeURIComponent(questionId)}/scenario`)).snapshot ?? null,
+    /** Whether the machine meets the conditions of a question of command Linux of the assessment: the server corrects, says only yes or no and stores nothing (SPEC-085). */
+    checkQuestion: async (classId: string, id: string, questionId: string, snapshot: unknown) =>
+      (await client.post<{ passed: boolean }>(`${base(classId)}/${id}/questions/${encodeURIComponent(questionId)}/check`, { snapshot })).passed,
     saveNotes: async (classId: string, id: string, notes: string) =>
       (await client.put<{ teacherPrivateNotes: string }>(`${base(classId)}/${id}/private-notes`, { teacherPrivateNotes: notes })).teacherPrivateNotes,
     preview: (classId: string, id: string) => client.get<PreviewData>(`${base(classId)}/${id}/preview`),
