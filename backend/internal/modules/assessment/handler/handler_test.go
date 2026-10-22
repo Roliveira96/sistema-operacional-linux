@@ -94,6 +94,12 @@ func (f *fakeService) Cancel(_ context.Context, a service.Actor, classID, id uui
 	return f.summary, f.err
 }
 
+func (f *fakeService) Start(_ context.Context, a service.Actor, classID, id uuid.UUID) (service.Summary, error) {
+	f.saw("Start", a)
+	f.classID, f.id = classID, id
+	return f.summary, f.err
+}
+
 func (f *fakeService) SaveNotes(_ context.Context, a service.Actor, classID, id uuid.UUID, notes string) (string, error) {
 	f.saw("SaveNotes", a)
 	f.classID, f.id, f.notes = classID, id, notes
@@ -698,6 +704,59 @@ func TestHandler_PreviewCarriesTheStudentViewOfEachKind(t *testing.T) {
 	sample := array(t, body["sample"])
 	require.Len(t, sample, 1)
 	assert.Contains(t, object(t, sample[0]), "studentView", "the sample is shown to the student the same way")
+}
+
+// Covers SPEC-083 CA-01, CA-08 (section 5): the teacher starts the exam by the route of the start, with no body, and gets the summary with who
+// started it and when; the summary has no start before it happens, and the route is only for the teacher and the administrator.
+func TestHandler_StartTheExam(t *testing.T) {
+	srv, svc, userID := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id := uuid.New(), uuid.New()
+	svc.summary = service.Summary{Public: minimalPublic(), Modality: domain.ModalityInPerson, StartedAt: ptr(at(21, 9, 5)), StartedBy: ptr(userID), StartedByName: "Profa. Sediane"}
+
+	status, body := call(t, srv, http.MethodPost, assessmentPath(classID, id)+"/start", nil)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, []string{"Start"}, svc.calls)
+	assert.Equal(t, classID, svc.classID)
+	assert.Equal(t, id, svc.id)
+	assert.Equal(t, userID.String(), body["startedBy"])
+	assert.Equal(t, "Profa. Sediane", body["startedByName"])
+	assert.Contains(t, body["startedAt"], "2026-10-21T09:05:00")
+	assert.Contains(t, body, "serverNow")
+
+	svc.summary = service.Summary{Public: minimalPublic(), Modality: domain.ModalityInPerson}
+	_, body = call(t, srv, http.MethodPost, assessmentPath(classID, id)+"/start", nil)
+	assert.NotContains(t, body, "startedAt", "no start before it happens")
+	assert.NotContains(t, body, "startedBy")
+	assert.NotContains(t, body, "startedByName")
+}
+
+// Covers SPEC-083 CA-03, CA-04 (section 5): the errors of the start and of the clearance before the start, with their status and slug.
+func TestHandler_StartAndClearanceErrors(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	path := assessmentPath(uuid.New(), uuid.New())
+	cases := []struct {
+		route  string
+		err    error
+		status int
+		typ    string
+	}{
+		{"/start", domain.ErrInvalidAssessment, http.StatusBadRequest, "invalid-assessment"},
+		{"/start", domain.ErrForbidden, http.StatusForbidden, "forbidden"},
+		{"/start", domain.ErrAssessmentNotFound, http.StatusNotFound, "assessment-not-found"},
+		{"/start", domain.ErrAssessmentCanceled, http.StatusConflict, "assessment-canceled"},
+		{"/start", domain.ErrAssessmentEnded, http.StatusConflict, "assessment-ended"},
+		{"/start", domain.ErrAssessmentNotOpenYet, http.StatusConflict, "assessment-not-open-yet"},
+		{"/start", domain.ErrAssessmentAlreadyStarted, http.StatusConflict, "assessment-already-started"},
+		{"/clearances", domain.ErrAssessmentNotStarted, http.StatusConflict, "assessment-not-started"},
+	}
+	for _, c := range cases {
+		svc.err = c.err
+		status, body := call(t, srv, http.MethodPost, path+c.route, map[string]any{"action": "APPROVE_ALL"})
+		assert.Equal(t, c.status, status, c.route+" "+c.err.Error())
+		assert.Equal(t, c.typ, body["type"], c.route+" "+c.err.Error())
+	}
 }
 
 // Covers SPEC-075 CA-04, CA-22 (section 5.2): the preview carries the questions with the answer key, and for a draw the rules, the stock and the
