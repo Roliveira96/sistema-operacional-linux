@@ -265,6 +265,76 @@ func TestAssessmentQuestions_ContentsHaveTheAnswerKey(t *testing.T) {
 	assert.Empty(t, got[boolean.ID].Explanation)
 }
 
+// Covers SPEC-081 RN-01, RN-02, CA-14, CA-15: the content of a question carries what the student receives, by kind: the alternatives and whether
+// they are shuffled, the two columns without the pairs, the size of a descriptive answer; a true or false and a practical question carry nothing
+// more than the statement. Whatever the teacher keeps (the correct choice, the pairs, the expected answer, the explanation) has no place in it.
+func TestAssessmentQuestions_ContentsCarryWhatTheStudentReceivesAndNeverTheAnswer(t *testing.T) {
+	yes, no, size, bigger := true, false, 300, contentdomain.DefaultAnswerSize
+	single := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindTheoreticalSingle, Difficulty: "EASY", Title: "Qual lista?", Statement: "<p>Qual lista?</p>",
+		Choices: json.RawMessage(`[{"id":"a","html":"<p>ls</p>"},{"id":"b","html":"<p>cd</p>"}]`), AnswerKey: json.RawMessage(`{"correct":"b"}`),
+		Explanation: str("porque cd muda"), ShuffleChoices: true,
+	}
+	kept := single
+	kept.ID, kept.ShuffleChoices = uuid.New(), false
+	matching := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindTheoreticalMatching, Difficulty: "MEDIUM", Title: "Ligue", Statement: "<p>Ligue</p>",
+		Choices:   json.RawMessage(`{"left":[{"id":"l1","text":"ls"},{"id":"l2","text":"cd"}],"right":[{"id":"r1","text":"lista"},{"id":"r2","text":"muda"}]}`),
+		AnswerKey: json.RawMessage(`{"pairs":[{"left":"l1","right":"r1"},{"left":"l2","right":"r2"}]}`), ShuffleChoices: true,
+	}
+	discursive := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindDiscursive, Difficulty: "HARD", Title: "Explique", Statement: "<p>Explique</p>",
+		AnswerKey: json.RawMessage(`{"expectedAnswer":"<p>a resposta</p>","maxLength":300}`),
+	}
+	unsized := discursive
+	unsized.ID, unsized.AnswerKey = uuid.New(), json.RawMessage(`{"expectedAnswer":"<p>a resposta</p>"}`)
+	boolean := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindTheoreticalBoolean, Difficulty: "EASY", Title: "rm -r", Statement: "<p>Apaga?</p>",
+		AnswerKey: json.RawMessage(`{"correct":false}`),
+	}
+	practical := question("EASY", "PUBLISHED", true, "Criar pasta").Question
+	all := map[uuid.UUID]contentdomain.Question{}
+	var ids []uuid.UUID
+	for _, c := range []contentdomain.Question{single, kept, matching, discursive, unsized, boolean, practical} {
+		all[c.ID] = c
+		ids = append(ids, c.ID)
+	}
+	q := assessmentQuestions{questions: fakeQuestionReader{questions: all}}
+
+	got, err := q.Contents(ctx, ids)
+	require.NoError(t, err)
+	choices := []assessmentservice.StudentChoice{{ID: "a", HTML: "<p>ls</p>"}, {ID: "b", HTML: "<p>cd</p>"}}
+	assert.Equal(t, assessmentservice.StudentView{Choices: choices, Shuffle: &yes}, got[single.ID].StudentView, "the alternatives, with no mark of the right one")
+	assert.Equal(t, assessmentservice.StudentView{Choices: choices, Shuffle: &no}, got[kept.ID].StudentView, "the teacher keeps her order")
+	assert.Equal(t, assessmentservice.StudentView{
+		Columns: &assessmentservice.StudentColumns{
+			Left:  []assessmentservice.StudentItem{{ID: "l1", Text: "ls"}, {ID: "l2", Text: "cd"}},
+			Right: []assessmentservice.StudentItem{{ID: "r1", Text: "lista"}, {ID: "r2", Text: "muda"}},
+		},
+		Shuffle: &yes,
+	}, got[matching.ID].StudentView, "the columns in the order of the teacher, without the pairs")
+	assert.Equal(t, assessmentservice.StudentView{MaxLength: &size}, got[discursive.ID].StudentView, "only the size of the answer")
+	assert.Equal(t, assessmentservice.StudentView{MaxLength: &bigger}, got[unsized.ID].StudentView, "the default size when the teacher did not choose one")
+	assert.Equal(t, assessmentservice.StudentView{}, got[boolean.ID].StudentView, "a true or false question has only the statement")
+	assert.Equal(t, assessmentservice.StudentView{}, got[practical.ID].StudentView, "a practical question has only the statement")
+	assert.Contains(t, got[single.ID].AnswerKey, "b", "the answer key and the explanation stay in their own fields, for the teacher")
+	assert.Equal(t, "porque cd muda", got[single.ID].Explanation)
+}
+
+// Covers SPEC-081 RN-01, D-04: a question of the sample carries what the student receives, like the ones in order.
+func TestAssessmentQuestions_SampleCarriesWhatTheStudentReceives(t *testing.T) {
+	single := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindTheoreticalSingle, Difficulty: "EASY", Status: "PUBLISHED", InAssessment: true, Title: "Qual lista?",
+		Choices: json.RawMessage(`[{"id":"a","html":"<p>ls</p>"},{"id":"b","html":"<p>cd</p>"}]`), AnswerKey: json.RawMessage(`{"correct":"b"}`),
+	}
+	q := assessmentQuestions{bank: &fakeBank{items: []contentservice.ExerciseRecord{{Question: single}}}}
+
+	sample, err := q.Sample(ctx, uuid.New(), assessmentdomain.DifficultyEasy, 1)
+	require.NoError(t, err)
+	require.Len(t, sample, 1)
+	assert.Equal(t, []assessmentservice.StudentChoice{{ID: "a", HTML: "<p>ls</p>"}, {ID: "b", HTML: "<p>cd</p>"}}, sample[0].StudentView.Choices)
+}
+
 // Covers SPEC-075 RN-16: the sample takes n different eligible questions of the level, or all of them when there are fewer.
 func TestAssessmentQuestions_SampleTakesDifferentQuestionsOfTheLevel(t *testing.T) {
 	var items []contentservice.ExerciseRecord

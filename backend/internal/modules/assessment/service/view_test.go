@@ -265,3 +265,37 @@ func TestCalendar_TeacherGetsAllOfHerClasses(t *testing.T) {
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []uuid.UUID{mine.ID, forBruno.ID, foreign.ID}, ids(res.Summaries))
 }
+
+// Covers SPEC-081 RN-01, RN-04, CA-15: the preview carries, for each question and for each question of the sample, what the student receives, as
+// the bank gave it, and reading it stores nothing.
+func TestPreview_CarriesTheStudentViewOfTheQuestionsAndOfTheSample(t *testing.T) {
+	f := newFixture(t)
+	manual := f.create(t)
+	drawn := f.create(t, func(in *service.CreateInput) {
+		in.Composition, in.Items, in.Draw = domain.CompositionDraw, nil, f.draw(3, 3, 4, 1, 1, 1)
+	})
+	shuffle := true
+	for id, q := range f.questions.bank {
+		q.StudentView = service.StudentView{
+			Choices: []service.StudentChoice{{ID: "a", HTML: "<p>um</p>"}, {ID: "b", HTML: "<p>dois</p>"}}, Shuffle: &shuffle,
+		}
+		f.questions.bank[id] = q
+	}
+	writes := f.repo.writes
+
+	p, err := f.svc.Preview(ctx, f.teacher, f.class.ID, manual.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, p.Questions)
+	for _, q := range p.Questions {
+		assert.Equal(t, []service.StudentChoice{{ID: "a", HTML: "<p>um</p>"}, {ID: "b", HTML: "<p>dois</p>"}}, q.StudentView.Choices)
+		assert.Equal(t, &shuffle, q.StudentView.Shuffle)
+	}
+
+	p, err = f.svc.Preview(ctx, f.teacher, f.class.ID, drawn.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, p.Sample)
+	for _, q := range p.Sample {
+		assert.Len(t, q.StudentView.Choices, 2, "the sample is shown to the student the same way")
+	}
+	assert.Equal(t, writes, f.repo.writes, "reading the preview stores nothing")
+}

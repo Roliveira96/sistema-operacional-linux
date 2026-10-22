@@ -650,6 +650,56 @@ func TestHandler_ListPassesTheFilters(t *testing.T) {
 	assert.Equal(t, "malformed-request", resp["type"])
 }
 
+// Covers SPEC-081 CA-14, CA-15 (section 5): every question of the preview and of the sample carries studentView, with the fields of its kind and no
+// answer; the fields the preview already had do not change.
+func TestHandler_PreviewCarriesTheStudentViewOfEachKind(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id := uuid.New(), uuid.New()
+	yes, size := true, 300
+	of := func(kind string, view service.StudentView) service.QuestionContent {
+		return service.QuestionContent{
+			Question:  service.Question{ID: uuid.New(), Title: kind, Kind: kind, Difficulty: domain.DifficultyEasy},
+			Statement: "<p>enunciado</p>", AnswerKey: "a resposta", Explanation: "porque", StudentView: view,
+		}
+	}
+	single := of("THEORETICAL_SINGLE", service.StudentView{Choices: []service.StudentChoice{{ID: "a", HTML: "<p>ls</p>"}}, Shuffle: &yes})
+	matching := of("THEORETICAL_MATCHING", service.StudentView{
+		Columns: &service.StudentColumns{Left: []service.StudentItem{{ID: "l1", Text: "ls"}}, Right: []service.StudentItem{{ID: "r1", Text: "lista"}}},
+		Shuffle: &yes,
+	})
+	discursive := of("DISCURSIVE", service.StudentView{MaxLength: &size})
+	boolean := of("THEORETICAL_BOOLEAN", service.StudentView{})
+	svc.preview = service.Preview{
+		Questions: []service.PreviewQuestion{
+			{Position: 1, Weight: domain.Points(2), QuestionContent: single}, {Position: 2, Weight: domain.Points(2), QuestionContent: matching},
+			{Position: 3, Weight: domain.Points(2), QuestionContent: discursive}, {Position: 4, Weight: domain.Points(2), QuestionContent: boolean},
+		},
+		Sample: []service.QuestionContent{single},
+	}
+	status, body := call(t, srv, http.MethodGet, assessmentPath(classID, id)+"/preview", nil)
+	require.Equal(t, http.StatusOK, status)
+	questions := array(t, body["questions"])
+	require.Len(t, questions, 4)
+	for _, q := range questions {
+		assert.Equal(t, sorted("position", "weight", "questionId", "title", "kind", "difficulty", "statement", "answerKey", "explanation", "studentView"),
+			keysOf(object(t, q)), "the old fields stay and studentView is always there")
+	}
+	view := func(i int) map[string]any { return object(t, object(t, questions[i])["studentView"]) }
+	assert.Equal(t, sorted("choices", "shuffle"), keysOf(view(0)))
+	assert.Equal(t, sorted("id", "html"), keysOf(object(t, array(t, view(0)["choices"])[0])))
+	assert.Equal(t, sorted("columns", "shuffle"), keysOf(view(1)))
+	columns := object(t, view(1)["columns"])
+	assert.Equal(t, sorted("left", "right"), keysOf(columns))
+	assert.Equal(t, sorted("id", "text"), keysOf(object(t, array(t, columns["left"])[0])))
+	assert.Equal(t, sorted("maxLength"), keysOf(view(2)))
+	assert.EqualValues(t, 300, view(2)["maxLength"])
+	assert.Empty(t, view(3), "a true or false question has only the statement")
+	sample := array(t, body["sample"])
+	require.Len(t, sample, 1)
+	assert.Contains(t, object(t, sample[0]), "studentView", "the sample is shown to the student the same way")
+}
+
 // Covers SPEC-075 CA-04, CA-22 (section 5.2): the preview carries the questions with the answer key, and for a draw the rules, the stock and the
 // sample; the questions to pick from take the module and the filters, and the module is required.
 func TestHandler_PreviewAndEligibleQuestions(t *testing.T) {
