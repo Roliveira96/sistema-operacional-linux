@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-084 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 22/10/2026 |
 | **Última revisão** | 22/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -156,14 +156,15 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-O Tech Lead já decidiu três pontos ao pedir esta spec, e eles estão incorporados ao texto: as **abas** *Aluno* e *Professor* no lugar das colunas lado a lado, **sem conferir** a questão prática e o **terminal único** para a prova toda. Restam as escolhas abaixo, cada uma com uma recomendação. **Uma spec só pode ser aprovada com esta tabela vazia.**
+Nenhuma. O Tech Lead decidiu em 22/10/2026, ao aprovar a spec, todas as pendências que ela tinha, com as recomendações como estavam, e antes dela, ao pedi-la, as escolhas da primeira linha. As decisões estão incorporadas às seções 2, 3, 6, 7 e 8; esta tabela só as registra.
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| D-01 | **A máquina do terminal.** O Tech Lead escolheu "uma máquina para a prova toda", com o *Reset* voltando ao início da prova. Ao escrever, vi que cada questão de comando Linux tem o próprio cenário de partida (222 das 305 questões práticas do banco têm um), e que cenários diferentes não se juntam numa só máquina. | Uma só **janela** de terminal para a prova toda, como o Tech Lead pediu, mas a **máquina** dentro dela é a do cenário da questão aberta: carregada na primeira visita, guardada ao sair e devolvida ao voltar. O *Reset Máquina* devolve ao início a máquina da questão aberta. Para o aluno é um terminal só; só o que está dentro dele acompanha a questão. |
-| D-02 | **A largura da tela da prova.** Duas colunas só cabem numa tela larga. | Lado a lado a partir de 64 rem, uma sobre a outra entre 48 e 64 rem, e o aviso de tela maior abaixo de 48 rem (SPEC-081 D-02); e a página do simulador deixa de usar a coluna estreita e usa a largura toda. |
-| D-03 | **O terminal nas questões teóricas.** Escondê-lo, ou deixá-lo à vista e bloqueado. | À vista e bloqueado, com o aviso "Esta questão não usa o terminal.", como o glossário define a questão teórica (terminal bloqueado) e para a tela não mudar de forma a cada questão; só some quando a prova inteira não tem questão prática. |
-| D-04 | **O que da tela de estudo entra na prova.** | Só o terminal e o *Reset Máquina*. Ficam de fora *Cola*, *Som*, o player, salvar e abrir máquina e o painel de processos: ajudam a estudar, e na prova ajudariam a resolver. |
+| ID | Decisão |
+| :--- | :--- |
+| Escolhas do pedido | **Abas, sem conferir, terminal único.** As abas *Aluno* e *Professor* no lugar das colunas lado a lado; a questão prática não é conferida (sem trava, sem nota, sem validação); e uma só janela de terminal acompanha o aluno pela prova toda. |
+| D-01 | **A máquina do terminal.** Uma só janela de terminal para a prova toda; a máquina dentro dela é a do cenário da questão aberta: carregada na primeira visita, guardada ao sair e devolvida ao voltar; o *Reset Máquina* devolve ao início a máquina da questão aberta. |
+| D-02 | **A largura da tela da prova.** Lado a lado a partir de 64 rem, uma sobre a outra entre 48 e 64 rem, o aviso de tela maior abaixo de 48 rem, e a página do simulador usa a largura toda. |
+| D-03 | **O terminal nas questões teóricas.** À vista e bloqueado, com o aviso "Esta questão não usa o terminal."; só some quando a prova inteira não tem questão prática. |
+| D-04 | **O que da tela de estudo entra na prova.** Só o terminal e o *Reset Máquina*; ficam de fora *Cola*, *Som*, o player, salvar e abrir máquina e o painel de processos. |
 
 ---
 
@@ -172,3 +173,5 @@ O Tech Lead já decidiu três pontos ao pedir esta spec, e eles estão incorpora
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 22/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 22/10/2026 de que a tela do aluno no simulador tenha a questão de um lado e o terminal do outro, com o botão *Reset Máquina*; conferida contra a tela de estudo do módulo (`/materials/[id]`), o simulado da `main` (`TelaSimulado.ts`), a SPEC-081 e o banco de questões. Respostas do Tech Lead antes da escrita: abas *Aluno* e *Professor*, sem conferir a questão prática, uma máquina para a prova toda. Quatro pendências abertas (D-01 a D-04), todas com recomendação; a D-01 ajusta a escolha da máquina ao fato de cada questão ter o próprio cenário |
+| 22/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das quatro pendências aceitas como estavam na spec: D-01 a D-04, inclusive a D-01, que ajusta a máquina única ao cenário de cada questão. Status: `Aprovada` |
+| 22/10/2026 | Aruna Architect | Seção 10 esvaziada: as quatro pendências viraram decisões D-01 a D-04, incorporadas ao texto |
