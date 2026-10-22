@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { SERVER_NOW, STARTED, summary } from "@/test/assessmentFixtures";
 import {
   countdown,
   equalWeights,
   formatPeriod,
   formatScore,
   fromLocalInput,
+  needsClearanceWarning,
+  needsStartWarning,
   sumWeights,
   toLocalInput,
 } from "./assessment";
@@ -78,5 +81,38 @@ describe("countdown", () => {
 
   it("stops at zero", () => {
     expect(countdown(-5000)).toBe("00:00:00");
+  });
+});
+
+// SPEC-083 CA-12, D-06, D-07: the list tells the teacher to start the exam when it can start, and warns about the students who wait only after it started.
+describe("warnings of the list", () => {
+  const ready = () => summary({ phase: "RUNNING", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00" });
+  const started = (over = {}) => summary({ ...STARTED, clearanceCounts: { pending: 3, approved: 29, rejected: 0 }, ...over });
+
+  it("says the exam can be started when it is in person, scheduled and running, and nobody started it", () => {
+    expect(needsStartWarning(ready())).toBe(true);
+    expect(needsStartWarning(summary({ ...ready(), requiresClearance: false }))).toBe(true);
+  });
+
+  it("does not say it before the start time, after the end, once started, online or canceled", () => {
+    expect(needsStartWarning(summary())).toBe(false);
+    expect(needsStartWarning(summary({ ...ready(), phase: "ENDED" }))).toBe(false);
+    expect(needsStartWarning(started())).toBe(false);
+    expect(needsStartWarning(summary({ ...ready(), modality: "ONLINE", requiresClearance: false }))).toBe(false);
+    expect(needsStartWarning(summary({ ...ready(), status: "CANCELED" }))).toBe(false);
+  });
+
+  it("warns about who waits only after the start, with the exam still running", () => {
+    expect(needsClearanceWarning(started(), SERVER_NOW)).toBe(true);
+    expect(needsClearanceWarning(started({ clearanceCounts: { pending: 0, approved: 32, rejected: 0 } }), SERVER_NOW)).toBe(false);
+    expect(needsClearanceWarning(started({ phase: "ENDED" }), SERVER_NOW)).toBe(false);
+    expect(needsClearanceWarning(started({ requiresClearance: false }), SERVER_NOW)).toBe(false);
+    expect(needsClearanceWarning(started({ status: "CANCELED" }), SERVER_NOW)).toBe(false);
+  });
+
+  it("no longer warns before the start, not even 30 minutes before the start time or while the exam runs without being started", () => {
+    const waiting = { clearanceCounts: { pending: 3, approved: 29, rejected: 0 } };
+    expect(needsClearanceWarning(summary({ ...waiting, startsAt: "2026-10-21T10:30:00-03:00", endsAt: "2026-10-21T12:00:00-03:00" }), SERVER_NOW)).toBe(false);
+    expect(needsClearanceWarning(summary({ ...ready(), ...waiting }), SERVER_NOW)).toBe(false);
   });
 });

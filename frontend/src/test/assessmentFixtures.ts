@@ -169,3 +169,13 @@ export const drawSimulation = (over: Partial<PreviewData> = {}): PreviewData => 
   ],
   ...over,
 });
+
+/** What an in-person exam has once the teacher started it, at 09:07 of the day it runs, with SERVER_NOW inside the period (SPEC-083). */
+export const STARTED = {
+  phase: "RUNNING",
+  startsAt: "2026-10-21T09:00:00-03:00",
+  endsAt: "2026-10-21T11:00:00-03:00",
+  startedAt: "2026-10-21T09:07:00-03:00",
+  startedBy: "u-1",
+  startedByName: "Profa. Sediane",
+} as const;

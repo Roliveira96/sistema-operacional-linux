@@ -143,3 +143,19 @@ describe("assessmentService: clearances (SPEC-076)", () => {
     expect(describeAssessmentError(problem("clearance-locked", 409))).toBe("O aluno já começou a prova: a habilitação dele não pode mais mudar.");
   });
 });
+
+// SPEC-083 section 5: the start of an in-person exam has its own route, with no body, and the new reasons are explained.
+describe("assessmentService: start of the exam (SPEC-083)", () => {
+  it("starts the exam on its own route", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    await svc.start("c-1", "a-1");
+    expect(c.post).toHaveBeenCalledWith("/classes/c-1/assessments/a-1/start");
+  });
+
+  it("explains the errors of the start and of the clearance before it", () => {
+    expect(describeAssessmentError(problem("assessment-already-started", 409))).toBe("A prova já foi iniciada.");
+    expect(describeAssessmentError(problem("assessment-not-open-yet", 409))).toBe("Ainda não chegou o horário de início da prova.");
+    expect(describeAssessmentError(problem("assessment-not-started", 409))).toBe("A prova ainda não foi iniciada. A habilitação começa quando você a inicia.");
+  });
+});

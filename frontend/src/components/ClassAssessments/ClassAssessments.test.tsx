@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
 import { assessmentService } from "@/services/assessmentService";
 import { problem } from "@/test/helpers";
-import { SERVER_NOW, publicOf, summary } from "@/test/assessmentFixtures";
+import { SERVER_NOW, STARTED, publicOf, summary } from "@/test/assessmentFixtures";
 import { ClassAssessments } from "./ClassAssessments";
 
 const pushMock = vi.hoisted(() => vi.fn());
@@ -167,8 +167,7 @@ describe("assessments of the class: clearances (SPEC-076)", () => {
     summary({
       id: "a-1",
       title: "Prova 1: permissões",
-      startsAt: "2026-10-21T10:30:00-03:00",
-      endsAt: "2026-10-21T12:00:00-03:00",
+      ...STARTED,
       clearanceCounts: { pending: 3, approved: 29, rejected: 0 },
     });
 
@@ -203,5 +202,42 @@ describe("assessments of the class: clearances (SPEC-076)", () => {
     fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Habilitar todos" }));
     expect((await screen.findByRole("alert")).textContent).toBe("A avaliação já terminou.");
     expect(screen.getByRole("status").textContent).toContain("3 alunos ainda não foram habilitados");
+  });
+});
+
+// SPEC-083 CA-09, CA-12, D-06: the exam is started from the warning of the list, with the same dialog as the page, and the list is read again.
+describe("assessments of the class: start of the exam (SPEC-083)", () => {
+  const ready = () =>
+    summary({ id: "a-1", title: "Prova 1: permissões", phase: "RUNNING", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00" });
+
+  it("starts the exam from the warning, after the confirmation, and shows the warning of who waits once it is started", async () => {
+    asRole("TEACHER");
+    const list = vi
+      .spyOn(assessmentService, "list")
+      .mockResolvedValueOnce({ items: [ready()], serverNow: SERVER_NOW })
+      .mockResolvedValue({ items: [summary({ id: "a-1", title: "Prova 1: permissões", ...STARTED, clearanceCounts: { pending: 3, approved: 29, rejected: 0 } })], serverNow: SERVER_NOW });
+    const start = vi.spyOn(assessmentService, "start").mockResolvedValue({ ...summary({ ...STARTED }), serverNow: SERVER_NOW });
+    render(<ClassAssessments classId="c-1" />);
+    await screen.findByRole("table");
+    const warning = screen.getByRole("status");
+    expect(warning.textContent).toContain("a prova já pode ser iniciada");
+    fireEvent.click(within(warning).getByRole("button", { name: "Iniciar a prova" }));
+    const dialog = screen.getByRole("dialog", { name: "Iniciar a prova agora?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Iniciar a prova" }));
+    await waitFor(() => expect(start).toHaveBeenCalledWith("c-1", "a-1"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(list).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("3 alunos ainda não foram habilitados"));
+  });
+
+  it("keeps the dialog and says why when the server refuses", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "list").mockResolvedValue({ items: [ready()], serverNow: SERVER_NOW });
+    vi.spyOn(assessmentService, "start").mockRejectedValue(problem("assessment-ended", 409));
+    render(<ClassAssessments classId="c-1" />);
+    await screen.findByRole("table");
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Iniciar a prova" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Iniciar a prova" }));
+    expect((await within(screen.getByRole("dialog")).findByRole("alert")).textContent).toBe("A avaliação já terminou.");
   });
 });
