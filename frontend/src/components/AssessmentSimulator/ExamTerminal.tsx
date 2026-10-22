@@ -39,6 +39,8 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: 
   const open = useRef<string | null>(questionId);
   const read = useRef(loadScenario);
   const tell = useRef({ onCommand, onFormat });
+  /** True while the exam itself puts a machine in the window: the engine tells about it as about a command, and it is not one (SPEC-085 CA-05). */
+  const quiet = useRef(false);
   const [failed, setFailed] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [confirming, setConfirming] = useState(false);
@@ -62,7 +64,7 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: 
       onCommand: (snapshot) => {
         if (!open.current) return;
         machines.current.set(open.current, snapshot);
-        tell.current.onCommand?.(open.current, snapshot);
+        if (!quiet.current) tell.current.onCommand?.(open.current, snapshot);
       },
     }).then(
       (mounted) => {
@@ -86,13 +88,23 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: 
     };
   }, []);
 
+  /** Puts a machine in the window without it counting as a command. */
+  const put = (machine: TerminalWindow, snapshot: unknown) => {
+    quiet.current = true;
+    try {
+      machine.reset(snapshot);
+    } finally {
+      quiet.current = false;
+    }
+  };
+
   // The machine follows the question that is open.
   useEffect(() => {
     open.current = questionId;
     const machine = terminal.current;
     if (state !== "ready" || !machine || !questionId) return;
     if (machines.current.has(questionId)) {
-      machine.reset(machines.current.get(questionId));
+      put(machine, machines.current.get(questionId));
       return;
     }
     let alive = true;
@@ -103,7 +115,7 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: 
         scenarios.current.set(questionId, start);
         machines.current.set(questionId, start);
         setFailed(null);
-        machine.reset(start);
+        put(machine, start);
       },
       () => alive && setFailed(questionId),
     );
@@ -119,9 +131,15 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: 
     const machine = terminal.current;
     if (!id || !machine) return;
     const start = scenarios.current.get(id) ?? null;
-    await machine.resetAnimated(start);
-    machines.current.set(id, start);
+    // the machine is wiped as the format begins: the question is no longer solved from then on, and what the engine says while it formats is not a command
     tell.current.onFormat?.(id);
+    quiet.current = true;
+    try {
+      await machine.resetAnimated(start);
+    } finally {
+      quiet.current = false;
+    }
+    machines.current.set(id, start);
   };
 
   return (
