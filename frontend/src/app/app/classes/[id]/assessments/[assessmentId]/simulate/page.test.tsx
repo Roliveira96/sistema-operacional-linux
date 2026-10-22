@@ -5,7 +5,6 @@ import { assessmentService } from "@/services/assessmentService";
 import { problem } from "@/test/helpers";
 import { detail, simulation } from "@/test/assessmentFixtures";
 import { terminalMount } from "@/test/fakeTerminal";
-import { practiceService } from "@/services/practiceService";
 import SimulatePage from "./page";
 
 const mount = vi.hoisted(() => vi.fn());
@@ -57,17 +56,18 @@ describe("simulator page", () => {
     expect(await screen.findByRole("tabpanel", { name: "Visão do aluno" })).toBeDefined();
   });
 
-  // SPEC-084 CA-03, CA-11: the page gives the simulator the way to read the scenario of a question, and that is the only reading it adds.
-  it("reads the scenario of the practical question through the practice service when the question opens", async () => {
+  // SPEC-084 CA-03, CA-11, CA-14: the page gives the simulator the way to read the scenario of a question, through the route of the assessment, and
+  // that is the only reading it adds.
+  it("reads the scenario of the practical question through the route of the assessment when the question opens", async () => {
     asRole("TEACHER");
     vi.spyOn(assessmentService, "get").mockResolvedValue(detail());
     vi.spyOn(assessmentService, "preview").mockResolvedValue(simulation());
-    const scenario = vi.spyOn(practiceService, "scenario").mockResolvedValue({ machine: "x" });
+    const scenario = vi.spyOn(assessmentService, "questionScenario").mockResolvedValue({ machine: "x" });
     render(<SimulatePage params={params} />);
     const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
     fireEvent.click(within(student).getByRole("button", { name: "Começar" }));
     fireEvent.click(within(student).getByRole("button", { name: /^Questão 5,/ }));
-    await waitFor(() => expect(scenario).toHaveBeenCalledWith("q-prac"));
+    await waitFor(() => expect(scenario).toHaveBeenCalledWith("c-1", "a-1", "q-prac"));
   });
 
   // CA-01: the student has no simulator; the address takes them back to the assessment, and nothing is read.

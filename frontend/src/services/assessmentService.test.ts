@@ -159,3 +159,21 @@ describe("assessmentService: start of the exam (SPEC-083)", () => {
     expect(describeAssessmentError(problem("assessment-not-started", 409))).toBe("A prova ainda não foi iniciada. A habilitação começa quando você a inicia.");
   });
 });
+
+// SPEC-084 CA-14 (section 5): the machine a question of the assessment starts from has its own route, and a question without one gives none.
+describe("assessmentService: scenario of a question (SPEC-084)", () => {
+  it("reads the scenario of a question of the assessment and gives its machine", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    vi.mocked(c.get).mockResolvedValueOnce({ questionId: "q-1", snapshot: { files: { "/a": "x" } } });
+    await expect(svc.questionScenario("c-1", "a-1", "q-1")).resolves.toEqual({ files: { "/a": "x" } });
+    expect(c.get).toHaveBeenCalledWith("/classes/c-1/assessments/a-1/questions/q-1/scenario");
+  });
+
+  it("gives null when the question has no scenario of its own, so the default machine applies", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    vi.mocked(c.get).mockResolvedValueOnce({ questionId: "q-1" });
+    await expect(svc.questionScenario("c-1", "a-1", "q-1")).resolves.toBeNull();
+  });
+});
