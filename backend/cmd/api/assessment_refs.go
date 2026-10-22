@@ -166,7 +166,7 @@ func refOf(q contentdomain.Question) assessmentservice.Question {
 // contentOf is the question for the teacher: the statement, the explanation and an answer key, which is the one the kind reveals or, for a
 // practical question, the reference solution (SPEC-075 RN-16).
 func contentOf(q contentdomain.Question) assessmentservice.QuestionContent {
-	c := assessmentservice.QuestionContent{Question: refOf(q), Statement: q.Statement}
+	c := assessmentservice.QuestionContent{Question: refOf(q), Statement: q.Statement, StudentView: studentViewOf(q)}
 	if q.Explanation != nil {
 		c.Explanation = *q.Explanation
 	}
@@ -180,6 +180,39 @@ func contentOf(q contentdomain.Question) assessmentservice.QuestionContent {
 		c.AnswerKey = string(json.RawMessage(q.ReferenceSolution))
 	}
 	return c
+}
+
+// studentViewOf is what the student receives of a question, by kind, never the answer: the alternatives of a single choice, the columns of a
+// matching without the pairs, the size of a descriptive answer (SPEC-081 RN-01, RN-02). The other kinds have only the statement.
+func studentViewOf(q contentdomain.Question) assessmentservice.StudentView {
+	var view assessmentservice.StudentView
+	shuffle := q.ShuffleChoices
+	switch q.Kind {
+	case contentdomain.KindTheoreticalSingle:
+		var choices []contentdomain.Choice
+		_ = json.Unmarshal(q.Choices, &choices)
+		for _, c := range choices {
+			view.Choices = append(view.Choices, assessmentservice.StudentChoice{ID: c.ID, HTML: c.HTML})
+		}
+		view.Shuffle = &shuffle
+	case contentdomain.KindTheoreticalMatching:
+		if cols, ok := contentdomain.ReadColumns(q.Choices); ok {
+			view.Columns = &assessmentservice.StudentColumns{Left: studentItems(cols.Left), Right: studentItems(cols.Right)}
+		}
+		view.Shuffle = &shuffle
+	case contentdomain.KindDiscursive:
+		_, size := contentdomain.ReadDiscursiveKey(q.AnswerKey)
+		view.MaxLength = &size
+	}
+	return view
+}
+
+func studentItems(items []contentdomain.MatchItem) []assessmentservice.StudentItem {
+	out := make([]assessmentservice.StudentItem, len(items))
+	for i, it := range items {
+		out[i] = assessmentservice.StudentItem{ID: it.ID, Text: it.Text}
+	}
+	return out
 }
 
 func (q assessmentQuestions) Eligible(ctx context.Context, moduleID uuid.UUID, ids []uuid.UUID) ([]assessmentservice.Question, error) {

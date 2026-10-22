@@ -77,7 +77,27 @@ type Question struct {
 type QuestionContent struct {
 	Question
 	Statement, AnswerKey, Explanation string
+	StudentView                       StudentView
 }
+
+// StudentView is what the student receives of a question, without the answer key (SPEC-081 RN-01, RN-02). Only the fields of the kind of the
+// question are filled: the alternatives of a single choice, the columns of a matching, the size of a descriptive answer and, for the first two,
+// whether they are shuffled. A true or false and a practical question have only the statement.
+type StudentView struct {
+	Choices   []StudentChoice
+	Columns   *StudentColumns
+	Shuffle   *bool
+	MaxLength *int
+}
+
+// StudentChoice is an alternative of a single choice question: its id and its filtered html.
+type StudentChoice struct{ ID, HTML string }
+
+// StudentItem is an item of a column of a matching question: its id and its text.
+type StudentItem struct{ ID, Text string }
+
+// StudentColumns are the two columns of a matching question, each in the order of the teacher.
+type StudentColumns struct{ Left, Right []StudentItem }
 
 // QuestionFilter picks questions of a module.
 type QuestionFilter struct {

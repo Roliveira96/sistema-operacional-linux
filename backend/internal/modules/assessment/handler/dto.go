@@ -166,10 +166,56 @@ type contentJSON struct {
 	Statement   string            `json:"statement"`
 	AnswerKey   string            `json:"answerKey"`
 	Explanation string            `json:"explanation"`
+	StudentView studentViewJSON   `json:"studentView"`
+}
+
+// studentViewJSON is what the student receives of the question, with only the fields of its kind (SPEC-081 section 5).
+type studentViewJSON struct {
+	Choices   []studentChoiceJSON `json:"choices,omitempty"`
+	Columns   *studentColumnsJSON `json:"columns,omitempty"`
+	Shuffle   *bool               `json:"shuffle,omitempty"`
+	MaxLength *int                `json:"maxLength,omitempty"`
+}
+
+type studentChoiceJSON struct {
+	ID   string `json:"id"`
+	HTML string `json:"html"`
+}
+
+type studentItemJSON struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+type studentColumnsJSON struct {
+	Left  []studentItemJSON `json:"left"`
+	Right []studentItemJSON `json:"right"`
+}
+
+func toStudentItems(items []service.StudentItem) []studentItemJSON {
+	out := make([]studentItemJSON, len(items))
+	for i, it := range items {
+		out[i] = studentItemJSON{ID: it.ID, Text: it.Text}
+	}
+	return out
+}
+
+func toStudentView(v service.StudentView) studentViewJSON {
+	out := studentViewJSON{Shuffle: v.Shuffle, MaxLength: v.MaxLength}
+	for _, c := range v.Choices {
+		out.Choices = append(out.Choices, studentChoiceJSON{ID: c.ID, HTML: c.HTML})
+	}
+	if v.Columns != nil {
+		out.Columns = &studentColumnsJSON{Left: toStudentItems(v.Columns.Left), Right: toStudentItems(v.Columns.Right)}
+	}
+	return out
 }
 
 func toContent(c service.QuestionContent) contentJSON {
-	return contentJSON{QuestionID: c.ID, Title: c.Title, Kind: c.Kind, Difficulty: c.Difficulty, Statement: c.Statement, AnswerKey: c.AnswerKey, Explanation: c.Explanation}
+	return contentJSON{
+		QuestionID: c.ID, Title: c.Title, Kind: c.Kind, Difficulty: c.Difficulty, Statement: c.Statement, AnswerKey: c.AnswerKey, Explanation: c.Explanation,
+		StudentView: toStudentView(c.StudentView),
+	}
 }
 
 type previewQuestionJSON struct {
