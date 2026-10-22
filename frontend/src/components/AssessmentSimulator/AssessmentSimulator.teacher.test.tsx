@@ -17,7 +17,7 @@ beforeEach(() => mount.mockImplementation(terminalMount().mount));
 
 /** The simulator opens on the tab of the student; the teacher reads the other one, which is kept as it was while the student view is used. */
 async function open(data: PreviewData = simulation(), over: Partial<AssessmentDetail> = {}, load = vi.fn(() => Promise.resolve(data))) {
-  render(<AssessmentSimulator detail={detail(over)} load={load} loadScenario={() => Promise.resolve(null)} backHref="/x" />);
+  render(<AssessmentSimulator detail={detail(over)} load={load} loadScenario={() => Promise.resolve(null)} checkQuestion={() => Promise.resolve(false)} backHref="/x" />);
   await screen.findByRole("tabpanel", { name: "Visão do aluno" });
   const showStudent = () => {
     fireEvent.click(screen.getByRole("tab", { name: "Aluno" }));
@@ -64,7 +64,8 @@ describe("AssessmentSimulator, view of the teacher", () => {
   it("says the question is not answered until the student view answers it, and then shows the simulated answer of each kind next to the key", async () => {
     const { showStudent, showTeacher } = await open();
     const teacherAtFirst = showTeacher();
-    expect(within(teacherAtFirst).getAllByText("Não respondida")).toHaveLength(5);
+    expect(within(teacherAtFirst).getAllByText("Não respondida")).toHaveLength(4);
+    expect(within(teacherAtFirst).getAllByText("Não resolvida")).toHaveLength(1);
     expect(within(teacherAtFirst).getAllByText("Resposta simulada")).toHaveLength(5);
 
     let student = showStudent();
@@ -83,7 +84,8 @@ describe("AssessmentSimulator, view of the teacher", () => {
     expect(within(within(questionOf(teacher, 2)).getByTestId("simulated")).getByText("quem criou")).toBeDefined();
     expect(within(questionOf(teacher, 3)).getByText("cd → muda")).toBeDefined();
     expect(within(within(questionOf(teacher, 4)).getByTestId("simulated")).getByText("muda a permissão")).toBeDefined();
-    expect(within(teacher).getAllByText("Não respondida")).toHaveLength(1);
+    expect(within(teacher).queryAllByText("Não respondida")).toHaveLength(0);
+    expect(within(teacher).getAllByText("Não resolvida")).toHaveLength(1);
     student = showStudent();
     expect(within(student).getByRole("heading", { name: "Questão 4 de 5" })).toBeDefined();
   });

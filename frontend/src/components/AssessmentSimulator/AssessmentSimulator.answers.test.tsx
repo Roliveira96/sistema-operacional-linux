@@ -18,7 +18,7 @@ vi.mock("@/components/RichTextEditor/RichTextEditor", () => ({
 beforeEach(() => mount.mockImplementation(terminalMount().mount));
 
 async function start(data: PreviewData = simulation()) {
-  render(<AssessmentSimulator detail={detail()} load={() => Promise.resolve(data)} loadScenario={() => Promise.resolve(null)} backHref="/x" />);
+  render(<AssessmentSimulator detail={detail()} load={() => Promise.resolve(data)} loadScenario={() => Promise.resolve(null)} checkQuestion={() => Promise.resolve(false)} backHref="/x" />);
   const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
   fireEvent.click(within(student).getByRole("button", { name: "Começar" }));
   return student;

@@ -26,7 +26,7 @@ const loadScenario = vi.fn((id: string) => Promise.resolve(scenarioOf(id)));
 /** The exam of the fixture has, in order: true or false, single choice, matching, descriptive and a practical one (question 5). */
 async function start(data: PreviewData = simulation(), over = {}) {
   loadScenario.mockClear();
-  render(<AssessmentSimulator detail={detail({ durationMinutes: 60, ...over })} load={() => Promise.resolve(data)} loadScenario={loadScenario} backHref="/x" />);
+  render(<AssessmentSimulator detail={detail({ durationMinutes: 60, ...over })} load={() => Promise.resolve(data)} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} backHref="/x" />);
   const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
   fireEvent.click(within(student).getByRole("button", { name: "Começar" }));
   return student;
@@ -38,7 +38,7 @@ const reset = () => screen.getByRole("button", { name: /Reset Máquina/ }) as HT
 describe("AssessmentSimulator, the terminal of the exam", () => {
   it("opens the terminal when the exam starts, beside the question, locked while the question is a theoretical one", async () => {
     const data = simulation();
-    render(<AssessmentSimulator detail={detail()} load={() => Promise.resolve(data)} loadScenario={loadScenario} backHref="/x" />);
+    render(<AssessmentSimulator detail={detail()} load={() => Promise.resolve(data)} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} backHref="/x" />);
     const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
     expect(mount).not.toHaveBeenCalled();
     fireEvent.click(within(student).getByRole("button", { name: "Começar" }));
@@ -87,7 +87,7 @@ describe("AssessmentSimulator, the terminal of the exam", () => {
 
   it("keeps the exam as it is when the teacher looks at the other tab: the same terminal, the answers, and the time that goes on", async () => {
     const data = simulation();
-    render(<AssessmentSimulator detail={detail({ durationMinutes: 60 })} load={() => Promise.resolve(data)} loadScenario={loadScenario} backHref="/x" />);
+    render(<AssessmentSimulator detail={detail({ durationMinutes: 60 })} load={() => Promise.resolve(data)} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} backHref="/x" />);
     const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
     fireEvent.click(within(student).getByRole("button", { name: "Começar" }));

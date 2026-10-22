@@ -15,7 +15,7 @@ beforeEach(() => mount.mockImplementation(terminalMount().mount));
 
 async function open(over: Partial<AssessmentDetail> = {}, data: PreviewData = simulation()) {
   const load = vi.fn(() => Promise.resolve(data));
-  render(<AssessmentSimulator detail={detail({ durationMinutes: 60, description: "<p>Leia com atenção.</p>", ...over })} load={load} loadScenario={loadScenario} backHref={BACK} />);
+  render(<AssessmentSimulator detail={detail({ durationMinutes: 60, description: "<p>Leia com atenção.</p>", ...over })} load={load} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} backHref={BACK} />);
   const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
   return { student, load };
 }
@@ -50,7 +50,7 @@ describe("AssessmentSimulator", () => {
     it("below 48 rem shows only the notice and the way back, with no view and no reading of the preview", () => {
       window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as typeof window.matchMedia;
       const load = vi.fn(() => Promise.resolve(simulation()));
-      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} backHref={BACK} />);
+      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} backHref={BACK} />);
       expect(screen.getByText("O simulador, como a prova, precisa de uma tela maior. Abra no computador ou no tablet.")).toBeDefined();
       expect(screen.getByRole("link", { name: "Voltar à avaliação" }).getAttribute("href")).toBe(BACK);
       expect(screen.queryByRole("tabpanel", { name: "Visão do aluno" })).toBeNull();
@@ -62,7 +62,7 @@ describe("AssessmentSimulator", () => {
 
     it("says it could not load the preview and tries again", async () => {
       const load = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValue(simulation());
-      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} backHref={BACK} />);
+      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} backHref={BACK} />);
       expect((await screen.findByRole("alert")).textContent).toContain("Não foi possível carregar a pré-visualização.");
       fireEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
       expect(await screen.findByRole("tabpanel", { name: "Visão do aluno" })).toBeDefined();

@@ -134,3 +134,40 @@ describe("ExamTerminal", () => {
     expect(terminal.windows[0]!.destroy).toHaveBeenCalledTimes(1);
   });
 });
+
+// SPEC-085 CA-05, CA-08: the terminal tells the exam which question each command was typed in, with the machine, and which question had its machine
+// formatted.
+describe("ExamTerminal, what it tells the exam", () => {
+  it("gives each command with the question it was typed in and the machine it left", async () => {
+    const onCommand = vi.fn();
+    const { again } = open({ onCommand });
+    await ready();
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledTimes(1));
+    terminal.callbacks[0]!.onCommand({ typed: "ls" });
+    expect(onCommand).toHaveBeenLastCalledWith("q-1", { typed: "ls" });
+
+    again({ questionId: "q-2", onCommand });
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledTimes(2));
+    terminal.callbacks[0]!.onCommand({ typed: "pwd" });
+    expect(onCommand).toHaveBeenLastCalledWith("q-2", { typed: "pwd" });
+  });
+
+  it("tells that the machine of the question was formatted once it was", async () => {
+    const onFormat = vi.fn();
+    open({ onFormat });
+    await ready();
+    fireEvent.click(resetButton());
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Formatar a máquina" }));
+    await waitFor(() => expect(onFormat).toHaveBeenCalledWith("q-1"));
+    expect(terminal.windows[0]!.resetAnimated).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not tell anything when the confirmation is refused", async () => {
+    const onFormat = vi.fn();
+    open({ onFormat });
+    await ready();
+    fireEvent.click(resetButton());
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Voltar" }));
+    expect(onFormat).not.toHaveBeenCalled();
+  });
+});

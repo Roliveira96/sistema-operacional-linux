@@ -177,3 +177,16 @@ describe("assessmentService: scenario of a question (SPEC-084)", () => {
     await expect(svc.questionScenario("c-1", "a-1", "q-1")).resolves.toBeNull();
   });
 });
+
+// SPEC-085 section 5: the check of the machine of a question has its own route, takes the state and gives only whether it passed.
+describe("assessmentService: check of a question (SPEC-085)", () => {
+  it("sends the state of the machine and gives whether the question was met", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    vi.mocked(c.post).mockResolvedValueOnce({ passed: true });
+    await expect(svc.checkQuestion("c-1", "a-1", "q-1", { formato: "exame-so/maquina" })).resolves.toBe(true);
+    expect(c.post).toHaveBeenCalledWith("/classes/c-1/assessments/a-1/questions/q-1/check", { snapshot: { formato: "exame-so/maquina" } });
+    vi.mocked(c.post).mockResolvedValueOnce({ passed: false });
+    await expect(svc.checkQuestion("c-1", "a-1", "q-1", {})).resolves.toBe(false);
+  });
+});

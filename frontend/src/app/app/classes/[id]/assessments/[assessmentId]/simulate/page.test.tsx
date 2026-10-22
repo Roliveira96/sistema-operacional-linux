@@ -70,6 +70,25 @@ describe("simulator page", () => {
     await waitFor(() => expect(scenario).toHaveBeenCalledWith("c-1", "a-1", "q-prac"));
   });
 
+  // SPEC-085 CA-01, CA-05: the page gives the simulator the way to check a question through the route of the assessment, with the machine the terminal left.
+  it("checks the practical question through the route of the assessment after a command, and marks it solved when the server says it passed", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail());
+    vi.spyOn(assessmentService, "preview").mockResolvedValue(simulation());
+    vi.spyOn(assessmentService, "questionScenario").mockResolvedValue(null);
+    const checkQuestion = vi.spyOn(assessmentService, "checkQuestion").mockResolvedValue(true);
+    const fake = terminalMount();
+    mount.mockImplementation(fake.mount);
+    render(<SimulatePage params={params} />);
+    const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
+    fireEvent.click(within(student).getByRole("button", { name: "Começar" }));
+    fireEvent.click(within(student).getByRole("button", { name: /^Questão 5,/ }));
+    await waitFor(() => expect(fake.callbacks).toHaveLength(1));
+    fake.callbacks[0]!.onCommand({ formato: "exame-so/maquina" });
+    await waitFor(() => expect(checkQuestion).toHaveBeenCalledWith("c-1", "a-1", "q-prac", { formato: "exame-so/maquina" }), { timeout: 3000 });
+    expect(await within(student).findByRole("button", { name: "Questão 5, resolvida" })).toBeDefined();
+  });
+
   // CA-01: the student has no simulator; the address takes them back to the assessment, and nothing is read.
   it("sends the student back to the assessment without reading anything", async () => {
     asRole("STUDENT");
