@@ -720,7 +720,7 @@ func TestHandler_PreviewAndEligibleQuestions(t *testing.T) {
 	require.Equal(t, http.StatusOK, status)
 	questions := array(t, body["questions"])
 	require.Len(t, questions, 1)
-	assert.Equal(t, sorted("position", "weight", "questionId", "title", "kind", "difficulty", "statement", "answerKey", "explanation"),
+	assert.Equal(t, sorted("position", "weight", "questionId", "title", "kind", "difficulty", "statement", "answerKey", "explanation", "studentView"),
 		keysOf(object(t, questions[0])))
 	assert.Equal(t, "mkdir /a", object(t, questions[0])["answerKey"])
 	assert.Contains(t, body, "rules")
