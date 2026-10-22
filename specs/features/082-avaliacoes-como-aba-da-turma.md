@@ -95,14 +95,14 @@ Não se aplica nesta spec: nenhuma rota ou campo muda.
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (estado): A página da turma DEVE mostrar a aba *Avaliações* para a docente, o administrador e o estudante, depois da aba *Agenda* e, para quem vê *Estudantes*, antes dela.
-- [ ] **CA-02** (evento): QUANDO a pessoa abre a aba *Avaliações* (ou o endereço com `?tab=assessments`), A página DEVE mostrar a lista da SPEC-080 com tudo o que ela já faz para a docente e o administrador, e os cartões de hoje para o estudante.
-- [ ] **CA-03** (estado): ENQUANTO a aba *Avaliações* não está aberta, A página da turma NÃO DEVE ler as avaliações.
-- [ ] **CA-04** (ubíquo): O topo da página da turma NÃO DEVE ter o botão *Avaliações*, para ninguém; *Configurações* DEVE continuar para a docente e o administrador.
-- [ ] **CA-05** (evento): QUANDO alguém abre `/app/classes/[id]/assessments`, O endereço DEVE levar a `/app/classes/[id]?tab=assessments`.
-- [ ] **CA-06** (ubíquo): O *Voltar para as avaliações* do detalhe da avaliação e da página de nova avaliação, e o *Cancelar* do formulário de nova avaliação, DEVEM levar a `/app/classes/[id]?tab=assessments`.
-- [ ] **CA-07** (estado): ENQUANTO a janela tem menos de 48 rem, A barra de abas DEVE rolar de lado dentro dela mesma, sem rolagem lateral na página.
-- [ ] **CA-08** (ubíquo): O que a lista faz (SPEC-075 CA-23 e CA-26, SPEC-076 RN-13 e SPEC-080 CA-01 a CA-06) DEVE continuar igual dentro da aba.
+- [x] **CA-01** (estado): A página da turma DEVE mostrar a aba *Avaliações* para a docente, o administrador e o estudante, depois da aba *Agenda* e, para quem vê *Estudantes*, antes dela.
+- [x] **CA-02** (evento): QUANDO a pessoa abre a aba *Avaliações* (ou o endereço com `?tab=assessments`), A página DEVE mostrar a lista da SPEC-080 com tudo o que ela já faz para a docente e o administrador, e os cartões de hoje para o estudante.
+- [x] **CA-03** (estado): ENQUANTO a aba *Avaliações* não está aberta, A página da turma NÃO DEVE ler as avaliações.
+- [x] **CA-04** (ubíquo): O topo da página da turma NÃO DEVE ter o botão *Avaliações*, para ninguém; *Configurações* DEVE continuar para a docente e o administrador.
+- [x] **CA-05** (evento): QUANDO alguém abre `/app/classes/[id]/assessments`, O endereço DEVE levar a `/app/classes/[id]?tab=assessments`.
+- [x] **CA-06** (ubíquo): O *Voltar para as avaliações* do detalhe da avaliação e da página de nova avaliação, e o *Cancelar* do formulário de nova avaliação, DEVEM levar a `/app/classes/[id]?tab=assessments`.
+- [x] **CA-07** (estado): ENQUANTO a janela tem menos de 48 rem, A barra de abas DEVE rolar de lado dentro dela mesma, sem rolagem lateral na página.
+- [x] **CA-08** (ubíquo): O que a lista faz (SPEC-075 CA-23 e CA-26, SPEC-076 RN-13 e SPEC-080 CA-01 a CA-06) DEVE continuar igual dentro da aba.
 - [ ] **CA-09** (ubíquo): A aba DEVE ter navegação por teclado, contraste AA, alvos de 44 px e nenhuma cor fora dos tokens.
 
 ## 8. Plano de Testes (Test Plan)
@@ -157,3 +157,4 @@ Nenhuma. O Tech Lead decidiu em 22/10/2026, ao aprovar a spec, todas as pendênc
 | 22/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 22/10/2026 de mostrar as avaliações da turma como aba da página da turma e tirar o botão do topo, conferida contra a página da turma (SPEC-041), a página das avaliações e seus testes. Três pendências abertas (D-01 a D-03), todas com recomendação |
 | 22/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das três pendências aceitas como estavam na spec: D-01 a D-03. Status: `Aprovada` |
 | 22/10/2026 | Aruna Architect | Seção 10 esvaziada: as três pendências viraram decisões D-01 a D-03, incorporadas ao texto |
+| 22/10/2026 | Implementador | Implementada, menos o CA-09, por isso o status continua `Aprovada`. **Feito:** CA-01 a CA-08. O componente `ClassAssessments` (o conteúdo da antiga página), a aba na página da turma depois de *Agenda*, o botão do topo removido, `/assessments` como redirecionamento do servidor e os links de volta (detalhe, nova avaliação e o *Cancelar* do formulário) apontando para a aba; a barra de abas rola por conta própria. Commits: `test(frontend)` vermelho e `feat(frontend)`. **Medido:** os testes novos falharam antes (o componente e a aba não existiam, o redirecionamento não acontecia e os links de volta iam para a página à parte); depois, 280 arquivos e 3.286 testes passam (1 pulado que já existia; a pasta `engine` não roda por desenho), `tsc`, ESLint e Stylelint limpos. À mão, num Chrome sem janela e no tema escuro: a ordem das abas, só *Configurações* no topo, a lista na aba, o axe-core sem violação de contraste, o endereço antigo caindo na aba, o link de volta do detalhe e, a 400 px, a barra rolando (575 px de conteúdo em 368 px) sem rolagem lateral na página. **Aberto:** o CA-09, pelos alvos de 44 px: as abas e os botões medem 44 px, mas o título da avaliação (o link da lista) mede 17 px de altura, a mesma pendência do CA-08 da SPEC-080. **Testes alterados depois do vermelho:** um da SPEC-041 (`shows only the presentation of the class to an enrolled student`) passou a esperar a aba *Avaliações* do estudante, por mudança de requisito desta spec; e na nova página de avaliação o teste do *Cancelar* passou a esperar o formulário com `findByRole`, por erro do próprio teste. **Desvios:** nenhum |
