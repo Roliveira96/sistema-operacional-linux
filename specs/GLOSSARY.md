@@ -236,6 +236,16 @@ Termos da SPEC-076 (Aprovada em 20/10/2026).
 | Motivo da recusa | `rejection_reason` | Texto opcional de até 300 caracteres que o aluno recusado lê; sem ele, a interface mostra uma frase padrão | `reason` solto (é o motivo do cancelamento ou do reagendamento) | Proposto (SPEC-076) |
 | Não habilitado | `NOT_CLEARED` (resultado de `AccessOf`) | O aluno elegível, com a avaliação aberta, mas ainda aguardando ou recusado numa avaliação que exige a habilitação | `NOT_APPROVED` | Proposto (SPEC-076) |
 
+## 4.3. Simulador da prova (SPEC-081)
+
+Termos da SPEC-081 (Rascunho em 22/10/2026).
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Simulador da prova | `AssessmentSimulator` (rota `.../assessments/:assessmentId/simulate`) | Tela da docente que mostra lado a lado a visão do professor e a visão do aluno de uma avaliação, para testar a prova; nada é enviado nem gravado | `Mock`, `Demo`, `Dry run` | Proposto (SPEC-081) |
+| Visão do aluno (na simulação) | `StudentView` | O conteúdo de uma questão como o aluno o recebe, sem a resposta correta: alternativas, colunas, limite de caracteres. Vem na pré-visualização, no campo `studentView` | `Public`, `Safe` | Proposto (SPEC-081) |
+| Resposta simulada | `simulatedResponse` | O que a docente respondeu como aluno no simulador; vive só na memória da página e não é uma `QuestionSubmission` | `Submission`, `Answer` | Proposto (SPEC-081) |
+
 ## 5. Condução da prova e auditoria
 
 | Português | Código (EN) | Definição | Evitar | Status |
