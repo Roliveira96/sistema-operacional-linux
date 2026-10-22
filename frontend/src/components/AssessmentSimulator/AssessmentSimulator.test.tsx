@@ -1,15 +1,22 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { detail, simulation } from "@/test/assessmentFixtures";
+import { terminalMount } from "@/test/fakeTerminal";
 import type { AssessmentDetail, PreviewData } from "@/services/assessmentService";
 import { AssessmentSimulator } from "./AssessmentSimulator";
 
+const mount = vi.hoisted(() => vi.fn());
+vi.mock("@/engine/terminalWindow", () => ({ mountTerminalWindow: mount }));
+
 const BACK = "/app/classes/c-1/assessments/a-1";
+const loadScenario = () => Promise.resolve(null);
+
+beforeEach(() => mount.mockImplementation(terminalMount().mount));
 
 async function open(over: Partial<AssessmentDetail> = {}, data: PreviewData = simulation()) {
   const load = vi.fn(() => Promise.resolve(data));
-  render(<AssessmentSimulator detail={detail({ durationMinutes: 60, description: "<p>Leia com atenção.</p>", ...over })} load={load} backHref={BACK} />);
-  const student = await screen.findByRole("region", { name: "Visão do aluno" });
+  render(<AssessmentSimulator detail={detail({ durationMinutes: 60, description: "<p>Leia com atenção.</p>", ...over })} load={load} loadScenario={loadScenario} backHref={BACK} />);
+  const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
   return { student, load };
 }
 const begin = (student: HTMLElement) => fireEvent.click(within(student).getByRole("button", { name: "Começar" }));
@@ -25,10 +32,17 @@ afterEach(() => {
 describe("AssessmentSimulator", () => {
   // SPEC-081 CA-02, CA-03, RN-04: two views from 48 rem; below it only the notice, and the preview is not even read.
   describe("the window", () => {
-    it("shows the two views side by side with the banner that nothing is sent", async () => {
+    // SPEC-084 CA-02: two tabs, the student first; the banner and the real situation stay above them.
+    it("shows the tabs Aluno and Professor with the student first, and the banner that nothing is sent", async () => {
       await open();
-      expect(screen.getByRole("region", { name: "Visão do professor" })).toBeDefined();
-      expect(screen.getByRole("region", { name: "Visão do aluno" })).toBeDefined();
+      const tabs = screen.getAllByRole("tab");
+      expect(tabs.map((t) => t.textContent)).toEqual(["Aluno", "Professor"]);
+      expect(tabs.map((t) => t.getAttribute("aria-selected"))).toEqual(["true", "false"]);
+      expect(screen.getByRole("tabpanel", { name: "Visão do aluno" })).toBeDefined();
+      expect(screen.queryByRole("tabpanel", { name: "Visão do professor" })).toBeNull();
+      fireEvent.click(tabs[1]!);
+      expect(screen.getByRole("tabpanel", { name: "Visão do professor" })).toBeDefined();
+      expect(screen.queryByRole("tabpanel", { name: "Visão do aluno" })).toBeNull();
       expect(screen.getByRole("note").textContent).toBe("Simulação: nada é enviado nem gravado");
       expect(screen.getByText("Situação real: Agendada")).toBeDefined();
     });
@@ -36,21 +50,22 @@ describe("AssessmentSimulator", () => {
     it("below 48 rem shows only the notice and the way back, with no view and no reading of the preview", () => {
       window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as typeof window.matchMedia;
       const load = vi.fn(() => Promise.resolve(simulation()));
-      render(<AssessmentSimulator detail={detail()} load={load} backHref={BACK} />);
+      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} backHref={BACK} />);
       expect(screen.getByText("O simulador, como a prova, precisa de uma tela maior. Abra no computador ou no tablet.")).toBeDefined();
       expect(screen.getByRole("link", { name: "Voltar à avaliação" }).getAttribute("href")).toBe(BACK);
-      expect(screen.queryByRole("region", { name: "Visão do aluno" })).toBeNull();
-      expect(screen.queryByRole("region", { name: "Visão do professor" })).toBeNull();
+      expect(screen.queryByRole("tabpanel", { name: "Visão do aluno" })).toBeNull();
+      expect(screen.queryByRole("tabpanel", { name: "Visão do professor" })).toBeNull();
       expect(load).not.toHaveBeenCalled();
+      expect(mount).not.toHaveBeenCalled();
       expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 48rem)");
     });
 
     it("says it could not load the preview and tries again", async () => {
       const load = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValue(simulation());
-      render(<AssessmentSimulator detail={detail()} load={load} backHref={BACK} />);
+      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} backHref={BACK} />);
       expect((await screen.findByRole("alert")).textContent).toContain("Não foi possível carregar a pré-visualização.");
       fireEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
-      expect(await screen.findByRole("region", { name: "Visão do aluno" })).toBeDefined();
+      expect(await screen.findByRole("tabpanel", { name: "Visão do aluno" })).toBeDefined();
     });
   });
 

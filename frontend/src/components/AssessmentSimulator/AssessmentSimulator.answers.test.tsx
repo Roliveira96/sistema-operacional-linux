@@ -1,8 +1,12 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { detail, simulation } from "@/test/assessmentFixtures";
+import { terminalMount } from "@/test/fakeTerminal";
 import type { PreviewData } from "@/services/assessmentService";
 import { AssessmentSimulator } from "./AssessmentSimulator";
+
+const mount = vi.hoisted(() => vi.fn());
+vi.mock("@/engine/terminalWindow", () => ({ mountTerminalWindow: mount }));
 
 // The editor of the answer is a rich text one; here a plain field stands in for it, so the test writes the answer.
 vi.mock("@/components/RichTextEditor/RichTextEditor", () => ({
@@ -11,9 +15,11 @@ vi.mock("@/components/RichTextEditor/RichTextEditor", () => ({
   ),
 }));
 
+beforeEach(() => mount.mockImplementation(terminalMount().mount));
+
 async function start(data: PreviewData = simulation()) {
-  render(<AssessmentSimulator detail={detail()} load={() => Promise.resolve(data)} backHref="/x" />);
-  const student = await screen.findByRole("region", { name: "Visão do aluno" });
+  render(<AssessmentSimulator detail={detail()} load={() => Promise.resolve(data)} loadScenario={() => Promise.resolve(null)} backHref="/x" />);
+  const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
   fireEvent.click(within(student).getByRole("button", { name: "Começar" }));
   return student;
 }
@@ -81,12 +87,14 @@ describe("AssessmentSimulator answers", () => {
     expect(within(student).getByRole("button", { name: "Questão 4, sem resposta" })).toBeDefined();
   });
 
-  it("practical: the statement and the notice that the terminal comes in the real exam, with no terminal", async () => {
+  // SPEC-084 CA-03, CA-12: the practical question is answered in the terminal beside it, and the simulator does not check it.
+  it("practical: the statement and the way to answer, in the terminal, with no area of answer and no verdict", async () => {
     const student = await start();
     goTo(student, 5);
     expect(within(student).getByText(/Crie a pasta/)).toBeDefined();
-    expect(within(student).getByText("O terminal aparece aqui na prova de verdade. Esta simulação não executa comandos.")).toBeDefined();
+    expect(within(student).getByText("Resolva no terminal.")).toBeDefined();
+    expect(within(student).getByRole("region", { name: "Terminal" })).toBeDefined();
     expect(within(student).queryByRole("textbox")).toBeNull();
-    expect(within(student).queryByLabelText(/terminal/i)).toBeNull();
+    expect(student.textContent).not.toMatch(/acertou|errou|concluída|travada|O terminal aparece aqui/i);
   });
 });
