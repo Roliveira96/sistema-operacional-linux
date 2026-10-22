@@ -1066,6 +1066,17 @@ export const messages = {
       loadError: "Não foi possível carregar a pré-visualização.",
       back: "Voltar à avaliação",
       drawAgain: "Sortear de novo",
+      tabs: { student: "Aluno", teacher: "Professor" },
+      tabsLabel: "Visões da simulação",
+      /** The terminal beside the question of the exam (SPEC-084). */
+      terminal: {
+        title: "Terminal",
+        locked: "Esta questão não usa o terminal.",
+        scenarioFailed: "Não foi possível carregar a máquina desta questão.",
+        confirmTitle: "Reiniciar a máquina?",
+        confirm: "Formatar a máquina",
+        keep: "Voltar",
+      },
       intro: {
         duration: "Duração",
         maxScore: "Nota máxima",
@@ -1083,7 +1094,7 @@ export const messages = {
         previous: "Anterior",
         next: "Próxima",
         deliver: "Entregar",
-        practical: "O terminal aparece aqui na prova de verdade. Esta simulação não executa comandos.",
+        practical: "Resolva no terminal.",
         descriptive: "Escreva com texto e comandos. Você pode mudar a resposta até entregar.",
         tooLong: (max: number) => `A resposta passa de ${max.toLocaleString("pt-BR")} caracteres. Encurte para entregar.`,
       },

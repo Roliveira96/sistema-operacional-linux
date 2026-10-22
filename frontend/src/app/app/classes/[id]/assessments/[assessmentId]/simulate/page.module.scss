@@ -1,0 +1,4 @@
+// The exam of the simulator needs the whole width: a question beside a terminal does not fit the narrow column of the other pages (SPEC-084 D-02).
+.wide {
+  max-width: 120rem;
+}

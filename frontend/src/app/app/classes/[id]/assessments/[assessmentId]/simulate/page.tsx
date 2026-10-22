@@ -9,7 +9,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRouteParams } from "@/hooks/useRouteParams";
 import { messages } from "@/messages/pt-BR";
 import { assessmentService, describeAssessmentError, type AssessmentDetail } from "@/services/assessmentService";
+import { practiceService } from "@/services/practiceService";
 import styles from "../../page.module.scss";
+import own from "./page.module.scss";
 
 const m = messages.assessments;
 
@@ -31,6 +33,7 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
   const [attempt, setAttempt] = useState(0);
 
   const loadPreview = useCallback(() => assessmentService.preview(classId!, assessmentId!), [classId, assessmentId]);
+  const loadScenario = useCallback((questionId: string) => practiceService.scenario(questionId), []);
 
   useEffect(() => {
     if (isStudent && classId && assessmentId) router.replace(backHref);
@@ -55,7 +58,7 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
   if (!classId || !assessmentId || isStudent) return null;
 
   return (
-    <main className={styles.container}>
+    <main className={`${styles.container} ${own.wide}`}>
       <Link href={backHref} className={styles.back}>
         {m.back.toAssessment}
       </Link>
@@ -73,7 +76,7 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
           {m.page.loading}
         </p>
       )}
-      {detail && <AssessmentSimulator detail={detail} load={loadPreview} backHref={backHref} />}
+      {detail && <AssessmentSimulator detail={detail} load={loadPreview} loadScenario={loadScenario} backHref={backHref} />}
     </main>
   );
 }
