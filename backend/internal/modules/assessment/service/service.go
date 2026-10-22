@@ -124,6 +124,9 @@ type Questions interface {
 	Eligible(ctx context.Context, moduleID uuid.UUID, ids []uuid.UUID) ([]Question, error)
 	Pool(ctx context.Context, f QuestionFilter) (QuestionPage, error)
 	Contents(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]QuestionContent, error)
+	// Check grades the state of a machine against the conditions of a question of command Linux, with the engine of the practice, and says whether it
+	// passes; it writes nothing (SPEC-085 RN-02, RN-03).
+	Check(ctx context.Context, questionID uuid.UUID, snapshot json.RawMessage) (bool, error)
 	// Scenario gives the machine a question starts from, or nil when it has none of its own (SPEC-084 RN-01).
 	Scenario(ctx context.Context, questionID uuid.UUID) (json.RawMessage, error)
 	// Sample draws n eligible questions of the level.

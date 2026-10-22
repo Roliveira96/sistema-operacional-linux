@@ -20,6 +20,7 @@ import (
 	coursemoduledomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/domain"
 	coursemodulerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
 	coursemoduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/service"
+	practiceservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/service"
 	scheduledomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/domain"
 	scheduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/service"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
@@ -294,6 +295,37 @@ func (q assessmentQuestions) Contents(ctx context.Context, ids []uuid.UUID) (map
 // Scenario is the machine a question starts from, read through the content module: nil when the question has none of its own (SPEC-084 RN-01).
 func (q assessmentQuestions) Scenario(ctx context.Context, id uuid.UUID) (json.RawMessage, error) {
 	return q.questions.QuestionScenario(ctx, id)
+}
+
+// Check grades the machine of the simulator against the conditions of a question of command Linux, with the engine and the conditions of the practice, the
+// same that grade the exercise of the live class; it writes nothing and gives only whether it passes (SPEC-085 RN-02 to RN-04).
+func (q assessmentQuestions) Check(ctx context.Context, id uuid.UUID, snapshot json.RawMessage) (bool, error) {
+	question, err := q.questions.Question(ctx, id)
+	if errors.Is(err, contentservice.ErrQuestionNotFound) {
+		return false, assessmentdomain.ErrQuestionNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+	if !contentdomain.UsesTerminal(question.Kind) {
+		return false, assessmentdomain.ErrInvalidQuestion
+	}
+	machine, err := practiceservice.ParseMachine(snapshot)
+	if errors.Is(err, practiceservice.ErrInvalidSnapshot) {
+		return false, assessmentdomain.ErrInvalidSnapshot
+	}
+	if err != nil {
+		return false, err
+	}
+	var conditions []contentdomain.Condition
+	if err := json.Unmarshal(question.ValidationConditions, &conditions); err != nil {
+		return false, err
+	}
+	verdict, err := contentdomain.Grade(machine, conditions)
+	if err != nil {
+		return false, err
+	}
+	return verdict.Passed, nil
 }
 
 func (q assessmentQuestions) Sample(ctx context.Context, moduleID uuid.UUID, level assessmentdomain.Difficulty, n int) ([]assessmentservice.QuestionContent, error) {

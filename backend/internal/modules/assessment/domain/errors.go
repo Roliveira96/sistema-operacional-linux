@@ -29,6 +29,9 @@ var (
 	ErrAssessmentAlreadyStarted = errors.New("the exam was already started")
 	ErrAssessmentNotOpenYet     = errors.New("the exam has not reached its start time yet")
 	ErrQuestionNotFound         = errors.New("the question is not part of the assessment")
+	ErrSnapshotRequired         = errors.New("the state of the machine is required")
+	ErrInvalidSnapshot          = errors.New("the state is not a machine of the simulator")
+	ErrInvalidQuestion          = errors.New("the question does not use the terminal")
 )
 
 // Shortage is a level of difficulty that the bank cannot supply: what the draw asks for and what there is.

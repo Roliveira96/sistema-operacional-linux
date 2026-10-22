@@ -18,6 +18,9 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/problem"
 )
 
+// maxSnapshotBytes is the biggest state of a machine that the check of a question takes, as in the check of the practice.
+const maxSnapshotBytes = 2 << 20
+
 // maxBody is the biggest body of a request: an assessment of 50 questions is a few kilobytes.
 const maxBody = 1 << 20
 
@@ -30,6 +33,7 @@ type AssessmentService interface {
 	Cancel(ctx context.Context, a service.Actor, classID, id uuid.UUID, reason string) (service.Summary, error)
 	Start(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Summary, error)
 	QuestionScenario(ctx context.Context, a service.Actor, classID, id, questionID uuid.UUID) (json.RawMessage, error)
+	CheckQuestion(ctx context.Context, a service.Actor, classID, id, questionID uuid.UUID, snapshot json.RawMessage) (bool, error)
 	SaveNotes(ctx context.Context, a service.Actor, classID, id uuid.UUID, notes string) (string, error)
 	Detail(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Detail, error)
 	Public(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Public, error)
@@ -63,6 +67,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/assessments/:assessmentId/cancel", h.cancel)
 	g.POST("/classes/:id/assessments/:assessmentId/start", h.start)
 	g.GET("/classes/:id/assessments/:assessmentId/questions/:questionId/scenario", h.questionScenario)
+	g.POST("/classes/:id/assessments/:assessmentId/questions/:questionId/check", h.checkQuestion)
 	g.PUT("/classes/:id/assessments/:assessmentId/private-notes", h.notes)
 	g.GET("/classes/:id/assessment-questions", h.questions)
 	g.GET("/classes/:id/assessments/:assessmentId/clearances", h.clearances)
@@ -169,6 +174,12 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("assessment-not-open-yet", err.Error())
 	case errors.Is(err, domain.ErrQuestionNotFound):
 		return problem.NotFound("question-not-found", err.Error())
+	case errors.Is(err, domain.ErrSnapshotRequired):
+		return problem.BadRequest("snapshot-required", err.Error())
+	case errors.Is(err, domain.ErrInvalidSnapshot):
+		return problem.BadRequest("invalid-snapshot", err.Error())
+	case errors.Is(err, domain.ErrInvalidQuestion):
+		return problem.BadRequest("invalid-question", err.Error())
 	case errors.Is(err, domain.ErrClearanceNotRequired):
 		return problem.Conflict("clearance-not-required", err.Error())
 	case errors.Is(err, domain.ErrClearanceLocked):
@@ -628,6 +639,55 @@ func (h *Handler) questionScenario(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, scenarioResponse{QuestionID: questionID, Snapshot: snapshot})
+}
+
+type checkRequest struct {
+	Snapshot json.RawMessage `json:"snapshot"`
+}
+
+type checkResponse struct {
+	Passed bool `json:"passed"`
+}
+
+// checkQuestion tells whether the machine of the simulator meets the conditions of a question; the answer is only yes or no (SPEC-085 RN-04).
+func (h *Handler) checkQuestion(c *gin.Context) {
+	actor, ok := actorOf(c)
+	if !ok {
+		return
+	}
+	classID, ok := uuidParam(c, "id")
+	if !ok {
+		return
+	}
+	id, ok := uuidParam(c, "assessmentId")
+	if !ok {
+		return
+	}
+	questionID, ok := uuidParam(c, "questionId")
+	if !ok {
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxSnapshotBytes)
+	var body checkRequest
+	if err := json.NewDecoder(c.Request.Body).Decode(&body); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			fail(c, problem.PayloadTooLarge("The submitted state exceeds 2 MB."))
+			return
+		}
+		malformed(c)
+		return
+	}
+	if len(body.Snapshot) == 0 || string(body.Snapshot) == "null" {
+		failWith(c, domain.ErrSnapshotRequired)
+		return
+	}
+	passed, err := h.svc.CheckQuestion(c.Request.Context(), actor, classID, id, questionID, body.Snapshot)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, checkResponse{Passed: passed})
 }
 
 type notesRequest struct {
