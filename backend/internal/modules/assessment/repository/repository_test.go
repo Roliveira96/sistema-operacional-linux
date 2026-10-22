@@ -447,8 +447,11 @@ func TestRepository_SavesTheStartOfTheExamAndItsEvent(t *testing.T) {
 	events, err := e.repo.Events(e.ctx, a.ID)
 	require.NoError(t, err)
 	require.Len(t, events, 2)
-	assert.Equal(t, domain.EventStarted, events[1].Kind)
-	assert.Equal(t, e.teacher.ID, events[1].ActorID)
+	kinds := []domain.EventKind{events[0].Kind, events[1].Kind}
+	assert.ElementsMatch(t, []domain.EventKind{domain.EventCreated, domain.EventStarted}, kinds)
+	for _, event := range events {
+		assert.Equal(t, e.teacher.ID, event.ActorID)
+	}
 }
 
 // Covers SPEC-083 section 4: the database refuses a start on an online assessment, and a start with an author missing or an author without a start.
@@ -642,6 +645,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	e := newEnv(t) // every migration was applied by the helper
 	up, down := migrationParts(t, "00041_")
 	up2, down2 := migrationParts(t, "00042_")
+	up3, down3 := migrationParts(t, "00045_") // the start of SPEC-083 stands on the modality and on the kinds of event of the two before it
 
 	five := []string{"assessments", "assessment_items", "assessment_draw_rules", "assessment_students", "assessment_events"}
 	for _, name := range five {
@@ -649,6 +653,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	}
 	e.create(t)
 
+	runMigration(t, e, down3)
 	runMigration(t, e, down2)
 	runMigration(t, e, down)
 	assert.Empty(t, tablesOf(t, e), "the Down took the five tables away")
@@ -658,6 +663,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 
 	runMigration(t, e, up)
 	runMigration(t, e, up2)
+	runMigration(t, e, up3)
 	for _, name := range five {
 		assert.True(t, tablesOf(t, e)[name], name+" is back after going up again")
 	}

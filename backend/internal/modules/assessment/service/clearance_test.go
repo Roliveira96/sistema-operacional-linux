@@ -27,6 +27,7 @@ var approveAll = service.ClearanceInput{Action: service.ClearanceApproveAll}
 // decide runs an action as the teacher and requires it to succeed.
 func (f *fixture) decide(t *testing.T, a service.Summary, in service.ClearanceInput) service.ClearanceList {
 	t.Helper()
+	f.ensureStarted(t, a) // the clearance is decided once the teacher started the exam (SPEC-083 RN-04)
 	got, err := f.svc.Decide(ctx, f.teacher, f.class.ID, a.ID, in)
 	require.NoError(t, err)
 	return got
@@ -283,6 +284,7 @@ func TestClearances_UpdateStoresStatusAndOptionalReason(t *testing.T) {
 func TestClearances_RefusesBadListsStudentsOutsideAndNothingIsWritten(t *testing.T) {
 	f := newFixture(t)
 	a := f.create(t)
+	f.ensureStarted(t, a)
 	events := len(f.repo.events[a.ID])
 
 	long := strings.Repeat("a", 301)
@@ -313,6 +315,7 @@ func TestClearances_RefusesBadListsStudentsOutsideAndNothingIsWritten(t *testing
 	selected := f.create(t, func(in *service.CreateInput) {
 		in.Audience, in.StudentIDs = domain.AudienceSelected, []uuid.UUID{f.ana.ID}
 	})
+	f.ensureStarted(t, selected)
 	_, err := f.svc.Decide(ctx, f.teacher, f.class.ID, selected.ID, update(decision(f.bruno, domain.ClearanceApproved, "")))
 	assert.ErrorIs(t, err, domain.ErrStudentNotInClass, "Bruno is in the class but not on the list")
 }
@@ -331,6 +334,7 @@ func TestClearances_RefusedWhenNotRequiredEndedOrCanceled(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrClearanceNotRequired)
 
 	a := f.create(t)
+	f.ensureStarted(t, a)
 	f.now = at(21, 10, 59)
 	_, err = f.svc.Decide(ctx, f.teacher, f.class.ID, a.ID, approveAll)
 	assert.NoError(t, err, "running, one minute before the end")
@@ -352,6 +356,7 @@ func TestClearances_RefusedWhenNotRequiredEndedOrCanceled(t *testing.T) {
 func TestClearances_RefusedForAStudentWhoStartedTheAttempt(t *testing.T) {
 	f := newFixture(t)
 	a := f.create(t)
+	f.ensureStarted(t, a)
 	f.attempts.started[[2]uuid.UUID{a.ID, f.bruno.ID}] = true
 
 	_, err := f.svc.Decide(ctx, f.teacher, f.class.ID, a.ID, update(decision(f.ana, domain.ClearanceApproved, ""), decision(f.bruno, domain.ClearanceRejected, "")))
@@ -370,6 +375,7 @@ func TestClearances_RefusedForAStudentWhoStartedTheAttempt(t *testing.T) {
 func TestClearances_AuthorizationOnlyOwnerTeacherAndAdmin(t *testing.T) {
 	f := newFixture(t)
 	a := f.create(t)
+	f.ensureStarted(t, a)
 
 	for name, actor := range map[string]service.Actor{"a student": f.as(f.ana), "another teacher": f.other} {
 		_, err := f.svc.Clearances(ctx, actor, f.class.ID, a.ID)
@@ -426,6 +432,7 @@ func TestAccessOf_ClearanceDecisionTable(t *testing.T) {
 	f.now = at(20, 8, 0)
 	free := f.create(t, func(in *service.CreateInput) { in.RequiresClearance = ptr(false) })
 	online := f.create(t, func(in *service.CreateInput) { in.Modality = ptr(domain.ModalityOnline) })
+	f.ensureStarted(t, free) // an in-person exam is open once the teacher starts it, with or without the requirement (SPEC-083 D-03)
 	f.now = at(21, 10, 0)
 	for _, other := range []service.Summary{free, online} {
 		got, err := f.svc.AccessOf(ctx, f.carla.ID, other.ID)
@@ -558,7 +565,13 @@ func TestSummary_CarriesModalityRequirementAndCounts(t *testing.T) {
 	detail, err := f.svc.Detail(ctx, f.teacher, f.class.ID, a.ID)
 	require.NoError(t, err)
 	assert.Equal(t, list[0].ClearanceCounts, detail.ClearanceCounts)
-	require.Len(t, detail.Events, 2)
-	assert.Equal(t, domain.EventClearanceUpdated, detail.Events[1].Kind, "the action is in the history")
-	assert.Equal(t, "Profa. Sediane", detail.Events[1].ActorName)
+	require.Len(t, detail.Events, 3, "the creation, the start and the action")
+	var action *service.EventView
+	for i := range detail.Events {
+		if detail.Events[i].Kind == domain.EventClearanceUpdated {
+			action = &detail.Events[i]
+		}
+	}
+	require.NotNil(t, action, "the action is in the history")
+	assert.Equal(t, "Profa. Sediane", action.ActorName)
 }

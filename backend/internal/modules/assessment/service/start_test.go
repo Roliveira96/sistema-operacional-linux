@@ -21,6 +21,18 @@ func (f *fixture) begin(t *testing.T, a service.Summary) service.Summary {
 	return got
 }
 
+// ensureStarted starts the exam, as the teacher, if it was not started yet, and puts the clock back where the test had it: the tests of the clearance
+// (SPEC-076) decide at the moments they chose, and since SPEC-083 the decision only exists after the start.
+func (f *fixture) ensureStarted(t *testing.T, a service.Summary) {
+	t.Helper()
+	if f.repo.assessments[a.ID].StartedAt != nil {
+		return
+	}
+	keep := f.now
+	f.begin(t, a)
+	f.now = keep
+}
+
 func startedEvents(f *fixture, a service.Summary) []domain.Event {
 	var out []domain.Event
 	for _, e := range f.repo.events[a.ID] {
