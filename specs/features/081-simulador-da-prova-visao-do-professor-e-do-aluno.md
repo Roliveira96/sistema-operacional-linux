@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-081 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 22/10/2026 |
 | **Última revisão** | 22/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -196,17 +196,17 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-Dúvidas e escolhas em aberto, cada uma com uma recomendação. **Uma spec só pode ser aprovada com esta tabela vazia.** O texto acima já segue as recomendações; se o Tech Lead decidir diferente, a seção correspondente é revisada antes da aprovação.
+Nenhuma. O Tech Lead decidiu em 22/10/2026, ao aprovar a spec, todas as pendências que ela tinha, com as recomendações como estavam. As decisões estão incorporadas às seções 2, 3, 5, 6, 7 e 8; esta tabela só as registra.
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| D-01 | **Onde fica a entrada.** Só o botão *Simular prova* no detalhe da avaliação, ou também um item no menu *Mais ações* da lista (SPEC-080). | Só o botão no detalhe, ao lado do *Pré-visualizar*. O menu da lista fica como a SPEC-080 o definiu, com poucas ações de uso raro. |
-| D-02 | **Tela de celular.** O Tech Lead decidiu que, por enquanto, a prova não é feita em celular. Qual é a largura mínima, e o aluno real é avisado agora? | Mínimo de 48 rem, a mesma largura em que a lista de avaliações vira cartão. O aviso fica só no simulador; o cartão e o aviso de acesso do aluno real não mudam agora, e a regra entra na spec das tentativas, que é onde a tela real nasce. |
-| D-03 | **Questões práticas.** Abrir o terminal do aluno na simulação, ou só o enunciado. | Só o enunciado e o aviso de que o terminal aparece na prova de verdade. O terminal exige a correção no servidor e a máquina por tentativa, que são da spec das tentativas. |
-| D-04 | **Sorteio.** Como a visão do aluno obtém as questões numa avaliação por sorteio. | Usar o exemplo sorteado que a pré-visualização já devolve (não gravado), com o botão *Sortear de novo* que pede outro exemplo e reinicia. |
-| D-05 | **Nota na visão do professor.** Mostrar nota e "acertou/errou" da simulação, ou só o gabarito e a resposta simulada lado a lado. | Só lado a lado, sem nota. A correção roda só no servidor e a nota da simulação, calculada no navegador, contrariaria a `ARCHITECTURE.md` (seção 2). |
-| D-06 | **Cronômetro e valor das questões.** A visão do aluno mostra o cronômetro e o valor em pontos de cada questão? | Sim aos dois: o cronômetro conta a duração individual no navegador, só como ilustração (sem duração, não há cronômetro), e o valor aparece em cada questão. Se a prova real não mostrar o valor, a docente vê isso aqui e a spec das tentativas decide. |
-| D-07 | **De onde vem o conteúdo do aluno.** Acrescentar o bloco à rota de pré-visualização, ou criar uma rota nova de simulação. | Acrescentar à rota existente: o campo é aditivo, a autorização é a mesma (RN-16) e não nasce rota para manter. |
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **Entrada.** Só o botão *Simular prova* no detalhe da avaliação, ao lado do *Pré-visualizar*; o menu *Mais ações* da lista (SPEC-080) não muda. |
+| D-02 | **Tela de celular.** Mínimo de 48 rem; abaixo dele o simulador mostra só o aviso. O aviso fica só no simulador: o cartão e o aviso de acesso do aluno real não mudam agora, e a regra entra na spec das tentativas. |
+| D-03 | **Questões práticas.** Só o enunciado e o aviso de que o terminal aparece na prova de verdade; sem terminal e sem correção. |
+| D-04 | **Sorteio.** A visão do aluno usa o exemplo sorteado que a pré-visualização já devolve (não gravado), com *Sortear de novo* para pedir outro e reiniciar. |
+| D-05 | **Sem nota.** A visão do professor mostra o gabarito e a resposta simulada lado a lado, sem nota, pontuação nem marca de certo ou errado. |
+| D-06 | **Cronômetro e valor.** A visão do aluno mostra o cronômetro (a duração individual, contada no navegador, só como ilustração; sem duração, não há cronômetro) e o valor em pontos de cada questão. |
+| D-07 | **Origem do conteúdo.** O bloco `studentView` é acrescentado à rota de pré-visualização existente, sem rota nova. |
 
 ---
 
@@ -215,3 +215,5 @@ Dúvidas e escolhas em aberto, cada uma com uma recomendação. **Uma spec só p
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 22/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 22/10/2026 de um simulador da prova com a visão do professor e a do aluno, conferida contra a SPEC-075 (RN-16 e seção 2.1), os componentes de resposta do aluno, a pré-visualização atual e os rascunhos 052 e de revisão. O Tech Lead escolheu a "prévia lado a lado" (não o simulado completo) e decidiu que a prova não é feita em tela de celular por enquanto. Sete pendências abertas (D-01 a D-07), todas com recomendação |
+| 22/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das sete pendências aceitas como estavam na spec: D-01 a D-07. Status: `Aprovada` |
+| 22/10/2026 | Aruna Architect | Seção 10 esvaziada: as sete pendências viraram decisões D-01 a D-07, incorporadas ao texto |
