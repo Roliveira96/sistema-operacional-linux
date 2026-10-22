@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SERVER_NOW, STARTED, summary } from "@/test/assessmentFixtures";
+import { STARTED, summary } from "@/test/assessmentFixtures";
 import type { AssessmentSummary } from "@/services/assessmentService";
 import { AssessmentList } from "./AssessmentList";
 
@@ -16,6 +16,18 @@ const waiting = (over: Partial<AssessmentSummary> = {}) =>
     ...over,
   });
 
+/** An exam that is still days away, with who waits counted but nothing to warn about. */
+const far = (over: Partial<AssessmentSummary> = {}) =>
+  waiting({
+    phase: "UPCOMING",
+    startsAt: "2026-10-23T09:00:00-03:00",
+    endsAt: "2026-10-23T11:00:00-03:00",
+    startedAt: undefined,
+    startedBy: undefined,
+    startedByName: undefined,
+    ...over,
+  });
+
 /** An exam that is running by the clock and that the teacher has not started. */
 const ready = (over: Partial<AssessmentSummary> = {}) =>
   summary({ id: "a-1", title: "Prova 1: permissões", phase: "RUNNING", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00", ...over });
@@ -25,7 +37,7 @@ function setup(items: AssessmentSummary[]) {
     onNew: vi.fn(), onRetry: vi.fn(), onEdit: vi.fn(), onPreview: vi.fn(), onReschedule: vi.fn(), onCancel: vi.fn(),
     onApproveAll: vi.fn(), onClearances: vi.fn(), onStart: vi.fn(),
   };
-  render(<AssessmentList status="ready" items={items} serverNow={SERVER_NOW} hrefOf={(a) => `/app/classes/c-1/assessments/${a.id}`} {...h} />);
+  render(<AssessmentList status="ready" items={items} hrefOf={(a) => `/app/classes/c-1/assessments/${a.id}`} {...h} />);
   return h;
 }
 
@@ -37,7 +49,7 @@ const warning = () => screen.queryByRole("status");
 describe("AssessmentList: modality and clearance warning", () => {
   it("says the modality under the title and counts who still waits in an in-person exam that requires the clearance", () => {
     setup([
-      waiting({ startsAt: "2026-10-23T09:00:00-03:00", endsAt: "2026-10-23T11:00:00-03:00" }),
+      far(),
       summary({ id: "a-2", title: "Prova online", modality: "ONLINE", requiresClearance: false, clearanceCounts: { pending: 32, approved: 0, rejected: 0 } }),
       summary({ id: "a-3", title: "Prova livre", requiresClearance: false, clearanceCounts: { pending: 32, approved: 0, rejected: 0 } }),
     ]);
@@ -50,7 +62,7 @@ describe("AssessmentList: modality and clearance warning", () => {
   });
 
   it("says one student waits in the singular", () => {
-    setup([waiting({ startsAt: "2026-10-23T09:00:00-03:00", endsAt: "2026-10-23T11:00:00-03:00", clearanceCounts: { pending: 1, approved: 31, rejected: 0 } })]);
+    setup([far({ clearanceCounts: { pending: 1, approved: 31, rejected: 0 } })]);
     expect(within(within(rowOf("Prova 1: permissões")).getAllByRole("cell")[0]!).getByText("1 aguardando")).toBeDefined();
   });
 

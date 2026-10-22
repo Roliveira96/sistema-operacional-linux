@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { AssessmentCancelDialog } from "@/components/AssessmentCancelDialog/AssessmentCancelDialog";
 import { AssessmentList } from "@/components/AssessmentList/AssessmentList";
 import { AssessmentRescheduleDialog } from "@/components/AssessmentRescheduleDialog/AssessmentRescheduleDialog";
+import { AssessmentStartDialog } from "@/components/AssessmentStartDialog/AssessmentStartDialog";
 import { Button } from "@/components/Button/Button";
 import { useAuth } from "@/hooks/useAuth";
 import { formatPeriod, situationOf } from "@/lib/assessment";
@@ -15,7 +16,7 @@ import styles from "./ClassAssessments.module.scss";
 
 const m = messages.assessments;
 
-type Dialog = { kind: "reschedule" | "cancel"; assessment: AssessmentSummary };
+type Dialog = { kind: "reschedule" | "cancel" | "start"; assessment: AssessmentSummary };
 
 /**
  * The assessments of the class, the content of the tab Avaliações of the page of the class (SPEC-082, SPEC-075 section 3.1): the teacher and the
@@ -32,7 +33,6 @@ export function ClassAssessments({ classId }: { classId: string }) {
   const [status, setStatus] = useState<"loading" | "error" | "ready">("loading");
   const [reload, setReload] = useState(0);
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  const [serverNow, setServerNow] = useState<string | undefined>();
   const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +41,6 @@ export function ClassAssessments({ classId }: { classId: string }) {
       (result) => {
         if (!alive) return;
         setItems(result.items);
-        setServerNow(result.serverNow);
         setStatus("ready");
       },
       () => alive && setStatus("error"),
@@ -112,7 +111,6 @@ export function ClassAssessments({ classId }: { classId: string }) {
           <AssessmentList
             status={status}
             items={items as AssessmentSummary[]}
-            serverNow={serverNow}
             onApproveAll={(a) => void approveAll(a)}
             onClearances={(a) => router.push(`${base}/${a.id}/clearances`)}
             onNew={() => router.push(`${base}/new`)}
@@ -122,12 +120,20 @@ export function ClassAssessments({ classId }: { classId: string }) {
             onPreview={(a) => router.push(`${base}/${a.id}?preview=1`)}
             onReschedule={(assessment) => setDialog({ kind: "reschedule", assessment })}
             onCancel={(assessment) => setDialog({ kind: "cancel", assessment })}
+            onStart={(assessment) => setDialog({ kind: "start", assessment })}
           />
           {dialog?.kind === "reschedule" && (
             <AssessmentRescheduleDialog
               assessment={dialog.assessment}
               onClose={() => setDialog(null)}
               onConfirm={(input: RescheduleInput) => confirm(() => assessmentService.reschedule(id, dialog.assessment.id, input))}
+            />
+          )}
+          {dialog?.kind === "start" && (
+            <AssessmentStartDialog
+              assessment={dialog.assessment}
+              onClose={() => setDialog(null)}
+              onConfirm={() => confirm(() => assessmentService.start(id, dialog.assessment.id))}
             />
           )}
           {dialog?.kind === "cancel" && (

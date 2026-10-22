@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SERVER_NOW, STARTED, summary } from "@/test/assessmentFixtures";
+import { STARTED, summary } from "@/test/assessmentFixtures";
 import {
   countdown,
   equalWeights,
@@ -103,16 +103,16 @@ describe("warnings of the list", () => {
   });
 
   it("warns about who waits only after the start, with the exam still running", () => {
-    expect(needsClearanceWarning(started(), SERVER_NOW)).toBe(true);
-    expect(needsClearanceWarning(started({ clearanceCounts: { pending: 0, approved: 32, rejected: 0 } }), SERVER_NOW)).toBe(false);
-    expect(needsClearanceWarning(started({ phase: "ENDED" }), SERVER_NOW)).toBe(false);
-    expect(needsClearanceWarning(started({ requiresClearance: false }), SERVER_NOW)).toBe(false);
-    expect(needsClearanceWarning(started({ status: "CANCELED" }), SERVER_NOW)).toBe(false);
+    expect(needsClearanceWarning(started())).toBe(true);
+    expect(needsClearanceWarning(started({ clearanceCounts: { pending: 0, approved: 32, rejected: 0 } }))).toBe(false);
+    expect(needsClearanceWarning(started({ phase: "ENDED" }))).toBe(false);
+    expect(needsClearanceWarning(started({ requiresClearance: false }))).toBe(false);
+    expect(needsClearanceWarning(started({ status: "CANCELED" }))).toBe(false);
   });
 
   it("no longer warns before the start, not even 30 minutes before the start time or while the exam runs without being started", () => {
     const waiting = { clearanceCounts: { pending: 3, approved: 29, rejected: 0 } };
-    expect(needsClearanceWarning(summary({ ...waiting, startsAt: "2026-10-21T10:30:00-03:00", endsAt: "2026-10-21T12:00:00-03:00" }), SERVER_NOW)).toBe(false);
-    expect(needsClearanceWarning(summary({ ...ready(), ...waiting }), SERVER_NOW)).toBe(false);
+    expect(needsClearanceWarning(summary({ ...waiting, startsAt: "2026-10-21T10:30:00-03:00", endsAt: "2026-10-21T12:00:00-03:00" }))).toBe(false);
+    expect(needsClearanceWarning(summary({ ...ready(), ...waiting }))).toBe(false);
   });
 });

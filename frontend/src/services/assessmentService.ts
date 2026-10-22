@@ -66,6 +66,10 @@ export interface AssessmentSummary extends AssessmentBase {
   updatedAt: string;
   canceledBy?: string;
   canceledAt?: string;
+  /** The start of an in-person exam by the teacher, which opens the clearance of the students; absent until she starts it (SPEC-083). */
+  startedAt?: string;
+  startedBy?: string;
+  startedByName?: string;
 }
 
 export interface AssessmentItem {
@@ -212,7 +216,7 @@ export type ClearanceInput =
 /** What the student reads about their own access, and about no one else's (RN-09, RN-10). */
 export interface MyAccess {
   allowed: boolean;
-  reason: "ALLOWED" | "CANCELED" | "NOT_OPEN_YET" | "ENDED" | "NOT_CLEARED";
+  reason: "ALLOWED" | "CANCELED" | "NOT_OPEN_YET" | "ENDED" | "NOT_STARTED" | "NOT_CLEARED";
   modality: Modality;
   requiresClearance: boolean;
   clearance?: { status: ClearanceStatus; rejectionReason?: string };
@@ -248,6 +252,8 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     update: (classId: string, id: string, patch: AssessmentPatch) => client.patch<Now<AssessmentSummary>>(`${base(classId)}/${id}`, patch),
     reschedule: (classId: string, id: string, input: RescheduleInput) => client.put<Now<AssessmentSummary>>(`${base(classId)}/${id}/schedule`, input),
     cancel: (classId: string, id: string, reason: string) => client.post<Now<AssessmentSummary>>(`${base(classId)}/${id}/cancel`, { reason }),
+    /** Starts an in-person exam that is running: from then on the teacher clears the students (SPEC-083). It has no body and cannot be undone. */
+    start: (classId: string, id: string) => client.post<Now<AssessmentSummary>>(`${base(classId)}/${id}/start`),
     saveNotes: async (classId: string, id: string, notes: string) =>
       (await client.put<{ teacherPrivateNotes: string }>(`${base(classId)}/${id}/private-notes`, { teacherPrivateNotes: notes })).teacherPrivateNotes,
     preview: (classId: string, id: string) => client.get<PreviewData>(`${base(classId)}/${id}/preview`),

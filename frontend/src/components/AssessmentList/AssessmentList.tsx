@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useId } from "react";
 import { Button } from "@/components/Button/Button";
 import { ActionMenu } from "@/components/ContentTab/ActionMenu";
-import { formatPeriod, formatScore, groupBySituation, needsClearanceWarning, situationOf } from "@/lib/assessment";
+import { formatPeriod, formatScore, groupBySituation, needsClearanceWarning, needsStartWarning, situationOf } from "@/lib/assessment";
 import { messages } from "@/messages/pt-BR";
 import type { AssessmentSummary } from "@/services/assessmentService";
 import styles from "./AssessmentList.module.scss";
@@ -22,11 +22,11 @@ export interface AssessmentListProps {
   onPreview: (assessment: AssessmentSummary) => void;
   onReschedule: (assessment: AssessmentSummary) => void;
   onCancel: (assessment: AssessmentSummary) => void;
-  /** The clock of the server, which says whether an exam is about to start (SPEC-076 RN-13). */
-  serverNow?: string;
   /** Clears everybody who waits, and opens the screen of the clearances; the warning shows each button only when it is given. */
   onApproveAll?: (assessment: AssessmentSummary) => void;
   onClearances?: (assessment: AssessmentSummary) => void;
+  /** Opens the start of the exam, from the warning that it can be started (SPEC-083 D-06). */
+  onStart?: (assessment: AssessmentSummary) => void;
 }
 
 /** Why the actions of the row are off, in text: a canceled one is only read, an ended one cannot be rescheduled (SPEC-075 CA-23). */
@@ -39,7 +39,7 @@ function reasonOf(a: AssessmentSummary): string | null {
  * The list of the assessments of the class for the teacher (SPEC-080): sections by situation, one row each with the title as the link, Editar in
  * view and the other actions in the menu Mais ações. A narrow screen shows each one as a card.
  */
-export function AssessmentList({ status, items, hrefOf, onNew, onRetry, onEdit, onPreview, onReschedule, onCancel, serverNow, onApproveAll, onClearances }: AssessmentListProps) {
+export function AssessmentList({ status, items, hrefOf, onNew, onRetry, onEdit, onPreview, onReschedule, onCancel, onApproveAll, onClearances, onStart }: AssessmentListProps) {
   const baseId = useId();
   const newButton = (
     <Button variant="primary" onClick={onNew}>
@@ -165,7 +165,19 @@ export function AssessmentList({ status, items, hrefOf, onNew, onRetry, onEdit, 
                           />
                         </td>
                       </tr>,
-                      needsClearanceWarning(a, serverNow) && (
+                      needsStartWarning(a) && onStart && (
+                        <tr key={`${a.id}-start`}>
+                          <td colSpan={m.list.columns.length}>
+                            <div role="status" className={styles.warning}>
+                              <span>{m.list.canStart(a.title)}</span>
+                              <Button variant="primary" onClick={() => onStart(a)}>
+                                {m.list.start}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ),
+                      needsClearanceWarning(a) && (
                         <tr key={`${a.id}-warning`}>
                           <td colSpan={m.list.columns.length}>
                             <div role="status" className={styles.warning}>

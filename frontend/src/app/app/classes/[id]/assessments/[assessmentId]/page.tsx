@@ -7,11 +7,12 @@ import { AssessmentAccessNotice } from "@/components/AssessmentAccessNotice/Asse
 import { AssessmentCard } from "@/components/AssessmentCard/AssessmentCard";
 import { AssessmentHistory } from "@/components/AssessmentHistory/AssessmentHistory";
 import { AssessmentPreview, DrawRulesTable } from "@/components/AssessmentPreview/AssessmentPreview";
+import { AssessmentStartDialog } from "@/components/AssessmentStartDialog/AssessmentStartDialog";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouteParams } from "@/hooks/useRouteParams";
-import { formatPeriod, formatScore, situationOf } from "@/lib/assessment";
+import { canStart, formatDateTime, formatHour, formatPeriod, formatScore, situationOf } from "@/lib/assessment";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { messages } from "@/messages/pt-BR";
 import { assessmentService, describeAssessmentError, type AssessmentDetail, type AssessmentPublic } from "@/services/assessmentService";
@@ -37,6 +38,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [asked, setAsked] = useState(false);
+  const [starting, setStarting] = useState(false);
   // The preview opens when the address asks for it or when the teacher presses the button; the student never has one.
   const showPreview = !isStudent && (preview || asked);
 
@@ -104,6 +106,14 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
 
   const canceled = detail.status === "CANCELED";
   const counts = detail.clearanceCounts;
+  const inPerson = detail.modality === "IN_PERSON" && !canceled;
+  const startable = canStart(detail);
+  /** The start of the exam by the teacher (SPEC-083): the exam was started, can be started now, waits for its time, or ended without it. */
+  const start = async () => {
+    const started = await assessmentService.start(classId, assessmentId);
+    setDetail((d) => (d ? { ...d, startedAt: started.startedAt, startedBy: started.startedBy, startedByName: started.startedByName } : d));
+    setStarting(false);
+  };
   const facts: [string, string][] = [
     [p.facts.type, m.type[detail.type] ?? ""],
     [p.facts.modality, m.modality[detail.modality] ?? ""],
@@ -128,9 +138,14 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
       )}
       <div className={styles.actions}>
         {!canceled && (
-          <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/edit`} variant="primary">
+          <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/edit`} variant={startable ? "secondary" : "primary"}>
             {p.edit}
           </ButtonLink>
+        )}
+        {inPerson && !detail.startedAt && detail.phase !== "ENDED" && (
+          <Button variant="primary" disabled={!startable} aria-describedby={startable ? undefined : "start-reason"} onClick={() => setStarting(true)}>
+            {p.start}
+          </Button>
         )}
         <Button variant="secondary" onClick={() => setAsked(true)}>
           {p.preview}
@@ -144,6 +159,13 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
           </ButtonLink>
         )}
       </div>
+      {inPerson && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName ?? "")}</p>}
+      {inPerson && !detail.startedAt && detail.phase === "UPCOMING" && (
+        <p id="start-reason" className={styles.text}>
+          {p.startFrom(formatDateTime(detail.startsAt))}
+        </p>
+      )}
+      {inPerson && !detail.startedAt && detail.phase === "ENDED" && <p className={styles.text}>{p.endedNotStarted}</p>}
       {detail.modality === "IN_PERSON" && detail.requiresClearance && <p className={styles.text}>{p.clearanceCounts(counts.pending, counts.approved, counts.rejected)}</p>}
 
       <dl className={styles.facts}>
@@ -205,6 +227,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
       )}
 
       <AssessmentHistory events={detail.events} />
+      {starting && <AssessmentStartDialog assessment={detail} onClose={() => setStarting(false)} onConfirm={start} />}
     </main>
   );
 }

@@ -101,6 +101,9 @@ export default function ClearancesPage({ params }: { params: Promise<{ id: strin
   }
 
   const readOnly = assessment.status === "CANCELED" ? m.canceled : assessment.phase === "ENDED" ? m.ended : !list.requiresClearance ? m.notRequired : null;
+  // before the teacher starts the exam the list is only read, and every decision is off with the reason tied to it (SPEC-083 RN-04)
+  const notStarted = !readOnly && !assessment.startedAt;
+  const lockedBy = notStarted ? "not-started" : undefined;
 
   return (
     <main className={shared.container}>
@@ -108,6 +111,12 @@ export default function ClearancesPage({ params }: { params: Promise<{ id: strin
       {heading}
       <p className={shared.text}>{assessment.title}</p>
       {readOnly && <p className={shared.notice}>{readOnly}</p>}
+      {notStarted && (
+        <p id="not-started" className={shared.notice}>
+          {m.notStarted}{" "}
+          <Link href={`/app/classes/${classId}/assessments/${assessmentId}`}>{m.toAssessment}</Link>
+        </p>
+      )}
       {problem && (
         <p role="alert" className={shared.problem}>
           {problem}
@@ -122,13 +131,16 @@ export default function ClearancesPage({ params }: { params: Promise<{ id: strin
           </div>
         ))}
       </dl>
-      {!readOnly && (
-        <div>
-          <Button variant="primary" disabled={list.counts.pending === 0} onClick={() => void run({ action: "APPROVE_ALL" })}>
+      <div className={styles.toolbar}>
+        {!readOnly && (
+          <Button variant="primary" disabled={list.counts.pending === 0 || notStarted} aria-describedby={notStarted ? "not-started" : undefined} onClick={() => void run({ action: "APPROVE_ALL" })}>
             {m.approveAll}
           </Button>
-        </div>
-      )}
+        )}
+        <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
+          {m.refresh}
+        </Button>
+      </div>
 
       {list.items.length === 0 ? (
         <p className={shared.muted}>{m.empty}</p>
@@ -162,12 +174,13 @@ export default function ClearancesPage({ params }: { params: Promise<{ id: strin
                         <Button
                           variant="secondary"
                           aria-label={m.approve(it.name)}
-                          disabled={it.status === "APPROVED"}
+                          disabled={it.status === "APPROVED" || notStarted}
+                          aria-describedby={lockedBy}
                           onClick={() => void run({ action: "UPDATE", students: [{ studentId: it.studentId, status: "APPROVED" }] })}
                         >
                           {m.approveLabel}
                         </Button>
-                        <Button variant="danger" aria-label={m.reject(it.name)} disabled={it.status === "REJECTED"} onClick={() => setRefusing(it)}>
+                        <Button variant="danger" aria-label={m.reject(it.name)} disabled={it.status === "REJECTED" || notStarted} aria-describedby={lockedBy} onClick={() => setRefusing(it)}>
                           {m.rejectLabel}
                         </Button>
                       </div>

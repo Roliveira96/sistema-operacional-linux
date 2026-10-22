@@ -99,3 +99,10 @@
   gap: var(--space-2);
   min-width: 11rem;
 }
+
+// The button that clears everybody and the one that reads the list again.
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
