@@ -171,3 +171,51 @@ describe("ExamTerminal, what it tells the exam", () => {
     expect(onFormat).not.toHaveBeenCalled();
   });
 });
+
+// SPEC-085 CA-05: the engine tells the exam about the machine every time it changes, also when the exam itself loads or formats it; those are not
+// commands, so the question is not checked for them (a machine that was just loaded is not checked, only a command that ran).
+describe("ExamTerminal, the machine that the exam itself loads", () => {
+  /** A window like the real one: loading and formatting a machine tell the callback, as the engine does. */
+  function noisyWindow() {
+    mount.mockImplementation(async (_container: HTMLElement, _snapshot: unknown, callbacks: { onCommand(snapshot: unknown): void }) => {
+      const noisy = {
+        reset: vi.fn((snapshot: unknown) => callbacks.onCommand(snapshot)),
+        resetAnimated: vi.fn(async (snapshot: unknown) => callbacks.onCommand(snapshot)),
+        destroy: vi.fn(),
+      };
+      terminal.windows.push(noisy);
+      terminal.callbacks.push(callbacks);
+      return noisy;
+    });
+  }
+
+  it("does not tell the exam about a machine it loaded or restored, only about the commands typed in it", async () => {
+    noisyWindow();
+    const onCommand = vi.fn();
+    const { again } = open({ onCommand });
+    await ready();
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledWith({ name: "um" }));
+    again({ questionId: "q-2", onCommand });
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledTimes(2));
+    again({ questionId: "q-1", onCommand });
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledTimes(3));
+    expect(onCommand).not.toHaveBeenCalled();
+
+    terminal.callbacks[0]!.onCommand({ typed: "ls" });
+    expect(onCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not tell the exam about the machine of the format, and tells at once that the question was formatted", async () => {
+    noisyWindow();
+    const onCommand = vi.fn();
+    const onFormat = vi.fn();
+    open({ onCommand, onFormat });
+    await ready();
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledTimes(1));
+    fireEvent.click(resetButton());
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Formatar a máquina" }));
+    await waitFor(() => expect(terminal.windows[0]!.resetAnimated).toHaveBeenCalledTimes(1));
+    expect(onFormat).toHaveBeenCalledWith("q-1");
+    expect(onCommand).not.toHaveBeenCalled();
+  });
+});
