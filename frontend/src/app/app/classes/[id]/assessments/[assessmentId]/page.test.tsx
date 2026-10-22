@@ -135,7 +135,7 @@ describe("assessment page", () => {
       render(<AssessmentPage params={params} />);
       await screen.findByRole("heading", { name: "Prova 1: permissões" });
       expect(screen.getByRole("link", { name: "Editar" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/edit");
-      expect(screen.getByRole("link", { name: "Voltar para as avaliações" }).getAttribute("href")).toBe("/app/classes/c-1/assessments");
+      expect(screen.getByRole("link", { name: "Voltar para as avaliações" }).getAttribute("href")).toBe("/app/classes/c-1?tab=assessments");
       expect(read).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole("button", { name: "Pré-visualizar" }));
       expect(await screen.findAllByText("Resposta correta")).toHaveLength(2);
@@ -196,7 +196,7 @@ describe("assessment page", () => {
       expect(screen.queryByText("Observações privadas")).toBeNull();
       expect(screen.queryByRole("link", { name: "Editar" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Pré-visualizar" })).toBeNull();
-      expect(screen.getByRole("link", { name: "Voltar para as avaliações" }).getAttribute("href")).toBe("/app/classes/c-1/assessments");
+      expect(screen.getByRole("link", { name: "Voltar para as avaliações" }).getAttribute("href")).toBe("/app/classes/c-1?tab=assessments");
     });
 
     it("asks for the preview of nobody: the student never reads the questions", async () => {

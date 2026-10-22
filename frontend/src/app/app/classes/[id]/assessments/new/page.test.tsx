@@ -19,6 +19,7 @@ vi.mock("@/components/AssessmentForm/AssessmentForm", () => ({
     modules: { id: string; title: string }[];
     students: { id: string; name: string; academicId?: string }[];
     onSubmit: (v: unknown) => Promise<void>;
+    onCancel?: () => void;
   }) => (
     <div>
       <output data-testid="mode">{p.mode}</output>
@@ -27,6 +28,9 @@ vi.mock("@/components/AssessmentForm/AssessmentForm", () => ({
       <output data-testid="students">{JSON.stringify(p.students)}</output>
       <button type="button" onClick={() => void p.onSubmit({ title: "Prova 1" }).catch(() => undefined)}>
         enviar
+      </button>
+      <button type="button" onClick={p.onCancel}>
+        cancelar
       </button>
     </div>
   ),
@@ -105,6 +109,15 @@ describe("new assessment page", () => {
     render(<NewAssessmentPage params={params} />);
     await screen.findByTestId("mode");
     expect(read("initial")).toEqual({ classSessionId: "s-26", startsAt: "2026-10-26T08:20:00-03:00", endsAt: "2026-10-26T10:00:00-03:00" });
+  });
+
+  // SPEC-082 CA-06: the way back and the cancel of the form lead to the tab of the assessments of the class.
+  it("goes back to the tab of the assessments, from the link and from Cancel", async () => {
+    mockReads();
+    render(<NewAssessmentPage params={params} />);
+    expect((await screen.findByRole("link", { name: "Voltar para as avaliações" })).getAttribute("href")).toBe("/app/classes/c-1?tab=assessments");
+    fireEvent.click(screen.getByRole("button", { name: "cancelar" }));
+    expect(pushMock).toHaveBeenCalledWith("/app/classes/c-1?tab=assessments");
   });
 
   it("creates the assessment and goes to its page", async () => {

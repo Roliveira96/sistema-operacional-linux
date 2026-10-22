@@ -1,11 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
+import { assessmentService } from "@/services/assessmentService";
 import { classService, type ClassGroup, type ClassMember } from "@/services/classService";
 import { ApiProblemError } from "@/services/httpClient";
 import { classroomService } from "@/services/classroomService";
 import { moduleService } from "@/services/moduleService";
 import { scheduleService, startLiveFromSession } from "@/services/scheduleService";
+import { SERVER_NOW, publicOf, summary } from "@/test/assessmentFixtures";
 import ClassPage from "./page";
 
 const replaceMock = vi.fn();
@@ -52,7 +54,7 @@ vi.mock("@/services/studentService", () => ({
   importStudentsCSV: vi.fn(),
 }));
 
-function asRole(role: "TEACHER" | "STUDENT") {
+function asRole(role: "TEACHER" | "STUDENT" | "ADMIN") {
   vi.mocked(useAuth).mockReturnValue({
     user: { userId: "u-1", email: "u@x.br", role, status: "ACTIVE", mustChangePassword: false, sessionCreatedAt: "", sessionExpiresAt: "" },
     refresh: vi.fn(),
@@ -611,18 +613,66 @@ describe("assessments from the class page (SPEC-075)", () => {
 
   beforeEach(() => pushMock.mockClear());
 
-  it("links the teacher and the student to the assessments of the class", async () => {
-    asRole("TEACHER");
-    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
-    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
-    render(<ClassPage params={params} />);
-    expect((await screen.findByRole("link", { name: "Avaliações" })).getAttribute("href")).toBe("/app/classes/c-1/assessments");
-    cleanup();
+  // SPEC-082 CA-01, CA-04, D-01: the assessments are a tab after Agenda, for the three roles, and are no longer a button of the header.
+  it("has the tab Avaliações after Agenda for the teacher, the administrator and the student, and no button of it in the header", async () => {
+    const tabs = () => screen.getAllByRole("tab").map((t) => t.textContent!.replace(/\d+$/, ""));
+    for (const role of ["TEACHER", "ADMIN"] as const) {
+      asRole(role);
+      vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+      vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+      render(<ClassPage params={params} />);
+      await screen.findByRole("heading", { name: "Sistemas Operacionais" });
+      expect(tabs()).toEqual(["Visão geral", "Agenda", "Avaliações", "Estudantes"]);
+      expect(screen.queryByRole("link", { name: "Avaliações" })).toBeNull();
+      expect(screen.getByRole("link", { name: "Configurações" })).toBeDefined();
+      cleanup();
+    }
 
     asRole("STUDENT");
     vi.spyOn(classService, "getMyClass").mockResolvedValue(myClass);
     render(<ClassPage params={params} />);
-    expect((await screen.findByRole("link", { name: "Avaliações" })).getAttribute("href")).toBe("/app/classes/c-1/assessments");
+    await screen.findByRole("heading", { name: "Sistemas Operacionais" });
+    expect(tabs()).toEqual(["Visão geral", "Agenda", "Avaliações"]);
+    expect(screen.queryByRole("link", { name: "Avaliações" })).toBeNull();
+  });
+
+  it("puts the tab in the address when it is chosen", async () => {
+    asRole("TEACHER");
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    render(<ClassPage params={params} />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Avaliações" }));
+    expect(replaceMock).toHaveBeenCalledWith("/app/classes/c-1?tab=assessments", { scroll: false });
+  });
+
+  // SPEC-082 CA-02, CA-03: the list of the class is the content of the tab, and it is only read when the tab is open.
+  it("shows the list to the teacher when the address asks for the tab, and reads it only then", async () => {
+    asRole("TEACHER");
+    const list = vi.spyOn(assessmentService, "list").mockResolvedValue({ items: [summary({ id: "a-1", title: "Prova 1: permissões" })], serverNow: SERVER_NOW });
+    vi.spyOn(classService, "getClass").mockResolvedValue(theClass);
+    vi.spyOn(classService, "listMembers").mockResolvedValue([member]);
+    const { unmount } = render(<ClassPage params={params} />);
+    await screen.findByRole("heading", { name: "Sistemas Operacionais" });
+    expect(list).not.toHaveBeenCalled();
+    unmount();
+
+    searchParams = new URLSearchParams("tab=assessments");
+    render(<ClassPage params={params} />);
+    expect(await screen.findByRole("table")).toBeDefined();
+    expect(screen.getByRole("link", { name: "Prova 1: permissões" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1");
+    expect(screen.getByRole("button", { name: "Nova avaliação" })).toBeDefined();
+    expect(screen.getByRole("tab", { name: "Avaliações" }).getAttribute("aria-selected")).toBe("true");
+    expect(list).toHaveBeenCalledWith("c-1");
+  });
+
+  it("shows the cards of what is public to the student", async () => {
+    asRole("STUDENT");
+    searchParams = new URLSearchParams("tab=assessments");
+    vi.spyOn(classService, "getMyClass").mockResolvedValue(myClass);
+    vi.spyOn(assessmentService, "list").mockResolvedValue({ items: [publicOf({ id: "a-1", title: "Prova 1: permissões" })], serverNow: SERVER_NOW });
+    render(<ClassPage params={params} />);
+    expect((await screen.findByRole("link", { name: "Prova 1: permissões" })).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1");
+    expect(screen.queryByRole("button", { name: "Nova avaliação" })).toBeNull();
   });
 
   it("opens the form of a new assessment made from the lesson of the calendar", async () => {
