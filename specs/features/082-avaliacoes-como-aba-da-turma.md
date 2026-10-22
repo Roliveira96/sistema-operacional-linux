@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-082 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 22/10/2026 |
 | **Última revisão** | 22/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -140,13 +140,13 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-Dúvidas e escolhas em aberto, cada uma com uma recomendação. **Uma spec só pode ser aprovada com esta tabela vazia.** O texto acima já segue as recomendações; se o Tech Lead decidir diferente, a seção correspondente é revisada antes da aprovação.
+Nenhuma. O Tech Lead decidiu em 22/10/2026, ao aprovar a spec, todas as pendências que ela tinha, com as recomendações como estavam. As decisões estão incorporadas às seções 2, 3, 6, 7 e 8; esta tabela só as registra.
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| D-01 | **Onde fica a aba.** Depois de *Agenda* e antes de *Estudantes*, ou no fim da barra. | Depois de *Agenda* e antes de *Estudantes*: *Visão geral*, *Agenda*, *Avaliações*, *Estudantes*. O que é da disciplina (conteúdo, agenda, avaliações) fica junto, e a gestão de alunos, que só a docente vê, fica no fim. |
-| D-02 | **O endereço antigo.** Manter `/app/classes/[id]/assessments` como redirecionamento, ou tirar a rota. | Manter como redirecionamento para `?tab=assessments`: as páginas de uma avaliação continuam sob esse caminho, e links e favoritos antigos não quebram. Os links de volta vão direto à aba. |
-| D-03 | **Contador na aba.** Mostrar um número na aba, como a aba *Estudantes* mostra. | Sem número. O contador exigiria ler a lista ao abrir a página da turma, mesmo em outra aba, e o número que importaria (as que vêm e as em andamento) não é o total. |
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **Onde fica a aba.** Depois de *Agenda* e antes de *Estudantes*: *Visão geral*, *Agenda*, *Avaliações*, *Estudantes*. |
+| D-02 | **O endereço antigo.** `/app/classes/[id]/assessments` continua como redirecionamento para `?tab=assessments`; os links de volta vão direto à aba. |
+| D-03 | **Contador na aba.** Sem número na aba. |
 
 ---
 
@@ -155,3 +155,5 @@ Dúvidas e escolhas em aberto, cada uma com uma recomendação. **Uma spec só p
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 22/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 22/10/2026 de mostrar as avaliações da turma como aba da página da turma e tirar o botão do topo, conferida contra a página da turma (SPEC-041), a página das avaliações e seus testes. Três pendências abertas (D-01 a D-03), todas com recomendação |
+| 22/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das três pendências aceitas como estavam na spec: D-01 a D-03. Status: `Aprovada` |
+| 22/10/2026 | Aruna Architect | Seção 10 esvaziada: as três pendências viraram decisões D-01 a D-03, incorporadas ao texto |
