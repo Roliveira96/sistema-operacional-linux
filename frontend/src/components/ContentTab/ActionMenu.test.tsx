@@ -65,12 +65,13 @@ describe("ActionMenu floating", () => {
   const rect = (over: Partial<DOMRect>) => ({ top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}), ...over }) as DOMRect;
 
   /** The button is at the given place, the menu is as tall as asked and the window is 1024 by 768. */
-  function layout(trigger: Partial<DOMRect>, menuHeight: number) {
+  function layout(trigger: Partial<DOMRect>, menuHeight: number, menuWidth = 0, windowWidth = 1024) {
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
       return this.getAttribute("aria-haspopup") === "menu" ? rect(trigger) : rect({});
     });
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(menuHeight);
-    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(menuWidth);
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: windowWidth });
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 768 });
   }
 
@@ -95,6 +96,21 @@ describe("ActionMenu floating", () => {
     expect(menu.style.position).toBe("fixed");
     expect(menu.style.top).toBe("auto");
     expect(menu.style.bottom).toBe("72px");
+  });
+
+  // A card on a narrow window puts the button at the left, so a menu on the right edge of the button would leave through the left of the window.
+  it("starts at the left edge of the button when it would leave the window on the left", () => {
+    layout({ top: 56, bottom: 100, left: 30, right: 138 }, 150, 240, 400);
+    const menu = open(true);
+    expect(menu.style.left).toBe("30px");
+    expect(menu.style.right).toBe("auto");
+  });
+
+  it("is kept inside the window when it would also leave on the right", () => {
+    layout({ top: 56, bottom: 100, left: 100, right: 130 }, 150, 240, 300);
+    const menu = open(true);
+    expect(menu.style.left).toBe("52px");
+    expect(menu.style.right).toBe("auto");
   });
 
   it("closes when the window is resized or the page scrolls, and not when the menu itself scrolls", () => {
