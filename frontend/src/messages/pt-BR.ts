@@ -1191,6 +1191,9 @@ export const messages = {
       canceled: (who: string, when: string) => `Cancelada por ${who} em ${when}.`,
       reason: (reason: string) => `Motivo: ${reason}`,
       clearanceUpdated: (who: string, when: string) => `Habilitações atualizadas por ${who} em ${when}.`,
+      clearanceUpdatedMany: (who: string, day: string, count: number, from: string, to: string) => `Habilitações atualizadas por ${who} em ${day}: ${count} ações, das ${from} às ${to}.`,
+      clearanceUpdatedSameMinute: (who: string, when: string, count: number) => `Habilitações atualizadas por ${who} em ${when}: ${count} ações.`,
+      removedUser: "Usuário removido",
       fields: { title: "título", description: "instruções", type: "tipo", duration: "duração", max_score: "nota máxima", module: "módulo", composition: "composição", items: "questões", draw: "sorteio", audience: "público", students: "alunos", modality: "modalidade", requires_clearance: "exigência de habilitação", clearances: "habilitações" } as Record<string, string>,
     },
     errors: {

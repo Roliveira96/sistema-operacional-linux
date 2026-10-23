@@ -124,7 +124,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
     [p.facts.composition, m.composition[detail.composition] ?? ""],
     [p.facts.audience, m.audience[detail.audience] ?? ""],
     [p.facts.eligible, String(detail.eligibleStudents)],
-    [p.facts.createdBy, detail.createdByName],
+    [p.facts.createdBy, detail.createdByName || m.history.removedUser],
   ];
 
   return (
@@ -159,7 +159,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
           </ButtonLink>
         )}
       </div>
-      {inPerson && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName ?? "")}</p>}
+      {inPerson && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser)}</p>}
       {inPerson && !detail.startedAt && detail.phase === "UPCOMING" && (
         <p id="start-reason" className={styles.text}>
           {p.startFrom(formatDateTime(detail.startsAt))}
