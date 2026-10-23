@@ -120,6 +120,30 @@ func TestRepository_ReadsUsersAndEnrollmentsInBatch(t *testing.T) {
 	assert.Nil(t, name)
 }
 
+// Covers SPEC-086 CA-01, CA-02 (RN-01, RN-02): the name of each user; the e-mail of one whose name is null or blank; nothing for a user that was
+// removed or never existed.
+func TestRepository_UserNames_FallsBackToTheEmail(t *testing.T) {
+	env := newEnrollEnv(t)
+	noName := env.student(t, "1000001")
+	blank := "   "
+	blankName := userdomain.User{Name: &blank, Email: "branco@utfpr.edu.br", Role: userdomain.RoleTeacher, Status: userdomain.StatusActive}
+	require.NoError(t, env.users.Create(env.ctx, &blankName))
+	removed := env.student(t, "1000002")
+	require.NoError(t, env.db.Conn(env.ctx).Table("users").Where("id = ?", removed.ID).Update("deleted_at", env.now).Error)
+
+	names, err := env.repo.UserNames(env.ctx, []uuid.UUID{env.teacher.ID, noName.ID, blankName.ID, removed.ID, uuid.New()})
+	require.NoError(t, err)
+	assert.Equal(t, map[uuid.UUID]string{
+		env.teacher.ID: "Profa. Sediane",
+		noName.ID:      "1000001@alunos.utfpr.edu.br",
+		blankName.ID:   "branco@utfpr.edu.br",
+	}, names)
+
+	none, err := env.repo.UserNames(env.ctx, nil)
+	require.NoError(t, err)
+	assert.Empty(t, none)
+}
+
 // Covers SPEC-041 section 4: the summary is stored and read back.
 func TestRepository_StoresSummary(t *testing.T) {
 	env := newEnrollEnv(t)
