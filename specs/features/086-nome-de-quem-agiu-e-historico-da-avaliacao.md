@@ -3,9 +3,9 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-086 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 22/10/2026 |
-| **Última revisão** | 22/10/2026 |
+| **Última revisão** | 23/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -138,13 +138,13 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-Três decisões do Tech Lead, cada uma com a recomendação. Esta seção deve estar vazia para a spec ser aprovada: a aprovação ("aprovo") aceita as recomendações como estão, e qualquer outra escolha entra no texto e nesta tabela antes.
+Nenhuma. O Tech Lead decidiu em 23/10/2026, ao aprovar a spec, todas as pendências que ela tinha, com as recomendações como estavam. As decisões estão incorporadas às seções 3, 6, 7 e 8; esta tabela só as registra.
 
-| ID | Pergunta | Opções | Recomendação |
-| :--- | :--- | :--- | :--- |
-| D-01 | **O que mostrar no lugar do nome ausente?** | (a) o **e-mail**; (b) o texto "Usuário sem nome"; (c) o papel ("Administrador", "Docente") | **(a)**: identifica sem dúvida quem foi, é o que o módulo `classroom` já faz, e só a docente dona e o administrador veem (RN-03). (b) não diz quem; (c) confunde duas pessoas do mesmo papel. |
-| D-02 | **Qual o critério para juntar as habilitações?** | (a) seguidas, **mesmo autor, mesmo dia**; (b) seguidas, mesmo autor e **até N minutos entre uma e a outra** | **(a)**: sem número mágico, e a linha mostra o primeiro e o último horário, então não esconde que foram horas diferentes. Com (b), N é um valor a escolher e a manter. |
-| D-03 | **O histórico da turma (SPEC-049) entra?** Ele usa a mesma busca e hoje mostra "Usuário removido" para quem existe sem nome. | (a) **entra**: `UserNames` passa a dar nome ou e-mail e a tela da turma melhora sem mudar de código; (b) fica de fora: o `assessment` usa uma consulta própria e a tela da turma segue como está | **(a)**: a causa é a mesma e é uma mudança só; uma consulta separada só para manter o defeito da turma seria código a mais. O leitor é o mesmo (docente e administrador, SPEC-049). |
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **O que mostrar no lugar do nome ausente.** O e-mail, só para a docente dona e o administrador (RN-03). |
+| D-02 | **O critério para juntar as habilitações.** Seguidas, do mesmo autor e do mesmo dia, sem limite de minutos; a linha mostra o primeiro e o último horário. |
+| D-03 | **O histórico da turma (SPEC-049).** Entra: `UserNames` passa a dar o nome ou o e-mail, e a tela da turma melhora sem mudar de código. |
 
 ---
 
@@ -153,3 +153,5 @@ Três decisões do Tech Lead, cada uma com a recomendação. Esta seção deve e
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 22/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, que colou o detalhe da avaliação "Teste" do desenvolvimento e pediu um ajuste: "Criada por" e o histórico sem nome (o administrador do desenvolvimento não tem nome cadastrado e a busca do `classgroup` deixa de fora quem não tem) e dez linhas iguais de "Habilitações atualizadas" (uma por clique, entre 13:35:45 e 13:35:50, como manda a SPEC-076 RN-11). Conferida contra o `AssessmentHistory`, o `Users.Names` do `assessment`, o `UserNames` e o `FindUserName` do `classgroup`, o `UserNames` do `classroom` (que já cai no e-mail) e a resposta real da API do ambiente de desenvolvimento. Três pendências abertas (D-01 a D-03), todas com recomendação |
+| 23/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das três pendências aceitas como estavam na spec: D-01 a D-03. Status: `Aprovada` |
+| 23/10/2026 | Aruna Architect | Seção 10 esvaziada: as três pendências viraram decisões D-01 a D-03, incorporadas ao texto |
