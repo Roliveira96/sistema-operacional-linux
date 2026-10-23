@@ -38,6 +38,7 @@ type ClassRepository interface {
 	ListEnrollmentsByUsers(ctx context.Context, classID uuid.UUID, userIDs []uuid.UUID) ([]domain.Enrollment, error)
 	SaveEnrollments(ctx context.Context, created, updated []domain.Enrollment) error
 	FindUserName(ctx context.Context, id uuid.UUID) (*string, error)
+	UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 // CreateClassInput defines parameters for creating a new class.
@@ -424,20 +425,10 @@ func (s *Service) DeleteClass(ctx context.Context, teacherID, classID uuid.UUID)
 	return s.repo.DeleteClass(ctx, &class, teacherID)
 }
 
-// UserNames returns the display names of the users, for the history of a class (SPEC-049 RN-04). A user that cannot be read is
-// left out.
+// UserNames returns the display names of the users, for the history of a class (SPEC-049 RN-04) and of an assessment (SPEC-086 RN-02): the name,
+// or the e-mail of one who has none. A user that cannot be read is left out.
 func (s *Service) UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
-	names := make(map[uuid.UUID]string, len(ids))
-	for _, id := range uniqueIDs(ids) {
-		name, err := s.repo.FindUserName(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		if name != nil && *name != "" {
-			names[id] = *name
-		}
-	}
-	return names, nil
+	return s.repo.UserNames(ctx, uniqueIDs(ids))
 }
 
 // JoinByToken processes a student join request via invite token.
