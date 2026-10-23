@@ -60,6 +60,15 @@ describe("assessment page", () => {
       expect(screen.getByText("Criada por Profa. Sediane em 20/10/2026 às 16:00.")).toBeDefined();
     });
 
+    // SPEC-086 CA-03 (RN-01): "Criada por" is never blank; a removed user is told as such.
+    it("says the user was removed when the name of who created the assessment is empty", async () => {
+      asRole("TEACHER");
+      vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ createdByName: "" }));
+      render(<AssessmentPage params={params} />);
+      await screen.findByRole("heading", { name: "Prova 1: permissões" });
+      expect(fact("Criada por")).toBe("Usuário removido");
+    });
+
     // SPEC-077 CA-11: the instructions of the teacher view are formatted text too, and a dash when empty.
     it("shows the instructions with their formatting, and a dash when there are none", async () => {
       asRole("TEACHER");
@@ -276,6 +285,14 @@ describe("assessment page, start of the exam", () => {
     render(<AssessmentPage params={params} />);
     expect(await screen.findByText("Prova iniciada às 09:07 por Profa. Sediane.")).toBeDefined();
     expect(startButton()).toBeNull();
+  });
+
+  // SPEC-086 CA-03 (RN-01): the server gives no name for a removed user, and the page says so instead of leaving a gap.
+  it("says the user was removed when the name of who started the exam is empty", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...STARTED, startedByName: "" }));
+    render(<AssessmentPage params={params} />);
+    expect(await screen.findByText("Prova iniciada às 09:07 por Usuário removido.")).toBeDefined();
   });
 
   it("has the button off before the start time, with the time as the reason tied to it", async () => {
