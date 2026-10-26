@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AssessmentSimulator } from "@/components/AssessmentSimulator/AssessmentSimulator";
@@ -15,8 +14,8 @@ import own from "./page.module.scss";
 const m = messages.assessments;
 
 /**
- * The simulator of the exam (SPEC-081): the teacher and the administrator go through the assessment as a student, with the view of the teacher
- * beside it. It only reads; the student has no simulator and goes back to the assessment.
+ * The simulator of the exam (SPEC-081, SPEC-087): the teacher and the administrator go through the assessment as a student, in the window of the
+ * exam, which covers the whole window without the menu of the platform. It only reads; the student has no simulator and goes back to the assessment.
  */
 export default function SimulatePage({ params }: { params: Promise<{ id: string; assessmentId: string }> | { id: string; assessmentId: string } }) {
   const { user } = useAuth();
@@ -34,6 +33,11 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
   const loadPreview = useCallback(() => assessmentService.preview(classId!, assessmentId!), [classId, assessmentId]);
   const checkQuestion = useCallback((questionId: string, snapshot: unknown) => assessmentService.checkQuestion(classId!, assessmentId!, questionId, snapshot), [classId, assessmentId]);
   const loadScenario = useCallback((questionId: string) => assessmentService.questionScenario(classId!, assessmentId!, questionId), [classId, assessmentId]);
+  /** Leaving closes the tab the simulator opened in; when the browser keeps the tab open, the page goes to the assessment instead (SPEC-087 D-01). */
+  const exit = useCallback(() => {
+    window.close();
+    if (!window.closed) router.replace(backHref);
+  }, [router, backHref]);
 
   useEffect(() => {
     if (isStudent && classId && assessmentId) router.replace(backHref);
@@ -58,16 +62,16 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
   if (!classId || !assessmentId || isStudent) return null;
 
   return (
-    <main className={`${styles.container} ${own.wide}`}>
-      <Link href={backHref} className={styles.back}>
-        {m.back.toAssessment}
-      </Link>
-      <h1 className={styles.title}>{m.simulator.title}</h1>
+    <main className={own.window}>
+      <h1 className={own.srOnly}>{m.simulator.title}</h1>
       {error && (
         <div className={styles.problem}>
           <span role="alert">{error}</span>
           <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
             {m.retry}
+          </Button>
+          <Button variant="secondary" onClick={exit}>
+            {m.simulator.exit}
           </Button>
         </div>
       )}
@@ -76,7 +80,7 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
           {m.page.loading}
         </p>
       )}
-      {detail && <AssessmentSimulator detail={detail} load={loadPreview} loadScenario={loadScenario} checkQuestion={checkQuestion} backHref={backHref} />}
+      {detail && <AssessmentSimulator detail={detail} load={loadPreview} loadScenario={loadScenario} checkQuestion={checkQuestion} onExit={exit} />}
     </main>
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AssessmentDialog } from "@/components/AssessmentDialog/AssessmentDialog";
 import dialog from "@/components/AssessmentDialog/AssessmentDialog.module.scss";
@@ -18,6 +17,7 @@ import { contentMessages } from "@/messages/content.pt-BR";
 import { messages } from "@/messages/pt-BR";
 import type { AssessmentDetail, PreviewData } from "@/services/assessmentService";
 import { ExamTerminal } from "./ExamTerminal";
+import { SolvedCelebration } from "./SolvedCelebration";
 import styles from "./AssessmentSimulator.module.scss";
 
 const m = messages.assessments;
@@ -82,14 +82,14 @@ export interface AssessmentSimulatorProps {
   loadScenario: (questionId: string) => Promise<unknown>;
   /** Asks the server whether the machine meets the conditions of a question of command Linux; it only says yes or no and stores nothing (SPEC-085). */
   checkQuestion: (questionId: string, snapshot: unknown) => Promise<boolean>;
-  /** Where "back to the assessment" goes. */
-  backHref: string;
+  /** Leaves the simulation: the page closes the tab of the exam, or goes back to the assessment (SPEC-087 D-01). */
+  onExit: () => void;
 }
 
 /**
- * The simulator of the exam (SPEC-081, SPEC-084): the view of the student, which is the screen of the exam with the question beside the terminal, and
- * the view of the teacher, in two tabs. The teacher goes through the exam as a student; the answers and the machines live only in this page, and
- * nothing is sent or stored.
+ * The simulator of the exam (SPEC-081, SPEC-084, SPEC-087): the view of the student, which is the screen of the exam with the question beside the
+ * terminal, and the view of the teacher, in two tabs, in the window of the exam. The teacher goes through the exam as a student; the answers and
+ * the machines live only in this page, and nothing is sent or stored.
  */
 export function AssessmentSimulator(props: AssessmentSimulatorProps) {
   const wide = useWideWindow();
@@ -97,9 +97,11 @@ export function AssessmentSimulator(props: AssessmentSimulatorProps) {
     return (
       <div className={styles.narrow}>
         <p role="status">{s.narrow}</p>
-        <Link href={props.backHref} className={styles.back}>
-          {s.back}
-        </Link>
+        <div>
+          <Button variant="secondary" onClick={props.onExit}>
+            {s.exit}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -109,7 +111,7 @@ export function AssessmentSimulator(props: AssessmentSimulatorProps) {
 /** How long the terminal has to be without a command before the machine of the question is sent to be checked (SPEC-085 D-01). */
 const CHECK_WAIT_MS = 1000;
 
-function Simulator({ detail, load, loadScenario, checkQuestion, backHref }: AssessmentSimulatorProps) {
+function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: AssessmentSimulatorProps) {
   const baseId = useId();
   const [tab, setTab] = useState<Tab>("student");
   const [data, setData] = useState<PreviewData | null>(null);
@@ -124,24 +126,44 @@ function Simulator({ detail, load, loadScenario, checkQuestion, backHref }: Asse
   const [remaining, setRemaining] = useState<number | null>(null);
   const [timeUp, setTimeUp] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  /** The teacher asked to leave with the exam in progress: the answers and the machines go with it, so it asks first (SPEC-087 D-01). */
+  const [exiting, setExiting] = useState(false);
   /** The practical questions the server gave as solved, and the one whose check failed last (SPEC-085). */
   const [solved, setSolved] = useState<Record<string, boolean>>({});
   const [checkFailed, setCheckFailed] = useState<string | null>(null);
+  /** The question of command Linux being celebrated: it was given as solved while it was open (SPEC-087 D-03). */
+  const [celebrating, setCelebrating] = useState<string | null>(null);
+  /** The question that is open, for a check that comes back to know whether to celebrate. */
+  const openId = useRef<string | null>(null);
   const checks = useRef(newChecks());
   const check = useRef(checkQuestion);
   useEffect(() => {
     check.current = checkQuestion;
   });
+  /** The full screen of the browser, only where it offers it (SPEC-087 D-02). */
+  const [fullscreenSupported] = useState(() => typeof document !== "undefined" && typeof document.documentElement.requestFullscreen === "function");
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (!fullscreenSupported) return;
+    const sync = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, [fullscreenSupported]);
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else void document.documentElement.requestFullscreen().catch(() => {});
+  };
 
   const questions = useMemo(() => (data ? simulatedQuestions(data) : []), [data]);
   const isDraw = detail.composition === "DRAW";
 
-  /** Forgets what was checked: the waits that run, the machines that were sent and the marks of solved. */
+  /** Forgets what was checked: the waits that run, the machines that were sent, the marks of solved and the celebration. */
   const forgetChecks = useCallback(() => {
     for (const timer of checks.current.timers.values()) clearTimeout(timer);
     checks.current = newChecks();
     setSolved({});
     setCheckFailed(null);
+    setCelebrating(null);
   }, []);
 
   const restart = useCallback(() => {
@@ -177,6 +199,8 @@ function Simulator({ detail, load, loadScenario, checkQuestion, backHref }: Asse
           if (passed) {
             c.solved.add(id);
             setSolved((all) => ({ ...all, [id]: true }));
+            // the celebration is only for the question that is open; solved while away, it only gets the mark (SPEC-087 CA-09)
+            if (openId.current === id) setCelebrating(id);
           }
         } catch {
           if (checks.current === c) setCheckFailed(id);
@@ -216,6 +240,7 @@ function Simulator({ detail, load, loadScenario, checkQuestion, backHref }: Asse
     c.generation.set(id, (c.generation.get(id) ?? 0) + 1);
     setSolved((all) => ({ ...all, [id]: false }));
     setCheckFailed((failed) => (failed === id ? null : failed));
+    setCelebrating((celebrated) => (celebrated === id ? null : celebrated));
   }, []);
 
   // nothing waits to be checked once the exam leaves the screen of the questions, or when the simulator goes away
@@ -283,6 +308,15 @@ function Simulator({ detail, load, loadScenario, checkQuestion, backHref }: Asse
   const isDone = (q: SimulatedQuestion) => !!solved[q.questionId] || isAnswered(responses[q.questionId]);
   const answeredCount = questions.filter(isDone).length;
   const open = phase === "answering" ? questions[current] : undefined;
+  const openQuestionId = open?.questionId ?? null;
+  useEffect(() => {
+    openId.current = openQuestionId;
+  }, [openQuestionId]);
+  /** Opens a question: the celebration, if one is open, stays behind with the question that is left (SPEC-087 CA-08). */
+  const goTo = (i: number) => {
+    setCelebrating(null);
+    setCurrent(i);
+  };
   const hasTerminal = questions.some(isPractical);
   const tabIds = { student: { tab: `${baseId}-tab-student`, panel: `${baseId}-panel-student` }, teacher: { tab: `${baseId}-tab-teacher`, panel: `${baseId}-panel-teacher` } };
   /** The tabs move with the arrows, as the pattern of tabs asks. */
@@ -292,6 +326,11 @@ function Simulator({ detail, load, loadScenario, checkQuestion, backHref }: Asse
     const next: Tab = tab === "student" ? "teacher" : "student";
     setTab(next);
     document.getElementById(tabIds[next].tab)?.focus();
+  };
+  /** Leaving with the exam in progress asks first; before it starts and after the delivery, it just leaves (SPEC-087 D-01). */
+  const leave = () => {
+    if (phase === "answering") setExiting(true);
+    else onExit();
   };
 
   if (failed && !data) {
@@ -313,163 +352,183 @@ function Simulator({ detail, load, loadScenario, checkQuestion, backHref }: Asse
           {s.banner}
         </p>
         <span className={styles.situation}>{s.realSituation(situationOf(detail))}</span>
+        <div role="tablist" aria-label={s.tabsLabel} className={styles.tabs} onKeyDown={moveTab}>
+          {(["student", "teacher"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              id={tabIds[key].tab}
+              aria-selected={tab === key}
+              aria-controls={tabIds[key].panel}
+              tabIndex={tab === key ? 0 : -1}
+              className={`${styles.tab} ${tab === key ? styles.tabActive : ""}`}
+              onClick={() => setTab(key)}
+            >
+              {s.tabs[key]}
+            </button>
+          ))}
+        </div>
         {isDraw && (
           <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
             {s.drawAgain}
           </Button>
         )}
+        <Button variant="secondary" onClick={leave}>
+          {s.exit}
+        </Button>
       </div>
 
-      <div role="tablist" aria-label={s.tabsLabel} className={styles.tabs} onKeyDown={moveTab}>
-        {(["student", "teacher"] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            id={tabIds[key].tab}
-            aria-selected={tab === key}
-            aria-controls={tabIds[key].panel}
-            tabIndex={tab === key ? 0 : -1}
-            className={`${styles.tab} ${tab === key ? styles.tabActive : ""}`}
-            onClick={() => setTab(key)}
-          >
-            {s.tabs[key]}
-          </button>
-        ))}
-      </div>
-
-        <section role="tabpanel" id={tabIds.student.panel} aria-label={s.studentView} hidden={tab !== "student"} className={styles.pane}>
-          <h2 className={styles.paneTitle}>{s.studentView}</h2>
-          {phase === "intro" && (
-            <div className={styles.stack}>
-              <h3 className={styles.examTitle}>{detail.title}</h3>
-              {detail.description && <div className={styles.richText} dangerouslySetInnerHTML={{ __html: detail.description }} />}
-              <dl className={styles.facts}>
-                <div>
-                  <dt>{s.intro.duration}</dt>
-                  <dd>{detail.durationMinutes ? s.intro.minutes(detail.durationMinutes) : s.intro.wholePeriod}</dd>
-                </div>
-                <div>
-                  <dt>{s.intro.maxScore}</dt>
-                  <dd>{formatScore(detail.maxScore)}</dd>
-                </div>
-                <div>
-                  <dt>{s.intro.questions}</dt>
-                  <dd>{s.intro.count(questions.length)}</dd>
-                </div>
-              </dl>
+      <section role="tabpanel" id={tabIds.student.panel} aria-label={s.studentView} hidden={tab !== "student"} className={styles.pane}>
+        <h2 className={styles.paneTitle}>{s.studentView}</h2>
+        {phase === "intro" && (
+          <div className={styles.stack}>
+            <h3 className={styles.examTitle}>{detail.title}</h3>
+            {detail.description && <div className={styles.richText} dangerouslySetInnerHTML={{ __html: detail.description }} />}
+            <dl className={styles.facts}>
               <div>
-                <Button onClick={begin} disabled={questions.length === 0}>
-                  {s.intro.begin}
+                <dt>{s.intro.duration}</dt>
+                <dd>{detail.durationMinutes ? s.intro.minutes(detail.durationMinutes) : s.intro.wholePeriod}</dd>
+              </div>
+              <div>
+                <dt>{s.intro.maxScore}</dt>
+                <dd>{formatScore(detail.maxScore)}</dd>
+              </div>
+              <div>
+                <dt>{s.intro.questions}</dt>
+                <dd>{s.intro.count(questions.length)}</dd>
+              </div>
+            </dl>
+            <div>
+              <Button onClick={begin} disabled={questions.length === 0}>
+                {s.intro.begin}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {phase === "answering" && open && (
+          <div className={styles.exam}>
+            <div className={styles.examHead}>
+              <p className={styles.examName}>{detail.title}</p>
+              <h3 className={styles.examTitle}>{s.answering.position(current + 1, questions.length)}</h3>
+              {remaining !== null && (
+                <span role="timer" aria-label={s.answering.timeLeft} className={styles.timer}>
+                  {countdown(remaining)}
+                </span>
+              )}
+              {fullscreenSupported && (
+                <Button variant="secondary" onClick={toggleFullscreen}>
+                  {fullscreen ? s.fullscreen.exit : s.fullscreen.enter}
                 </Button>
-              </div>
+              )}
+              <Button onClick={() => setConfirming(true)}>{s.answering.deliver}</Button>
             </div>
-          )}
-
-          {phase === "answering" && open && (
-            <div className={styles.exam}>
-              <div className={styles.examHead}>
-                <p className={styles.examName}>{detail.title}</p>
-                <h3 className={styles.examTitle}>{s.answering.position(current + 1, questions.length)}</h3>
-                {remaining !== null && (
-                  <span role="timer" aria-label={s.answering.timeLeft} className={styles.timer}>
-                    {countdown(remaining)}
-                  </span>
+            <div className={`${styles.examBody} ${hasTerminal ? styles.withTerminal : ""}`}>
+              <div className={styles.questionCol}>
+                <ol aria-label={s.answering.navigator} className={styles.navigator}>
+                  {questions.map((q, i) => (
+                    <li key={q.questionId}>
+                      <button
+                        type="button"
+                        className={`${styles.step} ${isDone(q) ? styles.stepDone : ""}`}
+                        aria-label={s.answering.navItem(i + 1, solved[q.questionId] ? "solved" : isDone(q) ? "answered" : "blank")}
+                        aria-current={i === current ? "step" : undefined}
+                        onClick={() => goTo(i)}
+                      >
+                        {i + 1}
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+                <p className={styles.worth}>{m.points(formatScore(open.weight))}</p>
+                <Html html={open.statement} />
+                <Answer key={open.questionId} question={open} response={responses[open.questionId]} order={orders[open.questionId]} onChange={(value) => answer(open.questionId, value)} />
+                {solved[open.questionId] && (
+                  <p role="status" className={styles.solvedNote}>
+                    {s.answering.solved}
+                  </p>
                 )}
-                <Button onClick={() => setConfirming(true)}>{s.answering.deliver}</Button>
-              </div>
-              <div className={`${styles.examBody} ${hasTerminal ? styles.withTerminal : ""}`}>
-                <div className={styles.questionCol}>
-                  <ol aria-label={s.answering.navigator} className={styles.navigator}>
-                    {questions.map((q, i) => (
-                      <li key={q.questionId}>
-                        <button
-                          type="button"
-                          className={`${styles.step} ${isDone(q) ? styles.stepDone : ""}`}
-                          aria-label={s.answering.navItem(i + 1, solved[q.questionId] ? "solved" : isDone(q) ? "answered" : "blank")}
-                          aria-current={i === current ? "step" : undefined}
-                          onClick={() => setCurrent(i)}
-                        >
-                          {i + 1}
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
-                  <p className={styles.worth}>{m.points(formatScore(open.weight))}</p>
-                  <Html html={open.statement} />
-                  <Answer key={open.questionId} question={open} response={responses[open.questionId]} order={orders[open.questionId]} onChange={(value) => answer(open.questionId, value)} />
-                  {solved[open.questionId] && (
-                    <p role="status" className={styles.solvedNote}>
-                      {s.answering.solved}
-                    </p>
-                  )}
-                  {checkFailed === open.questionId && (
-                    <p role="status" className={styles.notice}>
-                      {s.answering.checkFailed}
-                    </p>
-                  )}
-                  <div className={styles.footer}>
-                    <Button variant="secondary" disabled={current === 0} onClick={() => setCurrent((n) => n - 1)}>
-                      {s.answering.previous}
-                    </Button>
-                    <Button variant="secondary" disabled={current === questions.length - 1} onClick={() => setCurrent((n) => n + 1)}>
-                      {s.answering.next}
-                    </Button>
-                  </div>
+                {checkFailed === open.questionId && (
+                  <p role="status" className={styles.notice}>
+                    {s.answering.checkFailed}
+                  </p>
+                )}
+                <div className={styles.footer}>
+                  <Button variant="secondary" disabled={current === 0} onClick={() => goTo(current - 1)}>
+                    {s.answering.previous}
+                  </Button>
+                  <Button variant="secondary" disabled={current === questions.length - 1} onClick={() => goTo(current + 1)}>
+                    {s.answering.next}
+                  </Button>
                 </div>
-                {hasTerminal && (
-                  <ExamTerminal questionId={isPractical(open) ? open.questionId : null} loadScenario={loadScenario} onCommand={machineChanged} onFormat={machineFormatted} />
+                {celebrating === open.questionId && (
+                  <SolvedCelebration
+                    last={current === questions.length - 1}
+                    onNext={() => {
+                      goTo(current + 1);
+                    }}
+                    onDeliver={() => {
+                      setCelebrating(null);
+                      setConfirming(true);
+                    }}
+                    onClose={() => setCelebrating(null)}
+                  />
                 )}
               </div>
+              {hasTerminal && (
+                <ExamTerminal questionId={isPractical(open) ? open.questionId : null} loadScenario={loadScenario} onCommand={machineChanged} onFormat={machineFormatted} />
+              )}
             </div>
-          )}
+          </div>
+        )}
 
-          {phase === "done" && (
-            <div className={styles.stack}>
-              <h3 className={styles.examTitle}>{s.done.title}</h3>
-              {timeUp && <p>{s.done.timeUp}</p>}
-              <p>{s.done.nothingSent}</p>
-              <p>{s.done.answered(answeredCount, questions.length)}</p>
-              <div className={styles.footer}>
-                <Button onClick={restart}>{s.done.redo}</Button>
-                <Link href={backHref} className={styles.back}>
-                  {s.back}
-                </Link>
-              </div>
+        {phase === "done" && (
+          <div className={styles.stack}>
+            <h3 className={styles.examTitle}>{s.done.title}</h3>
+            {timeUp && <p>{s.done.timeUp}</p>}
+            <p>{s.done.nothingSent}</p>
+            <p>{s.done.answered(answeredCount, questions.length)}</p>
+            <div className={styles.footer}>
+              <Button onClick={restart}>{s.done.redo}</Button>
+              <Button variant="secondary" onClick={onExit}>
+                {s.exit}
+              </Button>
             </div>
-          )}
-        </section>
+          </div>
+        )}
+      </section>
 
-        <section role="tabpanel" id={tabIds.teacher.panel} aria-label={s.teacherView} hidden={tab !== "teacher"} className={styles.pane}>
-          <h2 className={styles.paneTitle}>{s.teacherView}</h2>
-          <dl className={styles.facts}>
-            {(
-              [
-                [m.page.facts.type, m.type[detail.type]],
-                [m.page.facts.modality, m.modality[detail.modality]],
-                [m.page.facts.period, formatPeriod(detail.startsAt, detail.endsAt)],
-                [m.page.facts.maxScore, formatScore(detail.maxScore)],
-                [m.page.facts.composition, m.composition[detail.composition]],
-              ] as [string, string][]
-            ).map(([term, value]) => (
-              <div key={term}>
-                <dt>{term}</dt>
-                <dd>{value}</dd>
+      <section role="tabpanel" id={tabIds.teacher.panel} aria-label={s.teacherView} hidden={tab !== "teacher"} className={styles.pane}>
+        <h2 className={styles.paneTitle}>{s.teacherView}</h2>
+        <dl className={styles.facts}>
+          {(
+            [
+              [m.page.facts.type, m.type[detail.type]],
+              [m.page.facts.modality, m.modality[detail.modality]],
+              [m.page.facts.period, formatPeriod(detail.startsAt, detail.endsAt)],
+              [m.page.facts.maxScore, formatScore(detail.maxScore)],
+              [m.page.facts.composition, m.composition[detail.composition]],
+            ] as [string, string][]
+          ).map(([term, value]) => (
+            <div key={term}>
+              <dt>{term}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+        {data.rules && <DrawRulesTable rules={data.rules} stock={data.stock} />}
+        <ol className={styles.list}>
+          {questions.map((q) => (
+            <QuestionBlock key={q.questionId} question={q} position={q.position} weight={q.weight} current={open === q}>
+              <p className={styles.label}>{s.teacher.simulated}</p>
+              <div data-testid="simulated" className={styles.simulated}>
+                <Simulated question={q} response={responses[q.questionId]} order={orders[q.questionId]} solved={!!solved[q.questionId]} />
               </div>
-            ))}
-          </dl>
-          {data.rules && <DrawRulesTable rules={data.rules} stock={data.stock} />}
-          <ol className={styles.list}>
-            {questions.map((q) => (
-              <QuestionBlock key={q.questionId} question={q} position={q.position} weight={q.weight} current={open === q}>
-                <p className={styles.label}>{s.teacher.simulated}</p>
-                <div data-testid="simulated" className={styles.simulated}>
-                  <Simulated question={q} response={responses[q.questionId]} order={orders[q.questionId]} solved={!!solved[q.questionId]} />
-                </div>
-              </QuestionBlock>
-            ))}
-          </ol>
-        </section>
+            </QuestionBlock>
+          ))}
+        </ol>
+      </section>
 
       {confirming && (
         <AssessmentDialog title={s.confirm.title} onClose={() => setConfirming(false)}>
@@ -479,6 +538,20 @@ function Simulator({ detail, load, loadScenario, checkQuestion, backHref }: Asse
               {s.confirm.keep}
             </Button>
             <Button onClick={() => finish(false)}>{s.confirm.deliver}</Button>
+          </div>
+        </AssessmentDialog>
+      )}
+
+      {exiting && (
+        <AssessmentDialog title={s.exitConfirm.title} onClose={() => setExiting(false)}>
+          <p>{s.exitConfirm.text}</p>
+          <div className={dialog.actions}>
+            <Button variant="secondary" onClick={() => setExiting(false)}>
+              {s.exitConfirm.keep}
+            </Button>
+            <Button variant="danger" onClick={onExit}>
+              {s.exitConfirm.leave}
+            </Button>
           </div>
         </AssessmentDialog>
       )}

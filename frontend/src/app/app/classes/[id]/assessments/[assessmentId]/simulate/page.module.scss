@@ -1,4 +1,26 @@
-// The exam of the simulator needs the whole width: a question beside a terminal does not fit the narrow column of the other pages (SPEC-084 D-02).
-.wide {
-  max-width: 120rem;
+// The window of the exam (SPEC-087 D-01): the page covers the whole window, over the menu and the header of the platform (the bar of the signed-in
+// area is at 100; the dialogs are at 1000), and does not scroll as a whole: each part scrolls on its own.
+.window {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+// The title of the page is for the reader of the screen and the tab of the browser; the bar of the simulation is what is seen.
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
