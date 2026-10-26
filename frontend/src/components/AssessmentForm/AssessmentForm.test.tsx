@@ -459,10 +459,11 @@ describe("AssessmentForm and the exercises that are out of the exam", () => {
   });
 
   it("shows no notice when every exercise of the module may enter", async () => {
-    const { loadQuestions } = setup({ loadQuestions: out({ unpublished: 0, unlinked: 0 }) });
+    const load = out({ unpublished: 0, unlinked: 0 });
+    setup({ loadQuestions: load });
     chooseModule();
     await screen.findByRole("checkbox", { name: "Incluir Criar a pasta" });
-    await waitFor(() => expect(loadQuestions).toHaveBeenCalledWith(expect.objectContaining({ moduleId: "mod-1", pageSize: 1 })));
+    await waitFor(() => expect(load).toHaveBeenCalledWith(expect.objectContaining({ moduleId: "mod-1", pageSize: 1 })));
     expect(screen.queryByRole("note")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
