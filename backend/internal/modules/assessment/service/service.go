@@ -110,11 +110,20 @@ type QuestionFilter struct {
 	PageSize   int
 }
 
-// QuestionPage is a page of eligible questions with the stock by level, which counts all of them whatever the filter.
+// QuestionPage is a page of eligible questions with the stock by level and the count of the questions of the bank that are out, which count all
+// of them whatever the filter.
 type QuestionPage struct {
-	Items []Question
-	Total int
-	Stock map[domain.Difficulty]int
+	Items    []Question
+	Total    int
+	Stock    map[domain.Difficulty]int
+	Excluded Excluded
+}
+
+// Excluded counts the questions of the bank of the module that are not eligible, by reason (SPEC-088 RN-01): the ones not published, whatever
+// their link, and the published ones without the link to the assessment. Only numbers: nothing of the questions themselves (RN-02).
+type Excluded struct {
+	Unpublished int
+	Unlinked    int
 }
 
 // Questions reads the bank of the modules. A question is eligible when it is of the module, published, in the assessment bank and not deleted

@@ -255,14 +255,21 @@ type questionJSON struct {
 	Difficulty domain.Difficulty `json:"difficulty"`
 }
 
+// excludedJSON counts the questions of the bank that are out of the assessment, by reason (SPEC-088 RN-01, RN-02): only numbers.
+type excludedJSON struct {
+	Unpublished int `json:"unpublished"`
+	Unlinked    int `json:"unlinked"`
+}
+
 type questionsResponse struct {
-	Items []questionJSON            `json:"items"`
-	Total int                       `json:"total"`
-	Stock map[domain.Difficulty]int `json:"stock"`
+	Items    []questionJSON            `json:"items"`
+	Total    int                       `json:"total"`
+	Stock    map[domain.Difficulty]int `json:"stock"`
+	Excluded excludedJSON              `json:"excluded"`
 }
 
 func toQuestions(p service.QuestionPage) questionsResponse {
-	out := questionsResponse{Items: make([]questionJSON, len(p.Items)), Total: p.Total, Stock: p.Stock}
+	out := questionsResponse{Items: make([]questionJSON, len(p.Items)), Total: p.Total, Stock: p.Stock, Excluded: excludedJSON(p.Excluded)}
 	for i, q := range p.Items {
 		out.Items[i] = questionJSON{QuestionID: q.ID, Title: q.Title, Kind: q.Kind, Difficulty: q.Difficulty}
 	}

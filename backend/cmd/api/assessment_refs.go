@@ -146,19 +146,32 @@ func eligibleQuestion(q contentdomain.Question) bool {
 	return q.Status == contentdomain.StatusPublished && q.InAssessment
 }
 
-// eligibleOf reads the bank of the module and keeps the eligible questions.
-func (q assessmentQuestions) eligibleOf(ctx context.Context, moduleID uuid.UUID) ([]contentdomain.Question, error) {
+// bankOf reads the bank of the module and splits it: the eligible questions, and the count of the others by reason (SPEC-088 RN-01): the ones
+// not published, whatever their link, and the published ones without the link to the assessment.
+func (q assessmentQuestions) bankOf(ctx context.Context, moduleID uuid.UUID) ([]contentdomain.Question, assessmentservice.Excluded, error) {
 	bank, err := q.bank.List(ctx, bankReader, moduleID)
 	if err != nil {
-		return nil, err
+		return nil, assessmentservice.Excluded{}, err
 	}
 	var out []contentdomain.Question
+	var excluded assessmentservice.Excluded
 	for _, r := range bank.Items {
-		if eligibleQuestion(r.Question) {
+		switch {
+		case eligibleQuestion(r.Question):
 			out = append(out, r.Question)
+		case r.Question.Status != contentdomain.StatusPublished:
+			excluded.Unpublished++
+		default:
+			excluded.Unlinked++
 		}
 	}
-	return out, nil
+	return out, excluded, nil
+}
+
+// eligibleOf reads the bank of the module and keeps the eligible questions.
+func (q assessmentQuestions) eligibleOf(ctx context.Context, moduleID uuid.UUID) ([]contentdomain.Question, error) {
+	out, _, err := q.bankOf(ctx, moduleID)
+	return out, err
 }
 
 func refOf(q contentdomain.Question) assessmentservice.Question {
@@ -236,11 +249,11 @@ func (q assessmentQuestions) Eligible(ctx context.Context, moduleID uuid.UUID, i
 }
 
 func (q assessmentQuestions) Pool(ctx context.Context, f assessmentservice.QuestionFilter) (assessmentservice.QuestionPage, error) {
-	list, err := q.eligibleOf(ctx, f.ModuleID)
+	list, excluded, err := q.bankOf(ctx, f.ModuleID)
 	if err != nil {
 		return assessmentservice.QuestionPage{}, err
 	}
-	page := assessmentservice.QuestionPage{Stock: map[assessmentdomain.Difficulty]int{}}
+	page := assessmentservice.QuestionPage{Stock: map[assessmentdomain.Difficulty]int{}, Excluded: excluded}
 	needle := strings.ToLower(strings.TrimSpace(f.Query))
 	var matched []assessmentservice.Question
 	for _, question := range list {
