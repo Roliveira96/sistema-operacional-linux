@@ -45,7 +45,7 @@ describe("simulator page", () => {
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Aluno", "Professor"]);
     expect(get).toHaveBeenCalledWith("c-1", "a-1");
     expect(preview).toHaveBeenCalledWith("c-1", "a-1");
-    expect(screen.getByRole("link", { name: "Voltar para a avaliação" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1");
+    expect(screen.queryByRole("link", { name: /Voltar/ })).toBeNull();
   });
 
   it("works for the administrator too", async () => {
@@ -128,5 +128,38 @@ describe("simulator page", () => {
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Entregar" }));
     expect(within(student).getByRole("heading", { name: "Simulação entregue" })).toBeDefined();
     for (const writer of writers) expect(writer).not.toHaveBeenCalled();
+  });
+});
+
+// SPEC-087 CA-02, CA-03 (D-01): the page is the window of the exam; leaving closes the tab, or goes to the assessment when the browser keeps it open.
+describe("simulator page, the window of the exam", () => {
+  it("closes the tab on Sair da simulação before the exam starts", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail());
+    vi.spyOn(assessmentService, "preview").mockResolvedValue(simulation());
+    const close = vi.spyOn(window, "close").mockImplementation(() => {
+      Object.defineProperty(window, "closed", { value: true, configurable: true });
+    });
+    try {
+      render(<SimulatePage params={params} />);
+      await screen.findByRole("tabpanel", { name: "Visão do aluno" });
+      fireEvent.click(screen.getByRole("button", { name: "Sair da simulação" }));
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(replace).not.toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(window, "closed");
+    }
+  });
+
+  it("goes to the assessment in the same tab when the browser does not let the tab close", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail());
+    vi.spyOn(assessmentService, "preview").mockResolvedValue(simulation());
+    const close = vi.spyOn(window, "close").mockImplementation(() => {});
+    render(<SimulatePage params={params} />);
+    await screen.findByRole("tabpanel", { name: "Visão do aluno" });
+    fireEvent.click(screen.getByRole("button", { name: "Sair da simulação" }));
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledWith("/app/classes/c-1/assessments/a-1");
   });
 });

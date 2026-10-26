@@ -227,14 +227,16 @@ describe("assessment page, simulator", () => {
     vi.spyOn(assessmentService, "get").mockResolvedValue(detail());
     const { unmount } = render(<AssessmentPage params={params} />);
     await screen.findByRole("heading", { name: "Prova 1: permissões" });
-    expect(screen.getByRole("link", { name: "Simular prova" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/simulate");
+    expect(screen.getByRole("link", { name: "Simular prova (abre em nova aba)" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/simulate");
+    expect(screen.getByRole("link", { name: "Simular prova (abre em nova aba)" }).getAttribute("target")).toBe("_blank");
+    expect(screen.getByRole("link", { name: "Simular prova (abre em nova aba)" }).getAttribute("rel")).toContain("noopener");
     expect(screen.getByRole("button", { name: "Pré-visualizar" })).toBeDefined();
     unmount();
 
     vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ status: "CANCELED", cancelReason: "Feriado" }));
     render(<AssessmentPage params={params} />);
     await screen.findByText("Feriado", { exact: false });
-    expect(screen.getByRole("link", { name: "Simular prova" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Simular prova (abre em nova aba)" })).toBeDefined();
   });
 
   it("does not offer it to the student", async () => {
@@ -243,7 +245,7 @@ describe("assessment page, simulator", () => {
     vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess());
     render(<AssessmentPage params={params} />);
     await screen.findByRole("heading", { name: "Prova 1: permissões" });
-    expect(screen.queryByRole("link", { name: "Simular prova" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Simular prova (abre em nova aba)" })).toBeNull();
   });
 });
 

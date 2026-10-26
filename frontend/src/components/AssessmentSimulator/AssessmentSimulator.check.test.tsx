@@ -30,7 +30,7 @@ async function start() {
       load={() => Promise.resolve(simulation())}
       loadScenario={(id) => Promise.resolve({ machine: id })}
       checkQuestion={check}
-      backHref="/x"
+      onExit={() => {}}
     />,
   );
   const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
@@ -184,5 +184,107 @@ describe("AssessmentSimulator, the check of the practical question", () => {
     expect(within(after).getByText("Resolvida no terminal")).toBeDefined();
     expect(within(after).queryByText("Não resolvida")).toBeNull();
     expect(after.textContent).not.toMatch(/acertou|errou|pontuação|% de acerto/i);
+  });
+});
+
+// SPEC-087 CA-06 to CA-09 (D-03): the celebration when the server gives the open question as solved, and only then.
+describe("AssessmentSimulator, the celebration of the solved question", () => {
+  const celebration = () => screen.queryByRole("dialog", { name: "Questão resolvida!" });
+
+  it("celebrates over the column of the question, with the terminal still active, and offers Entregar on the last question", async () => {
+    check.mockResolvedValue(true);
+    const student = await practical();
+    await typed({ step: 1 });
+    await wait(1000);
+    const dialog = celebration();
+    expect(dialog).not.toBeNull();
+    expect(dialog!.textContent).toContain("Era a última questão. Você pode entregar a prova.");
+    expect(within(dialog!).queryByRole("region", { name: "Terminal" })).toBeNull();
+    const terminal = within(student).getByRole("region", { name: "Terminal" });
+    expect(terminal.querySelector("[inert]")).toBeNull();
+    expect(within(student).getByRole("button", { name: "Questão 5, resolvida" })).toBeDefined();
+    expect(within(student).getByText("Questão resolvida no terminal.")).toBeDefined();
+
+    fireEvent.click(within(dialog!).getByRole("button", { name: "Entregar" }));
+    expect(celebration()).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Entregar a simulação?" })).toBeDefined();
+  });
+
+  it("offers Próxima questão when the solved question is not the last, and opens the next one", async () => {
+    check.mockResolvedValue(true);
+    const data = simulation();
+    // the practical question first, so there is a next one
+    data.questions = [{ ...data.questions[4]!, position: 1 }, ...data.questions.slice(0, 4).map((q, i) => ({ ...q, position: i + 2 }))];
+    render(<AssessmentSimulator detail={detail({ durationMinutes: 60 })} load={() => Promise.resolve(data)} loadScenario={(id) => Promise.resolve({ machine: id })} checkQuestion={check} onExit={() => {}} />);
+    const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+    fireEvent.click(within(student).getByRole("button", { name: "Começar" }));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(0)));
+    await typed({ step: 1 });
+    await wait(1000);
+    const dialog = celebration();
+    expect(dialog).not.toBeNull();
+    expect(dialog!.textContent).toContain("Você pode ir para a próxima questão.");
+    const next = within(dialog!).getByRole("button", { name: "Próxima questão" });
+    expect(document.activeElement).toBe(next);
+    fireEvent.click(next);
+    expect(celebration()).toBeNull();
+    expect(within(student).getByRole("heading", { name: "Questão 2 de 5" })).toBeDefined();
+    expect(within(student).getByRole("button", { name: "Questão 1, resolvida" })).toBeDefined();
+  });
+
+  it("only closes with Continuar nesta questão, and does not lock the question nor come back for more commands", async () => {
+    check.mockResolvedValue(true);
+    const student = await practical();
+    await typed({ step: 1 });
+    await wait(1000);
+    fireEvent.click(within(celebration()!).getByRole("button", { name: "Continuar nesta questão" }));
+    expect(celebration()).toBeNull();
+    expect(within(student).getByRole("heading", { name: "Questão 5 de 5" })).toBeDefined();
+    expect(within(student).getByRole("button", { name: "Questão 5, resolvida" })).toBeDefined();
+    await typed({ step: 2 });
+    await wait(3000);
+    expect(celebration()).toBeNull();
+  });
+
+  it("only marks the question when the answer of the server comes with another question open", async () => {
+    let finish!: (passed: boolean) => void;
+    check.mockImplementationOnce(() => new Promise<boolean>((resolve) => (finish = resolve)));
+    const student = await practical();
+    await typed({ step: 1 });
+    await wait(1000);
+    goTo(student, 4);
+    finish(true);
+    await wait(0);
+    expect(celebration()).toBeNull();
+    expect(within(student).getByRole("button", { name: "Questão 5, resolvida" })).toBeDefined();
+    goTo(student, 5);
+    expect(celebration()).toBeNull();
+  });
+
+  it("celebrates again after Reset Máquina, when the question is solved again", async () => {
+    check.mockResolvedValue(true);
+    const student = await practical();
+    await typed({ step: 1 });
+    await wait(1000);
+    fireEvent.keyDown(celebration()!, { key: "Escape" });
+    expect(celebration()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Reset Máquina/ }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Formatar a máquina" }));
+    await wait(0);
+    expect(within(student).getByRole("button", { name: "Questão 5, sem resposta" })).toBeDefined();
+    await typed({ step: 3 });
+    await wait(1000);
+    expect(celebration()).not.toBeNull();
+  });
+
+  it("goes away when the teacher moves to another question", async () => {
+    check.mockResolvedValue(true);
+    const student = await practical();
+    await typed({ step: 1 });
+    await wait(1000);
+    expect(celebration()).not.toBeNull();
+    goTo(student, 4);
+    expect(celebration()).toBeNull();
   });
 });

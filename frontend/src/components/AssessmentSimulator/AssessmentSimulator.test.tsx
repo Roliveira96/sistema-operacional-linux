@@ -8,14 +8,14 @@ import { AssessmentSimulator } from "./AssessmentSimulator";
 const mount = vi.hoisted(() => vi.fn());
 vi.mock("@/engine/terminalWindow", () => ({ mountTerminalWindow: mount }));
 
-const BACK = "/app/classes/c-1/assessments/a-1";
+const exit = vi.fn();
 const loadScenario = () => Promise.resolve(null);
 
 beforeEach(() => mount.mockImplementation(terminalMount().mount));
 
 async function open(over: Partial<AssessmentDetail> = {}, data: PreviewData = simulation()) {
   const load = vi.fn(() => Promise.resolve(data));
-  render(<AssessmentSimulator detail={detail({ durationMinutes: 60, description: "<p>Leia com atenção.</p>", ...over })} load={load} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} backHref={BACK} />);
+  render(<AssessmentSimulator detail={detail({ durationMinutes: 60, description: "<p>Leia com atenção.</p>", ...over })} load={load} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} onExit={exit} />);
   const student = await screen.findByRole("tabpanel", { name: "Visão do aluno" });
   return { student, load };
 }
@@ -24,6 +24,7 @@ const begin = (student: HTMLElement) => fireEvent.click(within(student).getByRol
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  exit.mockReset();
   vi.restoreAllMocks();
   Reflect.deleteProperty(window, "matchMedia");
 });
@@ -50,9 +51,10 @@ describe("AssessmentSimulator", () => {
     it("below 48 rem shows only the notice and the way back, with no view and no reading of the preview", () => {
       window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as typeof window.matchMedia;
       const load = vi.fn(() => Promise.resolve(simulation()));
-      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} backHref={BACK} />);
+      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} onExit={exit} />);
       expect(screen.getByText("O simulador, como a prova, precisa de uma tela maior. Abra no computador ou no tablet.")).toBeDefined();
-      expect(screen.getByRole("link", { name: "Voltar à avaliação" }).getAttribute("href")).toBe(BACK);
+      fireEvent.click(screen.getByRole("button", { name: "Sair da simulação" }));
+      expect(exit).toHaveBeenCalledTimes(1);
       expect(screen.queryByRole("tabpanel", { name: "Visão do aluno" })).toBeNull();
       expect(screen.queryByRole("tabpanel", { name: "Visão do professor" })).toBeNull();
       expect(load).not.toHaveBeenCalled();
@@ -62,7 +64,7 @@ describe("AssessmentSimulator", () => {
 
     it("says it could not load the preview and tries again", async () => {
       const load = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValue(simulation());
-      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} backHref={BACK} />);
+      render(<AssessmentSimulator detail={detail()} load={load} loadScenario={loadScenario} checkQuestion={() => Promise.resolve(false)} onExit={exit} />);
       expect((await screen.findByRole("alert")).textContent).toContain("Não foi possível carregar a pré-visualização.");
       fireEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
       expect(await screen.findByRole("tabpanel", { name: "Visão do aluno" })).toBeDefined();
@@ -168,7 +170,7 @@ describe("AssessmentSimulator", () => {
       expect(within(student).getByText("Nada foi enviado.")).toBeDefined();
       expect(within(student).getByText("Você respondeu 1 de 5 questões.")).toBeDefined();
       expect(within(student).getByRole("button", { name: "Refazer" })).toBeDefined();
-      expect(within(student).getByRole("link", { name: "Voltar à avaliação" }).getAttribute("href")).toBe(BACK);
+      expect(within(student).getByRole("button", { name: "Sair da simulação" })).toBeDefined();
     });
 
     it("ends by itself when the countdown reaches zero, saying that the time is over", async () => {
@@ -200,5 +202,77 @@ describe("AssessmentSimulator", () => {
       expect(within(student).getByRole("button", { name: "Questão 1, sem resposta" })).toBeDefined();
       expect(random.mock.calls.length).toBeGreaterThan(drawn);
     });
+  });
+});
+
+// SPEC-087 CA-02 to CA-05 (D-01, D-02): the bar of the window with the way out, the confirmation while answering, and the full screen.
+describe("AssessmentSimulator, the window of the exam", () => {
+  const leave = () => fireEvent.click(screen.getByRole("button", { name: "Sair da simulação" }));
+
+  it("has Sair da simulação in the bar, beside the banner and the tabs, and leaves at once before starting", async () => {
+    await open();
+    expect(screen.queryByRole("link", { name: /Voltar/ })).toBeNull();
+    leave();
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("asks before leaving while the exam is in progress, and leaves only on Sair", async () => {
+    const { student } = await open();
+    begin(student);
+    leave();
+    const dialog = screen.getByRole("dialog", { name: "Sair da simulação?" });
+    expect(dialog.textContent).toContain("As respostas e as máquinas desta simulação serão perdidas.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continuar na simulação" }));
+    expect(exit).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(within(student).getByRole("heading", { name: "Questão 1 de 5" })).toBeDefined();
+    leave();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Sair" }));
+    expect(exit).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves at once after the delivery", async () => {
+    const { student } = await open();
+    begin(student);
+    fireEvent.click(within(student).getByRole("button", { name: "Entregar" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Entregar" }));
+    fireEvent.click(within(student).getByRole("button", { name: "Sair da simulação" }));
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("offers the full screen of the browser in the head of the exam, and says how to leave it", async () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    const leaveFull = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(document.documentElement, "requestFullscreen", { value: request, configurable: true });
+    Object.defineProperty(document, "exitFullscreen", { value: leaveFull, configurable: true });
+    Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true, writable: true });
+    try {
+      const { student } = await open();
+      expect(within(student).queryByRole("button", { name: "Tela cheia" })).toBeNull();
+      begin(student);
+      fireEvent.click(within(student).getByRole("button", { name: "Tela cheia" }));
+      expect(request).toHaveBeenCalledTimes(1);
+      (document as unknown as { fullscreenElement: Element | null }).fullscreenElement = document.documentElement;
+      fireEvent(document, new Event("fullscreenchange"));
+      const back = within(student).getByRole("button", { name: "Sair da tela cheia" });
+      expect(within(student).getByRole("heading", { name: "Questão 1 de 5" })).toBeDefined();
+      fireEvent.click(back);
+      expect(leaveFull).toHaveBeenCalledTimes(1);
+      (document as unknown as { fullscreenElement: Element | null }).fullscreenElement = null;
+      fireEvent(document, new Event("fullscreenchange"));
+      expect(within(student).getByRole("button", { name: "Tela cheia" })).toBeDefined();
+    } finally {
+      Reflect.deleteProperty(document.documentElement, "requestFullscreen");
+      Reflect.deleteProperty(document, "exitFullscreen");
+      Reflect.deleteProperty(document, "fullscreenElement");
+    }
+  });
+
+  it("has no full screen button when the browser does not offer it", async () => {
+    const { student } = await open();
+    begin(student);
+    expect(within(student).queryByRole("button", { name: /[Tt]ela cheia/ })).toBeNull();
   });
 });
