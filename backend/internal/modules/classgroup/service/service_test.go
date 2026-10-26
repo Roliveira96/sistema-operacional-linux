@@ -23,10 +23,11 @@ type fakeClassRepo struct {
 	menuErr     error
 	menuCalls   []string // "teacher:<id>:<limit>" / "student:<id>:<limit>"
 
-	userRoles map[uuid.UUID]string  // users that exist, by role (SPEC-041)
-	userNames map[uuid.UUID]*string // display names of users
-	deletedBy map[uuid.UUID]uuid.UUID // classes deleted, by who (SPEC-050)
-	saveCalls int
+	userRoles  map[uuid.UUID]string    // users that exist, by role (SPEC-041)
+	userNames  map[uuid.UUID]*string   // display names of users
+	userLabels map[uuid.UUID]string    // name or e-mail of users, as the lookup gives (SPEC-086)
+	deletedBy  map[uuid.UUID]uuid.UUID // classes deleted, by who (SPEC-050)
+	saveCalls  int
 }
 
 func (f *fakeClassRepo) ListTeacherClassesForMenu(ctx context.Context, teacherID uuid.UUID, limit int) (repository.MyClassesResult, error) {
@@ -45,6 +46,7 @@ func newFakeRepo() *fakeClassRepo {
 		enrollments: make(map[uuid.UUID]domain.Enrollment),
 		userRoles:   make(map[uuid.UUID]string),
 		userNames:   make(map[uuid.UUID]*string),
+		userLabels:  make(map[uuid.UUID]string),
 		deletedBy:   make(map[uuid.UUID]uuid.UUID),
 	}
 }

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assessmentService, type ClearanceList } from "@/services/assessmentService";
 import { problem } from "@/test/helpers";
-import { clearanceItems, clearanceList, detail } from "@/test/assessmentFixtures";
+import { STARTED, clearanceItems, clearanceList, detail } from "@/test/assessmentFixtures";
 import ClearancesPage from "./page";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
@@ -16,7 +16,7 @@ afterEach(() => {
 
 function setup(list: ClearanceList = clearanceList(), over = {}) {
   const read = vi.spyOn(assessmentService, "clearances").mockResolvedValue(list);
-  vi.spyOn(assessmentService, "get").mockResolvedValue(detail(over));
+  vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...STARTED, ...over })); // the clearance is decided once the exam is started (SPEC-083)
   const decide = vi.spyOn(assessmentService, "decideClearances");
   render(<ClearancesPage params={params} />);
   return { read, decide };
@@ -165,5 +165,38 @@ describe("clearances page", () => {
     expect(await screen.findByText("Nenhum aluno elegível")).toBeDefined();
     expect(read).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("table")).toBeNull();
+  });
+});
+
+// SPEC-083 CA-13, D-04: before the teacher starts the exam the list is only read; after, it works as before; Refresh reads it again.
+describe("clearances page, before and after the start of the exam", () => {
+  const notStarted = { startedAt: undefined, startedBy: undefined, startedByName: undefined };
+
+  it("shows the list and the counters before the start, says the clearance begins with the start and leaves every decision off", async () => {
+    setup(clearanceList(), notStarted);
+    await screen.findByRole("table");
+    const notice = screen.getByText("A habilitação começa quando você inicia a prova.");
+    expect(count("Aguardando")).toBe("1");
+    const all = screen.getByRole("button", { name: "Habilitar todos os que aguardam" }) as HTMLButtonElement;
+    expect(all.disabled).toBe(true);
+    for (const button of [all, screen.getByRole("button", { name: "Habilitar Ana Souza" }), screen.getByRole("button", { name: "Recusar Ana Souza" })]) {
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+      expect(document.getElementById(button.getAttribute("aria-describedby")!)).toBe(notice);
+    }
+    expect(screen.getByRole("link", { name: "Ir para a avaliação" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1");
+  });
+
+  it("works as before once the exam is started, with no notice of the start", async () => {
+    setup();
+    await screen.findByRole("table");
+    expect(screen.queryByText("A habilitação começa quando você inicia a prova.")).toBeNull();
+    expect((screen.getByRole("button", { name: "Habilitar Ana Souza" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("reads the list again on Refresh, in both cases", async () => {
+    const { read } = setup();
+    await screen.findByRole("table");
+    fireEvent.click(screen.getByRole("button", { name: "Atualizar" }));
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
   });
 });

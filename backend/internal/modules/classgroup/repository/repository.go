@@ -172,6 +172,27 @@ func (r *Repository) FindUserName(ctx context.Context, id uuid.UUID) (*string, e
 	return rows[0].Name, nil
 }
 
+// UserNames returns the name of each of the users, or the e-mail of one whose name is null or blank; an id that is nobody, or was removed, is
+// left out (SPEC-086 RN-02).
+func (r *Repository) UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := make(map[uuid.UUID]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var rows []struct {
+		ID   uuid.UUID `gorm:"column:id"`
+		Name string    `gorm:"column:name"`
+	}
+	if err := r.db.Conn(ctx).Table("users").Select("id, COALESCE(NULLIF(TRIM(name), ''), email) AS name").
+		Where("id IN ? AND deleted_at IS NULL", ids).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		out[row.ID] = row.Name
+	}
+	return out, nil
+}
+
 // FindClassByID retrieves a class by its UUID.
 func (r *Repository) FindClassByID(ctx context.Context, id uuid.UUID) (domain.ClassGroup, error) {
 	var c domain.ClassGroup

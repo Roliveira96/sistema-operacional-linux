@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/Button/Button";
 import { formatScore } from "@/lib/assessment";
 import { messages } from "@/messages/pt-BR";
@@ -37,10 +37,25 @@ export function DrawRulesTable({ rules, stock }: { rules: DrawRule[]; stock?: St
   );
 }
 
-/** A question with its answer: the title, the statement (HTML that the bank of the module already cleaned), the correct answer and why. */
-function QuestionBlock({ question, position, weight }: { question: PreviewContent; position?: number; weight?: number }) {
+/**
+ * A question with its answer: the title, the statement (HTML that the bank of the module already cleaned), the correct answer and why. The
+ * simulator (SPEC-081) uses it too: it marks the question that is open for the student and adds what the teacher answered as a student.
+ */
+export function QuestionBlock({
+  question,
+  position,
+  weight,
+  current = false,
+  children,
+}: {
+  question: PreviewContent;
+  position?: number;
+  weight?: number;
+  current?: boolean;
+  children?: ReactNode;
+}) {
   return (
-    <li className={styles.question}>
+    <li className={`${styles.question} ${current ? styles.current : ""}`} data-question={question.questionId} aria-current={current ? "true" : undefined}>
       <div className={styles.head}>
         {position !== undefined && <span className={styles.position}>{position}</span>}
         <span className={styles.name}>{question.title}</span>
@@ -57,6 +72,7 @@ function QuestionBlock({ question, position, weight }: { question: PreviewConten
           <p className={styles.explanation}>{question.explanation}</p>
         </>
       )}
+      {children}
     </li>
   );
 }

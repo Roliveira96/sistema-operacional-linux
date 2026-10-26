@@ -20,6 +20,7 @@ import (
 	coursemoduledomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/domain"
 	coursemodulerepository "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/repository"
 	coursemoduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/coursemodule/service"
+	practiceservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/practice/service"
 	scheduledomain "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/domain"
 	scheduleservice "github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/schedule/service"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
@@ -129,6 +130,7 @@ type exerciseBank interface {
 
 type questionReader interface {
 	Question(ctx context.Context, id uuid.UUID) (contentdomain.Question, error)
+	QuestionScenario(ctx context.Context, id uuid.UUID) (json.RawMessage, error)
 }
 
 // assessmentQuestions gives the assessments the bank of the questions of a module. A question is eligible when it is published and in the
@@ -144,19 +146,32 @@ func eligibleQuestion(q contentdomain.Question) bool {
 	return q.Status == contentdomain.StatusPublished && q.InAssessment
 }
 
-// eligibleOf reads the bank of the module and keeps the eligible questions.
-func (q assessmentQuestions) eligibleOf(ctx context.Context, moduleID uuid.UUID) ([]contentdomain.Question, error) {
+// bankOf reads the bank of the module and splits it: the eligible questions, and the count of the others by reason (SPEC-088 RN-01): the ones
+// not published, whatever their link, and the published ones without the link to the assessment.
+func (q assessmentQuestions) bankOf(ctx context.Context, moduleID uuid.UUID) ([]contentdomain.Question, assessmentservice.Excluded, error) {
 	bank, err := q.bank.List(ctx, bankReader, moduleID)
 	if err != nil {
-		return nil, err
+		return nil, assessmentservice.Excluded{}, err
 	}
 	var out []contentdomain.Question
+	var excluded assessmentservice.Excluded
 	for _, r := range bank.Items {
-		if eligibleQuestion(r.Question) {
+		switch {
+		case eligibleQuestion(r.Question):
 			out = append(out, r.Question)
+		case r.Question.Status != contentdomain.StatusPublished:
+			excluded.Unpublished++
+		default:
+			excluded.Unlinked++
 		}
 	}
-	return out, nil
+	return out, excluded, nil
+}
+
+// eligibleOf reads the bank of the module and keeps the eligible questions.
+func (q assessmentQuestions) eligibleOf(ctx context.Context, moduleID uuid.UUID) ([]contentdomain.Question, error) {
+	out, _, err := q.bankOf(ctx, moduleID)
+	return out, err
 }
 
 func refOf(q contentdomain.Question) assessmentservice.Question {
@@ -166,7 +181,7 @@ func refOf(q contentdomain.Question) assessmentservice.Question {
 // contentOf is the question for the teacher: the statement, the explanation and an answer key, which is the one the kind reveals or, for a
 // practical question, the reference solution (SPEC-075 RN-16).
 func contentOf(q contentdomain.Question) assessmentservice.QuestionContent {
-	c := assessmentservice.QuestionContent{Question: refOf(q), Statement: q.Statement}
+	c := assessmentservice.QuestionContent{Question: refOf(q), Statement: q.Statement, StudentView: studentViewOf(q)}
 	if q.Explanation != nil {
 		c.Explanation = *q.Explanation
 	}
@@ -180,6 +195,39 @@ func contentOf(q contentdomain.Question) assessmentservice.QuestionContent {
 		c.AnswerKey = string(json.RawMessage(q.ReferenceSolution))
 	}
 	return c
+}
+
+// studentViewOf is what the student receives of a question, by kind, never the answer: the alternatives of a single choice, the columns of a
+// matching without the pairs, the size of a descriptive answer (SPEC-081 RN-01, RN-02). The other kinds have only the statement.
+func studentViewOf(q contentdomain.Question) assessmentservice.StudentView {
+	var view assessmentservice.StudentView
+	shuffle := q.ShuffleChoices
+	switch q.Kind {
+	case contentdomain.KindTheoreticalSingle:
+		var choices []contentdomain.Choice
+		_ = json.Unmarshal(q.Choices, &choices)
+		for _, c := range choices {
+			view.Choices = append(view.Choices, assessmentservice.StudentChoice{ID: c.ID, HTML: c.HTML})
+		}
+		view.Shuffle = &shuffle
+	case contentdomain.KindTheoreticalMatching:
+		if cols, ok := contentdomain.ReadColumns(q.Choices); ok {
+			view.Columns = &assessmentservice.StudentColumns{Left: studentItems(cols.Left), Right: studentItems(cols.Right)}
+		}
+		view.Shuffle = &shuffle
+	case contentdomain.KindDiscursive:
+		_, size := contentdomain.ReadDiscursiveKey(q.AnswerKey)
+		view.MaxLength = &size
+	}
+	return view
+}
+
+func studentItems(items []contentdomain.MatchItem) []assessmentservice.StudentItem {
+	out := make([]assessmentservice.StudentItem, len(items))
+	for i, it := range items {
+		out[i] = assessmentservice.StudentItem{ID: it.ID, Text: it.Text}
+	}
+	return out
 }
 
 func (q assessmentQuestions) Eligible(ctx context.Context, moduleID uuid.UUID, ids []uuid.UUID) ([]assessmentservice.Question, error) {
@@ -201,11 +249,11 @@ func (q assessmentQuestions) Eligible(ctx context.Context, moduleID uuid.UUID, i
 }
 
 func (q assessmentQuestions) Pool(ctx context.Context, f assessmentservice.QuestionFilter) (assessmentservice.QuestionPage, error) {
-	list, err := q.eligibleOf(ctx, f.ModuleID)
+	list, excluded, err := q.bankOf(ctx, f.ModuleID)
 	if err != nil {
 		return assessmentservice.QuestionPage{}, err
 	}
-	page := assessmentservice.QuestionPage{Stock: map[assessmentdomain.Difficulty]int{}}
+	page := assessmentservice.QuestionPage{Stock: map[assessmentdomain.Difficulty]int{}, Excluded: excluded}
 	needle := strings.ToLower(strings.TrimSpace(f.Query))
 	var matched []assessmentservice.Question
 	for _, question := range list {
@@ -255,6 +303,42 @@ func (q assessmentQuestions) Contents(ctx context.Context, ids []uuid.UUID) (map
 		out[id] = contentOf(question)
 	}
 	return out, nil
+}
+
+// Scenario is the machine a question starts from, read through the content module: nil when the question has none of its own (SPEC-084 RN-01).
+func (q assessmentQuestions) Scenario(ctx context.Context, id uuid.UUID) (json.RawMessage, error) {
+	return q.questions.QuestionScenario(ctx, id)
+}
+
+// Check grades the machine of the simulator against the conditions of a question of command Linux, with the engine and the conditions of the practice, the
+// same that grade the exercise of the live class; it writes nothing and gives only whether it passes (SPEC-085 RN-02 to RN-04).
+func (q assessmentQuestions) Check(ctx context.Context, id uuid.UUID, snapshot json.RawMessage) (bool, error) {
+	question, err := q.questions.Question(ctx, id)
+	if errors.Is(err, contentservice.ErrQuestionNotFound) {
+		return false, assessmentdomain.ErrQuestionNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+	if !contentdomain.UsesTerminal(question.Kind) {
+		return false, assessmentdomain.ErrInvalidQuestion
+	}
+	machine, err := practiceservice.ParseMachine(snapshot)
+	if errors.Is(err, practiceservice.ErrInvalidSnapshot) {
+		return false, assessmentdomain.ErrInvalidSnapshot
+	}
+	if err != nil {
+		return false, err
+	}
+	var conditions []contentdomain.Condition
+	if err := json.Unmarshal(question.ValidationConditions, &conditions); err != nil {
+		return false, err
+	}
+	verdict, err := contentdomain.Grade(machine, conditions)
+	if err != nil {
+		return false, err
+	}
+	return verdict.Passed, nil
 }
 
 func (q assessmentQuestions) Sample(ctx context.Context, moduleID uuid.UUID, level assessmentdomain.Difficulty, n int) ([]assessmentservice.QuestionContent, error) {

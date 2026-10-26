@@ -13,10 +13,10 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
 )
 
-// Limits of SPEC-075 RN-02, RN-06, RN-07 and RN-13.
+// Limits of SPEC-075 RN-02, RN-06, RN-07 and RN-13. The instructions are html, up to 20,000 characters after the filter (SPEC-077 RN-01).
 const (
 	MaxTitleLength       = 150
-	MaxDescriptionLength = 5000
+	MaxDescriptionLength = 20000
 	MaxNotesLength       = 5000
 	MaxReasonLength      = 500
 	MinDurationMinutes   = 5
@@ -109,6 +109,8 @@ const (
 	AccessNotEligible Access = "NOT_ELIGIBLE"
 	AccessNotOpenYet  Access = "NOT_OPEN_YET"
 	AccessEnded       Access = "ENDED"
+	// AccessNotStarted is an in-person exam that is running by the clock and that the teacher has not started yet (SPEC-083 RN-05).
+	AccessNotStarted Access = "NOT_STARTED"
 	// AccessNotCleared is the last reason: the assessment requires the clearance and the student has not got it (SPEC-076 RN-08).
 	AccessNotCleared Access = "NOT_CLEARED"
 )
@@ -151,6 +153,9 @@ type Assessment struct {
 	CanceledBy          *uuid.UUID
 	CanceledAt          *time.Time
 	CancelReason        *string
+	// StartedAt and StartedBy are the start of an in-person exam by the teacher (SPEC-083 RN-01); nil until she starts it.
+	StartedAt *time.Time
+	StartedBy *uuid.UUID
 }
 
 // TableName pins the table name.
@@ -365,6 +370,8 @@ const (
 	EventCanceled    EventKind = "CANCELED"
 	// EventClearanceUpdated is one action of the teacher on the clearance of the students (SPEC-076 RN-11).
 	EventClearanceUpdated EventKind = "CLEARANCE_UPDATED"
+	// EventStarted is the teacher starting an in-person exam (SPEC-083 RN-03).
+	EventStarted EventKind = "STARTED"
 )
 
 // Event is a line of the history of an assessment: who did what, when and why. It is only ever added (RN-15).

@@ -250,6 +250,15 @@ export const authoringMessages = {
       tags: { practice: "Disponível no módulo", assessment: "Reservado para avaliação", exclusive: "Exclusivo da avaliação", unlinked: "Não vinculado" },
     },
     addFromBank: "Adicionar do Banco",
+    /** Adding every published exercise that lacks the link to the assessment, at once (SPEC-088 D-03). */
+    addAll: "Adicionar todos os publicados",
+    addAllConfirm: (n: number) => (n === 1 ? "Vincular 1 exercício publicado à avaliação?" : `Vincular ${n} exercícios publicados à avaliação?`),
+    addAllYes: "Vincular",
+    addAllDone: (linked: number, failed: number) => {
+      const done = linked === 1 ? "1 exercício vinculado à avaliação" : `${linked} exercícios vinculados à avaliação`;
+      if (failed === 0) return `${done}.`;
+      return `${done}; ${failed === 1 ? "1 não pôde ser vinculado" : `${failed} não puderam ser vinculados`}.`;
+    },
     createNew: "Criar nova questão",
     removeFromBlock: "Remover do bloco",
     pickerTitle: (block: string) => `Adicionar ao bloco: ${block}`,
@@ -343,6 +352,9 @@ export const authoringMessages = {
     fixErrors: "Corrija os campos marcados antes de salvar.",
     genericError: "Não foi possível salvar o exercício.",
     saved: "Exercício salvo.",
+    /** Where a new exercise of the module went (SPEC-088 D-02). */
+    savedLinked: "Exercício salvo e vinculado à prática e à avaliação.",
+    savedReserved: "Exercício salvo e reservado para avaliação.",
     saving: "Salvando…",
     save: "Salvar exercício",
     back2: "Voltar",

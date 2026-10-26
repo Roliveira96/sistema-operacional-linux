@@ -30,7 +30,7 @@ const save = (name = "Agendar avaliação") => screen.getByRole("button", { name
 
 /** Fills the three tabs a manual exam needs, and leaves the questions for each test to choose. */
 function fillBasics() {
-  type(screen.getByLabelText(/^Título/), "Prova 1");
+  type(screen.getByLabelText(/^Título/, { selector: "input" }), "Prova 1");
   open("Período");
   type(screen.getByLabelText(/^Início/), "2026-10-23T09:00");
   type(screen.getByLabelText(/^Término/), "2026-10-23T11:00");
@@ -50,7 +50,7 @@ describe("AssessmentForm", () => {
     setup();
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Dados", "Período", "Questões", "Participantes", "Observações privadas"]);
     expect(tab("Dados").getAttribute("aria-selected")).toBe("true");
-    expect(within(screen.getByRole("tabpanel")).getByLabelText(/^Título/)).toBeDefined();
+    expect(within(screen.getByRole("tabpanel")).getByLabelText(/^Título/, { selector: "input" })).toBeDefined();
     open("Participantes");
     expect(tab("Participantes").getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("radio", { name: "Toda a turma" })).toBeDefined();
@@ -246,7 +246,7 @@ describe("AssessmentForm", () => {
   describe("the checks of the data", () => {
     it("refuses a title above 150 characters and a maximum score outside 0 to 100", () => {
       setup();
-      expect((screen.getByLabelText(/^Título/) as HTMLInputElement).maxLength).toBe(150);
+      expect((screen.getByLabelText(/^Título/, { selector: "input" }) as HTMLInputElement).maxLength).toBe(150);
       const score = screen.getByLabelText(/^Nota máxima/);
       type(score, "0");
       expect(save().disabled).toBe(true);
@@ -288,7 +288,7 @@ describe("AssessmentForm", () => {
 
     it("opens with the start, end, title and module of the lesson, all editable (CA-25)", () => {
       setup({ initial: lesson });
-      expect((screen.getByLabelText(/^Título/) as HTMLInputElement).value).toBe("Permissões de arquivos");
+      expect((screen.getByLabelText(/^Título/, { selector: "input" }) as HTMLInputElement).value).toBe("Permissões de arquivos");
       open("Período");
       expect((screen.getByLabelText(/^Início/) as HTMLInputElement).value).toBe("2026-10-21T08:20");
       expect((screen.getByLabelText(/^Término/) as HTMLInputElement).value).toBe("2026-10-21T10:00");
@@ -303,7 +303,7 @@ describe("AssessmentForm", () => {
       open("Questões");
       await include("Criar a pasta");
       fireEvent.click(screen.getByRole("button", { name: "Distribuir igualmente" }));
-      type(screen.getByLabelText(/^Título/), "Prova 1: permissões");
+      type(screen.getByLabelText(/^Título/, { selector: "input" }), "Prova 1: permissões");
       fireEvent.click(save());
       await waitFor(() =>
         expect(onSubmit).toHaveBeenCalledWith(
@@ -333,7 +333,7 @@ describe("AssessmentForm", () => {
 
     it("starts from the saved assessment, shows the dates without a field and sends them nowhere", async () => {
       const { onSubmit } = setup({ mode: "edit", initial: saved });
-      expect((screen.getByLabelText(/^Título/) as HTMLInputElement).value).toBe("Prova 1");
+      expect((screen.getByLabelText(/^Título/, { selector: "input" }) as HTMLInputElement).value).toBe("Prova 1");
       open("Período");
       expect(screen.queryByLabelText(/^Início/)).toBeNull();
       expect(screen.getByText("23/10/2026, 09:00–11:00")).toBeDefined();
@@ -371,15 +371,15 @@ describe("AssessmentForm", () => {
     it("warns that the composition cannot change and locks its fields, but not the title", () => {
       setup({ mode: "edit", initial: saved, frozen: true });
       open("Questões");
-      expect(screen.getByText("A avaliação já começou; a composição não pode mais mudar.")).toBeDefined();
+      expect(within(screen.getByRole("tabpanel")).getByText("A avaliação já começou; a composição não pode mais mudar.")).toBeDefined();
       for (const label of [/^Módulo/]) expect((screen.getByLabelText(label) as HTMLSelectElement).disabled).toBe(true);
       expect((screen.getByRole("radio", { name: "Sorteio por nível" }) as HTMLInputElement).disabled).toBe(true);
       expect((screen.getByRole("button", { name: "Distribuir igualmente" }) as HTMLButtonElement).disabled).toBe(true);
       expect((screen.getByLabelText("Peso de Criar a pasta") as HTMLInputElement).disabled).toBe(true);
       open("Dados");
       for (const label of [/^Nota máxima/, /^Duração individual/, "Tipo da avaliação"]) expect((screen.getByLabelText(label) as HTMLInputElement).disabled).toBe(true);
-      expect((screen.getByLabelText(/^Título/) as HTMLInputElement).disabled).toBe(false);
-      expect((screen.getByLabelText(/^Instruções gerais/) as HTMLTextAreaElement).disabled).toBe(false);
+      expect((screen.getByLabelText(/^Título/, { selector: "input" }) as HTMLInputElement).disabled).toBe(false);
+      expect(screen.getByRole("textbox", { name: "Instruções gerais" }).getAttribute("contenteditable")).toBe("true");
     });
 
     it("lets the audience grow and never shrink", async () => {
@@ -420,5 +420,72 @@ describe("AssessmentForm", () => {
     setup({ onCancel });
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
     expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+// Covers SPEC-088 CA-03, CA-04 (D-01): the form says how many exercises of the module are out of the exam and why, with the way to the bank.
+describe("AssessmentForm and the exercises that are out of the exam", () => {
+  const out = (excluded: { unpublished: number; unlinked: number }, over = {}) => vi.fn().mockResolvedValue(questions({ excluded, ...over }));
+  const chooseModule = () => {
+    open("Questões");
+    type(screen.getByLabelText(/^Módulo/), "mod-1");
+  };
+  const bankLink = (root: HTMLElement) => within(root).getByRole("link", { name: "Abrir o banco de questões do módulo (abre em nova aba)" }) as HTMLAnchorElement;
+
+  it("warns with the two counts and a link to the bank in a new tab, in both compositions (CA-03)", async () => {
+    setup({ loadQuestions: out({ unpublished: 22, unlinked: 47 }) });
+    chooseModule();
+    const note = await screen.findByRole("note");
+    expect(note.textContent).toContain("Deste módulo, 69 exercícios não podem entrar na prova: 47 publicados sem o vínculo Avaliação e 22 ainda não publicados.");
+    expect(note.textContent).toContain("Vincule e publique no banco de questões do módulo.");
+    const link = bankLink(note);
+    expect(link.getAttribute("href")).toBe("/app/modules/mod-1/edit?tab=exercises");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    fireEvent.click(screen.getByRole("radio", { name: "Sorteio por nível" }));
+    expect(screen.getByRole("note").textContent).toContain("69 exercícios não podem entrar na prova");
+  });
+
+  it("leaves out the count that is zero, and says it in the singular", async () => {
+    setup({ loadQuestions: out({ unpublished: 0, unlinked: 3 }) });
+    chooseModule();
+    const note = await screen.findByRole("note");
+    expect(note.textContent).toContain("Deste módulo, 3 exercícios não podem entrar na prova: 3 publicados sem o vínculo Avaliação.");
+    expect(note.textContent).not.toContain("não publicado");
+    cleanup();
+    setup({ loadQuestions: out({ unpublished: 1, unlinked: 0 }) });
+    chooseModule();
+    expect((await screen.findByRole("note")).textContent).toContain("Deste módulo, 1 exercício não pode entrar na prova: 1 ainda não publicado.");
+  });
+
+  it("shows no notice when every exercise of the module may enter", async () => {
+    const load = out({ unpublished: 0, unlinked: 0 });
+    setup({ loadQuestions: load });
+    chooseModule();
+    await screen.findByRole("checkbox", { name: "Incluir Criar a pasta" });
+    await waitFor(() => expect(load).toHaveBeenCalledWith(expect.objectContaining({ moduleId: "mod-1", pageSize: 1 })));
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("alerts when no exercise of the module may enter, with the counts and the link (CA-04)", async () => {
+    setup({ loadQuestions: out({ unpublished: 2, unlinked: 0 }, { items: [], total: 0, stock: {} }) });
+    chooseModule();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Nenhum exercício deste módulo pode entrar na prova: 2 ainda não publicados.");
+    expect(bankLink(alert).getAttribute("href")).toBe("/app/modules/mod-1/edit?tab=exercises");
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
+  it("shows no notice in a frozen assessment, which cannot change its questions", async () => {
+    setup({
+      mode: "edit",
+      frozen: true,
+      initial: { moduleId: "mod-1", composition: "MANUAL", items: [{ questionId: "q-1", title: "Criar a pasta", kind: "PRACTICAL", difficulty: "EASY", weight: 10 }] },
+      loadQuestions: out({ unpublished: 22, unlinked: 47 }),
+    });
+    open("Questões");
+    await screen.findByRole("checkbox", { name: "Incluir Criar a pasta" });
+    expect(screen.queryByRole("note")).toBeNull();
   });
 });

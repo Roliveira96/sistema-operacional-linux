@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/database"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/htmlsafe"
 )
 
 // ClassStatus is the lifecycle state of a class.
@@ -170,16 +171,24 @@ func NormalizeColor(color string) (string, error) {
 	return "", ErrInvalidColor
 }
 
-// SummaryMaxLength is the largest summary of a class, in characters (SPEC-041 RN-01, D-09).
+// SummaryMaxLength is the largest summary of a class, in characters of visible text (SPEC-041 RN-01, D-09; SPEC-078 RN-01).
 const SummaryMaxLength = 300
+
+// SummaryHTMLMaxLength is the largest summary of a class after the HTML filter, in characters (SPEC-078 RN-01, D-05).
+const SummaryHTMLMaxLength = 5000
 
 // RichTextMaxLength is the largest syllabus or guidelines of a class after the HTML filter, in characters (SPEC-041 RN-02).
 const RichTextMaxLength = 20000
 
-// NormalizeSummary trims the summary and checks its length (SPEC-041 RN-01).
-func NormalizeSummary(summary string) (string, error) {
-	trimmed := strings.TrimSpace(summary)
-	if utf8.RuneCountInString(trimmed) > SummaryMaxLength {
+// NormalizeSummary trims a summary that was already filtered as html and checks it (SPEC-078 RN-01): its visible text has at most
+// SummaryMaxLength characters and the html at most SummaryHTMLMaxLength. A summary with nothing visible is empty.
+func NormalizeSummary(filtered string) (string, error) {
+	trimmed := strings.TrimSpace(filtered)
+	visible := htmlsafe.PlainText(trimmed)
+	if visible == "" {
+		return "", nil
+	}
+	if utf8.RuneCountInString(visible) > SummaryMaxLength || utf8.RuneCountInString(trimmed) > SummaryHTMLMaxLength {
 		return "", ErrSummaryTooLong
 	}
 	return trimmed, nil

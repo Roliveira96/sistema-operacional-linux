@@ -44,10 +44,17 @@ export function AssessmentAccessNotice({ load }: AssessmentAccessNoticeProps) {
   }, [load]);
 
   if (!access) return null;
-  const own = access.requiresClearance ? access.clearance : undefined;
+  // until the teacher starts the exam the student reads only that, and not their own state of the clearance (SPEC-083 RN-06)
+  const notStarted = access.reason === "NOT_STARTED";
+  const own = access.requiresClearance && !notStarted ? access.clearance : undefined;
   return (
     <section className={styles.notice}>
       <p className={styles.modality}>{m.modalityIs(m.modality[access.modality] ?? "")}</p>
+      {notStarted && (
+        <p role="status" className={styles.pending}>
+          {m.access.notStarted}
+        </p>
+      )}
       {own?.status === "PENDING" && (
         <p role="status" className={styles.pending}>
           {m.access.pending}

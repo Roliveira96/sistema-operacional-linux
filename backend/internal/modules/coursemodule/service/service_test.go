@@ -32,6 +32,10 @@ type mockRepository struct {
 	listStudentRes  repository.ListResult
 	reorderedCalled bool
 	slugOwners      map[string]uuid.UUID
+
+	// the modules of a class (SPEC-078): the teacher of each class, and how many times the set of a class was written
+	classTeachers map[uuid.UUID]uuid.UUID
+	replaced      int
 }
 
 func newMockRepository() *mockRepository {
@@ -41,6 +45,7 @@ func newMockRepository() *mockRepository {
 		teacherClasses: make(map[uuid.UUID][]uuid.UUID),
 		studentClasses: make(map[uuid.UUID][]uuid.UUID),
 		slugOwners:     make(map[string]uuid.UUID),
+		classTeachers:  make(map[uuid.UUID]uuid.UUID),
 	}
 }
 
@@ -1016,4 +1021,48 @@ func TestService_CreateModule_InitialVersion(t *testing.T) {
 		_, err := svc.CreateModule(context.Background(), in)
 		require.Error(t, err)
 	})
+}
+
+// ClassTeacher is the teacher of a class, or domain.ErrClassNotFound.
+func (m *mockRepository) ClassTeacher(_ context.Context, classID uuid.UUID) (uuid.UUID, error) {
+	teacher, ok := m.classTeachers[classID]
+	if !ok {
+		return uuid.Nil, domain.ErrClassNotFound
+	}
+	return teacher, nil
+}
+
+// ClassModuleIDs are the modules assigned to a class.
+func (m *mockRepository) ClassModuleIDs(_ context.Context, classID uuid.UUID) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	for id, det := range m.details {
+		for _, c := range det.AssignedClassIDs {
+			if c == classID {
+				ids = append(ids, id)
+			}
+		}
+	}
+	return ids, nil
+}
+
+// ReplaceClassModules assigns the modules in add to the class and takes the ones in remove from it.
+func (m *mockRepository) ReplaceClassModules(_ context.Context, classID uuid.UUID, add, remove []uuid.UUID, _ uuid.UUID) error {
+	m.replaced++
+	for _, id := range remove {
+		det := m.details[id]
+		kept := det.AssignedClassIDs[:0:0]
+		for _, c := range det.AssignedClassIDs {
+			if c != classID {
+				kept = append(kept, c)
+			}
+		}
+		det.AssignedClassIDs = kept
+		m.details[id] = det
+	}
+	for _, id := range add {
+		det := m.details[id]
+		det.AssignedClassIDs = append(det.AssignedClassIDs, classID)
+		m.details[id] = det
+	}
+	return nil
 }

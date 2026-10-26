@@ -117,6 +117,17 @@ describe("ClassCard", () => {
     }
   });
 
+  // SPEC-078 CA-11: the summary is formatted text; the card shows only its text, with no marks and no elements.
+  it("shows the summary as plain text, without the marks of the formatting", () => {
+    const html = "<p>Linux <strong>na</strong> prática, do <code>shell</code> ao kernel.</p>";
+    const { container } = render(<ClassCard classGroup={{ ...mockClass, summary: html }} />);
+    const summary = screen.getByText("Linux na prática, do shell ao kernel.");
+    expect(summary.getAttribute("title")).toBe("Linux na prática, do shell ao kernel.");
+    expect(summary.children).toHaveLength(0);
+    expect(summary.querySelector("strong, code")).toBeNull();
+    expect(container.textContent).not.toContain("<strong>");
+  });
+
   // SPEC-046 CA-01 (its CA-02, the order before Configurações, is replaced by SPEC-047 CA-07)
   it.each(["ACTIVE", "DRAFT", "ARCHIVED"] as const)("has a Visualizar link to the class page (%s)", (status) => {
     render(<ClassCard classGroup={{ ...mockClass, status }} />);

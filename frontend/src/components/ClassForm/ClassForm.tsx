@@ -2,26 +2,32 @@
 
 import Link from "next/link";
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { ClassModulesPicker, type ModulesQuery } from "@/components/ClassModulesPicker/ClassModulesPicker";
 import { MeetingsEditor, validateMeetingDrafts, type MeetingDraft } from "@/components/MeetingsEditor/MeetingsEditor";
 import { ClassSessionsCalendar } from "@/components/ClassSessionsCalendar/ClassSessionsCalendar";
 import { MeetingsPreview } from "@/components/MeetingsPreview/MeetingsPreview";
 import { RichTextEditor } from "@/components/RichTextEditor/RichTextEditor";
 import { parseIsoDate } from "@/lib/calendar";
+import { descriptionHtml, descriptionText } from "@/lib/description";
 import { messages } from "@/messages/pt-BR";
 import type { ClassGroup, CreateClassPayload } from "@/services/classService";
 import { ApiProblemError } from "@/services/httpClient";
+import type { ListModulesResult } from "@/services/moduleService";
 import type { Holiday, Meeting } from "@/services/scheduleService";
 import styles from "./ClassForm.module.scss";
 
 const m = messages.classes.form;
 
-/** The largest summary, as in the server (SPEC-041 RN-01). */
+/** The largest summary, in characters of visible text, as in the server (SPEC-041 RN-01, SPEC-078 RN-01). */
 export const SUMMARY_MAX_LENGTH = 300;
+/** The largest summary as html, as in the server (SPEC-078 RN-01). */
+export const SUMMARY_HTML_MAX_LENGTH = 5000;
 
 export interface ClassFormProps {
   initialData?: Partial<ClassGroup>;
   initialMeetings?: MeetingDraft[];
-  onSubmit: (data: CreateClassPayload, meetings?: Meeting[]) => Promise<void>;
+  /** The third argument is the whole set of modules of the class, only when the teacher changed it (SPEC-078). */
+  onSubmit: (data: CreateClassPayload, meetings?: Meeting[], moduleIds?: string[]) => Promise<void>;
   isSubmitting?: boolean;
   submitLabel?: string;
   /** Label of the main button while the form is sent (SPEC-041 CA-16). */
@@ -33,6 +39,10 @@ export interface ClassFormProps {
   onApplyMeetings?: (meetings: Meeting[]) => Promise<void>;
   /** The holidays of a year, shown in the preview of a new class. */
   loadHolidays?: (year: number) => Promise<Holiday[]>;
+  /** Reads a page of the modules the teacher can include in a saved class (SPEC-078); it must keep its identity between renders. */
+  loadModules?: (query: ModulesQuery) => Promise<ListModulesResult>;
+  /** The ids of the modules already included in the class. */
+  initialModuleIds?: string[];
 }
 
 /** How long after the last change the meetings of a saved class are applied. */
@@ -90,7 +100,7 @@ const FIELD_IDS: Record<Field, string> = {
   name: "className",
   courseCode: "courseCode",
   semester: "semester",
-  summary: "summary",
+  summary: "summary-field",
   startDate: "startDate",
   endDate: "endDate",
   syllabus: "syllabus-field",
@@ -153,6 +163,8 @@ function messageOfProblem(err: ApiProblemError): string {
       return m.errors.summaryTooLong(SUMMARY_MAX_LENGTH);
     case "content-too-long":
       return m.errors.contentTooLong;
+    case "module-needs-a-class":
+      return m.errors.moduleNeedsClass;
     case "class-conflict":
       return m.errors.classConflict;
     case "invalid-date-range":
@@ -178,11 +190,15 @@ export function ClassForm({
   classId,
   onApplyMeetings,
   loadHolidays,
+  loadModules,
+  initialModuleIds,
 }: ClassFormProps) {
   const [name, setName] = useState(initialData?.name ?? "");
   const [courseCode, setCourseCode] = useState(initialData?.courseCode ?? "");
   const [semester, setSemester] = useState(initialData?.semester ?? "");
-  const [summary, setSummary] = useState(initialData?.summary ?? "");
+  // formatted text, stored as html; what was stored as plain text opens as one paragraph for each line (SPEC-078 RN-02)
+  const [summary, setSummary] = useState(descriptionHtml(initialData?.summary ?? ""));
+  const [moduleIds, setModuleIds] = useState<string[]>(initialModuleIds ?? []);
   const [syllabus, setSyllabus] = useState(initialData?.syllabus ?? "");
   const [guidelines, setGuidelines] = useState(initialData?.institutionalGuidelines ?? "");
   const [startDate, setStartDate] = useState(toDateInput(initialData?.startDate));
@@ -294,12 +310,19 @@ export function ClassForm({
     </div>
   );
 
+  // the summary is counted by its visible text, not by the marks around it
+  const summaryLength = descriptionText(summary).length;
+  // the modules are chosen only in a saved class, and are sent only when the choice changed
+  const choosesModules = Boolean(classId && loadModules);
+  const modulesChanged = choosesModules && [...moduleIds].sort().join() !== [...(initialModuleIds ?? [])].sort().join();
+
   const validate = (): FieldErrors => {
     const found: FieldErrors = {};
     if (!name.trim()) found.name = m.errors.required;
     if (!courseCode.trim()) found.courseCode = m.errors.required;
     if (!semester.trim()) found.semester = m.errors.required;
-    if (summary.trim().length > SUMMARY_MAX_LENGTH) found.summary = m.errors.summaryTooLong(SUMMARY_MAX_LENGTH);
+    if (summaryLength > SUMMARY_MAX_LENGTH) found.summary = m.errors.summaryTooLong(SUMMARY_MAX_LENGTH);
+    else if (summary.length > SUMMARY_HTML_MAX_LENGTH) found.summary = m.errors.summaryTooMarked;
     if (!startDate) found.startDate = m.errors.required;
     if (!endDate) found.endDate = m.errors.required;
     if (startDate && endDate && startDate > endDate) found.endDate = m.errors.dateRange;
@@ -353,7 +376,7 @@ export function ClassForm({
     const meetingsToSend = meetings.length > 0 ? toMeetings(meetings) : undefined;
 
     try {
-      await onSubmit(payload, meetingsToSend);
+      await onSubmit(payload, meetingsToSend, modulesChanged ? moduleIds : undefined);
     } catch (err: unknown) {
       if (err instanceof ApiProblemError) {
         const field = fieldOfProblem(err);
@@ -432,133 +455,164 @@ export function ClassForm({
 
       {panel(
         "info",
-        <div className={styles.grid}>
-          <div className={`${styles.field} ${styles.fullWidth}`}>
-            <label htmlFor="className" className={styles.label}>
-              {m.nameLabel} {required}
-            </label>
-            <input
-              id="className"
-              type="text"
-              className={styles.input}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={m.namePlaceholder}
-              {...describe("name")}
-            />
-            {errorOf("name")}
-          </div>
+        <div className={styles.groups}>
+          <fieldset className={styles.group}>
+            <legend className={styles.legend}>{m.groups.identity}</legend>
+            <div className={styles.grid}>
+              <div className={`${styles.field} ${styles.fullWidth}`}>
+                <label htmlFor="className" className={styles.label}>
+                  {m.nameLabel} {required}
+                </label>
+                <input
+                  id="className"
+                  type="text"
+                  className={styles.input}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={m.namePlaceholder}
+                  {...describe("name")}
+                />
+                {errorOf("name")}
+              </div>
 
-          <div className={styles.field}>
-            <label htmlFor="courseCode" className={styles.label}>
-              {m.courseCodeLabel} {required}
-            </label>
-            <input
-              id="courseCode"
-              type="text"
-              className={styles.input}
-              value={courseCode}
-              onChange={(e) => setCourseCode(e.target.value)}
-              placeholder={m.courseCodePlaceholder}
-              {...describe("courseCode")}
-            />
-            {errorOf("courseCode")}
-          </div>
+              <div className={styles.field}>
+                <label htmlFor="courseCode" className={styles.label}>
+                  {m.courseCodeLabel} {required}
+                </label>
+                <input
+                  id="courseCode"
+                  type="text"
+                  className={styles.input}
+                  value={courseCode}
+                  onChange={(e) => setCourseCode(e.target.value)}
+                  placeholder={m.courseCodePlaceholder}
+                  {...describe("courseCode")}
+                />
+                {errorOf("courseCode")}
+              </div>
 
-          <div className={styles.field}>
-            <label htmlFor="semester" className={styles.label}>
-              {m.semesterLabel} {required}
-            </label>
-            <input
-              id="semester"
-              type="text"
-              className={styles.input}
-              value={semester}
-              onChange={(e) => setSemester(e.target.value)}
-              placeholder={m.semesterPlaceholder}
-              {...describe("semester")}
-            />
-            {errorOf("semester")}
-          </div>
+              <div className={styles.field}>
+                <label htmlFor="semester" className={styles.label}>
+                  {m.semesterLabel} {required}
+                </label>
+                <input
+                  id="semester"
+                  type="text"
+                  className={styles.input}
+                  value={semester}
+                  onChange={(e) => setSemester(e.target.value)}
+                  placeholder={m.semesterPlaceholder}
+                  {...describe("semester")}
+                />
+                {errorOf("semester")}
+              </div>
 
-          <div className={`${styles.field} ${styles.fullWidth}`}>
-            <div className={styles.labelRow}>
-              <label htmlFor="summary" className={styles.label}>
-                {m.summaryLabel}
+              <div className={`${styles.field} ${styles.fullWidth}`}>
+                <span className={styles.label}>{messages.schedule.colorLabel}</span>
+                <div
+                  role="radiogroup"
+                  aria-label={messages.schedule.colorLabel}
+                  className={styles.colorRadiogroup}
+                >
+                  {Object.entries(messages.schedule.colors).map(([cKey, cLabel]) => (
+                    <label key={cKey} className={styles.colorSwatch} title={cLabel}>
+                      <input
+                        type="radio"
+                        role="radio"
+                        name="classColor"
+                        value={cKey}
+                        aria-label={cLabel}
+                        checked={color === cKey}
+                        onChange={() => setColor(cKey)}
+                      />
+                      <span className={styles.swatchDot} data-color={cKey} aria-hidden="true" />
+                    </label>
+                  ))}
+                </div>
+                <span className={styles.help}>{messages.schedule.colorHelp}</span>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset className={styles.group}>
+            <legend className={styles.legend}>{m.groups.presentation}</legend>
+            <div id="summary-field" className={styles.field} tabIndex={-1}>
+              <div className={styles.labelRow}>
+                <span className={styles.label} aria-hidden="true">
+                  {m.summaryLabel}
+                </span>
+                <span className={`${styles.counter} ${summaryLength > SUMMARY_MAX_LENGTH ? styles.counterOver : ""}`}>
+                  {m.summaryCounter(summaryLength, SUMMARY_MAX_LENGTH)}
+                </span>
+              </div>
+              <RichTextEditor
+                label={m.summaryLabel}
+                value={summary}
+                onChange={setSummary}
+                placeholder={m.summaryPlaceholder}
+                invalid={Boolean(errors.summary)}
+                describedBy="summary-help summary-error"
+              />
+              <span id="summary-help" className={styles.help}>
+                {m.summaryHelp}
+              </span>
+              {errorOf("summary")}
+            </div>
+          </fieldset>
+
+          <fieldset className={styles.group}>
+            <legend className={styles.legend}>{m.groups.validity}</legend>
+            <div className={styles.grid}>
+              <div className={styles.field}>
+                <label htmlFor="startDate" className={styles.label}>
+                  {m.startDateLabel} {required}
+                </label>
+                <input
+                  id="startDate"
+                  type="date"
+                  className={styles.input}
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  {...describe("startDate")}
+                />
+                {errorOf("startDate")}
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="endDate" className={styles.label}>
+                  {m.endDateLabel} {required}
+                </label>
+                <input
+                  id="endDate"
+                  type="date"
+                  className={styles.input}
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  {...describe("endDate")}
+                />
+                {errorOf("endDate")}
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset className={styles.group}>
+            <legend className={styles.legend}>{m.groups.virtual}</legend>
+            <div className={styles.field}>
+              <label className={styles.checkboxGroup}>
+                <input
+                  type="checkbox"
+                  className={styles.checkbox}
+                  checked={enableVirtual}
+                  onChange={(e) => setEnableVirtual(e.target.checked)}
+                  aria-describedby="virtual-help"
+                />
+                <span>{m.enableVirtualLabel}</span>
               </label>
-              <span
-                className={`${styles.counter} ${summary.trim().length > SUMMARY_MAX_LENGTH ? styles.counterOver : ""}`}
-              >
-                {m.summaryCounter(summary.trim().length, SUMMARY_MAX_LENGTH)}
+              <span id="virtual-help" className={styles.help}>
+                {m.enableVirtualHelp}
               </span>
             </div>
-            <textarea
-              id="summary"
-              className={`${styles.textarea} ${styles.summary}`}
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              placeholder={m.summaryPlaceholder}
-              {...describe("summary", "summary-help")}
-            />
-            <span id="summary-help" className={styles.help}>
-              {m.summaryHelp}
-            </span>
-            {errorOf("summary")}
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="startDate" className={styles.label}>
-              {m.startDateLabel} {required}
-            </label>
-            <input
-              id="startDate"
-              type="date"
-              className={styles.input}
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              {...describe("startDate")}
-            />
-            {errorOf("startDate")}
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="endDate" className={styles.label}>
-              {m.endDateLabel} {required}
-            </label>
-            <input
-              id="endDate"
-              type="date"
-              className={styles.input}
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              {...describe("endDate")}
-            />
-            {errorOf("endDate")}
-          </div>
-
-          <div className={`${styles.field} ${styles.fullWidth}`}>
-            <span className={styles.label}>{messages.schedule.colorLabel}</span>
-            <div
-              role="radiogroup"
-              aria-label={messages.schedule.colorLabel}
-              className={styles.colorRadiogroup}
-            >
-              {Object.entries(messages.schedule.colors).map(([cKey, cLabel]) => (
-                <label key={cKey} className={styles.colorSwatch} title={cLabel}>
-                  <input
-                    type="radio"
-                    role="radio"
-                    name="classColor"
-                    value={cKey}
-                    aria-label={cLabel}
-                    checked={color === cKey}
-                    onChange={() => setColor(cKey)}
-                  />
-                  <span className={styles.swatchDot} data-color={cKey} aria-hidden="true" />
-                </label>
-              ))}
-            </div>
-            <span className={styles.help}>{messages.schedule.colorHelp}</span>
-          </div>
+          </fieldset>
         </div>,
       )}
 
@@ -595,7 +649,8 @@ export function ClassForm({
             )}
           </div>
 
-          {meetings.length === 0 && (
+          {/* the old text exists only for a class that has it saved and no meetings yet (SPEC-078 CA-06) */}
+          {Boolean(initialData?.scheduleDescription) && meetings.length === 0 && (
             <div className={`${styles.field} ${styles.fullWidth}`}>
               <label htmlFor="schedule" className={styles.label}>
                 {m.scheduleLabel}
@@ -611,21 +666,6 @@ export function ClassForm({
             </div>
           )}
 
-          <div className={`${styles.field} ${styles.fullWidth}`}>
-            <label className={styles.checkboxGroup}>
-              <input
-                type="checkbox"
-                className={styles.checkbox}
-                checked={enableVirtual}
-                onChange={(e) => setEnableVirtual(e.target.checked)}
-                aria-describedby="virtual-help"
-              />
-              <span>{m.enableVirtualLabel}</span>
-            </label>
-            <span id="virtual-help" className={styles.help}>
-              {m.enableVirtualHelp}
-            </span>
-          </div>
         </div>,
       )}
 
@@ -661,6 +701,12 @@ export function ClassForm({
           />
           {errorOf("institutionalGuidelines")}
         </div>
+
+        {classId && loadModules ? (
+          <ClassModulesPicker load={loadModules} selected={moduleIds} onChange={setModuleIds} />
+        ) : (
+          <p className={styles.help}>{m.modulesCreateHint}</p>
+        )}
         </>,
       )}
 
@@ -718,7 +764,7 @@ export function ClassForm({
         </>,
       )}
 
-      <div className={styles.actions}>
+      <div className={styles.actions} role="group" aria-label={m.actionsLabel}>
         <Link href={cancelHref} className={styles.cancel}>
           {m.cancel}
         </Link>

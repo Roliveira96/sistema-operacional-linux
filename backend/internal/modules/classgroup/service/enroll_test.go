@@ -56,6 +56,17 @@ func (f *fakeClassRepo) FindUserName(ctx context.Context, id uuid.UUID) (*string
 	return f.userNames[id], nil
 }
 
+// UserNames gives the name of each user, or the e-mail of one who has none; a user that is nobody is left out (SPEC-086 RN-02).
+func (f *fakeClassRepo) UserNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := make(map[uuid.UUID]string, len(ids))
+	for _, id := range ids {
+		if label, ok := f.userLabels[id]; ok {
+			out[id] = label
+		}
+	}
+	return out, nil
+}
+
 type enrollFixture struct {
 	repo    *fakeClassRepo
 	svc     *service.Service

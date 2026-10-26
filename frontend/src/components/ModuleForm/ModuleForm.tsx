@@ -181,7 +181,8 @@ export function ModuleForm({ initialData, availableClasses = [], onSubmit, isEdi
             status,
             activationStart: startIso,
             activationEnd: endIso,
-            classIds: visibility === "PRIVATE" ? classIds : [],
+            // only a private module takes its classes; for the others they stay as the classes assigned them (SPEC-078 RN-05)
+            ...(visibility === "PRIVATE" ? { classIds } : {}),
           }
         : {
             title: title.trim(),

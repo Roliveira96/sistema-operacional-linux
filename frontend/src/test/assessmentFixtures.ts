@@ -80,13 +80,14 @@ export const questions = (over: Partial<EligibleQuestions> = {}): EligibleQuesti
   ],
   total: 4,
   stock: { EASY: 2, MEDIUM: 1, HARD: 1 },
+  excluded: { unpublished: 0, unlinked: 0 },
   ...over,
 });
 
 export const preview = (over: Partial<PreviewData> = {}): PreviewData => ({
   questions: [
-    { position: 1, weight: 5, questionId: "q-1", title: "Criar a pasta", kind: "PRACTICAL", difficulty: "EASY", statement: "<p>Crie a pasta <code>/a</code>.</p>", answerKey: '{"steps":[{"command":"mkdir /a"}]}', explanation: "Use mkdir." },
-    { position: 2, weight: 5, questionId: "q-4", title: "Dono e grupo", kind: "THEORETICAL_SINGLE", difficulty: "HARD", statement: "<p>Quem é o dono?</p>", answerKey: "B", explanation: "O dono é quem criou." },
+    { position: 1, weight: 5, questionId: "q-1", title: "Criar a pasta", kind: "PRACTICAL", difficulty: "EASY", statement: "<p>Crie a pasta <code>/a</code>.</p>", answerKey: '{"steps":[{"command":"mkdir /a"}]}', explanation: "Use mkdir.", studentView: {} },
+    { position: 2, weight: 5, questionId: "q-4", title: "Dono e grupo", kind: "THEORETICAL_SINGLE", difficulty: "HARD", statement: "<p>Quem é o dono?</p>", answerKey: "B", explanation: "O dono é quem criou.", studentView: { choices: [{ id: "a", html: "<p>root</p>" }, { id: "b", html: "<p>quem criou</p>" }], shuffle: false } },
   ],
   ...over,
 });
@@ -125,3 +126,57 @@ export const myAccess = (over: Partial<MyAccess> = {}): MyAccess => ({
   serverNow: SERVER_NOW,
   ...over,
 });
+
+/**
+ * The preview of an assessment with a question of each kind, as the simulator reads it (SPEC-081 section 5): the alternatives and the columns
+ * in the order of the teacher and not shuffled, so the tests do not depend on chance.
+ */
+export const simulation = (over: Partial<PreviewData> = {}): PreviewData => ({
+  questions: [
+    { position: 1, weight: 2, questionId: "q-bool", title: "Apagar a pasta", kind: "THEORETICAL_BOOLEAN", difficulty: "EASY", statement: "<p>O rm sozinho apaga uma pasta?</p>", answerKey: "false", explanation: "Faltou o -r.", studentView: {} },
+    {
+      position: 2, weight: 2, questionId: "q-single", title: "Dono do arquivo", kind: "THEORETICAL_SINGLE", difficulty: "MEDIUM", statement: "<p>Quem é o dono?</p>",
+      answerKey: "b", explanation: "O dono é quem criou.",
+      studentView: { choices: [{ id: "a", html: "<p>o root</p>" }, { id: "b", html: "<p>quem criou</p>" }, { id: "c", html: "<p>o grupo</p>" }], shuffle: false },
+    },
+    {
+      position: 3, weight: 2, questionId: "q-match", title: "Ligue o comando", kind: "THEORETICAL_MATCHING", difficulty: "MEDIUM", statement: "<p>Ligue cada comando.</p>",
+      answerKey: '{"pairs":[{"left":"l1","right":"r1"},{"left":"l2","right":"r2"}]}', explanation: "",
+      studentView: {
+        columns: { left: [{ id: "l1", text: "ls" }, { id: "l2", text: "cd" }], right: [{ id: "r1", text: "lista" }, { id: "r2", text: "muda" }] },
+        shuffle: false,
+      },
+    },
+    {
+      position: 4, weight: 2, questionId: "q-disc", title: "Explique o chmod", kind: "DISCURSIVE", difficulty: "HARD", statement: "<p>Explique o chmod.</p>",
+      answerKey: "<p>muda a permissão</p>", explanation: "", studentView: { maxLength: 50 },
+    },
+    { position: 5, weight: 2, questionId: "q-prac", title: "Criar a pasta", kind: "PRACTICAL", difficulty: "EASY", statement: "<p>Crie a pasta <code>/a</code>.</p>", answerKey: '{"steps":[{"command":"mkdir /a"}]}', explanation: "Use mkdir.", studentView: {} },
+  ],
+  ...over,
+});
+
+/** The preview of a draw: the rules and the sample that the student gets (not stored). */
+export const drawSimulation = (over: Partial<PreviewData> = {}): PreviewData => ({
+  questions: [],
+  rules: [
+    { difficulty: "EASY", quantity: 1, pointsPerQuestion: 3 },
+    { difficulty: "HARD", quantity: 1, pointsPerQuestion: 7 },
+  ],
+  stock: { EASY: 4, HARD: 2 },
+  sample: [
+    { questionId: "q-bool", title: "Apagar a pasta", kind: "THEORETICAL_BOOLEAN", difficulty: "EASY", statement: "<p>O rm sozinho apaga uma pasta?</p>", answerKey: "false", explanation: "Faltou o -r.", studentView: {} },
+    { questionId: "q-disc", title: "Explique o chmod", kind: "DISCURSIVE", difficulty: "HARD", statement: "<p>Explique o chmod.</p>", answerKey: "<p>muda a permissão</p>", explanation: "", studentView: { maxLength: 50 } },
+  ],
+  ...over,
+});
+
+/** What an in-person exam has once the teacher started it, at 09:07 of the day it runs, with SERVER_NOW inside the period (SPEC-083). */
+export const STARTED = {
+  phase: "RUNNING",
+  startsAt: "2026-10-21T09:00:00-03:00",
+  endsAt: "2026-10-21T11:00:00-03:00",
+  startedAt: "2026-10-21T09:07:00-03:00",
+  startedBy: "u-1",
+  startedByName: "Profa. Sediane",
+} as const;

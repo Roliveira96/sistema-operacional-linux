@@ -150,3 +150,75 @@
   border: 1px solid var(--color-danger-line);
   border-radius: var(--radius-sm);
 }
+
+// The chosen questions as a table (SPEC-079): it scrolls sideways inside its box on a narrow screen.
+.scroll {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: var(--space-2) var(--space-3);
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  th {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  tbody tr + tr td {
+    border-top: 1px solid var(--color-hairline);
+  }
+
+  // a row whose weight does not hold is marked on the row itself
+  tr[data-invalid="true"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--color-danger);
+  }
+
+  td:nth-child(2) {
+    min-width: 12rem;
+  }
+}
+
+.position {
+  width: 2.5rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.share {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-body);
+}
+
+.rowProblem {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.weight[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

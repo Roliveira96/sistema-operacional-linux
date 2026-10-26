@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"time"
 
@@ -272,15 +273,19 @@ func (f *fakeModules) ModuleOfClass(_ context.Context, classID, moduleID uuid.UU
 
 // fakeQuestions is the bank: Eligible answers only for the questions that are published, in the assessment and not deleted.
 type fakeQuestions struct {
-	bank map[uuid.UUID]bankQuestion
+	bank    map[uuid.UUID]bankQuestion
+	checked []json.RawMessage // the machines the service asked to check, in order
 }
 
 type bankQuestion struct {
 	service.QuestionContent
-	ModuleID  uuid.UUID
-	Published bool
-	In        bool // in_assessment
-	Deleted   bool
+	ModuleID   uuid.UUID
+	Published  bool
+	In         bool // in_assessment
+	Deleted    bool
+	Scenario   json.RawMessage // the machine the question starts from; none is the default machine (SPEC-084)
+	Passes     bool            // whether the machine that is checked meets the conditions of the question (SPEC-085)
+	NoTerminal bool            // a question that does not use the terminal cannot be checked
 }
 
 func (b bankQuestion) eligible(moduleID uuid.UUID) bool {
@@ -312,6 +317,19 @@ func (f *fakeQuestions) Pool(_ context.Context, filter service.QuestionFilter) (
 	sort.Slice(page.Items, func(i, j int) bool { return page.Items[i].Title < page.Items[j].Title })
 	page.Total = len(page.Items)
 	return page, nil
+}
+
+func (f *fakeQuestions) Scenario(_ context.Context, id uuid.UUID) (json.RawMessage, error) {
+	return f.bank[id].Scenario, nil
+}
+
+func (f *fakeQuestions) Check(_ context.Context, id uuid.UUID, snapshot json.RawMessage) (bool, error) {
+	f.checked = append(f.checked, snapshot)
+	q := f.bank[id]
+	if q.NoTerminal {
+		return false, domain.ErrInvalidQuestion
+	}
+	return q.Passes, nil
 }
 
 func (f *fakeQuestions) Contents(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]service.QuestionContent, error) {

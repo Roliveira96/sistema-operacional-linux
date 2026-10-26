@@ -1,0 +1,113 @@
+// The terminal beside the question in the exam (SPEC-084). The window itself is the one of the study screen; only the variables it reads are
+// mapped here, from the design tokens. It grows to the height the exam gives it (SPEC-087 D-01).
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dim {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+// A question that does not use the terminal leaves it in view, locked: dimmed and out of reach of the keyboard and the pointer.
+.dim[inert] {
+  opacity: 0.35;
+}
+
+.host {
+  --terminal-fundo: var(--color-terminal-bg);
+  --terminal-texto: var(--color-terminal-text);
+  --laranja: var(--color-ubuntu-orange);
+  --fonte: var(--font-sans);
+  --fonte-codigo: var(--font-terminal);
+
+  flex: 1;
+  min-height: 18rem;
+}
+
+.window {
+  height: 100%;
+}
+
+.locked {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--space-4);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  color: var(--color-text-primary);
+}
+
+.status {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.problem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-primary);
+  background: var(--color-danger-subtle);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-sm);
+}
+
+.footer {
+  flex: none;
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+
+  b {
+    color: var(--color-text-primary);
+  }
+
+  code,
+  kbd {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+  }
+}

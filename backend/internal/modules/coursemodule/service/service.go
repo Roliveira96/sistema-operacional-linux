@@ -38,6 +38,10 @@ type ModuleRepository interface {
 	ReorderModules(ctx context.Context, moduleIDs []uuid.UUID) error
 	ValidateTeacherClasses(ctx context.Context, teacherID uuid.UUID, classIDs []uuid.UUID) (bool, error)
 	IsStudentEnrolledInAnyClass(ctx context.Context, studentID uuid.UUID, classIDs []uuid.UUID) (bool, error)
+	// The modules of a class (SPEC-078): its teacher, the modules assigned to it, and one transaction that assigns and takes away.
+	ClassTeacher(ctx context.Context, classID uuid.UUID) (uuid.UUID, error)
+	ClassModuleIDs(ctx context.Context, classID uuid.UUID) ([]uuid.UUID, error)
+	ReplaceClassModules(ctx context.Context, classID uuid.UUID, add, remove []uuid.UUID, assignedBy uuid.UUID) error
 }
 
 // MaxDescriptionLength is the largest description, counted in characters of the filtered html.
@@ -266,11 +270,94 @@ func (s *Service) UpdateModule(ctx context.Context, input UpdateModuleInput) (do
 		}
 	}
 
-	if err := s.repo.UpdateModule(ctx, &module, input.ClassIDs, input.CallerID); err != nil {
+	// Only a private module takes the list of classes. For the others the assignments stay as they are: a class can assign a public module
+	// to itself (SPEC-078 RN-05), and the form of the module sends an empty list for them, which would take those assignments away.
+	classIDs := input.ClassIDs
+	if module.Visibility != domain.VisibilityPrivate {
+		classIDs = nil
+	}
+	if err := s.repo.UpdateModule(ctx, &module, classIDs, input.CallerID); err != nil {
 		return domain.CourseModule{}, err
 	}
 
 	return module, nil
+}
+
+// SetClassModules writes the set of modules of a class and answers the set the class has afterwards (SPEC-078 RN-03 to RN-06). What comes in the
+// list is assigned and what was assigned and did not come is not, for that class only. A teacher writes only her own modules: the ones someone else
+// assigned stay as they are. Nothing is written when anything is refused.
+func (s *Service) SetClassModules(ctx context.Context, callerID uuid.UUID, isAdmin bool, classID uuid.UUID, moduleIDs []uuid.UUID) ([]uuid.UUID, error) {
+	teacher, err := s.repo.ClassTeacher(ctx, classID)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin && teacher != callerID {
+		return nil, domain.ErrForbidden
+	}
+
+	wanted := make(map[uuid.UUID]bool, len(moduleIDs))
+	for _, id := range moduleIDs {
+		if wanted[id] {
+			return nil, domain.ErrInvalidModules
+		}
+		wanted[id] = true
+		module, err := s.repo.FindModuleByID(ctx, id)
+		if errors.Is(err, domain.ErrModuleNotFound) {
+			return nil, domain.ErrInvalidModules
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !isAdmin && module.TeacherID != callerID {
+			return nil, domain.ErrForbidden
+		}
+	}
+
+	current, err := s.repo.ClassModuleIDs(ctx, classID)
+	if err != nil {
+		return nil, err
+	}
+	assigned := make(map[uuid.UUID]bool, len(current))
+	for _, id := range current {
+		assigned[id] = true
+	}
+	var add, remove []uuid.UUID
+	for _, id := range moduleIDs {
+		if !assigned[id] {
+			add = append(add, id)
+		}
+	}
+	removed := make(map[uuid.UUID]bool)
+	for _, id := range current {
+		if wanted[id] {
+			continue
+		}
+		details, err := s.repo.FindModuleWithDetails(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !isAdmin && details.Module.TeacherID != callerID {
+			continue // not hers: it stays
+		}
+		if details.Module.Visibility == domain.VisibilityPrivate && len(details.AssignedClassIDs) == 1 {
+			return nil, &domain.ModuleNeedsClassError{ModuleID: id}
+		}
+		remove = append(remove, id)
+		removed[id] = true
+	}
+
+	if len(add) > 0 || len(remove) > 0 {
+		if err := s.repo.ReplaceClassModules(ctx, classID, add, remove, callerID); err != nil {
+			return nil, err
+		}
+	}
+	set := make([]uuid.UUID, 0, len(current)+len(add))
+	for _, id := range current {
+		if !removed[id] {
+			set = append(set, id)
+		}
+	}
+	return append(set, add...), nil
 }
 
 // UserAccessContext encapsulates the requesting user credentials.

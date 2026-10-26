@@ -76,17 +76,17 @@ func TestAuditOnArchive(t *testing.T) {
 	assert.NotNil(t, repo.classes[class.ID].ArchivedAt, "it is saved")
 }
 
-// Covers SPEC-049 RN-04: the names of who acted, skipping the users that do not exist.
+// Covers SPEC-049 RN-04 and SPEC-086 CA-02 (RN-02, D-03): the names of who acted, the e-mail of one who has no name (as the lookup of the
+// repository gives it), skipping the users that do not exist. It asked FindUserName before, which gives nobody without a name.
 func TestUserNames(t *testing.T) {
 	svc, repo, _ := setupTest()
 	ana, bruno, ghost := uuid.New(), uuid.New(), uuid.New()
-	a, b := "Ana", "Bruno"
-	repo.userNames[ana] = &a
-	repo.userNames[bruno] = &b
+	repo.userLabels[ana] = "Ana"
+	repo.userLabels[bruno] = "bruno@utfpr.edu.br"
 
 	names, err := svc.UserNames(context.Background(), []uuid.UUID{ana, bruno, ana, ghost})
 	require.NoError(t, err)
-	assert.Equal(t, map[uuid.UUID]string{ana: "Ana", bruno: "Bruno"}, names)
+	assert.Equal(t, map[uuid.UUID]string{ana: "Ana", bruno: "bruno@utfpr.edu.br"}, names)
 
 	empty, err := svc.UserNames(context.Background(), nil)
 	require.NoError(t, err)

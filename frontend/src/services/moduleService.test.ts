@@ -66,4 +66,20 @@ describe("ModuleService", () => {
     });
     expect(res.reorderedCount).toBe(2);
   });
+
+  // SPEC-078 CA-12 (section 5): the whole set of modules of a class is written in one call.
+  it("calls setClassModules with the whole set, and answers the set written", async () => {
+    vi.mocked(client.put).mockResolvedValueOnce({ moduleIds: ["m-1", "m-2"] });
+
+    const res = await service.setClassModules("c-1", ["m-1", "m-2"]);
+    expect(client.put).toHaveBeenCalledWith("/classes/c-1/modules", { moduleIds: ["m-1", "m-2"] });
+    expect(res.moduleIds).toEqual(["m-1", "m-2"]);
+  });
+
+  it("calls setClassModules with an empty list to take every module away", async () => {
+    vi.mocked(client.put).mockResolvedValueOnce({ moduleIds: [] });
+
+    await service.setClassModules("c-1", []);
+    expect(client.put).toHaveBeenCalledWith("/classes/c-1/modules", { moduleIds: [] });
+  });
 });

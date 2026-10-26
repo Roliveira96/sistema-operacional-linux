@@ -66,6 +66,10 @@ export interface AssessmentSummary extends AssessmentBase {
   updatedAt: string;
   canceledBy?: string;
   canceledAt?: string;
+  /** The start of an in-person exam by the teacher, which opens the clearance of the students; absent until she starts it (SPEC-083). */
+  startedAt?: string;
+  startedBy?: string;
+  startedByName?: string;
 }
 
 export interface AssessmentItem {
@@ -120,10 +124,16 @@ export interface PickedQuestion extends EligibleQuestion {
   weight: number;
 }
 export type Stock = Partial<Record<Difficulty, number>>;
+/** The exercises of the bank of the module that cannot enter the assessment, by reason (SPEC-088 RN-01): not published, or published without the link to the assessment. */
+export interface ExcludedQuestions {
+  unpublished: number;
+  unlinked: number;
+}
 export interface EligibleQuestions {
   items: EligibleQuestion[];
   total: number;
   stock: Stock;
+  excluded: ExcludedQuestions;
 }
 export interface QuestionQuery {
   moduleId: string;
@@ -132,6 +142,15 @@ export interface QuestionQuery {
   q?: string;
   page?: number;
   pageSize?: number;
+}
+
+/** What the student receives of a question, without the answer; only the fields of its kind come (SPEC-081 section 5). */
+export interface StudentView {
+  choices?: { id: string; html: string }[];
+  columns?: { left: { id: string; text: string }[]; right: { id: string; text: string }[] };
+  /** The alternatives or the columns are shown in a different order each time unless this is false. */
+  shuffle?: boolean;
+  maxLength?: number;
 }
 
 /** A question of the preview, with what only the teacher reads. */
@@ -143,6 +162,7 @@ export interface PreviewContent {
   statement: string;
   answerKey: string;
   explanation: string;
+  studentView: StudentView;
 }
 export interface PreviewQuestion extends PreviewContent {
   position: number;
@@ -202,7 +222,7 @@ export type ClearanceInput =
 /** What the student reads about their own access, and about no one else's (RN-09, RN-10). */
 export interface MyAccess {
   allowed: boolean;
-  reason: "ALLOWED" | "CANCELED" | "NOT_OPEN_YET" | "ENDED" | "NOT_CLEARED";
+  reason: "ALLOWED" | "CANCELED" | "NOT_OPEN_YET" | "ENDED" | "NOT_STARTED" | "NOT_CLEARED";
   modality: Modality;
   requiresClearance: boolean;
   clearance?: { status: ClearanceStatus; rejectionReason?: string };
@@ -238,6 +258,14 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     update: (classId: string, id: string, patch: AssessmentPatch) => client.patch<Now<AssessmentSummary>>(`${base(classId)}/${id}`, patch),
     reschedule: (classId: string, id: string, input: RescheduleInput) => client.put<Now<AssessmentSummary>>(`${base(classId)}/${id}/schedule`, input),
     cancel: (classId: string, id: string, reason: string) => client.post<Now<AssessmentSummary>>(`${base(classId)}/${id}/cancel`, { reason }),
+    /** Starts an in-person exam that is running: from then on the teacher clears the students (SPEC-083). It has no body and cannot be undone. */
+    start: (classId: string, id: string) => client.post<Now<AssessmentSummary>>(`${base(classId)}/${id}/start`),
+    /** The machine a question of the assessment starts from, for the terminal of the simulator; null when it has none of its own (SPEC-084 RN-01). */
+    questionScenario: async (classId: string, id: string, questionId: string) =>
+      (await client.get<{ questionId: string; snapshot?: unknown }>(`${base(classId)}/${id}/questions/${encodeURIComponent(questionId)}/scenario`)).snapshot ?? null,
+    /** Whether the machine meets the conditions of a question of command Linux of the assessment: the server corrects, says only yes or no and stores nothing (SPEC-085). */
+    checkQuestion: async (classId: string, id: string, questionId: string, snapshot: unknown) =>
+      (await client.post<{ passed: boolean }>(`${base(classId)}/${id}/questions/${encodeURIComponent(questionId)}/check`, { snapshot })).passed,
     saveNotes: async (classId: string, id: string, notes: string) =>
       (await client.put<{ teacherPrivateNotes: string }>(`${base(classId)}/${id}/private-notes`, { teacherPrivateNotes: notes })).teacherPrivateNotes,
     preview: (classId: string, id: string) => client.get<PreviewData>(`${base(classId)}/${id}/preview`),

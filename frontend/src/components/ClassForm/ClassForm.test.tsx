@@ -87,34 +87,6 @@ function fillRequired() {
 }
 
 describe("ClassForm (SPEC-041)", () => {
-  // CA-10
-  it("counts the summary and refuses more than 300 characters next to the field", async () => {
-    const handleSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ClassForm onSubmit={handleSubmit} />);
-    fillRequired();
-    const summary = screen.getByLabelText(/Resumo da disciplina/i);
-    fireEvent.change(summary, { target: { value: "Linux na prática" } });
-    expect(screen.getByText("16/300")).toBeDefined();
-
-    fireEvent.change(summary, { target: { value: "a".repeat(301) } });
-    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
-
-    await waitFor(() => expect(summary.getAttribute("aria-invalid")).toBe("true"));
-    const errorId = summary.getAttribute("aria-describedby") ?? "";
-    expect(document.getElementById(errorId.split(" ").find((id) => id.endsWith("-error")) ?? "")?.textContent).toMatch(/300 caracteres/);
-    expect(handleSubmit).not.toHaveBeenCalled();
-  });
-
-  it("sends the summary trimmed", async () => {
-    const handleSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ClassForm onSubmit={handleSubmit} />);
-    fillRequired();
-    fireEvent.change(screen.getByLabelText(/Resumo da disciplina/i), { target: { value: "  Linux na prática  " } });
-    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
-    await waitFor(() => expect(handleSubmit).toHaveBeenCalled());
-    expect(handleSubmit.mock.lastCall?.[0].summary).toBe("Linux na prática");
-  });
-
   // CA-11
   it("edits the syllabus and the guidelines in the formatted editor, without the image button", () => {
     render(<ClassForm onSubmit={vi.fn()} initialData={{ syllabus: "<p>Processos</p>" }} />);
@@ -148,15 +120,6 @@ describe("ClassForm (SPEC-041)", () => {
     const end = screen.getByLabelText(/Data de Término/i);
     await waitFor(() => expect(end.getAttribute("aria-invalid")).toBe("true"));
     expect(document.activeElement).toBe(end);
-  });
-
-  it("puts a summary error from the server on the summary field", async () => {
-    const problem = new ApiProblemError({ type: "invalid-summary", status: 400, field: "summary" }, 400);
-    render(<ClassForm onSubmit={vi.fn().mockRejectedValue(problem)} />);
-    fillRequired();
-    fireEvent.click(screen.getByRole("button", { name: "Criar Turma" }));
-    const summary = screen.getByLabelText(/Resumo da disciplina/i);
-    await waitFor(() => expect(summary.getAttribute("aria-invalid")).toBe("true"));
   });
 
   it("shows other server errors in the summary at the top", async () => {
@@ -221,7 +184,7 @@ describe("ClassForm (SPEC-041, coverage of the remaining paths)", () => {
 
   it("sends the schedule, the virtual meetings and the invite window", async () => {
     const handleSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ClassForm onSubmit={handleSubmit} />);
+    render(<ClassForm onSubmit={handleSubmit} initialData={{ scheduleDescription: "Seg 07:00" }} />);
     fillRequired();
     fireEvent.change(screen.getByLabelText(/Horários dos Encontros/i), { target: { value: "Seg 08:20" } });
     fireEvent.click(screen.getByLabelText(/Encontros Virtuais/i));
@@ -433,9 +396,8 @@ describe("ClassForm (SPEC-044)", () => {
   // CA-06
   it("sends the data of all the tabs in a single call", async () => {
     const handleSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ClassForm onSubmit={handleSubmit} />);
+    render(<ClassForm onSubmit={handleSubmit} initialData={{ summary: "<p>Resumo</p>" }} />);
     fillRequired();
-    fireEvent.change(screen.getByLabelText(/Resumo da disciplina/i), { target: { value: "Resumo" } });
     fireEvent.click(tab("Horários"));
     fireEvent.click(screen.getByRole("button", { name: "Segunda-feira" }));
     fireEvent.click(tab("Ingresso"));
@@ -446,7 +408,7 @@ describe("ClassForm (SPEC-044)", () => {
     await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1));
     const [payload, meetings] = handleSubmit.mock.lastCall ?? [];
     expect(payload.name).toBe("Turma A");
-    expect(payload.summary).toBe("Resumo");
+    expect(payload.summary).toBe("<p>Resumo</p>");
     expect(payload.enableInviteLink).toBe(true);
     expect(meetings).toHaveLength(1);
   });

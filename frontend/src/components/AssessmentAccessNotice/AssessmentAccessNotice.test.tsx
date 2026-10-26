@@ -121,3 +121,22 @@ describe("AssessmentAccessNotice", () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 });
+
+// SPEC-083 CA-14, RN-06: while the teacher has not started the exam the student reads that, and not their own state of the clearance.
+describe("AssessmentAccessNotice, exam not started", () => {
+  it("says the teacher has not started the exam and does not show the own state of the clearance", async () => {
+    await setup(myAccess({ reason: "NOT_STARTED", clearance: { status: "PENDING" } }));
+    expect(screen.getByText("Modalidade: Presencial")).toBeDefined();
+    expect(screen.getByRole("status").textContent).toBe("A docente ainda não iniciou a prova. Aguarde: ela libera a entrada de cada aluno.");
+    expect(screen.queryByText(/Aguardando a habilitação da professora/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows the own state once the exam is started, as the teacher decides", async () => {
+    await setup(myAccess({ reason: "NOT_STARTED", clearance: { status: "REJECTED", rejectionReason: "Faltas" } }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    cleanup();
+    await setup(myAccess({ reason: "NOT_CLEARED", clearance: { status: "REJECTED", rejectionReason: "Faltas" } }));
+    expect(screen.getByRole("alert").textContent).toContain("Faltas");
+  });
+});

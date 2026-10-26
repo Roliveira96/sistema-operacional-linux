@@ -27,6 +27,9 @@ const hour = (iso: string) => iso.slice(11, 16);
 
 export const formatDay = day;
 export const formatHour = hour;
+/** "23/10/2026, 09:00" */
+export const formatDateTime = (iso: string): string => `${day(iso)}, ${hour(iso)}`;
+
 /** "21/10/2026 às 10:00" */
 export const formatMoment = (iso: string): string => `${day(iso)} às ${hour(iso)}`;
 
@@ -61,20 +64,20 @@ export const isOnDay = (a: Pick<AssessmentBase, "startsAt" | "endsAt">, iso: str
 export const convertedSessionIds = (assessments: Pick<CalendarAssessment, "status" | "classSessionId">[]): Set<string> =>
   new Set(assessments.filter((a) => a.status === "SCHEDULED" && a.classSessionId).map((a) => a.classSessionId!));
 
-/** How long before the start the warning of the students who still wait for the clearance begins (SPEC-076 D-11). */
-const WARN_BEFORE_MS = 30 * 60_000;
-
 /**
- * Whether the list warns that students are still not cleared (SPEC-076 RN-13): an in-person assessment that requires the clearance, scheduled, with
- * students waiting, that starts in 30 minutes or less by the clock of the server, or that is running.
+ * Whether the list warns that students are still not cleared (SPEC-076 RN-13, as SPEC-083 changes it): an in-person assessment that requires the
+ * clearance, scheduled, running, that the teacher started, with students waiting. Before the start there is nothing to clear, so nothing warns.
  */
-export function needsClearanceWarning(a: AssessmentSummary, serverNow?: string): boolean {
-  if (a.status !== "SCHEDULED" || a.modality !== "IN_PERSON" || !a.requiresClearance || a.clearanceCounts.pending <= 0) return false;
-  if (a.phase === "RUNNING") return true;
-  if (a.phase !== "UPCOMING") return false;
-  const now = serverNow ? Date.parse(serverNow) : Date.now();
-  return Date.parse(a.startsAt) - now <= WARN_BEFORE_MS;
+export function needsClearanceWarning(a: AssessmentSummary): boolean {
+  return a.status === "SCHEDULED" && a.modality === "IN_PERSON" && a.requiresClearance && a.phase === "RUNNING" && !!a.startedAt && a.clearanceCounts.pending > 0;
 }
+
+/** Whether the exam can be started now: in person, scheduled, running by the clock of the server and not started yet (SPEC-083 RN-01, D-03). */
+export const canStart = (a: Pick<AssessmentSummary, "status" | "modality" | "phase" | "startedAt">): boolean =>
+  a.status === "SCHEDULED" && a.modality === "IN_PERSON" && a.phase === "RUNNING" && !a.startedAt;
+
+/** Whether the list tells the teacher that the exam can be started. */
+export const needsStartWarning = (a: AssessmentSummary): boolean => canStart(a);
 
 /** What the form starts from when the teacher edits an assessment that is saved. */
 export function formInitialOf(a: AssessmentDetail) {
@@ -98,4 +101,23 @@ export function formInitialOf(a: AssessmentDetail) {
     studentIds: a.students.map((s) => s.studentId),
     teacherPrivateNotes: a.teacherPrivateNotes,
   };
+}
+
+/** The situations a list is divided in, in the order they are shown (SPEC-080 D-02). */
+export const SITUATIONS = ["RUNNING", "UPCOMING", "ENDED", "CANCELED"] as const;
+export type Situation = (typeof SITUATIONS)[number];
+
+/** The situation of an assessment: a canceled one is "CANCELED" in any phase. */
+export const situationKey = (a: Pick<AssessmentBase, "status" | "phase">): Situation => (a.status === "CANCELED" ? "CANCELED" : a.phase);
+
+/**
+ * The assessments by situation, with what matters now first (SPEC-080 CA-01, CA-02): the ones that are on and the ones that come are ordered
+ * by the start, the next first; the ones that are over and the canceled ones, the latest first. A situation with nothing is left out.
+ */
+export function groupBySituation<T extends Pick<AssessmentBase, "status" | "phase" | "startsAt">>(items: T[]): { situation: Situation; items: T[] }[] {
+  return SITUATIONS.map((situation) => {
+    const ahead = situation === "RUNNING" || situation === "UPCOMING";
+    const own = items.filter((a) => situationKey(a) === situation).sort((x, y) => (Date.parse(x.startsAt) - Date.parse(y.startsAt)) * (ahead ? 1 : -1));
+    return { situation, items: own };
+  }).filter((group) => group.items.length > 0);
 }

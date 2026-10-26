@@ -30,7 +30,7 @@ describe("AssessmentPreview", () => {
         { difficulty: "HARD", quantity: 1, pointsPerQuestion: 5 },
       ],
       stock: { EASY: 8, MEDIUM: 3, HARD: 1 },
-      sample: [{ questionId: "q-9", title: "Questão sorteada", kind: "PRACTICAL", difficulty: "EASY", statement: "<p>Enunciado do sorteio</p>", answerKey: "mkdir /b", explanation: "" }],
+      sample: [{ questionId: "q-9", title: "Questão sorteada", kind: "PRACTICAL", difficulty: "EASY", statement: "<p>Enunciado do sorteio</p>", answerKey: "mkdir /b", explanation: "", studentView: {} }],
       questions: [],
     });
     render(<AssessmentPreview load={vi.fn().mockResolvedValue(draw)} />);

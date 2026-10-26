@@ -26,8 +26,78 @@
   margin: 0;
 }
 
-.loading {
-  padding: var(--space-8);
+.back {
+  align-self: flex-start;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+// The class was not found, or could not be read: the message and the way out.
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-4);
   text-align: center;
   color: var(--color-text-secondary);
+}
+
+.stateActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+// The skeleton of the form while the class is read (SPEC-078 CA-07).
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.skeletonTitle,
+.skeletonTabs,
+.skeletonField {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  animation: pulse 1.4s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.skeletonTitle {
+  width: 55%;
+  height: 2rem;
+}
+
+.skeletonTabs {
+  width: 100%;
+  height: 2.75rem;
+}
+
+.skeletonField {
+  width: 100%;
+  height: 3.5rem;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
 }

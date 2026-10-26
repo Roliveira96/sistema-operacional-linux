@@ -219,7 +219,7 @@ func TestRepository_CheckConstraintsOnPeriodScoreAndWeights(t *testing.T) {
 		"score above 100":         func(a *domain.Assessment) { a.MaxScore = domain.Points(100.01) },
 		"empty title":             func(a *domain.Assessment) { a.Title = "" },
 		"title of 151":            func(a *domain.Assessment) { a.Title = strings.Repeat("a", 151) },
-		"instructions of 5001":    func(a *domain.Assessment) { a.Description = strings.Repeat("a", 5001) },
+		"instructions of 20001":   func(a *domain.Assessment) { a.Description = strings.Repeat("a", 20001) },
 		"notes of 5001":           func(a *domain.Assessment) { a.TeacherPrivateNotes = ptr(strings.Repeat("a", 5001)) },
 		"unknown type":            func(a *domain.Assessment) { a.Type = "QUIZ" },
 		"unknown status":          func(a *domain.Assessment) { a.Status = "DONE" },
@@ -424,6 +424,57 @@ func TestRepository_SaveNotesTouchesOnlyTheNotes(t *testing.T) {
 	assert.Nil(t, cleared.TeacherPrivateNotes)
 }
 
+// Covers SPEC-083 CA-01, RN-03 (section 4): the start of the exam is stored with who and when and read back, and its event STARTED is appended in the
+// same write; a new assessment has no start.
+func TestRepository_SavesTheStartOfTheExamAndItsEvent(t *testing.T) {
+	e := newEnv(t)
+	a := e.create(t)
+	fresh, err := e.repo.Find(e.ctx, a.ID)
+	require.NoError(t, err)
+	assert.Nil(t, fresh.StartedAt)
+	assert.Nil(t, fresh.StartedBy)
+
+	started := at(21, 9, 7)
+	fresh.StartedAt, fresh.StartedBy = &started, &e.teacher.ID
+	require.NoError(t, e.repo.Save(e.ctx, &fresh, service.Replacements{}, &domain.Event{Kind: domain.EventStarted, ActorID: e.teacher.ID, CreatedAt: started}))
+
+	got, err := e.repo.Find(e.ctx, a.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.StartedAt)
+	assert.True(t, got.StartedAt.Equal(started))
+	require.NotNil(t, got.StartedBy)
+	assert.Equal(t, e.teacher.ID, *got.StartedBy)
+	events, err := e.repo.Events(e.ctx, a.ID)
+	require.NoError(t, err)
+	require.Len(t, events, 2)
+	kinds := []domain.EventKind{events[0].Kind, events[1].Kind}
+	assert.ElementsMatch(t, []domain.EventKind{domain.EventCreated, domain.EventStarted}, kinds)
+	for _, event := range events {
+		assert.Equal(t, e.teacher.ID, event.ActorID)
+	}
+}
+
+// Covers SPEC-083 section 4: the database refuses a start on an online assessment, and a start with an author missing or an author without a start.
+func TestRepository_CheckConstraintsOnTheStart(t *testing.T) {
+	e := newEnv(t)
+	started := at(21, 9, 7)
+
+	online := e.assessment(func(a *domain.Assessment) {
+		a.Modality = domain.ModalityOnline
+		a.StartedAt, a.StartedBy = &started, &e.teacher.ID
+	})
+	assert.Error(t, e.repo.Create(e.ctx, &online, e.items(3), nil, nil, e.created(e.now)), "an online assessment has no start")
+
+	noAuthor := e.assessment(func(a *domain.Assessment) { a.StartedAt = &started })
+	assert.Error(t, e.repo.Create(e.ctx, &noAuthor, e.items(3), nil, nil, e.created(e.now)), "a start has its author")
+
+	noStart := e.assessment(func(a *domain.Assessment) { a.StartedBy = &e.teacher.ID })
+	assert.Error(t, e.repo.Create(e.ctx, &noStart, e.items(3), nil, nil, e.created(e.now)), "an author has a start")
+
+	inPerson := e.assessment(func(a *domain.Assessment) { a.StartedAt, a.StartedBy = &started, &e.teacher.ID })
+	assert.NoError(t, e.repo.Create(e.ctx, &inPerson, e.items(3), nil, nil, e.created(e.now)))
+}
+
 // ---- listing ----
 
 // Covers SPEC-075 CA-19, CA-23 (section 4): the list of a class is newest start first, without the deleted and without other classes.
@@ -594,6 +645,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	e := newEnv(t) // every migration was applied by the helper
 	up, down := migrationParts(t, "00041_")
 	up2, down2 := migrationParts(t, "00042_")
+	up3, down3 := migrationParts(t, "00045_") // the start of SPEC-083 stands on the modality and on the kinds of event of the two before it
 
 	five := []string{"assessments", "assessment_items", "assessment_draw_rules", "assessment_students", "assessment_events"}
 	for _, name := range five {
@@ -601,6 +653,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	}
 	e.create(t)
 
+	runMigration(t, e, down3)
 	runMigration(t, e, down2)
 	runMigration(t, e, down)
 	assert.Empty(t, tablesOf(t, e), "the Down took the five tables away")
@@ -610,9 +663,40 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 
 	runMigration(t, e, up)
 	runMigration(t, e, up2)
+	runMigration(t, e, up3)
 	for _, name := range five {
 		assert.True(t, tablesOf(t, e)[name], name+" is back after going up again")
 	}
 	again := e.assessment()
 	assert.NoError(t, e.repo.Create(e.ctx, &again, e.items(3), nil, nil, e.created(e.now)), "and it is ready to use")
+}
+
+// Covers SPEC-083 CA-15 (RN-09): the migration adds the start without starting any assessment already stored, and the Down takes the columns and the
+// events STARTED away and leaves the rest.
+func TestMigration00045_UpAndDown(t *testing.T) {
+	e := newEnv(t)
+	up, down := migrationParts(t, "00045_")
+	columns := func() []string {
+		var names []string
+		require.NoError(t, e.db.Conn(e.ctx).Raw(`SELECT column_name FROM information_schema.columns WHERE table_name = 'assessments' AND column_name IN ('started_at', 'started_by') ORDER BY column_name`).Scan(&names).Error)
+		return names
+	}
+	assert.Equal(t, []string{"started_at", "started_by"}, columns())
+	a := e.create(t)
+	stored, err := e.repo.Find(e.ctx, a.ID)
+	require.NoError(t, err)
+	assert.Nil(t, stored.StartedAt, "nothing is started by the migration")
+
+	started := at(21, 9, 7)
+	stored.StartedAt, stored.StartedBy = &started, &e.teacher.ID
+	require.NoError(t, e.repo.Save(e.ctx, &stored, service.Replacements{}, &domain.Event{Kind: domain.EventStarted, ActorID: e.teacher.ID, CreatedAt: started}))
+
+	runMigration(t, e, down)
+	assert.Empty(t, columns(), "the Down took the columns away")
+	events, err := e.repo.Events(e.ctx, a.ID)
+	require.NoError(t, err)
+	assert.Len(t, events, 1, "and the event STARTED, leaving the others")
+
+	runMigration(t, e, up)
+	assert.Equal(t, []string{"started_at", "started_by"}, columns(), "they are back after going up again")
 }

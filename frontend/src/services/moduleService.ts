@@ -129,6 +129,11 @@ export class ModuleService {
     });
   }
 
+  /** Writes the whole set of modules of a class and answers the set it has afterwards (SPEC-078 section 5). */
+  async setClassModules(classId: string, moduleIds: string[]): Promise<{ moduleIds: string[] }> {
+    return this.client.put<{ moduleIds: string[] }>(`/classes/${classId}/modules`, { moduleIds });
+  }
+
   async reorderModules(moduleIds: string[]): Promise<{ message: string; reorderedCount: number }> {
     return this.client.put<{ message: string; reorderedCount: number }>("/modules/order", {
       moduleIds,

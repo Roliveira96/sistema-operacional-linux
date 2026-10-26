@@ -7,11 +7,12 @@ import { AssessmentAccessNotice } from "@/components/AssessmentAccessNotice/Asse
 import { AssessmentCard } from "@/components/AssessmentCard/AssessmentCard";
 import { AssessmentHistory } from "@/components/AssessmentHistory/AssessmentHistory";
 import { AssessmentPreview, DrawRulesTable } from "@/components/AssessmentPreview/AssessmentPreview";
+import { AssessmentStartDialog } from "@/components/AssessmentStartDialog/AssessmentStartDialog";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouteParams } from "@/hooks/useRouteParams";
-import { formatPeriod, formatScore, situationOf } from "@/lib/assessment";
+import { canStart, formatDateTime, formatHour, formatPeriod, formatScore, situationOf } from "@/lib/assessment";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { messages } from "@/messages/pt-BR";
 import { assessmentService, describeAssessmentError, type AssessmentDetail, type AssessmentPublic } from "@/services/assessmentService";
@@ -37,6 +38,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [asked, setAsked] = useState(false);
+  const [starting, setStarting] = useState(false);
   // The preview opens when the address asks for it or when the teacher presses the button; the student never has one.
   const showPreview = !isStudent && (preview || asked);
 
@@ -61,7 +63,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   }, [classId, assessmentId, isStudent, attempt]);
 
   const back = (
-    <Link href={`/app/classes/${classId}/assessments`} className={styles.back}>
+    <Link href={`/app/classes/${classId}?tab=assessments`} className={styles.back}>
       {m.back.toList}
     </Link>
   );
@@ -104,6 +106,14 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
 
   const canceled = detail.status === "CANCELED";
   const counts = detail.clearanceCounts;
+  const inPerson = detail.modality === "IN_PERSON" && !canceled;
+  const startable = canStart(detail);
+  /** The start of the exam by the teacher (SPEC-083): the exam was started, can be started now, waits for its time, or ended without it. */
+  const start = async () => {
+    const started = await assessmentService.start(classId, assessmentId);
+    setDetail((d) => (d ? { ...d, startedAt: started.startedAt, startedBy: started.startedBy, startedByName: started.startedByName } : d));
+    setStarting(false);
+  };
   const facts: [string, string][] = [
     [p.facts.type, m.type[detail.type] ?? ""],
     [p.facts.modality, m.modality[detail.modality] ?? ""],
@@ -114,7 +124,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
     [p.facts.composition, m.composition[detail.composition] ?? ""],
     [p.facts.audience, m.audience[detail.audience] ?? ""],
     [p.facts.eligible, String(detail.eligibleStudents)],
-    [p.facts.createdBy, detail.createdByName],
+    [p.facts.createdBy, detail.createdByName || m.history.removedUser],
   ];
 
   return (
@@ -128,19 +138,34 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
       )}
       <div className={styles.actions}>
         {!canceled && (
-          <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/edit`} variant="primary">
+          <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/edit`} variant={startable ? "secondary" : "primary"}>
             {p.edit}
           </ButtonLink>
+        )}
+        {inPerson && !detail.startedAt && detail.phase !== "ENDED" && (
+          <Button variant="primary" disabled={!startable} aria-describedby={startable ? undefined : "start-reason"} onClick={() => setStarting(true)}>
+            {p.start}
+          </Button>
         )}
         <Button variant="secondary" onClick={() => setAsked(true)}>
           {p.preview}
         </Button>
+        <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/simulate`} variant="secondary" target="_blank" rel="noopener noreferrer" aria-label={p.simulateNewTab}>
+          {p.simulate}
+        </ButtonLink>
         {detail.modality === "IN_PERSON" && detail.requiresClearance && (
           <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/clearances`} variant="secondary">
             {p.clearances}
           </ButtonLink>
         )}
       </div>
+      {inPerson && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser)}</p>}
+      {inPerson && !detail.startedAt && detail.phase === "UPCOMING" && (
+        <p id="start-reason" className={styles.text}>
+          {p.startFrom(formatDateTime(detail.startsAt))}
+        </p>
+      )}
+      {inPerson && !detail.startedAt && detail.phase === "ENDED" && <p className={styles.text}>{p.endedNotStarted}</p>}
       {detail.modality === "IN_PERSON" && detail.requiresClearance && <p className={styles.text}>{p.clearanceCounts(counts.pending, counts.approved, counts.rejected)}</p>}
 
       <dl className={styles.facts}>
@@ -154,7 +179,12 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
 
       <section className={styles.section}>
         <h2 className={styles.heading}>{p.instructions}</h2>
-        <p className={styles.text}>{detail.description || "—"}</p>
+        {detail.description ? (
+          // HTML that the server filtered when the instructions were saved (SPEC-077 RN-01).
+          <div className={styles.richText} dangerouslySetInnerHTML={{ __html: detail.description }} />
+        ) : (
+          <p className={styles.text}>—</p>
+        )}
       </section>
       <section className={styles.section}>
         <h2 className={styles.heading}>{p.privateNotes}</h2>
@@ -197,6 +227,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
       )}
 
       <AssessmentHistory events={detail.events} />
+      {starting && <AssessmentStartDialog assessment={detail} onClose={() => setStarting(false)} onConfirm={start} />}
     </main>
   );
 }

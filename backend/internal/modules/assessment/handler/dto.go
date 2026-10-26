@@ -72,6 +72,9 @@ type summaryJSON struct {
 	UpdatedAt           string             `json:"updatedAt"`
 	CanceledBy          *uuid.UUID         `json:"canceledBy,omitempty"`
 	CanceledAt          *string            `json:"canceledAt,omitempty"`
+	StartedAt           *string            `json:"startedAt,omitempty"`
+	StartedBy           *uuid.UUID         `json:"startedBy,omitempty"`
+	StartedByName       string             `json:"startedByName,omitempty"`
 }
 
 func toSummary(s service.Summary) summaryJSON {
@@ -79,7 +82,7 @@ func toSummary(s service.Summary) summaryJSON {
 		publicJSON: toPublic(s.Public), ModuleID: s.ModuleID, ModuleTitle: s.ModuleTitle, Composition: s.Composition, Audience: s.Audience,
 		Modality: s.Modality, RequiresClearance: s.RequiresClearance, ClearanceCounts: toCounts(s.ClearanceCounts), EligibleStudents: s.EligibleStudents, TotalQuestions: s.TotalQuestions, Frozen: s.Frozen, TeacherPrivateNotes: s.TeacherPrivateNotes,
 		CreatedBy: s.CreatedBy, CreatedByName: s.CreatedByName, UpdatedBy: s.UpdatedBy, UpdatedByName: s.UpdatedByName, UpdatedAt: iso(s.UpdatedAt),
-		CanceledBy: s.CanceledBy, CanceledAt: isoPtr(s.CanceledAt),
+		CanceledBy: s.CanceledBy, CanceledAt: isoPtr(s.CanceledAt), StartedAt: isoPtr(s.StartedAt), StartedBy: s.StartedBy, StartedByName: s.StartedByName,
 	}
 }
 
@@ -166,10 +169,56 @@ type contentJSON struct {
 	Statement   string            `json:"statement"`
 	AnswerKey   string            `json:"answerKey"`
 	Explanation string            `json:"explanation"`
+	StudentView studentViewJSON   `json:"studentView"`
+}
+
+// studentViewJSON is what the student receives of the question, with only the fields of its kind (SPEC-081 section 5).
+type studentViewJSON struct {
+	Choices   []studentChoiceJSON `json:"choices,omitempty"`
+	Columns   *studentColumnsJSON `json:"columns,omitempty"`
+	Shuffle   *bool               `json:"shuffle,omitempty"`
+	MaxLength *int                `json:"maxLength,omitempty"`
+}
+
+type studentChoiceJSON struct {
+	ID   string `json:"id"`
+	HTML string `json:"html"`
+}
+
+type studentItemJSON struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+type studentColumnsJSON struct {
+	Left  []studentItemJSON `json:"left"`
+	Right []studentItemJSON `json:"right"`
+}
+
+func toStudentItems(items []service.StudentItem) []studentItemJSON {
+	out := make([]studentItemJSON, len(items))
+	for i, it := range items {
+		out[i] = studentItemJSON{ID: it.ID, Text: it.Text}
+	}
+	return out
+}
+
+func toStudentView(v service.StudentView) studentViewJSON {
+	out := studentViewJSON{Shuffle: v.Shuffle, MaxLength: v.MaxLength}
+	for _, c := range v.Choices {
+		out.Choices = append(out.Choices, studentChoiceJSON{ID: c.ID, HTML: c.HTML})
+	}
+	if v.Columns != nil {
+		out.Columns = &studentColumnsJSON{Left: toStudentItems(v.Columns.Left), Right: toStudentItems(v.Columns.Right)}
+	}
+	return out
 }
 
 func toContent(c service.QuestionContent) contentJSON {
-	return contentJSON{QuestionID: c.ID, Title: c.Title, Kind: c.Kind, Difficulty: c.Difficulty, Statement: c.Statement, AnswerKey: c.AnswerKey, Explanation: c.Explanation}
+	return contentJSON{
+		QuestionID: c.ID, Title: c.Title, Kind: c.Kind, Difficulty: c.Difficulty, Statement: c.Statement, AnswerKey: c.AnswerKey, Explanation: c.Explanation,
+		StudentView: toStudentView(c.StudentView),
+	}
 }
 
 type previewQuestionJSON struct {
@@ -206,14 +255,21 @@ type questionJSON struct {
 	Difficulty domain.Difficulty `json:"difficulty"`
 }
 
+// excludedJSON counts the questions of the bank that are out of the assessment, by reason (SPEC-088 RN-01, RN-02): only numbers.
+type excludedJSON struct {
+	Unpublished int `json:"unpublished"`
+	Unlinked    int `json:"unlinked"`
+}
+
 type questionsResponse struct {
-	Items []questionJSON            `json:"items"`
-	Total int                       `json:"total"`
-	Stock map[domain.Difficulty]int `json:"stock"`
+	Items    []questionJSON            `json:"items"`
+	Total    int                       `json:"total"`
+	Stock    map[domain.Difficulty]int `json:"stock"`
+	Excluded excludedJSON              `json:"excluded"`
 }
 
 func toQuestions(p service.QuestionPage) questionsResponse {
-	out := questionsResponse{Items: make([]questionJSON, len(p.Items)), Total: p.Total, Stock: p.Stock}
+	out := questionsResponse{Items: make([]questionJSON, len(p.Items)), Total: p.Total, Stock: p.Stock, Excluded: excludedJSON(p.Excluded)}
 	for i, q := range p.Items {
 		out.Items[i] = questionJSON{QuestionID: q.ID, Title: q.Title, Kind: q.Kind, Difficulty: q.Difficulty}
 	}

@@ -4,12 +4,15 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/assessment/domain"
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/authn"
+	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/platform/htmlsafe"
 )
 
 // Actor is who makes a request.
@@ -75,7 +78,27 @@ type Question struct {
 type QuestionContent struct {
 	Question
 	Statement, AnswerKey, Explanation string
+	StudentView                       StudentView
 }
+
+// StudentView is what the student receives of a question, without the answer key (SPEC-081 RN-01, RN-02). Only the fields of the kind of the
+// question are filled: the alternatives of a single choice, the columns of a matching, the size of a descriptive answer and, for the first two,
+// whether they are shuffled. A true or false and a practical question have only the statement.
+type StudentView struct {
+	Choices   []StudentChoice
+	Columns   *StudentColumns
+	Shuffle   *bool
+	MaxLength *int
+}
+
+// StudentChoice is an alternative of a single choice question: its id and its filtered html.
+type StudentChoice struct{ ID, HTML string }
+
+// StudentItem is an item of a column of a matching question: its id and its text.
+type StudentItem struct{ ID, Text string }
+
+// StudentColumns are the two columns of a matching question, each in the order of the teacher.
+type StudentColumns struct{ Left, Right []StudentItem }
 
 // QuestionFilter picks questions of a module.
 type QuestionFilter struct {
@@ -87,11 +110,20 @@ type QuestionFilter struct {
 	PageSize   int
 }
 
-// QuestionPage is a page of eligible questions with the stock by level, which counts all of them whatever the filter.
+// QuestionPage is a page of eligible questions with the stock by level and the count of the questions of the bank that are out, which count all
+// of them whatever the filter.
 type QuestionPage struct {
-	Items []Question
-	Total int
-	Stock map[domain.Difficulty]int
+	Items    []Question
+	Total    int
+	Stock    map[domain.Difficulty]int
+	Excluded Excluded
+}
+
+// Excluded counts the questions of the bank of the module that are not eligible, by reason (SPEC-088 RN-01): the ones not published, whatever
+// their link, and the published ones without the link to the assessment. Only numbers: nothing of the questions themselves (RN-02).
+type Excluded struct {
+	Unpublished int
+	Unlinked    int
 }
 
 // Questions reads the bank of the modules. A question is eligible when it is of the module, published, in the assessment bank and not deleted
@@ -101,6 +133,11 @@ type Questions interface {
 	Eligible(ctx context.Context, moduleID uuid.UUID, ids []uuid.UUID) ([]Question, error)
 	Pool(ctx context.Context, f QuestionFilter) (QuestionPage, error)
 	Contents(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]QuestionContent, error)
+	// Check grades the state of a machine against the conditions of a question of command Linux, with the engine of the practice, and says whether it
+	// passes; it writes nothing (SPEC-085 RN-02, RN-03).
+	Check(ctx context.Context, questionID uuid.UUID, snapshot json.RawMessage) (bool, error)
+	// Scenario gives the machine a question starts from, or nil when it has none of its own (SPEC-084 RN-01).
+	Scenario(ctx context.Context, questionID uuid.UUID) (json.RawMessage, error)
 	// Sample draws n eligible questions of the level.
 	Sample(ctx context.Context, moduleID uuid.UUID, level domain.Difficulty, n int) ([]QuestionContent, error)
 }
@@ -170,14 +207,25 @@ type Repository interface {
 
 // Service implements the use cases of the assessments.
 type Service struct {
-	repo  Repository
-	ports Ports
-	now   func() time.Time
+	repo     Repository
+	ports    Ports
+	now      func() time.Time
+	richText *htmlsafe.Sanitizer
 }
 
 // New creates the service. now is the clock of the server.
 func New(repo Repository, ports Ports, now func() time.Time) *Service {
-	return &Service{repo: repo, ports: ports, now: now}
+	return &Service{repo: repo, ports: ports, now: now, richText: htmlsafe.NewRichText()}
+}
+
+// instructions filters the instructions of an assessment like the syllabus of a class (SPEC-077 RN-01): no images, videos, scripts or event
+// attributes. Text with nothing visible is stored empty. The limit is checked by the domain, on what is stored.
+func (s *Service) instructions(markup string) string {
+	filtered := strings.TrimSpace(s.richText.Sanitize(markup))
+	if htmlsafe.PlainText(filtered) == "" {
+		return ""
+	}
+	return filtered
 }
 
 // Now is the clock of the server, for the answers that carry it (countdowns count by it).
@@ -301,6 +349,10 @@ type Summary struct {
 	UpdatedAt           time.Time
 	CanceledBy          *uuid.UUID
 	CanceledAt          *time.Time
+	// StartedAt, StartedBy and StartedByName are the start of an in-person exam by the teacher; empty until it happens (SPEC-083 RN-07).
+	StartedAt     *time.Time
+	StartedBy     *uuid.UUID
+	StartedByName string
 }
 
 // ItemView is a question of the composition with what the teacher needs to recognize it.
@@ -343,7 +395,7 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 		Public: publicOf(a, s.now()), ModuleID: a.ModuleID, Composition: a.Composition, Audience: a.Audience, Frozen: a.Frozen(s.now()),
 		Modality: a.Modality, RequiresClearance: a.RequiresClearance,
 		TeacherPrivateNotes: a.TeacherPrivateNotes, CreatedBy: a.CreatedBy, UpdatedBy: a.UpdatedBy, UpdatedAt: a.UpdatedAt,
-		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt,
+		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt, StartedAt: a.StartedAt, StartedBy: a.StartedBy,
 	}
 	if module, ok, err := s.ports.Modules.ModuleOfClass(ctx, a.ClassID, a.ModuleID); err != nil {
 		return Summary{}, err
@@ -374,10 +426,16 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 	if a.CanceledBy != nil {
 		ids = append(ids, *a.CanceledBy)
 	}
+	if a.StartedBy != nil {
+		ids = append(ids, *a.StartedBy)
+	}
 	names, err := s.ports.Users.Names(ctx, ids)
 	if err != nil {
 		return Summary{}, err
 	}
 	sum.CreatedByName, sum.UpdatedByName = names[a.CreatedBy], names[a.UpdatedBy]
+	if a.StartedBy != nil {
+		sum.StartedByName = names[*a.StartedBy]
+	}
 	return sum, nil
 }

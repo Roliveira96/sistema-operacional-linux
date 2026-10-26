@@ -120,6 +120,7 @@ func TestValidate_AcceptsTheLimitsAndRefusesBeyond(t *testing.T) {
 	for name, change := range map[string]func(*domain.Assessment){
 		"title of 150":           func(a *domain.Assessment) { a.Title = strings.Repeat("a", 150) },
 		"instructions of 5000":   func(a *domain.Assessment) { a.Description = strings.Repeat("a", 5000) },
+		"instructions of 20000":  func(a *domain.Assessment) { a.Description = strings.Repeat("a", 20000) },
 		"empty instructions":     func(a *domain.Assessment) { a.Description = "" },
 		"smallest score":         func(a *domain.Assessment) { a.MaxScore = domain.Points(0.01) },
 		"biggest score":          func(a *domain.Assessment) { a.MaxScore = domain.Points(100) },
@@ -135,7 +136,7 @@ func TestValidate_AcceptsTheLimitsAndRefusesBeyond(t *testing.T) {
 	for name, change := range map[string]func(*domain.Assessment){
 		"empty title":            func(a *domain.Assessment) { a.Title = "   " },
 		"title of 151":           func(a *domain.Assessment) { a.Title = strings.Repeat("a", 151) },
-		"instructions of 5001":   func(a *domain.Assessment) { a.Description = strings.Repeat("a", 5001) },
+		"instructions of 20001":  func(a *domain.Assessment) { a.Description = strings.Repeat("a", 20001) },
 		"unknown type":           func(a *domain.Assessment) { a.Type = "QUIZ" },
 		"unknown composition":    func(a *domain.Assessment) { a.Composition = "RANDOM" },
 		"unknown audience":       func(a *domain.Assessment) { a.Audience = "GROUP" },

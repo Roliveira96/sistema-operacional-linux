@@ -91,7 +91,7 @@ func (s *Service) Create(ctx context.Context, actor Actor, classID uuid.UUID, in
 		requires = *in.RequiresClearance
 	}
 	a := domain.Assessment{
-		ClassID: classID, ModuleID: *moduleID, ClassSessionID: in.ClassSessionID, Title: title, Description: in.Description, Type: in.Type,
+		ClassID: classID, ModuleID: *moduleID, ClassSessionID: in.ClassSessionID, Title: title, Description: s.instructions(in.Description), Type: in.Type,
 		Status: domain.StatusScheduled, Modality: modality, RequiresClearance: requires, MaxScore: in.MaxScore, DurationMinutes: in.DurationMinutes,
 		StartsAt: *startsAt, EndsAt: *endsAt, Composition: in.Composition, Audience: audience, CreatedBy: actor.UserID, UpdatedBy: actor.UserID,
 	}

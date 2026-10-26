@@ -184,6 +184,11 @@ func (f *fakeBank) List(_ context.Context, who contentservice.Actor, _ uuid.UUID
 
 type fakeQuestionReader struct {
 	questions map[uuid.UUID]contentdomain.Question
+	scenarios map[uuid.UUID]json.RawMessage
+}
+
+func (f fakeQuestionReader) QuestionScenario(_ context.Context, id uuid.UUID) (json.RawMessage, error) {
+	return f.scenarios[id], nil
 }
 
 func (f fakeQuestionReader) Question(_ context.Context, id uuid.UUID) (contentdomain.Question, error) {
@@ -265,6 +270,76 @@ func TestAssessmentQuestions_ContentsHaveTheAnswerKey(t *testing.T) {
 	assert.Empty(t, got[boolean.ID].Explanation)
 }
 
+// Covers SPEC-081 RN-01, RN-02, CA-14, CA-15: the content of a question carries what the student receives, by kind: the alternatives and whether
+// they are shuffled, the two columns without the pairs, the size of a descriptive answer; a true or false and a practical question carry nothing
+// more than the statement. Whatever the teacher keeps (the correct choice, the pairs, the expected answer, the explanation) has no place in it.
+func TestAssessmentQuestions_ContentsCarryWhatTheStudentReceivesAndNeverTheAnswer(t *testing.T) {
+	yes, no, size, bigger := true, false, 300, contentdomain.DefaultAnswerSize
+	single := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindTheoreticalSingle, Difficulty: "EASY", Title: "Qual lista?", Statement: "<p>Qual lista?</p>",
+		Choices: json.RawMessage(`[{"id":"a","html":"<p>ls</p>"},{"id":"b","html":"<p>cd</p>"}]`), AnswerKey: json.RawMessage(`{"correct":"b"}`),
+		Explanation: str("porque cd muda"), ShuffleChoices: true,
+	}
+	kept := single
+	kept.ID, kept.ShuffleChoices = uuid.New(), false
+	matching := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindTheoreticalMatching, Difficulty: "MEDIUM", Title: "Ligue", Statement: "<p>Ligue</p>",
+		Choices:   json.RawMessage(`{"left":[{"id":"l1","text":"ls"},{"id":"l2","text":"cd"}],"right":[{"id":"r1","text":"lista"},{"id":"r2","text":"muda"}]}`),
+		AnswerKey: json.RawMessage(`{"pairs":[{"left":"l1","right":"r1"},{"left":"l2","right":"r2"}]}`), ShuffleChoices: true,
+	}
+	discursive := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindDiscursive, Difficulty: "HARD", Title: "Explique", Statement: "<p>Explique</p>",
+		AnswerKey: json.RawMessage(`{"expectedAnswer":"<p>a resposta</p>","maxLength":300}`),
+	}
+	unsized := discursive
+	unsized.ID, unsized.AnswerKey = uuid.New(), json.RawMessage(`{"expectedAnswer":"<p>a resposta</p>"}`)
+	boolean := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindTheoreticalBoolean, Difficulty: "EASY", Title: "rm -r", Statement: "<p>Apaga?</p>",
+		AnswerKey: json.RawMessage(`{"correct":false}`),
+	}
+	practical := question("EASY", "PUBLISHED", true, "Criar pasta").Question
+	all := map[uuid.UUID]contentdomain.Question{}
+	var ids []uuid.UUID
+	for _, c := range []contentdomain.Question{single, kept, matching, discursive, unsized, boolean, practical} {
+		all[c.ID] = c
+		ids = append(ids, c.ID)
+	}
+	q := assessmentQuestions{questions: fakeQuestionReader{questions: all}}
+
+	got, err := q.Contents(ctx, ids)
+	require.NoError(t, err)
+	choices := []assessmentservice.StudentChoice{{ID: "a", HTML: "<p>ls</p>"}, {ID: "b", HTML: "<p>cd</p>"}}
+	assert.Equal(t, assessmentservice.StudentView{Choices: choices, Shuffle: &yes}, got[single.ID].StudentView, "the alternatives, with no mark of the right one")
+	assert.Equal(t, assessmentservice.StudentView{Choices: choices, Shuffle: &no}, got[kept.ID].StudentView, "the teacher keeps her order")
+	assert.Equal(t, assessmentservice.StudentView{
+		Columns: &assessmentservice.StudentColumns{
+			Left:  []assessmentservice.StudentItem{{ID: "l1", Text: "ls"}, {ID: "l2", Text: "cd"}},
+			Right: []assessmentservice.StudentItem{{ID: "r1", Text: "lista"}, {ID: "r2", Text: "muda"}},
+		},
+		Shuffle: &yes,
+	}, got[matching.ID].StudentView, "the columns in the order of the teacher, without the pairs")
+	assert.Equal(t, assessmentservice.StudentView{MaxLength: &size}, got[discursive.ID].StudentView, "only the size of the answer")
+	assert.Equal(t, assessmentservice.StudentView{MaxLength: &bigger}, got[unsized.ID].StudentView, "the default size when the teacher did not choose one")
+	assert.Equal(t, assessmentservice.StudentView{}, got[boolean.ID].StudentView, "a true or false question has only the statement")
+	assert.Equal(t, assessmentservice.StudentView{}, got[practical.ID].StudentView, "a practical question has only the statement")
+	assert.Contains(t, got[single.ID].AnswerKey, "b", "the answer key and the explanation stay in their own fields, for the teacher")
+	assert.Equal(t, "porque cd muda", got[single.ID].Explanation)
+}
+
+// Covers SPEC-081 RN-01, D-04: a question of the sample carries what the student receives, like the ones in order.
+func TestAssessmentQuestions_SampleCarriesWhatTheStudentReceives(t *testing.T) {
+	single := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindTheoreticalSingle, Difficulty: "EASY", Status: "PUBLISHED", InAssessment: true, Title: "Qual lista?",
+		Choices: json.RawMessage(`[{"id":"a","html":"<p>ls</p>"},{"id":"b","html":"<p>cd</p>"}]`), AnswerKey: json.RawMessage(`{"correct":"b"}`),
+	}
+	q := assessmentQuestions{bank: &fakeBank{items: []contentservice.ExerciseRecord{{Question: single}}}}
+
+	sample, err := q.Sample(ctx, uuid.New(), assessmentdomain.DifficultyEasy, 1)
+	require.NoError(t, err)
+	require.Len(t, sample, 1)
+	assert.Equal(t, []assessmentservice.StudentChoice{{ID: "a", HTML: "<p>ls</p>"}, {ID: "b", HTML: "<p>cd</p>"}}, sample[0].StudentView.Choices)
+}
+
 // Covers SPEC-075 RN-16: the sample takes n different eligible questions of the level, or all of them when there are fewer.
 func TestAssessmentQuestions_SampleTakesDifferentQuestionsOfTheLevel(t *testing.T) {
 	var items []contentservice.ExerciseRecord
@@ -344,4 +419,73 @@ func TestScheduleAssessments_TheTeacherGetsTheCountAndTheCompositionTheStudentDo
 	assert.Equal(t, 24, *got[0].EligibleStudents)
 	require.NotNil(t, got[0].Composition)
 	assert.Equal(t, "DRAW", *got[0].Composition)
+}
+
+// Covers SPEC-084 CA-14 (RN-01): the machine of a question comes from the content module, and a question without a scenario gives none.
+func TestAssessmentQuestions_ScenarioComesFromTheContentModule(t *testing.T) {
+	with, without := uuid.New(), uuid.New()
+	q := assessmentQuestions{questions: fakeQuestionReader{scenarios: map[uuid.UUID]json.RawMessage{with: json.RawMessage(`{"machine":"x"}`)}}}
+
+	got, err := q.Scenario(ctx, with)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"machine":"x"}`, string(got))
+
+	none, err := q.Scenario(ctx, without)
+	require.NoError(t, err)
+	assert.Nil(t, none)
+}
+
+// Covers SPEC-085 CA-01, CA-02, CA-03 (RN-01, RN-02): the machine is graded with the engine and the conditions of the question, the same as the
+// practice does: a machine that meets them passes, one that does not fails; a state that is not a machine and a question that does not use the
+// terminal are invalid; one that does not exist is not found.
+func TestAssessmentQuestions_CheckGradesTheMachineWithTheConditionsOfTheQuestion(t *testing.T) {
+	practical := contentdomain.Question{
+		ID: uuid.New(), Kind: contentdomain.KindPractical, Difficulty: "EASY", Title: "Criar a pasta",
+		ValidationConditions: json.RawMessage(`[{"type":"DIRECTORY_EXISTS","path":"/srv/x"}]`),
+	}
+	boolean := contentdomain.Question{ID: uuid.New(), Kind: contentdomain.KindTheoreticalBoolean, Difficulty: "EASY", Title: "rm -r"}
+	q := assessmentQuestions{questions: fakeQuestionReader{questions: map[uuid.UUID]contentdomain.Question{practical.ID: practical, boolean.ID: boolean}}}
+
+	passed, err := q.Check(ctx, practical.ID, json.RawMessage(machineWithTheFolder))
+	require.NoError(t, err)
+	assert.True(t, passed, "the machine has the folder")
+	passed, err = q.Check(ctx, practical.ID, json.RawMessage(emptyMachineJSON))
+	require.NoError(t, err)
+	assert.False(t, passed, "the machine does not")
+
+	for _, snapshot := range []string{`{`, `"pass"`, `{"formato":"outro","versao":1}`, `{"formato":"exame-so/maquina","versao":2}`} {
+		passed, err := q.Check(ctx, practical.ID, json.RawMessage(snapshot))
+		assert.ErrorIs(t, err, assessmentdomain.ErrInvalidSnapshot, snapshot)
+		assert.False(t, passed)
+	}
+	_, err = q.Check(ctx, boolean.ID, json.RawMessage(machineWithTheFolder))
+	assert.ErrorIs(t, err, assessmentdomain.ErrInvalidQuestion, "a question without a terminal")
+	_, err = q.Check(ctx, uuid.New(), json.RawMessage(machineWithTheFolder))
+	assert.ErrorIs(t, err, assessmentdomain.ErrQuestionNotFound)
+}
+
+// Covers SPEC-088 RN-01, RN-02 (CA-01, CA-02): the pool counts the questions of the bank that are not eligible, by reason: not published (whatever
+// the link) and published without the assessment link; the counts are of the whole module, whatever the filter, and carry nothing but numbers.
+func TestAssessmentQuestions_PoolCountsTheExcluded(t *testing.T) {
+	linked1, linked2 := question("EASY", "PUBLISHED", true, "Criar pasta"), question("HARD", "PUBLISHED", true, "Dono e grupo")
+	practiceOnly, unlinked := question("EASY", "PUBLISHED", false, "Só da prática"), question("MEDIUM", "PUBLISHED", false, "Sem vínculo")
+	draftLinked, draftUnlinked := question("EASY", "DRAFT", true, "Rascunho vinculado"), question("EASY", "DRAFT", false, "Rascunho solto")
+	archived := question("MEDIUM", "ARCHIVED", true, "Arquivado")
+	bank := &fakeBank{items: []contentservice.ExerciseRecord{linked1, practiceOnly, draftLinked, unlinked, draftUnlinked, archived, linked2}}
+	q := assessmentQuestions{bank: bank, questions: fakeQuestionReader{}}
+	module := uuid.New()
+
+	page, err := q.Pool(ctx, assessmentservice.QuestionFilter{ModuleID: module})
+	require.NoError(t, err)
+	assert.Equal(t, 2, page.Total, "only the published and linked are eligible")
+	assert.Equal(t, assessmentservice.Excluded{Unpublished: 3, Unlinked: 2}, page.Excluded, "a draft counts as unpublished whatever its link, and so does the archived")
+
+	filtered, err := q.Pool(ctx, assessmentservice.QuestionFilter{ModuleID: module, Difficulty: assessmentdomain.DifficultyHard, Query: "dono"})
+	require.NoError(t, err)
+	assert.Equal(t, 1, filtered.Total)
+	assert.Equal(t, page.Excluded, filtered.Excluded, "the counts do not follow the filter")
+
+	empty, err := assessmentQuestions{bank: &fakeBank{}, questions: fakeQuestionReader{}}.Pool(ctx, assessmentservice.QuestionFilter{ModuleID: module})
+	require.NoError(t, err)
+	assert.Equal(t, assessmentservice.Excluded{}, empty.Excluded, "an empty bank has nothing out")
 }

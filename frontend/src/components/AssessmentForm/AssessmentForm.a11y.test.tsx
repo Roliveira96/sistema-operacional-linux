@@ -71,7 +71,7 @@ describe("AssessmentForm accessibility", () => {
 
   it("marks the fields that are required, and groups the choices with a legend", () => {
     setup();
-    expect((screen.getByLabelText(/^Título/) as HTMLInputElement).required).toBe(true);
+    expect((screen.getByLabelText(/^Título/, { selector: "input" }) as HTMLInputElement).required).toBe(true);
     expect((screen.getByLabelText(/^Nota máxima/) as HTMLInputElement).required).toBe(true);
     fireEvent.click(screen.getByRole("tab", { name: "Questões" }));
     expect(screen.getByRole("radiogroup", { name: "Composição" })).toBeDefined();
@@ -105,7 +105,7 @@ describe("AssessmentForm accessibility", () => {
   it("does not submit with Enter while a check is failing", () => {
     const onSubmit = vi.fn();
     setup({ onSubmit });
-    fireEvent.submit(screen.getByLabelText(/^Título/).closest("form")!);
+    fireEvent.submit(screen.getByLabelText(/^Título/, { selector: "input" }).closest("form")!);
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });

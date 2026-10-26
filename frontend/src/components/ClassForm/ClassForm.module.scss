@@ -47,6 +47,31 @@
   color: var(--color-text-primary);
 }
 
+// The groups of the Informações tab (SPEC-078 D-01): identification, presentation, validity and virtual meetings.
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.legend {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
 // The content of one tab.
 .panel {
   display: flex;
@@ -244,11 +269,19 @@
 }
 
 .actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: var(--space-3);
+  margin: 0 calc(var(--space-6) * -1) calc(var(--space-6) * -1);
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 .cancel,
@@ -378,4 +411,9 @@
   &[data-color="red"] {
     background-color: var(--color-class-red);
   }
+}
+
+// A control focused by keyboard is scrolled to a place that the bar of actions does not cover.
+.form :is(input, select, textarea, button, a, [contenteditable]) {
+  scroll-margin-bottom: 6rem;
 }

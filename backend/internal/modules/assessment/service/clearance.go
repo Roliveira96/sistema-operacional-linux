@@ -178,8 +178,8 @@ func (s *Service) Clearances(ctx context.Context, actor Actor, classID, id uuid.
 	return s.clearanceList(ctx, a)
 }
 
-// Decide applies an action of the teacher on the clearance (RN-06, RN-07, RN-11, RN-12): it needs the assessment SCHEDULED, not ended, in person and
-// requiring the clearance; everything is checked before anything is written; and the action is one event of the history.
+// Decide applies an action of the teacher on the clearance (RN-06, RN-07, RN-11, RN-12): it needs the assessment SCHEDULED, not ended, in person,
+// requiring the clearance and started by the teacher (SPEC-083 RN-04); everything is checked before anything is written; and the action is one event of the history.
 func (s *Service) Decide(ctx context.Context, actor Actor, classID, id uuid.UUID, in ClearanceInput) (ClearanceList, error) {
 	if _, err := s.writableClass(ctx, actor, classID); err != nil {
 		return ClearanceList{}, err
@@ -196,6 +196,9 @@ func (s *Service) Decide(ctx context.Context, actor Actor, classID, id uuid.UUID
 		return ClearanceList{}, domain.ErrAssessmentEnded
 	case a.Modality != domain.ModalityInPerson || !a.RequiresClearance:
 		return ClearanceList{}, domain.ErrClearanceNotRequired
+	case a.StartedAt == nil:
+		// the clearance is decided while the exam happens, not before it (SPEC-083 RN-04)
+		return ClearanceList{}, domain.ErrAssessmentNotStarted
 	}
 
 	eligible, err := s.eligible(ctx, a)

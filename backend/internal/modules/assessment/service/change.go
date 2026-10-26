@@ -54,7 +54,7 @@ func (s *Service) Update(ctx context.Context, actor Actor, classID, id uuid.UUID
 		changed = append(changed, "title")
 	}
 	if in.Description != nil {
-		n.Description = *in.Description
+		n.Description = s.instructions(*in.Description)
 		changed = append(changed, "description")
 	}
 	if in.Type != nil {

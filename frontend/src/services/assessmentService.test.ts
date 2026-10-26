@@ -143,3 +143,50 @@ describe("assessmentService: clearances (SPEC-076)", () => {
     expect(describeAssessmentError(problem("clearance-locked", 409))).toBe("O aluno já começou a prova: a habilitação dele não pode mais mudar.");
   });
 });
+
+// SPEC-083 section 5: the start of an in-person exam has its own route, with no body, and the new reasons are explained.
+describe("assessmentService: start of the exam (SPEC-083)", () => {
+  it("starts the exam on its own route", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    await svc.start("c-1", "a-1");
+    expect(c.post).toHaveBeenCalledWith("/classes/c-1/assessments/a-1/start");
+  });
+
+  it("explains the errors of the start and of the clearance before it", () => {
+    expect(describeAssessmentError(problem("assessment-already-started", 409))).toBe("A prova já foi iniciada.");
+    expect(describeAssessmentError(problem("assessment-not-open-yet", 409))).toBe("Ainda não chegou o horário de início da prova.");
+    expect(describeAssessmentError(problem("assessment-not-started", 409))).toBe("A prova ainda não foi iniciada. A habilitação começa quando você a inicia.");
+  });
+});
+
+// SPEC-084 CA-14 (section 5): the machine a question of the assessment starts from has its own route, and a question without one gives none.
+describe("assessmentService: scenario of a question (SPEC-084)", () => {
+  it("reads the scenario of a question of the assessment and gives its machine", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    vi.mocked(c.get).mockResolvedValueOnce({ questionId: "q-1", snapshot: { files: { "/a": "x" } } });
+    await expect(svc.questionScenario("c-1", "a-1", "q-1")).resolves.toEqual({ files: { "/a": "x" } });
+    expect(c.get).toHaveBeenCalledWith("/classes/c-1/assessments/a-1/questions/q-1/scenario");
+  });
+
+  it("gives null when the question has no scenario of its own, so the default machine applies", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    vi.mocked(c.get).mockResolvedValueOnce({ questionId: "q-1" });
+    await expect(svc.questionScenario("c-1", "a-1", "q-1")).resolves.toBeNull();
+  });
+});
+
+// SPEC-085 section 5: the check of the machine of a question has its own route, takes the state and gives only whether it passed.
+describe("assessmentService: check of a question (SPEC-085)", () => {
+  it("sends the state of the machine and gives whether the question was met", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    vi.mocked(c.post).mockResolvedValueOnce({ passed: true });
+    await expect(svc.checkQuestion("c-1", "a-1", "q-1", { formato: "exame-so/maquina" })).resolves.toBe(true);
+    expect(c.post).toHaveBeenCalledWith("/classes/c-1/assessments/a-1/questions/q-1/check", { snapshot: { formato: "exame-so/maquina" } });
+    vi.mocked(c.post).mockResolvedValueOnce({ passed: false });
+    await expect(svc.checkQuestion("c-1", "a-1", "q-1", {})).resolves.toBe(false);
+  });
+});

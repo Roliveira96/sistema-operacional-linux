@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,6 +44,10 @@ type fakeService struct {
 	actor service.Actor
 
 	classID, id uuid.UUID
+	questionID  uuid.UUID
+	scenario    json.RawMessage
+	checked     json.RawMessage
+	passed      bool
 	create      service.CreateInput
 	update      service.UpdateInput
 	reschedule  service.RescheduleInput
@@ -92,6 +97,24 @@ func (f *fakeService) Cancel(_ context.Context, a service.Actor, classID, id uui
 	f.saw("Cancel", a)
 	f.classID, f.id, f.reason = classID, id, reason
 	return f.summary, f.err
+}
+
+func (f *fakeService) Start(_ context.Context, a service.Actor, classID, id uuid.UUID) (service.Summary, error) {
+	f.saw("Start", a)
+	f.classID, f.id = classID, id
+	return f.summary, f.err
+}
+
+func (f *fakeService) QuestionScenario(_ context.Context, a service.Actor, classID, id, questionID uuid.UUID) (json.RawMessage, error) {
+	f.saw("QuestionScenario", a)
+	f.classID, f.id, f.questionID = classID, id, questionID
+	return f.scenario, f.err
+}
+
+func (f *fakeService) CheckQuestion(_ context.Context, a service.Actor, classID, id, questionID uuid.UUID, snapshot json.RawMessage) (bool, error) {
+	f.saw("CheckQuestion", a)
+	f.classID, f.id, f.questionID, f.checked = classID, id, questionID, snapshot
+	return f.passed, f.err
 }
 
 func (f *fakeService) SaveNotes(_ context.Context, a service.Actor, classID, id uuid.UUID, notes string) (string, error) {
@@ -650,6 +673,109 @@ func TestHandler_ListPassesTheFilters(t *testing.T) {
 	assert.Equal(t, "malformed-request", resp["type"])
 }
 
+// Covers SPEC-081 CA-14, CA-15 (section 5): every question of the preview and of the sample carries studentView, with the fields of its kind and no
+// answer; the fields the preview already had do not change.
+func TestHandler_PreviewCarriesTheStudentViewOfEachKind(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id := uuid.New(), uuid.New()
+	yes, size := true, 300
+	of := func(kind string, view service.StudentView) service.QuestionContent {
+		return service.QuestionContent{
+			Question:  service.Question{ID: uuid.New(), Title: kind, Kind: kind, Difficulty: domain.DifficultyEasy},
+			Statement: "<p>enunciado</p>", AnswerKey: "a resposta", Explanation: "porque", StudentView: view,
+		}
+	}
+	single := of("THEORETICAL_SINGLE", service.StudentView{Choices: []service.StudentChoice{{ID: "a", HTML: "<p>ls</p>"}}, Shuffle: &yes})
+	matching := of("THEORETICAL_MATCHING", service.StudentView{
+		Columns: &service.StudentColumns{Left: []service.StudentItem{{ID: "l1", Text: "ls"}}, Right: []service.StudentItem{{ID: "r1", Text: "lista"}}},
+		Shuffle: &yes,
+	})
+	discursive := of("DISCURSIVE", service.StudentView{MaxLength: &size})
+	boolean := of("THEORETICAL_BOOLEAN", service.StudentView{})
+	svc.preview = service.Preview{
+		Questions: []service.PreviewQuestion{
+			{Position: 1, Weight: domain.Points(2), QuestionContent: single}, {Position: 2, Weight: domain.Points(2), QuestionContent: matching},
+			{Position: 3, Weight: domain.Points(2), QuestionContent: discursive}, {Position: 4, Weight: domain.Points(2), QuestionContent: boolean},
+		},
+		Sample: []service.QuestionContent{single},
+	}
+	status, body := call(t, srv, http.MethodGet, assessmentPath(classID, id)+"/preview", nil)
+	require.Equal(t, http.StatusOK, status)
+	questions := array(t, body["questions"])
+	require.Len(t, questions, 4)
+	for _, q := range questions {
+		assert.Equal(t, sorted("position", "weight", "questionId", "title", "kind", "difficulty", "statement", "answerKey", "explanation", "studentView"),
+			keysOf(object(t, q)), "the old fields stay and studentView is always there")
+	}
+	view := func(i int) map[string]any { return object(t, object(t, questions[i])["studentView"]) }
+	assert.Equal(t, sorted("choices", "shuffle"), keysOf(view(0)))
+	assert.Equal(t, sorted("id", "html"), keysOf(object(t, array(t, view(0)["choices"])[0])))
+	assert.Equal(t, sorted("columns", "shuffle"), keysOf(view(1)))
+	columns := object(t, view(1)["columns"])
+	assert.Equal(t, sorted("left", "right"), keysOf(columns))
+	assert.Equal(t, sorted("id", "text"), keysOf(object(t, array(t, columns["left"])[0])))
+	assert.Equal(t, sorted("maxLength"), keysOf(view(2)))
+	assert.EqualValues(t, 300, view(2)["maxLength"])
+	assert.Empty(t, view(3), "a true or false question has only the statement")
+	sample := array(t, body["sample"])
+	require.Len(t, sample, 1)
+	assert.Contains(t, object(t, sample[0]), "studentView", "the sample is shown to the student the same way")
+}
+
+// Covers SPEC-083 CA-01, CA-08 (section 5): the teacher starts the exam by the route of the start, with no body, and gets the summary with who
+// started it and when; the summary has no start before it happens, and the route is only for the teacher and the administrator.
+func TestHandler_StartTheExam(t *testing.T) {
+	srv, svc, userID := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id := uuid.New(), uuid.New()
+	svc.summary = service.Summary{Public: minimalPublic(), Modality: domain.ModalityInPerson, StartedAt: ptr(at(21, 9, 5)), StartedBy: ptr(userID), StartedByName: "Profa. Sediane"}
+
+	status, body := call(t, srv, http.MethodPost, assessmentPath(classID, id)+"/start", nil)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, []string{"Start"}, svc.calls)
+	assert.Equal(t, classID, svc.classID)
+	assert.Equal(t, id, svc.id)
+	assert.Equal(t, userID.String(), body["startedBy"])
+	assert.Equal(t, "Profa. Sediane", body["startedByName"])
+	assert.Contains(t, body["startedAt"], "2026-10-21T09:05:00")
+	assert.Contains(t, body, "serverNow")
+
+	svc.summary = service.Summary{Public: minimalPublic(), Modality: domain.ModalityInPerson}
+	_, body = call(t, srv, http.MethodPost, assessmentPath(classID, id)+"/start", nil)
+	assert.NotContains(t, body, "startedAt", "no start before it happens")
+	assert.NotContains(t, body, "startedBy")
+	assert.NotContains(t, body, "startedByName")
+}
+
+// Covers SPEC-083 CA-03, CA-04 (section 5): the errors of the start and of the clearance before the start, with their status and slug.
+func TestHandler_StartAndClearanceErrors(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	path := assessmentPath(uuid.New(), uuid.New())
+	cases := []struct {
+		route  string
+		err    error
+		status int
+		typ    string
+	}{
+		{"/start", domain.ErrInvalidAssessment, http.StatusBadRequest, "invalid-assessment"},
+		{"/start", domain.ErrForbidden, http.StatusForbidden, "forbidden"},
+		{"/start", domain.ErrAssessmentNotFound, http.StatusNotFound, "assessment-not-found"},
+		{"/start", domain.ErrAssessmentCanceled, http.StatusConflict, "assessment-canceled"},
+		{"/start", domain.ErrAssessmentEnded, http.StatusConflict, "assessment-ended"},
+		{"/start", domain.ErrAssessmentNotOpenYet, http.StatusConflict, "assessment-not-open-yet"},
+		{"/start", domain.ErrAssessmentAlreadyStarted, http.StatusConflict, "assessment-already-started"},
+		{"/clearances", domain.ErrAssessmentNotStarted, http.StatusConflict, "assessment-not-started"},
+	}
+	for _, c := range cases {
+		svc.err = c.err
+		status, body := call(t, srv, http.MethodPost, path+c.route, map[string]any{"action": "APPROVE_ALL"})
+		assert.Equal(t, c.status, status, c.route+" "+c.err.Error())
+		assert.Equal(t, c.typ, body["type"], c.route+" "+c.err.Error())
+	}
+}
+
 // Covers SPEC-075 CA-04, CA-22 (section 5.2): the preview carries the questions with the answer key, and for a draw the rules, the stock and the
 // sample; the questions to pick from take the module and the filters, and the module is required.
 func TestHandler_PreviewAndEligibleQuestions(t *testing.T) {
@@ -670,7 +796,7 @@ func TestHandler_PreviewAndEligibleQuestions(t *testing.T) {
 	require.Equal(t, http.StatusOK, status)
 	questions := array(t, body["questions"])
 	require.Len(t, questions, 1)
-	assert.Equal(t, sorted("position", "weight", "questionId", "title", "kind", "difficulty", "statement", "answerKey", "explanation"),
+	assert.Equal(t, sorted("position", "weight", "questionId", "title", "kind", "difficulty", "statement", "answerKey", "explanation", "studentView"),
 		keysOf(object(t, questions[0])))
 	assert.Equal(t, "mkdir /a", object(t, questions[0])["answerKey"])
 	assert.Contains(t, body, "rules")
@@ -695,4 +821,117 @@ func TestHandler_PreviewAndEligibleQuestions(t *testing.T) {
 	status, resp := call(t, srv, http.MethodGet, classPath(classID)+"/assessment-questions", nil)
 	assert.Equal(t, http.StatusBadRequest, status, "the module is required")
 	assert.Equal(t, "malformed-request", resp["type"])
+}
+
+// Covers SPEC-084 CA-14 (section 5): the route of the scenario of a question answers the question and the machine, and no machine when the question has
+// none; the errors have their slug and status.
+func TestHandler_QuestionScenario(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id, question := uuid.New(), uuid.New(), uuid.New()
+	path := assessmentPath(classID, id) + "/questions/" + question.String() + "/scenario"
+
+	svc.scenario = json.RawMessage(`{"files":{"/a":"x"}}`)
+	status, body := call(t, srv, http.MethodGet, path, nil)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, []string{"QuestionScenario"}, svc.calls)
+	assert.Equal(t, question, svc.questionID)
+	assert.Equal(t, question.String(), body["questionId"])
+	assert.Equal(t, sorted("questionId", "snapshot"), keysOf(body))
+	assert.Equal(t, map[string]any{"files": map[string]any{"/a": "x"}}, body["snapshot"])
+
+	svc.scenario = nil
+	_, body = call(t, srv, http.MethodGet, path, nil)
+	assert.Equal(t, sorted("questionId"), keysOf(body), "a question without a scenario has no snapshot")
+
+	for _, c := range []struct {
+		err    error
+		status int
+		typ    string
+	}{
+		{domain.ErrForbidden, http.StatusForbidden, "forbidden"},
+		{domain.ErrClassNotFound, http.StatusNotFound, "class-not-found"},
+		{domain.ErrAssessmentNotFound, http.StatusNotFound, "assessment-not-found"},
+		{domain.ErrQuestionNotFound, http.StatusNotFound, "question-not-found"},
+	} {
+		svc.err = c.err
+		status, body := call(t, srv, http.MethodGet, path, nil)
+		assert.Equal(t, c.status, status, c.err.Error())
+		assert.Equal(t, c.typ, body["type"], c.err.Error())
+	}
+}
+
+// Covers SPEC-085 CA-01, CA-02, CA-03, CA-04 (section 5): the route of the check sends the machine to the service and answers only passed; the
+// errors have their slug and status; a body that is not JSON or that has no machine is refused, and a body above 2 MB is too large.
+func TestHandler_CheckQuestion(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, id, question := uuid.New(), uuid.New(), uuid.New()
+	path := assessmentPath(classID, id) + "/questions/" + question.String() + "/check"
+	machineJSON := map[string]any{"snapshot": map[string]any{"formato": "exame-so/maquina", "versao": 1}}
+
+	svc.passed = true
+	status, body := call(t, srv, http.MethodPost, path, machineJSON)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, sorted("passed"), keysOf(body), "only whether it passed: no condition, no solution")
+	assert.Equal(t, true, body["passed"])
+	assert.Equal(t, []string{"CheckQuestion"}, svc.calls)
+	assert.Equal(t, question, svc.questionID)
+	assert.JSONEq(t, `{"formato":"exame-so/maquina","versao":1}`, string(svc.checked))
+
+	svc.passed = false
+	_, body = call(t, srv, http.MethodPost, path, machineJSON)
+	assert.Equal(t, false, body["passed"])
+
+	status, body = call(t, srv, http.MethodPost, path, map[string]any{})
+	assert.Equal(t, http.StatusBadRequest, status, "a body with no machine")
+	assert.Equal(t, "snapshot-required", body["type"])
+	status, body = call(t, srv, http.MethodPost, path, "{")
+	assert.Equal(t, http.StatusBadRequest, status)
+	assert.Equal(t, "malformed-request", body["type"])
+
+	big := map[string]any{"snapshot": map[string]any{"padding": strings.Repeat("x", 2<<20)}}
+	status, body = call(t, srv, http.MethodPost, path, big)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, status)
+	assert.Equal(t, "file-too-large", body["type"])
+
+	for _, c := range []struct {
+		err    error
+		status int
+		typ    string
+	}{
+		{domain.ErrSnapshotRequired, http.StatusBadRequest, "snapshot-required"},
+		{domain.ErrInvalidSnapshot, http.StatusBadRequest, "invalid-snapshot"},
+		{domain.ErrInvalidQuestion, http.StatusBadRequest, "invalid-question"},
+		{domain.ErrForbidden, http.StatusForbidden, "forbidden"},
+		{domain.ErrClassNotFound, http.StatusNotFound, "class-not-found"},
+		{domain.ErrAssessmentNotFound, http.StatusNotFound, "assessment-not-found"},
+		{domain.ErrQuestionNotFound, http.StatusNotFound, "question-not-found"},
+	} {
+		svc.err = c.err
+		status, body := call(t, srv, http.MethodPost, path, machineJSON)
+		assert.Equal(t, c.status, status, c.err.Error())
+		assert.Equal(t, c.typ, body["type"], c.err.Error())
+	}
+}
+
+// Covers SPEC-088 CA-01, CA-02 (RN-01, RN-02): the eligible questions carry the counts of the questions of the bank that are out, by reason, as
+// numbers only, beside the fields that already exist.
+func TestHandler_EligibleQuestionsCountTheExcluded(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, moduleID := uuid.New(), uuid.New()
+	svc.page = service.QuestionPage{
+		Total: 5, Stock: map[domain.Difficulty]int{domain.DifficultyEasy: 2, domain.DifficultyMedium: 2, domain.DifficultyHard: 1},
+		Excluded: service.Excluded{Unpublished: 22, Unlinked: 47},
+	}
+	status, body := call(t, srv, http.MethodGet, classPath(classID)+"/assessment-questions?moduleId="+moduleID.String(), nil)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, sorted("items", "total", "stock", "excluded"), keysOf(body))
+	excluded := object(t, body["excluded"])
+	assert.Equal(t, sorted("unpublished", "unlinked"), keysOf(excluded), "only the two counts, nothing of the questions themselves")
+	assert.EqualValues(t, 22, excluded["unpublished"])
+	assert.EqualValues(t, 47, excluded["unlinked"])
+	assert.EqualValues(t, 5, body["total"])
+	assert.EqualValues(t, 2, object(t, body["stock"])["EASY"])
 }

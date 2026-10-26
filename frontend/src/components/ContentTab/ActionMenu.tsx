@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import styles from "./ContentTab.module.scss";
 
 export interface MenuAction {
@@ -10,6 +10,10 @@ export interface MenuAction {
   danger?: boolean;
   /** An emoji before the label; it only decorates, the label says it all. */
   icon?: string;
+  /** The action is off: it stays in the menu and can take the focus, so its reason is read, but choosing it does nothing. */
+  disabled?: boolean;
+  /** The id of the text that says why the action is off. */
+  describedBy?: string;
 }
 
 interface ActionMenuProps {
@@ -18,16 +22,27 @@ interface ActionMenuProps {
   /** Text shown on the button. */
   text: string;
   actions: MenuAction[];
+  /** The button shows its text as a labelled button, not as the round button of the three dots. */
+  wide?: boolean;
+  /**
+   * The menu is placed on the window, under the button, instead of inside the box of the button: use it where a box that scrolls would cut the
+   * menu (a table). It turns upward when it does not fit below, and closes when the window is resized or the page scrolls.
+   */
+  floating?: boolean;
 }
+
+/** The space between the button and a floating menu. */
+const GAP = 4;
 
 /**
  * A menu of actions on one row. Opens with Enter, Space or the down arrow, moves with the
  * arrows, and closes with Escape, a click outside or a choice.
  */
-export function ActionMenu({ label, text, actions }: ActionMenuProps) {
+export function ActionMenu({ label, text, actions, wide = false, floating = false }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLDivElement>(null);
   const items = useRef<(HTMLButtonElement | null)[]>([]);
   const menuId = useId();
 
@@ -38,8 +53,41 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
       if (!root.current?.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [open]);
+    // a floating menu does not follow its button, so it leaves when the window or the page moves (the scroll of the menu itself does not count)
+    const leave = (event: Event) => {
+      if (!(event.target instanceof Node && list.current?.contains(event.target))) setOpen(false);
+    };
+    if (floating) {
+      window.addEventListener("resize", leave);
+      window.addEventListener("scroll", leave, true);
+    }
+    return () => {
+      document.removeEventListener("mousedown", away);
+      window.removeEventListener("resize", leave);
+      window.removeEventListener("scroll", leave, true);
+    };
+  }, [open, floating]);
+
+  // Places a floating menu before it is painted: fixed on the window, under the button and on its right edge (on its left edge when the button is
+  // near the left of the window, as in a card), or above it when it does not fit.
+  useLayoutEffect(() => {
+    const menu = list.current;
+    if (!open || !floating || !menu || !button.current) return;
+    const trigger = button.current.getBoundingClientRect();
+    const room = window.innerHeight - trigger.bottom - GAP;
+    const above = menu.offsetHeight > room && trigger.top > room;
+    const edge = GAP * 2;
+    menu.style.position = "fixed";
+    if (trigger.right - menu.offsetWidth >= edge) {
+      menu.style.left = "auto";
+      menu.style.right = `${Math.max(window.innerWidth - trigger.right, edge)}px`;
+    } else {
+      menu.style.left = `${Math.min(Math.max(trigger.left, edge), Math.max(window.innerWidth - menu.offsetWidth - edge, edge))}px`;
+      menu.style.right = "auto";
+    }
+    menu.style.top = above ? "auto" : `${trigger.bottom + GAP}px`;
+    menu.style.bottom = above ? `${window.innerHeight - trigger.top + GAP}px` : "auto";
+  }, [open, floating]);
 
   const close = (refocus: boolean) => {
     setOpen(false);
@@ -67,7 +115,7 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
       <button
         ref={button}
         type="button"
-        className={`${styles.smallButton} ${styles.dots}`}
+        className={wide ? `${styles.smallButton} ${styles.menuText}` : `${styles.smallButton} ${styles.dots}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -84,6 +132,7 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
       </button>
       {open && (
         <div
+          ref={list}
           id={menuId}
           role="menu"
           aria-label={label}
@@ -98,8 +147,11 @@ export function ActionMenu({ label, text, actions }: ActionMenuProps) {
               }}
               type="button"
               role="menuitem"
-              className={`${styles.menuItem} ${action.danger ? styles.menuDanger : ""}`}
+              className={`${styles.menuItem} ${action.danger ? styles.menuDanger : ""} ${action.disabled ? styles.menuItemOff : ""}`}
+              aria-disabled={action.disabled || undefined}
+              aria-describedby={action.describedBy}
               onClick={() => {
+                if (action.disabled) return;
                 close(false);
                 action.onSelect();
               }}

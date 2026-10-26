@@ -151,6 +151,7 @@ Regras:
 | Dependência entre exercícios | `ExerciseDependency` | Um exercício (`depends_on`) cuja solução gravada é montada antes de outro; forma uma cadeia. O sistema só sugere, a docente confirma (SPEC-023 12.3) | Continua do anterior | Proposto |
 | Teste do banco | `BankTest` | Esteira de validação do banco: ambiente consolidado, ordem linear, ordem reversa e rodadas sorteadas, com relatório e sugestões de dependência (SPEC-023 12) | — | Proposto |
 | Condição de finalização | `CompletionCondition` | Algo que precisa valer na máquina ao fim do exercício (pasta existe, arquivo tem o texto, permissão, dono, usuário...), seja qual for a forma como o estudante chegou lá (SPEC-022) | — | Proposto |
+| Atribuição do módulo à turma | `ModuleClassAssignment` (tabela `module_class_assignments`; rota `PUT /classes/:id/modules`) | Vínculo de um módulo de ensino com uma turma, gravado como o conjunto de módulos da turma nas configurações dela; só o módulo atribuído pode compor uma avaliação da turma (SPEC-075 RN-05). Vale para módulo de qualquer visibilidade e não a restringe | `Link`, `Binding` (`ClassLink` é o link da turma) | Proposto (SPEC-078) |
 | Tipo de questão | `QuestionKind` (coluna `kind`) | O que a questão é e como o aluno responde. No banco do módulo e nos exercícios do card: `PRACTICAL` ("Comando Linux"), `THEORETICAL_BOOLEAN` ("Verdadeiro ou falso", SPEC-035) e `THEORETICAL_SINGLE` ("Escolha única", SPEC-036) e `THEORETICAL_MATCHING` ("Ligar colunas", SPEC-037); só no banco do módulo, `DISCURSIVE` ("Descritiva", SPEC-039); os demais valores esperam spec própria | Tipo de exercício | Decidido |
 | Questão de verdadeiro ou falso | `THEORETICAL_BOOLEAN` | Uma afirmação que o aluno marca como verdadeira ou falsa, sem terminal; no exercício a resposta é única e travada, na avaliação pode mudar até finalizar (SPEC-035) | Booleana, V/F | Decidido |
 | Questão de escolha única | `THEORETICAL_SINGLE` | De 2 a 7 alternativas escritas no editor, das quais só uma é correta; embaralhadas para o aluno ou na ordem da docente, conforme a questão; mesmo comportamento do verdadeiro ou falso no exercício e na avaliação (SPEC-036) | Múltipla escolha (é outro tipo), quiz | Decidido |
@@ -221,6 +222,8 @@ Termos da SPEC-075 (Aprovada em 20/10/2026). As decisões D-02 e D-04 dela ajust
 | Pré-visualização | `preview` | Visão da docente com enunciados, gabaritos e pontuação, em qualquer fase | — | Proposto (SPEC-075) |
 | Decisão de acesso | `AccessOf` (resultados `ALLOWED`, `CANCELED`, `NOT_ELIGIBLE`, `NOT_OPEN_YET`, `ENDED`) | Interface do service que diz se um estudante pode entrar numa avaliação agora; a spec das tentativas a consome | `canStart` | Proposto (SPEC-075) |
 | Transformar em avaliação | `classSessionId` (de `assessments`) | Criar a avaliação a partir de uma aula da agenda, aproveitando horário, tema e módulo, sem alterar a aula | `Convert` na interface | Proposto (SPEC-075) |
+| Exercícios fora da prova | `excluded` (`unpublished`, `unlinked`) na rota `assessment-questions` | As contagens dos exercícios do banco do módulo que não são elegíveis: os não publicados, seja qual for o vínculo, e os publicados sem o vínculo *Avaliação*. Só números; o formulário da avaliação as mostra como aviso (SPEC-088 RN-01) | `hidden`, `ineligible` | Proposto (SPEC-088) |
+| Adicionar todos os publicados | ação do bloco *Reservados para avaliação* | Vincula à avaliação, um a um pela rota de vínculos, todos os exercícios publicados que ainda não têm o vínculo; não publica rascunho (SPEC-088 D-03) | `Bulk link` | Proposto (SPEC-088) |
 
 ## 4.2. Modalidade e habilitação para a prova presencial (SPEC-076)
 
@@ -234,6 +237,27 @@ Termos da SPEC-076 (Aprovada em 20/10/2026).
 | Estado de habilitação | `PENDING` (aguardando, derivado), `APPROVED` (habilitado), `REJECTED` (recusado) | `PENDING` é a ausência de decisão e não é guardado | `PENDENTE`, `APROVADO`, `REJEITADO` | Proposto (SPEC-076) |
 | Motivo da recusa | `rejection_reason` | Texto opcional de até 300 caracteres que o aluno recusado lê; sem ele, a interface mostra uma frase padrão | `reason` solto (é o motivo do cancelamento ou do reagendamento) | Proposto (SPEC-076) |
 | Não habilitado | `NOT_CLEARED` (resultado de `AccessOf`) | O aluno elegível, com a avaliação aberta, mas ainda aguardando ou recusado numa avaliação que exige a habilitação | `NOT_APPROVED` | Proposto (SPEC-076) |
+
+## 4.3. Simulador da prova (SPEC-081)
+
+Termos da SPEC-081 (Rascunho em 22/10/2026).
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Simulador da prova | `AssessmentSimulator` (rota `.../assessments/:assessmentId/simulate`) | Tela da docente que mostra lado a lado a visão do professor e a visão do aluno de uma avaliação, para testar a prova; nada é enviado nem gravado | `Mock`, `Demo`, `Dry run` | Proposto (SPEC-081) |
+| Visão do aluno (na simulação) | `StudentView` | O conteúdo de uma questão como o aluno o recebe, sem a resposta correta: alternativas, colunas, limite de caracteres. Vem na pré-visualização, no campo `studentView` | `Public`, `Safe` | Proposto (SPEC-081) |
+| Resposta simulada | `simulatedResponse` | O que a docente respondeu como aluno no simulador; vive só na memória da página e não é uma `QuestionSubmission` | `Submission`, `Answer` | Proposto (SPEC-081) |
+| Janela própria da prova | `.window` da página `simulate` | A página do simulador aberta em aba nova e cobrindo a janela inteira, sem o menu nem o cabeçalho da plataforma; *Sair da simulação* fecha a aba ou volta ao detalhe quando o navegador não deixa (SPEC-087 D-01). A tela cheia do navegador é outro passo, o botão *Tela cheia*, opcional (D-02) | `Modo foco` (é da aula ao vivo), `Fullscreen` (é o botão) | Proposto (SPEC-087) |
+| Comemoração da questão resolvida | `SolvedCelebration` | Diálogo sobre a coluna da questão quando o servidor dá como resolvida a questão de comando Linux que está aberta: marca de acerto desenhada pelo estilo, "Questão resolvida!", *Próxima questão* (ou *Entregar* na última) e *Continuar nesta questão*; não trava nem avança sozinha, e não tem mascote (SPEC-087 D-03, D-04) | `Mascote`, `Confete`, `Celebration` solto | Proposto (SPEC-087) |
+
+## 4.4. Início da prova presencial (SPEC-083)
+
+Termos da SPEC-083 (Rascunho em 22/10/2026).
+
+| Português | Código (EN) | Definição | Evitar | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| Início da prova | `started_at`, `started_by` (rota `POST .../assessments/:assessmentId/start`, evento `STARTED`) | O ato da docente de iniciar a prova presencial, dentro do período marcado: registra quem e quando, não se desfaz e é o que libera a habilitação dos alunos. Não muda a fase da avaliação, que segue o relógio | `open`, `release` (o token de liberação é outro assunto), `begin` | Proposto (SPEC-083) |
+| Prova não iniciada | `NOT_STARTED` (resultado de `AccessOf`) | A prova presencial já está em andamento pelo relógio, mas a docente ainda não a iniciou; vem depois de `ENDED` e antes de `NOT_CLEARED` | `NOT_OPEN` (já é `NOT_OPEN_YET`, que é antes do horário) | Proposto (SPEC-083) |
 
 ## 5. Condução da prova e auditoria
 
