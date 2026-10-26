@@ -204,10 +204,33 @@ export function ModuleExercisesTab({
 
   const available = bank.items.filter((it) => it.practice).sort((a, b) => a.position - b.position);
   const reserved = bank.items.filter((it) => it.assessment);
+  /** The published exercises that lack the link to the assessment: what "add every published one" links (SPEC-088 D-03). */
+  const unlinkedPublished = bank.items.filter((it) => it.status === "PUBLISHED" && !it.assessment);
+  const [addingAll, setAddingAll] = useState(false);
 
   /** Links (or unlinks) an exercise; the bank keeps it either way. */
   const relink = (it: ModuleExercise, change: Partial<ExerciseLinks>, status = it.status) =>
     run(() => service.links(moduleId, it.exercise.id, { ...linksOf(it), ...change }, status).then(() => undefined), m.changed);
+
+  /** Links to the assessment, one by one, every published exercise that lacks it; the ones that fail are counted and the rest stay linked (SPEC-088 CA-07). */
+  const linkAllPublished = async () => {
+    setAddingAll(false);
+    setMessage(null);
+    let failed = 0;
+    for (const it of unlinkedPublished) {
+      try {
+        await service.links(moduleId, it.exercise.id, { ...linksOf(it), assessment: true }, it.status);
+      } catch {
+        failed++;
+      }
+    }
+    try {
+      await refresh();
+    } catch {
+      // the bank is read again on the next action
+    }
+    setMessage({ kind: failed > 0 ? "error" : "ok", text: m.addAllDone(unlinkedPublished.length - failed, failed) });
+  };
 
   const sendOrder = (list: ModuleExercise[]) =>
     run(
@@ -455,6 +478,11 @@ export function ModuleExercisesTab({
             <p className={styles.hint}>{text.hint}</p>
           </div>
           <div className={styles.setActions}>
+            {kind === "assessment" && (
+              <button type="button" className={styles.secondary} disabled={unlinkedPublished.length === 0} onClick={() => setAddingAll(true)}>
+                {m.addAll}
+              </button>
+            )}
             <button type="button" className={styles.secondary} onClick={() => setPicking(kind)}>
               {m.addFromBank}
             </button>
@@ -463,6 +491,19 @@ export function ModuleExercisesTab({
             </button>
           </div>
         </header>
+        {kind === "assessment" && addingAll && (
+          <div className={styles.confirm} role="alertdialog" aria-label={m.addAll}>
+            <p>{m.addAllConfirm(unlinkedPublished.length)}</p>
+            <div className={styles.confirmActions}>
+              <button type="button" className={styles.secondary} onClick={() => setAddingAll(false)}>
+                {m.cancel}
+              </button>
+              <button type="button" className={styles.primary} onClick={() => void linkAllPublished()}>
+                {m.addAllYes}
+              </button>
+            </div>
+          </div>
+        )}
         {list.length === 0 ? (
           <p className={styles.empty}>{text.empty}</p>
         ) : (

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { AssessmentQuestionPicker } from "@/components/AssessmentQuestionPicker/AssessmentQuestionPicker";
 import { Button } from "@/components/Button/Button";
@@ -16,6 +17,7 @@ import {
   type Difficulty,
   type DrawRule,
   type EligibleQuestions,
+  type ExcludedQuestions,
   type Modality,
   type PickedQuestion,
   type QuestionQuery,
@@ -90,6 +92,26 @@ const emptyDraw = (rules: DrawRule[] = []): Draw =>
 /** Whether a number of points has at most two decimal places. */
 const hundredths = (n: number) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
 
+/**
+ * The exercises of the module that cannot enter the exam, by reason, with the way to the bank (SPEC-088 D-01): a note, or an alert when none
+ * of the module can enter. Nothing when every exercise can.
+ */
+function ExcludedNotice({ counts, eligible, moduleId }: { counts: ExcludedQuestions; eligible: number; moduleId: string }) {
+  const x = m.excluded;
+  const parts = [counts.unlinked > 0 && x.unlinked(counts.unlinked), counts.unpublished > 0 && x.unpublished(counts.unpublished)].filter((p): p is string => Boolean(p));
+  const none = eligible === 0;
+  if (parts.length === 0 && !none) return null;
+  const head = none ? x.none : x.some(counts.unlinked + counts.unpublished);
+  return (
+    <p role={none ? "alert" : "note"} className={none ? styles.alert : styles.notice}>
+      {parts.length > 0 ? `${head}: ${parts.join(x.join)}. ${x.fix}` : `${head}.`}{" "}
+      <Link href={`/app/modules/${moduleId}/edit?tab=exercises`} target="_blank" rel="noopener noreferrer">
+        {x.openBank} <span className={styles.srOnly}>{x.newTab}</span>
+      </Link>
+    </p>
+  );
+}
+
 /** The form of an assessment in tabs (SPEC-075 section 3.1, in the pattern of SPEC-044), with the checks the server repeats. */
 export function AssessmentForm({ mode, modules, students, initial = {}, frozen = false, loadQuestions, onSubmit, onCancel }: AssessmentFormProps) {
   const baseId = useId();
@@ -115,6 +137,8 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
   const [items, setItems] = useState<PickedQuestion[]>(initial.items ?? []);
   const [draw, setDraw] = useState<Draw>(() => emptyDraw(initial.drawRules));
   const [stock, setStock] = useState<Stock | null>(null);
+  /** What the module keeps out of the exam, and how many it lets in, for the notice (SPEC-088 D-01). */
+  const [excluded, setExcluded] = useState<{ counts: ExcludedQuestions; eligible: number } | null>(null);
   const [audience, setAudience] = useState<Audience>(initial.audience ?? "ALL_CLASS");
   const [studentIds, setStudentIds] = useState<string[]>(initial.studentIds ?? []);
   const [search, setSearch] = useState("");
@@ -126,18 +150,27 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
   const tabId = (t: Tab) => `${baseId}-tab-${t}`;
   const panelId = (t: Tab) => `${baseId}-panel-${t}`;
 
-  // The stock of each level, for the draw: asked when the module is chosen.
+  // The stock of each level, for the draw, and the count of the exercises out of the exam, for the notice (SPEC-088): asked when the module is
+  // chosen, in both compositions. A frozen assessment cannot change its questions, so it asks nothing.
   useEffect(() => {
-    if (composition !== "DRAW" || !moduleId) return;
+    if (!moduleId || frozen) return;
     let alive = true;
     loadQuestions({ moduleId, pageSize: 1 }).then(
-      (r) => alive && setStock(r.stock),
-      () => alive && setStock(null),
+      (r) => {
+        if (!alive) return;
+        setStock(r.stock);
+        setExcluded({ counts: r.excluded, eligible: r.total });
+      },
+      () => {
+        if (!alive) return;
+        setStock(null);
+        setExcluded(null);
+      },
     );
     return () => {
       alive = false;
     };
-  }, [composition, moduleId, loadQuestions]);
+  }, [moduleId, frozen, loadQuestions]);
 
   // ── the checks of the form ────────────────────────────────────────────────
   const scoreOk = maxScore >= 0.01 && maxScore <= MAX_SCORE && hundredths(maxScore);
@@ -467,6 +500,7 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
                 setModuleId(e.target.value);
                 setItems([]); // the questions belong to the module
                 setStock(null);
+                setExcluded(null);
               }}
             >
               <option value="">{m.chooseModule}</option>
@@ -477,6 +511,7 @@ export function AssessmentForm({ mode, modules, students, initial = {}, frozen =
               ))}
             </select>
           </div>
+          {excluded && moduleId && <ExcludedNotice counts={excluded.counts} eligible={excluded.eligible} moduleId={moduleId} />}
           <fieldset className={styles.group} role="radiogroup">
             <legend>{m.composition}</legend>
             {(["MANUAL", "DRAW"] as const).map((c) => (

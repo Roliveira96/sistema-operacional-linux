@@ -124,10 +124,16 @@ export interface PickedQuestion extends EligibleQuestion {
   weight: number;
 }
 export type Stock = Partial<Record<Difficulty, number>>;
+/** The exercises of the bank of the module that cannot enter the assessment, by reason (SPEC-088 RN-01): not published, or published without the link to the assessment. */
+export interface ExcludedQuestions {
+  unpublished: number;
+  unlinked: number;
+}
 export interface EligibleQuestions {
   items: EligibleQuestion[];
   total: number;
   stock: Stock;
+  excluded: ExcludedQuestions;
 }
 export interface QuestionQuery {
   moduleId: string;

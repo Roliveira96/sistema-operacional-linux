@@ -980,6 +980,17 @@ export const messages = {
       module: "Módulo",
       chooseModule: "Escolha o módulo",
       chooseModuleFirst: "Escolha o módulo para ver as questões.",
+      /** The exercises of the module that cannot enter the exam, by reason (SPEC-088 D-01). */
+      excluded: {
+        some: (n: number) => (n === 1 ? "Deste módulo, 1 exercício não pode entrar na prova" : `Deste módulo, ${n} exercícios não podem entrar na prova`),
+        none: "Nenhum exercício deste módulo pode entrar na prova",
+        unlinked: (n: number) => (n === 1 ? "1 publicado sem o vínculo Avaliação" : `${n} publicados sem o vínculo Avaliação`),
+        unpublished: (n: number) => (n === 1 ? "1 ainda não publicado" : `${n} ainda não publicados`),
+        join: " e ",
+        fix: "Vincule e publique no banco de questões do módulo.",
+        openBank: "Abrir o banco de questões do módulo",
+        newTab: "(abre em nova aba)",
+      },
       composition: "Composição",
       frozen: "A avaliação já começou; a composição não pode mais mudar.",
       distribute: "Distribuir igualmente",

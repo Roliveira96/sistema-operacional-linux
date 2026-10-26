@@ -193,20 +193,16 @@ export function ModuleExerciseScreen({
     setConflict(false);
     setSaving(true);
     try {
-      // Created from a block of the tab (?link=practice|assessment), it is already linked to it.
-      const from = new URLSearchParams(window.location.search).get("link");
+      // Created from the block of the assessment (?link=assessment), it is reserved for it; from the bank or from the block of the practice, it
+      // is born in the practice and in the assessment (SPEC-088 D-02).
+      const reserved = new URLSearchParams(window.location.search).get("link") === "assessment";
       const saved = isNew
-        ? await service.create(
-            moduleId,
-            exercise,
-            dependsOn,
-            from === "practice" || from === "assessment" ? { [from]: true } : undefined,
-          )
+        ? await service.create(moduleId, exercise, dependsOn, reserved ? { assessment: true } : { practice: true, assessment: true })
         : await service.update(moduleId, exerciseId, exercise, updatedAt, force, dependsOn);
       setErrors({});
       setUpdatedAt(saved.updatedAt);
       setBaseline(JSON.stringify([exercise, dependsOn], withoutIds));
-      setMessage({ kind: "ok", text: m.saved });
+      setMessage({ kind: "ok", text: isNew ? (reserved ? m.savedReserved : m.savedLinked) : m.saved });
       if (isNew)
         router.replace(
           `/app/modules/${moduleId}/exercises/${saved.exercise.id}`,
