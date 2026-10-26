@@ -97,7 +97,7 @@ func TestGetModule(t *testing.T) {
 	ctx := context.Background()
 	_, terr := e.svc.AppendContentBlocks(ctx, e.teacher, service.AppendContentBlocksInput{ModuleID: e.mid(), Blocks: []service.BlockInput{block("TIP", tipPayload)}})
 	require.Nil(t, terr)
-	_, terr = e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: e.mid(), Title: "ex", Difficulty: "EASY", Links: service.LinksInput{Practice: true}})
+	_, terr = e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: e.mid(), Title: "ex", Difficulty: "EASY", Links: &service.LinksInput{Practice: true}})
 	require.Nil(t, terr)
 
 	res, terr := e.svc.GetModule(ctx, e.teacher, service.ModuleInput{ModuleID: e.mid()})
@@ -379,7 +379,7 @@ func TestModuleExerciseLifecycle(t *testing.T) {
 		Hints:      raw(`[{"text":"use mkdir"}]`),
 		Solution:   raw(`{"steps":[{"command":"mkdir /d"}]}`),
 		Conditions: raw(`[{"kind":"DIR_EXISTS","path":"/d"}]`),
-		Links:      service.LinksInput{Practice: true},
+		Links:      &service.LinksInput{Practice: true},
 	})
 	require.Nil(t, terr)
 	assert.Equal(t, "DRAFT", first.Exercise.Status, "created exercises stay in draft")
@@ -388,7 +388,7 @@ func TestModuleExerciseLifecycle(t *testing.T) {
 
 	dep := first.Exercise.ID.String()
 	second, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{
-		ModuleID: mid, Title: "Make file", Difficulty: "MEDIUM", DependsOn: &dep, Conditions: raw(`[{"kind":"FILE_EXISTS","path":"/d/f"}]`), Links: service.LinksInput{Assessment: true}})
+		ModuleID: mid, Title: "Make file", Difficulty: "MEDIUM", DependsOn: &dep, Conditions: raw(`[{"kind":"FILE_EXISTS","path":"/d/f"}]`), Links: &service.LinksInput{Assessment: true}})
 	require.Nil(t, terr)
 	require.NotNil(t, second.Exercise.DependsOn)
 	assert.True(t, second.Exercise.Assessment)
@@ -400,7 +400,7 @@ func TestModuleExerciseLifecycle(t *testing.T) {
 	assert.Equal(t, domain.FieldProblem{Field: "difficulty", Received: `"EXTREME"`, Expected: "must be EASY, MEDIUM or HARD"}, te.Fields[0])
 	assert.Equal(t, "conditions[0].path", te.Fields[1].Field)
 	assert.Len(t, e.f.Exercises[e.module], 2)
-	_, terr = e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Title: "x", Difficulty: "EASY", Links: service.LinksInput{Exclusive: true, Practice: true}})
+	_, terr = e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Title: "x", Difficulty: "EASY", Links: &service.LinksInput{Exclusive: true, Practice: true}})
 	requireErr(t, terr, domain.TypeValidation)
 	badDep := "x"
 	_, terr = e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Title: "x", Difficulty: "EASY", DependsOn: &badDep})
@@ -513,9 +513,9 @@ func TestSetExerciseSetup(t *testing.T) {
 	e := setup(t, false)
 	ctx := context.Background()
 	mid := e.mid()
-	ex, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Title: "a", Difficulty: "EASY", Conditions: raw(`[{"kind":"DIR_EXISTS","path":"/a"}]`), Links: service.LinksInput{Practice: true}})
+	ex, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Title: "a", Difficulty: "EASY", Conditions: raw(`[{"kind":"DIR_EXISTS","path":"/a"}]`), Links: &service.LinksInput{Practice: true}})
 	require.Nil(t, terr)
-	other, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Title: "b", Difficulty: "EASY", Conditions: raw(`[{"kind":"DIR_EXISTS","path":"/b"}]`), Links: service.LinksInput{Practice: true}})
+	other, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: mid, Title: "b", Difficulty: "EASY", Conditions: raw(`[{"kind":"DIR_EXISTS","path":"/b"}]`), Links: &service.LinksInput{Practice: true}})
 	require.Nil(t, terr)
 
 	// Recipe and inheritance of one exercise.
@@ -681,7 +681,7 @@ func TestTrueFalseQuestionsThroughTheTools(t *testing.T) {
 	yes := true
 	created, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{
 		ModuleID: mid, Kind: "THEORETICAL_BOOLEAN", Title: "rm -r", Difficulty: "EASY", Statement: "<p>rm -r removes non-empty directories.</p>",
-		Hints: raw(`[{"text":"Think of -r"}]`), CorrectAnswer: &yes, Explanation: "<p>It is recursive.</p>", Links: service.LinksInput{Practice: true},
+		Hints: raw(`[{"text":"Think of -r"}]`), CorrectAnswer: &yes, Explanation: "<p>It is recursive.</p>", Links: &service.LinksInput{Practice: true},
 	})
 	require.Nil(t, terr)
 	assert.Equal(t, "THEORETICAL_BOOLEAN", created.Exercise.Kind)

@@ -128,10 +128,19 @@ type CreateModuleExerciseInput struct {
 	Right json.RawMessage `json:"right,omitempty"`
 	Pairs json.RawMessage `json:"pairs,omitempty"`
 	// ExpectedAnswer and MaxLength are for a DISCURSIVE question (SPEC-039 RN-01).
-	ExpectedAnswer string     `json:"expectedAnswer,omitempty"`
-	MaxLength      *int       `json:"maxLength,omitempty"`
-	DependsOn      *string    `json:"dependsOn,omitempty"`
-	Links          LinksInput `json:"links"`
+	ExpectedAnswer string  `json:"expectedAnswer,omitempty"`
+	MaxLength      *int    `json:"maxLength,omitempty"`
+	DependsOn      *string `json:"dependsOn,omitempty"`
+	// Links are the places the exercise is linked to; without them it goes to the practice and to the assessment (SPEC-088 RN-04).
+	Links *LinksInput `json:"links,omitempty"`
+}
+
+// linksOrDefault is the links given, even all false, or, without them, the practice and the assessment (SPEC-088 RN-04).
+func (in CreateModuleExerciseInput) linksOrDefault() contentservice.ExerciseLinks {
+	if in.Links == nil {
+		return contentservice.ExerciseLinks{Practice: true, Assessment: true}
+	}
+	return in.Links.links()
 }
 
 // ExerciseResult is an exercise after a change.
@@ -161,7 +170,7 @@ func (s *Service) CreateModuleExercise(ctx context.Context, c Caller, in CreateM
 		CorrectAnswer: in.CorrectAnswer, Explanation: in.Explanation, HasDependency: dependsOn != nil,
 		Choices: in.Choices, CorrectChoice: in.CorrectChoice, ShuffleChoices: in.ShuffleChoices,
 		Left: in.Left, Right: in.Right, Pairs: in.Pairs, ExpectedAnswer: in.ExpectedAnswer, MaxLength: in.MaxLength,
-	}, dependsOn, in.Links.links())
+	}, dependsOn, in.linksOrDefault())
 	if err != nil {
 		return ExerciseResult{}, fail(err, fieldContext{root: rootOf(in)})
 	}
