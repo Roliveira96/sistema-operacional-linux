@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-087 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 26/10/2026 |
 | **Última revisão** | 26/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -167,12 +167,14 @@ Não se aplica: nenhuma mudança no servidor.
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | **Como é a "tela separada".** (a) Aba nova do navegador, com a página cobrindo a janela sem o menu da plataforma e *Sair da simulação* fechando a aba; (b) a mesma aba, só cobrindo a janela, como o modo foco da aula ao vivo; (c) uma janela nova aberta por script, com tamanho fixo. | **(a).** É o que mais parece uma prova: a docente perde de vista a plataforma e volta ao detalhe fechando a aba. (b) deixa a aba de origem presa na prova; (c) é bloqueada por bloqueador de pop-up e não entra em tela cheia direito. |
-| P-02 | **Tela cheia do navegador.** (a) Um botão *Tela cheia* no cabeçalho da prova, opcional; (b) pedir a tela cheia ao acionar *Começar*, sem botão; (c) nada de tela cheia agora. | **(a).** Só um gesto da docente libera a tela cheia (SPEC-059), e *Começar* serviria, mas obrigar a tela cheia incomoda quem testa a prova de relance. Um botão deixa a escolha com ela e fica pronto para a spec das tentativas decidir se a prova real obriga. |
-| P-03 | **O que a comemoração faz.** (a) Uma camada sobre a coluna da questão com a marca animada, "Questão resolvida!" e os botões *Próxima questão* (ou *Entregar* na última) e *Continuar nesta questão*; Esc e clique fora fecham; o terminal segue ativo; (b) a mesma camada, mas que some sozinha depois de alguns segundos; (c) só a marca animada no navegador de questões e na linha de estado, sem camada nem botão. | **(a).** É o que o Tech Lead pediu: mostrar o acerto e que se pode ir para a próxima. (b) some antes de quem usa leitor de tela ou está olhando o terminal perceber; (c) não "mostra" o bastante. A trava e o avanço sozinho ficam de fora (SPEC-085 D-02). |
-| P-04 | **Mascote.** (a) Sem mascote: a marca de acerto desenhada pelo estilo; (b) trazer o pinguim do TSI do simulado da `main` (`public/tsi.png`), pulando, como antes. | **(a).** A imagem não está na plataforma e não tem a identidade visual dela; a marca desenhada respeita os tokens e o menos movimento. Se o Tech Lead quiser o pinguim, a imagem entra na plataforma com esta spec e a animação dele segue as mesmas regras de menos movimento. |
+Nenhuma. O Tech Lead decidiu em 26/10/2026, ao aprovar a spec, todas as pendências que ela tinha, com as recomendações como estavam. As decisões estão incorporadas às seções 2, 3, 6, 7 e 8; esta tabela só as registra.
+
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **A janela própria da prova.** Aba nova do navegador, com a página cobrindo a janela inteira, sem o menu nem o cabeçalho da plataforma, e *Sair da simulação* fechando a aba (ou indo ao detalhe quando o navegador não deixa fechar). Nem a mesma aba só cobrindo a janela, nem janela aberta por script. |
+| D-02 | **Tela cheia do navegador.** Um botão *Tela cheia* opcional no cabeçalho da prova, que só um gesto da docente libera (SPEC-059); nada obriga a tela cheia, e a spec das tentativas decide se a prova real obriga. |
+| D-03 | **A comemoração.** Uma camada sobre a coluna da questão com a marca de acerto animada, "Questão resolvida!" e os botões *Próxima questão* (ou *Entregar* na última) e *Continuar nesta questão*; Esc e clique fora fecham; o terminal segue ativo; ela não some sozinha, não trava a questão e não avança sozinha (SPEC-085 D-02). |
+| D-04 | **Mascote.** Sem mascote: a marca de acerto é desenhada pelo estilo, com os tokens e o menos movimento; o pinguim do TSI do simulado da `main` fica de fora. |
 
 ---
 
@@ -181,3 +183,5 @@ Não se aplica: nenhuma mudança no servidor.
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 26/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 26/10/2026 de que o simulador abra numa tela separada, como a prova, e comemore a questão resolvida mostrando que se pode ir para a próxima; conferida contra as SPEC-081, 084 e 085, o modo foco da SPEC-059, o simulado da `main` (`TelaSimulado.ts`) e o código do simulador. Quatro pendências abertas (P-01 a P-04), todas com recomendação |
+| 26/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das quatro pendências aceitas como estavam na spec: D-01 a D-04. Status: `Aprovada` |
+| 26/10/2026 | Aruna Architect | Seção 10 esvaziada: as quatro pendências viraram decisões D-01 a D-04, incorporadas ao texto; notas de sobreposição registradas no histórico das SPEC-081 e 085 |
