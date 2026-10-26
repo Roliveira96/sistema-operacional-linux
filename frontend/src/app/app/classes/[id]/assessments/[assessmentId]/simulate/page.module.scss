@@ -1,15 +1,18 @@
 // The window of the exam (SPEC-087 D-01): the page covers the whole window, over the menu and the header of the platform (the bar of the signed-in
-// area is at 100; the dialogs are at 1000), and does not scroll as a whole: each part scrolls on its own.
+// area is at 100; the dialogs are at 1000), and does not scroll as a whole: each part scrolls on its own. The simulator draws its own bar at the top.
 .window {
   position: fixed;
   inset: 0;
   z-index: 500;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
   overflow: hidden;
   background: var(--color-bg);
+}
+
+// What is shown before the simulator: the loading, or the problem with the way out.
+.inset {
+  margin: var(--space-4);
 }
 
 // The title of the page is for the reader of the screen and the tab of the browser; the bar of the simulation is what is seen.

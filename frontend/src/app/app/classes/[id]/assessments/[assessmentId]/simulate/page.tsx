@@ -65,7 +65,7 @@ export default function SimulatePage({ params }: { params: Promise<{ id: string;
     <main className={own.window}>
       <h1 className={own.srOnly}>{m.simulator.title}</h1>
       {error && (
-        <div className={styles.problem}>
+        <div className={`${styles.problem} ${own.inset}`}>
           <span role="alert">{error}</span>
           <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
             {m.retry}

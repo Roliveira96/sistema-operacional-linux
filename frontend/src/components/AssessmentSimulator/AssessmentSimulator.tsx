@@ -348,10 +348,12 @@ function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: Assess
   return (
     <div className={styles.simulator}>
       <div className={styles.bar}>
-        <p role="note" className={styles.banner}>
-          {s.banner}
-        </p>
-        <span className={styles.situation}>{s.realSituation(situationOf(detail))}</span>
+        <div className={styles.barStart}>
+          <p role="note" className={styles.banner}>
+            {s.banner}
+          </p>
+          <span className={styles.situation}>{s.realSituation(situationOf(detail))}</span>
+        </div>
         <div role="tablist" aria-label={s.tabsLabel} className={styles.tabs} onKeyDown={moveTab}>
           {(["student", "teacher"] as const).map((key) => (
             <button
@@ -369,38 +371,41 @@ function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: Assess
             </button>
           ))}
         </div>
-        {isDraw && (
-          <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
-            {s.drawAgain}
+        <div className={styles.barEnd}>
+          {isDraw && (
+            <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
+              {s.drawAgain}
+            </Button>
+          )}
+          <Button variant="secondary" onClick={leave}>
+            {s.exit}
           </Button>
-        )}
-        <Button variant="secondary" onClick={leave}>
-          {s.exit}
-        </Button>
+        </div>
       </div>
 
       <section role="tabpanel" id={tabIds.student.panel} aria-label={s.studentView} hidden={tab !== "student"} className={styles.pane}>
         <h2 className={styles.paneTitle}>{s.studentView}</h2>
         {phase === "intro" && (
-          <div className={styles.stack}>
-            <h3 className={styles.examTitle}>{detail.title}</h3>
-            {detail.description && <div className={styles.richText} dangerouslySetInnerHTML={{ __html: detail.description }} />}
-            <dl className={styles.facts}>
-              <div>
-                <dt>{s.intro.duration}</dt>
-                <dd>{detail.durationMinutes ? s.intro.minutes(detail.durationMinutes) : s.intro.wholePeriod}</dd>
-              </div>
-              <div>
-                <dt>{s.intro.maxScore}</dt>
-                <dd>{formatScore(detail.maxScore)}</dd>
-              </div>
-              <div>
-                <dt>{s.intro.questions}</dt>
-                <dd>{s.intro.count(questions.length)}</dd>
-              </div>
-            </dl>
-            <div>
-              <Button onClick={begin} disabled={questions.length === 0}>
+          <div className={styles.cover}>
+            <div className={styles.coverCard}>
+              <p className={styles.kicker}>{m.type[detail.type]}</p>
+              <h3 className={styles.coverTitle}>{detail.title}</h3>
+              {detail.description && <div className={styles.richText} dangerouslySetInnerHTML={{ __html: detail.description }} />}
+              <dl className={styles.stats}>
+                <div>
+                  <dt>{s.intro.duration}</dt>
+                  <dd>{detail.durationMinutes ? s.intro.minutes(detail.durationMinutes) : s.intro.wholePeriod}</dd>
+                </div>
+                <div>
+                  <dt>{s.intro.maxScore}</dt>
+                  <dd>{formatScore(detail.maxScore)}</dd>
+                </div>
+                <div>
+                  <dt>{s.intro.questions}</dt>
+                  <dd>{s.intro.count(questions.length)}</dd>
+                </div>
+              </dl>
+              <Button className={styles.begin} onClick={begin} disabled={questions.length === 0}>
                 {s.intro.begin}
               </Button>
             </div>
@@ -411,7 +416,6 @@ function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: Assess
           <div className={styles.exam}>
             <div className={styles.examHead}>
               <p className={styles.examName}>{detail.title}</p>
-              <h3 className={styles.examTitle}>{s.answering.position(current + 1, questions.length)}</h3>
               {remaining !== null && (
                 <span role="timer" aria-label={s.answering.timeLeft} className={styles.timer}>
                   {countdown(remaining)}
@@ -426,41 +430,46 @@ function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: Assess
             </div>
             <div className={`${styles.examBody} ${hasTerminal ? styles.withTerminal : ""}`}>
               <div className={styles.questionCol}>
-                <ol aria-label={s.answering.navigator} className={styles.navigator}>
-                  {questions.map((q, i) => (
-                    <li key={q.questionId}>
-                      <button
-                        type="button"
-                        className={`${styles.step} ${isDone(q) ? styles.stepDone : ""}`}
-                        aria-label={s.answering.navItem(i + 1, solved[q.questionId] ? "solved" : isDone(q) ? "answered" : "blank")}
-                        aria-current={i === current ? "step" : undefined}
-                        onClick={() => goTo(i)}
-                      >
-                        {i + 1}
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-                <p className={styles.worth}>{m.points(formatScore(open.weight))}</p>
-                <Html html={open.statement} />
-                <Answer key={open.questionId} question={open} response={responses[open.questionId]} order={orders[open.questionId]} onChange={(value) => answer(open.questionId, value)} />
-                {solved[open.questionId] && (
-                  <p role="status" className={styles.solvedNote}>
-                    {s.answering.solved}
-                  </p>
-                )}
-                {checkFailed === open.questionId && (
-                  <p role="status" className={styles.notice}>
-                    {s.answering.checkFailed}
-                  </p>
-                )}
-                <div className={styles.footer}>
-                  <Button variant="secondary" disabled={current === 0} onClick={() => goTo(current - 1)}>
-                    {s.answering.previous}
-                  </Button>
-                  <Button variant="secondary" disabled={current === questions.length - 1} onClick={() => goTo(current + 1)}>
-                    {s.answering.next}
-                  </Button>
+                <div className={styles.questionScroll}>
+                  <ol aria-label={s.answering.navigator} className={styles.navigator}>
+                    {questions.map((q, i) => (
+                      <li key={q.questionId}>
+                        <button
+                          type="button"
+                          className={`${styles.step} ${isDone(q) ? styles.stepDone : ""}`}
+                          aria-label={s.answering.navItem(i + 1, solved[q.questionId] ? "solved" : isDone(q) ? "answered" : "blank")}
+                          aria-current={i === current ? "step" : undefined}
+                          onClick={() => goTo(i)}
+                        >
+                          {i + 1}
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                  <div className={styles.questionHead}>
+                    <h3 className={styles.examTitle}>{s.answering.position(current + 1, questions.length)}</h3>
+                    <p className={styles.worth}>{m.points(formatScore(open.weight))}</p>
+                  </div>
+                  <Html html={open.statement} />
+                  <Answer key={open.questionId} question={open} response={responses[open.questionId]} order={orders[open.questionId]} onChange={(value) => answer(open.questionId, value)} />
+                  {solved[open.questionId] && (
+                    <p role="status" className={styles.solvedNote}>
+                      {s.answering.solved}
+                    </p>
+                  )}
+                  {checkFailed === open.questionId && (
+                    <p role="status" className={styles.notice}>
+                      {s.answering.checkFailed}
+                    </p>
+                  )}
+                  <div className={styles.footer}>
+                    <Button variant="secondary" disabled={current === 0} onClick={() => goTo(current - 1)}>
+                      {s.answering.previous}
+                    </Button>
+                    <Button variant="secondary" disabled={current === questions.length - 1} onClick={() => goTo(current + 1)}>
+                      {s.answering.next}
+                    </Button>
+                  </div>
                 </div>
                 {celebrating === open.questionId && (
                   <SolvedCelebration
@@ -484,16 +493,18 @@ function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: Assess
         )}
 
         {phase === "done" && (
-          <div className={styles.stack}>
-            <h3 className={styles.examTitle}>{s.done.title}</h3>
-            {timeUp && <p>{s.done.timeUp}</p>}
-            <p>{s.done.nothingSent}</p>
-            <p>{s.done.answered(answeredCount, questions.length)}</p>
-            <div className={styles.footer}>
-              <Button onClick={restart}>{s.done.redo}</Button>
-              <Button variant="secondary" onClick={onExit}>
-                {s.exit}
-              </Button>
+          <div className={styles.cover}>
+            <div className={styles.coverCard}>
+              <h3 className={styles.coverTitle}>{s.done.title}</h3>
+              {timeUp && <p className={styles.coverText}>{s.done.timeUp}</p>}
+              <p className={styles.coverText}>{s.done.nothingSent}</p>
+              <p className={styles.coverText}>{s.done.answered(answeredCount, questions.length)}</p>
+              <div className={styles.coverActions}>
+                <Button onClick={restart}>{s.done.redo}</Button>
+                <Button variant="secondary" onClick={onExit}>
+                  {s.exit}
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -501,6 +512,7 @@ function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: Assess
 
       <section role="tabpanel" id={tabIds.teacher.panel} aria-label={s.teacherView} hidden={tab !== "teacher"} className={styles.pane}>
         <h2 className={styles.paneTitle}>{s.teacherView}</h2>
+        <div className={styles.teacher}>
         <dl className={styles.facts}>
           {(
             [
@@ -528,6 +540,7 @@ function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: Assess
             </QuestionBlock>
           ))}
         </ol>
+        </div>
       </section>
 
       {confirming && (

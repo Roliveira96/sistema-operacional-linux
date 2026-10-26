@@ -145,6 +145,7 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: 
   return (
     <section className={styles.pane} aria-label={s.title}>
       <div className={styles.bar}>
+        <span className={styles.title}>{s.title}</span>
         <Button variant="secondary" title={actions.resetTitle} disabled={!questionId || state !== "ready"} onClick={() => setConfirming(true)}>
           {actions.reset}
         </Button>
