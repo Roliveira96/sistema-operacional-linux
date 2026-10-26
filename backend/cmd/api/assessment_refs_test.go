@@ -463,3 +463,29 @@ func TestAssessmentQuestions_CheckGradesTheMachineWithTheConditionsOfTheQuestion
 	_, err = q.Check(ctx, uuid.New(), json.RawMessage(machineWithTheFolder))
 	assert.ErrorIs(t, err, assessmentdomain.ErrQuestionNotFound)
 }
+
+// Covers SPEC-088 RN-01, RN-02 (CA-01, CA-02): the pool counts the questions of the bank that are not eligible, by reason: not published (whatever
+// the link) and published without the assessment link; the counts are of the whole module, whatever the filter, and carry nothing but numbers.
+func TestAssessmentQuestions_PoolCountsTheExcluded(t *testing.T) {
+	linked1, linked2 := question("EASY", "PUBLISHED", true, "Criar pasta"), question("HARD", "PUBLISHED", true, "Dono e grupo")
+	practiceOnly, unlinked := question("EASY", "PUBLISHED", false, "Só da prática"), question("MEDIUM", "PUBLISHED", false, "Sem vínculo")
+	draftLinked, draftUnlinked := question("EASY", "DRAFT", true, "Rascunho vinculado"), question("EASY", "DRAFT", false, "Rascunho solto")
+	archived := question("MEDIUM", "ARCHIVED", true, "Arquivado")
+	bank := &fakeBank{items: []contentservice.ExerciseRecord{linked1, practiceOnly, draftLinked, unlinked, draftUnlinked, archived, linked2}}
+	q := assessmentQuestions{bank: bank, questions: fakeQuestionReader{}}
+	module := uuid.New()
+
+	page, err := q.Pool(ctx, assessmentservice.QuestionFilter{ModuleID: module})
+	require.NoError(t, err)
+	assert.Equal(t, 2, page.Total, "only the published and linked are eligible")
+	assert.Equal(t, assessmentservice.Excluded{Unpublished: 3, Unlinked: 2}, page.Excluded, "a draft counts as unpublished whatever its link, and so does the archived")
+
+	filtered, err := q.Pool(ctx, assessmentservice.QuestionFilter{ModuleID: module, Difficulty: assessmentdomain.DifficultyHard, Query: "dono"})
+	require.NoError(t, err)
+	assert.Equal(t, 1, filtered.Total)
+	assert.Equal(t, page.Excluded, filtered.Excluded, "the counts do not follow the filter")
+
+	empty, err := assessmentQuestions{bank: &fakeBank{}, questions: fakeQuestionReader{}}.Pool(ctx, assessmentservice.QuestionFilter{ModuleID: module})
+	require.NoError(t, err)
+	assert.Equal(t, assessmentservice.Excluded{}, empty.Excluded, "an empty bank has nothing out")
+}

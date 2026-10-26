@@ -914,3 +914,24 @@ func TestHandler_CheckQuestion(t *testing.T) {
 		assert.Equal(t, c.typ, body["type"], c.err.Error())
 	}
 }
+
+// Covers SPEC-088 CA-01, CA-02 (RN-01, RN-02): the eligible questions carry the counts of the questions of the bank that are out, by reason, as
+// numbers only, beside the fields that already exist.
+func TestHandler_EligibleQuestionsCountTheExcluded(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	classID, moduleID := uuid.New(), uuid.New()
+	svc.page = service.QuestionPage{
+		Total: 5, Stock: map[domain.Difficulty]int{domain.DifficultyEasy: 2, domain.DifficultyMedium: 2, domain.DifficultyHard: 1},
+		Excluded: service.Excluded{Unpublished: 22, Unlinked: 47},
+	}
+	status, body := call(t, srv, http.MethodGet, classPath(classID)+"/assessment-questions?moduleId="+moduleID.String(), nil)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, sorted("items", "total", "stock", "excluded"), keysOf(body))
+	excluded := object(t, body["excluded"])
+	assert.Equal(t, sorted("unpublished", "unlinked"), keysOf(excluded), "only the two counts, nothing of the questions themselves")
+	assert.EqualValues(t, 22, excluded["unpublished"])
+	assert.EqualValues(t, 47, excluded["unlinked"])
+	assert.EqualValues(t, 5, body["total"])
+	assert.EqualValues(t, 2, object(t, body["stock"])["EASY"])
+}
