@@ -222,6 +222,8 @@ Termos da SPEC-075 (Aprovada em 20/10/2026). As decisões D-02 e D-04 dela ajust
 | Pré-visualização | `preview` | Visão da docente com enunciados, gabaritos e pontuação, em qualquer fase | — | Proposto (SPEC-075) |
 | Decisão de acesso | `AccessOf` (resultados `ALLOWED`, `CANCELED`, `NOT_ELIGIBLE`, `NOT_OPEN_YET`, `ENDED`) | Interface do service que diz se um estudante pode entrar numa avaliação agora; a spec das tentativas a consome | `canStart` | Proposto (SPEC-075) |
 | Transformar em avaliação | `classSessionId` (de `assessments`) | Criar a avaliação a partir de uma aula da agenda, aproveitando horário, tema e módulo, sem alterar a aula | `Convert` na interface | Proposto (SPEC-075) |
+| Exercícios fora da prova | `excluded` (`unpublished`, `unlinked`) na rota `assessment-questions` | As contagens dos exercícios do banco do módulo que não são elegíveis: os não publicados, seja qual for o vínculo, e os publicados sem o vínculo *Avaliação*. Só números; o formulário da avaliação as mostra como aviso (SPEC-088 RN-01) | `hidden`, `ineligible` | Proposto (SPEC-088) |
+| Adicionar todos os publicados | ação do bloco *Reservados para avaliação* | Vincula à avaliação, um a um pela rota de vínculos, todos os exercícios publicados que ainda não têm o vínculo; não publica rascunho (SPEC-088 D-03) | `Bulk link` | Proposto (SPEC-088) |
 
 ## 4.2. Modalidade e habilitação para a prova presencial (SPEC-076)
 
