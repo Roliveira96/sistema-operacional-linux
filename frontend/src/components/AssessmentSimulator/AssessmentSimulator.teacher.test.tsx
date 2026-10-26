@@ -17,7 +17,7 @@ beforeEach(() => mount.mockImplementation(terminalMount().mount));
 
 /** The simulator opens on the tab of the student; the teacher reads the other one, which is kept as it was while the student view is used. */
 async function open(data: PreviewData = simulation(), over: Partial<AssessmentDetail> = {}, load = vi.fn(() => Promise.resolve(data))) {
-  render(<AssessmentSimulator detail={detail(over)} load={load} loadScenario={() => Promise.resolve(null)} checkQuestion={() => Promise.resolve(false)} backHref="/x" />);
+  render(<AssessmentSimulator detail={detail(over)} load={load} loadScenario={() => Promise.resolve(null)} checkQuestion={() => Promise.resolve(false)} onExit={() => {}} />);
   await screen.findByRole("tabpanel", { name: "Visão do aluno" });
   const showStudent = () => {
     fireEvent.click(screen.getByRole("tab", { name: "Aluno" }));

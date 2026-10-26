@@ -75,6 +75,8 @@ describe("AssessmentSimulator, the check of the practical question", () => {
     const student = await practical();
     await typed({ step: 1 });
     await wait(1000);
+    // the celebration of SPEC-087 opens over the question; this test is about the mark, so it is closed
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Questão resolvida!" }), { key: "Escape" });
     expect(within(student).getByRole("button", { name: "Questão 5, resolvida" })).toBeDefined();
     expect(within(student).getByText("Questão resolvida no terminal.")).toBeDefined();
     expect(within(student).getByRole("heading", { name: "Questão 5 de 5" })).toBeDefined();
@@ -141,6 +143,8 @@ describe("AssessmentSimulator, the check of the practical question", () => {
     const student = await practical();
     await typed({ step: 1 });
     await wait(1000);
+    // the celebration of SPEC-087 opens over the question; this test is about the mark, so it is closed
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Questão resolvida!" }), { key: "Escape" });
     expect(within(student).getByRole("button", { name: "Questão 5, resolvida" })).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: /Reset Máquina/ }));
@@ -160,6 +164,8 @@ describe("AssessmentSimulator, the check of the practical question", () => {
     const student = await practical();
     await typed({ step: 1 });
     await wait(1000);
+    // the celebration of SPEC-087 opens over the question; this test is about the mark, so it is closed
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Questão resolvida!" }), { key: "Escape" });
     fireEvent.click(within(student).getByRole("button", { name: "Entregar" }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Entregar" }));
     fireEvent.click(within(student).getByRole("button", { name: "Refazer" }));
