@@ -3,13 +3,13 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-088 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 26/10/2026 |
 | **Última revisão** | 26/10/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
-| **Módulo** | `assessment` (backend: a contagem dos exercícios fora da prova na leitura das questões elegíveis; frontend: o formulário da avaliação), `mcp` (backend: o vínculo padrão de `create_module_exercise`) e o banco de questões do módulo (frontend: o exercício novo) |
+| **Módulo** | `assessment` (backend: a contagem dos exercícios fora da prova na leitura das questões elegíveis; frontend: o formulário da avaliação), `mcp` (backend: o vínculo padrão de `create_module_exercise`) e o banco de questões do módulo (frontend: o exercício novo e a ação de vincular todos) |
 | **Contexto de tela** | `/app/classes/[id]/assessments/new` e `/app/classes/[id]/assessments/[assessmentId]/edit` (o formulário da avaliação), `/app/modules/[id]/exercises/new` (o exercício novo) e `/app/modules/[id]/edit?tab=exercises` (o banco de questões do módulo) |
 | **Prioridade** | Alta |
 | **Depende de** | SPEC-075 (RN-05, as questões elegíveis e a rota `assessment-questions`), SPEC-023 (os vínculos do exercício), SPEC-024 (o servidor MCP), SPEC-079 (a escolha das questões) |
@@ -24,7 +24,7 @@ Um exercício do banco do módulo só entra numa avaliação quando está **publ
 
 Os números do banco de desenvolvimento, em 26/10/2026, mostram o tamanho do problema. No módulo "História do Linux", de 69 exercícios, **5** entram numa prova (publicados e vinculados à avaliação), **47** estão publicados mas vinculados só à prática, e **22** estão em rascunho. Nos outros módulos é parecido: fora "Simulados de Certificação", quase nenhum exercício tem o vínculo Avaliação. Os professores "criaram vários exercícios que podem ser usados nas provas" e, na prova, "só acham alguns".
 
-A regra de elegibilidade está certa e fica como está: o vínculo *Avaliação* e a marca *Exclusivo da avaliação* existem para a docente reservar questões de prova e esconder algumas da prática. O que falta é (1) a avaliação **dizer** quantos exercícios do módulo ficaram de fora e por quê, com o caminho para resolver, e (2) o exercício novo **nascer** com os dois vínculos, que é o que a maioria espera.
+A regra de elegibilidade está certa e fica como está: o vínculo *Avaliação* e a marca *Exclusivo da avaliação* existem para a docente reservar questões de prova e esconder algumas da prática. O que falta é (1) a avaliação **dizer** quantos exercícios do módulo ficaram de fora e por quê, com o caminho para resolver, (2) o exercício novo **nascer** com os dois vínculos, que é o que a maioria espera, e (3) um jeito de vincular **de uma vez** os que já existem.
 
 ## 2. Objetivos (Goals)
 
@@ -32,6 +32,7 @@ A regra de elegibilidade está certa e fica como está: o vínculo *Avaliação*
 - O formulário da avaliação (criar e editar) mostra esse **aviso** assim que o módulo é escolhido, nas duas composições, com o link para o banco de questões do módulo; e um **alerta** quando nenhum exercício do módulo pode entrar.
 - O exercício novo criado **pelo banco** ou pelo bloco *Disponíveis no módulo* nasce com os vínculos **Prática e Avaliação**; o criado pelo bloco *Reservados para avaliação* continua só com *Avaliação*. Continua nascendo em rascunho.
 - A ferramenta `create_module_exercise` do MCP, chamada **sem** `links`, cria o exercício com Prática e Avaliação, e a descrição da ferramenta diz isso.
+- O bloco *Reservados para avaliação* do banco ganha a ação **Adicionar todos os publicados**, que vincula à avaliação, de uma vez, os exercícios publicados que ainda não têm o vínculo.
 
 ### 2.1. Fora de escopo (Non-Goals)
 
@@ -39,7 +40,8 @@ Toda IA implementadora deve tratar esta lista como proibição.
 
 - **Mudar a regra de elegibilidade** (SPEC-075 RN-05): continua publicado + vínculo *Avaliação*. A prova não passa a aceitar rascunho nem exercício só da prática.
 - **Publicar** um exercício a partir do formulário da avaliação, ou vincular de lá: o aviso leva ao banco; quem vincula e publica é o banco (SPEC-023).
-- Mexer nos vínculos dos **exercícios que já existem**: a spec só muda o padrão do exercício novo. O que já está só na prática é vinculado pela docente no banco (ou pela ação da P-03, se aceita).
+- Mexer nos vínculos dos **exercícios que já existem** sem a docente pedir: a spec só muda o padrão do exercício novo; o que já está só na prática é vinculado pela docente no banco, um a um ou pela ação *Adicionar todos os publicados* (D-03).
+- **Publicar** os rascunhos pela ação de vincular todos: ela só vincula os publicados; publicar continua um a um, porque cada tipo tem o que precisa para ser publicado (SPEC-035 RN-04).
 - Mudar o padrão da operação `SET_LINKS` de `update_module_exercise`, da marca *Exclusivo* ou do status: o exercício novo continua `DRAFT`, e só a docente publica, no app (SPEC-024).
 - Listar, no formulário da avaliação, **quais** exercícios ficaram de fora, com título: só as contagens (D-01).
 - Mudar a pré-visualização, o simulador, o sorteio ou o estoque por nível.
@@ -65,11 +67,11 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts` e `message
   - criado pelo bloco *Reservados para avaliação*: só **Avaliação**, como hoje.
 - A mensagem de salvo da tela passa a dizer onde o exercício ficou: "Exercício salvo e vinculado à prática e à avaliação." ou "Exercício salvo e reservado para avaliação.", para a docente saber que pode tirar o vínculo que não quer no banco. O exercício continua em rascunho, e o banco continua mostrando as etiquetas de vínculo.
 
-**Vincular todos de uma vez** (P-03, se aceita)
+**Vincular todos de uma vez** (D-03)
 
-- No bloco *Reservados para avaliação* do banco, ao lado de *Adicionar do Banco*, a ação **Adicionar todos os publicados**, que vincula à avaliação, um a um pela rota de vínculos que já existe, todos os exercícios publicados que ainda não têm o vínculo, depois de uma confirmação com a contagem ("Vincular 47 exercícios publicados à avaliação?"). O que falhar é dito ao fim ("3 não puderam ser vinculados"), e o resto fica vinculado. Sem exercício para vincular, a ação fica desabilitada.
+- No bloco *Reservados para avaliação* do banco, ao lado de *Adicionar do Banco*, a ação **Adicionar todos os publicados**, que vincula à avaliação, um a um pela rota de vínculos que já existe, todos os exercícios publicados que ainda não têm o vínculo, depois de uma confirmação com a contagem ("Vincular 47 exercícios publicados à avaliação?"). O que falhar é dito ao fim ("3 não puderam ser vinculados"), e o resto fica vinculado. Sem exercício para vincular, a ação fica desabilitada. Os rascunhos não entram: a ação não publica nada.
 
-**Acesso à rede.** O formulário usa a rota de questões elegíveis que já existe (pelo serviço de avaliações), que ganha as contagens; a tela do exercício usa a criação que já existe, só com outros vínculos; a ação da P-03 usa a rota de vínculos que já existe. Nenhuma rota nova.
+**Acesso à rede.** O formulário usa a rota de questões elegíveis que já existe (pelo serviço de avaliações), que ganha as contagens; a tela do exercício usa a criação que já existe, só com outros vínculos; a ação *Adicionar todos os publicados* usa a rota de vínculos que já existe. Nenhuma rota nova.
 
 ### 3.2. Backend (Go: módulos `assessment` e `mcp`)
 
@@ -80,7 +82,7 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts` e `message
 
 ## 4. Modelo de Dados (Data Model)
 
-Não se aplica nesta spec: nenhuma tabela, coluna ou valor de enumeração muda. As contagens são calculadas na leitura, a partir do banco do módulo; o vínculo padrão usa as colunas `usage`, `in_assessment` e `exclusive_assessment` que já existem.
+Não se aplica nesta spec: nenhuma tabela, coluna ou valor de enumeração muda. As contagens são calculadas na leitura, a partir do banco do módulo; o vínculo padrão e a ação de vincular todos usam as colunas `usage`, `in_assessment` e `exclusive_assessment` que já existem.
 
 ## 5. Contrato de API (API Contract)
 
@@ -107,7 +109,7 @@ Não se aplica nesta spec: nenhuma tabela, coluna ou valor de enumeração muda.
 - **Uma leitura a mais por módulo escolhido, na composição manual.** **Mitigação:** é a mesma leitura leve do estoque (`pageSize` 1), uma vez por módulo escolhido.
 - **O padrão novo põe o exercício novo também na trilha da prática** (vínculo *Prática* põe no fim da trilha, SPEC-023 RN-03), o que a docente que só queria uma questão de prova pode não esperar. **Mitigação:** o exercício nasce em rascunho e nunca chega ao aluno antes de publicado (SPEC-023 RN-04); a mensagem de salvo diz os vínculos; o bloco *Reservados para avaliação* continua criando só com *Avaliação*; a etiqueta no banco mostra os vínculos.
 - **Agentes de IA que chamam o MCP sem `links` passam a criar exercícios nos dois vínculos.** **Mitigação:** é o que a docente espera e o exercício continua em rascunho; quem quiser outro vínculo passa `links`; a descrição da ferramenta diz o padrão.
-- **A ação de vincular todos (P-03) faz muitas chamadas.** **Mitigação:** uma por exercício, em sequência, com o resultado ao fim; sem rota nova; só os publicados sem o vínculo.
+- **A ação de vincular todos (D-03) faz muitas chamadas.** **Mitigação:** uma por exercício, em sequência, com o resultado ao fim; sem rota nova; só os publicados sem o vínculo; a confirmação diz a contagem antes.
 - **Testes que mudam.** O teste da tela do exercício que espera a criação sem vínculo, e o do formulário que lê o estoque só no sorteio. **Mitigação:** ajustados no commit vermelho, com o motivo registrado na entrega.
 - **Impacto em outros módulos:** o `assessment` conta os exercícios de fora pelo banco do módulo que o adaptador do composition root já lê; o `content` não muda de contrato. **`legacy/`:** removida; sem impacto.
 
@@ -119,7 +121,7 @@ Não se aplica nesta spec: nenhuma tabela, coluna ou valor de enumeração muda.
 - [ ] **CA-04** (estado): ENQUANTO o módulo escolhido não tem nenhum exercício elegível, O formulário DEVE mostrar o alerta "Nenhum exercício deste módulo pode entrar na prova." com as contagens e o link (D-01).
 - [ ] **CA-05** (evento): QUANDO `create_module_exercise` é chamada sem `links`, O exercício DEVE nascer `DRAFT` com `practice` e `assessment` ligados e `exclusive` desligado; QUANDO é chamada com `links`, DEVE usar o que veio; e a descrição da ferramenta DEVE dizer o padrão (RN-04).
 - [ ] **CA-06** (evento): QUANDO a docente salva pela primeira vez um exercício criado pelo botão do banco ou pelo bloco *Disponíveis no módulo*, Ele DEVE nascer com Prática e Avaliação; criado pelo bloco *Reservados para avaliação*, só com Avaliação; em todos os casos em rascunho, e a mensagem de salvo DEVE dizer os vínculos (D-02).
-- [ ] **CA-07** (evento, se a P-03 for aceita): QUANDO a docente aciona *Adicionar todos os publicados* no bloco *Reservados para avaliação* e confirma, Todos os exercícios publicados sem o vínculo *Avaliação* DEVEM ganhá-lo, um a um, e o resultado DEVE ser dito ao fim; sem exercício para vincular, a ação DEVE ficar desabilitada.
+- [ ] **CA-07** (evento): QUANDO a docente aciona *Adicionar todos os publicados* no bloco *Reservados para avaliação* e confirma, Todos os exercícios publicados sem o vínculo *Avaliação* DEVEM ganhá-lo, um a um, sem publicar nenhum rascunho, e o resultado DEVE ser dito ao fim, com as falhas; sem exercício para vincular, a ação DEVE ficar desabilitada (D-03).
 - [ ] **CA-08** (ubíquo): Os textos novos DEVEM estar nos arquivos de mensagens; o aviso, o alerta, o link e a ação DEVEM ter navegação por teclado, contraste AA, alvos de 44 px e nenhuma cor fora dos tokens.
 
 ## 8. Plano de Testes (Test Plan)
@@ -137,7 +139,7 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 - `AssessmentForm.test.tsx` (ajustado): o aviso com as duas contagens, com só uma delas, o link em aba nova, nenhum aviso sem exercício de fora, o alerta sem elegível, nas duas composições, e nenhum aviso na avaliação congelada (CA-03, CA-04)
 - `assessmentService.test.ts` (ajustado): a leitura do bloco `excluded` (CA-01)
 - `ModuleExerciseScreen.test.tsx` (ajustado): a criação pelo banco e pelo bloco da prática manda os dois vínculos; pelo bloco da avaliação, só o dela; a mensagem de salvo (CA-06)
-- `ModuleExercisesTab.test.tsx` (ajustado, se a P-03 for aceita): a ação, a confirmação com a contagem, as chamadas uma a uma, o resultado com falhas, a ação desabilitada (CA-07)
+- `ModuleExercisesTab.test.tsx` (ajustado): a ação, a confirmação com a contagem, as chamadas uma a uma só dos publicados sem o vínculo, o resultado com falhas, a ação desabilitada (CA-07)
 - Stylelint, ESLint e `tsc` limpos (CA-08)
 
 **Manual** (roteiro)
@@ -147,29 +149,32 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 3. Criar um exercício pelo botão do banco e outro pelo bloco *Disponíveis no módulo*: conferir as etiquetas "Disponível no módulo" e "Reservado para avaliação" nos dois; criar pelo bloco *Reservados para avaliação* e conferir só a etiqueta da avaliação.
 4. Pelo MCP, criar um exercício sem `links` e conferir no banco as duas etiquetas e o rascunho.
 5. Escolher um módulo sem nenhum exercício elegível e conferir o alerta.
-6. Se a P-03 for aceita: *Adicionar todos os publicados* no bloco da avaliação, confirmar e conferir que os publicados ganharam o vínculo.
+6. *Adicionar todos os publicados* no bloco da avaliação, confirmar e conferir que os publicados ganharam o vínculo e os rascunhos ficaram como estavam; voltar ao formulário da avaliação e conferir que só a contagem dos não publicados sobrou.
 7. Conferir a aparência e o contraste (WCAG AA) do aviso e do alerta no tema escuro, e a navegação só com o teclado.
 
-**Cobertura:** meta acima de 80% no escopo da spec (`ARCHITECTURE.md`, seção 5): `handler` do `assessment`, `service` do `mcp`, e o formulário, a tela do exercício e o serviço do frontend.
+**Cobertura:** meta acima de 80% no escopo da spec (`ARCHITECTURE.md`, seção 5): `handler` do `assessment`, `service` do `mcp`, e o formulário, a tela do exercício, a aba do banco e o serviço do frontend.
 
 ## 9. Contexto Final da IA (AI Final Context Execution)
 
-1. **Pré-leitura obrigatória:** `specs/AI_INSTRUCTIONS.md`, `specs/ARCHITECTURE.md`, `specs/GLOSSARY.md` e esta spec; a SPEC-075 (RN-05, RN-07 e a rota `assessment-questions`), a SPEC-023 (seção 3.1, os vínculos, RN-03 e RN-04), a SPEC-024 (as ferramentas do MCP) e a SPEC-079. Do código: `backend/cmd/api/assessment_refs.go` (`eligibleOf`, `Pool`), `backend/internal/modules/assessment/service/service.go` (`QuestionPage`) e `handler/dto.go` (`questionsResponse`), `backend/internal/modules/mcp/service/exercises.go` (`LinksInput`, `CreateModuleExercise`) e `mcp/domain/catalog.go` (`linksSchema`, `exerciseDoc`), `frontend/src/components/AssessmentForm/AssessmentForm.tsx` (a leitura do estoque), `frontend/src/components/ModuleExercises/ModuleExerciseScreen.tsx` (o salvar do exercício novo) e `ModuleExercisesTab.tsx` (os blocos e `relink`), `frontend/src/services/assessmentService.ts` e `moduleExerciseService.ts`.
-2. **Ordem de execução:** (a) os testes do backend, vermelhos e commitados (`test(assessment): ...`, `test(mcp): ...`); (b) as contagens no adaptador e no DTO, e o padrão do MCP com a descrição; (c) os testes do frontend, vermelhos e commitados (`test(frontend): ...`); (d) o aviso no formulário, o vínculo padrão na tela do exercício e, se aceita, a ação da P-03; (e) estilos e mensagens; (f) roteiro manual; (g) status e histórico.
+1. **Pré-leitura obrigatória:** `specs/AI_INSTRUCTIONS.md`, `specs/ARCHITECTURE.md`, `specs/GLOSSARY.md` e esta spec; a SPEC-075 (RN-05, RN-07 e a rota `assessment-questions`), a SPEC-023 (seção 3.1, os vínculos, RN-03 e RN-04), a SPEC-024 (as ferramentas do MCP) e a SPEC-079. Do código: `backend/cmd/api/assessment_refs.go` (`eligibleOf`, `Pool`), `backend/internal/modules/assessment/service/service.go` (`QuestionPage`) e `handler/dto.go` (`questionsResponse`), `backend/internal/modules/mcp/service/exercises.go` (`LinksInput`, `CreateModuleExercise`) e `mcp/domain/catalog.go` (`linksSchema`, `exerciseDoc`), `frontend/src/components/AssessmentForm/AssessmentForm.tsx` (a leitura do estoque), `frontend/src/components/ModuleExercises/ModuleExerciseScreen.tsx` (o salvar do exercício novo) e `ModuleExercisesTab.tsx` (os blocos, *Adicionar do Banco* e `relink`), `frontend/src/services/assessmentService.ts` e `moduleExerciseService.ts`.
+2. **Ordem de execução:** (a) os testes do backend, vermelhos e commitados (`test(assessment): ...`, `test(mcp): ...`); (b) as contagens no adaptador e no DTO, e o padrão do MCP com a descrição; (c) os testes do frontend, vermelhos e commitados (`test(frontend): ...`); (d) o aviso no formulário, o vínculo padrão na tela do exercício e a ação *Adicionar todos os publicados*; (e) estilos e mensagens; (f) roteiro manual; (g) status e histórico.
 3. **Arquivos e diretórios a criar ou alterar:**
    - **Backend, alterados:** `backend/cmd/api/assessment_refs.go` e seu teste (as contagens), `backend/internal/modules/assessment/service/service.go` (`QuestionPage` ganha as contagens) e `handler/dto.go` com `handler_test.go` (o campo), `backend/internal/modules/mcp/service/exercises.go` e seu teste (o padrão de `links`), `backend/internal/modules/mcp/domain/catalog.go` (a descrição).
-   - **Frontend, alterados:** `frontend/src/components/AssessmentForm/AssessmentForm.tsx`, `.module.scss` e `AssessmentForm.test.tsx`; `frontend/src/services/assessmentService.ts` e o teste (o tipo); `frontend/src/components/ModuleExercises/ModuleExerciseScreen.tsx` e o teste; `frontend/src/messages/pt-BR.ts` e `authoring.pt-BR.ts`; e, se a P-03 for aceita, `ModuleExercisesTab.tsx`, `.module.scss` e o teste.
-   - **Documentação:** esta spec, `specs/GLOSSARY.md` (seção 4.1) e a nota de sobreposição no histórico das SPEC-023 e 024.
+   - **Frontend, alterados:** `frontend/src/components/AssessmentForm/AssessmentForm.tsx`, `.module.scss` e `AssessmentForm.test.tsx`; `frontend/src/services/assessmentService.ts` e o teste (o tipo); `frontend/src/components/ModuleExercises/ModuleExerciseScreen.tsx` e o teste; `ModuleExercisesTab.tsx`, `.module.scss` e o teste (a ação); `frontend/src/messages/pt-BR.ts` e `authoring.pt-BR.ts`.
+   - **Documentação:** esta spec e `specs/GLOSSARY.md` (seção 4.1). As notas de sobreposição no histórico das SPEC-023 e 024 já estão registradas.
    - **Não alterar:** a regra de elegibilidade, o `content/service` (a criação e os vínculos ficam como estão), `frontend/src/engine/` e qualquer arquivo fora desta lista sem justificativa no resumo da entrega.
 4. **Definição de pronto:** todos os CA marcados, os testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, o roteiro manual feito, as pendências da seção 10 vazias e o status atualizado para `Implementada`.
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | **O que o aviso mostra.** (a) Só as duas contagens e o link para o banco; (b) também a lista dos títulos dos exercícios de fora, com o motivo de cada um. | **(a).** As contagens já dizem o que fazer, e a lista repetiria o banco, que é onde se vincula e publica; o servidor não precisa mandar conteúdo pela rota da avaliação (RN-02). |
-| P-02 | **O vínculo do exercício criado pelo bloco *Reservados para avaliação*.** (a) Continua só *Avaliação*; (b) também Prática e Avaliação, como os outros. | **(a).** Quem cria pelo bloco da avaliação escolheu a prova de propósito; os dois vínculos valem para o botão do banco e para o bloco da prática, que são os casos da reclamação. |
-| P-03 | **Vincular de uma vez os exercícios que já existem.** (a) A ação *Adicionar todos os publicados* no bloco *Reservados para avaliação*, só no frontend, pela rota de vínculos que já existe, com confirmação; (b) nada agora: a docente vincula um a um por *Adicionar do Banco*. | **(a).** Hoje há dezenas de exercícios publicados só na prática por módulo; um a um é o que os professores já não fazem. Sem rota nova e sem mexer no `content`. |
+Nenhuma. O Tech Lead decidiu em 26/10/2026, ao aprovar a spec, todas as pendências que ela tinha, com as recomendações como estavam, e antes dela, ao pedi-la, as escolhas da primeira linha. As decisões estão incorporadas às seções 2, 3, 6, 7 e 8; esta tabela só as registra.
+
+| ID | Decisão |
+| :--- | :--- |
+| Escolhas do pedido | **Aviso e padrão novo.** O formulário da avaliação avisa quantos exercícios do módulo não entram e por quê; e o exercício novo nasce com prática + avaliação. |
+| D-01 | **O que o aviso mostra.** Só as duas contagens e o link para o banco de questões do módulo, em aba nova; nenhuma lista de títulos, e nenhum conteúdo de exercício pela rota da avaliação. |
+| D-02 | **O vínculo do exercício criado pelo bloco *Reservados para avaliação*.** Continua só *Avaliação*; os dois vínculos valem para o botão do banco e para o bloco *Disponíveis no módulo*, e para o MCP sem `links`. |
+| D-03 | **Vincular de uma vez os que já existem.** A ação *Adicionar todos os publicados* no bloco *Reservados para avaliação*, só no frontend, pela rota de vínculos que já existe, com confirmação e resultado; só os publicados sem o vínculo, sem publicar nada. |
 
 ---
 
@@ -178,3 +183,5 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 26/10/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir da reclamação dos professores de 26/10/2026 de que os exercícios criados nos módulos não aparecem na prova; conferida contra a SPEC-075 RN-05, a SPEC-023 (vínculos), a SPEC-024 (o MCP), o código da elegibilidade (`assessment_refs.go`), a tela do exercício e o banco de desenvolvimento (69 exercícios no módulo "História do Linux": 5 elegíveis, 47 só na prática, 22 em rascunho). O Tech Lead decidiu antes da escrita: o aviso no formulário da avaliação e o padrão prática + avaliação do exercício novo. Três pendências abertas (P-01 a P-03), todas com recomendação |
+| 26/10/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das três pendências aceitas como estavam na spec: D-01 a D-03. Status: `Aprovada` |
+| 26/10/2026 | Aruna Architect | Seção 10 esvaziada: as três pendências viraram decisões D-01 a D-03, incorporadas ao texto (a ação *Adicionar todos os publicados* deixou de ser condicional nas seções 2, 3, 6, 7, 8 e 9); notas de sobreposição registradas no histórico das SPEC-023 e 024 |
