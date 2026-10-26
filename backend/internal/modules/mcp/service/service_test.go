@@ -805,3 +805,23 @@ func TestMatchingQuestionsThroughTheTools(t *testing.T) {
 		Pairs: raw(`[{"left":"l1","right":"r1"},{"left":"l2","right":"r1"}]`)})
 	assert.Equal(t, "pairs[1].right", requireErr(t, terr, domain.TypeValidation).Fields[0].Field)
 }
+
+// Covers SPEC-088 CA-05 (RN-04): an exercise created without links is born in the practice and in the assessment, as a draft; links given are
+// used as they come, and an empty links object is no link at all.
+func TestCreateModuleExerciseWithoutLinksGoesToPracticeAndAssessment(t *testing.T) {
+	e := setup(t, false)
+	ctx := context.Background()
+	created, terr := e.svc.CreateModuleExercise(ctx, e.teacher, service.CreateModuleExerciseInput{ModuleID: e.mid(), Title: "Sem vínculo dado", Difficulty: "EASY"})
+	require.Nil(t, terr)
+	assert.True(t, created.Exercise.Practice, "without links the exercise is in the practice")
+	assert.True(t, created.Exercise.Assessment, "and in the assessment")
+	assert.False(t, created.Exercise.Exclusive)
+	assert.Equal(t, "DRAFT", created.Exercise.Status)
+
+	var explicit service.CreateModuleExerciseInput
+	require.NoError(t, json.Unmarshal([]byte(`{"moduleId":"`+e.mid()+`","title":"Sem vínculo","difficulty":"EASY","links":{}}`), &explicit))
+	none, terr := e.svc.CreateModuleExercise(ctx, e.teacher, explicit)
+	require.Nil(t, terr)
+	assert.False(t, none.Exercise.Practice, "links given, even all false, are used as they come")
+	assert.False(t, none.Exercise.Assessment)
+}

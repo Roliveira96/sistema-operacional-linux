@@ -58,3 +58,26 @@ func TestToolErrors(t *testing.T) {
 	assert.Equal(t, domain.TypeModuleNotFound, nf.Type)
 	assert.Equal(t, 404, domain.NotFound(domain.TypeBlockNotFound, "x").Status)
 }
+
+// Covers SPEC-088 CA-05 (RN-04): the tool that creates an exercise says what links it gets when none are given.
+func TestCreateModuleExerciseToolSaysTheDefaultLinks(t *testing.T) {
+	for _, s := range domain.Catalog() {
+		if s.Name != domain.ToolCreateModuleExercise {
+			continue
+		}
+		raw, err := json.Marshal(s.InputSchema)
+		require.NoError(t, err)
+		var schema struct {
+			Properties struct {
+				Links struct {
+					Description string `json:"description"`
+				} `json:"links"`
+			} `json:"properties"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &schema))
+		assert.Contains(t, schema.Properties.Links.Description, "practice and assessment", "the links field says its default")
+		assert.Contains(t, s.Description, "practice and assessment", "the tool says the default too")
+		return
+	}
+	t.Fatal("create_module_exercise is not in the catalog")
+}
