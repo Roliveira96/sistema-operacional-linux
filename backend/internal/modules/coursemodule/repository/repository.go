@@ -25,6 +25,14 @@ type ListFilter struct {
 	Limit      int
 }
 
+// pageSize is the page size of a listing: 10 when not asked, at most 50 (SPEC-010).
+func pageSize(asked int) int {
+	if asked < 1 {
+		return 10
+	}
+	return min(asked, 50)
+}
+
 // ModuleSummary combines the module entity with computed counters.
 type ModuleSummary struct {
 	domain.CourseModule
@@ -178,6 +186,9 @@ func (r *Repository) listManaged(ctx context.Context, teacherID *uuid.UUID, filt
 	if filter.Visibility != "" {
 		query = query.Where("visibility = ?", filter.Visibility)
 	}
+	if filter.ClassID != nil {
+		query = query.Where("id IN (SELECT module_id FROM module_class_assignments WHERE class_id = ?)", *filter.ClassID)
+	}
 	if filter.Search != "" {
 		s := "%" + strings.ToLower(filter.Search) + "%"
 		query = query.Where("(LOWER(title) LIKE ? OR LOWER(description) LIKE ?)", s, s)
@@ -192,10 +203,7 @@ func (r *Repository) listManaged(ctx context.Context, teacherID *uuid.UUID, filt
 	if page < 1 {
 		page = 1
 	}
-	limit := filter.Limit
-	if limit < 1 || limit > 50 {
-		limit = 10
-	}
+	limit := pageSize(filter.Limit)
 	offset := (page - 1) * limit
 
 	var items []ModuleSummary
@@ -240,10 +248,7 @@ func (r *Repository) ListPublicModules(ctx context.Context, now time.Time, filte
 	if page < 1 {
 		page = 1
 	}
-	limit := filter.Limit
-	if limit < 1 || limit > 50 {
-		limit = 10
-	}
+	limit := pageSize(filter.Limit)
 	offset := (page - 1) * limit
 
 	var items []ModuleSummary
@@ -296,10 +301,7 @@ func (r *Repository) ListStudentModules(ctx context.Context, studentID uuid.UUID
 	if page < 1 {
 		page = 1
 	}
-	limit := filter.Limit
-	if limit < 1 || limit > 50 {
-		limit = 10
-	}
+	limit := pageSize(filter.Limit)
 	offset := (page - 1) * limit
 
 	var items []ModuleSummary
