@@ -247,6 +247,8 @@ Termos da SPEC-081 (Rascunho em 22/10/2026).
 | Simulador da prova | `AssessmentSimulator` (rota `.../assessments/:assessmentId/simulate`) | Tela da docente que mostra lado a lado a visão do professor e a visão do aluno de uma avaliação, para testar a prova; nada é enviado nem gravado | `Mock`, `Demo`, `Dry run` | Proposto (SPEC-081) |
 | Visão do aluno (na simulação) | `StudentView` | O conteúdo de uma questão como o aluno o recebe, sem a resposta correta: alternativas, colunas, limite de caracteres. Vem na pré-visualização, no campo `studentView` | `Public`, `Safe` | Proposto (SPEC-081) |
 | Resposta simulada | `simulatedResponse` | O que a docente respondeu como aluno no simulador; vive só na memória da página e não é uma `QuestionSubmission` | `Submission`, `Answer` | Proposto (SPEC-081) |
+| Janela própria da prova | `.window` da página `simulate` | A página do simulador aberta em aba nova e cobrindo a janela inteira, sem o menu nem o cabeçalho da plataforma; *Sair da simulação* fecha a aba ou volta ao detalhe quando o navegador não deixa (SPEC-087 D-01). A tela cheia do navegador é outro passo, o botão *Tela cheia*, opcional (D-02) | `Modo foco` (é da aula ao vivo), `Fullscreen` (é o botão) | Proposto (SPEC-087) |
+| Comemoração da questão resolvida | `SolvedCelebration` | Diálogo sobre a coluna da questão quando o servidor dá como resolvida a questão de comando Linux que está aberta: marca de acerto desenhada pelo estilo, "Questão resolvida!", *Próxima questão* (ou *Entregar* na última) e *Continuar nesta questão*; não trava nem avança sozinha, e não tem mascote (SPEC-087 D-03, D-04) | `Mascote`, `Confete`, `Celebration` solto | Proposto (SPEC-087) |
 
 ## 4.4. Início da prova presencial (SPEC-083)
 
