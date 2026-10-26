@@ -422,3 +422,69 @@ describe("AssessmentForm", () => {
     expect(onCancel).toHaveBeenCalled();
   });
 });
+
+// Covers SPEC-088 CA-03, CA-04 (D-01): the form says how many exercises of the module are out of the exam and why, with the way to the bank.
+describe("AssessmentForm and the exercises that are out of the exam", () => {
+  const out = (excluded: { unpublished: number; unlinked: number }, over = {}) => vi.fn().mockResolvedValue(questions({ excluded, ...over }));
+  const chooseModule = () => {
+    open("Questões");
+    type(screen.getByLabelText(/^Módulo/), "mod-1");
+  };
+  const bankLink = (root: HTMLElement) => within(root).getByRole("link", { name: "Abrir o banco de questões do módulo (abre em nova aba)" }) as HTMLAnchorElement;
+
+  it("warns with the two counts and a link to the bank in a new tab, in both compositions (CA-03)", async () => {
+    setup({ loadQuestions: out({ unpublished: 22, unlinked: 47 }) });
+    chooseModule();
+    const note = await screen.findByRole("note");
+    expect(note.textContent).toContain("Deste módulo, 69 exercícios não podem entrar na prova: 47 publicados sem o vínculo Avaliação e 22 ainda não publicados.");
+    expect(note.textContent).toContain("Vincule e publique no banco de questões do módulo.");
+    const link = bankLink(note);
+    expect(link.getAttribute("href")).toBe("/app/modules/mod-1/edit?tab=exercises");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    fireEvent.click(screen.getByRole("radio", { name: "Sorteio por nível" }));
+    expect(screen.getByRole("note").textContent).toContain("69 exercícios não podem entrar na prova");
+  });
+
+  it("leaves out the count that is zero, and says it in the singular", async () => {
+    setup({ loadQuestions: out({ unpublished: 0, unlinked: 3 }) });
+    chooseModule();
+    const note = await screen.findByRole("note");
+    expect(note.textContent).toContain("Deste módulo, 3 exercícios não podem entrar na prova: 3 publicados sem o vínculo Avaliação.");
+    expect(note.textContent).not.toContain("não publicado");
+    cleanup();
+    setup({ loadQuestions: out({ unpublished: 1, unlinked: 0 }) });
+    chooseModule();
+    expect((await screen.findByRole("note")).textContent).toContain("Deste módulo, 1 exercício não pode entrar na prova: 1 ainda não publicado.");
+  });
+
+  it("shows no notice when every exercise of the module may enter", async () => {
+    const { loadQuestions } = setup({ loadQuestions: out({ unpublished: 0, unlinked: 0 }) });
+    chooseModule();
+    await screen.findByRole("checkbox", { name: "Incluir Criar a pasta" });
+    await waitFor(() => expect(loadQuestions).toHaveBeenCalledWith(expect.objectContaining({ moduleId: "mod-1", pageSize: 1 })));
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("alerts when no exercise of the module may enter, with the counts and the link (CA-04)", async () => {
+    setup({ loadQuestions: out({ unpublished: 2, unlinked: 0 }, { items: [], total: 0, stock: {} }) });
+    chooseModule();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Nenhum exercício deste módulo pode entrar na prova: 2 ainda não publicados.");
+    expect(bankLink(alert).getAttribute("href")).toBe("/app/modules/mod-1/edit?tab=exercises");
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
+  it("shows no notice in a frozen assessment, which cannot change its questions", async () => {
+    setup({
+      mode: "edit",
+      frozen: true,
+      initial: { moduleId: "mod-1", composition: "MANUAL", items: [{ questionId: "q-1", title: "Criar a pasta", kind: "PRACTICAL", difficulty: "EASY", weight: 10 }] },
+      loadQuestions: out({ unpublished: 22, unlinked: 47 }),
+    });
+    open("Questões");
+    await screen.findByRole("checkbox", { name: "Incluir Criar a pasta" });
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+});

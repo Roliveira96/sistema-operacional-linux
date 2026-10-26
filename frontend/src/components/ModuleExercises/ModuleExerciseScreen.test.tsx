@@ -410,7 +410,7 @@ describe("ModuleExerciseScreen for a true or false question", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salvar exercício" }));
     await waitFor(() => expect(service.create).toHaveBeenCalled());
     expect(service.create.mock.calls[0]![1]).toMatchObject({ kind: "THEORETICAL_BOOLEAN", title: "rm -r", correctAnswer: true });
-    expect(service.create.mock.calls[0]!.slice(2)).toEqual([null, { practice: true }]);
+    expect(service.create.mock.calls[0]!.slice(2)).toEqual([null, { practice: true, assessment: true }]);
     // The preview shows it as the student does: two buttons.
     expect(screen.getByRole("complementary", { name: "Como o aluno vê" })).toHaveTextContent("Verdadeiro");
     window.history.pushState({}, "", "/");
@@ -492,5 +492,35 @@ describe("ModuleExerciseScreen for a single choice question", () => {
     await waitFor(() => expect(service.update).toHaveBeenCalled());
     expect(service.update.mock.calls[0]![2]).toMatchObject({ correctChoice: null });
     expect(service.update.mock.calls[0]![2].choices).toHaveLength(2);
+  });
+});
+
+// Covers SPEC-088 CA-06 (D-02): a new exercise is born in the practice and in the assessment, unless it came from the block of the assessment;
+// the message of saved says where it went.
+describe("ModuleExerciseScreen and the links of a new exercise", () => {
+  it("creates from the bank, with no block, linked to the practice and to the assessment", async () => {
+    service.create.mockResolvedValue(stored({ exercise: { ...stored().exercise, id: "novo" } }));
+    renderScreen("new");
+    await screen.findByRole("heading", { level: 1, name: "Novo exercício do módulo" });
+    window.history.pushState({}, "", "/app/modules/mod-1/exercises/new");
+    fireEvent.change(screen.getByLabelText("Título do exercício (1)"), { target: { value: "Do banco" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar exercício" }));
+    await waitFor(() => expect(service.create).toHaveBeenCalled());
+    expect(service.create.mock.calls[0]!.slice(2)).toEqual([null, { practice: true, assessment: true }]);
+    expect(await screen.findByText("Exercício salvo e vinculado à prática e à avaliação.")).toBeDefined();
+    window.history.pushState({}, "", "/");
+  });
+
+  it("says that the one created from the block of the assessment was reserved for it", async () => {
+    service.create.mockResolvedValue(stored({ exercise: { ...stored().exercise, id: "novo" } }));
+    renderScreen("new");
+    await screen.findByRole("heading", { level: 1, name: "Novo exercício do módulo" });
+    window.history.pushState({}, "", "/app/modules/mod-1/exercises/new?link=assessment");
+    fireEvent.change(screen.getByLabelText("Título do exercício (1)"), { target: { value: "Da prova" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar exercício" }));
+    await waitFor(() => expect(service.create).toHaveBeenCalled());
+    expect(service.create.mock.calls[0]!.slice(2)).toEqual([null, { assessment: true }]);
+    expect(await screen.findByText("Exercício salvo e reservado para avaliação.")).toBeDefined();
+    window.history.pushState({}, "", "/");
   });
 });

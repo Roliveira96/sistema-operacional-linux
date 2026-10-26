@@ -405,3 +405,46 @@ describe("ModuleExercisesTab with descriptive questions", () => {
     expect(screen.queryByRole("link", { name: /Corrigir respostas descritivas/ })).toBeNull();
   });
 });
+
+// Covers SPEC-088 CA-07 (D-03): the block of the assessment links every published exercise that lacks its link, at once, after a confirmation.
+describe("ModuleExercisesTab and adding every published exercise to the assessment", () => {
+  const addAll = () => within(reserved()).getByRole("button", { name: "Adicionar todos os publicados" }) as HTMLButtonElement;
+
+  it("asks with the count, links the published ones that lack the link one by one, and says how many went", async () => {
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    fireEvent.click(addAll());
+    const dialog = screen.getByRole("alertdialog", { name: "Adicionar todos os publicados" });
+    expect(dialog).toHaveTextContent("Vincular 2 exercícios publicados à avaliação?");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    expect(service.links).not.toHaveBeenCalled();
+    fireEvent.click(addAll());
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Vincular" }));
+    await waitFor(() => expect(service.links).toHaveBeenCalledTimes(2));
+    // the one of the practice keeps it; the loose one gets only the assessment; the draft and the ones already linked are left alone
+    expect(service.links).toHaveBeenCalledWith("mod-1", "a", { practice: true, assessment: true, exclusive: false }, "PUBLISHED");
+    expect(service.links).toHaveBeenCalledWith("mod-1", "u", { practice: false, assessment: true, exclusive: false }, "PUBLISHED");
+    expect(await screen.findByText("2 exercícios vinculados à avaliação.")).toBeDefined();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("links the rest when one fails, and says which count could not be linked", async () => {
+    service.links.mockImplementation((_module: string, id: string) => (id === "u" ? Promise.reject(new Error("boom")) : Promise.resolve(undefined)));
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    fireEvent.click(addAll());
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Vincular" }));
+    await waitFor(() => expect(service.links).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("1 exercício vinculado à avaliação; 1 não pôde ser vinculado.")).toBeDefined();
+  });
+
+  it("is disabled when no published exercise lacks the link", async () => {
+    service.bank.mockResolvedValue({
+      items: [item("a", "Primeiro", { practice: true, assessment: true, position: 1 }), item("b", "Rascunho solto", { status: "DRAFT" })],
+      bankSetup: { summary: "", steps: [] },
+    });
+    renderTab();
+    await screen.findByRole("heading", { name: "Banco de questões do módulo" });
+    expect(addAll().disabled).toBe(true);
+  });
+});

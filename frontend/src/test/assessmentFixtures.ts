@@ -80,6 +80,7 @@ export const questions = (over: Partial<EligibleQuestions> = {}): EligibleQuesti
   ],
   total: 4,
   stock: { EASY: 2, MEDIUM: 1, HARD: 1 },
+  excluded: { unpublished: 0, unlinked: 0 },
   ...over,
 });
 
