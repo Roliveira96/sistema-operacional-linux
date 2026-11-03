@@ -1319,6 +1319,7 @@ export const messages = {
       answered: "Atendido",
       close: "Fechar",
       question: (position: number, title: string) => `Questão ${position}: ${title}`,
+      cardQuestion: (position: number, total: number) => `Questão ${position} de ${total}`,
       noTerminal: "O aluno está numa questão sem terminal.",
       waitingScreen: "Aguardando a tela do aluno…",
       commands: "Comandos",

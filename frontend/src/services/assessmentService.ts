@@ -261,6 +261,8 @@ export interface RoomCard {
   deadlineAt?: string;
   attemptId?: string;
   help?: HelpItem;
+  /** The question the student is in, as she told the room (SPEC-092 revision 2). */
+  question?: { position: number; title: string };
 }
 
 /** A request for help (SPEC-091 RN-07). */

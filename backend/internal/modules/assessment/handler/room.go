@@ -28,6 +28,7 @@ const (
 	roomWatchOn  = "room:watch-on"
 	roomWatchOff = "room:watch-off"
 	roomScreen   = "room:screen"
+	roomQuestion = "room:question"
 	roomCommand  = "room:command"
 	roomCommands = "room:commands"
 	roomEnded    = "room:ended"
@@ -40,7 +41,16 @@ const (
 
 	// viewRoom is the window of the teacher (SPEC-091 section 3.1).
 	viewRoom = "room"
+
+	// maxQuestionTitle cuts the title of the question a student tells (SPEC-092 revision 2).
+	maxQuestionTitle = 200
 )
+
+// question is where a student is in the exam (SPEC-092 revision 2).
+type question struct {
+	Position int    `json:"position"`
+	Title    string `json:"title"`
+}
 
 // RoomServices is what the room uses from the service (SPEC-091).
 type RoomServices interface {
@@ -72,11 +82,13 @@ type room struct {
 	mu       sync.Mutex
 	present  map[string]map[string]bool // room -> student -> waiting
 	watching map[string]string          // room -> student; ponytail: one watched student per room, per window if two teachers watch at once
+	// ponytail: in memory only, lost on a restart until the student changes the question or reconnects (SPEC-092 revision 2)
+	questions map[string]map[string]question // room -> student -> the question she is in
 }
 
 // WithRoom turns on the room of the exam (SPEC-091); without it the route of the room answers 503.
 func (h *Handler) WithRoom(log *zap.Logger, opts RoomOptions) *Handler {
-	r := &room{log: log, present: map[string]map[string]bool{}, watching: map[string]string{}}
+	r := &room{log: log, present: map[string]map[string]bool{}, watching: map[string]string{}, questions: map[string]map[string]question{}}
 	r.upgrader = websocket.Upgrader{CheckOrigin: func(req *http.Request) bool {
 		origin := req.Header.Get("Origin")
 		if origin == "" || opts.AnyOrigin {
@@ -98,12 +110,13 @@ func roomConfig() hub.Config {
 	const kib = 1 << 10
 	return hub.Config{
 		Rules: map[string]hub.Rule{
-			roomWatch:   {MaxBytes: kib, ControllerOnly: true, Kind: viewRoom},
-			helpAnswer:  {MaxBytes: 4 * kib, ControllerOnly: true, Kind: viewRoom},
-			roomScreen:  {MaxBytes: 256 * kib, Limited: true},
-			roomCommand: {MaxBytes: 8 * kib, Limited: true},
-			helpRaise:   {MaxBytes: 4 * kib, Limited: true},
-			helpLower:   {MaxBytes: kib, Limited: true},
+			roomWatch:    {MaxBytes: kib, ControllerOnly: true, Kind: viewRoom},
+			helpAnswer:   {MaxBytes: 4 * kib, ControllerOnly: true, Kind: viewRoom},
+			roomScreen:   {MaxBytes: 256 * kib, Limited: true},
+			roomQuestion: {MaxBytes: kib, Limited: true},
+			roomCommand:  {MaxBytes: 8 * kib, Limited: true},
+			helpRaise:    {MaxBytes: 4 * kib, Limited: true},
+			helpLower:    {MaxBytes: kib, Limited: true},
 		},
 		MaxViewers:    100,
 		MaxWaiting:    200,
@@ -134,6 +147,7 @@ func helpJSON(h domain.HelpRequest) gin.H {
 func (r *room) cardJSON(roomID string, c service.RoomCard) gin.H {
 	r.mu.Lock()
 	waiting, online := r.present[roomID][c.StudentID.String()]
+	q, hasQuestion := r.questions[roomID][c.StudentID.String()]
 	r.mu.Unlock()
 	out := gin.H{"studentId": c.StudentID, "name": c.Name, "academicId": c.AcademicID, "status": c.Status, "online": online, "waiting": online && waiting,
 		"answered": c.Answered, "total": c.Total, "solved": c.Solved}
@@ -145,6 +159,9 @@ func (r *room) cardJSON(roomID string, c service.RoomCard) gin.H {
 	}
 	if c.Help != nil {
 		out["help"] = helpJSON(*c.Help)
+	}
+	if hasQuestion {
+		out["question"] = q
 	}
 	return out
 }
@@ -376,6 +393,21 @@ func (rh roomHandler) Message(ctx context.Context, roomID string, who hub.Identi
 			return
 		}
 		rh.r.hub.SendToKind(roomID, viewRoom, encode(roomScreen, gin.H{"studentId": who.UserID, "position": body.Position, "title": body.Title, "screen": body.Screen}))
+	case roomQuestion:
+		var q question
+		if who.Role == hub.Controller || json.Unmarshal(msg.Data, &q) != nil || q.Position <= 0 {
+			return
+		}
+		if runes := []rune(q.Title); len(runes) > maxQuestionTitle {
+			q.Title = string(runes[:maxQuestionTitle])
+		}
+		rh.r.mu.Lock()
+		if rh.r.questions[roomID] == nil {
+			rh.r.questions[roomID] = map[string]question{}
+		}
+		rh.r.questions[roomID][who.UserID] = q
+		rh.r.mu.Unlock()
+		rh.h.cardChanged(ctx, id, user)
 	case roomCommand:
 		var body struct {
 			Position int        `json:"position"`

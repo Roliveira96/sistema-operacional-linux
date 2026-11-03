@@ -59,6 +59,8 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
   const connected = useRef(false);
   /** The commands that ran while the room was away, sent again with their instant when it is back (SPEC-091 D-05). */
   const pending = useRef<{ position: number; command: string; output: string; at: string }[]>([]);
+  /** The question the student is in, told again when the room comes back (SPEC-092 revision 2). */
+  const lastQuestion = useRef<{ position: number; title: string } | null>(null);
 
   useEffect(() => {
     if (!isStudent && classId && assessmentId) router.replace(backHref);
@@ -102,6 +104,7 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
           connected.current = true;
           const queued = pending.current.splice(0);
           queued.forEach((c) => socket.current?.send("room:command", c));
+          if (lastQuestion.current) socket.current?.send("room:question", lastQuestion.current);
         },
         onMessage: ({ type, data }) => {
           if (!alive) return;
@@ -156,6 +159,10 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
       onCommand: (position, command, output) => {
         if (connected.current) socket.current?.send("room:command", { position, command, output });
         else pending.current.push({ position, command, output, at: new Date().toISOString() });
+      },
+      onQuestion: (position, questionTitle) => {
+        lastQuestion.current = { position, title: questionTitle };
+        if (connected.current) socket.current?.send("room:question", lastQuestion.current);
       },
       onScreen: (position, questionTitle, screen) => socket.current?.send("room:screen", { position, title: questionTitle, screen }),
       header: (position) => (

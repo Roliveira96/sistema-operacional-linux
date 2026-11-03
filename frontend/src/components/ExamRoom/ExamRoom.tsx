@@ -307,6 +307,12 @@ export function ExamRoom({ classId, assessment, beep = webAudioBeep, notice = br
                       <span className={styles.name}>{c.name}</span>
                       <span className={`${styles.badge} ${badgeOf[situation] ?? ""}`}>{r.status[situation] ?? c.status}</span>
                     </span>
+                    {c.status === "IN_PROGRESS" && c.question && (
+                      <span className={styles.current}>
+                        <span className={styles.currentNumber}>{r.cardQuestion(c.question.position, c.total)}</span>
+                        <span className={styles.currentTitle}>{c.question.title}</span>
+                      </span>
+                    )}
                     <span className={styles.meta}>
                       {c.academicId}
                       {c.online && (
@@ -362,15 +368,19 @@ export function ExamRoom({ classId, assessment, beep = webAudioBeep, notice = br
                 <p className={styles.empty}>{r.notEntered}</p>
               ) : isDelivered(open) ? (
                 <p className={styles.empty}>{r.finished}</p>
-              ) : openScreen?.screen ? (
-                <>
-                  <p className={styles.meta}>{r.question(openScreen.position, openScreen.title)}</p>
-                  <div className={styles.mirror}>
-                    <TerminalMirror screen={openScreen.screen as ScreenElement} />
-                  </div>
-                </>
               ) : (
-                <p className={styles.empty}>{r.noTerminal}</p>
+                <>
+                  {(openScreen ?? open.question) && (
+                    <p className={styles.meta}>{r.question((openScreen ?? open.question)!.position, (openScreen ?? open.question)!.title)}</p>
+                  )}
+                  {openScreen?.screen ? (
+                    <div className={styles.mirror}>
+                      <TerminalMirror screen={openScreen.screen as ScreenElement} />
+                    </div>
+                  ) : (
+                    <p className={styles.empty}>{r.noTerminal}</p>
+                  )}
+                </>
               )}
               {(open.status === "IN_PROGRESS" || commandsOf.length > 0) && (
                 <>

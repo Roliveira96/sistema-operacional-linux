@@ -58,6 +58,8 @@ export interface ExamRunnerRoom {
   onCommand(position: number, command: string, output: string): void;
   /** The question the student is in and the picture of the terminal, or null in a question without it. */
   onScreen(position: number, title: string, screen: ScreenElement | null): void;
+  /** The question the student opened, at once and on each change, watched or not (SPEC-092 revision 2). */
+  onQuestion?(position: number, title: string): void;
   /** What goes in the header, by the question that is open: the request for help. */
   header?(position: number): ReactNode;
 }
@@ -238,6 +240,10 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
     },
     [items],
   );
+  useEffect(() => {
+    const item = items[current];
+    if (item) roomRef.current?.onQuestion?.(item.position, item.studentView.title);
+  }, [current, items]);
   const watched = !!room?.watched;
   useEffect(() => {
     const item = items[current];
