@@ -29,7 +29,9 @@ func (f *fakeQuestions) Grade(_ context.Context, kind string, key, answer json.R
 		}
 		return service.Graded{}, nil
 	case "THEORETICAL_MATCHING":
-		var k, a struct{ Links []struct{ Left, Right string } }
+		var k, a struct {
+			Links []struct{ Left, Right string }
+		}
 		_ = json.Unmarshal(key, &k)
 		_ = json.Unmarshal(answer, &a)
 		right := 0

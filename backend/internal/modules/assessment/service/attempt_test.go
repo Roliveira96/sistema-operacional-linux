@@ -27,8 +27,8 @@ func (f *fixture) addKind(kind string, key string) uuid.UUID {
 	id := uuid.New()
 	f.questions.bank[id] = bankQuestion{
 		QuestionContent: service.QuestionContent{
-			Question:   service.Question{ID: id, Title: "Questão " + kind, Kind: kind, Difficulty: domain.DifficultyEasy},
-			Statement:  "Enunciado " + kind, AnswerKey: key, GradingKey: json.RawMessage(key),
+			Question:  service.Question{ID: id, Title: "Questão " + kind, Kind: kind, Difficulty: domain.DifficultyEasy},
+			Statement: "Enunciado " + kind, AnswerKey: key, GradingKey: json.RawMessage(key),
 			StudentView: service.StudentView{Choices: []service.StudentChoice{{ID: "a", HTML: "chmod"}}},
 		},
 		ModuleID: f.module.ID, Published: true, In: true, Scenario: json.RawMessage(`{"cwd":"/root"}`),
@@ -121,7 +121,9 @@ func TestEnterAttempt_RefusalsSayWhy(t *testing.T) {
 	f := newFixture(t)
 	q := f.addKind(kindSingle, `{"choice":"a"}`)
 	items := []domain.Item{{QuestionID: q, Position: 1, Weight: domain.Points(10)}}
-	online := func(in *service.CreateInput) { in.Modality, in.Items, in.MaxScore = ptr(domain.ModalityOnline), items, domain.Points(10) }
+	online := func(in *service.CreateInput) {
+		in.Modality, in.Items, in.MaxScore = ptr(domain.ModalityOnline), items, domain.Points(10)
+	}
 	notStarted := f.create(t, online)
 	inPerson := f.create(t, func(in *service.CreateInput) { in.Items, in.MaxScore = items, domain.Points(10) })
 	assignment := f.create(t, online, func(in *service.CreateInput) {
