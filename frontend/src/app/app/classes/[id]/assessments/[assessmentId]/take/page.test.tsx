@@ -174,3 +174,16 @@ describe("take page, what the teacher follows", () => {
     expect(resent.at).toEqual(expect.any(String));
   }, 8000);
 });
+
+// SPEC-092 CA-11 (revision 2): the room hears the question the student is in, on entering, on changing it, and again when the room comes back.
+describe("take page, the question the student is in", () => {
+  it("tells the room the question at the start, on each change and after a fall", async () => {
+    await inTheExam();
+    await waitFor(() => expect(last().sent).toContainEqual({ type: "room:question", data: { position: 1, title: "Apagar pasta" } }));
+    fireEvent.click(screen.getByRole("button", { name: /^Questão 4,/ }));
+    await waitFor(() => expect(last().sent).toContainEqual({ type: "room:question", data: { position: 4, title: "Criar pasta" } }));
+    act(() => last().handlers.onClose());
+    await waitFor(() => expect(rooms).toHaveLength(2), { timeout: 4000 });
+    await waitFor(() => expect(last().sent).toContainEqual({ type: "room:question", data: { position: 4, title: "Criar pasta" } }));
+  }, 8000);
+});

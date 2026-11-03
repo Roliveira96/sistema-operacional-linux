@@ -385,3 +385,31 @@ func TestRoom_EndTheExamOfAStudent(t *testing.T) {
 	_ = res.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 }
+
+// Covers SPEC-092 CA-12 (revision 2): the student tells the question she is in; the room keeps the last one and puts it on the card, in the
+// room:student and in the snapshot; the title is cut at 200 characters; a question from the teacher, or with no position, is dropped.
+func TestRoom_QuestionOfTheStudent(t *testing.T) {
+	w := roomSetup(t)
+	w.svc.room().started = true
+	teacher := w.dial(t, "teacher")
+	readType(t, teacher, "room:snapshot")
+	ana := w.dial(t, "ana")
+	readType(t, ana, "room:snapshot")
+	readType(t, teacher, "room:student")
+
+	sendWS(t, ana, "room:question", map[string]any{"position": 4, "title": "Criar pasta"})
+	card := object2(t, readType(t, teacher, "room:student").Data)
+	assert.Equal(t, map[string]any{"position": float64(4), "title": "Criar pasta"}, card["question"])
+
+	sendWS(t, ana, "room:question", map[string]any{"position": 5, "title": strings.Repeat("x", 250)})
+	card = object2(t, readType(t, teacher, "room:student").Data)
+	assert.Len(t, card["question"].(map[string]any)["title"], 200)
+
+	again := w.dial(t, "teacher")
+	snap := object2(t, readType(t, again, "room:snapshot").Data)
+	assert.EqualValues(t, 5, snap["cards"].([]any)[0].(map[string]any)["question"].(map[string]any)["position"], "the snapshot brings the question")
+
+	sendWS(t, ana, "room:question", map[string]any{"position": 0, "title": "Nada"})
+	sendWS(t, again, "room:question", map[string]any{"position": 2, "title": "Da docente"})
+	silent(t, again, "room:student")
+}

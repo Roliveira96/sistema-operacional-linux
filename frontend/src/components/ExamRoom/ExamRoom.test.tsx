@@ -263,3 +263,19 @@ describe("ExamRoom, SPEC-092 the clock for the class", () => {
     }
   });
 });
+
+// SPEC-092 CA-13 (revision 2): the card of who is doing shows, first of all, the number of the question she is in, and the title under it.
+describe("ExamRoom, SPEC-092 the question on the card", () => {
+  it("shows the number and the title of the question of who is doing, and the open student says it with no terminal", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    receive("room:student", card({ status: "IN_PROGRESS", online: true, answered: 3, total: 9, attemptId: "t-1", question: { position: 4, title: "Criar pasta" } }));
+    receive("room:student", card({ studentId: BRUNO, name: "Bruno", status: "IN_PROGRESS", online: true, total: 9, attemptId: "t-2" }));
+    const ana = screen.getByRole("button", { name: /Ana/ });
+    expect(within(ana).getByText("Questão 4 de 9")).toBeDefined();
+    expect(within(ana).getByText("Criar pasta")).toBeDefined();
+    expect(screen.getByRole("button", { name: /Bruno/ }).textContent).not.toContain("Questão");
+    fireEvent.click(ana);
+    const panel = screen.getByRole("region", { name: "Ana" });
+    expect(within(panel).getByText("Questão 4: Criar pasta")).toBeDefined();
+  });
+});
