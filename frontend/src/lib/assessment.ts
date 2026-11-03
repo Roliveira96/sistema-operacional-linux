@@ -72,9 +72,9 @@ export function needsClearanceWarning(a: AssessmentSummary): boolean {
   return a.status === "SCHEDULED" && a.modality === "IN_PERSON" && a.requiresClearance && a.phase === "RUNNING" && !!a.startedAt && a.clearanceCounts.pending > 0;
 }
 
-/** Whether the exam can be started now: in person, scheduled, running by the clock of the server and not started yet (SPEC-083 RN-01, D-03). */
-export const canStart = (a: Pick<AssessmentSummary, "status" | "modality" | "phase" | "startedAt">): boolean =>
-  a.status === "SCHEDULED" && a.modality === "IN_PERSON" && a.phase === "RUNNING" && !a.startedAt;
+/** Whether the exam can be started now: an exam, in person or online, scheduled, running by the clock of the server and not started yet (SPEC-089 RN-01). */
+export const canStart = (a: Pick<AssessmentSummary, "status" | "type" | "phase" | "startedAt">): boolean =>
+  a.status === "SCHEDULED" && a.type === "EXAM" && a.phase === "RUNNING" && !a.startedAt;
 
 /** Whether the list tells the teacher that the exam can be started. */
 export const needsStartWarning = (a: AssessmentSummary): boolean => canStart(a);

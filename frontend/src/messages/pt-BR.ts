@@ -1169,10 +1169,11 @@ export const messages = {
       toAssessment: "Ir para a avaliação",
       refresh: "Atualizar",
     },
-    /** The dialog that starts an in-person exam (SPEC-083). */
+    /** The dialog that starts an exam (SPEC-083, SPEC-089): with the clearance, and without it. */
     startDialog: {
       title: "Iniciar a prova agora?",
       warning: "Os alunos só entram depois de habilitados por você. O início não pode ser desfeito.",
+      warningOpen: "Todos os alunos da prova poderão entrar a partir deste momento. O início não pode ser desfeito.",
       confirm: "Iniciar a prova",
       back: "Voltar",
     },
@@ -1190,6 +1191,7 @@ export const messages = {
       rejectedTitle: "Habilitação recusada",
       defaultReason: "Sua matrícula não foi habilitada para esta avaliação presencial.",
       notStarted: "A docente ainda não iniciou a prova. Aguarde: ela libera a entrada de cada aluno.",
+      notStartedOpen: "A docente ainda não iniciou a prova. Aguarde: você entra assim que ela iniciar.",
     },
     card: {
       loading: "Carregando a avaliação…",

@@ -52,7 +52,7 @@ export function AssessmentAccessNotice({ load }: AssessmentAccessNoticeProps) {
       <p className={styles.modality}>{m.modalityIs(m.modality[access.modality] ?? "")}</p>
       {notStarted && (
         <p role="status" className={styles.pending}>
-          {m.access.notStarted}
+          {access.modality === "IN_PERSON" && access.requiresClearance ? m.access.notStarted : m.access.notStartedOpen}
         </p>
       )}
       {own?.status === "PENDING" && (
