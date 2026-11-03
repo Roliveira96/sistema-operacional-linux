@@ -245,7 +245,11 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		// the check of the clearance answers by the table of the attempts (SPEC-090 RN-11)
 		Attempts: assessmentRepo,
 	}, time.Now)
-	assessmentHandler := assessmenthandler.New(assessmentService, auth)
+	// The room of the exam is realtime, with the origins of the live class (SPEC-091).
+	assessmentHandler := assessmenthandler.New(assessmentService, auth).WithRoom(log, assessmenthandler.RoomOptions{
+		AllowedOrigins: []string{cfg.Auth.PublicURL},
+		AnyOrigin:      cfg.IsDevelopment(),
+	})
 	// The attempts past their deadline are delivered by the server every minute, for the students who do not come back (SPEC-090 RN-07).
 	attemptSweep := func(ctx context.Context, _ time.Time) error {
 		_, err := assessmentService.ExpireDue(ctx)

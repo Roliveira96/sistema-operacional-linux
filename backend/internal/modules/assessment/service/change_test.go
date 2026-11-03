@@ -303,7 +303,7 @@ func TestPrivateNotes_AnyPhaseAnyStatusAndNoAuditNoUpdatedBy(t *testing.T) {
 
 // Covers SPEC-075 CA-17 (RN-14): ALLOWED only for an eligible student, with the assessment SCHEDULED and RUNNING; the other results say why not.
 // The assessment here is online, which is what an assessment was before SPEC-076: for an in-person one the tables of
-// TestAccessOf_ClearanceDecisionTable and TestAccessOf_NotStartedComesAfterEndedAndBeforeNotCleared apply (SPEC-076 RN-08, SPEC-083 RN-05).
+// TestAccessOf_NoClearanceAfterTheStart and TestAccessOf_NotStartedComesAfterEndedAndBeforeNotCleared apply (SPEC-076 RN-08, SPEC-083 RN-05).
 func TestAccessOf_DecisionTable(t *testing.T) {
 	f := newFixture(t)
 	a := f.create(t, func(in *service.CreateInput) {

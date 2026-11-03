@@ -1,7 +1,7 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
-import { assessmentService } from "@/services/assessmentService";
+import { assessmentService, type RoomHandlers } from "@/services/assessmentService";
 import { problem } from "@/test/helpers";
 import { publicOf, studentAttempt } from "@/test/assessmentFixtures";
 import { terminalMount } from "@/test/fakeTerminal";
@@ -23,9 +23,22 @@ function asRole(role: "TEACHER" | "STUDENT") {
 }
 const params = Promise.resolve({ id: "c-1", assessmentId: "a-1" });
 
+let terminal: ReturnType<typeof terminalMount>;
+/** The connections to the room, in order, with what each one sent; by default the room falls at once, and the page enters the exam anyway. */
+let rooms: { handlers: RoomHandlers; sent: { type: string; data: unknown }[] }[] = [];
+let roomOpens = false;
 beforeEach(() => {
-  mount.mockImplementation(terminalMount().mount);
+  terminal = terminalMount();
+  mount.mockImplementation(terminal.mount);
   vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf());
+  rooms = [];
+  roomOpens = false;
+  vi.spyOn(assessmentService, "openRoom").mockImplementation((_c, _a, handlers) => {
+    const room = { handlers, sent: [] as { type: string; data: unknown }[] };
+    rooms.push(room);
+    queueMicrotask(() => (roomOpens ? handlers.onOpen() : handlers.onClose()));
+    return { send: (type, data) => void room.sent.push({ type, data }), close: vi.fn() };
+  });
 });
 afterEach(() => {
   cleanup();
@@ -63,4 +76,114 @@ describe("take page", () => {
     render(<TakePage params={params} />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/app/classes/c-1/assessments/a-1"));
   });
+});
+
+const last = () => rooms[rooms.length - 1]!;
+const receive = (type: string, data: unknown) => act(() => last().handlers.onMessage({ type, data }));
+
+// SPEC-091 CA-14 (RN-02, D-04): before the start the student waits in the room, and enters the exam alone when the teacher starts.
+describe("take page, the waiting room", () => {
+  it("waits in the room, says the teacher may see the screen, and enters when admitted", async () => {
+    asRole("STUDENT");
+    roomOpens = true;
+    const enter = vi.spyOn(assessmentService, "enterAttempt").mockResolvedValue(studentAttempt());
+    render(<TakePage params={params} />);
+    await waitFor(() => expect(rooms).toHaveLength(1));
+    receive("room:snapshot", { waiting: true, help: { status: "NONE" } });
+    expect(await screen.findByText("Você está na sala de espera. A prova começa quando a docente iniciar.")).toBeDefined();
+    expect(screen.getByText("Durante a prova, a docente pode ver a sua tela e os comandos que você executa.")).toBeDefined();
+    expect(enter).not.toHaveBeenCalled();
+    receive("room:admitted", {});
+    expect(await screen.findByRole("heading", { name: "Questão 1 de 5" })).toBeDefined();
+    expect(enter).toHaveBeenCalledTimes(1);
+  });
+});
+
+async function inTheExam() {
+  asRole("STUDENT");
+  roomOpens = true;
+  vi.spyOn(assessmentService, "enterAttempt").mockResolvedValue(studentAttempt());
+  render(<TakePage params={params} />);
+  await waitFor(() => expect(rooms).toHaveLength(1));
+  receive("room:snapshot", { waiting: false, help: { status: "NONE" } });
+  await screen.findByRole("heading", { name: "Questão 1 de 5" });
+}
+
+// SPEC-091 CA-14 (RN-07, D-03): the student asks for help, can cancel it, and reads the answer of the teacher.
+describe("take page, the help", () => {
+  it("raises the hand with the question, cancels it, and reads the answer", async () => {
+    await inTheExam();
+    fireEvent.click(screen.getByRole("button", { name: "Pedir ajuda" }));
+    fireEvent.change(screen.getByLabelText("Sua dúvida (opcional)"), { target: { value: "Posso usar o manual?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar pedido" }));
+    expect(last().sent).toContainEqual({ type: "help:raise", data: { position: 1, question: "Posso usar o manual?" } });
+    receive("help:state", { status: "OPEN" });
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar o pedido" }));
+    expect(last().sent).toContainEqual({ type: "help:lower", data: {} });
+    receive("help:state", { status: "ANSWERED", answer: "Não, só o terminal." });
+    expect(screen.getByText("A docente viu o seu pedido.")).toBeDefined();
+    expect(screen.getByText("Não, só o terminal.")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Pedir ajuda" })).toBeDefined();
+  });
+});
+
+// SPEC-091 CA-14 (RN-08): the exam ended by the teacher locks, with the reason.
+describe("take page, ended by the teacher", () => {
+  it("locks the exam and says why", async () => {
+    await inTheExam();
+    receive("room:ended", { reason: "Flagrante de cola" });
+    expect(screen.getByText("Sua prova foi encerrada pela docente.")).toBeDefined();
+    expect(screen.getByText("Flagrante de cola")).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Questão 1 de 5" })).toBeNull();
+  });
+});
+
+// SPEC-091 CA-05, CA-06 (RN-05, RN-06, D-05): the commands go to the room as they run; the screen only while the teacher watches; the commands of a
+// fall are sent again, with their instant, when the room is back.
+describe("take page, what the teacher follows", () => {
+  it("sends the commands, and the screen only while watched", async () => {
+    await inTheExam();
+    fireEvent.click(screen.getByRole("button", { name: /^Questão 4,/ }));
+    await waitFor(() => expect(terminal.callbacks).toHaveLength(1));
+    const callbacks = terminal.callbacks[0] as unknown as { onCommandRun(run: unknown): void; onScreen(tree: unknown): void };
+    act(() => callbacks.onCommandRun({ terminal: 1, command: "mkdir /a", exitStatus: 0, output: "" }));
+    expect(last().sent).toContainEqual({ type: "room:command", data: { position: 4, command: "mkdir /a", output: "" } });
+
+    act(() => callbacks.onScreen({ tag: "div", children: ["$ ls"] }));
+    expect(last().sent.some((m) => m.type === "room:screen")).toBe(false);
+    receive("room:watch-on", {});
+    act(() => callbacks.onScreen({ tag: "div", children: ["$ pwd"] }));
+    expect(last().sent).toContainEqual({ type: "room:screen", data: { position: 4, title: "Criar pasta", screen: { tag: "div", children: ["$ pwd"] } } });
+    receive("room:watch-off", {});
+    const before = last().sent.length;
+    act(() => callbacks.onScreen({ tag: "div", children: ["$ ls -l"] }));
+    expect(last().sent).toHaveLength(before);
+  });
+
+  it("keeps the commands of a fall and sends them again with their instant", async () => {
+    await inTheExam();
+    fireEvent.click(screen.getByRole("button", { name: /^Questão 4,/ }));
+    await waitFor(() => expect(terminal.callbacks).toHaveLength(1));
+    const callbacks = terminal.callbacks[0] as unknown as { onCommandRun(run: unknown): void };
+    act(() => last().handlers.onClose());
+    act(() => callbacks.onCommandRun({ terminal: 1, command: "ls", exitStatus: 0, output: "a" }));
+    await waitFor(() => expect(rooms).toHaveLength(2), { timeout: 4000 });
+    await waitFor(() => expect(last().sent.find((m) => m.type === "room:command")).toBeDefined());
+    const resent = last().sent.find((m) => m.type === "room:command")!.data as { command: string; at?: string };
+    expect(resent.command).toBe("ls");
+    expect(resent.at).toEqual(expect.any(String));
+  }, 8000);
+});
+
+// SPEC-092 CA-11 (revision 2): the room hears the question the student is in, on entering, on changing it, and again when the room comes back.
+describe("take page, the question the student is in", () => {
+  it("tells the room the question at the start, on each change and after a fall", async () => {
+    await inTheExam();
+    await waitFor(() => expect(last().sent).toContainEqual({ type: "room:question", data: { position: 1, title: "Apagar pasta" } }));
+    fireEvent.click(screen.getByRole("button", { name: /^Questão 4,/ }));
+    await waitFor(() => expect(last().sent).toContainEqual({ type: "room:question", data: { position: 4, title: "Criar pasta" } }));
+    act(() => last().handlers.onClose());
+    await waitFor(() => expect(rooms).toHaveLength(2), { timeout: 4000 });
+    await waitFor(() => expect(last().sent).toContainEqual({ type: "room:question", data: { position: 4, title: "Criar pasta" } }));
+  }, 8000);
 });

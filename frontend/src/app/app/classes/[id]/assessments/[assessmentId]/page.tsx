@@ -119,15 +119,19 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   }
 
   const canceled = detail.status === "CANCELED";
-  const counts = detail.clearanceCounts;
   // every exam, in person or online, is started by the teacher; an assignment opens by the clock (SPEC-089 RN-01)
   const exam = detail.type === "EXAM" && !canceled;
   const startable = canStart(detail);
+  const roomHref = `/app/classes/${classId}/assessments/${assessmentId}/room`;
+  /** The room of the exam while it runs (SPEC-091 CA-10). */
+  const roomOpen = exam && detail.phase === "RUNNING";
   /** The start of the exam by the teacher (SPEC-083): the exam was started, can be started now, waits for its time, or ended without it. */
   const start = async () => {
     const started = await assessmentService.start(classId, assessmentId);
     setDetail((d) => (d ? { ...d, startedAt: started.startedAt, startedBy: started.startedBy, startedByName: started.startedByName } : d));
     setStarting(false);
+    // the room of the exam opens with the start (SPEC-091 section 3.1)
+    window.open(roomHref, "_blank", "noopener");
   };
   const facts: [string, string][] = [
     [p.facts.type, m.type[detail.type] ?? ""],
@@ -165,14 +169,14 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         <Button variant="secondary" onClick={() => setAsked(true)}>
           {p.preview}
         </Button>
+        {roomOpen && (
+          <ButtonLink href={roomHref} variant="primary" target="_blank" rel="noopener noreferrer" aria-label={`${m.room.open} (${m.room.newWindow})`}>
+            {m.room.open}
+          </ButtonLink>
+        )}
         <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/simulate`} variant="secondary" target="_blank" rel="noopener noreferrer" aria-label={p.simulateNewTab}>
           {p.simulate}
         </ButtonLink>
-        {detail.modality === "IN_PERSON" && detail.requiresClearance && (
-          <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/clearances`} variant="secondary">
-            {p.clearances}
-          </ButtonLink>
-        )}
       </div>
       {exam && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser)}</p>}
       {exam && !detail.startedAt && detail.phase === "UPCOMING" && (
@@ -181,7 +185,6 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         </p>
       )}
       {exam && !detail.startedAt && detail.phase === "ENDED" && <p className={styles.text}>{p.endedNotStarted}</p>}
-      {detail.modality === "IN_PERSON" && detail.requiresClearance && <p className={styles.text}>{p.clearanceCounts(counts.pending, counts.approved, counts.rejected)}</p>}
 
       <dl className={styles.facts}>
         {facts.map(([term, value]) => (

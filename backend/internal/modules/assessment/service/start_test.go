@@ -171,42 +171,6 @@ func TestStart_OnlyTheOwnerTeacherAndTheAdministrator(t *testing.T) {
 
 // ---- RN-04: the clearance only after the start ----
 
-// Covers SPEC-083 CA-04, CA-05 (RN-04): before the start the clearance is not decided, in any phase, and nothing is written; the list is still read;
-// after the start the decision works as SPEC-076 defines.
-func TestClearances_DecidedOnlyAfterTheStart(t *testing.T) {
-	f := newFixture(t)
-	a := f.create(t)
-	writes := f.repo.writes
-
-	for _, now := range []time.Time{at(20, 8, 0), at(21, 8, 59), at(21, 10, 0)} {
-		f.now = now
-		for name, in := range map[string]service.ClearanceInput{"all": approveAll, "one": update(decision(f.ana, domain.ClearanceApproved, ""))} {
-			_, err := f.svc.Decide(ctx, f.teacher, f.class.ID, a.ID, in)
-			assert.ErrorIs(t, err, domain.ErrAssessmentNotStarted, name+" at "+now.Format("02 15:04"))
-		}
-		list, err := f.svc.Clearances(ctx, f.teacher, f.class.ID, a.ID)
-		require.NoError(t, err, "the list is read before the start")
-		assert.Equal(t, 3, list.Counts.Pending)
-	}
-	assert.Equal(t, writes, f.repo.writes)
-
-	f.begin(t, a)
-	list := f.decide(t, a, update(decision(f.ana, domain.ClearanceApproved, ""), decision(f.bruno, domain.ClearanceRejected, "Faltas")))
-	assert.Equal(t, domain.ClearanceApproved, statusOf(list)["Ana"])
-	list = f.decide(t, a, approveAll)
-	assert.Equal(t, domain.ClearanceApproved, statusOf(list)["Carla"], "the refusal of Bruno stays, as SPEC-076 D-04 says")
-	assert.Equal(t, domain.ClearanceRejected, statusOf(list)["Bruno"])
-}
-
-// Covers SPEC-083 RN-04: an assessment that does not require the clearance still answers "not required" before "not started".
-func TestClearances_NotRequiredComesBeforeNotStarted(t *testing.T) {
-	f := newFixture(t)
-	free := f.create(t, func(in *service.CreateInput) { in.RequiresClearance = ptr(false) })
-	f.now = at(21, 10, 0)
-	_, err := f.svc.Decide(ctx, f.teacher, f.class.ID, free.ID, approveAll)
-	assert.ErrorIs(t, err, domain.ErrClearanceNotRequired)
-}
-
 // ---- RN-05, RN-06: the access ----
 
 // Covers SPEC-083 CA-06 (RN-05): an in-person exam that is running and was not started is NOT_STARTED for who is eligible, after not eligible,
@@ -245,15 +209,14 @@ func TestAccessOf_NotStartedComesAfterEndedAndBeforeNotCleared(t *testing.T) {
 
 	f.begin(t, a)
 	f.begin(t, free)
-	f.decide(t, a, update(decision(f.ana, domain.ClearanceApproved, "")))
 	after := []struct {
 		name    string
 		a       service.Summary
 		student service.Student
 		want    domain.Access
 	}{
-		{"started, cleared", a, f.ana, domain.AccessAllowed},
-		{"started, waiting", a, f.carla, domain.AccessNotCleared},
+		{"started", a, f.ana, domain.AccessAllowed},
+		{"started, with nothing decided: no clearance since SPEC-091 RN-03", a, f.carla, domain.AccessAllowed},
 		{"started, without the requirement everybody eligible enters", free, f.carla, domain.AccessAllowed},
 	}
 	for _, c := range after {
@@ -275,16 +238,10 @@ func TestMyAccess_NotStartedBeforeTheTeacherStarts(t *testing.T) {
 	assert.False(t, got.Allowed)
 	assert.Equal(t, domain.AccessNotStarted, got.Reason)
 	assert.Equal(t, domain.ModalityInPerson, got.Modality)
-	require.NotNil(t, got.Clearance)
-	assert.Equal(t, domain.ClearancePending, got.Clearance.Status)
 
 	f.begin(t, a)
-	f.decide(t, a, update(decision(f.ana, domain.ClearanceApproved, "")))
 	got, err = f.svc.MyAccess(ctx, f.as(f.ana), f.class.ID, a.ID)
 	require.NoError(t, err)
-	assert.True(t, got.Allowed)
+	assert.True(t, got.Allowed, "since SPEC-091 RN-03 the start is enough")
 	assert.Equal(t, domain.AccessAllowed, got.Reason)
-	got, err = f.svc.MyAccess(ctx, f.as(f.carla), f.class.ID, a.ID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.AccessNotCleared, got.Reason)
 }

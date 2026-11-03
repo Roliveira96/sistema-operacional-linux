@@ -105,24 +105,15 @@ func TestAssessmentsWiredLikeTheComposition(t *testing.T) {
 	assert.Equal(t, "Profa. Sediane", created.CreatedByName, "the names read through the class service")
 	assert.True(t, created.StartsAt.Equal(tomorrow.Add(9*time.Hour)), "the date and the start time of the lesson, in Brasília")
 
-	// SPEC-076, SPEC-083: an exam is in person and requires the clearance, the student waits for it, and the teacher only decides it after she starts
-	// the exam, which cannot happen before its day
+	// SPEC-076, SPEC-083, SPEC-091: an exam is in person, nothing requires the clearance any more, and the student waits for the teacher to start
+	// it, which cannot happen before its day
 	assert.Equal(t, assessmentdomain.ModalityInPerson, created.Modality)
-	assert.True(t, created.RequiresClearance)
-	assert.Equal(t, assessmentservice.ClearanceCounts{Pending: 1}, created.ClearanceCounts)
+	assert.False(t, created.RequiresClearance)
 	waiting, err := assessments.MyAccess(ctx, pupil, class.ID, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, assessmentdomain.AccessNotOpenYet, waiting.Reason)
-	require.NotNil(t, waiting.Clearance)
-	assert.Equal(t, assessmentdomain.ClearancePending, waiting.Clearance.Status)
-	_, err = assessments.Decide(ctx, owner, class.ID, created.ID, assessmentservice.ClearanceInput{Action: assessmentservice.ClearanceApproveAll})
-	require.ErrorIs(t, err, assessmentdomain.ErrAssessmentNotStarted, "the clearance waits for the teacher to start the exam")
 	_, err = assessments.Start(ctx, owner, class.ID, created.ID)
-	require.ErrorIs(t, err, assessmentdomain.ErrAssessmentNotOpenYet, "and she cannot start it before its day")
-	list, err := assessments.Clearances(ctx, owner, class.ID, created.ID)
-	require.NoError(t, err, "the list is read before the start")
-	assert.Equal(t, assessmentservice.ClearanceCounts{Pending: 1}, list.Counts)
-	assert.Equal(t, "Ana", list.Items[0].Name, "the names read through the class service")
+	require.ErrorIs(t, err, assessmentdomain.ErrAssessmentNotOpenYet, "she cannot start it before its day")
 
 	// the student sees it, in the public form; the teacher sees the detail with the questions and the history
 	public, err := assessments.Public(ctx, pupil, class.ID, created.ID)

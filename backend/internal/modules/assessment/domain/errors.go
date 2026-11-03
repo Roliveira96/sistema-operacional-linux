@@ -42,6 +42,11 @@ var (
 	ErrNotPractical            = errors.New("only a practical question is checked")
 	ErrNotEligible             = errors.New("the student is not eligible for the exam")
 	ErrNotCleared              = errors.New("the student was not cleared for the exam")
+
+	// SPEC-091: the room
+	ErrInvalidReason = errors.New("the reason is required, up to 500 characters")
+	ErrInvalidHelp   = errors.New("the question is up to 300 characters")
+	ErrHelpNotFound  = errors.New("the request for help was not found or is closed")
 )
 
 // Shortage is a level of difficulty that the bank cannot supply: what the draw asks for and what there is.

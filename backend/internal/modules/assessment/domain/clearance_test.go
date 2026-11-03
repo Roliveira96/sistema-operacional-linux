@@ -36,9 +36,9 @@ func TestModality_DefaultsByTypeAndAssignmentIsOnlyOnline(t *testing.T) {
 	}
 }
 
-// Covers SPEC-076 CA-03 (RN-02): only an in-person assessment may require the clearance, and it does by default; an online one never does.
-func TestRequiresClearance_OnlyInPersonAndDefaultsOn(t *testing.T) {
-	assert.True(t, domain.DefaultRequiresClearance(domain.ModalityInPerson))
+// Covers SPEC-076 CA-03 (RN-02), with SPEC-091 RN-03: only an in-person assessment may require the clearance, and none does by default any more.
+func TestRequiresClearance_OnlyInPersonAndDefaultsOff(t *testing.T) {
+	assert.False(t, domain.DefaultRequiresClearance(domain.ModalityInPerson))
 	assert.False(t, domain.DefaultRequiresClearance(domain.ModalityOnline))
 
 	a := valid()

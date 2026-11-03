@@ -23,29 +23,21 @@ const open = (name: string) => fireEvent.click(tab(name));
 const type = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } });
 const invalid = (name: string) => tab(name).getAttribute("data-invalid") === "true";
 const note = "Esta aba tem algo a corrigir";
-const clearanceHelp = "Com a exigência ligada, só entra na prova o aluno que você habilitar.";
 
-// SPEC-077 CA-12: the modality and the clearance live together, in a section that explains the clearance.
+// SPEC-077 CA-12 with SPEC-091 CA-03 (RN-03): the section Aplicação has the modality, and nothing of a clearance.
 describe("AssessmentForm application section", () => {
-  it("groups the modality and the clearance under Aplicação, with the sentence that explains the clearance", () => {
+  it("has the modality under Aplicação, without the clearance", () => {
     setup();
     const group = screen.getByRole("group", { name: "Aplicação" });
     expect(within(group).getByLabelText("Modalidade")).toBeDefined();
-    const clearance = within(group).getByRole("checkbox", { name: "Exigir habilitação dos alunos" });
-    expect(within(group).getByText(clearanceHelp)).toBeDefined();
-    expect(document.getElementById(clearance.getAttribute("aria-describedby")!)!.textContent).toBe(clearanceHelp);
+    expect(within(group).queryByRole("checkbox")).toBeNull();
+    expect(within(group).queryByText(/habilit/)).toBeNull();
   });
 
-  it("behaves as before: no clearance for an online assessment, and everything locked once it started", () => {
-    setup({ initial: { title: "Prova", type: "EXAM", modality: "ONLINE", requiresClearance: false } });
-    const group = screen.getByRole("group", { name: "Aplicação" });
-    expect(within(group).queryByRole("checkbox", { name: "Exigir habilitação dos alunos" })).toBeNull();
-    cleanup();
-
-    setup({ mode: "edit", frozen: true, initial: { title: "Prova", type: "EXAM", modality: "IN_PERSON", requiresClearance: true } });
+  it("locks the modality once it started", () => {
+    setup({ mode: "edit", frozen: true, initial: { title: "Prova", type: "EXAM", modality: "IN_PERSON" } });
     const frozen = screen.getByRole("group", { name: "Aplicação" });
     expect((within(frozen).getByLabelText("Modalidade") as HTMLSelectElement).disabled).toBe(true);
-    expect((within(frozen).getByRole("checkbox", { name: "Exigir habilitação dos alunos" }) as HTMLInputElement).disabled).toBe(true);
     expect(within(frozen).getByText("A avaliação já começou; a modalidade não pode mais mudar.")).toBeDefined();
   });
 });

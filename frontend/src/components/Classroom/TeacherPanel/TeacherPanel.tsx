@@ -42,7 +42,7 @@ const TONES = { arrival: [880], hand: [660, 990] } as const;
 export type BeepKind = keyof typeof TONES;
 
 /** A short beep, from the browser itself; no file to load. */
-function webAudioBeep(kind: BeepKind = "arrival") {
+export function webAudioBeep(kind: BeepKind = "arrival") {
   try {
     const audio = new AudioContext();
     const volume = audio.createGain();

@@ -57,6 +57,9 @@ type AttemptRow struct {
 	SubmittedAt      *time.Time
 	PreliminaryScore *domain.Score
 	PendingItems     *int
+	// EndedByName and EndReason are only there when the teacher ended the attempt (SPEC-091 RN-08).
+	EndedByName string
+	EndReason   string
 }
 
 // attemptView is what the student sees of a question, frozen in the attempt at the entry (RN-02).
@@ -175,9 +178,10 @@ func (s *Service) SubmitAttempt(ctx context.Context, actor Actor, classID, id uu
 		return StudentAttempt{}, err
 	}
 	switch attempt.Status {
+	case domain.AttemptInProgress:
 	case domain.AttemptTimeExpired:
 		return StudentAttempt{}, domain.ErrAttemptExpired
-	case domain.AttemptSubmitted:
+	default:
 		return StudentAttempt{}, domain.ErrAttemptAlreadySubmitted
 	}
 	if err := s.close(ctx, &attempt, domain.AttemptSubmitted); err != nil {
@@ -213,6 +217,18 @@ func (s *Service) Attempts(ctx context.Context, actor Actor, classID, id uuid.UU
 			missing = append(missing, at.StudentID)
 		}
 	}
+	var enders []uuid.UUID
+	for _, at := range list {
+		if at.EndedBy != nil {
+			enders = append(enders, *at.EndedBy)
+		}
+	}
+	enderNames := map[uuid.UUID]string{}
+	if len(enders) > 0 {
+		if enderNames, err = s.ports.Users.Names(ctx, enders); err != nil {
+			return nil, err
+		}
+	}
 	if len(missing) > 0 {
 		names, err := s.ports.Users.Names(ctx, missing)
 		if err != nil {
@@ -227,6 +243,12 @@ func (s *Service) Attempts(ctx context.Context, actor Actor, classID, id uuid.UU
 		st := known[at.StudentID]
 		rows[i] = AttemptRow{AttemptID: at.ID, StudentID: at.StudentID, StudentName: st.Name, AcademicID: st.AcademicID, Status: at.Status,
 			StartedAt: at.StartedAt, SubmittedAt: at.SubmittedAt, PreliminaryScore: at.PreliminaryScore, PendingItems: at.PendingItems}
+		if at.EndedBy != nil {
+			rows[i].EndedByName = enderNames[*at.EndedBy]
+		}
+		if at.EndReason != nil {
+			rows[i].EndReason = *at.EndReason
+		}
 	}
 	return rows, nil
 }
@@ -291,9 +313,10 @@ func (s *Service) writableItem(ctx context.Context, actor Actor, classID, id uui
 		return domain.Attempt{}, domain.AttemptItem{}, err
 	}
 	switch attempt.Status {
+	case domain.AttemptInProgress:
 	case domain.AttemptTimeExpired:
 		return domain.Attempt{}, domain.AttemptItem{}, domain.ErrAttemptExpired
-	case domain.AttemptSubmitted:
+	default: // delivered, or ended by the teacher (SPEC-091 RN-08)
 		return domain.Attempt{}, domain.AttemptItem{}, domain.ErrAttemptAlreadySubmitted
 	}
 	items, err := s.repo.AttemptItems(ctx, attempt.ID)

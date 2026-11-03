@@ -114,30 +114,15 @@ describe("assessment page", () => {
       expect(screen.getByText("Ana Souza (1000001)")).toBeDefined();
     });
 
-    // SPEC-076 CA-16
-    it("says the modality and has the way to the clearances of an in-person exam that requires it", async () => {
+    // SPEC-076 CA-16, with SPEC-091 CA-03 (RN-03): the modality, and no clearance to go to nor counters, in person or online.
+    it("says the modality and has no way to the clearances", async () => {
       asRole("TEACHER");
       vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ clearanceCounts: { pending: 3, approved: 29, rejected: 0 } }));
       render(<AssessmentPage params={params} />);
       await screen.findByRole("heading", { name: "Prova 1: permissões" });
       expect(fact("Modalidade")).toBe("Presencial");
-      expect(screen.getByRole("link", { name: "Habilitações" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/clearances");
-      expect(screen.getByText("3 aguardando, 29 habilitados, 0 recusados")).toBeDefined();
-    });
-
-    it("has no clearances to show for an online assessment, nor for one that does not require them", async () => {
-      asRole("TEACHER");
-      vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ modality: "ONLINE", requiresClearance: false }));
-      render(<AssessmentPage params={params} />);
-      await screen.findByRole("heading", { name: "Prova 1: permissões" });
-      expect(fact("Modalidade")).toBe("Online");
       expect(screen.queryByRole("link", { name: "Habilitações" })).toBeNull();
-      cleanup();
-
-      vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ requiresClearance: false }));
-      render(<AssessmentPage params={params} />);
-      await screen.findByRole("heading", { name: "Prova 1: permissões" });
-      expect(screen.queryByRole("link", { name: "Habilitações" })).toBeNull();
+      expect(screen.queryByText(/aguardando, .* habilitados/)).toBeNull();
     });
 
     it("has the way to edit, and to preview, which reads the answers only when asked", async () => {
@@ -188,14 +173,14 @@ describe("assessment page", () => {
       vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess());
     });
 
-    // SPEC-076 CA-17
-    it("shows the own state of the clearance below the card, from the own access", async () => {
+    // SPEC-076 CA-17, with SPEC-091 CA-03: the own access below the card, without a clearance.
+    it("shows the own access below the card", async () => {
       asRole("STUDENT");
       vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf());
       render(<AssessmentPage params={params} />);
-      expect(await screen.findByText("Aguardando a habilitação da professora")).toBeDefined();
+      expect(await screen.findByText("Modalidade: Presencial")).toBeDefined();
       expect(assessmentService.myAccess).toHaveBeenCalledWith("c-1", "a-1");
-      expect(screen.getByText("Modalidade: Presencial")).toBeDefined();
+      expect(screen.queryByText(/habilitação/)).toBeNull();
     });
 
     it("shows the card with the countdown and nothing that is the teacher's", async () => {
@@ -270,7 +255,7 @@ describe("assessment page, start of the exam", () => {
     expect(await screen.findByText("Prova iniciada às 09:07 por Profa. Sediane.")).toBeDefined();
     expect(startButton()).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByRole("link", { name: "Habilitações" })).toBeDefined();
+    expect(screen.queryByRole("link", { name: "Habilitações" })).toBeNull(); // no clearance since SPEC-091 RN-03
   });
 
   it("says why when the server refuses, and keeps the dialog", async () => {
@@ -354,7 +339,7 @@ describe("assessment page, the attempt", () => {
   it("offers the student to enter the exam when the access is allowed", async () => {
     asRole("STUDENT");
     vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf());
-    vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess({ allowed: true, reason: "ALLOWED", modality: "ONLINE", requiresClearance: false, clearance: undefined }));
+    vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess({ allowed: true, reason: "ALLOWED", modality: "ONLINE" }));
     render(<AssessmentPage params={params} />);
     const link = await screen.findByRole("link", { name: "Entrar na prova" });
     expect(link.getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/take");
@@ -381,5 +366,41 @@ describe("assessment page, the attempt", () => {
     render(<AssessmentPage params={params} />);
     await screen.findByRole("heading", { level: 1 });
     expect(screen.queryByRole("heading", { name: "Tentativas" })).toBeNull();
+  });
+});
+
+// SPEC-091 CA-10: the room of the exam opens from the detail, and by itself when the teacher starts the exam.
+describe("assessment page, the room of the exam", () => {
+  const running = { phase: "RUNNING", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00" } as const;
+
+  it("offers to open the room while the exam runs, in its own window", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...running }));
+    render(<AssessmentPage params={params} />);
+    const link = await screen.findByRole("link", { name: /Abrir a sala da prova/ });
+    expect(link.getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/room");
+    expect(link.getAttribute("target")).toBe("_blank");
+  });
+
+  it("does not offer it before the start time, after the end, to an assignment or to a canceled exam", async () => {
+    asRole("TEACHER");
+    for (const over of [{}, { ...running, phase: "ENDED" }, { ...running, type: "ASSIGNMENT", modality: "ONLINE" }, { ...running, status: "CANCELED", cancelReason: "Greve" }] as const) {
+      vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...over }));
+      const { unmount } = render(<AssessmentPage params={params} />);
+      await screen.findByRole("heading", { level: 1 });
+      expect(screen.queryByRole("link", { name: /Abrir a sala da prova/ })).toBeNull();
+      unmount();
+    }
+  });
+
+  it("opens the room when the teacher starts the exam", async () => {
+    asRole("TEACHER");
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...running }));
+    vi.spyOn(assessmentService, "start").mockResolvedValue({ ...summary({ ...STARTED }), serverNow: SERVER_NOW });
+    render(<AssessmentPage params={params} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Iniciar a prova" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Iniciar a prova" }));
+    await waitFor(() => expect(open).toHaveBeenCalledWith("/app/classes/c-1/assessments/a-1/room", "_blank", "noopener"));
   });
 });

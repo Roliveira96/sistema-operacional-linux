@@ -66,9 +66,7 @@ type fakeService struct {
 	listedP []service.Public
 
 	// SPEC-076
-	clearances  service.ClearanceList
-	clearanceIn service.ClearanceInput
-	access      service.MyAccess
+	access service.MyAccess
 }
 
 func (f *fakeService) saw(call string, a service.Actor) { f.calls, f.actor = append(f.calls, call), a }
@@ -157,18 +155,6 @@ func (f *fakeService) EligibleQuestions(_ context.Context, a service.Actor, clas
 	f.saw("EligibleQuestions", a)
 	f.classID, f.questions = classID, filter
 	return f.page, f.err
-}
-
-func (f *fakeService) Clearances(_ context.Context, a service.Actor, classID, id uuid.UUID) (service.ClearanceList, error) {
-	f.saw("Clearances", a)
-	f.classID, f.id = classID, id
-	return f.clearances, f.err
-}
-
-func (f *fakeService) Decide(_ context.Context, a service.Actor, classID, id uuid.UUID, in service.ClearanceInput) (service.ClearanceList, error) {
-	f.saw("Decide", a)
-	f.classID, f.id, f.clearanceIn = classID, id, in
-	return f.clearances, f.err
 }
 
 func (f *fakeService) MyAccess(_ context.Context, a service.Actor, classID, id uuid.UUID) (service.MyAccess, error) {
@@ -766,7 +752,6 @@ func TestHandler_StartAndClearanceErrors(t *testing.T) {
 		{"/start", domain.ErrAssessmentEnded, http.StatusConflict, "assessment-ended"},
 		{"/start", domain.ErrAssessmentNotOpenYet, http.StatusConflict, "assessment-not-open-yet"},
 		{"/start", domain.ErrAssessmentAlreadyStarted, http.StatusConflict, "assessment-already-started"},
-		{"/clearances", domain.ErrAssessmentNotStarted, http.StatusConflict, "assessment-not-started"},
 	}
 	for _, c := range cases {
 		svc.err = c.err

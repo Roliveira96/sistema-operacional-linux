@@ -96,7 +96,6 @@ describe("AssessmentForm", () => {
         endsAt: "2026-10-23T11:00:00-03:00",
         composition: "MANUAL",
         modality: "IN_PERSON",
-        requiresClearance: true,
         items: [
           { questionId: "q-1", weight: 3.34 },
           { questionId: "q-2", weight: 3.33 },

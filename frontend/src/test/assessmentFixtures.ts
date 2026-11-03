@@ -4,8 +4,6 @@ import type {
   AssessmentPublic,
   AssessmentSummary,
   CalendarAssessment,
-  ClearanceItem,
-  ClearanceList,
   EligibleQuestions,
   MyAccess,
   PreviewData,
@@ -93,37 +91,11 @@ export const preview = (over: Partial<PreviewData> = {}): PreviewData => ({
   ...over,
 });
 
-/** The students of an in-person exam that requires the clearance, as the teacher reads them (SPEC-076 section 5). */
-export const clearanceItems = (): ClearanceItem[] => [
-  { studentId: "s-1", name: "Ana Souza", academicId: "1000001", status: "PENDING" },
-  { studentId: "s-2", name: "Bruno Lima", academicId: "1000002", status: "APPROVED", clearedAt: "2026-10-21T09:30:00-03:00", clearedByName: "Profa. Sediane" },
-  {
-    studentId: "s-3",
-    name: "Carla Dias",
-    academicId: "1000003",
-    status: "REJECTED",
-    rejectionReason: "Reprovada por faltas",
-    clearedAt: "2026-10-21T09:31:00-03:00",
-    clearedByName: "Profa. Sediane",
-  },
-  { studentId: "s-4", name: "Davi Alves", academicId: "1000004", status: "REJECTED", clearedAt: "2026-10-21T09:32:00-03:00", clearedByName: "Profa. Sediane" },
-];
-
-export const clearanceList = (over: Partial<ClearanceList> = {}): ClearanceList => ({
-  requiresClearance: true,
-  items: clearanceItems(),
-  counts: { pending: 1, approved: 1, rejected: 2 },
-  serverNow: SERVER_NOW,
-  ...over,
-});
-
 /** What the student reads about their own access (SPEC-076 RN-09). */
 export const myAccess = (over: Partial<MyAccess> = {}): MyAccess => ({
   allowed: false,
   reason: "NOT_OPEN_YET",
   modality: "IN_PERSON",
-  requiresClearance: true,
-  clearance: { status: "PENDING" },
   serverNow: SERVER_NOW,
   ...over,
 });

@@ -191,36 +191,12 @@ export interface AssessmentInput {
   audience?: Audience;
   studentIds?: string[];
   teacherPrivateNotes?: string;
-  /** Without them the server chooses by the type: an exam is in person and asks for the clearance, an assignment is online (SPEC-076 RN-01, RN-02). */
+  /** Without it the server chooses by the type: an exam is in person, an assignment is online (SPEC-076 RN-01). */
   modality?: Modality;
-  requiresClearance?: boolean;
 }
-
-/** A student of the assessment with the state of the clearance (SPEC-076 section 5). */
-export interface ClearanceItem {
-  studentId: string;
-  name: string;
-  academicId: string;
-  status: ClearanceStatus;
-  rejectionReason?: string;
-  clearedAt?: string;
-  clearedByName?: string;
-}
-
-export interface ClearanceList {
-  requiresClearance: boolean;
-  items: ClearanceItem[];
-  counts: ClearanceCounts;
-  serverNow: string;
-}
-
-/** What the teacher does: clears everybody who waits, or decides student by student (RN-06). */
-export type ClearanceInput =
-  | { action: "APPROVE_ALL" }
-  | { action: "UPDATE"; students: { studentId: string; status: "APPROVED" | "REJECTED"; rejectionReason?: string }[] };
 
 /** The situation of an attempt (SPEC-090 D-02). */
-export type AttemptStatus = "IN_PROGRESS" | "SUBMITTED" | "TIME_EXPIRED";
+export type AttemptStatus = "IN_PROGRESS" | "SUBMITTED" | "TIME_EXPIRED" | "ENDED_BY_TEACHER";
 
 /** What the student sees of a question of the attempt, frozen when they entered (SPEC-090 RN-02). */
 export interface AttemptStudentView {
@@ -258,6 +234,8 @@ export interface StudentAttempt {
 
 /** An attempt in the list of the teacher (SPEC-090 RN-09): the score only after the delivery. */
 export interface AttemptRow {
+  endedByName?: string;
+  endReason?: string;
   attemptId: string;
   studentId: string;
   studentName: string;
@@ -269,13 +247,65 @@ export interface AttemptRow {
   pendingItems?: number;
 }
 
+/** A student in the room of the exam (SPEC-091 RN-04): ABSENT until there is an attempt; online and waiting come from the realtime. */
+export interface RoomCard {
+  studentId: string;
+  name: string;
+  academicId: string;
+  status: "ABSENT" | AttemptStatus;
+  online: boolean;
+  waiting: boolean;
+  answered: number;
+  total: number;
+  solved: number;
+  deadlineAt?: string;
+  attemptId?: string;
+  help?: HelpItem;
+  /** The question the student is in, as she told the room (SPEC-092 revision 2). */
+  question?: { position: number; title: string };
+}
+
+/** A request for help (SPEC-091 RN-07). */
+export interface HelpItem {
+  id: string;
+  studentId: string;
+  position?: number;
+  question: string;
+  status: "OPEN" | "ANSWERED" | "CANCELED";
+  createdAt: string;
+  answer?: string;
+}
+
+/** A command the student ran in the exam (SPEC-091 RN-06). */
+export interface RoomCommand {
+  position: number;
+  command: string;
+  output: string;
+  executedAt: string;
+}
+
+/** A message of the room: a type and its data. */
+export interface RoomMessage {
+  type: string;
+  data: unknown;
+}
+
+export interface RoomHandlers {
+  onOpen(): void;
+  onMessage(message: RoomMessage): void;
+  onClose(): void;
+}
+
+export interface RoomSocket {
+  send(type: string, data: unknown): void;
+  close(): void;
+}
+
 /** What the student reads about their own access, and about no one else's (RN-09, RN-10). */
 export interface MyAccess {
   allowed: boolean;
-  reason: "ALLOWED" | "CANCELED" | "NOT_OPEN_YET" | "ENDED" | "NOT_STARTED" | "NOT_CLEARED";
+  reason: "ALLOWED" | "CANCELED" | "NOT_OPEN_YET" | "ENDED" | "NOT_STARTED";
   modality: Modality;
-  requiresClearance: boolean;
-  clearance?: { status: ClearanceStatus; rejectionReason?: string };
   serverNow: string;
 }
 
@@ -319,11 +349,7 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     saveNotes: async (classId: string, id: string, notes: string) =>
       (await client.put<{ teacherPrivateNotes: string }>(`${base(classId)}/${id}/private-notes`, { teacherPrivateNotes: notes })).teacherPrivateNotes,
     preview: (classId: string, id: string) => client.get<PreviewData>(`${base(classId)}/${id}/preview`),
-    /** The eligible students with the state of the clearance, for the teacher and the administrator (SPEC-076). */
-    clearances: (classId: string, id: string) => client.get<ClearanceList>(`${base(classId)}/${id}/clearances`),
-    /** The answer is the list already updated. */
-    decideClearances: (classId: string, id: string, input: ClearanceInput) => client.post<ClearanceList>(`${base(classId)}/${id}/clearances`, input),
-    /** The own access of the student: whether they may enter, why, and the own state of the clearance. */
+    /** The own access of the student: whether they may enter, why and the modality (SPEC-091 RN-03: no clearance). */
     myAccess: (classId: string, id: string) => client.get<MyAccess>(`${base(classId)}/${id}/my-access`),
     /** The student enters the exam: the first time creates the attempt, the next ones give the same back (SPEC-090 RN-01). */
     enterAttempt: (classId: string, id: string) => client.post<StudentAttempt>(`${base(classId)}/${id}/attempt`),
@@ -338,6 +364,29 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     submitAttempt: (classId: string, id: string) => client.post<StudentAttempt>(`${base(classId)}/${id}/attempt/submit`),
     /** The attempts of the exam, for the teacher and the administrator (SPEC-090 RN-09). */
     attempts: (classId: string, id: string) => client.get<{ items: AttemptRow[]; serverNow: string }>(`${base(classId)}/${id}/attempts`),
+    /** Ends the exam of a student, with the reason (SPEC-091 RN-08). */
+    endAttempt: (classId: string, id: string, attemptId: string, reason: string) => client.post<AttemptRow>(`${base(classId)}/${id}/attempts/${attemptId}/end`, { reason }),
+    /** Opens the room of the exam on the same origin, under /api/v1 (SPEC-091 section 5). A message that is not JSON is ignored. */
+    openRoom: (classId: string, id: string, handlers: RoomHandlers, create: (url: string) => WebSocket = (url) => new WebSocket(url)): RoomSocket => {
+      const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const socket = create(`${scheme}//${window.location.host}/api/v1${base(classId)}/${id}/room/ws`);
+      socket.onopen = () => handlers.onOpen();
+      socket.onclose = () => handlers.onClose();
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(String(event.data)) as RoomMessage;
+          if (typeof message.type === "string") handlers.onMessage(message);
+        } catch {
+          /* not a message of the room */
+        }
+      };
+      return {
+        send(type, data) {
+          if (socket.readyState === 1) socket.send(JSON.stringify({ type, data }));
+        },
+        close: () => socket.close(),
+      };
+    },
     /** The questions that may enter and the stock of each level, for the form (RN-05, RN-07). */
     eligibleQuestions: (classId: string, query: QuestionQuery) => {
       const qs = new URLSearchParams({ moduleId: query.moduleId });

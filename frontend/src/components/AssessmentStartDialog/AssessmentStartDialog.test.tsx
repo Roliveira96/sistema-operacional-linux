@@ -5,33 +5,22 @@ import { AssessmentStartDialog } from "./AssessmentStartDialog";
 
 afterEach(cleanup);
 
-const inPerson = { title: "Prova 1: permissões", modality: "IN_PERSON", requiresClearance: true } as const;
+const exam = { title: "Prova 1: permissões" } as const;
 
-function setup(onConfirm = vi.fn().mockResolvedValue(undefined), assessment: Parameters<typeof AssessmentStartDialog>[0]["assessment"] = inPerson) {
+function setup(onConfirm = vi.fn().mockResolvedValue(undefined), assessment: Parameters<typeof AssessmentStartDialog>[0]["assessment"] = exam) {
   const onClose = vi.fn();
   render(<AssessmentStartDialog assessment={assessment} onClose={onClose} onConfirm={onConfirm} />);
   return { onClose, onConfirm };
 }
-
-// SPEC-089 section 3.1, D-03: without the clearance (online, or in person without the requirement) the dialog says everybody enters.
-describe("AssessmentStartDialog without the clearance", () => {
-  it.each([
-    ["online", { title: "Prova 1: permissões", modality: "ONLINE", requiresClearance: false }],
-    ["in person without the requirement", { title: "Prova 1: permissões", modality: "IN_PERSON", requiresClearance: false }],
-  ] as const)("says everybody enters once it starts: %s", (_, assessment) => {
-    setup(undefined, assessment);
-    const dialog = screen.getByRole("dialog", { name: "Iniciar a prova agora?" });
-    expect(within(dialog).getByText("Todos os alunos da prova poderão entrar a partir deste momento. O início não pode ser desfeito.")).toBeDefined();
-    expect(within(dialog).queryByText(/habilitados por você/)).toBeNull();
-  });
-});
 
 // SPEC-083 CA-09, section 3.1: the teacher confirms before starting the exam, because the start cannot be undone.
 describe("AssessmentStartDialog", () => {
   it("asks whether to start now and says what the start means", () => {
     setup();
     const dialog = screen.getByRole("dialog", { name: "Iniciar a prova agora?" });
-    expect(within(dialog).getByText("Os alunos só entram depois de habilitados por você. O início não pode ser desfeito.")).toBeDefined();
+    // since SPEC-091 RN-03 nobody waits for a clearance: everybody enters, in person or online
+    expect(within(dialog).getByText("Todos os alunos da prova poderão entrar a partir deste momento. O início não pode ser desfeito.")).toBeDefined();
+    expect(within(dialog).queryByText(/habilitados por você/)).toBeNull();
     expect(within(dialog).getByText("Prova 1: permissões")).toBeDefined();
     expect(within(dialog).getByRole("button", { name: "Iniciar a prova" })).toBeDefined();
     expect(within(dialog).getByRole("button", { name: "Voltar" })).toBeDefined();

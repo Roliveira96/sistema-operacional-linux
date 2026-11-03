@@ -44,72 +44,20 @@ function setup(items: AssessmentSummary[]) {
 const rowOf = (title: string) => screen.getByRole("row", { name: new RegExp(title) });
 const warning = () => screen.queryByRole("status");
 
-// SPEC-076 CA-15, RN-13 as SPEC-083 changes it: the modality and the students who wait are in the list, and the warning of who waits comes only
-// after the teacher started the exam.
-describe("AssessmentList: modality and clearance warning", () => {
-  it("says the modality under the title and counts who still waits in an in-person exam that requires the clearance", () => {
-    setup([
-      far(),
-      summary({ id: "a-2", title: "Prova online", modality: "ONLINE", requiresClearance: false, clearanceCounts: { pending: 32, approved: 0, rejected: 0 } }),
-      summary({ id: "a-3", title: "Prova livre", requiresClearance: false, clearanceCounts: { pending: 32, approved: 0, rejected: 0 } }),
-    ]);
+// SPEC-076 CA-15 with SPEC-091 CA-03 (RN-03): the modality is in the list, and nothing of a clearance: no one waits for one, and no warning about it.
+describe("AssessmentList: modality, without the clearance", () => {
+  it("says the modality under the title, and no count of who waits", () => {
+    setup([far(), summary({ id: "a-2", title: "Prova online", modality: "ONLINE", requiresClearance: false })]);
     const first = (title: string) => within(rowOf(title)).getAllByRole("cell")[0]!;
     expect(within(first("Prova 1: permissões")).getByText("Prova · Presencial · 10,00 pontos")).toBeDefined();
-    expect(within(first("Prova 1: permissões")).getByText("3 aguardando")).toBeDefined();
+    expect(within(first("Prova 1: permissões")).queryByText(/aguardando/)).toBeNull();
     expect(within(first("Prova online")).getByText("Prova · Online · 10,00 pontos")).toBeDefined();
-    expect(within(first("Prova online")).queryByText(/aguardando/)).toBeNull();
-    expect(within(first("Prova livre")).queryByText(/aguardando/)).toBeNull();
   });
 
-  it("says one student waits in the singular", () => {
-    setup([far({ clearanceCounts: { pending: 1, approved: 31, rejected: 0 } })]);
-    expect(within(within(rowOf("Prova 1: permissões")).getAllByRole("cell")[0]!).getByText("1 aguardando")).toBeDefined();
-  });
-
-  it("warns when the exam was started and there are students waiting, with the way to clear them all and to see them", () => {
-    const h = setup([waiting()]);
-    const alert = warning()!;
-    expect(alert.textContent).toContain("3 alunos ainda não foram habilitados");
-    fireEvent.click(within(alert).getByRole("button", { name: "Habilitar todos" }));
-    expect(h.onApproveAll).toHaveBeenCalledWith(expect.objectContaining({ id: "a-1" }));
-    fireEvent.click(within(alert).getByRole("button", { name: "Ver habilitações" }));
-    expect(h.onClearances).toHaveBeenCalledWith(expect.objectContaining({ id: "a-1" }));
-  });
-
-  it("says it in the singular for a student", () => {
-    setup([waiting({ clearanceCounts: { pending: 1, approved: 31, rejected: 0 } })]);
-    expect(warning()!.textContent).toContain("1 aluno ainda não foi habilitado");
-  });
-
-  // SPEC-083 D-07: before the start there is nothing to clear, not even 30 minutes before it.
-  it("does not warn about who waits before the teacher starts the exam, not even close to the start time", () => {
-    setup([
-      waiting({ id: "a-1", title: "Meia hora antes", phase: "UPCOMING", startedAt: undefined, startedBy: undefined, startedByName: undefined, startsAt: "2026-10-21T10:30:00-03:00", endsAt: "2026-10-21T12:00:00-03:00" }),
-    ]);
+  it("does not warn about who waits, even with the exam started and students counted as waiting", () => {
+    setup([waiting()]);
     expect(warning()).toBeNull();
-    cleanup();
-    setup([waiting({ startedAt: undefined, startedBy: undefined, startedByName: undefined })]);
-    expect(warning()!.textContent).not.toContain("não foram habilitados");
-  });
-
-  it("does not warn about who waits when nobody waits, when the exam is over, canceled, online or does not require it", () => {
-    setup([
-      waiting({ id: "a-1", title: "Sem ninguém", clearanceCounts: { pending: 0, approved: 32, rejected: 0 } }),
-      waiting({ id: "a-3", title: "Acabou", phase: "ENDED", startsAt: "2026-10-21T08:00:00-03:00", endsAt: "2026-10-21T09:30:00-03:00" }),
-      waiting({ id: "a-4", title: "Cancelada", status: "CANCELED", cancelReason: "Falta de energia" }),
-      // started: since SPEC-089 an online exam not started yet says it can be started
-      waiting({ id: "a-5", title: "Online", modality: "ONLINE", requiresClearance: false }),
-      waiting({ id: "a-6", title: "Sem exigência", requiresClearance: false }),
-    ]);
-    expect(warning()).toBeNull();
-  });
-
-  it("puts the warning with its own assessment, one for each", () => {
-    setup([waiting({ id: "a-1", title: "Prova da manhã" }), waiting({ id: "a-2", title: "Prova da tarde", clearanceCounts: { pending: 5, approved: 27, rejected: 0 } })]);
-    const alerts = screen.getAllByRole("status");
-    expect(alerts).toHaveLength(2);
-    expect(alerts[0]!.textContent).toContain("Prova da manhã");
-    expect(alerts[1]!.textContent).toContain("5 alunos ainda não foram habilitados");
+    expect(screen.queryByRole("button", { name: "Habilitar todos" })).toBeNull();
   });
 });
 
@@ -139,9 +87,4 @@ describe("AssessmentList: the exam can be started", () => {
     expect(warning()).toBeNull();
   });
 
-  it("gives the place to the warning of who waits once the exam is started: one at a time", () => {
-    setup([waiting()]);
-    expect(warning()!.textContent).not.toContain("já pode ser iniciada");
-    expect(screen.queryByRole("button", { name: "Iniciar a prova" })).toBeNull();
-  });
 });

@@ -11,7 +11,7 @@ import { Button } from "@/components/Button/Button";
 import { useAuth } from "@/hooks/useAuth";
 import { formatPeriod, situationOf } from "@/lib/assessment";
 import { messages } from "@/messages/pt-BR";
-import { assessmentService, describeAssessmentError, type AssessmentBase, type AssessmentSummary, type RescheduleInput } from "@/services/assessmentService";
+import { assessmentService, type AssessmentBase, type AssessmentSummary, type RescheduleInput } from "@/services/assessmentService";
 import styles from "./ClassAssessments.module.scss";
 
 const m = messages.assessments;
@@ -33,7 +33,6 @@ export function ClassAssessments({ classId }: { classId: string }) {
   const [status, setStatus] = useState<"loading" | "error" | "ready">("loading");
   const [reload, setReload] = useState(0);
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -55,16 +54,6 @@ export function ClassAssessments({ classId }: { classId: string }) {
     setReload((n) => n + 1);
   };
   const base = `/app/classes/${id}/assessments`;
-  /** Clears everybody who waits, from the warning of the list (SPEC-076 RN-13); it says why when the server refuses. */
-  const approveAll = async (assessment: AssessmentSummary) => {
-    setProblem(null);
-    try {
-      await assessmentService.decideClearances(id, assessment.id, { action: "APPROVE_ALL" });
-      setReload((n) => n + 1);
-    } catch (cause) {
-      setProblem(describeAssessmentError(cause));
-    }
-  };
   const confirm = async (act: () => Promise<unknown>) => {
     await act();
     setDialog(null);
@@ -103,16 +92,9 @@ export function ClassAssessments({ classId }: { classId: string }) {
         )
       ) : (
         <>
-          {problem && (
-            <p role="alert" className={styles.problem}>
-              {problem}
-            </p>
-          )}
           <AssessmentList
             status={status}
             items={items as AssessmentSummary[]}
-            onApproveAll={(a) => void approveAll(a)}
-            onClearances={(a) => router.push(`${base}/${a.id}/clearances`)}
             onNew={() => router.push(`${base}/new`)}
             onRetry={retry}
             hrefOf={(a) => `${base}/${a.id}`}

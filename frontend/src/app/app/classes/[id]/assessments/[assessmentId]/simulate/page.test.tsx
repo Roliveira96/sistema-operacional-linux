@@ -117,7 +117,7 @@ describe("simulator page", () => {
     asRole("TEACHER");
     vi.spyOn(assessmentService, "get").mockResolvedValue(detail());
     vi.spyOn(assessmentService, "preview").mockResolvedValue(simulation());
-    const writers = (["create", "update", "reschedule", "cancel", "saveNotes", "decideClearances"] as const).map((name) =>
+    const writers = (["create", "update", "reschedule", "cancel", "saveNotes"] as const).map((name) =>
       vi.spyOn(assessmentService, name).mockRejectedValue(new Error(`${name} must not be called`)),
     );
     render(<SimulatePage params={params} />);
