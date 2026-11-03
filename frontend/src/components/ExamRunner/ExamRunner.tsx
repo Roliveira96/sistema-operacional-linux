@@ -69,9 +69,11 @@ export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerPr
   const [celebrating, setCelebrating] = useState<number | null>(null);
   const [checking, setChecking] = useState(false);
   const [notSolved, setNotSolved] = useState<number | null>(null);
+  /** The practical questions in which the student ran a command, which count as answered. */
+  const [touched, setTouched] = useState<Record<number, boolean>>({});
 
   /** The clock of the server, as an offset from the one of this computer (SPEC-090 RN-03). */
-  const offset = useMemo(() => Date.parse(attempt.serverNow) - Date.now(), [attempt.serverNow]);
+  const [offset] = useState(() => Date.parse(attempt.serverNow) - Date.now());
   const deadline = useMemo(() => Date.parse(attempt.deadlineAt), [attempt.deadlineAt]);
   const left = useCallback(() => Math.max(deadline - (Date.now() + offset), 0), [deadline, offset]);
   const [remaining, setRemaining] = useState(left);
@@ -82,6 +84,8 @@ export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerPr
   const lastMachine = useRef(new Map<number, number>());
   const flushing = useRef<Promise<void> | null>(null);
   const saveRef = useRef(save);
+  /** The flush itself, for the retry that it schedules. */
+  const retry = useRef<() => void>(() => {});
   useEffect(() => {
     saveRef.current = save;
   });
@@ -103,7 +107,7 @@ export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerPr
         setSaveState("saved");
       } catch {
         setSaveState("offline");
-        timer.current = setTimeout(() => void flush(), RETRY_MS);
+        timer.current = setTimeout(() => retry.current(), RETRY_MS);
       } finally {
         flushing.current = null;
       }
@@ -111,6 +115,10 @@ export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerPr
     flushing.current = run;
     return run;
   }, []);
+
+  useEffect(() => {
+    retry.current = () => void flush();
+  }, [flush]);
 
   const queue = useCallback(
     (position: number, answer: unknown, delay: number) => {
@@ -172,6 +180,7 @@ export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerPr
     (id: string, snapshot: unknown) => {
       const position = Number(id);
       machines.current.set(position, snapshot);
+      setTouched((all) => (all[position] ? all : { ...all, [position]: true }));
       const since = Date.now() - (lastMachine.current.get(position) ?? 0);
       const wait = since >= MACHINE_EVERY_MS ? 0 : MACHINE_EVERY_MS - since;
       lastMachine.current.set(position, Date.now() + wait);
@@ -193,7 +202,7 @@ export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerPr
   const loadScenario = useCallback(async (id: string) => items.find((it) => String(it.position) === id)?.studentView.scenario ?? null, [items]);
   const resume = useMemo(() => Object.fromEntries(items.filter((it) => isPractical(it) && it.answer !== undefined).map((it) => [String(it.position), it.answer])), [items]);
 
-  const isDone = (it: AttemptItem) => (isPractical(it) ? !!solved[it.position] || resume[String(it.position)] !== undefined || machines.current.has(it.position) : isAnswered(responses[it.position]));
+  const isDone = (it: AttemptItem) => (isPractical(it) ? !!solved[it.position] || resume[String(it.position)] !== undefined || !!touched[it.position] : isAnswered(responses[it.position]));
   const blank = items.filter((it) => !isDone(it)).length;
   const open = items[current];
   const hasTerminal = items.some(isPractical);
