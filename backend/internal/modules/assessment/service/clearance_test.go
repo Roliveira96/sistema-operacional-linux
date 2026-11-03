@@ -432,7 +432,7 @@ func TestAccessOf_ClearanceDecisionTable(t *testing.T) {
 	f.now = at(20, 8, 0)
 	free := f.create(t, func(in *service.CreateInput) { in.RequiresClearance = ptr(false) })
 	online := f.create(t, func(in *service.CreateInput) { in.Modality = ptr(domain.ModalityOnline) })
-	f.ensureStarted(t, free) // an in-person exam is open once the teacher starts it, with or without the requirement (SPEC-083 D-03)
+	f.ensureStarted(t, free)   // an in-person exam is open once the teacher starts it, with or without the requirement (SPEC-083 D-03)
 	f.ensureStarted(t, online) // and so is an online one (SPEC-089 RN-02)
 	f.now = at(21, 10, 0)
 	for _, other := range []service.Summary{free, online} {
