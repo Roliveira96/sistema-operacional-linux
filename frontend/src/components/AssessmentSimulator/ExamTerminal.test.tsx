@@ -219,3 +219,16 @@ describe("ExamTerminal, the machine that the exam itself loads", () => {
     expect(onCommand).not.toHaveBeenCalled();
   });
 });
+
+// SPEC-090 CA-14: the exam of a student who comes back starts each question from the machine saved, and Reset Máquina still goes back to the scenario.
+describe("ExamTerminal, coming back to an attempt", () => {
+  it("puts the machine saved for the question instead of the scenario, and the format goes back to the scenario", async () => {
+    open({ resume: { "q-1": { name: "salva" } } });
+    await ready();
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledWith({ name: "salva" }));
+    expect(terminal.windows[0]!.reset).not.toHaveBeenCalledWith({ name: "um" });
+    fireEvent.click(resetButton());
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Reset|Formatar|Confirmar/ }));
+    await waitFor(() => expect(terminal.windows[0]!.resetAnimated).toHaveBeenCalledWith({ name: "um" }));
+  });
+});
