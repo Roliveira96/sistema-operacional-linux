@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AssessmentAccessNotice } from "@/components/AssessmentAccessNotice/AssessmentAccessNotice";
+import { AssessmentAttempts } from "@/components/AssessmentAttempts/AssessmentAttempts";
 import { AssessmentCard } from "@/components/AssessmentCard/AssessmentCard";
 import { AssessmentHistory } from "@/components/AssessmentHistory/AssessmentHistory";
 import { AssessmentPreview, DrawRulesTable } from "@/components/AssessmentPreview/AssessmentPreview";
 import { AssessmentStartDialog } from "@/components/AssessmentStartDialog/AssessmentStartDialog";
+import { AttemptAction } from "@/components/AttemptAction/AttemptAction";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +18,7 @@ import { canStart, formatDateTime, formatHour, formatPeriod, formatScore, situat
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { messages } from "@/messages/pt-BR";
 import { assessmentService, describeAssessmentError, type AssessmentDetail, type AssessmentPublic } from "@/services/assessmentService";
+import { ApiProblemError } from "@/services/httpClient";
 import styles from "../page.module.scss";
 
 const m = messages.assessments;
@@ -45,6 +48,16 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   const loadPublic = useCallback(async () => (await assessmentService.get(classId!, assessmentId!)) as AssessmentPublic, [classId, assessmentId]);
   const loadAccess = useCallback(() => assessmentService.myAccess(classId!, assessmentId!), [classId, assessmentId]);
   const loadPreview = useCallback(() => assessmentService.preview(classId!, assessmentId!), [classId, assessmentId]);
+  /** The own attempt of the student, or null when there is none (SPEC-090 CA-11). */
+  const loadAttempt = useCallback(
+    () =>
+      assessmentService.myAttempt(classId!, assessmentId!).catch((cause: unknown) => {
+        if (cause instanceof ApiProblemError && cause.status === 404) return null;
+        throw cause;
+      }),
+    [classId, assessmentId],
+  );
+  const loadAttempts = useCallback(() => assessmentService.attempts(classId!, assessmentId!), [classId, assessmentId]);
 
   useEffect(() => {
     if (!classId || !assessmentId || isStudent) return;
@@ -76,6 +89,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         {back}
         <AssessmentCard load={loadPublic} />
         <AssessmentAccessNotice load={loadAccess} />
+        <AttemptAction classId={classId} assessmentId={assessmentId} loadAccess={loadAccess} loadAttempt={loadAttempt} />
       </main>
     );
   }
@@ -219,6 +233,8 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
           </ul>
         </section>
       )}
+
+      {detail.type === "EXAM" && <AssessmentAttempts maxScore={detail.maxScore} load={loadAttempts} />}
 
       {showPreview && (
         <section className={styles.section}>

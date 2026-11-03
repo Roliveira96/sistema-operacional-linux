@@ -1239,6 +1239,61 @@ export const messages = {
       "class-not-found": "Turma não encontrada.",
       forbidden: "Você não tem permissão para fazer isto.",
     } as Record<string, string>,
+    /** The window of the exam of the student (SPEC-090). */
+    take: {
+      title: "Prova",
+      deliver: "Entregar a prova",
+      saved: "Salvo",
+      saving: "Salvando…",
+      offline: "Sem conexão: suas respostas serão enviadas quando ela voltar.",
+      check: "Conferir",
+      checking: "Conferindo…",
+      notSolvedYet: "Ainda não está resolvida. Continue no terminal e confira de novo.",
+      confirm: {
+        title: "Entregar a prova?",
+        blank: (n: number) =>
+          n === 0
+            ? "Todas as questões têm resposta. Depois de entregar, não dá para mudar nada."
+            : n === 1
+              ? "1 questão está sem resposta. Depois de entregar, não dá para mudar nada."
+              : `${n} questões estão sem resposta. Depois de entregar, não dá para mudar nada.`,
+        deliver: "Entregar",
+        keep: "Continuar respondendo",
+      },
+      delivered: "Prova entregue.",
+      timeUp: "O tempo acabou. Sua prova foi entregue.",
+      close: "Fechar a janela",
+      loading: "Abrindo a prova…",
+      errors: {
+        "assessment-not-started": "A docente ainda não iniciou a prova.",
+        "assessment-not-open-yet": "Ainda não chegou o horário da prova.",
+        "assessment-ended": "A prova já terminou.",
+        "assessment-canceled": "A prova foi cancelada.",
+        "not-cleared": "Você ainda não foi habilitado para esta prova.",
+        "not-eligible": "Você não faz parte desta prova.",
+        "attempt-already-submitted": "Você já entregou esta prova.",
+        "attempt-expired": "O tempo da prova acabou.",
+        "invalid-assessment": "Esta avaliação não é feita na plataforma.",
+      } as Record<string, string>,
+    },
+    /** The way of the student into the exam, on the detail (SPEC-090 CA-11). */
+    attemptAction: {
+      enter: "Entrar na prova",
+      back: "Voltar para a prova",
+      newWindow: "abre numa janela nova",
+      delivered: (when: string) => `Prova entregue em ${when}.`,
+    },
+    /** The attempts of the exam, for the teacher (SPEC-090 CA-15). */
+    attempts: {
+      title: "Tentativas",
+      empty: "Nenhum aluno entrou na prova ainda.",
+      refresh: "Atualizar",
+      loadError: "Não foi possível carregar as tentativas.",
+      columns: { student: "Aluno", academicId: "RA", status: "Situação", startedAt: "Início", submittedAt: "Entrega", score: "Nota preliminar" },
+      status: { IN_PROGRESS: "Em andamento", SUBMITTED: "Entregue", TIME_EXPIRED: "Tempo esgotado" } as Record<string, string>,
+      score: (score: string, max: string, pending: number) =>
+        `${score} de ${max}${pending === 0 ? "" : pending === 1 ? " · 1 descritiva pendente" : ` · ${pending} descritivas pendentes`}`,
+    },
     stockError: (levels: string) => `Estoque insuficiente: ${levels}.`,
     stockLevel: (level: string, asked: number, available: number) => `${level} (pediu ${asked}, há ${available})`,
     networkError: "Sem conexão com o servidor. Tente de novo.",

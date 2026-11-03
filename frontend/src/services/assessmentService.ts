@@ -219,6 +219,56 @@ export type ClearanceInput =
   | { action: "APPROVE_ALL" }
   | { action: "UPDATE"; students: { studentId: string; status: "APPROVED" | "REJECTED"; rejectionReason?: string }[] };
 
+/** The situation of an attempt (SPEC-090 D-02). */
+export type AttemptStatus = "IN_PROGRESS" | "SUBMITTED" | "TIME_EXPIRED";
+
+/** What the student sees of a question of the attempt, frozen when they entered (SPEC-090 RN-02). */
+export interface AttemptStudentView {
+  title: string;
+  statement: string;
+  choices?: { id: string; html: string }[];
+  columns?: { left: { id: string; text: string }[]; right: { id: string; text: string }[] };
+  shuffle?: boolean;
+  maxLength?: number;
+  /** The machine a practical question starts from; none is the default machine. */
+  scenario?: unknown;
+}
+
+/** A question of the attempt: never the key nor the points (SPEC-090 RN-10). */
+export interface AttemptItem {
+  position: number;
+  kind: string;
+  weight: number;
+  studentView: AttemptStudentView;
+  answer?: unknown;
+  /** Only in a practical question: whether the last check gave it as solved. */
+  checkedSolved?: boolean;
+}
+
+/** The attempt of the student (SPEC-090 section 5). */
+export interface StudentAttempt {
+  id: string;
+  status: AttemptStatus;
+  startedAt: string;
+  deadlineAt: string;
+  submittedAt?: string;
+  serverNow: string;
+  items: AttemptItem[];
+}
+
+/** An attempt in the list of the teacher (SPEC-090 RN-09): the score only after the delivery. */
+export interface AttemptRow {
+  attemptId: string;
+  studentId: string;
+  studentName: string;
+  academicId: string;
+  status: AttemptStatus;
+  startedAt: string;
+  submittedAt?: string;
+  preliminaryScore?: number;
+  pendingItems?: number;
+}
+
 /** What the student reads about their own access, and about no one else's (RN-09, RN-10). */
 export interface MyAccess {
   allowed: boolean;
@@ -275,6 +325,19 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     decideClearances: (classId: string, id: string, input: ClearanceInput) => client.post<ClearanceList>(`${base(classId)}/${id}/clearances`, input),
     /** The own access of the student: whether they may enter, why, and the own state of the clearance. */
     myAccess: (classId: string, id: string) => client.get<MyAccess>(`${base(classId)}/${id}/my-access`),
+    /** The student enters the exam: the first time creates the attempt, the next ones give the same back (SPEC-090 RN-01). */
+    enterAttempt: (classId: string, id: string) => client.post<StudentAttempt>(`${base(classId)}/${id}/attempt`),
+    /** The own attempt of the student; 404 attempt-not-found when there is none. */
+    myAttempt: (classId: string, id: string) => client.get<StudentAttempt>(`${base(classId)}/${id}/attempt`),
+    /** Saves the answer of a question, replacing the one before (SPEC-090 RN-04). */
+    saveAnswer: (classId: string, id: string, position: number, answer: unknown) => client.put<void>(`${base(classId)}/${id}/attempt/items/${position}`, { answer }),
+    /** Checks the machine of a practical question against its key and says whether it is solved (SPEC-090 RN-05). */
+    checkAnswer: async (classId: string, id: string, position: number, snapshot: unknown) =>
+      (await client.post<{ solved: boolean }>(`${base(classId)}/${id}/attempt/items/${position}/check`, { snapshot })).solved,
+    /** Delivers the attempt (SPEC-090 RN-06). */
+    submitAttempt: (classId: string, id: string) => client.post<StudentAttempt>(`${base(classId)}/${id}/attempt/submit`),
+    /** The attempts of the exam, for the teacher and the administrator (SPEC-090 RN-09). */
+    attempts: (classId: string, id: string) => client.get<{ items: AttemptRow[]; serverNow: string }>(`${base(classId)}/${id}/attempts`),
     /** The questions that may enter and the stock of each level, for the form (RN-05, RN-07). */
     eligibleQuestions: (classId: string, query: QuestionQuery) => {
       const qs = new URLSearchParams({ moduleId: query.moduleId });

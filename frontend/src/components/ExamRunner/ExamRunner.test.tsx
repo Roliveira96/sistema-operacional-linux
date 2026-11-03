@@ -27,7 +27,7 @@ function setup(attempt: StudentAttempt = studentAttempt(), over: Partial<{ save:
   const save = over.save ?? vi.fn().mockResolvedValue(undefined);
   const check = over.check ?? vi.fn().mockResolvedValue(false);
   const submit = over.submit ?? vi.fn().mockResolvedValue({ ...attempt, status: "SUBMITTED", submittedAt: "2026-10-21T10:15:00-03:00" });
-  render(<ExamRunner attempt={attempt} title="Prova de teste" save={save} check={check} submit={submit} />);
+  render(<ExamRunner attempt={attempt} title="Prova de teste" save={save as never} check={check as never} submit={submit as never} />);
   return { save, check, submit };
 }
 const goTo = (n: number) => fireEvent.click(screen.getByRole("button", { name: new RegExp(`^Questão ${n},`) }));
