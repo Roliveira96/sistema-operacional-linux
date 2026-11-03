@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-090 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 03/11/2026 |
 | **Última revisão** | 03/11/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -41,7 +41,7 @@ Toda IA implementadora deve tratar esta lista como proibição.
 - **Telemetria forense** (mouse, atalhos proibidos, perda de foco, copiar e colar) e o **player** de sessão (resto do rascunho 052).
 - **Correção e homologação**: nota da descritiva, ajuste manual, anulação, homologação, correção em lote pelo MCP e o estudante ver a nota (rascunho `revisao-avaliacoes-telemetria-mcp`). Nesta spec o estudante vê só que entregou.
 - Token de sala, troca de máquina com aviso à docente, repescagem e segunda chamada.
-- A **atividade** (`ASSIGNMENT`): a tentativa desta spec é só da prova (`EXAM`). A atividade ganha a sua em spec própria (P-05).
+- A **atividade** (`ASSIGNMENT`): a tentativa desta spec é só da prova (`EXAM`). A atividade ganha a sua em spec própria (D-05).
 - Mais de uma tentativa por aluno: cada aluno tem no máximo uma tentativa por prova.
 - Qualquer mudança em `frontend/src/engine/core/`.
 
@@ -78,7 +78,7 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 - **RN-05 (conferir a prática):** o estudante pede a conferência de uma questão prática com a máquina que enviar. O servidor confere com o mesmo motor da SPEC-085, contra o gabarito guardado na tentativa (RN-02), salva a máquina e o resultado e responde se está resolvida. A conferência não muda a nota antes da entrega.
 - **RN-06 (entregar):** o estudante entrega a tentativa em andamento até o prazo mais 1 minuto. A situação passa a `SUBMITTED` com o instante da entrega.
 - **RN-07 (vencimento):** a tentativa em andamento cujo prazo mais 1 minuto passou é **entregue pelo servidor** com a situação `TIME_EXPIRED`. Isso acontece na primeira leitura ou escrita depois do vencimento e por uma varredura do servidor a cada minuto, para quem não voltou. As respostas salvas até o vencimento valem.
-- **RN-08 (nota preliminar):** na entrega, de qualquer forma, o servidor corrige cada questão contra o gabarito guardado. Escolha única e verdadeiro ou falso valem tudo ou nada. Ligar colunas vale a proporção de pares certos (P-01). A prática vale tudo se a última máquina salva cumpre o pedido, conferida de novo na entrega, e nada se não cumpre. A descritiva fica **pendente**. Sem resposta, vale zero. A nota preliminar é a soma dos pontos das corrigidas; a tentativa guarda também quantas estão pendentes.
+- **RN-08 (nota preliminar):** na entrega, de qualquer forma, o servidor corrige cada questão contra o gabarito guardado. Escolha única e verdadeiro ou falso valem tudo ou nada. Ligar colunas vale a proporção de pares certos (D-01). A prática vale tudo se a última máquina salva cumpre o pedido, conferida de novo na entrega, e nada se não cumpre. A descritiva fica **pendente**. Sem resposta, vale zero. A nota preliminar é a soma dos pontos das corrigidas; a tentativa guarda também quantas estão pendentes.
 - **RN-09 (a lista da docente):** a docente dona e o administrador leem as tentativas da avaliação, com o nome e o RA do aluno, a situação, o início, a entrega, a nota preliminar e as pendentes. As respostas de cada aluno não saem nesta spec.
 - **RN-10 (o que o estudante lê):** a tentativa que volta ao estudante traz a visão do aluno de cada questão, as respostas salvas, a última máquina de cada prática e se ela já foi conferida como resolvida, mas **nunca** o gabarito nem a nota.
 - **RN-11 (a habilitação e a tentativa):** a interface `AttemptCheck` da SPEC-076 (RN-07) passa a responder pela tabela de tentativas: a decisão de habilitação de quem já tem tentativa é recusada com `clearance-locked`.
@@ -221,19 +221,21 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
    - **Backend, alterados:** `domain/errors.go`, o registro das rotas em `handler/handler.go`, a ligação de `AttemptCheck` e da varredura em `backend/cmd/api/`.
    - **Frontend, novos:** `frontend/src/app/app/classes/[id]/assessments/[assessmentId]/take/` (a página, o estilo e o teste) e, se a janela do simulador não servir como está, uma extração dela em `frontend/src/components/AssessmentSimulator/` que as duas usam.
    - **Frontend, alterados:** `frontend/src/services/assessmentService.ts` e o teste, `frontend/src/components/AssessmentCard/` ou `AssessmentAccessNotice/` (o botão), `frontend/src/app/app/classes/[id]/assessments/[assessmentId]/page.tsx` e o teste (a seção *Tentativas*) e `frontend/src/messages/pt-BR.ts`.
-   - **Documentação:** esta spec e `specs/GLOSSARY.md` (a tentativa e os status dela, P-02).
+   - **Documentação:** esta spec e `specs/GLOSSARY.md` (a tentativa e os status dela, D-02).
    - **Não alterar:** `frontend/src/engine/core/` e qualquer arquivo fora desta lista sem justificativa no resumo da entrega.
 4. **Definição de pronto:** todos os CA marcados, os testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, o roteiro manual feito e o status atualizado para `Implementada`.
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | **Nota do ligar colunas.** A SPEC-037 (D-02) deixou a nota parcial na prova para a spec da avaliação: tudo ou nada, ou proporcional aos pares certos? | **Proporcional**: 3 de 4 pares certos valem 75% do peso. É mais justo numa questão com várias ligações. |
-| P-02 | **Nomes dos status da tentativa.** O glossário tem o conflito 1 em aberto (os nomes canônicos em português divergem entre a seção 3.1 e a 6.4 do documento de arquitetura). | Nesta spec, `IN_PROGRESS`, `SUBMITTED` e `TIME_EXPIRED`, com o encerramento pela docente (`ENDED_BY_TEACHER`, equivalente a `BLOQUEADO_DOCENTE` e `ENCERRADO_DOCENTE`) na SPEC-091 e o bloqueio cautelar fora das duas. O glossário registra a equivalência. |
-| P-03 | **O estudante saber que a prática está resolvida.** O simulador comemora, e o documento canônico (4.4) devolve o resultado da questão ao aluno. Na prova de verdade, isso fica? | **Fica** para a prática, como na aula e no documento canônico; as objetivas e a descritiva não dizem se estão certas. |
-| P-04 | **Tolerância e varredura.** 1 minuto de tolerância (rascunho 052) e a varredura a cada minuto. | **Manter** os dois valores. |
-| P-05 | **A atividade.** A atividade (`ASSIGNMENT`) também é feita na plataforma, mas fica aberta por dias e não tem início pela docente. | **Fora desta spec**; ela ganha a sua quando a da prova estiver pronta, reaproveitando a tentativa. |
+Nenhuma. O Tech Lead decidiu em 03/11/2026, ao aprovar a spec, as cinco pendências com as recomendações como estavam. As decisões estão incorporadas às seções 2, 3 e 4; esta tabela só as registra.
+
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **Ligar colunas vale a proporção de pares certos** (RN-08). |
+| D-02 | **Status da tentativa:** `IN_PROGRESS`, `SUBMITTED` e `TIME_EXPIRED`; `ENDED_BY_TEACHER` na SPEC-091 (equivalente a `BLOQUEADO_DOCENTE` e `ENCERRADO_DOCENTE`); o bloqueio cautelar fica fora. O glossário registra a equivalência. |
+| D-03 | **O estudante sabe que a prática está resolvida** (RN-05); as objetivas e a descritiva não dizem se estão certas. |
+| D-04 | **Tolerância de 1 minuto e varredura a cada minuto** (RN-07). |
+| D-05 | **A atividade fica fora**; ganha a tentativa em spec própria. |
 
 ---
 
@@ -242,3 +244,5 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 03/11/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 03/11/2026 da sala da prova ao vivo, que precisa da tentativa antes. Reescreve no modelo a parte de tentativa do rascunho 052 (SPEC-075 D-01). Decisões do Tech Lead já incorporadas: duas specs em sequência (esta e a SPEC-091). Cinco pendências abertas (P-01 a P-05), todas com recomendação |
+| 03/11/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das cinco pendências aceitas como estavam: D-01 a D-05. Status: `Aprovada` |
+| 03/11/2026 | Aruna Architect | Seção 10 esvaziada: as pendências viraram as decisões D-01 a D-05 |

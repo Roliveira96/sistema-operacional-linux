@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-091 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 03/11/2026 |
 | **Última revisão** | 03/11/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -31,7 +31,7 @@ Hoje, além disso, a prova presencial exige que a docente **habilite** cada alun
 - **Cartões dos alunos:** um cartão por aluno elegível, com a situação, o progresso, o tempo restante, a conexão e a mão levantada.
 - **Tela do aluno em tempo real:** ao abrir o cartão de um aluno, a docente vê a questão em que ele está e o terminal dele ao vivo.
 - **Comandos em tempo real:** a docente vê a lista dos comandos que o aluno executou, com a saída resumida, chegando ao vivo e guardada para depois.
-- **Pedido de ajuda:** o estudante pede ajuda, com uma dúvida opcional; a docente vê a fila, recebe aviso sonoro e do navegador e marca o pedido como atendido.
+- **Pedido de ajuda:** o estudante pede ajuda, com uma dúvida opcional; a docente vê a fila, recebe aviso sonoro e do navegador e marca o pedido como atendido, com uma resposta curta opcional que o aluno lê (D-03).
 - **Encerrar a prova de um aluno:** em flagrante de desvio, a docente encerra a tentativa daquele aluno com motivo obrigatório; a nota preliminar é calculada normalmente (encerrar não é anular).
 
 ### 2.1. Fora de escopo (Non-Goals)
@@ -39,7 +39,7 @@ Hoje, além disso, a prova presencial exige que a docente **habilite** cada alun
 Toda IA implementadora deve tratar esta lista como proibição.
 
 - O **telão** do laboratório (SPEC-076, seção 2.2, item 1, e o evento `cockpit:projection-sync`).
-- **Chat** entre a docente e o aluno durante a prova (P-03), mensagens para todos e envio de arquivos.
+- **Chat livre** entre a docente e o aluno durante a prova (só existe a resposta ao pedido de ajuda, D-03), mensagens para todos e envio de arquivos.
 - **Assumir o terminal** do aluno (SPEC-071) ou digitar por ele, e mexer nas respostas dele.
 - **Bloqueio cautelar** (pausa reversível com devolução do tempo) e **anulação** (ato da revisão de notas).
 - Telemetria forense (mouse, atalhos proibidos, perda de foco), o player de sessão, a correção e a homologação.
@@ -63,15 +63,15 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 
 - **Cabeçalho:** o título, o tempo até o término da avaliação pelo relógio do servidor, os contadores (*na sala de espera*, *fazendo*, *entregues*, *mãos levantadas*) e, antes do início, o botão primário **Iniciar a prova**, com o mesmo diálogo. Depois do início, a frase "Prova iniciada às HH:MM por <nome>.".
 - **Cartões dos alunos:** um por aluno elegível, em grade, ordenados pelo nome, com o filtro por situação. Cada cartão mostra o nome, o RA, a situação (*Ausente*, *Na sala de espera*, *Fazendo*, *Entregue*, *Tempo esgotado*, *Encerrada pela docente*), a conexão (um ponto *online* ou *sem conexão* para quem está fazendo e caiu), o progresso ("4 de 9 respondidas · 2 práticas resolvidas"), o tempo restante dele e, com a mão levantada, o destaque e a dúvida.
-- **Fila de ajuda:** uma lista lateral com os pedidos abertos, do mais antigo para o mais novo, com o nome, a questão, a dúvida e há quanto tempo, e o botão **Atendido**. Um pedido novo toca o som e mostra a notificação do navegador (SPEC-062 e 064, com o mesmo consentimento).
+- **Fila de ajuda:** uma lista lateral com os pedidos abertos, do mais antigo para o mais novo, com o nome, a questão, a dúvida e há quanto tempo, um campo opcional **Resposta ao aluno** (até 300 caracteres) e o botão **Atendido**. Um pedido novo toca o som e mostra a notificação do navegador (SPEC-062 e 064, com o mesmo consentimento).
 - **O aluno aberto** (ao clicar no cartão, num painel ao lado): a questão em que ele está, com o enunciado; o **terminal dele ao vivo**, só leitura; e a lista dos **comandos** que ele executou na prova, do mais novo para o mais antigo, com a hora, a questão, o comando e a saída resumida, chegando ao vivo. Em questão não prática, o lugar do terminal diz "O aluno está numa questão sem terminal." O painel tem o botão **Encerrar a prova deste aluno**.
 - **Encerrar a prova de um aluno:** um diálogo pede o motivo, obrigatório: "Encerrar a prova de <nome>? A prova dele é entregue agora, com o que já fez. O motivo fica registrado." Confirmado, o cartão passa a *Encerrada pela docente*.
 - **Sem conexão com a sala:** um aviso "Reconectando…" e a reconexão automática da aula ao vivo; ao voltar, a sala recebe o estado inteiro de novo.
 
 **A janela da prova do estudante** (SPEC-090), com o que muda:
 
-- **Antes do início pela docente:** em vez de recusar, a janela mostra a **sala de espera**, com a tela de espera animada da aula ao vivo (SPEC-061) e a frase "Você está na sala de espera. A prova começa quando a docente iniciar." Quando a docente inicia, a janela entra na prova sozinha.
-- **Pedir ajuda:** um botão **Pedir ajuda** no cabeçalho abre um campo opcional de dúvida, de até 300 caracteres, e envia. Com o pedido aberto, o botão vira **Cancelar o pedido**; atendido, volta ao normal e aparece "A docente viu o seu pedido."
+- **Antes do início pela docente:** em vez de recusar, a janela mostra a **sala de espera**, com a tela de espera animada da aula ao vivo (SPEC-061) e a frase "Você está na sala de espera. A prova começa quando a docente iniciar." e, abaixo, "Durante a prova, a docente pode ver a sua tela e os comandos que você executa." (D-04). Quando a docente inicia, a janela entra na prova sozinha.
+- **Pedir ajuda:** um botão **Pedir ajuda** no cabeçalho abre um campo opcional de dúvida, de até 300 caracteres, e envia. Com o pedido aberto, o botão vira **Cancelar o pedido**; atendido, volta ao normal e aparece "A docente viu o seu pedido." e, quando ela escreveu, a resposta dela.
 - **Encerrada pela docente:** a janela trava e mostra "Sua prova foi encerrada pela docente." com o motivo.
 - **Sem conexão com a sala:** a prova continua: as respostas seguem salvas por REST (SPEC-090), e a janela reconecta sozinha.
 
@@ -79,11 +79,11 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 
 - **RN-01 (a sala no hub):** cada prova tem uma sala no hub de tempo real (`backend/internal/platform/hub`, o mesmo da aula ao vivo), com a configuração própria da prova. Conectam-se a docente dona e o administrador (como controladora, na janela `room`) e os estudantes elegíveis (como espectadores). Outros, 403. A sala existe da fase `RUNNING` até o término da avaliação mais a tolerância da SPEC-090; fora disso, a conexão é recusada com `assessment-not-open-yet` ou `assessment-ended`.
 - **RN-02 (sala de espera e entrada):** o estudante elegível que se conecta antes do início pela docente entra como **esperando** (o `Waiting` do hub, SPEC-054). Quando a docente inicia a prova, o servidor **admite todos os que esperam** e avisa cada um, e a janela de cada um entra na prova (`POST .../attempt`, SPEC-090). Quem se conecta depois do início é admitido na hora.
-- **RN-03 (fim da habilitação):** a habilitação deixa de existir. `AccessOf` não tem mais o motivo `NOT_CLEARED`: depois do início pela docente, todo estudante elegível tem `ALLOWED`. A rota de decisão das habilitações (`POST .../clearances`) e a página de habilitações saem, e a lista de habilitações para de ser oferecida. O campo `requires_clearance` e o formulário dele saem da avaliação; as decisões já gravadas ficam no banco, sem uso (P-02).
+- **RN-03 (fim da habilitação):** a habilitação deixa de existir. `AccessOf` não tem mais o motivo `NOT_CLEARED`: depois do início pela docente, todo estudante elegível tem `ALLOWED`. A rota de decisão das habilitações (`POST .../clearances`) e a página de habilitações saem, e a lista de habilitações para de ser oferecida. O campo `requires_clearance` e o formulário dele saem da avaliação; as decisões já gravadas ficam no banco, sem uso (D-02).
 - **RN-04 (os cartões):** a sala mantém, para cada aluno elegível, a situação, a conexão, o progresso, o tempo restante e a mão levantada. Ela manda o **estado inteiro** a quem se conecta e as **mudanças** a seguir, só para a docente. O progresso vem da tentativa (as respostas salvas e as práticas conferidas como resolvidas).
-- **RN-05 (a tela do aluno):** a docente **escolhe acompanhar** um aluno (um de cada vez por janela da sala). Só então a janela daquele aluno passa a mandar a questão atual e a imagem do terminal, que o servidor repassa só à docente, guardando a última de cada aluno. Ao parar de acompanhar, o envio para. O aluno não é avisado de que está sendo acompanhado (P-04).
-- **RN-06 (os comandos):** cada comando que o estudante executa no terminal da prova (ao apertar Enter) é mandado à sala com a questão, o instante, a linha do comando e até 4.000 caracteres da saída, como na aula ao vivo (SPEC-073). O servidor **guarda** cada comando na tentativa e repassa à docente. Ao abrir um aluno, a docente recebe os comandos guardados dele e, depois, os novos.
-- **RN-07 (pedido de ajuda):** o estudante que está fazendo a prova levanta a mão com uma dúvida opcional de até 300 caracteres (filtrada como na SPEC-058); há no máximo um pedido aberto por aluno. O estudante pode baixar a mão. A docente marca o pedido como **atendido**, o que o fecha e avisa o aluno. A fila vai para a docente a cada mudança. Os pedidos são guardados, com quem pediu, a questão, a dúvida, quando pediu e quando foi atendido ou cancelado.
+- **RN-05 (a tela do aluno):** a docente **escolhe acompanhar** um aluno (um de cada vez por janela da sala). Só então a janela daquele aluno passa a mandar a questão atual e a imagem do terminal, que o servidor repassa só à docente, guardando a última de cada aluno. Ao parar de acompanhar, o envio para. O aluno não é avisado a cada vez; a sala de espera diz que a docente pode ver a tela e os comandos (D-04).
+- **RN-06 (os comandos):** cada comando que o estudante executa no terminal da prova (ao apertar Enter) é mandado à sala com a questão, o instante, a linha do comando e até 4.000 caracteres da saída, como na aula ao vivo (SPEC-073). O servidor **guarda** cada comando na tentativa e repassa à docente. A janela do estudante guarda os comandos que não conseguiu mandar e os reenvia ao reconectar, com o instante original de cada um, que o servidor aceita se estiver entre o início da tentativa e o recebimento (D-05). Ao abrir um aluno, a docente recebe os comandos guardados dele e, depois, os novos.
+- **RN-07 (pedido de ajuda):** o estudante que está fazendo a prova levanta a mão com uma dúvida opcional de até 300 caracteres (filtrada como na SPEC-058); há no máximo um pedido aberto por aluno. O estudante pode baixar a mão. A docente marca o pedido como **atendido**, com uma resposta opcional de até 300 caracteres (filtrada como a dúvida), o que o fecha e avisa o aluno com a resposta (D-03). A fila vai para a docente a cada mudança. Os pedidos são guardados, com quem pediu, a questão, a dúvida, quando pediu e quando foi atendido ou cancelado.
 - **RN-08 (encerrar a prova de um aluno):** a docente dona ou o administrador encerra a tentativa em andamento de um aluno com o motivo obrigatório, de 1 a 500 caracteres. A tentativa passa a `ENDED_BY_TEACHER`, com o instante, quem encerrou e o motivo; a nota preliminar é calculada como na entrega (SPEC-090 RN-08). O aluno recebe o aviso com o motivo, e a janela dele trava. A tentativa encerrada não volta (o encerramento não se desfaz nesta spec). Tentativa já entregue, 409 `attempt-already-submitted`.
 - **RN-09 (os limites):** as mensagens da sala têm os limites de tamanho e de frequência da aula ao vivo: a imagem do terminal até 256 KiB, a mais recente de cada aluno; o comando até 8 KiB, dentro do orçamento do remetente; a dúvida até 4 KiB. A sala aceita até 100 estudantes conectados e 200 na espera.
 - **RN-10 (o que o estudante recebe):** o estudante recebe só o que é dele: a admissão, o próprio pedido de ajuda e o encerramento. Ele nunca recebe os cartões, a fila, os comandos nem a tela de outro aluno.
@@ -107,7 +107,7 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 | `position` | integer | Sim | A posição de uma questão da tentativa | A questão em que foi executado |
 | `command` | text | Sim | Até 1.000 caracteres | A linha |
 | `output` | text | Sim | Até 4.000 caracteres | A saída resumida |
-| `executed_at` | timestamptz | Sim | — | O relógio do servidor ao receber |
+| `executed_at` | timestamptz | Sim | — | O instante do comando: o do cliente no reenvio, se estiver entre o início da tentativa e o recebimento, e o do servidor nos outros casos (D-05) |
 
 Índice por (`attempt_id`, `executed_at`). Só inclusão.
 
@@ -123,6 +123,7 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 | `created_at` | timestamptz | Sim | — | — |
 | `closed_at` | timestamptz | Não | Preenchido fora de `OPEN` | — |
 | `closed_by` | uuid | Não | FK `users`; preenchido em `ANSWERED` | Quem atendeu |
+| `answer` | text | Não | Até 300 caracteres; só em `ANSWERED` | A resposta da docente (D-03) |
 
 Unicidade parcial: um único `OPEN` por `attempt_id`.
 
@@ -144,12 +145,12 @@ Unicidade parcial: um único `OPEN` por `attempt_id`.
 | `room:watch` | docente → servidor | Docente (`room`) | Acompanhar um aluno, ou nenhum (RN-05) |
 | `room:watch-on`, `room:watch-off` | servidor → estudante | — | Comece ou pare de mandar a tela (RN-05) |
 | `room:screen` | estudante → servidor → docente | — | A questão atual e a imagem do terminal, até 256 KiB, a mais recente (RN-05, RN-09) |
-| `room:command` | estudante → servidor → docente | — | A questão, a linha e a saída resumida, até 8 KiB (RN-06, RN-09) |
+| `room:command` | estudante → servidor → docente | — | A questão, a linha, a saída resumida e, no reenvio, o instante original, até 8 KiB (RN-06, RN-09, D-05) |
 | `room:commands` | servidor → docente | — | Os comandos guardados do aluno aberto (RN-06) |
 | `help:raise`, `help:lower` | estudante → servidor | — | Levantar a mão com a dúvida opcional, até 4 KiB; baixar (RN-07) |
-| `help:answer` | docente → servidor | Docente (`room`) | Marcar um pedido como atendido (RN-07) |
+| `help:answer` | docente → servidor | Docente (`room`) | Marcar um pedido como atendido, com a resposta opcional de até 300 caracteres (RN-07, D-03) |
 | `help:queue` | servidor → docente | — | A fila de pedidos abertos (RN-07) |
-| `help:state` | servidor → estudante | — | O estado do próprio pedido: aberto, atendido ou nenhum (RN-07) |
+| `help:state` | servidor → estudante | — | O estado do próprio pedido: aberto, atendido (com a resposta, quando há) ou nenhum (RN-07) |
 | `room:ended` | servidor → estudante | — | A prova dele foi encerrada, com o motivo (RN-08) |
 
 **`POST /api/v1/classes/:id/assessments/:assessmentId/attempts/:attemptId/end`**: encerra a prova de um aluno (RN-08). Papéis: docente dona e administrador. Corpo: `reason` (1 a 500 caracteres). Sucesso `200`: a linha da tentativa da lista da docente, com `status`, `endedByName`, `endReason` e a nota preliminar. Erros: 400 `invalid-reason`, 403 `forbidden`, 404 `attempt-not-found`, 409 `attempt-already-submitted`.
@@ -171,7 +172,7 @@ Unicidade parcial: um único `OPEN` por `attempt_id`.
 - **A docente perde a conexão no meio da prova.** **Mitigação:** a prova do aluno não depende da sala: as respostas seguem por REST; a sala reconecta e manda o estado inteiro.
 - **O aluno perde a conexão com a sala.** **Mitigação:** a prova continua (SPEC-090); os comandos digitados sem a sala ficam sem registro ao vivo (P-05).
 - **O aluno não sabe que é acompanhado.** Questão de transparência com o estudante. **Mitigação:** P-04.
-- **Fim da habilitação.** Mexe nas SPEC-076 e 083: o formulário, o detalhe, a lista, a página de habilitações, o aviso do estudante, `AccessOf` e as rotas. **Mitigação:** as partes viram obsoletas no histórico das duas specs; os testes delas que mudam são ajustados com o motivo registrado; as decisões já gravadas ficam no banco (P-02).
+- **Fim da habilitação.** Mexe nas SPEC-076 e 083: o formulário, o detalhe, a lista, a página de habilitações, o aviso do estudante, `AccessOf` e as rotas. **Mitigação:** as partes viram obsoletas no histórico das duas specs; os testes delas que mudam são ajustados com o motivo registrado; as decisões já gravadas ficam no banco (D-02).
 - **Reaproveitar componentes da aula ao vivo** pode quebrar a aula. **Mitigação:** a regra da seção 3.1: a aula continua igual e os testes dela ficam verdes.
 - **Colisão de número de migração.** **Mitigação:** conferir o próximo número livre imediatamente antes de criar.
 - **`legacy/`:** removida; sem impacto.
@@ -183,15 +184,15 @@ Unicidade parcial: um único `OPEN` por `attempt_id`.
 - [ ] **CA-03** (ubíquo): `AccessOf` NÃO DEVE responder `NOT_CLEARED`; depois do início, todo estudante elegível DEVE ter `ALLOWED`; as rotas de habilitação NÃO DEVEM existir, e `requiresClearance` NÃO DEVE ser aceito nem devolvido (RN-03).
 - [ ] **CA-04** (evento): QUANDO a situação, a conexão, o progresso ou a mão de um aluno muda, A docente DEVE receber a mudança do cartão (RN-04).
 - [ ] **CA-05** (evento): QUANDO a docente acompanha um aluno, O servidor DEVE pedir a tela àquele aluno e repassar só à docente a mais recente; QUANDO ela para ou troca de aluno, DEVE mandar parar ao anterior (RN-05).
-- [ ] **CA-06** (evento): QUANDO o estudante executa um comando, O servidor DEVE guardá-lo na tentativa e repassá-lo à docente; QUANDO a docente abre o aluno, DEVE receber os comandos guardados (RN-06).
-- [ ] **CA-07** (evento): QUANDO o estudante levanta a mão, O servidor DEVE abrir o pedido (um por aluno), guardar e mandar a fila à docente; QUANDO ele baixa, DEVE cancelar; QUANDO a docente marca como atendido, DEVE fechar e avisar o aluno com `help:state` (RN-07).
+- [ ] **CA-06** (evento): QUANDO o estudante executa um comando, O servidor DEVE guardá-lo na tentativa e repassá-lo à docente; QUANDO a docente abre o aluno, DEVE receber os comandos guardados; QUANDO a janela reconecta, DEVE reenviar os comandos não mandados e o servidor DEVE guardá-los com o instante original válido (RN-06, D-05).
+- [ ] **CA-07** (evento): QUANDO o estudante levanta a mão, O servidor DEVE abrir o pedido (um por aluno), guardar e mandar a fila à docente; QUANDO ele baixa, DEVE cancelar; QUANDO a docente marca como atendido, com ou sem resposta, DEVE fechar, guardar a resposta e avisar o aluno com `help:state` trazendo a resposta (RN-07, D-03).
 - [ ] **CA-08** (evento): QUANDO a docente encerra a prova de um aluno com motivo, O servidor DEVE passar a tentativa a `ENDED_BY_TEACHER` com quem, quando e o motivo, calcular a nota preliminar e mandar `room:ended` ao aluno; SE o motivo falta ou passa de 500 caracteres, ENTÃO 400 `invalid-reason`; SE a tentativa já foi entregue, ENTÃO 409 (RN-08).
 - [ ] **CA-09** (ubíquo): O estudante NÃO DEVE receber os cartões, a fila, os comandos nem a tela de outro aluno (RN-10).
 - [ ] **CA-10** (evento): QUANDO a docente confirma *Iniciar a prova* no detalhe, A sala DEVE abrir numa janela própria; ENQUANTO a prova está em fase `RUNNING`, O detalhe DEVE oferecer *Abrir a sala da prova*.
 - [ ] **CA-11** (estado): ENQUANTO a sala está aberta, Ela DEVE mostrar o cabeçalho com os contadores, os cartões com a situação, a conexão, o progresso, o tempo e a mão, e a fila de ajuda com o som e a notificação do navegador.
 - [ ] **CA-12** (evento): QUANDO a docente abre um aluno, A sala DEVE mostrar a questão atual, o terminal ao vivo só leitura e a lista dos comandos chegando ao vivo, ou o aviso de questão sem terminal.
 - [ ] **CA-13** (evento): QUANDO a docente encerra a prova de um aluno, A sala DEVE pedir o motivo no diálogo e, confirmada, mostrar o cartão como *Encerrada pela docente*.
-- [ ] **CA-14** (estado): ENQUANTO a docente não iniciou a prova, A janela da prova do estudante DEVE mostrar a sala de espera e, QUANDO ela inicia, DEVE entrar na prova sozinha; o *Pedir ajuda* DEVE abrir, cancelar e mostrar o atendimento; QUANDO a prova dele é encerrada, DEVE travar com o motivo.
+- [ ] **CA-14** (estado): ENQUANTO a docente não iniciou a prova, A janela da prova do estudante DEVE mostrar a sala de espera, com o aviso de que a docente pode ver a tela e os comandos, e, QUANDO ela inicia, DEVE entrar na prova sozinha; o *Pedir ajuda* DEVE abrir, cancelar e mostrar o atendimento com a resposta, quando há; QUANDO a prova dele é encerrada, DEVE travar com o motivo.
 - [ ] **CA-15** (ubíquo): A aula ao vivo DEVE continuar como está, com os testes dela verdes, depois do reaproveitamento dos componentes.
 - [ ] **CA-16** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, e a sala, os diálogos e a janela do estudante DEVEM ter navegação por teclado, contraste AA e alvos de 44 px.
 
@@ -208,7 +209,7 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 **Frontend** (Vitest e Testing Library)
 
-- A sala (`room/page.test.tsx`): o cabeçalho, os cartões a partir do estado e das mudanças, a fila com o som, o aluno aberto com o terminal e os comandos, e o encerramento (CA-11 a CA-13)
+- A sala (`room/page.test.tsx`): o cabeçalho, os cartões a partir do estado e das mudanças, a fila com o som e a resposta ao atender, o aluno aberto com o terminal e os comandos, e o encerramento (CA-11 a CA-13)
 - O detalhe: *Iniciar a prova* abre a sala e o *Abrir a sala da prova* (CA-10)
 - A janela da prova do estudante: a sala de espera, a entrada sozinha, o *Pedir ajuda* e o encerramento (CA-14)
 - Os testes da aula ao vivo, todos verdes (CA-15); o formulário, o detalhe, a lista e o aviso do estudante sem a habilitação (CA-03)
@@ -241,13 +242,15 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 
 ## 10. Pendências para aprovação
 
-| ID | Pendência | Recomendação |
-| :--- | :--- | :--- |
-| P-01 | **Quando a sala abre para o estudante.** Desde o horário marcado (fase `RUNNING`), ou alguns minutos antes, para os alunos já irem chegando? | **Desde o horário marcado**, como o início pela docente (SPEC-083 D-01): quem quer receber antes marca o horário mais cedo. |
-| P-02 | **As habilitações já gravadas e o campo `requires_clearance`.** Apagar do banco ou deixar sem uso? | **Deixar sem uso** nesta spec, sem migração destrutiva; uma limpeza futura pode removê-los. |
-| P-03 | **Responder a ajuda por escrito.** Na prova online a docente não está ao lado do aluno: sem chat, o *Atendido* não diz nada. Incluir uma resposta curta e privada ao pedido? | **Incluir só a resposta ao pedido**: ao marcar como atendido, a docente pode escrever até 300 caracteres, que o aluno lê; o chat livre continua fora. |
-| P-04 | **Avisar o aluno de que a tela dele está sendo vista.** | **Não avisar a cada vez**, mas dizer na sala de espera: "Durante a prova, a docente pode ver a sua tela e os comandos que você executa." |
-| P-05 | **Comandos digitados sem conexão com a sala.** Eles se perdem do registro ao vivo. Reenviar ao reconectar? | **Reenviar** ao reconectar: a janela guarda os comandos não enviados e manda ao voltar, com o instante original. |
+Nenhuma. O Tech Lead decidiu em 03/11/2026, ao aprovar a spec, as cinco pendências com as recomendações como estavam. As decisões estão incorporadas às seções 2 a 7; esta tabela só as registra.
+
+| ID | Decisão |
+| :--- | :--- |
+| D-01 | **A sala abre ao estudante a partir do horário marcado** (fase `RUNNING`, RN-01). |
+| D-02 | **As habilitações gravadas e `requires_clearance` ficam no banco, sem uso** (RN-03). |
+| D-03 | **A docente pode responder o pedido de ajuda por escrito**, até 300 caracteres, ao marcar como atendido; o aluno lê a resposta. O chat livre continua fora (RN-07). |
+| D-04 | **O aviso de que a tela pode ser vista** fica na sala de espera, uma vez (seção 3.1). |
+| D-05 | **Os comandos sem conexão são reenviados ao reconectar**, com o instante original (RN-06). |
 
 ---
 
@@ -256,3 +259,5 @@ Os testes são escritos **antes** do código e rodados vermelhos primeiro (SPEC-
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 03/11/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead, a partir do pedido de 03/11/2026 da tela de aplicação da prova parecida com a aula ao vivo. Decisões do Tech Lead já incorporadas: quem entra na sala de espera está autorizado (a habilitação sai); duas specs em sequência (a SPEC-090 vem antes); o tempo real reaproveita o hub e as peças da aula ao vivo. Ficaram fora, sem resposta explícita: telão, telemetria forense e player, correção e homologação, e chat (P-03 trata só da resposta ao pedido de ajuda). Cinco pendências abertas (P-01 a P-05), todas com recomendação |
+| 03/11/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das cinco pendências aceitas como estavam: D-01 a D-05. Status: `Aprovada` |
+| 03/11/2026 | Aruna Architect | Seção 10 esvaziada: as pendências viraram as decisões D-01 a D-05, incorporadas ao texto (a resposta ao pedido de ajuda, o aviso da sala de espera e o reenvio dos comandos) |
