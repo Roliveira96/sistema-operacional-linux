@@ -225,6 +225,21 @@ type Repository interface {
 	ListAttempts(ctx context.Context, assessmentID uuid.UUID) ([]domain.Attempt, error)
 	// DueAttempts gives the attempts in progress whose deadline is before the instant.
 	DueAttempts(ctx context.Context, before time.Time) ([]domain.Attempt, error)
+	// FindAttemptByID gives an attempt by its id, or domain.ErrAttemptNotFound (SPEC-091 RN-08).
+	FindAttemptByID(ctx context.Context, id uuid.UUID) (domain.Attempt, error)
+
+	// SaveCommand stores a command of an attempt, giving it its id; Commands gives them in the order they ran (SPEC-091 RN-06).
+	SaveCommand(ctx context.Context, c *domain.AttemptCommand) error
+	Commands(ctx context.Context, attemptID uuid.UUID) ([]domain.AttemptCommand, error)
+	// CreateHelp opens a request for help, giving it its id; LatestHelp gives the last one of an attempt, or nil (SPEC-091 RN-07).
+	CreateHelp(ctx context.Context, h *domain.HelpRequest) error
+	LatestHelp(ctx context.Context, attemptID uuid.UUID) (*domain.HelpRequest, error)
+	// FindHelp gives a request with its assessment and student, or domain.ErrHelpNotFound.
+	FindHelp(ctx context.Context, id uuid.UUID) (domain.HelpRequest, error)
+	// CloseHelp closes an open request; one that is not open is domain.ErrHelpNotFound.
+	CloseHelp(ctx context.Context, id uuid.UUID, status domain.HelpStatus, at time.Time, by *uuid.UUID, answer string) error
+	// OpenHelps gives the open requests of an assessment, the oldest first, with the student.
+	OpenHelps(ctx context.Context, assessmentID uuid.UUID) ([]domain.HelpRequest, error)
 }
 
 // Service implements the use cases of the assessments.

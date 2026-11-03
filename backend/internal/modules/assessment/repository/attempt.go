@@ -23,6 +23,8 @@ type attemptRow struct {
 	SubmittedAt      *time.Time
 	PreliminaryScore *domain.Score
 	PendingItems     *int
+	EndedBy          *uuid.UUID
+	EndReason        *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -47,7 +49,8 @@ func (attemptItemRow) TableName() string { return "assessment_attempt_items" }
 
 func (r attemptRow) domain() domain.Attempt {
 	return domain.Attempt{ID: r.ID, AssessmentID: r.AssessmentID, StudentID: r.StudentID, Status: r.Status, StartedAt: r.StartedAt, DeadlineAt: r.DeadlineAt,
-		SubmittedAt: r.SubmittedAt, PreliminaryScore: r.PreliminaryScore, PendingItems: r.PendingItems, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+		SubmittedAt: r.SubmittedAt, PreliminaryScore: r.PreliminaryScore, PendingItems: r.PendingItems, EndedBy: r.EndedBy, EndReason: r.EndReason,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 }
 
 // CreateAttempt stores the attempt and its questions in one transaction (SPEC-090 RN-01, RN-02).
@@ -133,6 +136,7 @@ func (r *Repository) CloseAttempt(ctx context.Context, a *domain.Attempt, points
 		tx := r.db.Conn(ctx)
 		res := tx.Model(&attemptRow{}).Where("id = ? AND status = ?", a.ID, domain.AttemptInProgress).Updates(map[string]any{
 			"status": a.Status, "submitted_at": a.SubmittedAt, "preliminary_score": a.PreliminaryScore, "pending_items": a.PendingItems, "updated_at": a.UpdatedAt,
+			"ended_by": a.EndedBy, "end_reason": a.EndReason,
 		})
 		if res.Error != nil {
 			return res.Error

@@ -89,6 +89,7 @@ func (h *Handler) enterAttempt(c *gin.Context) {
 		failWith(c, err)
 		return
 	}
+	h.cardChanged(c.Request.Context(), id, actor.UserID) // the teacher follows the progress in the room (SPEC-091 RN-04)
 	status := http.StatusOK
 	if created {
 		status = http.StatusCreated
@@ -126,6 +127,7 @@ func (h *Handler) saveAnswer(c *gin.Context) {
 		failWith(c, err)
 		return
 	}
+	h.cardChanged(c.Request.Context(), id, actor.UserID)
 	c.Status(http.StatusNoContent)
 }
 
@@ -147,6 +149,7 @@ func (h *Handler) checkAnswer(c *gin.Context) {
 		failWith(c, err)
 		return
 	}
+	h.cardChanged(c.Request.Context(), id, actor.UserID)
 	c.JSON(http.StatusOK, gin.H{"solved": solved})
 }
 
@@ -160,6 +163,7 @@ func (h *Handler) submitAttempt(c *gin.Context) {
 		failWith(c, err)
 		return
 	}
+	h.cardChanged(c.Request.Context(), id, actor.UserID)
 	c.JSON(http.StatusOK, h.attemptJSON(got))
 }
 
@@ -175,18 +179,7 @@ func (h *Handler) attempts(c *gin.Context) {
 	}
 	items := make([]gin.H, len(rows))
 	for i, r := range rows {
-		row := gin.H{"attemptId": r.AttemptID, "studentId": r.StudentID, "studentName": r.StudentName, "academicId": r.AcademicID, "status": r.Status,
-			"startedAt": iso(r.StartedAt)}
-		if r.SubmittedAt != nil {
-			row["submittedAt"] = iso(*r.SubmittedAt)
-		}
-		if r.PreliminaryScore != nil {
-			row["preliminaryScore"] = r.PreliminaryScore.Float()
-		}
-		if r.PendingItems != nil {
-			row["pendingItems"] = *r.PendingItems
-		}
-		items[i] = row
+		items[i] = attemptRowJSON(r)
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items, "serverNow": iso(h.svc.Now())})
 }

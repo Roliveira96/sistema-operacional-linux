@@ -50,12 +50,16 @@ type AssessmentService interface {
 	CheckAnswer(ctx context.Context, a service.Actor, classID, id uuid.UUID, position int, snapshot json.RawMessage) (bool, error)
 	SubmitAttempt(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.StudentAttempt, error)
 	Attempts(ctx context.Context, a service.Actor, classID, id uuid.UUID) ([]service.AttemptRow, error)
+
+	// SPEC-091: the room
+	RoomServices
 }
 
 // Handler serves the assessment routes.
 type Handler struct {
 	svc  AssessmentService
 	auth authn.Validator
+	room *room
 }
 
 // New creates the handler.
@@ -84,6 +88,9 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/assessments/:assessmentId/attempt/items/:position/check", h.checkAnswer)
 	g.POST("/classes/:id/assessments/:assessmentId/attempt/submit", h.submitAttempt)
 	g.GET("/classes/:id/assessments/:assessmentId/attempts", h.attempts)
+	// the room of the exam (SPEC-091 section 5)
+	g.GET("/classes/:id/assessments/:assessmentId/room/ws", h.connectRoom)
+	g.POST("/classes/:id/assessments/:assessmentId/attempts/:attemptId/end", h.endAttempt)
 }
 
 func fail(c *gin.Context, p *problem.Problem) {
@@ -209,6 +216,12 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("attempt-already-submitted", err.Error())
 	case errors.Is(err, domain.ErrAttemptExpired):
 		return problem.Conflict("attempt-expired", err.Error())
+	case errors.Is(err, domain.ErrInvalidReason):
+		return problem.BadRequest("invalid-reason", err.Error())
+	case errors.Is(err, domain.ErrInvalidHelp):
+		return problem.BadRequest("invalid-help", err.Error())
+	case errors.Is(err, domain.ErrHelpNotFound):
+		return problem.NotFound("help-not-found", err.Error())
 	}
 	return nil
 }
@@ -631,6 +644,7 @@ func (h *Handler) start(c *gin.Context) {
 		failWith(c, err)
 		return
 	}
+	h.started(id, got) // the room admits who waits (SPEC-091 RN-02)
 	c.JSON(http.StatusOK, summaryResponse{summaryJSON: toSummary(got), ServerNow: iso(h.svc.Now())})
 }
 

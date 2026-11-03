@@ -32,8 +32,11 @@ type Attempt struct {
 	SubmittedAt      *time.Time
 	PreliminaryScore *Score
 	PendingItems     *int
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	// EndedBy and EndReason are only there when the teacher ended the attempt (SPEC-091 RN-08).
+	EndedBy   *uuid.UUID
+	EndReason *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // Overdue tells whether an attempt in progress passed its deadline and the tolerance, and so must be closed as TIME_EXPIRED (RN-07).
