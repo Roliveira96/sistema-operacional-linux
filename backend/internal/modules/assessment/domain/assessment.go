@@ -52,7 +52,7 @@ func DefaultModality(t Type) Modality {
 }
 
 // DefaultRequiresClearance is whether a modality requires the clearance of the students when nothing is said: only the in-person one does (RN-02).
-func DefaultRequiresClearance(m Modality) bool { return m == ModalityInPerson }
+func DefaultRequiresClearance(Modality) bool { return false } // nothing requires the clearance since SPEC-091 RN-03
 
 // Status is the stored state of an assessment. The phase of the clock is not stored (RN-03).
 type Status string

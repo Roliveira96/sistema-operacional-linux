@@ -41,8 +41,6 @@ type AssessmentService interface {
 	ListPublic(ctx context.Context, a service.Actor, classID uuid.UUID, f service.ListFilter) ([]service.Public, error)
 	Preview(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Preview, error)
 	EligibleQuestions(ctx context.Context, a service.Actor, classID uuid.UUID, f service.QuestionFilter) (service.QuestionPage, error)
-	Clearances(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.ClearanceList, error)
-	Decide(ctx context.Context, a service.Actor, classID, id uuid.UUID, in service.ClearanceInput) (service.ClearanceList, error)
 	MyAccess(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.MyAccess, error)
 
 	// SPEC-090: the attempt
@@ -78,8 +76,6 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/assessments/:assessmentId/questions/:questionId/check", h.checkQuestion)
 	g.PUT("/classes/:id/assessments/:assessmentId/private-notes", h.notes)
 	g.GET("/classes/:id/assessment-questions", h.questions)
-	g.GET("/classes/:id/assessments/:assessmentId/clearances", h.clearances)
-	g.POST("/classes/:id/assessments/:assessmentId/clearances", h.decide)
 	g.GET("/classes/:id/assessments/:assessmentId/my-access", h.myAccess)
 	// the attempt of the student and the list of the teacher (SPEC-090 section 5)
 	g.POST("/classes/:id/assessments/:assessmentId/attempt", h.enterAttempt)
@@ -252,23 +248,21 @@ type createRequest struct {
 	StudentIDs          []string      `json:"studentIds"`
 	TeacherPrivateNotes *string       `json:"teacherPrivateNotes"`
 	Modality            *string       `json:"modality"`
-	RequiresClearance   *bool         `json:"requiresClearance"`
 }
 
 type updateRequest struct {
-	Title             *string        `json:"title"`
-	Description       *string        `json:"description"`
-	ModuleID          *string        `json:"moduleId"`
-	Type              *string        `json:"type"`
-	MaxScore          *float64       `json:"maxScore"`
-	DurationMinutes   *int           `json:"durationMinutes"`
-	Composition       *string        `json:"composition"`
-	Items             *[]itemRequest `json:"items"`
-	Draw              *drawRequest   `json:"draw"`
-	Audience          *string        `json:"audience"`
-	StudentIDs        *[]string      `json:"studentIds"`
-	Modality          *string        `json:"modality"`
-	RequiresClearance *bool          `json:"requiresClearance"`
+	Title           *string        `json:"title"`
+	Description     *string        `json:"description"`
+	ModuleID        *string        `json:"moduleId"`
+	Type            *string        `json:"type"`
+	MaxScore        *float64       `json:"maxScore"`
+	DurationMinutes *int           `json:"durationMinutes"`
+	Composition     *string        `json:"composition"`
+	Items           *[]itemRequest `json:"items"`
+	Draw            *drawRequest   `json:"draw"`
+	Audience        *string        `json:"audience"`
+	StudentIDs      *[]string      `json:"studentIds"`
+	Modality        *string        `json:"modality"`
 }
 
 // modalityPtr hands the modality over as it came: the service refuses the one it does not know.
@@ -368,7 +362,7 @@ func (h *Handler) create(c *gin.Context) {
 		ClassSessionID: session, ModuleID: module, Title: req.Title, Description: req.Description, Type: domain.Type(req.Type),
 		MaxScore: domain.Points(req.MaxScore), DurationMinutes: req.DurationMinutes, StartsAt: startsAt, EndsAt: endsAt,
 		Composition: domain.Composition(req.Composition), Items: items, Draw: parseDraw(req.Draw), Audience: domain.Audience(req.Audience),
-		StudentIDs: students, PrivateNotes: req.TeacherPrivateNotes, Modality: modalityPtr(req.Modality), RequiresClearance: req.RequiresClearance,
+		StudentIDs: students, PrivateNotes: req.TeacherPrivateNotes, Modality: modalityPtr(req.Modality),
 	}
 	got, err := h.svc.Create(c.Request.Context(), actor, classID, in)
 	if err != nil {
@@ -508,7 +502,7 @@ func (h *Handler) update(c *gin.Context) {
 	}
 	in := service.UpdateInput{
 		Title: req.Title, Description: req.Description, ModuleID: module, DurationMinutes: req.DurationMinutes, Draw: parseDraw(req.Draw),
-		Modality: modalityPtr(req.Modality), RequiresClearance: req.RequiresClearance,
+		Modality: modalityPtr(req.Modality),
 	}
 	if req.Type != nil {
 		t := domain.Type(*req.Type)
