@@ -433,6 +433,7 @@ func TestAccessOf_ClearanceDecisionTable(t *testing.T) {
 	free := f.create(t, func(in *service.CreateInput) { in.RequiresClearance = ptr(false) })
 	online := f.create(t, func(in *service.CreateInput) { in.Modality = ptr(domain.ModalityOnline) })
 	f.ensureStarted(t, free) // an in-person exam is open once the teacher starts it, with or without the requirement (SPEC-083 D-03)
+	f.ensureStarted(t, online) // and so is an online one (SPEC-089 RN-02)
 	f.now = at(21, 10, 0)
 	for _, other := range []service.Summary{free, online} {
 		got, err := f.svc.AccessOf(ctx, f.carla.ID, other.ID)
@@ -498,6 +499,7 @@ func TestMyAccess_ReturnsTheOwnStateAndReason(t *testing.T) {
 func TestMyAccess_WithoutTheRequirementThereIsNoClearanceToShow(t *testing.T) {
 	f := newFixture(t)
 	online := f.create(t, func(in *service.CreateInput) { in.Modality = ptr(domain.ModalityOnline) })
+	f.ensureStarted(t, online) // an online exam is open once the teacher starts it (SPEC-089 RN-02)
 	f.now = at(21, 10, 0)
 	got, err := f.svc.MyAccess(ctx, f.as(f.ana), f.class.ID, online.ID)
 	require.NoError(t, err)

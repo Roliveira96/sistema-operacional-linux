@@ -459,11 +459,17 @@ func TestRepository_CheckConstraintsOnTheStart(t *testing.T) {
 	e := newEnv(t)
 	started := at(21, 9, 7)
 
+	assignment := e.assessment(func(a *domain.Assessment) {
+		a.Type, a.Modality, a.EndsAt = domain.TypeAssignment, domain.ModalityOnline, at(23, 18, 0)
+		a.StartedAt, a.StartedBy = &started, &e.teacher.ID
+	})
+	assert.Error(t, e.repo.Create(e.ctx, &assignment, e.items(3), nil, nil, e.created(e.now)), "an assignment has no start (SPEC-089 RN-01)")
+
 	online := e.assessment(func(a *domain.Assessment) {
 		a.Modality = domain.ModalityOnline
 		a.StartedAt, a.StartedBy = &started, &e.teacher.ID
 	})
-	assert.Error(t, e.repo.Create(e.ctx, &online, e.items(3), nil, nil, e.created(e.now)), "an online assessment has no start")
+	assert.NoError(t, e.repo.Create(e.ctx, &online, e.items(3), nil, nil, e.created(e.now)), "an online exam can be started (SPEC-089 RN-01)")
 
 	noAuthor := e.assessment(func(a *domain.Assessment) { a.StartedAt = &started })
 	assert.Error(t, e.repo.Create(e.ctx, &noAuthor, e.items(3), nil, nil, e.created(e.now)), "a start has its author")
