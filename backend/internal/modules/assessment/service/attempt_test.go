@@ -142,7 +142,7 @@ func TestEnterAttempt_RefusalsSayWhy(t *testing.T) {
 	}{
 		{"not open yet", notStarted, f.ana, domain.ErrAssessmentNotOpenYet},
 		{"not started by the teacher", notStarted, f.ana, domain.ErrAssessmentNotStarted},
-		{"waiting for the clearance", inPerson, f.ana, domain.ErrNotCleared},
+		{"in person: entered with the start, no clearance since SPEC-091 RN-03", inPerson, f.carla, nil},
 		{"canceled", canceled, f.ana, domain.ErrAssessmentCanceled},
 		{"not eligible", notStarted, f.outsider, domain.ErrNotEligible},
 		{"an assignment", assignment, f.ana, domain.ErrInvalidAssessment},
@@ -160,7 +160,7 @@ func TestEnterAttempt_RefusalsSayWhy(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrAssessmentEnded, "ended")
 	_, _, err = f.svc.EnterAttempt(ctx, f.teacher, f.class.ID, notStarted.ID)
 	assert.ErrorIs(t, err, domain.ErrForbidden, "only a student enters")
-	assert.Empty(t, f.repo.attempts, "no attempt was created")
+	assert.Len(t, f.repo.attempts, 1, "only the one that was allowed created an attempt")
 }
 
 // Covers SPEC-090 CA-03 (RN-02): in a draw each attempt has a sample that meets the rules, with the points of each level; and what the bank says
