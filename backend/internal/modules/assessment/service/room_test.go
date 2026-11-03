@@ -203,7 +203,7 @@ func TestEndAttempt_ByTheTeacher(t *testing.T) {
 	f := newFixture(t)
 	a := f.fiveKinds(t)
 	got := f.enter(t, f.ana, a)
-	require.NoError(t, f.svc.SaveAnswer(ctx, f.as(f.ana), f.class.ID, a.ID, 2, json.RawMessage(`{"choice":"a"}`)))
+	require.NoError(t, f.svc.SaveAnswer(ctx, f.as(f.ana), f.class.ID, a.ID, 1, json.RawMessage(`{"choice":"a"}`)))
 
 	_, err := f.svc.EndAttempt(ctx, f.teacher, f.class.ID, a.ID, got.ID, "  ")
 	assert.ErrorIs(t, err, domain.ErrInvalidReason)
