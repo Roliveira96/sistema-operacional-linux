@@ -22,6 +22,8 @@ export interface ExamTerminalProps {
   onCommand?: (questionId: string, snapshot: unknown) => void;
   /** The machine of the question was formatted and is back where the question starts. */
   onFormat?: (questionId: string) => void;
+  /** The machines saved of an attempt the student comes back to: a question starts from it, and Reset Máquina still goes to the scenario (SPEC-090). */
+  resume?: Record<string, unknown>;
 }
 
 /**
@@ -29,7 +31,7 @@ export interface ExamTerminalProps {
  * first time it opens, and gets back what the student left in it when the student returns; Reset Máquina formats only the machine of the open question.
  * It has nothing of the study of a module: no pasting of commands, sound, narration, saving or loading of machines, or panel of processes (D-04).
  */
-export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: ExamTerminalProps) {
+export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, resume }: ExamTerminalProps) {
   const host = useRef<HTMLDivElement>(null);
   const terminal = useRef<TerminalWindow | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -39,6 +41,7 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: 
   const open = useRef<string | null>(questionId);
   const read = useRef(loadScenario);
   const tell = useRef({ onCommand, onFormat });
+  const saved = useRef(resume);
   /** True while the exam itself puts a machine in the window: the engine tells about it as about a command, and it is not one (SPEC-085 CA-05). */
   const quiet = useRef(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -113,9 +116,10 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat }: 
         if (!alive) return;
         const start = snapshot ?? null;
         scenarios.current.set(questionId, start);
-        machines.current.set(questionId, start);
+        const begin = saved.current && questionId in saved.current ? saved.current[questionId] : start;
+        machines.current.set(questionId, begin);
         setFailed(null);
-        put(machine, start);
+        put(machine, begin);
       },
       () => alive && setFailed(questionId),
     );

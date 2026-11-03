@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
 import { assessmentService } from "@/services/assessmentService";
 import { problem } from "@/test/helpers";
-import { SERVER_NOW, STARTED, detail, myAccess, preview, publicOf, summary } from "@/test/assessmentFixtures";
+import { SERVER_NOW, STARTED, detail, myAccess, preview, publicOf, studentAttempt, summary } from "@/test/assessmentFixtures";
 import AssessmentPage from "./page";
 
 let searchParams = new URLSearchParams();
@@ -23,6 +23,9 @@ const fact = (label: string) => screen.getByText(label, { selector: "dt" }).next
 
 beforeEach(() => {
   searchParams = new URLSearchParams();
+  // the attempts of SPEC-090: none, unless a test says otherwise
+  vi.spyOn(assessmentService, "attempts").mockResolvedValue({ items: [], serverNow: SERVER_NOW });
+  vi.spyOn(assessmentService, "myAttempt").mockRejectedValue(problem("attempt-not-found", 404));
 });
 afterEach(() => {
   cleanup();
@@ -343,5 +346,40 @@ describe("assessment page, start of the exam", () => {
       expect(screen.queryByText(/Prova iniciada|sem ser iniciada|pode ser iniciada/)).toBeNull();
       unmount();
     }
+  });
+});
+
+// SPEC-090 CA-11, CA-15: the student enters the exam from the detail, and the teacher sees the attempts in it.
+describe("assessment page, the attempt", () => {
+  it("offers the student to enter the exam when the access is allowed", async () => {
+    asRole("STUDENT");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf());
+    vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess({ allowed: true, reason: "ALLOWED", modality: "ONLINE", requiresClearance: false, clearance: undefined }));
+    render(<AssessmentPage params={params} />);
+    const link = await screen.findByRole("link", { name: "Entrar na prova" });
+    expect(link.getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/take");
+  });
+
+  it("offers the student to go back to the exam in progress", async () => {
+    asRole("STUDENT");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf());
+    vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess({ allowed: true, reason: "ALLOWED" }));
+    vi.spyOn(assessmentService, "myAttempt").mockResolvedValue(studentAttempt());
+    render(<AssessmentPage params={params} />);
+    expect(await screen.findByRole("link", { name: "Voltar para a prova" })).toBeDefined();
+  });
+
+  it("shows the teacher the attempts of an exam, and none of an assignment", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail());
+    render(<AssessmentPage params={params} />);
+    expect(await screen.findByRole("heading", { name: "Tentativas" })).toBeDefined();
+    expect(await screen.findByText("Nenhum aluno entrou na prova ainda.")).toBeDefined();
+    expect(assessmentService.attempts).toHaveBeenCalledWith("c-1", "a-1");
+    cleanup();
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ type: "ASSIGNMENT", modality: "ONLINE", requiresClearance: false }));
+    render(<AssessmentPage params={params} />);
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("heading", { name: "Tentativas" })).toBeNull();
   });
 });

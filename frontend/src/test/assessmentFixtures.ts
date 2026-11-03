@@ -9,6 +9,7 @@ import type {
   EligibleQuestions,
   MyAccess,
   PreviewData,
+  StudentAttempt,
 } from "@/services/assessmentService";
 
 /** The clock of the server in the assessment tests: Wednesday, October 21st 2026, 10:00 in Brasília. */
@@ -180,3 +181,33 @@ export const STARTED = {
   startedBy: "u-1",
   startedByName: "Profa. Sediane",
 } as const;
+
+/**
+ * The attempt of a student (SPEC-090 section 5), started at 09:10 with an hour left at the clock of the server: true or false, single choice, matching,
+ * a practical question and a descriptive one, 2 points each, nothing answered.
+ */
+export const studentAttempt = (over: Partial<StudentAttempt> = {}): StudentAttempt => ({
+  id: "t-1",
+  status: "IN_PROGRESS",
+  startedAt: "2026-10-21T09:10:00-03:00",
+  deadlineAt: "2026-10-21T11:00:00-03:00",
+  serverNow: SERVER_NOW,
+  items: [
+    { position: 1, kind: "THEORETICAL_BOOLEAN", weight: 2, studentView: { title: "Apagar pasta", statement: "<p>O rm -r apaga a pasta.</p>" } },
+    {
+      position: 2,
+      kind: "THEORETICAL_SINGLE",
+      weight: 2,
+      studentView: { title: "Permissões", statement: "<p>Qual muda as permissões?</p>", choices: [{ id: "a", html: "chmod" }, { id: "b", html: "chown" }], shuffle: false },
+    },
+    {
+      position: 3,
+      kind: "THEORETICAL_MATCHING",
+      weight: 2,
+      studentView: { title: "Comandos", statement: "<p>Ligue.</p>", columns: { left: [{ id: "l1", text: "cd" }], right: [{ id: "r1", text: "entra" }] }, shuffle: false },
+    },
+    { position: 4, kind: "PRACTICAL", weight: 2, studentView: { title: "Criar pasta", statement: "<p>Crie /a.</p>", scenario: { cwd: "/root" } }, checkedSolved: false },
+    { position: 5, kind: "DISCURSIVE", weight: 2, studentView: { title: "755", statement: "<p>Explique 755.</p>", maxLength: 500 } },
+  ],
+  ...over,
+});

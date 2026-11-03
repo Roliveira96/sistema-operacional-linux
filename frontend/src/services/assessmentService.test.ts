@@ -74,6 +74,30 @@ describe("assessmentService", () => {
   it("has a service ready for the app", () => {
     expect(assessmentService.list).toBeTypeOf("function");
   });
+
+  // SPEC-090 section 5: the attempt of the student and the list of the teacher.
+  it("enters, reads, answers, checks and delivers the attempt, and lists the attempts", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    const base = "/classes/c-1/assessments/a-1";
+    vi.mocked(c.post).mockResolvedValue({ id: "t-1" });
+    await expect(svc.enterAttempt("c-1", "a-1")).resolves.toEqual({ id: "t-1" });
+    expect(c.post).toHaveBeenLastCalledWith(`${base}/attempt`);
+    vi.mocked(c.get).mockResolvedValue({ id: "t-1" });
+    await svc.myAttempt("c-1", "a-1");
+    expect(c.get).toHaveBeenLastCalledWith(`${base}/attempt`);
+    await svc.saveAnswer("c-1", "a-1", 3, { choice: "a" });
+    expect(c.put).toHaveBeenLastCalledWith(`${base}/attempt/items/3`, { answer: { choice: "a" } });
+    vi.mocked(c.post).mockResolvedValue({ solved: true });
+    await expect(svc.checkAnswer("c-1", "a-1", 4, { cwd: "/" })).resolves.toBe(true);
+    expect(c.post).toHaveBeenLastCalledWith(`${base}/attempt/items/4/check`, { snapshot: { cwd: "/" } });
+    vi.mocked(c.post).mockResolvedValue({ id: "t-1", status: "SUBMITTED" });
+    await svc.submitAttempt("c-1", "a-1");
+    expect(c.post).toHaveBeenLastCalledWith(`${base}/attempt/submit`);
+    vi.mocked(c.get).mockResolvedValue({ items: [], serverNow: "x" });
+    await expect(svc.attempts("c-1", "a-1")).resolves.toEqual({ items: [], serverNow: "x" });
+    expect(c.get).toHaveBeenLastCalledWith(`${base}/attempts`);
+  });
 });
 
 // The RFC 7807 slugs of section 5.2, in Portuguese for the screen.

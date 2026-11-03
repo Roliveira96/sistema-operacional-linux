@@ -22,6 +22,8 @@ function lineOf(e: AssessmentEvent): string {
       return m.canceled(who, when) + reason;
     case "CLEARANCE_UPDATED":
       return m.clearanceUpdated(who, when);
+    case "STARTED":
+      return m.started(who, when);
   }
 }
 

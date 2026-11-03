@@ -135,3 +135,11 @@ describe("AssessmentHistory", () => {
     expect(screen.getByText("Nenhum registro ainda.")).toBeDefined();
   });
 });
+
+// SPEC-083 RN-03: the start of the exam by the teacher is a line of the history, not an empty one.
+describe("AssessmentHistory, the start", () => {
+  it("tells who started the exam and when", () => {
+    render(<AssessmentHistory events={[{ kind: "STARTED", actorName: "Profa. Sediane", createdAt: "2026-11-03T14:31:00-03:00" }]} />);
+    expect(lines()).toEqual(["Prova iniciada por Profa. Sediane em 03/11/2026 às 14:31."]);
+  });
+});
