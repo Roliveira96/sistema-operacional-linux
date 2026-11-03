@@ -8,7 +8,7 @@ import (
 	"github.com/Roliveira96/sistema-operacional-linux/backend/internal/modules/assessment/domain"
 )
 
-// Start is the teacher starting an in-person exam (SPEC-083 RN-01, RN-02, RN-03). The exam must be in person and SCHEDULED and running by the clock of
+// Start is the teacher starting an exam, in person or online (SPEC-083 RN-01 to RN-03, SPEC-089 RN-01). It must be an exam, SCHEDULED and running by the clock of
 // the server: not before its start time, not after its end. The start is stored once, with its author, and its event goes to the history in the same
 // write. It is not a change of the assessment, so updated_by and updated_at stay.
 func (s *Service) Start(ctx context.Context, actor Actor, classID, id uuid.UUID) (Summary, error) {
@@ -21,7 +21,7 @@ func (s *Service) Start(ctx context.Context, actor Actor, classID, id uuid.UUID)
 	}
 	now := s.now()
 	switch {
-	case a.Modality != domain.ModalityInPerson:
+	case a.Type != domain.TypeExam: // every exam is started by the teacher, an assignment never (SPEC-089 RN-01)
 		return Summary{}, domain.ErrInvalidAssessment
 	case a.Status == domain.StatusCanceled:
 		return Summary{}, domain.ErrAssessmentCanceled
