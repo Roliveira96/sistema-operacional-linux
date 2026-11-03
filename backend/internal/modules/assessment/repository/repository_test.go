@@ -653,6 +653,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	up2, down2 := migrationParts(t, "00042_")
 	up3, down3 := migrationParts(t, "00045_") // the start of SPEC-083 stands on the modality and on the kinds of event of the two before it
 	up4, down4 := migrationParts(t, "00046_") // and SPEC-089 changes the check of the start
+	up5, down5 := migrationParts(t, "00047_") // the attempts of SPEC-090 point to the assessments
 
 	five := []string{"assessments", "assessment_items", "assessment_draw_rules", "assessment_students", "assessment_events"}
 	for _, name := range five {
@@ -660,6 +661,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	}
 	e.create(t)
 
+	runMigration(t, e, down5)
 	runMigration(t, e, down4)
 	runMigration(t, e, down3)
 	runMigration(t, e, down2)
@@ -673,6 +675,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	runMigration(t, e, up2)
 	runMigration(t, e, up3)
 	runMigration(t, e, up4)
+	runMigration(t, e, up5)
 	for _, name := range five {
 		assert.True(t, tablesOf(t, e)[name], name+" is back after going up again")
 	}
