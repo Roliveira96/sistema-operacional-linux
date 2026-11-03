@@ -179,3 +179,4 @@ Nenhuma.
 | :--- | :--- | :--- |
 | 03/11/2026 | Aruna Architect | Criação a partir do pedido do Tech Lead e dos prints da sala |
 | 03/11/2026 | Aruna Architect | Aprovada pelo Tech Lead, com o pedido do relógio para a turma, em aba própria, com as mãos levantadas (seção 3.1, CA-08 a CA-10) |
+| 03/11/2026 | Claude (implementação) | Implementada no frontend, sem mudar o backend: `ExamRoom` (pílulas que filtram, ordem por necessidade, cartões com situação, ponto e barra, painel por situação, tempo com rótulo, botão do relógio e o canal `exam-room:<id>`), `ExamClock` e a rota `.../room/clock`; a sala e o relógio passam a usar a mesma moldura `TeacherWindow`. Diferenças: o motivo do encerramento não aparece no painel, porque o cartão da sala não o traz e o backend ficou fora do escopo; no celular o botão do aluno aberto continua **Fechar**, não **Voltar aos alunos**. |
