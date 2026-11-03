@@ -127,7 +127,7 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 
 Unicidade parcial: um único `OPEN` por `attempt_id`.
 
-**`assessments`** (alterada): `requires_clearance` deixa de ser lido e escrito pela aplicação (RN-03, P-02). A tabela das habilitações fica, sem uso.
+**`assessments`** (alterada): `requires_clearance` deixa de ser lido e escrito pela aplicação (RN-03, D-02). A tabela das habilitações fica, sem uso.
 
 ## 5. Contrato de API (API Contract)
 
@@ -170,8 +170,8 @@ Unicidade parcial: um único `OPEN` por `attempt_id`.
 
 - **Muito tráfego com a turma inteira.** **Mitigação:** a tela só vai quando a docente acompanha aquele aluno, e só a mais recente (RN-05, RN-09); o comando já tem orçamento por remetente na aula ao vivo.
 - **A docente perde a conexão no meio da prova.** **Mitigação:** a prova do aluno não depende da sala: as respostas seguem por REST; a sala reconecta e manda o estado inteiro.
-- **O aluno perde a conexão com a sala.** **Mitigação:** a prova continua (SPEC-090); os comandos digitados sem a sala ficam sem registro ao vivo (P-05).
-- **O aluno não sabe que é acompanhado.** Questão de transparência com o estudante. **Mitigação:** P-04.
+- **O aluno perde a conexão com a sala.** **Mitigação:** a prova continua (SPEC-090); os comandos digitados sem a sala são guardados e reenviados ao reconectar (D-05).
+- **O aluno não sabe que é acompanhado.** Questão de transparência com o estudante. **Mitigação:** o aviso da sala de espera (D-04).
 - **Fim da habilitação.** Mexe nas SPEC-076 e 083: o formulário, o detalhe, a lista, a página de habilitações, o aviso do estudante, `AccessOf` e as rotas. **Mitigação:** as partes viram obsoletas no histórico das duas specs; os testes delas que mudam são ajustados com o motivo registrado; as decisões já gravadas ficam no banco (D-02).
 - **Reaproveitar componentes da aula ao vivo** pode quebrar a aula. **Mitigação:** a regra da seção 3.1: a aula continua igual e os testes dela ficam verdes.
 - **Colisão de número de migração.** **Mitigação:** conferir o próximo número livre imediatamente antes de criar.
