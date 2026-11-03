@@ -32,6 +32,16 @@ var (
 	ErrSnapshotRequired         = errors.New("the state of the machine is required")
 	ErrInvalidSnapshot          = errors.New("the state is not a machine of the simulator")
 	ErrInvalidQuestion          = errors.New("the question does not use the terminal")
+
+	// SPEC-090: the attempt
+	ErrAttemptNotFound         = errors.New("attempt not found")
+	ErrAttemptExists           = errors.New("the student already has an attempt")
+	ErrAttemptAlreadySubmitted = errors.New("the attempt was already delivered")
+	ErrAttemptExpired          = errors.New("the time of the attempt is over")
+	ErrInvalidAnswer           = errors.New("the answer is not valid for the question")
+	ErrNotPractical            = errors.New("only a practical question is checked")
+	ErrNotEligible             = errors.New("the student is not eligible for the exam")
+	ErrNotCleared              = errors.New("the student was not cleared for the exam")
 )
 
 // Shortage is a level of difficulty that the bank cannot supply: what the draw asks for and what there is.

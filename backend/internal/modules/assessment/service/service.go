@@ -79,6 +79,9 @@ type QuestionContent struct {
 	Question
 	Statement, AnswerKey, Explanation string
 	StudentView                       StudentView
+	// GradingKey is what grades an answer to the question, opaque to this module: frozen in an attempt at the entry and given back to Grade
+	// (SPEC-090 RN-02, RN-08). It never goes to the student.
+	GradingKey json.RawMessage
 }
 
 // StudentView is what the student receives of a question, without the answer key (SPEC-081 RN-01, RN-02). Only the fields of the kind of the
@@ -140,6 +143,9 @@ type Questions interface {
 	Scenario(ctx context.Context, questionID uuid.UUID) (json.RawMessage, error)
 	// Sample draws n eligible questions of the level.
 	Sample(ctx context.Context, moduleID uuid.UUID, level domain.Difficulty, n int) ([]QuestionContent, error)
+	// Grade grades an answer against a grading key frozen in an attempt, with the grading of the bank; an answer that does not fit the kind is
+	// domain.ErrInvalidAnswer (SPEC-090 RN-04, RN-05, RN-08).
+	Grade(ctx context.Context, kind string, key, answer json.RawMessage) (Graded, error)
 }
 
 // HomologationCheck says whether an assessment has homologated grades (RN-12). The grades module does not exist yet, so the composition root plugs
@@ -203,6 +209,22 @@ type Repository interface {
 	InScheduledManual(ctx context.Context, questionID uuid.UUID) (bool, error)
 	// DrawDemand gives, by level, the biggest quantity a SCHEDULED draw of the module asks for (RN-18).
 	DrawDemand(ctx context.Context, moduleID uuid.UUID) (map[domain.Difficulty]int, error)
+
+	// CreateAttempt stores a new attempt with its questions, giving it its id; a second one for the same student is domain.ErrAttemptExists (SPEC-090).
+	CreateAttempt(ctx context.Context, a *domain.Attempt, items []domain.AttemptItem) error
+	// FindAttempt gives the attempt of a student, or domain.ErrAttemptNotFound.
+	FindAttempt(ctx context.Context, assessmentID, studentID uuid.UUID) (domain.Attempt, error)
+	// AttemptItems gives the questions of an attempt in order.
+	AttemptItems(ctx context.Context, attemptID uuid.UUID) ([]domain.AttemptItem, error)
+	// SaveAttemptAnswer replaces the answer of a question and, when solved is not nil, the result of its check; an unknown position is
+	// domain.ErrAttemptNotFound.
+	SaveAttemptAnswer(ctx context.Context, attemptID uuid.UUID, position int, answer json.RawMessage, at time.Time, solved *bool) error
+	// CloseAttempt writes the delivery and the points of each question in one transaction, only while the attempt is in progress; otherwise it is
+	// domain.ErrAttemptAlreadySubmitted.
+	CloseAttempt(ctx context.Context, a *domain.Attempt, points map[int]*domain.Score) error
+	ListAttempts(ctx context.Context, assessmentID uuid.UUID) ([]domain.Attempt, error)
+	// DueAttempts gives the attempts in progress whose deadline is before the instant.
+	DueAttempts(ctx context.Context, before time.Time) ([]domain.Attempt, error)
 }
 
 // Service implements the use cases of the assessments.

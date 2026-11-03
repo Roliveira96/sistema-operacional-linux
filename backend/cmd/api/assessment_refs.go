@@ -182,6 +182,8 @@ func refOf(q contentdomain.Question) assessmentservice.Question {
 // practical question, the reference solution (SPEC-075 RN-16).
 func contentOf(q contentdomain.Question) assessmentservice.QuestionContent {
 	c := assessmentservice.QuestionContent{Question: refOf(q), Statement: q.Statement, StudentView: studentViewOf(q)}
+	// the whole question of the bank is the key of the attempt: Grade reads it back with the grading of its kind (SPEC-090 RN-02)
+	c.GradingKey, _ = json.Marshal(q)
 	if q.Explanation != nil {
 		c.Explanation = *q.Explanation
 	}
@@ -368,10 +370,63 @@ type noHomologation struct{}
 
 func (noHomologation) HasHomologated(context.Context, uuid.UUID) (bool, error) { return false, nil }
 
-// noAttempts answers that nobody started the attempt of an assessment, until the spec of the attempts exists (SPEC-076 RN-07).
-type noAttempts struct{}
-
-func (noAttempts) HasStarted(context.Context, uuid.UUID, uuid.UUID) (bool, error) { return false, nil }
+// Grade grades an answer against the question frozen in an attempt, with the grading of the bank (SPEC-090 RN-04, RN-05, RN-08): the machine of a
+// practical question against its conditions; the other kinds by their own grading, the matching by the share of its right links (D-01). An answer
+// that does not fit the kind is ErrInvalidAnswer.
+func (q assessmentQuestions) Grade(_ context.Context, kind string, key, answer json.RawMessage) (assessmentservice.Graded, error) {
+	var question contentdomain.Question
+	if err := json.Unmarshal(key, &question); err != nil {
+		return assessmentservice.Graded{}, err
+	}
+	if contentdomain.UsesTerminal(kind) {
+		machine, err := practiceservice.ParseMachine(answer)
+		if errors.Is(err, practiceservice.ErrInvalidSnapshot) {
+			return assessmentservice.Graded{}, assessmentdomain.ErrInvalidAnswer
+		}
+		if err != nil {
+			return assessmentservice.Graded{}, err
+		}
+		var conditions []contentdomain.Condition
+		if err := json.Unmarshal(question.ValidationConditions, &conditions); err != nil {
+			return assessmentservice.Graded{}, err
+		}
+		verdict, err := contentdomain.Grade(machine, conditions)
+		if err != nil || !verdict.Passed {
+			return assessmentservice.Graded{}, err
+		}
+		return assessmentservice.Graded{Fraction: 1}, nil
+	}
+	if kind == contentdomain.KindTheoreticalMatching {
+		return gradeLinks(question, answer)
+	}
+	t, ok := contentdomain.TypeOf(kind)
+	if !ok {
+		return assessmentservice.Graded{}, assessmentdomain.ErrInvalidAnswer
+	}
+	verdict, err := t.Grade(question, answer)
+	if errors.Is(err, contentdomain.ErrInvalidResponse) {
+		return assessmentservice.Graded{}, assessmentdomain.ErrInvalidAnswer
+	}
+	if err != nil {
+		return assessmentservice.Graded{}, err
+	}
+	out := assessmentservice.Graded{Pending: verdict.Pending, Stored: verdict.Stored}
+	var links []contentdomain.LinkResult
+	switch {
+	case verdict.Pending:
+	case len(verdict.Details) > 0 && json.Unmarshal(verdict.Details, &links) == nil && len(links) > 0:
+		right := 0
+		for _, l := range links {
+			if l.Correct {
+				right++
+			}
+		}
+		out.Fraction = float64(right) / float64(len(links))
+	case verdict.Passed:
+		out.Fraction = 1
+	}
+	return out, nil
+}
 
 // assessmentCalendar is the part of the assessment service the calendar uses.
 type assessmentCalendar interface {
@@ -406,4 +461,43 @@ func calendarAssessmentOf(p assessmentservice.Public) scheduleservice.CalendarAs
 		Status: string(p.Status), Phase: string(p.Phase), StartsAt: p.StartsAt, EndsAt: p.EndsAt, DurationMinutes: p.DurationMinutes,
 		MaxScore: p.MaxScore.Float(), CancelReason: p.CancelReason,
 	}
+}
+
+// gradeLinks grades a matching answer of an attempt by the share of the pairs of the key it has right (SPEC-090 D-01). Unlike the exercise, an
+// attempt keeps an answer still being made, so fewer links than items is fine; each link must join two items that exist, and none repeats.
+func gradeLinks(q contentdomain.Question, answer json.RawMessage) (assessmentservice.Graded, error) {
+	pairs := contentdomain.ReadPairs(q.AnswerKey)
+	cols, ok := contentdomain.ReadColumns(q.Choices)
+	if len(pairs) == 0 || !ok {
+		return assessmentservice.Graded{}, errors.New("the matching question has no answer key")
+	}
+	var r struct {
+		Links []contentdomain.MatchPair `json:"links"`
+	}
+	if err := json.Unmarshal(answer, &r); err != nil || r.Links == nil || len(r.Links) > len(cols.Left) {
+		return assessmentservice.Graded{}, assessmentdomain.ErrInvalidAnswer
+	}
+	left, right := map[string]bool{}, map[string]bool{}
+	for _, it := range cols.Left {
+		left[it.ID] = true
+	}
+	for _, it := range cols.Right {
+		right[it.ID] = true
+	}
+	correct := map[string]string{}
+	for _, p := range pairs {
+		correct[p.Left] = p.Right
+	}
+	usedLeft, usedRight := map[string]bool{}, map[string]bool{}
+	hits := 0
+	for _, l := range r.Links {
+		if !left[l.Left] || !right[l.Right] || usedLeft[l.Left] || usedRight[l.Right] {
+			return assessmentservice.Graded{}, assessmentdomain.ErrInvalidAnswer
+		}
+		usedLeft[l.Left], usedRight[l.Right] = true, true
+		if correct[l.Left] == l.Right {
+			hits++
+		}
+	}
+	return assessmentservice.Graded{Fraction: float64(hits) / float64(len(pairs))}, nil
 }

@@ -81,7 +81,7 @@ func TestAssessmentsWiredLikeTheComposition(t *testing.T) {
 	assessments := assessmentservice.New(assessmentrepository.New(db), assessmentservice.Ports{
 		Classes: people, Students: people, Users: people,
 		Lessons: assessmentLessons{schedule: scheduleService}, Modules: assessmentModules{modules: moduleService},
-		Questions: assessmentQuestions{bank: contentExercises, questions: contentReader}, Homologation: noHomologation{}, Attempts: noAttempts{},
+		Questions: assessmentQuestions{bank: contentExercises, questions: contentReader}, Homologation: noHomologation{}, Attempts: assessmentrepository.New(db),
 	}, time.Now)
 	scheduleService.WithAssessments(scheduleAssessments{assessments: assessments})
 	contentExercises.WithAssessmentUse(assessments)
