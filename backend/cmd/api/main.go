@@ -208,10 +208,6 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	classService := classgroupservice.New(classRepo).WithScheduleHook(scheduleService)
 	classHandler := classgrouphandler.New(classService, auth).WithUserNames(classService)
 
-	if err := startScheduler(ctx, db, smtp, scheduleService, classroomSweep, log); err != nil {
-		return err
-	}
-
 	moduleRepo := coursemodulerepository.New(db)
 	moduleService := coursemoduleservice.New(moduleRepo)
 	// A lesson can point to a teaching module (SPEC-053 RN-04); the presentation left its content (SPEC-074 RN-09).
@@ -240,14 +236,24 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 	// The assessments of the classes on the calendar (SPEC-075). What they read from the other modules goes through the services of those modules, in
 	// the adapters of assessment_refs.go; the grades module does not exist yet, so no assessment has homologated grades (D-12).
 	assessmentClassesRef := assessmentClasses{classes: classService}
-	assessmentService := assessmentservice.New(assessmentrepository.New(db), assessmentservice.Ports{
+	assessmentRepo := assessmentrepository.New(db)
+	assessmentService := assessmentservice.New(assessmentRepo, assessmentservice.Ports{
 		Classes: assessmentClassesRef, Students: assessmentClassesRef, Users: assessmentClassesRef,
 		Lessons: assessmentLessons{schedule: scheduleService}, Modules: assessmentModules{modules: moduleService},
 		Questions:    assessmentQuestions{bank: contentExercises, questions: contentReader},
 		Homologation: noHomologation{},
-		Attempts:     noAttempts{},
+		// the check of the clearance answers by the table of the attempts (SPEC-090 RN-11)
+		Attempts: assessmentRepo,
 	}, time.Now)
 	assessmentHandler := assessmenthandler.New(assessmentService, auth)
+	// The attempts past their deadline are delivered by the server every minute, for the students who do not come back (SPEC-090 RN-07).
+	attemptSweep := func(ctx context.Context, _ time.Time) error {
+		_, err := assessmentService.ExpireDue(ctx)
+		return err
+	}
+	if err := startScheduler(ctx, db, smtp, scheduleService, classroomSweep, attemptSweep, log); err != nil {
+		return err
+	}
 	// The calendars carry the assessments, and the bank of questions keeps what a scheduled assessment needs (SPEC-075 RN-17, RN-18).
 	scheduleService.WithAssessments(scheduleAssessments{assessments: assessmentService})
 	contentExercises.WithAssessmentUse(assessmentService)
@@ -336,7 +342,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 }
 
 // startScheduler registers the periodic jobs of the schedule (SPEC-042) and runs them in the background until ctx ends.
-func startScheduler(ctx context.Context, db *database.DB, sender mailer.Sender, schedule *scheduleservice.Service, classroomSweep func(context.Context, time.Time) error, log *zap.Logger) error {
+func startScheduler(ctx context.Context, db *database.DB, sender mailer.Sender, schedule *scheduleservice.Service, classroomSweep, attemptSweep func(context.Context, time.Time) error, log *zap.Logger) error {
 	sqlDB, err := db.SQL()
 	if err != nil {
 		return err
@@ -352,6 +358,7 @@ func startScheduler(ctx context.Context, db *database.DB, sender mailer.Sender, 
 	jobs.Add(scheduler.Task{Name: "weekly-digest", Every: 15 * time.Minute, Run: schedule.SendWeeklyDigest})
 	jobs.Add(scheduler.Task{Name: "national-holidays", Every: 24 * time.Hour, Run: schedule.RefreshNationalHolidays})
 	jobs.Add(scheduler.Task{Name: "classroom-safety-net", Every: 10 * time.Minute, Run: classroomSweep})
+	jobs.Add(scheduler.Task{Name: "attempt-expiry", Every: time.Minute, Run: attemptSweep})
 	go jobs.Start(ctx, 30*time.Second)
 	return nil
 }

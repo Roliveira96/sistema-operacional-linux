@@ -24,6 +24,10 @@ type fakeRepo struct {
 	// the decisions of the clearance (SPEC-076): by assessment, then by student, one row each
 	clearances     map[uuid.UUID]map[uuid.UUID]domain.Clearance
 	clearanceSaves int // how many times a batch of decisions was written
+
+	// the attempts (SPEC-090): by assessment and student, and the items of each attempt
+	attempts     map[[2]uuid.UUID]domain.Attempt
+	attemptItems map[uuid.UUID][]domain.AttemptItem
 }
 
 func newFakeRepo() *fakeRepo {

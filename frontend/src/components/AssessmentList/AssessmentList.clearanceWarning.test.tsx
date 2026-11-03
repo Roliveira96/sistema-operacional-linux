@@ -97,7 +97,8 @@ describe("AssessmentList: modality and clearance warning", () => {
       waiting({ id: "a-1", title: "Sem ninguém", clearanceCounts: { pending: 0, approved: 32, rejected: 0 } }),
       waiting({ id: "a-3", title: "Acabou", phase: "ENDED", startsAt: "2026-10-21T08:00:00-03:00", endsAt: "2026-10-21T09:30:00-03:00" }),
       waiting({ id: "a-4", title: "Cancelada", status: "CANCELED", cancelReason: "Falta de energia" }),
-      waiting({ id: "a-5", title: "Online", modality: "ONLINE", requiresClearance: false, startedAt: undefined, startedBy: undefined, startedByName: undefined }),
+      // started: since SPEC-089 an online exam not started yet says it can be started
+      waiting({ id: "a-5", title: "Online", modality: "ONLINE", requiresClearance: false }),
       waiting({ id: "a-6", title: "Sem exigência", requiresClearance: false }),
     ]);
     expect(warning()).toBeNull();
@@ -127,12 +128,12 @@ describe("AssessmentList: the exam can be started", () => {
     expect(warning()!.textContent).toContain("a prova já pode ser iniciada");
   });
 
-  it("does not say it before the start time, after the end, once started, in an online assessment or in a canceled one", () => {
+  it("does not say it before the start time, after the end, once started, in an assignment or in a canceled one", () => {
     setup([
       summary({ id: "a-1", title: "Longe" }),
       ready({ id: "a-2", title: "Acabou", phase: "ENDED", endsAt: "2026-10-21T09:30:00-03:00" }),
       waiting({ id: "a-3", title: "Iniciada", clearanceCounts: { pending: 0, approved: 32, rejected: 0 } }),
-      ready({ id: "a-4", title: "Online", modality: "ONLINE", requiresClearance: false }),
+      ready({ id: "a-4", title: "Atividade", type: "ASSIGNMENT", modality: "ONLINE", requiresClearance: false }), // SPEC-089 D-01
       ready({ id: "a-5", title: "Cancelada", status: "CANCELED", cancelReason: "Greve" }),
     ]);
     expect(warning()).toBeNull();

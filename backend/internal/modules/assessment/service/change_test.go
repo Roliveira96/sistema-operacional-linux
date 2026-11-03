@@ -310,6 +310,7 @@ func TestAccessOf_DecisionTable(t *testing.T) {
 		in.Audience, in.StudentIDs = domain.AudienceSelected, []uuid.UUID{f.ana.ID, f.bruno.ID}
 		in.Modality = ptr(domain.ModalityOnline)
 	})
+	f.ensureStarted(t, a) // since SPEC-089 every exam, online too, opens once the teacher starts it
 
 	cases := []struct {
 		name    string

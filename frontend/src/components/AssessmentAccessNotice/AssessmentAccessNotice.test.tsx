@@ -132,6 +132,15 @@ describe("AssessmentAccessNotice, exam not started", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  // SPEC-089 CA-07, D-03: without the clearance the student enters as soon as the teacher starts, and reads that.
+  it.each([
+    ["online", { modality: "ONLINE", requiresClearance: false, clearance: undefined }],
+    ["in person without the requirement", { modality: "IN_PERSON", requiresClearance: false, clearance: undefined }],
+  ] as const)("says the student enters as soon as the teacher starts: %s", async (_, over) => {
+    await setup(myAccess({ reason: "NOT_STARTED", ...over }));
+    expect(screen.getByRole("status").textContent).toBe("A docente ainda não iniciou a prova. Aguarde: você entra assim que ela iniciar.");
+  });
+
   it("shows the own state once the exam is started, as the teacher decides", async () => {
     await setup(myAccess({ reason: "NOT_STARTED", clearance: { status: "REJECTED", rejectionReason: "Faltas" } }));
     expect(screen.queryByRole("alert")).toBeNull();

@@ -44,6 +44,14 @@ type AssessmentService interface {
 	Clearances(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.ClearanceList, error)
 	Decide(ctx context.Context, a service.Actor, classID, id uuid.UUID, in service.ClearanceInput) (service.ClearanceList, error)
 	MyAccess(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.MyAccess, error)
+
+	// SPEC-090: the attempt
+	EnterAttempt(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.StudentAttempt, bool, error)
+	MyAttempt(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.StudentAttempt, error)
+	SaveAnswer(ctx context.Context, a service.Actor, classID, id uuid.UUID, position int, answer json.RawMessage) error
+	CheckAnswer(ctx context.Context, a service.Actor, classID, id uuid.UUID, position int, snapshot json.RawMessage) (bool, error)
+	SubmitAttempt(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.StudentAttempt, error)
+	Attempts(ctx context.Context, a service.Actor, classID, id uuid.UUID) ([]service.AttemptRow, error)
 }
 
 // Handler serves the assessment routes.
@@ -73,6 +81,13 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.GET("/classes/:id/assessments/:assessmentId/clearances", h.clearances)
 	g.POST("/classes/:id/assessments/:assessmentId/clearances", h.decide)
 	g.GET("/classes/:id/assessments/:assessmentId/my-access", h.myAccess)
+	// the attempt of the student and the list of the teacher (SPEC-090 section 5)
+	g.POST("/classes/:id/assessments/:assessmentId/attempt", h.enterAttempt)
+	g.GET("/classes/:id/assessments/:assessmentId/attempt", h.myAttempt)
+	g.PUT("/classes/:id/assessments/:assessmentId/attempt/items/:position", h.saveAnswer)
+	g.POST("/classes/:id/assessments/:assessmentId/attempt/items/:position/check", h.checkAnswer)
+	g.POST("/classes/:id/assessments/:assessmentId/attempt/submit", h.submitAttempt)
+	g.GET("/classes/:id/assessments/:assessmentId/attempts", h.attempts)
 }
 
 func fail(c *gin.Context, p *problem.Problem) {
@@ -184,6 +199,20 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("clearance-not-required", err.Error())
 	case errors.Is(err, domain.ErrClearanceLocked):
 		return problem.Conflict("clearance-locked", err.Error())
+	case errors.Is(err, domain.ErrInvalidAnswer):
+		return problem.BadRequest("invalid-answer", err.Error())
+	case errors.Is(err, domain.ErrNotPractical):
+		return problem.BadRequest("not-practical", err.Error())
+	case errors.Is(err, domain.ErrNotEligible):
+		return problem.Forbidden("not-eligible", err.Error())
+	case errors.Is(err, domain.ErrAttemptNotFound):
+		return problem.NotFound("attempt-not-found", err.Error())
+	case errors.Is(err, domain.ErrNotCleared):
+		return problem.Conflict("not-cleared", err.Error())
+	case errors.Is(err, domain.ErrAttemptAlreadySubmitted):
+		return problem.Conflict("attempt-already-submitted", err.Error())
+	case errors.Is(err, domain.ErrAttemptExpired):
+		return problem.Conflict("attempt-expired", err.Error())
 	}
 	return nil
 }

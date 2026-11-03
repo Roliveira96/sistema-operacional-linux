@@ -115,11 +115,10 @@ func TestStart_TheSecondStartIsRefusedAndNothingChanges(t *testing.T) {
 	assert.True(t, f.repo.assessments[a.ID].StartedAt.Equal(at(21, 9, 5)), "the first start stays")
 }
 
-// Covers SPEC-083 CA-03 (RN-01, RN-02): only an in-person exam that is running can be started; an online one or an assignment is not valid, and a
-// canceled, an ended or a not yet open one is refused, in this order. Nothing is written by a refusal.
-func TestStart_RefusedWhenNotInPersonCanceledEndedOrNotOpenYet(t *testing.T) {
+// Covers SPEC-083 CA-03 (RN-01, RN-02), with SPEC-089 RN-01: only an exam that is running can be started; an assignment is not valid, and a
+// canceled, an ended or a not yet open one is refused, in this order. Nothing is written by a refusal. The online exam is in start_online_test.go.
+func TestStart_RefusedWhenAssignmentCanceledEndedOrNotOpenYet(t *testing.T) {
 	f := newFixture(t)
-	online := f.create(t, func(in *service.CreateInput) { in.Modality = ptr(domain.ModalityOnline) })
 	assignment := f.create(t, func(in *service.CreateInput) {
 		in.Type, in.StartsAt, in.EndsAt = domain.TypeAssignment, ptr(at(21, 9, 0)), ptr(at(23, 18, 0))
 	})
@@ -135,7 +134,6 @@ func TestStart_RefusedWhenNotInPersonCanceledEndedOrNotOpenYet(t *testing.T) {
 		now  time.Time
 		want error
 	}{
-		{"online", online, at(21, 10, 0), domain.ErrInvalidAssessment},
 		{"an assignment", assignment, at(21, 10, 0), domain.ErrInvalidAssessment},
 		{"canceled and running", canceled, at(21, 10, 0), domain.ErrAssessmentCanceled},
 		{"canceled and ended: canceled comes first", canceled, at(21, 11, 0), domain.ErrAssessmentCanceled},
@@ -236,7 +234,7 @@ func TestAccessOf_NotStartedComesAfterEndedAndBeforeNotCleared(t *testing.T) {
 		{"ended comes before", a, at(21, 11, 0), f.ana, domain.AccessEnded},
 		{"not eligible comes before", a, at(21, 10, 0), f.outsider, domain.AccessNotEligible},
 		{"canceled comes before", canceled, at(21, 10, 0), f.ana, domain.AccessCanceled},
-		{"online does not need the start", online, at(21, 10, 0), f.ana, domain.AccessAllowed},
+		{"online also needs the start (SPEC-089 RN-02)", online, at(21, 10, 0), f.ana, domain.AccessNotStarted},
 	}
 	for _, c := range cases {
 		f.now = c.now

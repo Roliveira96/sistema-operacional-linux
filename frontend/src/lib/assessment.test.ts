@@ -89,16 +89,21 @@ describe("warnings of the list", () => {
   const ready = () => summary({ phase: "RUNNING", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00" });
   const started = (over = {}) => summary({ ...STARTED, clearanceCounts: { pending: 3, approved: 29, rejected: 0 }, ...over });
 
-  it("says the exam can be started when it is in person, scheduled and running, and nobody started it", () => {
+  it("says the exam can be started when it is scheduled and running, and nobody started it", () => {
     expect(needsStartWarning(ready())).toBe(true);
     expect(needsStartWarning(summary({ ...ready(), requiresClearance: false }))).toBe(true);
   });
 
-  it("does not say it before the start time, after the end, once started, online or canceled", () => {
+  // SPEC-089 CA-06, RN-01: an online exam is started by the teacher too, and an assignment never is.
+  it("says it for an online exam too, and never for an assignment", () => {
+    expect(needsStartWarning(summary({ ...ready(), modality: "ONLINE", requiresClearance: false }))).toBe(true);
+    expect(needsStartWarning(summary({ ...ready(), type: "ASSIGNMENT", modality: "ONLINE", requiresClearance: false }))).toBe(false);
+  });
+
+  it("does not say it before the start time, after the end, once started or canceled", () => {
     expect(needsStartWarning(summary())).toBe(false);
     expect(needsStartWarning(summary({ ...ready(), phase: "ENDED" }))).toBe(false);
     expect(needsStartWarning(started())).toBe(false);
-    expect(needsStartWarning(summary({ ...ready(), modality: "ONLINE", requiresClearance: false }))).toBe(false);
     expect(needsStartWarning(summary({ ...ready(), status: "CANCELED" }))).toBe(false);
   });
 

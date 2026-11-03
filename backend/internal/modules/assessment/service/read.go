@@ -352,7 +352,7 @@ func (s *Service) accessFor(ctx context.Context, a domain.Assessment, studentID 
 	case domain.PhaseEnded:
 		return domain.AccessEnded, nil
 	}
-	if a.Modality == domain.ModalityInPerson && a.StartedAt == nil {
+	if a.Type == domain.TypeExam && a.StartedAt == nil { // SPEC-089 RN-02
 		return domain.AccessNotStarted, nil
 	}
 	if !a.RequiresClearance {
