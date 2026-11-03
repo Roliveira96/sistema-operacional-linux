@@ -8,7 +8,7 @@
 | **Última revisão** | 03/11/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
-| **Escopo** | Frontend |
+| **Escopo** | Ambos (a revisão 2 acrescenta uma mensagem ao websocket da sala) |
 | **Módulo** | `assessment` (frontend: o componente `ExamRoom` da rota `/app/classes/[id]/assessments/[assessmentId]/room` e a rota nova `.../room/clock`, o relógio para a turma) |
 | **Contexto de tela** | A sala da prova da docente (SPEC-091, seção 3.1) e o relógio para a turma, numa aba própria, para projetar |
 | **Prioridade** | Alta |
@@ -126,17 +126,41 @@ Tema escuro, tokens semânticos, textos em `messages/pt-BR.ts`, teclado, contras
   - O relógio não abre outra conexão com a sala, porque o servidor aceita uma conexão de docente por sala e derrubaria a da aba da sala.
   - Sem a aba da sala aberta no mesmo navegador, o relógio continua contando, mas sem as mãos.
 
+**Revisão 2: cartões maiores, com a questão do aluno** (pedido do Tech Lead de 03/11/2026: "quero que sejam cards maiores, mostrando qual é a questão que o aluno está fazendo"):
+
+- **Tamanho:** a grade usa cartões de no mínimo 18rem de largura (eram 13rem). O cartão ganha mais respiro, o nome em `--font-size-md` e uma altura mínima igual para todos os cartões de uma linha.
+- **Questão do aluno:** o destaque do cartão de quem está fazendo a prova é o **número da questão em que ele está**: "Questão 4 de 9", logo abaixo do nome, em letra grande e forte. Embaixo, menor, vem o título da questão ("Criar pasta"), em até 2 linhas.
+  - Se o aluno ainda não informou a questão (por exemplo, entrou antes desta revisão), a linha não aparece.
+  - Para quem não está fazendo, nada muda.
+- **Painel do aluno aberto:** a linha "Questão N: <título>" passa a vir da questão do cartão. Ela aparece também em questão sem terminal.
+
 ### 3.2. Backend
 
-Nenhuma mudança.
+Só na revisão 2: a sala passa a saber em que questão cada aluno está, sem depender de a docente acompanhá-lo.
+
+- **Mensagem nova do aluno para a sala:** `room:question` com `{ position, title }`. A janela da prova manda essa mensagem quando o aluno abre uma questão, quando troca de questão e de novo quando a conexão com a sala volta.
+- **Regras da mensagem:**
+  - Só vale vinda do estudante, até 1 KiB.
+  - A posição precisa ser maior que zero, e o título é cortado em 200 caracteres.
+  - Uma mensagem inválida é descartada, como as demais da sala.
+- **O servidor:**
+  - guarda **em memória**, por sala e por aluno, a última questão informada;
+  - não grava no banco, e um reinício do servidor perde a informação até o aluno trocar de questão ou reconectar;
+  - manda o cartão atualizado à docente (`room:student`).
+- **O cartão** (`snapshot` e `room:student`) ganha o campo opcional `question: { position, title }`.
 
 ## 4. Modelo de Dados (Data Model)
 
-Nenhuma mudança.
+Nenhuma mudança no banco. A questão atual de cada aluno fica só na memória da sala (revisão 2).
 
 ## 5. Contrato de API (API Contract)
 
-Nenhuma mudança.
+Nenhuma rota nova. Websocket da sala (revisão 2):
+
+| Direção | Tipo | Dados |
+| :--- | :--- | :--- |
+| aluno → sala | `room:question` | `{ "position": 4, "title": "Criar pasta" }` |
+| sala → docente | cartão em `room:snapshot` e `room:student` | campo novo opcional `"question": { "position": 4, "title": "Criar pasta" }` |
 
 ## 6. Impacto e Riscos (Impact & Risks)
 
@@ -156,6 +180,9 @@ Nenhuma mudança.
 - **CA-08:** a sala tem o botão **Abrir o relógio para a turma**, que abre `.../room/clock` numa aba nova.
 - **CA-09:** o relógio mostra o título, "Termina em", o tempo e a hora do término; antes do início, "A prova ainda não começou."; depois do término, "Tempo esgotado."
 - **CA-10:** quando a sala manda uma fila com Ana e Bruno, o relógio mostra "Mão levantada: Ana, Bruno", sem a dúvida. Com a fila vazia, a faixa some. Ao abrir, o relógio pede o estado e a sala responde.
+- **CA-11:** (revisão 2) ao abrir ou trocar de questão, a janela da prova manda `room:question` com a posição e o título, e manda de novo quando a conexão com a sala volta.
+- **CA-12:** (revisão 2) o servidor guarda a última questão de cada aluno e a põe no cartão, tanto no `room:snapshot` quanto no `room:student`. Uma `room:question` da docente, com posição zero ou com mais de 1 KiB é descartada, e o título é cortado em 200 caracteres.
+- **CA-13:** (revisão 2) o cartão de quem está fazendo mostra "Questão 4 de 9" e o título da questão. Sem questão informada, a linha não aparece.
 - **CA-07:** os testes atuais da SPEC-091 continuam verdes, ajustados só onde o filtro virou botão.
 
 ## 8. Plano de Testes (Test Plan)
@@ -180,3 +207,5 @@ Nenhuma.
 | 03/11/2026 | Aruna Architect | Criação a partir do pedido do Tech Lead e dos prints da sala |
 | 03/11/2026 | Aruna Architect | Aprovada pelo Tech Lead, com o pedido do relógio para a turma, em aba própria, com as mãos levantadas (seção 3.1, CA-08 a CA-10) |
 | 03/11/2026 | Claude (implementação) | Implementada no frontend, sem mudar o backend: `ExamRoom` (pílulas que filtram, ordem por necessidade, cartões com situação, ponto e barra, painel por situação, tempo com rótulo, botão do relógio e o canal `exam-room:<id>`), `ExamClock` e a rota `.../room/clock`; a sala e o relógio passam a usar a mesma moldura `TeacherWindow`. Diferenças: o motivo do encerramento não aparece no painel, porque o cartão da sala não o traz e o backend ficou fora do escopo; no celular o botão do aluno aberto continua **Fechar**, não **Voltar aos alunos**. |
+| 03/11/2026 | Aruna Architect | Revisão 2, a pedido do Tech Lead: cartões maiores com a questão em que o aluno está; mensagem `room:question` do aluno e o campo `question` do cartão (seções 3.1, 3.2, 5, CA-11 a CA-13) |
+| 03/11/2026 | Aruna Architect | Revisão 2 aprovada pelo Tech Lead, com o ajuste: "deve mostrar o número do exercício da prova que ele está fazendo"; o número da questão é o destaque do cartão |
