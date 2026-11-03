@@ -140,6 +140,9 @@ func (r *room) cardJSON(roomID string, c service.RoomCard) gin.H {
 	if c.DeadlineAt != nil {
 		out["deadlineAt"] = iso(*c.DeadlineAt)
 	}
+	if c.AttemptID != nil {
+		out["attemptId"] = *c.AttemptID
+	}
 	if c.Help != nil {
 		out["help"] = helpJSON(*c.Help)
 	}
@@ -366,12 +369,13 @@ func (rh roomHandler) Message(ctx context.Context, roomID string, who hub.Identi
 		}
 		var body struct {
 			Position int             `json:"position"`
+			Title    string          `json:"title"`
 			Screen   json.RawMessage `json:"screen"`
 		}
 		if json.Unmarshal(msg.Data, &body) != nil {
 			return
 		}
-		rh.r.hub.SendToKind(roomID, viewRoom, encode(roomScreen, gin.H{"studentId": who.UserID, "position": body.Position, "screen": body.Screen}))
+		rh.r.hub.SendToKind(roomID, viewRoom, encode(roomScreen, gin.H{"studentId": who.UserID, "position": body.Position, "title": body.Title, "screen": body.Screen}))
 	case roomCommand:
 		var body struct {
 			Position int        `json:"position"`

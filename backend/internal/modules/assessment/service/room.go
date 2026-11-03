@@ -26,6 +26,7 @@ type RoomEntry struct {
 // student is connected, and waiting, is the realtime's to add.
 type RoomCard struct {
 	StudentID  uuid.UUID
+	AttemptID  *uuid.UUID // the room ends the attempt by it (RN-08)
 	Name       string
 	AcademicID string
 	Status     string
@@ -332,7 +333,7 @@ func (s *Service) cardOf(ctx context.Context, id uuid.UUID, st Student) (RoomCar
 	if err != nil {
 		return RoomCard{}, err
 	}
-	card.Status, card.Total, card.DeadlineAt = string(attempt.Status), len(items), &attempt.DeadlineAt
+	card.Status, card.Total, card.DeadlineAt, card.AttemptID = string(attempt.Status), len(items), &attempt.DeadlineAt, &attempt.ID
 	for _, it := range items {
 		if len(it.Answer) > 0 {
 			card.Answered++
