@@ -45,7 +45,7 @@ describe("ExamRoom, the cards", () => {
   it("shows the title, the counters and the cards with the situation", async () => {
     await setup();
     expect(screen.getByRole("heading", { name: "Prova 1: permissões" })).toBeDefined();
-    expect(screen.getByText("Na sala de espera: 1")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Na sala de espera (1)" })).toBeDefined();
     const ana = screen.getByRole("button", { name: /Ana/ });
     expect(ana.textContent).toContain("Na sala de espera");
     expect(screen.getByRole("button", { name: /Bruno/ }).textContent).toContain("Ausente");
@@ -57,7 +57,7 @@ describe("ExamRoom, the cards", () => {
     const ana = screen.getByRole("button", { name: /Ana/ });
     expect(ana.textContent).toContain("Fazendo");
     expect(ana.textContent).toContain("4 de 9 respondidas · 2 práticas resolvidas");
-    expect(screen.getByText("Fazendo: 1")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Fazendo (1)" })).toBeDefined();
     receive("room:student", card({ status: "IN_PROGRESS", online: false, attemptId: "t-1" }));
     expect(screen.getByRole("button", { name: /Ana/ }).textContent).toContain("sem conexão");
   });
@@ -115,7 +115,7 @@ describe("ExamRoom, the help", () => {
     fireEvent.click(within(queue).getByRole("button", { name: "Atendido" }));
     expect(sent).toContainEqual({ type: "help:answer", data: { requestId: "h-1", answer: "Não, só o terminal." } });
     receive("help:queue", { queue: [] });
-    expect(within(queue).getByText("Nenhum pedido de ajuda.")).toBeDefined();
+    expect(screen.getByText("Pedidos de ajuda: nenhum")).toBeDefined();
   });
 });
 
@@ -146,5 +146,120 @@ describe("ExamRoom, the connection", () => {
     await setup();
     act(() => handlers.onClose());
     expect(screen.getByRole("status", { name: "Conexão" }).textContent).toBe("Reconectando…");
+  });
+});
+
+// SPEC-092: the room shows first who needs the teacher, with the situation readable at a glance.
+const BIA = "s-bia";
+const CAIO = "s-caio";
+const DAVI = "s-davi";
+const crowd = () => [
+  card({ studentId: ANA, name: "Ana" }),
+  card({ studentId: BRUNO, name: "Bruno", academicId: "1000002", status: "IN_PROGRESS", online: true, answered: 4, total: 9, solved: 2, attemptId: "t-2" }),
+  card({ studentId: BIA, name: "Bia", academicId: "1000003", status: "SUBMITTED", online: true, attemptId: "t-3" }),
+  card({ studentId: CAIO, name: "Caio", academicId: "1000004", online: true, waiting: true }),
+  card({
+    studentId: DAVI, name: "Davi", academicId: "1000005", status: "IN_PROGRESS", online: true, attemptId: "t-5",
+    help: { id: "h-1", studentId: DAVI, question: "", status: "OPEN", createdAt: "2026-10-21T09:31:00-03:00" },
+  }),
+];
+const order = () => within(screen.getByRole("region", { name: "Alunos" })).getAllByRole("listitem").map((li) => li.textContent?.match(/^[A-Z][a-z]+/)?.[0]);
+
+describe("ExamRoom, SPEC-092 the order of the cards (CA-01)", () => {
+  it("puts the raised hand first, then who is doing, waiting, delivered and absent", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00", cards: crowd() });
+    expect(order()).toEqual(["Davi", "Bruno", "Caio", "Bia", "Ana"]);
+  });
+});
+
+describe("ExamRoom, SPEC-092 the counters that filter (CA-02)", () => {
+  it("filters by a counter and goes back to all when clicked again", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00", cards: crowd() });
+    expect(screen.getByRole("button", { name: "Todos (5)" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Mãos levantadas (1)" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Entregues (1)" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Ausentes (1)" })).toBeDefined();
+    const doing = screen.getByRole("button", { name: "Fazendo (2)" });
+    fireEvent.click(doing);
+    expect(doing.getAttribute("aria-pressed")).toBe("true");
+    expect(order()).toEqual(["Davi", "Bruno"]);
+    fireEvent.click(doing);
+    expect(order()).toHaveLength(5);
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("says when nobody is in the situation", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00", cards: [card({ studentId: BRUNO, name: "Bruno", status: "IN_PROGRESS", online: true })] });
+    fireEvent.click(screen.getByRole("button", { name: "Entregues (0)" }));
+    expect(screen.getByText("Nenhum aluno nesta situação.")).toBeDefined();
+  });
+});
+
+describe("ExamRoom, SPEC-092 the card (CA-03)", () => {
+  it("shows the situation in words and the progress as a bar", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00", cards: crowd() });
+    const bruno = screen.getByRole("button", { name: /Bruno/ });
+    expect(bruno.textContent).toContain("Fazendo");
+    const bar = within(bruno).getByRole("progressbar");
+    expect(bar.getAttribute("aria-valuenow")).toBe("4");
+    expect(bar.getAttribute("aria-valuemax")).toBe("9");
+    expect(within(screen.getByRole("button", { name: /Ana/ })).queryByRole("progressbar")).toBeNull();
+  });
+});
+
+describe("ExamRoom, SPEC-092 the side panel (CA-04, CA-05)", () => {
+  it("gives a hint with nobody open and a single line for an empty queue", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00", cards: crowd() });
+    expect(screen.getByText("Clique num aluno para ver a tela e os comandos dele.")).toBeDefined();
+    expect(screen.getByText("Pedidos de ajuda: nenhum")).toBeDefined();
+  });
+
+  it("tells the absent student did not enter and the delivered one has finished", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00", cards: crowd() });
+    fireEvent.click(screen.getByRole("button", { name: /Ana/ }));
+    let panel = screen.getByRole("region", { name: "Ana" });
+    expect(within(panel).getByText("O aluno ainda não entrou na prova.")).toBeDefined();
+    expect(within(panel).queryByText("O aluno está numa questão sem terminal.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Bia/ }));
+    panel = screen.getByRole("region", { name: "Bia" });
+    expect(within(panel).getByText("A prova deste aluno terminou.")).toBeDefined();
+    expect(screen.queryByText("Clique num aluno para ver a tela e os comandos dele.")).toBeNull();
+  });
+});
+
+describe("ExamRoom, SPEC-092 the time (CA-06)", () => {
+  it("labels the time and says when the exam ends", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    expect(screen.getByText("Termina em")).toBeDefined();
+    expect(screen.getByText("às 11:00")).toBeDefined();
+  });
+});
+
+// SPEC-092 CA-08, CA-10: the clock for the class opens in a tab of its own and hears the room through the channel of the browser.
+describe("ExamRoom, SPEC-092 the clock for the class", () => {
+  it("opens the clock in a new tab", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    fireEvent.click(screen.getByRole("button", { name: /Abrir o relógio para a turma/ }));
+    expect(open).toHaveBeenCalledWith("/app/classes/c-1/assessments/a-1/room/clock", "_blank", "noopener");
+  });
+
+  it("tells the clock the names of the raised hands, never the question, and answers when the clock asks", async () => {
+    const clock = new BroadcastChannel("exam-room:a-1");
+    const got: Record<string, unknown>[] = [];
+    clock.onmessage = (e) => got.push(e.data);
+    try {
+      await setup({ startedAt: "2026-10-21T09:05:00-03:00", cards: crowd() });
+      receive("help:queue", { queue: [{ id: "h-1", studentId: DAVI, question: "Posso usar o manual?", status: "OPEN", createdAt: "2026-10-21T09:31:00-03:00" }] });
+      await waitFor(() => expect(got.at(-1)).toMatchObject({ type: "state", hands: ["Davi"], startedAt: "2026-10-21T09:05:00-03:00" }));
+      expect(JSON.stringify(got)).not.toContain("Posso usar o manual?");
+      got.length = 0;
+      clock.postMessage({ type: "hello" });
+      await waitFor(() => expect(got.at(-1)).toMatchObject({ type: "state", hands: ["Davi"], endsAt: "2026-10-21T11:00:00-03:00" }));
+      receive("help:queue", { queue: [] });
+      await waitFor(() => expect(got.at(-1)).toMatchObject({ type: "state", hands: [] }));
+    } finally {
+      clock.close();
+    }
   });
 });
