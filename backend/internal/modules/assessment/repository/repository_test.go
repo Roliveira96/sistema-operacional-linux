@@ -646,6 +646,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	up, down := migrationParts(t, "00041_")
 	up2, down2 := migrationParts(t, "00042_")
 	up3, down3 := migrationParts(t, "00045_") // the start of SPEC-083 stands on the modality and on the kinds of event of the two before it
+	up4, down4 := migrationParts(t, "00046_") // and SPEC-089 changes the check of the start
 
 	five := []string{"assessments", "assessment_items", "assessment_draw_rules", "assessment_students", "assessment_events"}
 	for _, name := range five {
@@ -653,6 +654,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	}
 	e.create(t)
 
+	runMigration(t, e, down4)
 	runMigration(t, e, down3)
 	runMigration(t, e, down2)
 	runMigration(t, e, down)
@@ -664,6 +666,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	runMigration(t, e, up)
 	runMigration(t, e, up2)
 	runMigration(t, e, up3)
+	runMigration(t, e, up4)
 	for _, name := range five {
 		assert.True(t, tablesOf(t, e)[name], name+" is back after going up again")
 	}
@@ -691,6 +694,8 @@ func TestMigration00045_UpAndDown(t *testing.T) {
 	stored.StartedAt, stored.StartedBy = &started, &e.teacher.ID
 	require.NoError(t, e.repo.Save(e.ctx, &stored, service.Replacements{}, &domain.Event{Kind: domain.EventStarted, ActorID: e.teacher.ID, CreatedAt: started}))
 
+	up46, down46 := migrationParts(t, "00046_") // SPEC-089 stands on the columns of this one
+	runMigration(t, e, down46)
 	runMigration(t, e, down)
 	assert.Empty(t, columns(), "the Down took the columns away")
 	events, err := e.repo.Events(e.ctx, a.ID)
@@ -698,5 +703,40 @@ func TestMigration00045_UpAndDown(t *testing.T) {
 	assert.Len(t, events, 1, "and the event STARTED, leaving the others")
 
 	runMigration(t, e, up)
+	runMigration(t, e, up46)
 	assert.Equal(t, []string{"started_at", "started_by"}, columns(), "they are back after going up again")
+}
+
+// Covers SPEC-089 CA-04 (RN-04, section 4): the migration starts nothing, lets an online exam be started and still refuses the start of an
+// assignment; the Down clears the start of the online exams and gives the old check back.
+func TestMigration00046_UpAndDown(t *testing.T) {
+	e := newEnv(t)
+	up, down := migrationParts(t, "00046_")
+	started := at(21, 9, 7)
+	start := func(a *domain.Assessment) error {
+		a.StartedAt, a.StartedBy = &started, &e.teacher.ID
+		return e.repo.Save(e.ctx, a, service.Replacements{}, &domain.Event{Kind: domain.EventStarted, ActorID: e.teacher.ID, CreatedAt: started})
+	}
+
+	online := e.create(t, func(a *domain.Assessment) { a.Modality = domain.ModalityOnline })
+	stored, err := e.repo.Find(e.ctx, online.ID)
+	require.NoError(t, err)
+	assert.Nil(t, stored.StartedAt, "nothing is started by the migration")
+	require.NoError(t, start(&stored), "an online exam can be started")
+
+	assignment := e.create(t, func(a *domain.Assessment) {
+		a.Type, a.Modality, a.EndsAt = domain.TypeAssignment, domain.ModalityOnline, at(23, 18, 0)
+	})
+	stored, err = e.repo.Find(e.ctx, assignment.ID)
+	require.NoError(t, err)
+	assert.Error(t, start(&stored), "an assignment is never started")
+
+	runMigration(t, e, down)
+	stored, err = e.repo.Find(e.ctx, online.ID)
+	require.NoError(t, err)
+	assert.Nil(t, stored.StartedAt, "the Down cleared the start of the online exam")
+	assert.Nil(t, stored.StartedBy)
+
+	runMigration(t, e, up)
+	require.NoError(t, start(&stored), "and it can be started again after going up")
 }
