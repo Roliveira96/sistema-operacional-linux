@@ -34,61 +34,35 @@ async function setup(...reads: Array<MyAccess | Error>) {
   return { ...view, load };
 }
 
-// SPEC-076 CA-17, RN-09, D-09: the student sees only their own state of the clearance, and the decision of the teacher reaches them without a reload.
+// SPEC-076 RN-09, SPEC-083 CA-14, SPEC-091 CA-03 (RN-03): the student reads the modality and, while the teacher has not started the exam, that they
+// wait for her; nothing of a clearance, which no longer exists. The start reaches them without a reload.
 describe("AssessmentAccessNotice", () => {
-  it("says the student waits for the teacher", async () => {
-    await setup(myAccess({ clearance: { status: "PENDING" } }));
+  it("names the modality", async () => {
+    await setup(myAccess());
     expect(screen.getByText("Modalidade: Presencial")).toBeDefined();
-    expect(screen.getByRole("status").textContent).toContain("Aguardando a habilitação da professora");
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/habilita/i)).toBeNull();
   });
 
-  it("says the student is cleared", async () => {
-    await setup(myAccess({ allowed: true, reason: "ALLOWED", clearance: { status: "APPROVED" } }));
-    expect(screen.getByRole("status").textContent).toContain("Habilitado");
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
-
-  it("shows a fixed banner with the reason when the clearance was refused", async () => {
-    await setup(myAccess({ reason: "NOT_CLEARED", clearance: { status: "REJECTED", rejectionReason: "Reprovado por faltas" } }));
-    const banner = screen.getByRole("alert");
-    expect(banner.textContent).toContain("Habilitação recusada");
-    expect(banner.textContent).toContain("Reprovado por faltas");
-    expect(banner.textContent).not.toContain("Sua matrícula não foi habilitada");
-  });
-
-  it("shows the standard sentence when the refusal has no reason", async () => {
-    await setup(myAccess({ reason: "NOT_CLEARED", clearance: { status: "REJECTED" } }));
-    expect(screen.getByRole("alert").textContent).toContain("Sua matrícula não foi habilitada para esta avaliação presencial.");
-  });
-
-  it("only names the modality when the assessment does not require the clearance", async () => {
-    await setup(myAccess({ modality: "ONLINE", requiresClearance: false, clearance: undefined, allowed: true, reason: "ALLOWED" }));
-    expect(screen.getByText("Modalidade: Online")).toBeDefined();
-    expect(screen.queryByRole("status")).toBeNull();
-    expect(screen.queryByRole("alert")).toBeNull();
+  it("says the teacher has not started the exam, in person or online, and that the student enters as soon as she does", async () => {
+    await setup(myAccess({ reason: "NOT_STARTED" }));
+    expect(screen.getByRole("status").textContent).toBe("A docente ainda não iniciou a prova. Aguarde: você entra assim que ela iniciar.");
     cleanup();
-
-    await setup(myAccess({ modality: "IN_PERSON", requiresClearance: false, clearance: undefined }));
-    expect(screen.getByText("Modalidade: Presencial")).toBeDefined();
-    expect(screen.queryByRole("status")).toBeNull();
+    await setup(myAccess({ reason: "NOT_STARTED", modality: "ONLINE" }));
+    expect(screen.getByRole("status").textContent).toBe("A docente ainda não iniciou a prova. Aguarde: você entra assim que ela iniciar.");
   });
 
   it("has no field for a token and no button to start", async () => {
-    await setup(myAccess({ clearance: { status: "APPROVED" }, allowed: true, reason: "ALLOWED" }));
+    await setup(myAccess());
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("shows the decision of the teacher within 30 seconds, without reloading", async () => {
-    const { load } = await setup(myAccess({ clearance: { status: "PENDING" } }), myAccess({ clearance: { status: "REJECTED", rejectionReason: "Faltas" } }));
-    expect(screen.queryByRole("alert")).toBeNull();
-    await advance(29_000);
-    expect(load).toHaveBeenCalledTimes(1);
-    await advance(1000);
+  it("shows the start of the teacher within 30 seconds, without reloading", async () => {
+    const { load } = await setup(myAccess({ reason: "NOT_STARTED" }), myAccess({ allowed: true, reason: "ALLOWED" }));
+    expect(screen.getByRole("status")).toBeDefined();
+    await advance(30_000);
     expect(load).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("alert").textContent).toContain("Faltas");
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("does not ask while the tab is hidden, and asks the moment it is back in view", async () => {
@@ -101,17 +75,13 @@ describe("AssessmentAccessNotice", () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
-  it("stays quiet when it cannot read, and shows the state when it can", async () => {
-    const { container } = await setup(new Error("down"), myAccess({ clearance: { status: "APPROVED" } }));
+  it("stays quiet when it cannot read, and keeps what it has when a later reading fails", async () => {
+    const { container } = await setup(new Error("down"), myAccess({ reason: "NOT_STARTED" }), new Error("down"));
     expect(container.textContent).toBe("");
     await advance(30_000);
-    expect(screen.getByRole("status").textContent).toContain("Habilitado");
-  });
-
-  it("keeps what it has when a later reading fails", async () => {
-    await setup(myAccess({ clearance: { status: "APPROVED" } }), new Error("down"));
+    expect(screen.getByRole("status")).toBeDefined();
     await advance(30_000);
-    expect(screen.getByRole("status").textContent).toContain("Habilitado");
+    expect(screen.getByRole("status")).toBeDefined();
   });
 
   it("stops asking when it leaves the screen", async () => {
@@ -119,33 +89,5 @@ describe("AssessmentAccessNotice", () => {
     unmount();
     await advance(120_000);
     expect(load).toHaveBeenCalledTimes(1);
-  });
-});
-
-// SPEC-083 CA-14, RN-06: while the teacher has not started the exam the student reads that, and not their own state of the clearance.
-describe("AssessmentAccessNotice, exam not started", () => {
-  it("says the teacher has not started the exam and does not show the own state of the clearance", async () => {
-    await setup(myAccess({ reason: "NOT_STARTED", clearance: { status: "PENDING" } }));
-    expect(screen.getByText("Modalidade: Presencial")).toBeDefined();
-    expect(screen.getByRole("status").textContent).toBe("A docente ainda não iniciou a prova. Aguarde: ela libera a entrada de cada aluno.");
-    expect(screen.queryByText(/Aguardando a habilitação da professora/)).toBeNull();
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
-
-  // SPEC-089 CA-07, D-03: without the clearance the student enters as soon as the teacher starts, and reads that.
-  it.each([
-    ["online", { modality: "ONLINE", requiresClearance: false, clearance: undefined }],
-    ["in person without the requirement", { modality: "IN_PERSON", requiresClearance: false, clearance: undefined }],
-  ] as const)("says the student enters as soon as the teacher starts: %s", async (_, over) => {
-    await setup(myAccess({ reason: "NOT_STARTED", ...over }));
-    expect(screen.getByRole("status").textContent).toBe("A docente ainda não iniciou a prova. Aguarde: você entra assim que ela iniciar.");
-  });
-
-  it("shows the own state once the exam is started, as the teacher decides", async () => {
-    await setup(myAccess({ reason: "NOT_STARTED", clearance: { status: "REJECTED", rejectionReason: "Faltas" } }));
-    expect(screen.queryByRole("alert")).toBeNull();
-    cleanup();
-    await setup(myAccess({ reason: "NOT_CLEARED", clearance: { status: "REJECTED", rejectionReason: "Faltas" } }));
-    expect(screen.getByRole("alert").textContent).toContain("Faltas");
   });
 });

@@ -161,47 +161,18 @@ describe("assessments of the class (tab)", () => {
   });
 });
 
-// SPEC-076 CA-15: the warning of the list, wired to the clearances.
-describe("assessments of the class: clearances (SPEC-076)", () => {
-  const soon = () =>
-    summary({
-      id: "a-1",
-      title: "Prova 1: permissões",
-      ...STARTED,
-      clearanceCounts: { pending: 3, approved: 29, rejected: 0 },
+// SPEC-091 CA-03 (RN-03): no warning about the clearance in the tab, even with an exam started and students counted as waiting.
+describe("assessments of the class: no clearance (SPEC-091)", () => {
+  it("has no warning of who waits and no way to clear them", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "list").mockResolvedValue({
+      items: [summary({ id: "a-1", title: "Prova 1: permissões", ...STARTED, clearanceCounts: { pending: 3, approved: 29, rejected: 0 } })],
+      serverNow: SERVER_NOW,
     });
-
-  it("approves all who wait from the warning, and reads the list again", async () => {
-    asRole("TEACHER");
-    const list = vi.spyOn(assessmentService, "list").mockResolvedValue({ items: [soon()], serverNow: SERVER_NOW });
-    const decide = vi.spyOn(assessmentService, "decideClearances").mockResolvedValue({ requiresClearance: true, items: [], counts: { pending: 0, approved: 32, rejected: 0 }, serverNow: SERVER_NOW });
     render(<ClassAssessments classId="c-1" />);
     await screen.findByRole("table");
-    const warning = screen.getByRole("status");
-    expect(warning.textContent).toContain("3 alunos ainda não foram habilitados");
-    fireEvent.click(within(warning).getByRole("button", { name: "Habilitar todos" }));
-    await waitFor(() => expect(decide).toHaveBeenCalledWith("c-1", "a-1", { action: "APPROVE_ALL" }));
-    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
-  });
-
-  it("goes to the clearances from the warning", async () => {
-    asRole("TEACHER");
-    vi.spyOn(assessmentService, "list").mockResolvedValue({ items: [soon()], serverNow: SERVER_NOW });
-    render(<ClassAssessments classId="c-1" />);
-    await screen.findByRole("table");
-    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Ver habilitações" }));
-    expect(pushMock).toHaveBeenLastCalledWith("/app/classes/c-1/assessments/a-1/clearances");
-  });
-
-  it("says why it could not approve all, and leaves the warning there", async () => {
-    asRole("TEACHER");
-    vi.spyOn(assessmentService, "list").mockResolvedValue({ items: [soon()], serverNow: SERVER_NOW });
-    vi.spyOn(assessmentService, "decideClearances").mockRejectedValue(problem("assessment-ended", 409));
-    render(<ClassAssessments classId="c-1" />);
-    await screen.findByRole("table");
-    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Habilitar todos" }));
-    expect((await screen.findByRole("alert")).textContent).toBe("A avaliação já terminou.");
-    expect(screen.getByRole("status").textContent).toContain("3 alunos ainda não foram habilitados");
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Habilitar todos" })).toBeNull();
   });
 });
 
@@ -210,7 +181,7 @@ describe("assessments of the class: start of the exam (SPEC-083)", () => {
   const ready = () =>
     summary({ id: "a-1", title: "Prova 1: permissões", phase: "RUNNING", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00" });
 
-  it("starts the exam from the warning, after the confirmation, and shows the warning of who waits once it is started", async () => {
+  it("starts the exam from the warning, after the confirmation, and the warning goes away once it is started", async () => {
     asRole("TEACHER");
     const list = vi
       .spyOn(assessmentService, "list")
@@ -227,7 +198,7 @@ describe("assessments of the class: start of the exam (SPEC-083)", () => {
     await waitFor(() => expect(start).toHaveBeenCalledWith("c-1", "a-1"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(list).toHaveBeenCalledTimes(2);
-    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("3 alunos ainda não foram habilitados"));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
 
   it("keeps the dialog and says why when the server refuses", async () => {

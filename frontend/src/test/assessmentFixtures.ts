@@ -122,8 +122,6 @@ export const myAccess = (over: Partial<MyAccess> = {}): MyAccess => ({
   allowed: false,
   reason: "NOT_OPEN_YET",
   modality: "IN_PERSON",
-  requiresClearance: true,
-  clearance: { status: "PENDING" },
   serverNow: SERVER_NOW,
   ...over,
 });
