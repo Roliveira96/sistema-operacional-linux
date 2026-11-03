@@ -246,6 +246,7 @@ func TestRoom_WaitingRoomAndTheStart(t *testing.T) {
 	assert.Equal(t, true, mine["waiting"])
 	card := object2(t, readType(t, teacher, "room:student").Data)
 	assert.Equal(t, roomStudent.String(), card["studentId"])
+	assert.NotContains(t, card, "attemptId", "no attempt yet")
 	assert.Equal(t, true, card["online"])
 	assert.Equal(t, true, card["waiting"])
 
@@ -304,10 +305,11 @@ func TestRoom_WatchScreenAndCommands(t *testing.T) {
 	assert.Equal(t, roomStudent.String(), stored["studentId"])
 	assert.Len(t, stored["commands"], 1)
 
-	sendWS(t, ana, "room:screen", map[string]any{"position": 4, "screen": map[string]any{"lines": []string{"$ ls"}}})
+	sendWS(t, ana, "room:screen", map[string]any{"position": 4, "title": "Criar pasta", "screen": map[string]any{"lines": []string{"$ ls"}}})
 	screen := object2(t, readType(t, teacher, "room:screen").Data)
 	assert.Equal(t, roomStudent.String(), screen["studentId"])
 	assert.EqualValues(t, 4, screen["position"])
+	assert.Equal(t, "Criar pasta", screen["title"], "the question the student is in")
 
 	sendWS(t, ana, "room:command", map[string]any{"position": 4, "command": "mkdir /a", "output": ""})
 	command := object2(t, readType(t, teacher, "room:command").Data)

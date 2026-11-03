@@ -88,6 +88,8 @@ func TestRoomState_TheCards(t *testing.T) {
 	}
 	ana := byName["Ana"]
 	assert.Equal(t, "IN_PROGRESS", ana.Status)
+	require.NotNil(t, ana.AttemptID, "the room ends an attempt by its id")
+	assert.Nil(t, byName["Bruno"].AttemptID)
 	assert.Equal(t, 2, ana.Answered, "the true or false and the practical")
 	assert.Equal(t, 5, ana.Total)
 	assert.Equal(t, 1, ana.Solved)
