@@ -119,7 +119,6 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   }
 
   const canceled = detail.status === "CANCELED";
-  const counts = detail.clearanceCounts;
   // every exam, in person or online, is started by the teacher; an assignment opens by the clock (SPEC-089 RN-01)
   const exam = detail.type === "EXAM" && !canceled;
   const startable = canStart(detail);
@@ -168,11 +167,6 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/simulate`} variant="secondary" target="_blank" rel="noopener noreferrer" aria-label={p.simulateNewTab}>
           {p.simulate}
         </ButtonLink>
-        {detail.modality === "IN_PERSON" && detail.requiresClearance && (
-          <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/clearances`} variant="secondary">
-            {p.clearances}
-          </ButtonLink>
-        )}
       </div>
       {exam && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser)}</p>}
       {exam && !detail.startedAt && detail.phase === "UPCOMING" && (
@@ -181,7 +175,6 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         </p>
       )}
       {exam && !detail.startedAt && detail.phase === "ENDED" && <p className={styles.text}>{p.endedNotStarted}</p>}
-      {detail.modality === "IN_PERSON" && detail.requiresClearance && <p className={styles.text}>{p.clearanceCounts(counts.pending, counts.approved, counts.rejected)}</p>}
 
       <dl className={styles.facts}>
         {facts.map(([term, value]) => (

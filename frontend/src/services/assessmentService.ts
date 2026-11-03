@@ -191,36 +191,12 @@ export interface AssessmentInput {
   audience?: Audience;
   studentIds?: string[];
   teacherPrivateNotes?: string;
-  /** Without them the server chooses by the type: an exam is in person and asks for the clearance, an assignment is online (SPEC-076 RN-01, RN-02). */
+  /** Without it the server chooses by the type: an exam is in person, an assignment is online (SPEC-076 RN-01). */
   modality?: Modality;
-  requiresClearance?: boolean;
 }
-
-/** A student of the assessment with the state of the clearance (SPEC-076 section 5). */
-export interface ClearanceItem {
-  studentId: string;
-  name: string;
-  academicId: string;
-  status: ClearanceStatus;
-  rejectionReason?: string;
-  clearedAt?: string;
-  clearedByName?: string;
-}
-
-export interface ClearanceList {
-  requiresClearance: boolean;
-  items: ClearanceItem[];
-  counts: ClearanceCounts;
-  serverNow: string;
-}
-
-/** What the teacher does: clears everybody who waits, or decides student by student (RN-06). */
-export type ClearanceInput =
-  | { action: "APPROVE_ALL" }
-  | { action: "UPDATE"; students: { studentId: string; status: "APPROVED" | "REJECTED"; rejectionReason?: string }[] };
 
 /** The situation of an attempt (SPEC-090 D-02). */
-export type AttemptStatus = "IN_PROGRESS" | "SUBMITTED" | "TIME_EXPIRED";
+export type AttemptStatus = "IN_PROGRESS" | "SUBMITTED" | "TIME_EXPIRED" | "ENDED_BY_TEACHER";
 
 /** What the student sees of a question of the attempt, frozen when they entered (SPEC-090 RN-02). */
 export interface AttemptStudentView {
@@ -272,10 +248,8 @@ export interface AttemptRow {
 /** What the student reads about their own access, and about no one else's (RN-09, RN-10). */
 export interface MyAccess {
   allowed: boolean;
-  reason: "ALLOWED" | "CANCELED" | "NOT_OPEN_YET" | "ENDED" | "NOT_STARTED" | "NOT_CLEARED";
+  reason: "ALLOWED" | "CANCELED" | "NOT_OPEN_YET" | "ENDED" | "NOT_STARTED";
   modality: Modality;
-  requiresClearance: boolean;
-  clearance?: { status: ClearanceStatus; rejectionReason?: string };
   serverNow: string;
 }
 
@@ -319,11 +293,7 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     saveNotes: async (classId: string, id: string, notes: string) =>
       (await client.put<{ teacherPrivateNotes: string }>(`${base(classId)}/${id}/private-notes`, { teacherPrivateNotes: notes })).teacherPrivateNotes,
     preview: (classId: string, id: string) => client.get<PreviewData>(`${base(classId)}/${id}/preview`),
-    /** The eligible students with the state of the clearance, for the teacher and the administrator (SPEC-076). */
-    clearances: (classId: string, id: string) => client.get<ClearanceList>(`${base(classId)}/${id}/clearances`),
-    /** The answer is the list already updated. */
-    decideClearances: (classId: string, id: string, input: ClearanceInput) => client.post<ClearanceList>(`${base(classId)}/${id}/clearances`, input),
-    /** The own access of the student: whether they may enter, why, and the own state of the clearance. */
+    /** The own access of the student: whether they may enter, why and the modality (SPEC-091 RN-03: no clearance). */
     myAccess: (classId: string, id: string) => client.get<MyAccess>(`${base(classId)}/${id}/my-access`),
     /** The student enters the exam: the first time creates the attempt, the next ones give the same back (SPEC-090 RN-01). */
     enterAttempt: (classId: string, id: string) => client.post<StudentAttempt>(`${base(classId)}/${id}/attempt`),

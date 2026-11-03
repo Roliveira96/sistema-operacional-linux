@@ -68,9 +68,6 @@ export const convertedSessionIds = (assessments: Pick<CalendarAssessment, "statu
  * Whether the list warns that students are still not cleared (SPEC-076 RN-13, as SPEC-083 changes it): an in-person assessment that requires the
  * clearance, scheduled, running, that the teacher started, with students waiting. Before the start there is nothing to clear, so nothing warns.
  */
-export function needsClearanceWarning(a: AssessmentSummary): boolean {
-  return a.status === "SCHEDULED" && a.modality === "IN_PERSON" && a.requiresClearance && a.phase === "RUNNING" && !!a.startedAt && a.clearanceCounts.pending > 0;
-}
 
 /** Whether the exam can be started now: an exam, in person or online, scheduled, running by the clock of the server and not started yet (SPEC-089 RN-01). */
 export const canStart = (a: Pick<AssessmentSummary, "status" | "type" | "phase" | "startedAt">): boolean =>
@@ -97,7 +94,6 @@ export function formInitialOf(a: AssessmentDetail) {
     drawRules,
     audience: a.audience,
     modality: a.modality,
-    requiresClearance: a.requiresClearance,
     studentIds: a.students.map((s) => s.studentId),
     teacherPrivateNotes: a.teacherPrivateNotes,
   };

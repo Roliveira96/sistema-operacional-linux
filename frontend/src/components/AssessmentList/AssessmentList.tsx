@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useId } from "react";
 import { Button } from "@/components/Button/Button";
 import { ActionMenu } from "@/components/ContentTab/ActionMenu";
-import { formatPeriod, formatScore, groupBySituation, needsClearanceWarning, needsStartWarning, situationOf } from "@/lib/assessment";
+import { formatPeriod, formatScore, groupBySituation, needsStartWarning, situationOf } from "@/lib/assessment";
 import { messages } from "@/messages/pt-BR";
 import type { AssessmentSummary } from "@/services/assessmentService";
 import styles from "./AssessmentList.module.scss";
@@ -22,9 +22,6 @@ export interface AssessmentListProps {
   onPreview: (assessment: AssessmentSummary) => void;
   onReschedule: (assessment: AssessmentSummary) => void;
   onCancel: (assessment: AssessmentSummary) => void;
-  /** Clears everybody who waits, and opens the screen of the clearances; the warning shows each button only when it is given. */
-  onApproveAll?: (assessment: AssessmentSummary) => void;
-  onClearances?: (assessment: AssessmentSummary) => void;
   /** Opens the start of the exam, from the warning that it can be started (SPEC-083 D-06). */
   onStart?: (assessment: AssessmentSummary) => void;
 }
@@ -39,7 +36,7 @@ function reasonOf(a: AssessmentSummary): string | null {
  * The list of the assessments of the class for the teacher (SPEC-080): sections by situation, one row each with the title as the link, Editar in
  * view and the other actions in the menu Mais ações. A narrow screen shows each one as a card.
  */
-export function AssessmentList({ status, items, hrefOf, onNew, onRetry, onEdit, onPreview, onReschedule, onCancel, onApproveAll, onClearances, onStart }: AssessmentListProps) {
+export function AssessmentList({ status, items, hrefOf, onNew, onRetry, onEdit, onPreview, onReschedule, onCancel, onStart }: AssessmentListProps) {
   const baseId = useId();
   const newButton = (
     <Button variant="primary" onClick={onNew}>
@@ -107,7 +104,6 @@ export function AssessmentList({ status, items, hrefOf, onNew, onRetry, onEdit, 
                     const reason = reasonOf(a);
                     const canceled = a.status === "CANCELED";
                     const reasonId = `${baseId}-${a.id}`;
-                    const waiting = a.status === "SCHEDULED" && a.modality === "IN_PERSON" && a.requiresClearance ? a.clearanceCounts.pending : 0;
                     return [
                       <tr key={a.id} data-canceled={canceled ? "true" : undefined}>
                         <td className={styles.main}>
@@ -115,7 +111,6 @@ export function AssessmentList({ status, items, hrefOf, onNew, onRetry, onEdit, 
                             {canceled ? <s>{a.title}</s> : a.title}
                           </Link>
                           <span className={styles.details}>{m.list.details(m.type[a.type] ?? a.type, m.modality[a.modality] ?? a.modality, formatScore(a.maxScore))}</span>
-                          {waiting > 0 && <span className={styles.waiting}>{m.list.awaiting(waiting)}</span>}
                           {reason && (
                             <p id={reasonId} className={styles.reason}>
                               {reason}
@@ -173,25 +168,6 @@ export function AssessmentList({ status, items, hrefOf, onNew, onRetry, onEdit, 
                               <Button variant="primary" onClick={() => onStart(a)}>
                                 {m.list.start}
                               </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ),
-                      needsClearanceWarning(a) && (
-                        <tr key={`${a.id}-warning`}>
-                          <td colSpan={m.list.columns.length}>
-                            <div role="status" className={styles.warning}>
-                              <span>{m.list.warning(a.title, a.clearanceCounts.pending)}</span>
-                              {onApproveAll && (
-                                <Button variant="primary" onClick={() => onApproveAll(a)}>
-                                  {m.list.approveAll}
-                                </Button>
-                              )}
-                              {onClearances && (
-                                <Button variant="secondary" onClick={() => onClearances(a)}>
-                                  {m.list.seeClearances}
-                                </Button>
-                              )}
                             </div>
                           </td>
                         </tr>
