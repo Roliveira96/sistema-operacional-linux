@@ -5,11 +5,26 @@ import { AssessmentStartDialog } from "./AssessmentStartDialog";
 
 afterEach(cleanup);
 
-function setup(onConfirm = vi.fn().mockResolvedValue(undefined)) {
+const inPerson = { title: "Prova 1: permissões", modality: "IN_PERSON", requiresClearance: true } as const;
+
+function setup(onConfirm = vi.fn().mockResolvedValue(undefined), assessment: Parameters<typeof AssessmentStartDialog>[0]["assessment"] = inPerson) {
   const onClose = vi.fn();
-  render(<AssessmentStartDialog assessment={{ title: "Prova 1: permissões" }} onClose={onClose} onConfirm={onConfirm} />);
+  render(<AssessmentStartDialog assessment={assessment} onClose={onClose} onConfirm={onConfirm} />);
   return { onClose, onConfirm };
 }
+
+// SPEC-089 section 3.1, D-03: without the clearance (online, or in person without the requirement) the dialog says everybody enters.
+describe("AssessmentStartDialog without the clearance", () => {
+  it.each([
+    ["online", { title: "Prova 1: permissões", modality: "ONLINE", requiresClearance: false }],
+    ["in person without the requirement", { title: "Prova 1: permissões", modality: "IN_PERSON", requiresClearance: false }],
+  ] as const)("says everybody enters once it starts: %s", (_, assessment) => {
+    setup(undefined, assessment);
+    const dialog = screen.getByRole("dialog", { name: "Iniciar a prova agora?" });
+    expect(within(dialog).getByText("Todos os alunos da prova poderão entrar a partir deste momento. O início não pode ser desfeito.")).toBeDefined();
+    expect(within(dialog).queryByText(/habilitados por você/)).toBeNull();
+  });
+});
 
 // SPEC-083 CA-09, section 3.1: the teacher confirms before starting the exam, because the start cannot be undone.
 describe("AssessmentStartDialog", () => {

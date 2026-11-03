@@ -315,10 +315,24 @@ describe("assessment page, start of the exam", () => {
     expect(startButton()).toBeNull();
   });
 
-  it("does not offer the start in an online assessment, an assignment or a canceled exam", async () => {
+  // SPEC-089 CA-05: the online exam is started like the in-person one, and the dialog says everybody enters, since there is no clearance online.
+  it("offers the start in an online exam, with the dialog without the clearance", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...running, modality: "ONLINE", requiresClearance: false }));
+    const start = vi.spyOn(assessmentService, "start").mockResolvedValue({ ...summary({ ...STARTED, modality: "ONLINE", requiresClearance: false }), serverNow: SERVER_NOW });
+    render(<AssessmentPage params={params} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Iniciar a prova" }));
+    const dialog = screen.getByRole("dialog", { name: "Iniciar a prova agora?" });
+    expect(within(dialog).getByText("Todos os alunos da prova poderão entrar a partir deste momento. O início não pode ser desfeito.")).toBeDefined();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Iniciar a prova" }));
+    await waitFor(() => expect(start).toHaveBeenCalledWith("c-1", "a-1"));
+    expect(await screen.findByText("Prova iniciada às 09:07 por Profa. Sediane.")).toBeDefined();
+    expect(screen.queryByRole("link", { name: "Habilitações" })).toBeNull();
+  });
+
+  it("does not offer the start in an assignment or a canceled exam", async () => {
     asRole("TEACHER");
     for (const over of [
-      { ...running, modality: "ONLINE", requiresClearance: false },
       { ...running, type: "ASSIGNMENT", modality: "ONLINE", requiresClearance: false },
       { ...running, status: "CANCELED", cancelReason: "Greve" },
     ] as const) {
