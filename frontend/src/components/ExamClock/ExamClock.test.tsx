@@ -41,7 +41,7 @@ describe("ExamClock, the time", () => {
 
   it("says the time is over after the end", () => {
     vi.setSystemTime(new Date("2026-10-21T11:30:00-03:00"));
-    render(<ExamClock assessment={running()} />);
+    render(<ExamClock assessment={running({ serverNow: "2026-10-21T11:30:00-03:00" })} />);
     expect(screen.getByText("Tempo esgotado.")).toBeDefined();
     expect(screen.queryByRole("timer")).toBeNull();
   });
