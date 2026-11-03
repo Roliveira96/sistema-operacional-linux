@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AssessmentDialog } from "@/components/AssessmentDialog/AssessmentDialog";
 import dialog from "@/components/AssessmentDialog/AssessmentDialog.module.scss";
 import styles from "@/components/AssessmentSimulator/AssessmentSimulator.module.scss";
@@ -18,6 +18,8 @@ import { fromApiAnswer, stableOrder, toApiAnswer } from "@/lib/attemptAnswers";
 import { answerText, isDiscursive, isMatching, isSingleChoice, isTrueFalse } from "@/lib/questionKinds";
 import { contentMessages } from "@/messages/content.pt-BR";
 import { messages } from "@/messages/pt-BR";
+import type { CommandRun } from "@/engine/terminalWindow";
+import type { ScreenElement } from "@/engine/terminalScreen";
 import type { AttemptItem, StudentAttempt } from "@/services/assessmentService";
 
 const m = messages.assessments;
@@ -45,13 +47,26 @@ export interface ExamRunnerProps {
   check: (position: number, snapshot: unknown) => Promise<boolean>;
   /** Delivers the attempt (RN-06). */
   submit: () => Promise<StudentAttempt>;
+  /** The room of the exam, when there is one (SPEC-091). */
+  room?: ExamRunnerRoom;
+}
+
+/** What the window of the exam tells the room, and what it shows of it (SPEC-091 RN-05 to RN-07). */
+export interface ExamRunnerRoom {
+  /** Whether the teacher watches this student: only then the screen goes. */
+  watched: boolean;
+  onCommand(position: number, command: string, output: string): void;
+  /** The question the student is in and the picture of the terminal, or null in a question without it. */
+  onScreen(position: number, title: string, screen: ScreenElement | null): void;
+  /** What goes in the header, by the question that is open: the request for help. */
+  header?(position: number): ReactNode;
 }
 
 /**
  * The window of the exam of the student (SPEC-090): the questions beside the terminal, as in the simulator, with each answer saved on the server while
  * the student works, the time by the clock of the server, the check of the practical questions and the delivery, by the student or by the time.
  */
-export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerProps) {
+export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRunnerProps) {
   const items = attempt.items;
   const [current, setCurrent] = useState(0);
   const [responses, setResponses] = useState<Record<number, SimulatedResponse>>(() => {
@@ -202,6 +217,34 @@ export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerPr
   const loadScenario = useCallback(async (id: string) => items.find((it) => String(it.position) === id)?.studentView.scenario ?? null, [items]);
   const resume = useMemo(() => Object.fromEntries(items.filter((it) => isPractical(it) && it.answer !== undefined).map((it) => [String(it.position), it.answer])), [items]);
 
+  // ---- the room: the commands as they run, the screen while the teacher watches (SPEC-091) ----
+  const roomRef = useRef(room);
+  useEffect(() => {
+    roomRef.current = room;
+  });
+  const screens = useRef(new Map<number, ScreenElement>());
+  const currentRef = useRef(current);
+  useEffect(() => {
+    currentRef.current = current;
+  }, [current]);
+  const commandRun = useCallback((id: string, run: CommandRun) => roomRef.current?.onCommand(Number(id), run.command, run.output), []);
+  const screenChanged = useCallback(
+    (id: string, tree: ScreenElement) => {
+      const position = Number(id);
+      screens.current.set(position, tree);
+      if (roomRef.current?.watched && items[currentRef.current]?.position === position) {
+        roomRef.current.onScreen(position, items.find((it) => it.position === position)?.studentView.title ?? "", tree);
+      }
+    },
+    [items],
+  );
+  const watched = !!room?.watched;
+  useEffect(() => {
+    const item = items[current];
+    if (!watched || !item) return;
+    roomRef.current?.onScreen(item.position, item.studentView.title, isPractical(item) ? (screens.current.get(item.position) ?? null) : null);
+  }, [watched, current, items]);
+
   const isDone = (it: AttemptItem) => (isPractical(it) ? !!solved[it.position] || resume[String(it.position)] !== undefined || !!touched[it.position] : isAnswered(responses[it.position]));
   const blank = items.filter((it) => !isDone(it)).length;
   const open = items[current];
@@ -254,6 +297,7 @@ export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerPr
         <span role="status" className={styles.situation}>
           {saveState === "saving" ? t.saving : saveState === "saved" ? t.saved : saveState === "offline" ? t.offline : ""}
         </span>
+        {room?.header?.(open.position)}
         <Button onClick={() => setConfirming(true)}>{t.deliver}</Button>
       </div>
       <div className={`${styles.examBody} ${hasTerminal ? styles.withTerminal : ""}`}>
@@ -325,6 +369,8 @@ export function ExamRunner({ attempt, title, save, check, submit }: ExamRunnerPr
             onCommand={machineChanged}
             onFormat={machineFormatted}
             resume={resume}
+            onCommandRun={commandRun}
+            onScreen={screenChanged}
           />
         )}
       </div>
