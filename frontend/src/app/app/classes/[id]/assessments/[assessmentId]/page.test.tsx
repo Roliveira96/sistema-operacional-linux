@@ -368,3 +368,39 @@ describe("assessment page, the attempt", () => {
     expect(screen.queryByRole("heading", { name: "Tentativas" })).toBeNull();
   });
 });
+
+// SPEC-091 CA-10: the room of the exam opens from the detail, and by itself when the teacher starts the exam.
+describe("assessment page, the room of the exam", () => {
+  const running = { phase: "RUNNING", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00" } as const;
+
+  it("offers to open the room while the exam runs, in its own window", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...running }));
+    render(<AssessmentPage params={params} />);
+    const link = await screen.findByRole("link", { name: /Abrir a sala da prova/ });
+    expect(link.getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/room");
+    expect(link.getAttribute("target")).toBe("_blank");
+  });
+
+  it("does not offer it before the start time, after the end, to an assignment or to a canceled exam", async () => {
+    asRole("TEACHER");
+    for (const over of [{}, { ...running, phase: "ENDED" }, { ...running, type: "ASSIGNMENT", modality: "ONLINE" }, { ...running, status: "CANCELED", cancelReason: "Greve" }] as const) {
+      vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...over }));
+      const { unmount } = render(<AssessmentPage params={params} />);
+      await screen.findByRole("heading", { level: 1 });
+      expect(screen.queryByRole("link", { name: /Abrir a sala da prova/ })).toBeNull();
+      unmount();
+    }
+  });
+
+  it("opens the room when the teacher starts the exam", async () => {
+    asRole("TEACHER");
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...running }));
+    vi.spyOn(assessmentService, "start").mockResolvedValue({ ...summary({ ...STARTED }), serverNow: SERVER_NOW });
+    render(<AssessmentPage params={params} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Iniciar a prova" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Iniciar a prova" }));
+    await waitFor(() => expect(open).toHaveBeenCalledWith("/app/classes/c-1/assessments/a-1/room", "_blank", "noopener"));
+  });
+});

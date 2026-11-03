@@ -186,3 +186,31 @@ describe("assessmentService: check of a question (SPEC-085)", () => {
     await expect(svc.checkQuestion("c-1", "a-1", "q-1", {})).resolves.toBe(false);
   });
 });
+
+// SPEC-091 section 5: the room of the exam, on its own socket, and the end of the exam of a student.
+describe("assessmentService: the room (SPEC-091)", () => {
+  it("opens the socket of the room on the same origin and hands over its messages", () => {
+    const created: string[] = [];
+    const socket = { readyState: 1, send: vi.fn(), close: vi.fn() } as unknown as WebSocket & Record<string, unknown>;
+    const handlers = { onOpen: vi.fn(), onMessage: vi.fn(), onClose: vi.fn() };
+    const room = assessmentService.openRoom("c-1", "a-1", handlers, (url) => {
+      created.push(url);
+      return socket;
+    });
+    expect(created).toEqual([`ws://${window.location.host}/api/v1/classes/c-1/assessments/a-1/room/ws`]);
+    (socket.onopen as () => void)();
+    expect(handlers.onOpen).toHaveBeenCalled();
+    (socket.onmessage as (e: { data: string }) => void)({ data: JSON.stringify({ type: "room:admitted", data: {} }) });
+    (socket.onmessage as (e: { data: string }) => void)({ data: "not json" });
+    expect(handlers.onMessage).toHaveBeenCalledTimes(1);
+    room.send("help:lower", {});
+    expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "help:lower", data: {} }));
+  });
+
+  it("ends the exam of a student with the reason", async () => {
+    const c = client();
+    const svc = createAssessmentService(c);
+    await svc.endAttempt("c-1", "a-1", "t-1", "Flagrante de cola");
+    expect(c.post).toHaveBeenLastCalledWith("/classes/c-1/assessments/a-1/attempts/t-1/end", { reason: "Flagrante de cola" });
+  });
+});
