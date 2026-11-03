@@ -94,7 +94,7 @@ export interface AssessmentStudent {
 }
 
 export interface AssessmentEvent {
-  kind: "CREATED" | "UPDATED" | "RESCHEDULED" | "CANCELED" | "CLEARANCE_UPDATED";
+  kind: "CREATED" | "UPDATED" | "RESCHEDULED" | "CANCELED" | "CLEARANCE_UPDATED" | "STARTED";
   actorName: string;
   createdAt: string;
   reason?: string;
