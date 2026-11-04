@@ -5,7 +5,7 @@
 | **ID** | SPEC-092 |
 | **Status** | Aprovada |
 | **Data de criação** | 03/11/2026 |
-| **Última revisão** | 03/11/2026 |
+| **Última revisão** | 04/11/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos (a revisão 2 acrescenta uma mensagem ao websocket da sala) |
@@ -134,9 +134,27 @@ Tema escuro, tokens semânticos, textos em `messages/pt-BR.ts`, teclado, contras
   - Para quem não está fazendo, nada muda.
 - **Painel do aluno aberto:** a linha "Questão N: <título>" passa a vir da questão do cartão. Ela aparece também em questão sem terminal.
 
+**Revisão 3: o painel do aluno, com tamanho ajustável, comandos por questão e a ajuda em abas** (pedidos do Tech Lead no roteiro manual de 04/11/2026: "devemos poder ajustar o tamanho da visualização no lado do professor"; "o professor quer ver os comandos que ele usou no geral, e por atividade"; "esse menu de ajuda deve ser mostrado no mesmo aside do terminal e comandos, em abinhas"):
+
+- **Tamanho do painel** (decisão do Tech Lead: divisória e *Expandir*):
+  - Entre a grade dos cartões e o painel lateral há uma **divisória arrastável** (cursor `col-resize`), como a do estudo de tópico. O painel vai de 22rem até 70% da largura da sala. Pelo teclado, a divisória tem foco e as setas mudam a largura.
+  - O botão **Expandir** do painel faz ele ocupar a sala inteira, sem os cartões; **Recolher** ou `Esc` voltam ao tamanho anterior.
+  - A largura escolhida fica guardada no navegador (`localStorage`); sem ela, vale a largura de hoje.
+  - O terminal do aluno ocupa a altura que sobra no painel.
+  - No celular não há divisória: o painel continua abaixo dos cartões.
+- **Comandos** (decisão do Tech Lead: filtro por questão, na ordem do terminal):
+  - A lista vai **do mais antigo para o mais novo**, como num terminal, e rola sozinha para o último enquanto a docente não sobe a lista.
+  - No topo, pílulas que filtram: **Todas (N)** e uma por questão em que o aluno digitou, **Questão 6 (5)**, na ordem das questões. Começa em *Todas*.
+  - Em *Todas*, um separador com "Questão N" e o título, quando a sala o conhece, marca cada troca de questão. Com uma questão escolhida, a lista mostra só os comandos dela, sem separador.
+  - Cada linha tem a hora, o comando e a saída, como hoje.
+- **Abas do painel** (pedido do Tech Lead):
+  - O painel lateral tem duas abas: **Aluno**, com o terminal e os comandos do aluno aberto (ou a dica, sem aluno aberto), e **Pedidos de ajuda (N)**, com a fila de hoje. N é o número de pedidos abertos.
+  - Abrir um aluno, pelo cartão ou pelo nome num pedido, mostra a aba *Aluno*. Um pedido novo não troca de aba: a contagem da aba e o som da SPEC-091 avisam.
+  - As abas seguem o padrão de abas acessível (`role="tablist"`, `tab` e `tabpanel`, setas entre as abas).
+
 ### 3.2. Backend
 
-Só na revisão 2: a sala passa a saber em que questão cada aluno está, sem depender de a docente acompanhá-lo.
+A revisão 3 não muda o backend. Só na revisão 2: a sala passa a saber em que questão cada aluno está, sem depender de a docente acompanhá-lo.
 
 - **Mensagem nova do aluno para a sala:** `room:question` com `{ position, title }`. A janela da prova manda essa mensagem quando o aluno abre uma questão, quando troca de questão e de novo quando a conexão com a sala volta.
 - **Regras da mensagem:**
@@ -183,6 +201,10 @@ Nenhuma rota nova. Websocket da sala (revisão 2):
 - **CA-11:** (revisão 2) ao abrir ou trocar de questão, a janela da prova manda `room:question` com a posição e o título, e manda de novo quando a conexão com a sala volta.
 - **CA-12:** (revisão 2) o servidor guarda a última questão de cada aluno e a põe no cartão, tanto no `room:snapshot` quanto no `room:student`. Uma `room:question` da docente, com posição zero ou com mais de 1 KiB é descartada, e o título é cortado em 200 caracteres.
 - **CA-13:** (revisão 2) o cartão de quem está fazendo mostra "Questão 4 de 9" e o título da questão. Sem questão informada, a linha não aparece.
+- **CA-14:** (revisão 3) arrastar a divisória, ou usar as setas com ela em foco, muda a largura do painel entre 22rem e 70% da sala, e a largura volta igual ao reabrir a sala; *Expandir* esconde os cartões e *Recolher* ou `Esc` os mostram de novo.
+- **CA-15:** (revisão 3) os comandos vão do mais antigo para o mais novo; as pílulas mostram *Todas* e cada questão com a contagem; escolher a questão 6 deixa só os comandos dela; em *Todas*, um separador marca cada troca de questão.
+- **CA-16:** (revisão 3) o painel tem as abas *Aluno* e *Pedidos de ajuda (N)*; abrir um aluno pelo cartão ou pelo pedido mostra a aba *Aluno*, e um pedido novo só muda a contagem.
+- **CA-17:** (revisão 3, correção do roteiro) o terminal do aluno aberto tem altura definida e acompanha o fim enquanto ele digita.
 - **CA-07:** os testes atuais da SPEC-091 continuam verdes, ajustados só onde o filtro virou botão.
 
 ## 8. Plano de Testes (Test Plan)
@@ -210,3 +232,4 @@ Nenhuma.
 | 03/11/2026 | Aruna Architect | Revisão 2, a pedido do Tech Lead: cartões maiores com a questão em que o aluno está; mensagem `room:question` do aluno e o campo `question` do cartão (seções 3.1, 3.2, 5, CA-11 a CA-13) |
 | 03/11/2026 | Aruna Architect | Revisão 2 aprovada pelo Tech Lead, com o ajuste: "deve mostrar o número do exercício da prova que ele está fazendo"; o número da questão é o destaque do cartão |
 | 03/11/2026 | Claude (implementação) | Revisão 2 implementada: `room:question` no hub da sala (só do estudante, até 1 KiB, posição > 0, título cortado em 200), a questão guardada em memória e posta no cartão; a janela da prova manda a questão ao abrir, ao trocar e ao reconectar; o cartão, com no mínimo 18rem, mostra "Questão N de T" em destaque e o título embaixo |
+| 04/11/2026 | Aruna Architect | Revisão 3, a pedido do Tech Lead no roteiro manual: divisória arrastável e *Expandir* no painel, comandos na ordem do terminal com filtro por questão, abas *Aluno* e *Pedidos de ajuda* (seção 3.1, CA-14 a CA-16), e o terminal com altura definida (CA-17, já corrigido como bug na `fix/aplicacao-da-prova`). Decisões do tamanho e dos comandos tomadas pelo Tech Lead na conversa. Aguardando aprovação |
