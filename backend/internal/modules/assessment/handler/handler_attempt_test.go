@@ -145,7 +145,7 @@ func TestHandler_AttemptsOfTheTeacher(t *testing.T) {
 	require.Equal(t, http.StatusOK, status)
 	rows := array(t, body["items"])
 	require.Len(t, rows, 2)
-	assert.Equal(t, sorted("attemptId", "studentId", "studentName", "academicId", "status", "startedAt"), keysOf(object(t, rows[0])))
+	assert.Equal(t, sorted("attemptId", "studentId", "studentName", "academicId", "status", "startedAt", "chatCount"), keysOf(object(t, rows[0])))
 	second := object(t, rows[1])
 	assert.Equal(t, 7.5, second["preliminaryScore"])
 	assert.Equal(t, 1.0, second["pendingItems"])
