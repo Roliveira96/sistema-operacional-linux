@@ -361,3 +361,22 @@ func TestAttempts_TheListOfTheTeacher(t *testing.T) {
 	_, err = f.svc.Attempts(ctx, f.as(f.ana), f.class.ID, a.ID)
 	assert.ErrorIs(t, err, domain.ErrForbidden)
 }
+
+// Covers SPEC-090 CA-11 (roteiro de 04/11/2026): the copy of the question saved in the attempt has the keys the window of the exam reads, in lower
+// case, for the alternatives and for the two columns; without them the student saw the letters and no text.
+func TestEnterAttempt_TheStudentViewHasTheKeysTheWindowReads(t *testing.T) {
+	f := newFixture(t)
+	single := f.addKind(kindSingle, `"a"`)
+	matching := f.addKind(kindMatching, `{}`)
+	q := f.questions.bank[matching]
+	q.StudentView = service.StudentView{Columns: &service.StudentColumns{Left: []service.StudentItem{{ID: "l1", Text: "ls"}}, Right: []service.StudentItem{{ID: "r1", Text: "lista"}}}}
+	f.questions.bank[matching] = q
+	a := f.exam(t, single, matching)
+	f.now = at(21, 9, 10)
+
+	got, _, err := f.svc.EnterAttempt(ctx, f.as(f.ana), f.class.ID, a.ID)
+	require.NoError(t, err)
+
+	assert.Contains(t, string(got.Items[0].StudentView), `"choices":[{"id":"a","html":"chmod"}]`)
+	assert.Contains(t, string(got.Items[1].StudentView), `"columns":{"left":[{"id":"l1","text":"ls"}],"right":[{"id":"r1","text":"lista"}]}`)
+}
