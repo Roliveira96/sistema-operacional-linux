@@ -277,6 +277,7 @@ Termos da SPEC-083 (Rascunho em 22/10/2026).
 | Evento da linha do tempo | `TimelineEvent` | Registro cronológico de auditoria da tentativa | `Log`, `Activity` | Canônico |
 | Infração de segurança | `SecurityViolation` | Detecção de DevTools, aba oculta, conflito de sessão ou IP fora da sub-rede | `Infraction`, `Cheat` | Canônico |
 | Pedido de ajuda ("mãozinha virtual") | `HelpRequest` / fila `HelpQueue` | Dúvida do estudante durante a prova, atendida em fila FIFO | `Ticket`, `Support` | Canônico |
+| Conversa da prova | `assessment_chat_messages` / `ChatMessage` | Troca de mensagens de texto entre o estudante e a docente durante a prova, guardada na tentativa e lida pela docente na correção; a mensagem para todos guarda quem a recebeu. Nada se edita nem se apaga. Na parte do chat, a SPEC-091 D-03 deixa de valer | `Chat` (solto), `DM` | Proposto (SPEC-093) |
 
 ## 6. Conflitos conhecidos nas fontes canônicas
 
