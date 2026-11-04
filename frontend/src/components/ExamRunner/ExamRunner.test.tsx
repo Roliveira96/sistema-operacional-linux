@@ -123,7 +123,7 @@ describe("ExamRunner, delivering", () => {
 
 // SPEC-090 revision 2 (CA-18): what the server did not confirm and the line typed without Enter stay in the browser and come back over the server.
 describe("ExamRunner, the copy in the browser", () => {
-  const KEY = "exam-attempt:a-1";
+  const KEY = "exam-attempt:t-1";
   const local = () => JSON.parse(localStorage.getItem(KEY) ?? "null") as { pending?: Record<string, unknown>; typed?: Record<string, string> } | null;
   beforeEach(() => localStorage.clear());
 
