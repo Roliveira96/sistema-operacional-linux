@@ -94,14 +94,24 @@ type StudentView struct {
 	MaxLength *int
 }
 
-// StudentChoice is an alternative of a single choice question: its id and its filtered html.
-type StudentChoice struct{ ID, HTML string }
+// StudentChoice is an alternative of a single choice question: its id and its filtered html. The tags are the keys of the copy saved in the
+// attempt, which the window of the exam reads (SPEC-090).
+type StudentChoice struct {
+	ID   string `json:"id"`
+	HTML string `json:"html"`
+}
 
 // StudentItem is an item of a column of a matching question: its id and its text.
-type StudentItem struct{ ID, Text string }
+type StudentItem struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
 
 // StudentColumns are the two columns of a matching question, each in the order of the teacher.
-type StudentColumns struct{ Left, Right []StudentItem }
+type StudentColumns struct {
+	Left  []StudentItem `json:"left"`
+	Right []StudentItem `json:"right"`
+}
 
 // QuestionFilter picks questions of a module.
 type QuestionFilter struct {
