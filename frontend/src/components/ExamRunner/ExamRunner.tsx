@@ -38,6 +38,20 @@ type SaveState = "idle" | "saving" | "saved" | "offline";
 
 const isPractical = (item: AttemptItem) => item.kind === "PRACTICAL";
 
+/** What the window keeps in the browser of an attempt: the answers the server did not confirm and the lines typed without Enter (SPEC-090 revision 2). */
+interface LocalCopy {
+  pending?: Record<string, unknown>;
+  typed?: Record<string, string>;
+}
+const localKey = (attemptId: string) => `exam-attempt:${attemptId}`;
+function readLocal(attemptId: string): LocalCopy {
+  try {
+    return (JSON.parse(localStorage.getItem(localKey(attemptId)) ?? "{}") as LocalCopy | null) ?? {};
+  } catch {
+    return {};
+  }
+}
+
 export interface ExamRunnerProps {
   attempt: StudentAttempt;
   title: string;
@@ -70,11 +84,14 @@ export interface ExamRunnerRoom {
  */
 export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRunnerProps) {
   const items = attempt.items;
+  /** The copy in the browser, read once: what it has goes over what came from the server. */
+  const [local] = useState(() => readLocal(attempt.id));
+  const savedOf = (it: AttemptItem) => local.pending?.[it.position] ?? it.answer;
   const [current, setCurrent] = useState(0);
   const [responses, setResponses] = useState<Record<number, SimulatedResponse>>(() => {
     const out: Record<number, SimulatedResponse> = {};
     for (const it of items) {
-      const value = fromApiAnswer(it.kind, it.answer);
+      const value = fromApiAnswer(it.kind, savedOf(it));
       if (value !== undefined) out[it.position] = value;
     }
     return out;
@@ -96,7 +113,16 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
   const [remaining, setRemaining] = useState(left);
 
   // ---- saving: one queue of the answers not sent yet, by question ----
-  const pending = useRef(new Map<number, unknown>());
+  const pending = useRef(new Map<number, unknown>(Object.entries(local.pending ?? {}).map(([position, value]) => [Number(position), value])));
+  const typed = useRef<Record<string, string>>({ ...local.typed });
+  /** Writes the copy in the browser; a browser that does not let it goes on with the server alone. */
+  const keep = useCallback(() => {
+    try {
+      localStorage.setItem(localKey(attempt.id), JSON.stringify({ pending: Object.fromEntries(pending.current), typed: typed.current }));
+    } catch {
+      // nothing kept: the server has what it confirmed
+    }
+  }, [attempt.id]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMachine = useRef(new Map<number, number>());
   const flushing = useRef<Promise<void> | null>(null);
@@ -120,6 +146,7 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
           await saveRef.current(position, answer);
           // a newer answer of the same question that came meanwhile stays to be sent
           if (pending.current.get(position) === answer) pending.current.delete(position);
+          keep();
         }
         setSaveState("saved");
       } catch {
@@ -131,20 +158,25 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
     })();
     flushing.current = run;
     return run;
-  }, []);
+  }, [keep]);
 
   useEffect(() => {
     retry.current = () => void flush();
+  }, [flush]);
+  // what the browser had and the server did not confirm goes at once
+  useEffect(() => {
+    void flush();
   }, [flush]);
 
   const queue = useCallback(
     (position: number, answer: unknown, delay: number) => {
       pending.current.set(position, answer);
+      keep();
       if (timer.current) clearTimeout(timer.current);
       if (delay <= 0) void flush();
       else timer.current = setTimeout(() => void flush(), delay);
     },
-    [flush],
+    [flush, keep],
   );
 
   useEffect(
@@ -168,9 +200,14 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
       } catch {
         // past the tolerance the server delivered it already (RN-07): the student reads the same
       }
+      try {
+        localStorage.removeItem(localKey(attempt.id));
+      } catch {
+        // nothing was kept
+      }
       setPhase(byTime ? "timeUp" : "delivered");
     },
-    [flush, submit],
+    [flush, submit, attempt.id],
   );
 
   useEffect(() => {
@@ -217,7 +254,27 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
     [items, queue],
   );
   const loadScenario = useCallback(async (id: string) => items.find((it) => String(it.position) === id)?.studentView.scenario ?? null, [items]);
-  const resume = useMemo(() => Object.fromEntries(items.filter((it) => isPractical(it) && it.answer !== undefined).map((it) => [String(it.position), it.answer])), [items]);
+  const resume = useMemo(() => {
+    const out: Record<string, unknown> = {};
+    for (const it of items.filter(isPractical)) {
+      const saved = savedOf(it);
+      const line = local.typed?.[it.position];
+      const base = saved ?? (line ? it.studentView.scenario : undefined);
+      if (base === undefined || base === null) continue;
+      const terminal = (base as { terminal?: object }).terminal;
+      out[String(it.position)] = line ? { ...(base as object), terminal: { ...terminal, linha: line } } : base;
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the copy in the browser is read once, as the attempt
+  }, [items]);
+  const typedChanged = useCallback(
+    (id: string, line: string) => {
+      if (line) typed.current[id] = line;
+      else delete typed.current[id];
+      keep();
+    },
+    [keep],
+  );
 
   // ---- the room: the commands as they run, the screen while the teacher watches (SPEC-091) ----
   const roomRef = useRef(room);
@@ -251,7 +308,7 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
     roomRef.current?.onScreen(item.position, item.studentView.title, isPractical(item) ? (screens.current.get(item.position) ?? null) : null);
   }, [watched, current, items]);
 
-  const isDone = (it: AttemptItem) => (isPractical(it) ? !!solved[it.position] || resume[String(it.position)] !== undefined || !!touched[it.position] : isAnswered(responses[it.position]));
+  const isDone = (it: AttemptItem) => (isPractical(it) ? !!solved[it.position] || savedOf(it) !== undefined || !!touched[it.position] : isAnswered(responses[it.position]));
   const blank = items.filter((it) => !isDone(it)).length;
   const open = items[current];
   const hasTerminal = items.some(isPractical);
@@ -377,6 +434,7 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
             resume={resume}
             onCommandRun={commandRun}
             onScreen={screenChanged}
+            onTyped={typedChanged}
           />
         )}
       </div>
