@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-093 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 04/11/2026 |
 | **Última revisão** | 04/11/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -182,7 +182,7 @@ Os testes são escritos antes do código e rodados vermelhos primeiro.
    - **Documentação:** esta spec e `specs/GLOSSARY.md` (o termo *Conversa da prova*).
 4. **Definição de pronto:** todos os CA marcados, os testes da seção 8 passando, nenhuma violação de `specs/ARCHITECTURE.md`, o roteiro manual feito e o status atualizado para `Implementada`.
 
-## 10. Pendências para aprovação
+## 10. Decisões (antes: pendências para aprovação)
 
 | ID | Pendência e recomendação |
 | :--- | :--- |
@@ -197,3 +197,4 @@ Os testes são escritos antes do código e rodados vermelhos primeiro.
 | Data | Autor | Alteração |
 | :--- | :--- | :--- |
 | 04/11/2026 | Aruna Architect | Criação em `Rascunho`, a pedido do Tech Lead no roteiro manual da aplicação da prova: o chat entre o estudante e a docente, estilo aula (SPEC-063), com a conversa guardada na tentativa para servir à avaliação. Cinco pendências, D-01 a D-05, com as recomendações. |
+| 04/11/2026 | Tech Lead | Aprovada ("aprovo"), com as recomendações das cinco pendências aceitas como estavam: D-01 a D-05. Status: `Aprovada` |
