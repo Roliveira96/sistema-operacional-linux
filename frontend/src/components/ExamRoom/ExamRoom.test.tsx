@@ -95,7 +95,7 @@ describe("ExamRoom, watching a student", () => {
     expect(lines.map((l) => l.textContent)).toEqual([expect.stringContaining("pwd"), expect.stringContaining("mkdir /a")]);
 
     receive("room:screen", { studentId: ANA, position: 4, title: "Criar pasta", screen: { tag: "div", children: ["$ ls"] } });
-    expect(within(panel).getByText("Questão 4: Criar pasta")).toBeDefined();
+    expect(within(panel).getByText("Questão 4: Criar pasta", { selector: "p" })).toBeDefined();
     expect(within(panel).queryByText("O aluno está numa questão sem terminal.")).toBeNull();
 
     fireEvent.click(within(panel).getByRole("button", { name: "Fechar" }));
