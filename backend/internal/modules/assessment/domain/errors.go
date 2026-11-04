@@ -47,6 +47,9 @@ var (
 	ErrInvalidReason = errors.New("the reason is required, up to 500 characters")
 	ErrInvalidHelp   = errors.New("the question is up to 300 characters")
 	ErrHelpNotFound  = errors.New("the request for help was not found or is closed")
+
+	// SPEC-093: the conversation of the exam
+	ErrInvalidChat = errors.New("the message is from 1 to 500 characters of plain text")
 )
 
 // Shortage is a level of difficulty that the bank cannot supply: what the draw asks for and what there is.

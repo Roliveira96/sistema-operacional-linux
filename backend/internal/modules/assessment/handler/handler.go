@@ -91,6 +91,8 @@ func (h *Handler) Register(r gin.IRouter) {
 	// the room of the exam (SPEC-091 section 5)
 	g.GET("/classes/:id/assessments/:assessmentId/room/ws", h.connectRoom)
 	g.POST("/classes/:id/assessments/:assessmentId/attempts/:attemptId/end", h.endAttempt)
+	// the conversation of the exam (SPEC-093 section 5)
+	g.GET("/classes/:id/assessments/:assessmentId/attempts/:attemptId/chat", h.attemptChat)
 }
 
 func fail(c *gin.Context, p *problem.Problem) {

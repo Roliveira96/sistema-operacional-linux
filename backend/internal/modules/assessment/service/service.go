@@ -250,6 +250,15 @@ type Repository interface {
 	CloseHelp(ctx context.Context, id uuid.UUID, status domain.HelpStatus, at time.Time, by *uuid.UUID, answer string) error
 	// OpenHelps gives the open requests of an assessment, the oldest first, with the student.
 	OpenHelps(ctx context.Context, assessmentID uuid.UUID) ([]domain.HelpRequest, error)
+	// SaveChat stores a message of the conversation of the exam, giving it its id and the student of its attempt, with who received one to all
+	// (SPEC-093 RN-03, D-01).
+	SaveChat(ctx context.Context, m *domain.ChatMessage, recipients []uuid.UUID) error
+	// AttemptChat gives the conversation of an attempt with the messages to all it received; AssessmentChat, the last messages of the exam; both
+	// oldest first (RN-06, RN-07).
+	AttemptChat(ctx context.Context, attemptID uuid.UUID) ([]domain.ChatMessage, error)
+	AssessmentChat(ctx context.Context, assessmentID uuid.UUID, limit int) ([]domain.ChatMessage, error)
+	// ChatCounts gives the number of messages of the conversation of each attempt of the exam (RN-07).
+	ChatCounts(ctx context.Context, assessmentID uuid.UUID) (map[uuid.UUID]int, error)
 }
 
 // Service implements the use cases of the assessments.
