@@ -429,7 +429,9 @@ describe("ExamRoom, SPEC-093 the chat", () => {
     fireEvent.click(screen.getByRole("button", { name: /Ana/ }));
     fireEvent.click(screen.getByRole("tab", { name: "Chat (2)" }));
     expect(screen.getByRole("tab", { name: "Chat (0)" })).toBeDefined();
-    expect(screen.getByRole("button", { name: /Ana/ }).textContent).not.toContain("mensagens novas");
+    // the card, in the cards: the conversation open has its button "Enviar só para Ana"
+    const cards = screen.getByRole("region", { name: "Alunos" });
+    expect(within(cards).getByRole("button", { name: /Ana/ }).textContent).not.toContain("mensagens novas");
     receive("chat:message", chat({ id: "m-3", text: "Obrigada" }));
     receive("chat:message", chat({ id: "m-4", from: "TEACHER", text: "De nada" }));
     expect(screen.getByRole("tab", { name: "Chat (0)" })).toBeDefined();
