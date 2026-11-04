@@ -379,3 +379,59 @@ describe("ExamRoom, SPEC-092 revision 3 the tabs of the panel (CA-16)", () => {
     expect(screen.getByRole("tab", { name: "Aluno" }).getAttribute("aria-selected")).toBe("true");
   });
 });
+
+// SPEC-093 CA-07: the conversation with each student, in the tab Chat of the panel, and the messages to all.
+describe("ExamRoom, SPEC-093 the chat", () => {
+  const STARTED_AT = { startedAt: "2026-10-21T09:05:00-03:00" };
+  const doingAna = () => card({ status: "IN_PROGRESS", online: true, total: 9, attemptId: "t-1" });
+  const chat = (over: Record<string, unknown> = {}) => ({
+    id: "m-1", scope: "private", studentId: ANA, from: "STUDENT", text: "Posso usar o man?", createdAt: "2026-10-21T09:31:00-03:00", position: 4, ...over,
+  });
+
+  it("shows the conversation of the open student with the messages to all, and sends to her or to all", async () => {
+    await setup({ ...STARTED_AT, chat: [chat({ id: "m-0", scope: "all", studentId: undefined, from: "TEACHER", text: "Bom dia", position: undefined })] });
+    receive("room:student", doingAna());
+    fireEvent.click(screen.getByRole("button", { name: /Ana/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Chat (0)" }));
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByText("Bom dia")).toBeDefined();
+    fireEvent.change(within(panel).getByLabelText("Mensagem"), { target: { value: "Leia de novo" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Enviar só para Ana" }));
+    expect(sent).toContainEqual({ type: "chat:send", data: { text: "Leia de novo", studentId: ANA } });
+    fireEvent.change(within(panel).getByLabelText("Mensagem"), { target: { value: "Faltam 10 minutos" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Enviar para todos" }));
+    expect(sent).toContainEqual({ type: "chat:send", data: { text: "Faltam 10 minutos", to: "all" } });
+
+    receive("chat:message", chat());
+    expect(within(screen.getByRole("tabpanel")).getByText("Posso usar o man?")).toBeDefined();
+    receive("chat:message", chat({ id: "m-9", studentId: BRUNO, text: "Sou o Bruno" }));
+    expect(within(screen.getByRole("tabpanel")).queryByText("Sou o Bruno")).toBeNull();
+  });
+
+  it("without a student open, shows the channel to all with only Enviar para todos", async () => {
+    await setup(STARTED_AT);
+    fireEvent.click(screen.getByRole("tab", { name: "Chat (0)" }));
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByRole("heading", { name: "Para todos os alunos" })).toBeDefined();
+    expect(within(panel).queryByRole("button", { name: /Enviar só para/ })).toBeNull();
+    expect(within(panel).getByRole("button", { name: "Enviar para todos" })).toBeDefined();
+  });
+
+  it("counts the new messages of each student on the tab and on the card, and opening the conversation clears them", async () => {
+    await setup(STARTED_AT);
+    receive("room:student", doingAna());
+    receive("chat:message", chat());
+    receive("chat:message", chat({ id: "m-2", text: "Alô?" }));
+    expect(screen.getByRole("tab", { name: "Chat (2)" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Ana/ }).textContent).toContain("2 mensagens novas");
+    expect(beep).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Ana/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Chat (2)" }));
+    expect(screen.getByRole("tab", { name: "Chat (0)" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Ana/ }).textContent).not.toContain("mensagens novas");
+    receive("chat:message", chat({ id: "m-3", text: "Obrigada" }));
+    receive("chat:message", chat({ id: "m-4", from: "TEACHER", text: "De nada" }));
+    expect(screen.getByRole("tab", { name: "Chat (0)" })).toBeDefined();
+  });
+});

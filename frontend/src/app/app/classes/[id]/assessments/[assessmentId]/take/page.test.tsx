@@ -187,3 +187,46 @@ describe("take page, the question the student is in", () => {
     await waitFor(() => expect(last().sent).toContainEqual({ type: "room:question", data: { position: 4, title: "Criar pasta" } }));
   }, 8000);
 });
+
+// SPEC-093 CA-08: the student writes to the teacher in the conversation of the exam, reads her messages and knows it is kept with the exam.
+describe("take page, SPEC-093 the conversation", () => {
+  const AT = "2026-10-21T09:31:00-03:00";
+
+  it("opens the conversation with what was said, sends to the teacher and shows what comes back", async () => {
+    await inTheExam();
+    receive("room:snapshot", { waiting: false, help: { status: "NONE" }, chat: [{ id: "m-1", scope: "all", from: "TEACHER", text: "Bom dia", createdAt: AT }] });
+    const button = screen.getByRole("button", { name: "Conversa" });
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Bom dia")).toBeDefined();
+    expect(screen.getByText("Docente · para todos")).toBeDefined();
+    expect(screen.getByText("A conversa fica guardada com a sua prova, e a docente pode usá-la na avaliação.")).toBeDefined();
+    fireEvent.change(screen.getByLabelText("Mensagem"), { target: { value: "Posso usar o man?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    expect(last().sent).toContainEqual({ type: "chat:send", data: { text: "Posso usar o man?" } });
+    receive("chat:message", { id: "m-2", scope: "private", studentId: "u-1", from: "STUDENT", text: "Posso usar o man?", createdAt: AT });
+    expect(screen.getByText("Posso usar o man?")).toBeDefined();
+    receive("chat:message", { id: "m-2", scope: "private", studentId: "u-1", from: "STUDENT", text: "Posso usar o man?", createdAt: AT });
+    expect(screen.getAllByText("Posso usar o man?")).toHaveLength(1);
+  });
+
+  it("counts the new messages of the teacher while it is closed", async () => {
+    await inTheExam();
+    receive("chat:message", { id: "m-3", scope: "private", studentId: "u-1", from: "TEACHER", text: "Pode", createdAt: AT });
+    receive("chat:message", { id: "m-4", scope: "all", from: "TEACHER", text: "Atenção", createdAt: AT });
+    const button = screen.getByRole("button", { name: "Conversa, 2 novas" });
+    fireEvent.click(button);
+    expect(screen.getByRole("button", { name: "Conversa" })).toBeDefined();
+    expect(screen.getByText("Docente · só para você")).toBeDefined();
+  });
+
+  it("says what to do when it is empty, and turns sending off without the room", async () => {
+    await inTheExam();
+    fireEvent.click(screen.getByRole("button", { name: "Conversa" }));
+    expect(screen.getByText("Escreva para a docente. As mensagens dela para a turma também aparecem aqui.")).toBeDefined();
+    fireEvent.change(screen.getByLabelText("Mensagem"), { target: { value: "Oi" } });
+    act(() => last().handlers.onClose());
+    expect((screen.getByRole("button", { name: "Enviar" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
