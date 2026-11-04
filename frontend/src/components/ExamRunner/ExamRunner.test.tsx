@@ -120,3 +120,68 @@ describe("ExamRunner, delivering", () => {
     expect(await screen.findByText("O tempo acabou. Sua prova foi entregue.")).toBeDefined();
   });
 });
+
+// SPEC-090 revision 2 (CA-18): what the server did not confirm and the line typed without Enter stay in the browser and come back over the server.
+describe("ExamRunner, the copy in the browser", () => {
+  const KEY = "exam-attempt:a-1";
+  const local = () => JSON.parse(localStorage.getItem(KEY) ?? "null") as { pending?: Record<string, unknown>; typed?: Record<string, string> } | null;
+  beforeEach(() => localStorage.clear());
+
+  it("keeps an answer in the browser until the server confirms it", async () => {
+    let confirm = () => {};
+    const save = vi.fn(() => new Promise<void>((done) => (confirm = done)));
+    setup(studentAttempt(), { save });
+    fireEvent.click(screen.getByRole("radio", { name: "Verdadeiro" }));
+    expect(local()?.pending).toEqual({ 1: { value: true } });
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    confirm();
+    await waitFor(() => expect(local()?.pending ?? {}).toEqual({}));
+  });
+
+  it("comes back with what the server did not confirm, over what came from the server, and sends it", async () => {
+    localStorage.setItem(KEY, JSON.stringify({ pending: { 1: { value: false }, 4: { cwd: "/root", made: "/b" } } }));
+    const attempt = studentAttempt();
+    attempt.items[0]!.answer = { value: true };
+    const { save } = setup(attempt);
+    expect((screen.getByRole("radio", { name: "Falso" }) as HTMLElement).getAttribute("aria-checked")).toBe("true");
+    await waitFor(() => expect(save).toHaveBeenCalledWith(1, { value: false }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(4, { cwd: "/root", made: "/b" }));
+    goTo(4);
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledWith({ cwd: "/root", made: "/b" }));
+  });
+
+  it("keeps the line typed without Enter and puts it back in the terminal", async () => {
+    const attempt = studentAttempt();
+    attempt.items[3]!.answer = { cwd: "/root" };
+    setup(attempt);
+    goTo(4);
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalled());
+    terminal.windows[0]!.typedLine.mockReturnValue("ls -");
+    fireEvent.keyDown(screen.getByRole("region", { name: "Terminal" }), { key: "-" });
+    await waitFor(() => expect(local()?.typed).toEqual({ 4: "ls -" }));
+
+    cleanup();
+    setup(attempt);
+    goTo(4);
+    await waitFor(() => expect(terminal.windows.at(-1)!.restoreTerminal).toHaveBeenCalledWith({ linha: "ls -" }));
+  });
+
+  it("clears the copy when the exam is delivered", async () => {
+    localStorage.setItem(KEY, JSON.stringify({ typed: { 4: "ls" } }));
+    const { submit } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Entregar a prova" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Entregar" }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("goes on with the server alone when the browser does not let it keep anything", async () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const { save } = setup();
+    fireEvent.click(screen.getByRole("radio", { name: "Verdadeiro" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(1, { value: true }));
+    setItem.mockRestore();
+  });
+});

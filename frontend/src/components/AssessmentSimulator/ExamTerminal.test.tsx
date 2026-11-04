@@ -232,3 +232,39 @@ describe("ExamTerminal, coming back to an attempt", () => {
     await waitFor(() => expect(terminal.windows[0]!.resetAnimated).toHaveBeenCalledWith({ name: "um" }));
   });
 });
+
+// SPEC-090 revision 2 (CA-17, CA-18): the terminal goes with the machine, comes back with it, and the line typed without Enter is told.
+describe("ExamTerminal, the terminal as the student left it", () => {
+  const state = { tela: ["root@exame:~# ls"], historico: ["ls"], cwd: "/root", usuario: "root" };
+
+  it("sends the terminal with the machine after each command", async () => {
+    const onCommand = vi.fn();
+    open({ onCommand });
+    await ready();
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledTimes(1));
+    terminal.windows[0]!.terminalState.mockReturnValue(state);
+    terminal.callbacks[0]!.onCommand({ name: "um", made: "/a" });
+    expect(onCommand).toHaveBeenCalledWith("q-1", { name: "um", made: "/a", terminal: state });
+  });
+
+  it("puts the terminal back with the saved machine, and again when the question is visited again", async () => {
+    const { again } = open({ resume: { "q-1": { name: "salva", terminal: state } } });
+    await ready();
+    await waitFor(() => expect(terminal.windows[0]!.restoreTerminal).toHaveBeenCalledWith(state));
+    again({ questionId: "q-2" });
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenLastCalledWith({ name: "dois" }));
+    expect(terminal.windows[0]!.restoreTerminal).toHaveBeenCalledTimes(1);
+    again({ questionId: "q-1" });
+    await waitFor(() => expect(terminal.windows[0]!.restoreTerminal).toHaveBeenCalledTimes(2));
+  });
+
+  it("tells the line typed without Enter as the student types", async () => {
+    const onTyped = vi.fn();
+    open({ onTyped });
+    await ready();
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledTimes(1));
+    terminal.windows[0]!.typedLine.mockReturnValue("ls -");
+    fireEvent.keyDown(screen.getByRole("region", { name: "Terminal" }), { key: "-" });
+    await waitFor(() => expect(onTyped).toHaveBeenCalledWith("q-1", "ls -"));
+  });
+});

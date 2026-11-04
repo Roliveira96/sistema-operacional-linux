@@ -625,3 +625,34 @@ describe("commands of the teacher for the live classroom (SPEC-073)", () => {
     expect(run.outputTruncated).toBe(true);
   });
 });
+
+// SPEC-090 revision 2 (CA-17): terminal 1 as the student left it goes with the machine, and comes back on a new machine.
+describe("mountTerminalWindow, the terminal as the student left it", () => {
+  it("gives the screen, the history, the folder and the user, and puts them back after a reset", async () => {
+    const { container, win } = await mount();
+    await win.run({ command: "mkdir /tmp/aqui" });
+    await win.run({ command: "cd /tmp/aqui" });
+    await win.run({ command: "echo marca-da-tela" });
+    const state = win.terminalState()!;
+    expect(state.historico.slice(-3)).toEqual(["mkdir /tmp/aqui", "cd /tmp/aqui", "echo marca-da-tela"]);
+    expect(state.cwd).toBe("/tmp/aqui");
+    expect(state.usuario).toBe("root");
+    expect(state.tela.join("\n")).toContain("marca-da-tela");
+
+    win.reset(win.snapshot());
+    expect(container.textContent).not.toContain("marca-da-tela");
+    win.restoreTerminal(state);
+    expect(container.textContent).toContain("marca-da-tela");
+    expect(win.history().slice(-3)).toEqual(["mkdir /tmp/aqui", "cd /tmp/aqui", "echo marca-da-tela"]);
+    expect(await win.execute({ command: "pwd" })).toMatchObject({ status: 0, output: "/tmp/aqui" });
+  });
+
+  it("puts back the line typed without Enter, and keeps only the last 500 lines of the screen", async () => {
+    const { win } = await mount();
+    win.restoreTerminal({ tela: Array.from({ length: 600 }, (_, i) => `linha ${i}`), historico: [], cwd: "/root", usuario: "root", linha: "ls -l" });
+    expect(win.typedLine()).toBe("ls -l");
+    const tela = win.terminalState()!.tela;
+    expect(tela.length).toBeLessThanOrEqual(500);
+    expect(tela.at(-1)).toBe("linha 599");
+  });
+});

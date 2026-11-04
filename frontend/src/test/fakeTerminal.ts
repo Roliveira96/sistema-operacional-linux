@@ -5,6 +5,10 @@ export interface FakeTerminalWindow {
   reset: ReturnType<typeof vi.fn>;
   resetAnimated: ReturnType<typeof vi.fn>;
   destroy: ReturnType<typeof vi.fn>;
+  /** Terminal 1 as the student left it, and putting it back (SPEC-090 revision 2): nothing unless a test says so. */
+  terminalState: ReturnType<typeof vi.fn>;
+  restoreTerminal: ReturnType<typeof vi.fn>;
+  typedLine: ReturnType<typeof vi.fn>;
 }
 
 export interface FakeCallbacks {
@@ -19,7 +23,7 @@ export function terminalMount() {
   const windows: FakeTerminalWindow[] = [];
   const callbacks: FakeCallbacks[] = [];
   const mount = vi.fn(async (_container: HTMLElement, _snapshot: unknown, given: FakeCallbacks) => {
-    const window: FakeTerminalWindow = { reset: vi.fn(), resetAnimated: vi.fn().mockResolvedValue(undefined), destroy: vi.fn() };
+    const window: FakeTerminalWindow = { reset: vi.fn(), resetAnimated: vi.fn().mockResolvedValue(undefined), destroy: vi.fn(), terminalState: vi.fn(), restoreTerminal: vi.fn(), typedLine: vi.fn(() => "") };
     windows.push(window);
     callbacks.push(given);
     return window;
