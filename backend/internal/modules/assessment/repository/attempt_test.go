@@ -125,3 +125,21 @@ func TestMigration00047_UpAndDown(t *testing.T) {
 	runMigration(t, e, up48)
 	assert.Equal(t, int64(2), count(), "and they are back")
 }
+
+// Covers SPEC-090 CA-11 (roteiro de 04/11/2026): the 00049 fixes the copies of the questions saved before the keys were in lower case, so the
+// attempts already open show the text of the alternatives and of the columns; what is already right stays the same.
+func TestMigration00049_LowerCaseKeysOfTheStudentView(t *testing.T) {
+	e := newEnv(t)
+	a := e.create(t)
+	stored, _ := e.attempt(t, a)
+	old := `{"statement":"<p>Qual \"ID\": tem?</p>","choices":[{"ID":"a","HTML":"<p>chmod</p>"}],"columns":{"Left":[{"ID":"l1","Text":"ls"}],"Right":[{"ID":"r1","Text":"lista"}]}}`
+	require.NoError(t, e.db.Conn(e.ctx).Exec(`UPDATE assessment_attempt_items SET student_view = ?::jsonb WHERE attempt_id = ? AND position = 1`, old, stored.ID).Error)
+
+	up, _ := migrationParts(t, "00049_")
+	runMigration(t, e, up)
+
+	items, err := e.repo.AttemptItems(e.ctx, stored.ID)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"statement":"<p>Qual \"ID\": tem?</p>","choices":[{"id":"a","html":"<p>chmod</p>"}],"columns":{"left":[{"id":"l1","text":"ls"}],"right":[{"id":"r1","text":"lista"}]}}`, string(items[0].StudentView))
+	assert.JSONEq(t, `{"statement":"Crie"}`, string(items[1].StudentView))
+}
