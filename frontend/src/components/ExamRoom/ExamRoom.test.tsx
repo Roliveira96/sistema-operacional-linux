@@ -91,7 +91,8 @@ describe("ExamRoom, watching a student", () => {
     receive("room:command", { studentId: ANA, command: { position: 4, command: "mkdir /a", output: "", executedAt: "2026-10-21T09:11:00-03:00" } });
     receive("room:command", { studentId: BRUNO, command: { position: 1, command: "ls", output: "", executedAt: "2026-10-21T09:11:00-03:00" } });
     const lines = within(within(panel).getByRole("list", { name: "Comandos" })).getAllByRole("listitem");
-    expect(lines.map((l) => l.textContent)).toEqual([expect.stringContaining("mkdir /a"), expect.stringContaining("pwd")]);
+    // SPEC-092 revision 3 (CA-15): in the order of the terminal, the oldest first
+    expect(lines.map((l) => l.textContent)).toEqual([expect.stringContaining("pwd"), expect.stringContaining("mkdir /a")]);
 
     receive("room:screen", { studentId: ANA, position: 4, title: "Criar pasta", screen: { tag: "div", children: ["$ ls"] } });
     expect(within(panel).getByText("Questão 4: Criar pasta")).toBeDefined();
@@ -108,6 +109,7 @@ describe("ExamRoom, the help", () => {
     await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
     receive("help:queue", { queue: [{ id: "h-1", studentId: ANA, position: 2, question: "Posso usar o manual?", status: "OPEN", createdAt: "2026-10-21T09:31:00-03:00" }] });
     expect(beep).toHaveBeenCalledWith("hand");
+    fireEvent.click(screen.getByRole("tab", { name: "Pedidos de ajuda (1)" })); // SPEC-092 revision 3 (CA-16): the queue is a tab of the panel
     const queue = screen.getByRole("region", { name: "Pedidos de ajuda" });
     expect(within(queue).getByText("Posso usar o manual?")).toBeDefined();
     expect(within(queue).getByText(/Ana · Questão 2/)).toBeDefined();
@@ -211,6 +213,7 @@ describe("ExamRoom, SPEC-092 the side panel (CA-04, CA-05)", () => {
   it("gives a hint with nobody open and a single line for an empty queue", async () => {
     await setup({ startedAt: "2026-10-21T09:05:00-03:00", cards: crowd() });
     expect(screen.getByText("Clique num aluno para ver a tela e os comandos dele.")).toBeDefined();
+    fireEvent.click(screen.getByRole("tab", { name: "Pedidos de ajuda (0)" })); // SPEC-092 revision 3 (CA-16)
     expect(screen.getByText("Pedidos de ajuda: nenhum")).toBeDefined();
   });
 
@@ -277,5 +280,102 @@ describe("ExamRoom, SPEC-092 the question on the card", () => {
     fireEvent.click(ana);
     const panel = screen.getByRole("region", { name: "Ana" });
     expect(within(panel).getByText("Questão 4: Criar pasta")).toBeDefined();
+  });
+});
+
+// SPEC-092 revision 3: the panel of the student, with a width the teacher sets, the commands by question and the help in a tab.
+const doing = (over: Record<string, unknown> = {}) => card({ status: "IN_PROGRESS", online: true, total: 9, attemptId: "t-1", ...over });
+
+describe("ExamRoom, SPEC-092 revision 3 the width of the panel (CA-14)", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("changes the width with the arrows on the divider, keeps it between the limits and remembers it", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    const divider = screen.getByRole("separator", { name: "Largura do painel" });
+    expect(divider.getAttribute("aria-valuenow")).toBe("512");
+    fireEvent.keyDown(divider, { key: "ArrowLeft" });
+    expect(divider.getAttribute("aria-valuenow")).toBe("544");
+    for (let i = 0; i < 20; i++) fireEvent.keyDown(divider, { key: "ArrowRight" });
+    expect(divider.getAttribute("aria-valuenow")).toBe("352");
+    fireEvent.keyDown(divider, { key: "ArrowLeft" });
+    cleanup();
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    expect(screen.getByRole("separator", { name: "Largura do painel" }).getAttribute("aria-valuenow")).toBe("384");
+  });
+
+  it("expands the panel over the cards and gives them back with Recolher or Esc", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    fireEvent.click(screen.getByRole("button", { name: "Expandir" }));
+    expect(screen.queryByRole("region", { name: "Alunos" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Recolher" }));
+    expect(screen.getByRole("region", { name: "Alunos" })).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Expandir" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("region", { name: "Alunos" })).toBeDefined();
+  });
+});
+
+describe("ExamRoom, SPEC-092 revision 3 the commands by question (CA-15)", () => {
+  it("lists the commands in the order of the terminal, marks each change of question and filters by question", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    receive("room:student", doing({ question: { position: 4, title: "Criar pasta" } }));
+    fireEvent.click(screen.getByRole("button", { name: /Ana/ }));
+    receive("room:commands", {
+      studentId: ANA,
+      commands: [
+        { position: 4, command: "pwd", output: "/root", executedAt: "2026-10-21T09:10:00-03:00" },
+        { position: 4, command: "mkdir a", output: "", executedAt: "2026-10-21T09:11:00-03:00" },
+      ],
+    });
+    receive("room:command", { studentId: ANA, command: { position: 6, command: "ls", output: "a", executedAt: "2026-10-21T09:12:00-03:00" } });
+    const panel = screen.getByRole("region", { name: "Ana" });
+    const list = within(panel).getByRole("list", { name: "Comandos" });
+    expect(within(list).getAllByRole("listitem").map((l) => l.textContent)).toEqual([
+      expect.stringContaining("pwd"),
+      expect.stringContaining("mkdir a"),
+      expect.stringContaining("ls"),
+    ]);
+    expect(within(list).getByText("Questão 4: Criar pasta")).toBeDefined();
+    expect(within(list).getByText("Questão 6")).toBeDefined();
+
+    const all = within(panel).getByRole("button", { name: "Todas (3)" });
+    expect(all.getAttribute("aria-pressed")).toBe("true");
+    expect(within(panel).getByRole("button", { name: "Questão 4 (2)" })).toBeDefined();
+    const six = within(panel).getByRole("button", { name: "Questão 6 (1)" });
+    fireEvent.click(six);
+    expect(six.getAttribute("aria-pressed")).toBe("true");
+    const only = within(panel).getByRole("list", { name: "Comandos" });
+    expect(within(only).getAllByRole("listitem").map((l) => l.textContent)).toEqual([expect.stringContaining("ls")]);
+    expect(within(only).queryByText("Questão 6")).toBeNull();
+    fireEvent.click(within(panel).getByRole("button", { name: "Todas (3)" }));
+    expect(within(within(panel).getByRole("list", { name: "Comandos" })).getAllByRole("listitem")).toHaveLength(3);
+  });
+});
+
+describe("ExamRoom, SPEC-092 revision 3 the tabs of the panel (CA-16)", () => {
+  it("has the tabs Aluno and Pedidos de ajuda, a new request only changes the count, and opening a student shows Aluno", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    receive("room:student", doing());
+    const student = screen.getByRole("tab", { name: "Aluno" });
+    expect(student.getAttribute("aria-selected")).toBe("true");
+    receive("help:queue", { queue: [{ id: "h-1", studentId: ANA, position: 2, question: "Posso?", status: "OPEN", createdAt: "2026-10-21T09:31:00-03:00" }] });
+    const help = screen.getByRole("tab", { name: "Pedidos de ajuda (1)" });
+    expect(student.getAttribute("aria-selected")).toBe("true");
+    expect(screen.queryByRole("region", { name: "Pedidos de ajuda" })).toBeNull();
+
+    fireEvent.click(help);
+    expect(help.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tabpanel").textContent).toContain("Posso?");
+    fireEvent.click(screen.getByRole("button", { name: /Ana · Questão 2/ }));
+    expect(screen.getByRole("tab", { name: "Aluno" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("region", { name: "Ana" })).toBeDefined();
+  });
+
+  it("moves between the tabs with the arrows", async () => {
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Aluno" }), { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Pedidos de ajuda (0)" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Pedidos de ajuda (0)" }), { key: "ArrowLeft" });
+    expect(screen.getByRole("tab", { name: "Aluno" }).getAttribute("aria-selected")).toBe("true");
   });
 });
