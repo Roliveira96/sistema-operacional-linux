@@ -118,11 +118,14 @@ func TestMigration00047_UpAndDown(t *testing.T) {
 	}
 	assert.Equal(t, int64(2), count())
 	up48, down48 := migrationParts(t, "00048_") // the room of SPEC-091 points to the attempts
+	up50, down50 := migrationParts(t, "00050_") // and so does the conversation of SPEC-093
+	runMigration(t, e, down50)
 	runMigration(t, e, down48)
 	runMigration(t, e, down)
 	assert.Zero(t, count(), "the Down took the two tables away")
 	runMigration(t, e, up)
 	runMigration(t, e, up48)
+	runMigration(t, e, up50)
 	assert.Equal(t, int64(2), count(), "and they are back")
 }
 
