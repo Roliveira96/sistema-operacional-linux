@@ -182,6 +182,9 @@ describe("ExamTerminal, the machine that the exam itself loads", () => {
         reset: vi.fn((snapshot: unknown) => callbacks.onCommand(snapshot)),
         resetAnimated: vi.fn(async (snapshot: unknown) => callbacks.onCommand(snapshot)),
         destroy: vi.fn(),
+        terminalState: vi.fn(),
+        restoreTerminal: vi.fn(),
+        typedLine: vi.fn(() => ""),
       };
       terminal.windows.push(noisy);
       terminal.callbacks.push(callbacks);
