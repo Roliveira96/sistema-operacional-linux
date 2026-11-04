@@ -33,8 +33,15 @@ describe("AttemptAction", () => {
     expect(await screen.findByText("Prova entregue em 21/10/2026, 11:01.")).toBeDefined();
   });
 
-  it("offers nothing without the access and without an attempt", async () => {
+  // SPEC-091 RN-02 and CA-14: before the teacher starts, the student opens the window and waits in the waiting room there.
+  it("offers to enter, to wait in the waiting room, while the teacher has not started the exam", async () => {
     setup(myAccess({ allowed: false, reason: "NOT_STARTED" }));
+    const link = await screen.findByRole("link", { name: "Entrar na prova" });
+    expect(link.getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/take");
+  });
+
+  it("offers nothing without the access and without an attempt", async () => {
+    setup(myAccess({ allowed: false, reason: "NOT_OPEN_YET" }));
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByRole("link")).toBeNull();
   });
