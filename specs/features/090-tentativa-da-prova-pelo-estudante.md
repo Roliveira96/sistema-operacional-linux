@@ -5,7 +5,7 @@
 | **ID** | SPEC-090 |
 | **Status** | Aprovada |
 | **Data de criação** | 03/11/2026 |
-| **Última revisão** | 03/11/2026 |
+| **Última revisão** | 04/11/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -65,7 +65,12 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 - **Questão prática:** o botão **Conferir** pergunta ao servidor; resolvida, a questão ganha a marca e a comemoração do simulador (SPEC-087). As objetivas e a descritiva **não** dizem se estão certas.
 - **Entregar:** um diálogo pede a confirmação e diz quantas questões estão sem resposta: "Entregar a prova? N questões estão sem resposta. Depois de entregar, não dá para mudar nada." Confirmado, a janela mostra "Prova entregue." e trava.
 - **Fim do prazo:** quando o tempo chega a zero, a janela trava, envia o que falta e entrega sozinha, mostrando "O tempo acabou. Sua prova foi entregue."
-- **Volta:** ao reabrir a janela, ela carrega a tentativa com as respostas salvas e cada máquina no último estado salvo; o que foi digitado sem Enter se perde.
+- **Volta:** ao reabrir a janela, ela carrega a tentativa com as respostas salvas e cada máquina no último estado salvo; o que foi digitado sem Enter se perde (mudou na revisão 2, abaixo).
+
+**Revisão 2 (04/11/2026): o terminal volta como estava.** Pedido do roteiro manual: o aluno recarregou a janela e o terminal voltou limpo, só com os arquivos.
+
+- **O terminal vai junto com a máquina.** A gravação da prática (RN-04) leva também o terminal 1 da questão: a tela (as últimas 500 linhas), o histórico de comandos, a pasta atual e o usuário. Ao reabrir, a questão volta com a mesma tela, a seta para cima traz os comandos de antes e o aluno continua na mesma pasta. *Reset Máquina* limpa tudo isso, como hoje. Tudo cabe nos 256 KiB da RN-04, e a conferência e a nota continuam olhando só a máquina.
+- **Cópia no navegador.** A janela guarda no `localStorage`, por tentativa, o que o servidor ainda não confirmou (as respostas e os terminais) e a linha que o aluno está digitando sem Enter. Ao reabrir no mesmo navegador, isso vale por cima do que veio do servidor e é enviado na hora. Em outro navegador, vale o do servidor. A cópia é apagada quando o servidor confirma a gravação e na entrega. Se o navegador não deixar gravar, a janela segue só com o servidor.
 
 **Detalhe da avaliação, visão da docente e do administrador:** uma seção nova **Tentativas**, depois das questões. Ela traz uma tabela com aluno, RA, situação (*Em andamento*, *Entregue*, *Tempo esgotado*), início, entrega e nota preliminar ("7,50 de 10,00 · 1 descritiva pendente"), e o botão *Atualizar*. Sem tentativas: "Nenhum aluno entrou na prova ainda."
 
@@ -182,6 +187,8 @@ Todas sob `/api/v1/classes/:id/assessments/:assessmentId`. Erros em RFC 7807.
 - [x] **CA-14** (evento): QUANDO o estudante reabre a janela de uma tentativa em andamento, A janela DEVE carregar as respostas salvas e cada máquina no último estado salvo.
 - [x] **CA-15** (estado): ENQUANTO a docente vê o detalhe da prova, A seção *Tentativas* DEVE listar as tentativas com a situação e a nota preliminar, ou dizer que nenhum aluno entrou.
 - [x] **CA-16** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, e a janela da prova e os diálogos DEVEM ter navegação por teclado, contraste AA e alvos de 44 px.
+- [ ] **CA-17** (evento): QUANDO o estudante reabre a janela de uma tentativa em andamento, A questão prática DEVE voltar com a tela, o histórico de comandos, a pasta e o usuário do terminal salvos, e *Reset Máquina* DEVE limpá-los (revisão 2).
+- [ ] **CA-18** (evento): QUANDO o estudante reabre a janela no mesmo navegador com respostas que o servidor não confirmou ou uma linha digitada sem Enter, A janela DEVE mostrá-las por cima das do servidor, enviá-las e apagar a cópia local quando o servidor confirmar; sem `localStorage`, DEVE seguir só com o servidor (revisão 2).
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -249,3 +256,5 @@ Nenhuma. O Tech Lead decidiu em 03/11/2026, ao aprovar a spec, as cinco pendênc
 | 03/11/2026 | Implementador | Implementada, menos o roteiro manual, por isso o status continua `Aprovada`. **Feito:** CA-01 a CA-16. Backend: migração 00047 (`assessment_attempts` e `assessment_attempt_items`), `domain/attempt.go`, `service/attempt.go` (entrar, salvar, conferir, entregar, vencer, a lista da docente), `repository/attempt.go` (também o `AttemptCheck`), `handler/attempt.go` (as seis rotas), a correção `Grade` no adaptador `cmd/api/assessment_refs.go` e a varredura `attempt-expiry` de um minuto no agendador. Frontend: `ExamRunner` (a janela da prova), a página `/take`, `AttemptAction` (o botão do aluno), `AssessmentAttempts` (a seção da docente), `lib/attemptAnswers.ts`, o `resume` do `ExamTerminal`, o serviço e as mensagens. **Medido:** vermelho pelos motivos esperados (tipos, rotas e componentes inexistentes); verde: `go test` de `assessment` com 97,3% no domain, 84,2% no handler, 88,7% no repository e 84,1% no service, `cmd/api` verde; frontend com 625 testes das pastas da avaliação verdes, 85,4% de cobertura nos arquivos novos, `tsc`, ESLint e Stylelint limpos. **Desvios:** a descritiva respeita o tamanho máximo da própria questão (o do banco), não 10.000 caracteres; `student_id` aponta para `users`, como as outras tabelas da avaliação, e não para `students`; o ligar colunas da tentativa aceita resposta parcial (a correção do banco exige todas as ligações), com o adaptador próprio `gradeLinks`; a descritiva em branco vale zero e não fica pendente. **Testes alterados depois do vermelho:** em `ExamRunner.test.tsx`, só o tipo dos mocks (`as never`), sem mudar o que verificam; `TestMigration00041_UpAndDown` desce e sobe também a 00047. O teste do adaptador de correção foi escrito depois do código e visto vermelho guardando o adaptador à parte. **Aberto:** o roteiro manual (seção 8). |
 | 03/11/2026 | Implementador | A SPEC-091 acrescentou o status `ENDED_BY_TEACHER`, que a entrega, as respostas e a conferência tratam como entregue, e a sala de espera antes da entrada na prova. |
 | 04/11/2026 | Implementador | Correção achada no roteiro manual: a cópia da questão gravada na tentativa saía com as chaves das alternativas e das colunas em maiúsculas (`ID`, `HTML`, `Left`, `Right`, `Text`), e a janela mostrava as letras sem o texto. As structs ganharam as tags JSON, e a migração 00049 corrige as cópias já gravadas (CA-11). |
+| 04/11/2026 | Aruna Architect | **Revisão 2 proposta**, a pedido do Tech Lead no roteiro manual ("se ele recarrega ele perde a questão do terminal [...] deve ser mantido, tanto localmente como via servidor"): o terminal (tela, histórico, pasta e usuário) vai junto com a máquina, e a janela guarda no navegador o que o servidor ainda não confirmou e a linha sem Enter. CA-17 e CA-18 novos. |
+| 04/11/2026 | Tech Lead | Revisão 2 aprovada ("aprovo"). Status: `Aprovada` |
