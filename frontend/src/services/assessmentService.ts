@@ -245,6 +245,20 @@ export interface AttemptRow {
   submittedAt?: string;
   preliminaryScore?: number;
   pendingItems?: number;
+  /** The number of messages of the conversation (SPEC-093 RN-07). */
+  chatCount?: number;
+}
+
+/** A message of the conversation of the exam (SPEC-093 section 5): studentId is the owner of a private conversation; senderName only in the record. */
+export interface ExamChatMessage {
+  id: string;
+  scope: "private" | "all";
+  studentId?: string;
+  from: "TEACHER" | "STUDENT";
+  position?: number;
+  text: string;
+  createdAt: string;
+  senderName?: string;
 }
 
 /** A student in the room of the exam (SPEC-091 RN-04): ABSENT until there is an attempt; online and waiting come from the realtime. */
@@ -364,6 +378,9 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     submitAttempt: (classId: string, id: string) => client.post<StudentAttempt>(`${base(classId)}/${id}/attempt/submit`),
     /** The attempts of the exam, for the teacher and the administrator (SPEC-090 RN-09). */
     attempts: (classId: string, id: string) => client.get<{ items: AttemptRow[]; serverNow: string }>(`${base(classId)}/${id}/attempts`),
+    /** The whole conversation of an attempt, for the teacher and the administrator (SPEC-093 RN-07). */
+    attemptChat: (classId: string, id: string, attemptId: string) =>
+      client.get<{ messages: ExamChatMessage[] }>(`${base(classId)}/${id}/attempts/${attemptId}/chat`),
     /** Ends the exam of a student, with the reason (SPEC-091 RN-08). */
     endAttempt: (classId: string, id: string, attemptId: string, reason: string) => client.post<AttemptRow>(`${base(classId)}/${id}/attempts/${attemptId}/end`, { reason }),
     /** Opens the room of the exam on the same origin, under /api/v1 (SPEC-091 section 5). A message that is not JSON is ignored. */

@@ -395,6 +395,17 @@
   font-variant-numeric: tabular-nums;
 }
 
+// the new messages of the student (SPEC-093)
+.unread {
+  align-self: flex-start;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-subtle);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
 .handNote {
   display: flex;
   flex-direction: column;

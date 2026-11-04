@@ -58,6 +58,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
     [classId, assessmentId],
   );
   const loadAttempts = useCallback(() => assessmentService.attempts(classId!, assessmentId!), [classId, assessmentId]);
+  const loadChat = useCallback((attemptId: string) => assessmentService.attemptChat(classId!, assessmentId!, attemptId), [classId, assessmentId]);
 
   useEffect(() => {
     if (!classId || !assessmentId || isStudent) return;
@@ -237,7 +238,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         </section>
       )}
 
-      {detail.type === "EXAM" && <AssessmentAttempts maxScore={detail.maxScore} load={loadAttempts} />}
+      {detail.type === "EXAM" && <AssessmentAttempts maxScore={detail.maxScore} load={loadAttempts} loadChat={loadChat} />}
 
       {showPreview && (
         <section className={styles.section}>

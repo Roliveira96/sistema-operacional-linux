@@ -3,12 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/Button/Button";
+import { StudentChat } from "@/components/ExamChat/ExamChat";
 import { ExamRunner, type ExamRunnerRoom } from "@/components/ExamRunner/ExamRunner";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouteParams } from "@/hooks/useRouteParams";
 import { messages } from "@/messages/pt-BR";
 import { ApiProblemError } from "@/services/httpClient";
-import { assessmentService, describeAssessmentError, type RoomSocket, type StudentAttempt } from "@/services/assessmentService";
+import { assessmentService, describeAssessmentError, type ExamChatMessage, type RoomSocket, type StudentAttempt } from "@/services/assessmentService";
 import styles from "../../page.module.scss";
 import own from "../simulate/page.module.scss";
 import take from "./page.module.scss";
@@ -54,6 +55,15 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
   const [question, setQuestion] = useState("");
   const [ended, setEnded] = useState<string | null>(null);
   const [watched, setWatched] = useState(false);
+  // the conversation with the teacher (SPEC-093): the messages, whether the column is open and the new ones of the teacher while it is closed
+  const [chat, setChat] = useState<ExamChatMessage[]>([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [online, setOnline] = useState(false);
+  const chatOpenRef = useRef(false);
+  useEffect(() => {
+    chatOpenRef.current = chatOpen;
+  }, [chatOpen]);
 
   const socket = useRef<RoomSocket | null>(null);
   const connected = useRef(false);
@@ -102,6 +112,7 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
         onOpen: () => {
           if (!alive) return;
           connected.current = true;
+          setOnline(true);
           const queued = pending.current.splice(0);
           queued.forEach((c) => socket.current?.send("room:command", c));
           if (lastQuestion.current) socket.current?.send("room:question", lastQuestion.current);
@@ -112,6 +123,7 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
           switch (type) {
             case "room:snapshot":
               if (body.help) setHelp(body.help as Help);
+              if (Array.isArray(body.chat)) setChat(body.chat as ExamChatMessage[]);
               if (body.waiting === true && !entered) setPhase("waiting");
               else enter();
               break;
@@ -130,11 +142,18 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
             case "room:watch-off":
               setWatched(false);
               break;
+            case "chat:message": {
+              const got = body as unknown as ExamChatMessage;
+              setChat((all) => (all.some((x) => x.id === got.id) ? all : [...all, got]));
+              if (got.from === "TEACHER" && !chatOpenRef.current) setUnread((n) => n + 1);
+              break;
+            }
           }
         },
         onClose: () => {
           if (!alive) return;
           connected.current = false;
+          setOnline(false);
           setWatched(false);
           enter(); // without the room the exam goes on; the server still decides who may enter
           timer = setTimeout(connect, RECONNECT_MS);
@@ -167,6 +186,17 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
       onScreen: (position, questionTitle, screen) => socket.current?.send("room:screen", { position, title: questionTitle, screen }),
       header: (position) => (
         <div className={take.help}>
+          <StudentChat
+            messages={chat}
+            open={chatOpen}
+            unread={unread}
+            online={online}
+            onToggle={() => {
+              setChatOpen(!chatOpen);
+              setUnread(0);
+            }}
+            onSend={(text) => socket.current?.send("chat:send", { text })}
+          />
           {help.status === "OPEN" ? (
             <>
               <span role="status">{r.helpOpen}</span>
@@ -207,7 +237,7 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
         </div>
       ),
     }),
-    [watched, help, asking, question],
+    [watched, help, asking, question, chat, chatOpen, unread, online],
   );
 
   if (!classId || !assessmentId || !isStudent) return null;

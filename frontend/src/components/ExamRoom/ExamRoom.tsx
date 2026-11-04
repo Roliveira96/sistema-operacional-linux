@@ -14,6 +14,7 @@ import {
   type BeepKind,
 } from "@/components/Classroom/TeacherPanel/TeacherPanel";
 import { TerminalMirror } from "@/components/Classroom/TerminalMirror/TerminalMirror";
+import { ChatComposer, ChatThread } from "@/components/ExamChat/ExamChat";
 import type { ScreenElement } from "@/engine/terminalScreen";
 import { countdown, formatHour } from "@/lib/assessment";
 import { messages } from "@/messages/pt-BR";
@@ -21,6 +22,7 @@ import {
   assessmentService,
   describeAssessmentError,
   type AssessmentDetail,
+  type ExamChatMessage,
   type HelpItem,
   type RoomCard,
   type RoomCommand,
@@ -28,6 +30,7 @@ import {
 import styles from "./ExamRoom.module.scss";
 
 const r = messages.assessments.room;
+const c = messages.assessments.chat;
 const since = messages.classroom.admission.since;
 
 /** The last minutes of the exam, when the time turns to a warning (SPEC-092). */
@@ -52,7 +55,8 @@ const savedWidth = () => {
   }
 };
 
-type Tab = "student" | "help";
+type Tab = "student" | "help" | "chat";
+const TABS: Tab[] = ["student", "help", "chat"];
 
 type Filter = "all" | "hands" | "waiting" | "doing" | "delivered" | "absent";
 
@@ -152,6 +156,10 @@ export function ExamRoom({
   const [titles, setTitles] = useState<Record<string, Record<number, string>>>(
     {},
   );
+  // the conversation of the exam (SPEC-093): every message the room gave, and the new ones of each student the teacher has not seen
+  const [chat, setChat] = useState<ExamChatMessage[]>([]);
+  const [unread, setUnread] = useState<Record<string, number>>({});
+  const seenBy = useRef({ tab, watching: null as string | null });
 
   const body = useRef<HTMLDivElement>(null);
   const commandList = useRef<HTMLOListElement>(null);
@@ -238,6 +246,27 @@ export function ExamRoom({
           if (typeof data.serverNow === "string")
             setOffset(Date.parse(data.serverNow) - Date.now());
           if (typeof data.watching === "string") setWatching(data.watching);
+          if (Array.isArray(data.chat)) setChat(data.chat as ExamChatMessage[]);
+          break;
+        }
+        case "chat:message": {
+          const got = data as unknown as ExamChatMessage;
+          setChat((all) =>
+            all.some((m) => m.id === got.id) ? all : [...all, got],
+          );
+          const from = got.studentId;
+          const seen =
+            seenBy.current.tab === "chat" && seenBy.current.watching === from;
+          if (got.from !== "STUDENT" || !from || seen) break;
+          setUnread((all) => ({ ...all, [from]: (all[from] ?? 0) + 1 }));
+          tell.current.beep("arrival");
+          const n = tell.current.notice;
+          if (n.permission() === "granted" && !n.inView())
+            n.show({
+              title: c.notice.title,
+              body: c.notice.body(names.current.get(from) ?? "", got.text),
+              tag: `chat-${id}`,
+            });
           break;
         }
         case "room:student":
@@ -382,8 +411,9 @@ export function ExamRoom({
   };
   const tabKey = (e: React.KeyboardEvent) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    const next: Tab = tab === "student" ? "help" : "student";
-    setTab(next);
+    const step = e.key === "ArrowRight" ? 1 : TABS.length - 1;
+    const next = TABS[(TABS.indexOf(tab) + step) % TABS.length]!;
+    selectTab(next);
     document.getElementById(`exam-room-tab-${next}`)?.focus();
   };
   const answer = (h: HelpItem) => {
@@ -431,6 +461,23 @@ export function ExamRoom({
       : commandsOf.filter((c) => c.position === commandFilter);
   const titlesOf = open ? (titles[open.studentId] ?? {}) : {};
   const openHelp = queue.filter((h) => h.status === "OPEN").length;
+  const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
+  const sendChat = (text: string, to: { studentId: string } | "all") =>
+    socket.current?.send(
+      "chat:send",
+      to === "all" ? { text, to: "all" } : { text, studentId: to.studentId },
+    );
+
+  // what the teacher sees now, for the messages that come: the ones of the conversation open in the tab Chat are not new
+  useEffect(() => {
+    seenBy.current = { tab, watching };
+  }, [tab, watching]);
+  /** Goes to a tab; opening the conversation of a student takes its new ones away. */
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    if (next === "chat" && watching)
+      setUnread((all) => (all[watching] ? { ...all, [watching]: 0 } : all));
+  };
 
   // the list follows the last command, as a terminal does, while the teacher has not scrolled it up
   useEffect(() => {
@@ -593,6 +640,11 @@ export function ExamRoom({
                           )}
                         </span>
                       )}
+                      {(unread[c.studentId] ?? 0) > 0 && (
+                        <span className={styles.unread}>
+                          {messages.assessments.chat.unread(unread[c.studentId]!)}
+                        </span>
+                      )}
                       {c.help && (
                         <span className={styles.handNote}>
                           <span className={styles.handUp}>{r.handUp}</span>
@@ -636,7 +688,7 @@ export function ExamRoom({
               aria-label={r.panelTabs}
               className={styles.tabs}
             >
-              {(["student", "help"] as Tab[]).map((t) => (
+              {TABS.map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -645,11 +697,15 @@ export function ExamRoom({
                   aria-selected={tab === t}
                   aria-controls="exam-room-panel"
                   tabIndex={tab === t ? 0 : -1}
-                  className={`${styles.tab} ${t === "help" && openHelp > 0 ? styles.tabHands : ""}`}
-                  onClick={() => setTab(t)}
+                  className={`${styles.tab} ${(t === "help" && openHelp > 0) || (t === "chat" && totalUnread > 0) ? styles.tabHands : ""}`}
+                  onClick={() => selectTab(t)}
                   onKeyDown={tabKey}
                 >
-                  {t === "student" ? r.tabStudent : r.tabHelp(openHelp)}
+                  {t === "student"
+                    ? r.tabStudent
+                    : t === "help"
+                      ? r.tabHelp(openHelp)
+                      : c.tab(totalUnread)}
                 </button>
               ))}
             </div>
@@ -799,6 +855,45 @@ export function ExamRoom({
               ) : (
                 <p className={styles.hint}>{r.pick}</p>
               ))}
+
+            {tab === "chat" && (
+              <section
+                className={styles.queue}
+                aria-label={open ? open.name : c.channelAll}
+              >
+                <h2 className={styles.heading}>
+                  {open ? open.name : c.channelAll}
+                </h2>
+                <ChatThread
+                  viewer="teacher"
+                  studentName={open?.name}
+                  emptyText={c.teacherEmpty}
+                  messages={chat.filter(
+                    (m) =>
+                      m.scope === "all" ||
+                      (!!open && m.studentId === open.studentId),
+                  )}
+                />
+                <ChatComposer
+                  disabled={!connected}
+                  actions={[
+                    ...(open
+                      ? [
+                          {
+                            label: c.sendTo(open.name),
+                            send: (text: string) =>
+                              sendChat(text, { studentId: open.studentId }),
+                          },
+                        ]
+                      : []),
+                    {
+                      label: c.sendAll,
+                      send: (text: string) => sendChat(text, "all"),
+                    },
+                  ]}
+                />
+              </section>
+            )}
 
             {tab === "help" &&
               (queue.length === 0 ? (
