@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -70,39 +71,45 @@ func TestRoomChat_DeliversOnlyToTheTeacherAndTheStudent(t *testing.T) {
 	bruno := w.dial(t, "bruno")
 	readType(t, bruno, "room:snapshot")
 
+	// nextChat is the next message of the conversation the connection gets: a refused one never comes before it (a read that times out breaks the
+	// connection, so nothing waits for a message that must not come)
+	nextChat := func(c *websocket.Conn, text string) map[string]any {
+		got := object2(t, readType(t, c, "chat:message").Data)
+		assert.Equal(t, text, got["text"])
+		return got
+	}
+
 	sendWS(t, ana, "room:question", map[string]any{"position": 4, "title": "Criar pasta"})
 	sendWS(t, ana, "chat:send", map[string]any{"text": "Posso usar o man?"})
-	got := object2(t, readType(t, teacher, "chat:message").Data)
+	got := nextChat(teacher, "Posso usar o man?")
 	assert.Equal(t, "private", got["scope"])
 	assert.Equal(t, roomStudent.String(), got["studentId"])
 	assert.Equal(t, "STUDENT", got["from"])
-	assert.Equal(t, "Posso usar o man?", got["text"])
 	assert.Equal(t, 4.0, got["position"])
 	assert.Contains(t, got, "id")
 	assert.Contains(t, got, "createdAt")
-	readType(t, ana, "chat:message")
+	nextChat(ana, "Posso usar o man?")
 
 	sendWS(t, ana, "chat:send", map[string]any{"text": "Para todos", "to": "all"})
 	sendWS(t, ana, "chat:send", map[string]any{"text": "Bruno", "studentId": roomOther.String()})
-	silent(t, teacher, "chat:message")
+	sendWS(t, ana, "chat:send", map[string]any{"text": "De novo"})
+	nextChat(teacher, "De novo")
+	nextChat(ana, "De novo")
 
 	sendWS(t, teacher, "chat:send", map[string]any{"text": "Pode", "studentId": roomStudent.String()})
-	mine := object2(t, readType(t, ana, "chat:message").Data)
+	mine := nextChat(ana, "Pode")
 	assert.Equal(t, "TEACHER", mine["from"])
 	assert.Equal(t, 4.0, mine["position"], "the question the student is in")
-	readType(t, teacher, "chat:message")
-	silent(t, bruno, "chat:message")
+	nextChat(teacher, "Pode")
 
 	sendWS(t, teacher, "chat:send", map[string]any{"text": "Os dois", "studentId": roomStudent.String(), "to": "all"})
 	sendWS(t, teacher, "chat:send", map[string]any{"text": "Nenhum"})
-	silent(t, ana, "chat:message")
-
 	sendWS(t, teacher, "chat:send", map[string]any{"text": "Faltam 10 minutos", "to": "all"})
-	toAll := object2(t, readType(t, bruno, "chat:message").Data)
+	toAll := nextChat(bruno, "Faltam 10 minutos")
 	assert.Equal(t, "all", toAll["scope"])
 	assert.NotContains(t, toAll, "studentId")
-	readType(t, ana, "chat:message")
-	readType(t, teacher, "chat:message")
+	nextChat(ana, "Faltam 10 minutos")
+	nextChat(teacher, "Faltam 10 minutos")
 }
 
 // Covers SPEC-093 CA-05 (RN-06): the whole state has the conversation by the role: the student, hers; the teacher, the last of the exam.
