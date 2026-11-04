@@ -539,9 +539,13 @@
   color: var(--color-text-secondary);
 }
 
+// The terminal of the student: a box of a fixed height and a flex column, as in the live class, so the screen of the terminal scrolls inside it
+// and the mirror keeps it at the end while the student types (SPEC-091 RN-05). With a height that only grows, the bottom was cut off.
 .mirror {
-  min-height: 12rem;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  height: clamp(16rem, 45vh, 36rem);
+  overflow: hidden;
   border-radius: var(--radius-sm);
   background: var(--color-terminal-bg);
   color: var(--color-terminal-text);
