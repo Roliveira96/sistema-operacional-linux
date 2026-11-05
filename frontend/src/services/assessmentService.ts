@@ -14,6 +14,8 @@ export type ClearanceStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 /** What every reader of an assessment gets (SPEC-075, section 5.1); the times are ISO 8601 in Brasília. */
 export interface AssessmentBase {
+  /** The student learns the grades were published (SPEC-098). */
+  gradesPublished?: boolean;
   id: string;
   classId: string;
   classSessionId?: string;
@@ -76,8 +78,7 @@ export interface AssessmentSummary extends AssessmentBase {
   /** The teacher published the grades (SPEC-098). */
   gradesPublishedAt?: string;
   gradesPublishedByName?: string;
-  /** The student learns the grades were published (SPEC-098). */
-  gradesPublished?: boolean;
+
 }
 
 export interface AssessmentItem {
@@ -296,6 +297,20 @@ export interface ReviewItem extends TeacherAttemptItem {
   commands: ReviewCommand[];
 }
 
+/** A question of the published result of the student (SPEC-098 section 5): the points that counted and the reason of an adjustment. */
+export interface ResultItem extends TeacherAttemptItem {
+  points?: number;
+  adjustReason?: string;
+}
+
+/** The published result of the exam of the student (SPEC-098 section 5). */
+export interface StudentResult {
+  finalScore: number;
+  maxScore: number;
+  studentNote?: string;
+  items: ResultItem[];
+}
+
 /** The delivered attempt of one student as the teacher corrects it (SPEC-097 section 5). */
 export interface Review {
   attemptId: string;
@@ -462,6 +477,7 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     review: (classId: string, id: string, attemptId: string) => client.get<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
     adjustPoints: (classId: string, id: string, attemptId: string, position: number, points: number | null, reason: string) =>
       client.put<Review>(`${base(classId)}/${id}/attempts/${attemptId}/items/${position}/points`, points === null ? { points: null } : { points, reason }),
+    myResult: (classId: string, id: string) => client.get<StudentResult>(`${base(classId)}/${id}/my-result`),
     publishGrades: (classId: string, id: string) => client.post<Now<AssessmentSummary>>(`${base(classId)}/${id}/grades/publish`),
     finishReview: (classId: string, id: string, attemptId: string) => client.post<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
     reopenReview: (classId: string, id: string, attemptId: string) => client.delete<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),

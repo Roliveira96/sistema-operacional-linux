@@ -9,6 +9,7 @@ import { AssessmentCard } from "@/components/AssessmentCard/AssessmentCard";
 import { AssessmentHistory } from "@/components/AssessmentHistory/AssessmentHistory";
 import { AssessmentPreview, DrawRulesTable } from "@/components/AssessmentPreview/AssessmentPreview";
 import { AssessmentStartDialog } from "@/components/AssessmentStartDialog/AssessmentStartDialog";
+import { ResultSummary } from "@/components/AssessmentResult/AssessmentResult";
 import { AttemptAction } from "@/components/AttemptAction/AttemptAction";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
@@ -57,6 +58,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
       }),
     [classId, assessmentId],
   );
+  const loadResult = useCallback(() => assessmentService.myResult(classId!, assessmentId!), [classId, assessmentId]);
   const loadAttempts = useCallback(() => assessmentService.attempts(classId!, assessmentId!), [classId, assessmentId]);
   // how many delivered and how many were reviewed, for the button of the correction once the exam ended (SPEC-097 CA-01)
   const [corrected, setCorrected] = useState<{ reviewed: number; total: number } | null>(null);
@@ -108,6 +110,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         <AssessmentCard load={loadPublic} />
         <AssessmentAccessNotice load={loadAccess} />
         <AttemptAction classId={classId} assessmentId={assessmentId} loadAccess={loadAccess} loadAttempt={loadAttempt} />
+        <ResultSummary href={`/app/classes/${classId}/assessments/${assessmentId}/result`} load={loadResult} />
       </main>
     );
   }

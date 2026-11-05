@@ -1313,6 +1313,19 @@ export const messages = {
       loadError: "Não foi possível carregar a conversa.",
       close: "Fechar",
     },
+    /** The published result of the student (SPEC-098). */
+    result: {
+      grade: (score: string, max: string) => `Sua nota: ${score} de ${max}`,
+      note: "Anotação da docente",
+      open: "Ver a correção",
+      title: "Correção da sua prova",
+      back: "Voltar para a avaliação",
+      item: (p: number, title: string) => `Questão ${p}: ${title}`,
+      points: (points: string, weight: string) => `Pontos: ${points} de ${weight}`,
+      reason: (reason: string) => `Motivo do ajuste: ${reason}`,
+      notPublished: "O resultado desta prova ainda não foi publicado.",
+      loading: "Carregando o resultado…",
+    },
     /** The correction of the exam by the teacher (SPEC-097). */
     review: {
       open: (reviewed: number, total: number) => `Corrigir a prova (${reviewed} de ${total} revisadas)`,
