@@ -7,6 +7,8 @@ import { messages } from "@/messages/pt-BR";
 import type { MyAccess, StudentAttempt } from "@/services/assessmentService";
 
 const a = messages.assessments.attemptAction;
+/** How often the access is asked again while the exam is not open yet. */
+const RECHECK_MS = 15_000;
 
 export interface AttemptActionProps {
   classId: string;
@@ -26,9 +28,18 @@ export function AttemptAction({ classId, assessmentId, loadAccess, loadAttempt }
 
   useEffect(() => {
     let alive = true;
-    Promise.all([loadAccess().catch(() => null), loadAttempt().catch(() => null)]).then(([access, attempt]) => alive && setState({ access, attempt }));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const load = () =>
+      Promise.all([loadAccess().catch(() => null), loadAttempt().catch(() => null)]).then(([access, attempt]) => {
+        if (!alive) return;
+        setState({ access, attempt });
+        // the page may be open before the period: ask again until the exam opens, so the way in shows up without a reload
+        if (!attempt && access?.reason === "NOT_OPEN_YET") timer = setTimeout(load, RECHECK_MS);
+      });
+    load();
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
   }, [loadAccess, loadAttempt]);
 
