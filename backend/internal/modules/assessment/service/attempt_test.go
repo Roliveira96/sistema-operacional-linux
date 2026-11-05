@@ -47,7 +47,15 @@ func (f *fixture) exam(t *testing.T, ids ...uuid.UUID) service.Summary {
 		in.Modality, in.Items, in.MaxScore = ptr(domain.ModalityOnline), items, domain.Points(float64(2*len(ids)))
 	})
 	f.begin(t, a)
+	f.admitAll(t, a)
 	return a
+}
+
+// admitAll admits the students of the class, as the teacher, after the start (SPEC-096 RN-01).
+func (f *fixture) admitAll(t *testing.T, a service.Summary) {
+	t.Helper()
+	_, err := f.svc.Admit(ctx, f.teacher, f.class.ID, a.ID, []uuid.UUID{f.ana.ID, f.bruno.ID, f.carla.ID})
+	require.NoError(t, err)
 }
 
 // fiveKinds is an exam with one question of each kind: single choice (a), true or false (true), matching of two pairs, practical and written.
@@ -109,6 +117,7 @@ func TestEnterAttempt_DeadlineIsTheDurationOrTheEnd(t *testing.T) {
 		in.Items, in.MaxScore = []domain.Item{{QuestionID: q, Position: 1, Weight: domain.Points(10)}}, domain.Points(10)
 	})
 	f.begin(t, a)
+	f.admitAll(t, a) // SPEC-096: the start admits nobody
 
 	f.now = at(21, 9, 10)
 	assert.True(t, f.enter(t, f.ana, a).DeadlineAt.Equal(at(21, 9, 40)), "the start plus 30 minutes")
@@ -133,6 +142,7 @@ func TestEnterAttempt_RefusalsSayWhy(t *testing.T) {
 	_, err := f.svc.Cancel(ctx, f.teacher, f.class.ID, canceled.ID, "Greve")
 	require.NoError(t, err)
 	f.begin(t, inPerson)
+	f.admitAll(t, inPerson) // SPEC-096: the start admits nobody
 
 	cases := []struct {
 		name    string
@@ -172,6 +182,7 @@ func TestEnterAttempt_DrawAndFrozenQuestions(t *testing.T) {
 		in.Draw, in.MaxScore = f.draw(2, 1, 0, 3, 4, 0), domain.Points(10)
 	})
 	f.begin(t, a)
+	f.admitAll(t, a) // SPEC-096: the start admits nobody
 	got := f.enter(t, f.ana, a)
 	require.Len(t, got.Items, 3)
 	assert.Equal(t, []domain.Score{domain.Points(3), domain.Points(3), domain.Points(4)}, []domain.Score{got.Items[0].Weight, got.Items[1].Weight, got.Items[2].Weight})
@@ -360,4 +371,23 @@ func TestAttempts_TheListOfTheTeacher(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrForbidden)
 	_, err = f.svc.Attempts(ctx, f.as(f.ana), f.class.ID, a.ID)
 	assert.ErrorIs(t, err, domain.ErrForbidden)
+}
+
+// Covers SPEC-090 CA-11 (roteiro de 04/11/2026): the copy of the question saved in the attempt has the keys the window of the exam reads, in lower
+// case, for the alternatives and for the two columns; without them the student saw the letters and no text.
+func TestEnterAttempt_TheStudentViewHasTheKeysTheWindowReads(t *testing.T) {
+	f := newFixture(t)
+	single := f.addKind(kindSingle, `"a"`)
+	matching := f.addKind(kindMatching, `{}`)
+	q := f.questions.bank[matching]
+	q.StudentView = service.StudentView{Columns: &service.StudentColumns{Left: []service.StudentItem{{ID: "l1", Text: "ls"}}, Right: []service.StudentItem{{ID: "r1", Text: "lista"}}}}
+	f.questions.bank[matching] = q
+	a := f.exam(t, single, matching)
+	f.now = at(21, 9, 10)
+
+	got, _, err := f.svc.EnterAttempt(ctx, f.as(f.ana), f.class.ID, a.ID)
+	require.NoError(t, err)
+
+	assert.Contains(t, string(got.Items[0].StudentView), `"choices":[{"id":"a","html":"chmod"}]`)
+	assert.Contains(t, string(got.Items[1].StudentView), `"columns":{"left":[{"id":"l1","text":"ls"}],"right":[{"id":"r1","text":"lista"}]}`)
 }

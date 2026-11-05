@@ -94,14 +94,24 @@ type StudentView struct {
 	MaxLength *int
 }
 
-// StudentChoice is an alternative of a single choice question: its id and its filtered html.
-type StudentChoice struct{ ID, HTML string }
+// StudentChoice is an alternative of a single choice question: its id and its filtered html. The tags are the keys of the copy saved in the
+// attempt, which the window of the exam reads (SPEC-090).
+type StudentChoice struct {
+	ID   string `json:"id"`
+	HTML string `json:"html"`
+}
 
 // StudentItem is an item of a column of a matching question: its id and its text.
-type StudentItem struct{ ID, Text string }
+type StudentItem struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
 
 // StudentColumns are the two columns of a matching question, each in the order of the teacher.
-type StudentColumns struct{ Left, Right []StudentItem }
+type StudentColumns struct {
+	Left  []StudentItem `json:"left"`
+	Right []StudentItem `json:"right"`
+}
 
 // QuestionFilter picks questions of a module.
 type QuestionFilter struct {
@@ -146,6 +156,12 @@ type Questions interface {
 	// Grade grades an answer against a grading key frozen in an attempt, with the grading of the bank; an answer that does not fit the kind is
 	// domain.ErrInvalidAnswer (SPEC-090 RN-04, RN-05, RN-08).
 	Grade(ctx context.Context, kind string, key, answer json.RawMessage) (Graded, error)
+	// AnswerKey gives the answer key of an objective question from the grading key frozen in an attempt, and nil for the other kinds; the
+	// teacher reads it beside the answer in the room (SPEC-095 D-02).
+	AnswerKey(ctx context.Context, kind string, key json.RawMessage) (json.RawMessage, error)
+	// ExpectedAnswer gives the answer the teacher expected in a written question, from the grading key frozen in an attempt, and "" for the other
+	// kinds; it guides the correction (SPEC-097).
+	ExpectedAnswer(ctx context.Context, kind string, key json.RawMessage) (string, error)
 }
 
 // HomologationCheck says whether an assessment has homologated grades (RN-12). The grades module does not exist yet, so the composition root plugs
@@ -240,6 +256,29 @@ type Repository interface {
 	CloseHelp(ctx context.Context, id uuid.UUID, status domain.HelpStatus, at time.Time, by *uuid.UUID, answer string) error
 	// OpenHelps gives the open requests of an assessment, the oldest first, with the student.
 	OpenHelps(ctx context.Context, assessmentID uuid.UUID) ([]domain.HelpRequest, error)
+	// SaveChat stores a message of the conversation of the exam, giving it its id and the student of its attempt, with who received one to all
+	// (SPEC-093 RN-03, D-01).
+	SaveChat(ctx context.Context, m *domain.ChatMessage, recipients []uuid.UUID) error
+	// AttemptChat gives the conversation of an attempt with the messages to all it received; AssessmentChat, the last messages of the exam; both
+	// oldest first (RN-06, RN-07).
+	AttemptChat(ctx context.Context, attemptID uuid.UUID) ([]domain.ChatMessage, error)
+	AssessmentChat(ctx context.Context, assessmentID uuid.UUID, limit int) ([]domain.ChatMessage, error)
+	// ChatCounts gives the number of messages of the conversation of each attempt of the exam (RN-07).
+	ChatCounts(ctx context.Context, assessmentID uuid.UUID) (map[uuid.UUID]int, error)
+	// Admit stores the admission of the students, ignoring who was already admitted, and gives back who was admitted now; Admitted gives who was
+	// admitted (SPEC-096 RN-01).
+	Admit(ctx context.Context, assessmentID uuid.UUID, students []uuid.UUID, at time.Time, by uuid.UUID) ([]uuid.UUID, error)
+	Admitted(ctx context.Context, assessmentID uuid.UUID) (map[uuid.UUID]bool, error)
+	// AttemptHelps gives every request for help of an attempt, the oldest first (SPEC-097).
+	AttemptHelps(ctx context.Context, attemptID uuid.UUID) ([]domain.HelpRequest, error)
+	// AdjustItem stores the points the teacher gave a question in the correction with the reason, or undoes them with nil; an unknown position is
+	// domain.ErrAttemptNotFound (SPEC-097 RN-03).
+	AdjustItem(ctx context.Context, attemptID uuid.UUID, position int, points *domain.Score, reason *string, at time.Time, by uuid.UUID) error
+	// SaveReviewNotes keeps the private note and the note to the student, nil clearing them; FinishReview keeps the final score, who and when;
+	// ReopenReview clears them (SPEC-097 RN-04, RN-05).
+	SaveReviewNotes(ctx context.Context, attemptID uuid.UUID, teacher, student *string) error
+	FinishReview(ctx context.Context, attemptID uuid.UUID, score domain.Score, at time.Time, by uuid.UUID) error
+	ReopenReview(ctx context.Context, attemptID uuid.UUID) error
 }
 
 // Service implements the use cases of the assessments.
@@ -363,6 +402,8 @@ type Public struct {
 	DurationMinutes  *int
 	MaxScore         domain.Score
 	CancelReason     *string
+	// GradesPublished tells the student the grades were published (SPEC-098).
+	GradesPublished bool
 }
 
 // Summary is an assessment as the teacher and the administrator get it.
@@ -390,6 +431,12 @@ type Summary struct {
 	StartedAt     *time.Time
 	StartedBy     *uuid.UUID
 	StartedByName string
+	// FinishedAt and FinishedByName are the teacher finishing the whole exam; empty until it happens (SPEC-096 RN-04).
+	FinishedAt     *time.Time
+	FinishedByName string
+	// GradesPublishedAt and GradesPublishedByName are the publication of the grades (SPEC-098 RN-02).
+	GradesPublishedAt     *time.Time
+	GradesPublishedByName string
 }
 
 // ItemView is a question of the composition with what the teacher needs to recognize it.
@@ -419,6 +466,7 @@ func publicOf(a domain.Assessment, now time.Time) Public {
 	p := Public{
 		ID: a.ID, ClassID: a.ClassID, ClassSessionID: a.ClassSessionID, Title: a.Title, Description: a.Description, Type: a.Type, Status: a.Status,
 		Phase: a.PhaseAt(now), StartsAt: a.StartsAt, EndsAt: a.EndsAt, DurationMinutes: a.DurationMinutes, MaxScore: a.MaxScore,
+		GradesPublished: a.GradesPublishedAt != nil,
 	}
 	if a.Status == domain.StatusCanceled {
 		p.CancelReason = a.CancelReason
@@ -432,7 +480,7 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 		Public: publicOf(a, s.now()), ModuleID: a.ModuleID, Composition: a.Composition, Audience: a.Audience, Frozen: a.Frozen(s.now()),
 		Modality: a.Modality, RequiresClearance: a.RequiresClearance,
 		TeacherPrivateNotes: a.TeacherPrivateNotes, CreatedBy: a.CreatedBy, UpdatedBy: a.UpdatedBy, UpdatedAt: a.UpdatedAt,
-		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt, StartedAt: a.StartedAt, StartedBy: a.StartedBy,
+		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt, StartedAt: a.StartedAt, StartedBy: a.StartedBy, FinishedAt: a.FinishedAt, GradesPublishedAt: a.GradesPublishedAt,
 	}
 	if module, ok, err := s.ports.Modules.ModuleOfClass(ctx, a.ClassID, a.ModuleID); err != nil {
 		return Summary{}, err
@@ -466,6 +514,12 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 	if a.StartedBy != nil {
 		ids = append(ids, *a.StartedBy)
 	}
+	if a.FinishedBy != nil {
+		ids = append(ids, *a.FinishedBy)
+	}
+	if a.GradesPublishedBy != nil {
+		ids = append(ids, *a.GradesPublishedBy)
+	}
 	names, err := s.ports.Users.Names(ctx, ids)
 	if err != nil {
 		return Summary{}, err
@@ -473,6 +527,12 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 	sum.CreatedByName, sum.UpdatedByName = names[a.CreatedBy], names[a.UpdatedBy]
 	if a.StartedBy != nil {
 		sum.StartedByName = names[*a.StartedBy]
+	}
+	if a.FinishedBy != nil {
+		sum.FinishedByName = names[*a.FinishedBy]
+	}
+	if a.GradesPublishedBy != nil {
+		sum.GradesPublishedByName = names[*a.GradesPublishedBy]
 	}
 	return sum, nil
 }

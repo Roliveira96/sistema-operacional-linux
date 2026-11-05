@@ -5,7 +5,7 @@
 | **ID** | SPEC-090 |
 | **Status** | Aprovada |
 | **Data de criação** | 03/11/2026 |
-| **Última revisão** | 03/11/2026 |
+| **Última revisão** | 05/11/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -65,7 +65,29 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 - **Questão prática:** o botão **Conferir** pergunta ao servidor; resolvida, a questão ganha a marca e a comemoração do simulador (SPEC-087). As objetivas e a descritiva **não** dizem se estão certas.
 - **Entregar:** um diálogo pede a confirmação e diz quantas questões estão sem resposta: "Entregar a prova? N questões estão sem resposta. Depois de entregar, não dá para mudar nada." Confirmado, a janela mostra "Prova entregue." e trava.
 - **Fim do prazo:** quando o tempo chega a zero, a janela trava, envia o que falta e entrega sozinha, mostrando "O tempo acabou. Sua prova foi entregue."
-- **Volta:** ao reabrir a janela, ela carrega a tentativa com as respostas salvas e cada máquina no último estado salvo; o que foi digitado sem Enter se perde.
+- **Volta:** ao reabrir a janela, ela carrega a tentativa com as respostas salvas e cada máquina no último estado salvo; o que foi digitado sem Enter se perde (mudou na revisão 2, abaixo).
+
+**Revisão 2 (04/11/2026): o terminal volta como estava.** Pedido do roteiro manual: o aluno recarregou a janela e o terminal voltou limpo, só com os arquivos.
+
+- **O terminal vai junto com a máquina.** A gravação da prática (RN-04) leva também o terminal 1 da questão: a tela (as últimas 500 linhas), o histórico de comandos, a pasta atual e o usuário. Ao reabrir, a questão volta com a mesma tela, a seta para cima traz os comandos de antes e o aluno continua na mesma pasta. *Reset Máquina* limpa tudo isso, como hoje. Tudo cabe nos 256 KiB da RN-04, e a conferência e a nota continuam olhando só a máquina.
+- **Cópia no navegador.** A janela guarda no `localStorage`, por tentativa, o que o servidor ainda não confirmou (as respostas e os terminais) e a linha que o aluno está digitando sem Enter. Ao reabrir no mesmo navegador, isso vale por cima do que veio do servidor e é enviado na hora. Em outro navegador, vale o do servidor. A cópia é apagada quando o servidor confirma a gravação e na entrega. Se o navegador não deixar gravar, a janela segue só com o servidor.
+
+**Revisão 3 (05/11/2026): a prática se confere sozinha.** Pedido do Tech Lead no roteiro manual: "antes mostrava ao aluno que ele acertou o comando, isso ajuda ele não ficar preso na questão; como é comando Linux, devemos mostrar quando acertou; lembre-se que há várias formas de fazer o mesmo exercício". Na prova, a prática só dizia que estava resolvida quando o aluno clicava em *Conferir*; o simulador (SPEC-085) já confere sozinho.
+
+- **Conferência sozinha, como no simulador.** A cada comando que o terminal de uma questão prática executa, a janela espera **1 segundo sem comando novo** e manda a máquina daquele momento para a conferência da RN-05 (o servidor confere, salva a máquina e o resultado e responde). Uma conferência de cada vez por questão: o estado que chega enquanto uma volta vai depois, só o último. *Reset Máquina* e a troca de questão não mandam nada sozinhos; o próximo comando manda.
+- **Qualquer caminho vale.** O servidor confere o **estado final** da máquina contra as condições de finalização da questão (SPEC-022), nunca os comandos digitados: `mkdir -p /labs/projetoX`, ou `mkdir /labs` e depois `mkdir /labs/projetoX`, ou outro caminho que chegue ao mesmo estado, dão a questão como resolvida.
+- **Resolvida:** a questão ganha a marca no navegador de questões e a comemoração da SPEC-087, só se estiver aberta (resolvida longe dela, só a marca), como no simulador.
+- **Depois de resolvida (D-06):** a conferência continua a cada comando, porque a nota da entrega usa a última máquina (RN-08). Se um comando desfaz o resultado (por exemplo, apaga a pasta), a marca sai e a questão mostra "Esta questão deixou de estar resolvida." A comemoração não se repete quando volta a ficar resolvida.
+- **O botão *Conferir* (D-07):** sai da prática; enquanto uma conferência está no ar, um indicador discreto diz "Conferindo…". Uma conferência que falha pela rede não aparece como erro: a próxima tenta de novo.
+- **As objetivas e a descritiva continuam sem dizer se estão certas** (D-03).
+
+**Revisão 4 (05/11/2026): o aluno ajusta o tamanho do terminal.** Pedido do Tech Lead no roteiro manual: "o aluno pode também ajustar o tamanho do terminal igual o professor pode fazer, assim o aluno pode ajustar para qualquer tamanho". Hoje a janela divide a tela numa proporção fixa (questão 2, terminal 3).
+
+- **Divisória arrastável**, como a do painel da sala da docente (SPEC-092 revisão 3): entre a coluna da questão e o terminal, com o cursor `col-resize`. O terminal vai de 22rem até 75% da largura da janela, e a questão nunca fica abaixo de 18rem. Pelo teclado, a divisória tem foco (`role="separator"`, `aria-valuenow` em pixels) e as setas mudam a largura em 32 px.
+- **Expandir o terminal (D-09):** um botão *Expandir terminal* na barra do terminal faz ele ocupar a janela toda, com a questão escondida; *Recolher* ou `Esc` voltam ao tamanho anterior. O enunciado continua a um clique: *Recolher*.
+- **A largura fica guardada** no navegador (`localStorage`), igual para todas as questões práticas e para as provas seguintes; sem ela, vale a proporção de hoje.
+- **Só nas telas largas** (a partir de 64rem, onde a questão e o terminal ficam lado a lado); no celular continua um embaixo do outro, sem divisória.
+- **No simulador também (D-08):** a janela da prova e o simulador usam a mesma divisão da tela, e a docente vê no simulador o que o aluno verá.
 
 **Detalhe da avaliação, visão da docente e do administrador:** uma seção nova **Tentativas**, depois das questões. Ela traz uma tabela com aluno, RA, situação (*Em andamento*, *Entregue*, *Tempo esgotado*), início, entrega e nota preliminar ("7,50 de 10,00 · 1 descritiva pendente"), e o botão *Atualizar*. Sem tentativas: "Nenhum aluno entrou na prova ainda."
 
@@ -182,6 +204,12 @@ Todas sob `/api/v1/classes/:id/assessments/:assessmentId`. Erros em RFC 7807.
 - [x] **CA-14** (evento): QUANDO o estudante reabre a janela de uma tentativa em andamento, A janela DEVE carregar as respostas salvas e cada máquina no último estado salvo.
 - [x] **CA-15** (estado): ENQUANTO a docente vê o detalhe da prova, A seção *Tentativas* DEVE listar as tentativas com a situação e a nota preliminar, ou dizer que nenhum aluno entrou.
 - [x] **CA-16** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, e a janela da prova e os diálogos DEVEM ter navegação por teclado, contraste AA e alvos de 44 px.
+- [x] **CA-17** (evento): QUANDO o estudante reabre a janela de uma tentativa em andamento, A questão prática DEVE voltar com a tela, o histórico de comandos, a pasta e o usuário do terminal salvos, e *Reset Máquina* DEVE limpá-los (revisão 2).
+- [x] **CA-19** (evento): QUANDO o terminal de uma questão prática executa um comando e passa 1 segundo sem outro, A janela DEVE mandar a máquina daquele momento para a conferência, uma de cada vez por questão e só o último estado que chegou no meio; QUANDO volta resolvida, DEVE mostrar a marca e, com a questão aberta, a comemoração, e NÃO DEVE haver o botão *Conferir* (revisão 3, D-07).
+- [x] **CA-20** (evento): QUANDO a conferência de uma questão já resolvida volta não resolvida, A janela DEVE tirar a marca e mostrar "Esta questão deixou de estar resolvida."; QUANDO volta a ficar resolvida, DEVE pôr a marca de novo sem repetir a comemoração (revisão 3, D-06).
+- [x] **CA-21** (evento): QUANDO o aluno arrasta a divisória entre a questão e o terminal, ou usa as setas com ela em foco, A janela DEVE mudar a largura do terminal entre 22rem e 75% da janela, deixando a questão com pelo menos 18rem, e guardar a largura para a próxima vez; no celular NÃO DEVE haver divisória (revisão 4).
+- [x] **CA-22** (evento): QUANDO o aluno clica em *Expandir terminal*, A janela DEVE mostrar só o terminal; QUANDO clica em *Recolher* ou aperta `Esc`, DEVE voltar à largura anterior (revisão 4, D-09). O mesmo vale no simulador (D-08).
+- [x] **CA-18** (evento): QUANDO o estudante reabre a janela no mesmo navegador com respostas que o servidor não confirmou ou uma linha digitada sem Enter, A janela DEVE mostrá-las por cima das do servidor, enviá-las e apagar a cópia local quando o servidor confirmar; sem `localStorage`, DEVE seguir só com o servidor (revisão 2).
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -239,6 +267,20 @@ Nenhuma. O Tech Lead decidiu em 03/11/2026, ao aprovar a spec, as cinco pendênc
 
 ---
 
+### Decisões da revisão 3 (aprovadas pelo Tech Lead em 05/11/2026, com as recomendações)
+
+| ID | Pendência | Recomendação |
+| :--- | :--- | :--- |
+| D-06 | **Depois de resolvida, a conferência continua?** (a) continua a cada comando e tira a marca se o resultado se desfaz; (b) para de conferir, como o simulador. | **(a).** A nota da entrega usa a última máquina: uma marca que fica depois de o aluno apagar a pasta mentiria para ele. |
+| D-07 | **O botão *Conferir*:** (a) sai, a conferência é só sozinha; (b) fica, para o aluno forçar. | **(a).** A conferência já vem 1 segundo depois de cada comando; o botão só confundiria ("preciso clicar?"). |
+
+### Decisões da revisão 4 (aprovadas pelo Tech Lead em 05/11/2026, com as recomendações)
+
+| ID | Pendência | Recomendação |
+| :--- | :--- | :--- |
+| D-08 | **O simulador ganha a mesma divisória?** | **Sim.** As duas telas usam a mesma divisão; a docente testa no simulador o que o aluno terá. |
+| D-09 | **Botão *Expandir terminal*** (terminal na janela toda, *Recolher* ou `Esc` voltam). | **Sim.** É o atalho para uma tarefa longa no terminal, como o *Expandir* do painel da docente. |
+
 ## Histórico de revisões
 
 | Data | Autor | Alteração |
@@ -248,3 +290,13 @@ Nenhuma. O Tech Lead decidiu em 03/11/2026, ao aprovar a spec, as cinco pendênc
 | 03/11/2026 | Aruna Architect | Seção 10 esvaziada: as pendências viraram as decisões D-01 a D-05 |
 | 03/11/2026 | Implementador | Implementada, menos o roteiro manual, por isso o status continua `Aprovada`. **Feito:** CA-01 a CA-16. Backend: migração 00047 (`assessment_attempts` e `assessment_attempt_items`), `domain/attempt.go`, `service/attempt.go` (entrar, salvar, conferir, entregar, vencer, a lista da docente), `repository/attempt.go` (também o `AttemptCheck`), `handler/attempt.go` (as seis rotas), a correção `Grade` no adaptador `cmd/api/assessment_refs.go` e a varredura `attempt-expiry` de um minuto no agendador. Frontend: `ExamRunner` (a janela da prova), a página `/take`, `AttemptAction` (o botão do aluno), `AssessmentAttempts` (a seção da docente), `lib/attemptAnswers.ts`, o `resume` do `ExamTerminal`, o serviço e as mensagens. **Medido:** vermelho pelos motivos esperados (tipos, rotas e componentes inexistentes); verde: `go test` de `assessment` com 97,3% no domain, 84,2% no handler, 88,7% no repository e 84,1% no service, `cmd/api` verde; frontend com 625 testes das pastas da avaliação verdes, 85,4% de cobertura nos arquivos novos, `tsc`, ESLint e Stylelint limpos. **Desvios:** a descritiva respeita o tamanho máximo da própria questão (o do banco), não 10.000 caracteres; `student_id` aponta para `users`, como as outras tabelas da avaliação, e não para `students`; o ligar colunas da tentativa aceita resposta parcial (a correção do banco exige todas as ligações), com o adaptador próprio `gradeLinks`; a descritiva em branco vale zero e não fica pendente. **Testes alterados depois do vermelho:** em `ExamRunner.test.tsx`, só o tipo dos mocks (`as never`), sem mudar o que verificam; `TestMigration00041_UpAndDown` desce e sobe também a 00047. O teste do adaptador de correção foi escrito depois do código e visto vermelho guardando o adaptador à parte. **Aberto:** o roteiro manual (seção 8). |
 | 03/11/2026 | Implementador | A SPEC-091 acrescentou o status `ENDED_BY_TEACHER`, que a entrega, as respostas e a conferência tratam como entregue, e a sala de espera antes da entrada na prova. |
+| 04/11/2026 | Implementador | Correção achada no roteiro manual: a cópia da questão gravada na tentativa saía com as chaves das alternativas e das colunas em maiúsculas (`ID`, `HTML`, `Left`, `Right`, `Text`), e a janela mostrava as letras sem o texto. As structs ganharam as tags JSON, e a migração 00049 corrige as cópias já gravadas (CA-11). |
+| 04/11/2026 | Aruna Architect | **Revisão 2 proposta**, a pedido do Tech Lead no roteiro manual ("se ele recarrega ele perde a questão do terminal [...] deve ser mantido, tanto localmente como via servidor"): o terminal (tela, histórico, pasta e usuário) vai junto com a máquina, e a janela guarda no navegador o que o servidor ainda não confirmou e a linha sem Enter. CA-17 e CA-18 novos. |
+| 04/11/2026 | Tech Lead | Revisão 2 aprovada ("aprovo"). Status: `Aprovada` |
+| 04/11/2026 | Implementador | Revisão 2 implementada, menos o roteiro manual. **Feito:** CA-17 e CA-18. `terminalWindow` ganhou `terminalState`, `restoreTerminal` e `typedLine` (o terminal 1: as últimas 500 linhas da tela, o histórico, a pasta, o usuário e a linha sem Enter); o `ExamTerminal` manda o terminal junto com a máquina (campo `terminal`), o põe de volta ao reabrir e ao voltar a uma questão, e avisa a linha digitada; o `ExamRunner` guarda no `localStorage` (`exam-attempt:<id>`) as respostas não confirmadas e as linhas sem Enter, as aplica por cima do servidor e as envia ao abrir, e apaga a cópia na entrega. O backend não mudou: o leitor da máquina ignora o campo `terminal`. **Medido:** 9 vermelhos pelos motivos esperados; verdes os 225 testes das pastas da prova, do simulador, da sala e do motor do terminal (um da página da sala falhou uma vez por lentidão e passou sozinho), `tsc` e ESLint limpos. **Desvios:** o terminal que estava em `su` volta como aquele usuário sozinho (o `exit` fecha o terminal em vez de voltar ao root); a linha sem Enter de uma questão sem nenhum comando e sem cenário não volta. **Testes alterados depois do vermelho:** a janela falsa do teste do formato ganhou os métodos novos; a chave da cópia usava o id errado da fixture (`a-1` em vez de `t-1`). **Aberto:** o roteiro manual. |
+| 05/11/2026 | Aruna Architect | **Revisão 3 proposta**, a pedido do Tech Lead no roteiro manual de 05/11/2026 ("antes mostrava ao aluno que ele acertou o comando [...] devemos mostrar quando acertou; há várias formas de fazer o mesmo exercício"): a prática se confere sozinha 1 segundo depois de cada comando, como no simulador da SPEC-085, pelo estado final da máquina. CA-19 e CA-20 novos; pendências D-06 e D-07. |
+| 05/11/2026 | Tech Lead | Revisão 3 aprovada ("sobre isso eu aprovo, pode fazer"), com as recomendações de D-06 e D-07. Status: `Aprovada` |
+| 05/11/2026 | Implementador | Revisão 3 implementada, menos o roteiro manual. **Feito:** CA-19 e CA-20 no `ExamRunner`: a espera de 1 segundo depois de cada comando, uma conferência por questão com só a última máquina que chegou no meio, a marca e a comemoração uma vez só, a marca que sai com "Esta questão deixou de estar resolvida.", o "Conferindo…" e o fim do botão *Conferir* e da frase "Ainda não está resolvida". O backend não mudou: a rota de conferência (RN-05) já salvava a máquina e o resultado. **Medido:** 3 vermelhos pelo motivo esperado; verdes os 36 testes do `ExamRunner` e da janela da prova (três vezes seguidas), `tsc` e ESLint limpos. **Desvios:** nenhum. **Testes alterados depois do vermelho:** nenhum da revisão; o teste das instruções da SPEC-094 passou a esperar a montagem do terminal antes de contar (falhava às vezes). **Aberto:** o roteiro manual. |
+| 05/11/2026 | Aruna Architect | **Revisão 4 proposta**, a pedido do Tech Lead no roteiro manual ("o aluno pode também ajustar o tamanho do terminal igual o professor"): a divisória arrastável entre a questão e o terminal, guardada no navegador, e o *Expandir terminal*. CA-21 e CA-22 novos; pendências D-08 e D-09. |
+| 05/11/2026 | Tech Lead | Revisão 4 aprovada ("Aprovo."), com as recomendações de D-08 e D-09. Status: `Aprovada` |
+| 05/11/2026 | Implementador | Revisão 4 implementada, menos o roteiro manual. **Feito:** CA-21 e CA-22 com o componente `ExamSplit` (a divisória `role="separator"` com as setas e o arrasto, a largura em `localStorage` na chave `exam-terminal-width`, os limites de 22rem a 75% com a questão em pelo menos 18rem, o *Expandir terminal* na barra do terminal com *Recolher* e `Esc`), usado pela janela da prova e pelo simulador (D-08). **Medido:** vermelhos pelo motivo esperado; verdes os 122 testes do `ExamSplit`, do `ExamRunner`, do simulador e da janela da prova, `tsc`, ESLint e Stylelint limpos. **Desvios:** o `Esc` apertado dentro do terminal não recolhe, porque um programa do terminal pode precisar dele. **Testes alterados depois do vermelho:** nenhum. **Aberto:** o roteiro manual. |

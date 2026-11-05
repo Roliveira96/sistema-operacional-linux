@@ -26,6 +26,8 @@ beforeEach(() => {
   // the attempts of SPEC-090: none, unless a test says otherwise
   vi.spyOn(assessmentService, "attempts").mockResolvedValue({ items: [], serverNow: SERVER_NOW });
   vi.spyOn(assessmentService, "myAttempt").mockRejectedValue(problem("attempt-not-found", 404));
+  // the result of SPEC-098: not published, unless a test says otherwise
+  vi.spyOn(assessmentService, "myResult").mockRejectedValue(problem("result-not-published", 404));
 });
 afterEach(() => {
   cleanup();
@@ -402,5 +404,62 @@ describe("assessment page, the room of the exam", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Iniciar a prova" }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Iniciar a prova" }));
     await waitFor(() => expect(open).toHaveBeenCalledWith("/app/classes/c-1/assessments/a-1/room", "_blank", "noopener"));
+  });
+});
+
+// SPEC-096 section 3.1: the finished exam says when and by whom, in the place of the room.
+describe("assessment page, SPEC-096 the finished exam", () => {
+  it("says who finished it and does not offer the room", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(
+      detail({ ...STARTED, phase: "ENDED", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00", finishedAt: "2026-10-21T10:00:00-03:00", finishedByName: "Profa. Sediane" }),
+    );
+    render(<AssessmentPage params={params} />);
+    expect(await screen.findByText("Finalizada por Profa. Sediane às 10:00.")).toBeDefined();
+    expect(screen.queryByRole("link", { name: /Abrir a sala da prova/ })).toBeNull();
+  });
+});
+
+// SPEC-097 CA-01 (T4): after the end, the detail offers the correction, with how many were reviewed of those who delivered; before the end, no.
+describe("assessment page, SPEC-097 the correction", () => {
+  const ended = { phase: "ENDED", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00" } as const;
+
+  it("offers to correct the exam after the end, with the count of the reviewed", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...STARTED, ...ended }));
+    vi.spyOn(assessmentService, "attempts").mockResolvedValue({
+      items: [
+        { attemptId: "t-1", studentId: "s-1", studentName: "Ana", academicId: "1", status: "SUBMITTED", startedAt: "2026-10-21T09:10:00-03:00", reviewed: true },
+        { attemptId: "t-2", studentId: "s-2", studentName: "Bruno", academicId: "2", status: "TIME_EXPIRED", startedAt: "2026-10-21T09:10:00-03:00", reviewed: false },
+        { studentId: "s-3", studentName: "Carla", academicId: "3", status: "ABSENT" },
+      ],
+      serverNow: SERVER_NOW,
+    });
+    render(<AssessmentPage params={params} />);
+    const link = await screen.findByRole("link", { name: "Corrigir a prova (1 de 2 revisadas)" });
+    expect(link.getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/review");
+  });
+
+  it("does not offer it while the exam runs", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...STARTED }));
+    vi.spyOn(assessmentService, "attempts").mockResolvedValue({ items: [], serverNow: SERVER_NOW });
+    render(<AssessmentPage params={params} />);
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("link", { name: /Corrigir a prova/ })).toBeNull();
+  });
+});
+
+// SPEC-098 CA-05 (T4): once the grades are published, the student reads the grade in the detail, with the way to the correction.
+describe("assessment page, SPEC-098 the result of the student", () => {
+  it("shows the grade and the way to the correction", async () => {
+    asRole("STUDENT");
+    vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess());
+    vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf({ phase: "ENDED" }));
+    vi.mocked(assessmentService.myResult).mockResolvedValue({ finalScore: 8, maxScore: 10, items: [] });
+    render(<AssessmentPage params={params} />);
+    expect(await screen.findByText("Sua nota: 8,00 de 10,00")).toBeDefined();
+    expect(screen.getByRole("link", { name: "Ver a correção" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/result");
+    expect(assessmentService.myResult).toHaveBeenCalledWith("c-1", "a-1");
   });
 });

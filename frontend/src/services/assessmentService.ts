@@ -14,6 +14,8 @@ export type ClearanceStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 /** What every reader of an assessment gets (SPEC-075, section 5.1); the times are ISO 8601 in Brasília. */
 export interface AssessmentBase {
+  /** The student learns the grades were published (SPEC-098). */
+  gradesPublished?: boolean;
   id: string;
   classId: string;
   classSessionId?: string;
@@ -70,6 +72,13 @@ export interface AssessmentSummary extends AssessmentBase {
   startedAt?: string;
   startedBy?: string;
   startedByName?: string;
+  /** The teacher finished the whole exam (SPEC-096 RN-04). */
+  finishedAt?: string;
+  finishedByName?: string;
+  /** The teacher published the grades (SPEC-098). */
+  gradesPublishedAt?: string;
+  gradesPublishedByName?: string;
+
 }
 
 export interface AssessmentItem {
@@ -221,6 +230,24 @@ export interface AttemptItem {
   checkedSolved?: boolean;
 }
 
+/** A question of the attempt as the teacher reads it in the room (SPEC-095): the title and, in the objective ones, the key; never the machine. */
+export interface TeacherAttemptItem extends AttemptItem {
+  title: string;
+  answerKey?: unknown;
+}
+
+/** The attempt of one student as the teacher reads it in the room (SPEC-095 section 5). */
+export interface TeacherAttempt {
+  attemptId: string;
+  studentId: string;
+  studentName: string;
+  status: AttemptStatus;
+  startedAt: string;
+  submittedAt?: string;
+  serverNow: string;
+  items: TeacherAttemptItem[];
+}
+
 /** The attempt of the student (SPEC-090 section 5). */
 export interface StudentAttempt {
   id: string;
@@ -236,6 +263,56 @@ export interface StudentAttempt {
 export interface AttemptRow {
   endedByName?: string;
   endReason?: string;
+  /** None for who did not come (SPEC-096 RN-06). */
+  attemptId?: string;
+  studentId: string;
+  studentName: string;
+  academicId: string;
+  status: AttemptStatus | "ABSENT";
+  startedAt?: string;
+  submittedAt?: string;
+  preliminaryScore?: number;
+  pendingItems?: number;
+  /** The number of messages of the conversation (SPEC-093 RN-07). */
+  chatCount?: number;
+  /** The correction of the teacher (SPEC-097 section 5). */
+  reviewed?: boolean;
+  finalScore?: number;
+}
+
+/** A command of a practical question, in the correction (SPEC-097). */
+export interface ReviewCommand {
+  position: number;
+  command: string;
+  output: string;
+  executedAt: string;
+}
+
+/** A question of the attempt in the correction (SPEC-097 section 5): the automatic points, the adjustment, the expected answer and the commands. */
+export interface ReviewItem extends TeacherAttemptItem {
+  points?: number;
+  adjustedPoints?: number;
+  adjustReason?: string;
+  expectedAnswer?: string;
+  commands: ReviewCommand[];
+}
+
+/** A question of the published result of the student (SPEC-098 section 5): the points that counted and the reason of an adjustment. */
+export interface ResultItem extends TeacherAttemptItem {
+  points?: number;
+  adjustReason?: string;
+}
+
+/** The published result of the exam of the student (SPEC-098 section 5). */
+export interface StudentResult {
+  finalScore: number;
+  maxScore: number;
+  studentNote?: string;
+  items: ResultItem[];
+}
+
+/** The delivered attempt of one student as the teacher corrects it (SPEC-097 section 5). */
+export interface Review {
   attemptId: string;
   studentId: string;
   studentName: string;
@@ -245,6 +322,28 @@ export interface AttemptRow {
   submittedAt?: string;
   preliminaryScore?: number;
   pendingItems?: number;
+  endedByName?: string;
+  endReason?: string;
+  score: number;
+  reviewed: boolean;
+  finalScore?: number;
+  teacherNote: string;
+  studentNote: string;
+  items: ReviewItem[];
+  helps: HelpItem[];
+  serverNow: string;
+}
+
+/** A message of the conversation of the exam (SPEC-093 section 5): studentId is the owner of a private conversation; senderName only in the record. */
+export interface ExamChatMessage {
+  id: string;
+  scope: "private" | "all";
+  studentId?: string;
+  from: "TEACHER" | "STUDENT";
+  position?: number;
+  text: string;
+  createdAt: string;
+  senderName?: string;
 }
 
 /** A student in the room of the exam (SPEC-091 RN-04): ABSENT until there is an attempt; online and waiting come from the realtime. */
@@ -263,6 +362,17 @@ export interface RoomCard {
   help?: HelpItem;
   /** The question the student is in, as she told the room (SPEC-092 revision 2). */
   question?: { position: number; title: string };
+  /** Online and waiting after the start: she asks to enter, and the teacher admits her (SPEC-096 RN-02). */
+  requesting?: boolean;
+}
+
+/** The exam the teacher finished (SPEC-096 section 5). */
+export interface FinishResult {
+  finishedAt: string;
+  finishedBy: string;
+  finishedByName: string;
+  ended: number;
+  absent: number;
 }
 
 /** A request for help (SPEC-091 RN-07). */
@@ -363,8 +473,23 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     /** Delivers the attempt (SPEC-090 RN-06). */
     submitAttempt: (classId: string, id: string) => client.post<StudentAttempt>(`${base(classId)}/${id}/attempt/submit`),
     /** The attempts of the exam, for the teacher and the administrator (SPEC-090 RN-09). */
+    attemptForTeacher: (classId: string, id: string, attemptId: string) => client.get<TeacherAttempt>(`${base(classId)}/${id}/attempts/${attemptId}`),
+    review: (classId: string, id: string, attemptId: string) => client.get<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
+    adjustPoints: (classId: string, id: string, attemptId: string, position: number, points: number | null, reason: string) =>
+      client.put<Review>(`${base(classId)}/${id}/attempts/${attemptId}/items/${position}/points`, points === null ? { points: null } : { points, reason }),
+    myResult: (classId: string, id: string) => client.get<StudentResult>(`${base(classId)}/${id}/my-result`),
+    publishGrades: (classId: string, id: string) => client.post<Now<AssessmentSummary>>(`${base(classId)}/${id}/grades/publish`),
+    finishReview: (classId: string, id: string, attemptId: string) => client.post<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
+    reopenReview: (classId: string, id: string, attemptId: string) => client.delete<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
+    saveReviewNotes: (classId: string, id: string, attemptId: string, teacherNote: string, studentNote: string) =>
+      client.put<void>(`${base(classId)}/${id}/attempts/${attemptId}/notes`, { teacherNote, studentNote }),
     attempts: (classId: string, id: string) => client.get<{ items: AttemptRow[]; serverNow: string }>(`${base(classId)}/${id}/attempts`),
+    /** The whole conversation of an attempt, for the teacher and the administrator (SPEC-093 RN-07). */
+    attemptChat: (classId: string, id: string, attemptId: string) =>
+      client.get<{ messages: ExamChatMessage[] }>(`${base(classId)}/${id}/attempts/${attemptId}/chat`),
     /** Ends the exam of a student, with the reason (SPEC-091 RN-08). */
+    admit: (classId: string, id: string, studentIds: string[]) => client.post<{ admitted: string[] }>(`${base(classId)}/${id}/admissions`, { studentIds }),
+    finish: (classId: string, id: string) => client.post<FinishResult>(`${base(classId)}/${id}/finish`),
     endAttempt: (classId: string, id: string, attemptId: string, reason: string) => client.post<AttemptRow>(`${base(classId)}/${id}/attempts/${attemptId}/end`, { reason }),
     /** Opens the room of the exam on the same origin, under /api/v1 (SPEC-091 section 5). A message that is not JSON is ignored. */
     openRoom: (classId: string, id: string, handlers: RoomHandlers, create: (url: string) => WebSocket = (url) => new WebSocket(url)): RoomSocket => {

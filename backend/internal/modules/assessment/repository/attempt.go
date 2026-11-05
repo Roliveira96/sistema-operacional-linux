@@ -25,6 +25,11 @@ type attemptRow struct {
 	PendingItems     *int
 	EndedBy          *uuid.UUID
 	EndReason        *string
+	TeacherNote      *string
+	StudentNote      *string
+	FinalScore       *domain.Score
+	ReviewedAt       *time.Time
+	ReviewedBy       *uuid.UUID
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -32,17 +37,19 @@ type attemptRow struct {
 func (attemptRow) TableName() string { return "assessment_attempts" }
 
 type attemptItemRow struct {
-	AttemptID     uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Position      int       `gorm:"primaryKey"`
-	QuestionID    uuid.UUID
-	Kind          string
-	Weight        domain.Score
-	StudentView   json.RawMessage `gorm:"type:jsonb"`
-	AnswerKey     json.RawMessage `gorm:"type:jsonb"`
-	Answer        json.RawMessage `gorm:"type:jsonb"`
-	AnsweredAt    *time.Time
-	CheckedSolved *bool
-	Points        *domain.Score
+	AttemptID      uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Position       int       `gorm:"primaryKey"`
+	QuestionID     uuid.UUID
+	Kind           string
+	Weight         domain.Score
+	StudentView    json.RawMessage `gorm:"type:jsonb"`
+	AnswerKey      json.RawMessage `gorm:"type:jsonb"`
+	Answer         json.RawMessage `gorm:"type:jsonb"`
+	AnsweredAt     *time.Time
+	CheckedSolved  *bool
+	Points         *domain.Score
+	AdjustedPoints *domain.Score
+	AdjustReason   *string
 }
 
 func (attemptItemRow) TableName() string { return "assessment_attempt_items" }
@@ -50,6 +57,7 @@ func (attemptItemRow) TableName() string { return "assessment_attempt_items" }
 func (r attemptRow) domain() domain.Attempt {
 	return domain.Attempt{ID: r.ID, AssessmentID: r.AssessmentID, StudentID: r.StudentID, Status: r.Status, StartedAt: r.StartedAt, DeadlineAt: r.DeadlineAt,
 		SubmittedAt: r.SubmittedAt, PreliminaryScore: r.PreliminaryScore, PendingItems: r.PendingItems, EndedBy: r.EndedBy, EndReason: r.EndReason,
+		TeacherNote: r.TeacherNote, StudentNote: r.StudentNote, FinalScore: r.FinalScore, ReviewedAt: r.ReviewedAt, ReviewedBy: r.ReviewedBy,
 		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 }
 
@@ -109,7 +117,8 @@ func (r *Repository) AttemptItems(ctx context.Context, attemptID uuid.UUID) ([]d
 	out := make([]domain.AttemptItem, len(rows))
 	for i, it := range rows {
 		out[i] = domain.AttemptItem{AttemptID: it.AttemptID, Position: it.Position, QuestionID: it.QuestionID, Kind: it.Kind, Weight: it.Weight,
-			StudentView: it.StudentView, AnswerKey: it.AnswerKey, Answer: it.Answer, AnsweredAt: it.AnsweredAt, CheckedSolved: it.CheckedSolved, Points: it.Points}
+			StudentView: it.StudentView, AnswerKey: it.AnswerKey, Answer: it.Answer, AnsweredAt: it.AnsweredAt, CheckedSolved: it.CheckedSolved, Points: it.Points,
+			AdjustedPoints: it.AdjustedPoints, AdjustReason: it.AdjustReason}
 	}
 	return out, nil
 }

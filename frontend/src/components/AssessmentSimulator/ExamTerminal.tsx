@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { AssessmentDialog } from "@/components/AssessmentDialog/AssessmentDialog";
 import dialog from "@/components/AssessmentDialog/AssessmentDialog.module.scss";
 import { Button } from "@/components/Button/Button";
-import { mountTerminalWindow, type CommandRun, type TerminalWindow } from "@/engine/terminalWindow";
+import { mountTerminalWindow, type CommandRun, type TerminalState, type TerminalWindow } from "@/engine/terminalWindow";
 import type { ScreenElement } from "@/engine/terminalScreen";
 import { contentMessages } from "@/messages/content.pt-BR";
 import { messages } from "@/messages/pt-BR";
@@ -25,18 +26,25 @@ export interface ExamTerminalProps {
   onFormat?: (questionId: string) => void;
   /** The machines saved of an attempt the student comes back to: a question starts from it, and Reset Máquina still goes to the scenario (SPEC-090). */
   resume?: Record<string, unknown>;
+  /** What goes in the bar beside Reset Máquina: the button that expands the terminal (SPEC-090 revision 4). */
+  barExtra?: ReactNode;
   /** Each command that ran in the question that is open, with its line and its output, for the room of the exam (SPEC-091 RN-06). */
   onCommandRun?: (questionId: string, run: CommandRun) => void;
   /** The picture of the window at each change, for the teacher who watches (SPEC-091 RN-05). */
   onScreen?: (questionId: string, tree: ScreenElement) => void;
+  /** The line typed without Enter, as the student types, for the copy in the browser (SPEC-090 revision 2). */
+  onTyped?: (questionId: string, line: string) => void;
 }
+
+/** The terminal that goes with a machine of the exam (SPEC-090 revision 2). */
+const terminalOf = (snapshot: unknown) => (snapshot as { terminal?: Partial<TerminalState> } | null)?.terminal;
 
 /**
  * The terminal of the exam (SPEC-084): one window for the whole exam, with the machine of the question that is open. A question gets its machine the
  * first time it opens, and gets back what the student left in it when the student returns; Reset Máquina formats only the machine of the open question.
  * It has nothing of the study of a module: no pasting of commands, sound, narration, saving or loading of machines, or panel of processes (D-04).
  */
-export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, resume, onCommandRun, onScreen }: ExamTerminalProps) {
+export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, resume, onCommandRun, onScreen, onTyped, barExtra }: ExamTerminalProps) {
   const host = useRef<HTMLDivElement>(null);
   const terminal = useRef<TerminalWindow | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -45,7 +53,8 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, re
   const scenarios = useRef(new Map<string, unknown>());
   const open = useRef<string | null>(questionId);
   const read = useRef(loadScenario);
-  const tell = useRef({ onCommand, onFormat, onCommandRun, onScreen });
+  const tell = useRef({ onCommand, onFormat, onCommandRun, onScreen, onTyped });
+  const typed = useRef("");
   const saved = useRef(resume);
   /** True while the exam itself puts a machine in the window: the engine tells about it as about a command, and it is not one (SPEC-085 CA-05). */
   const quiet = useRef(false);
@@ -55,7 +64,7 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, re
 
   useEffect(() => {
     read.current = loadScenario;
-    tell.current = { onCommand, onFormat, onCommandRun, onScreen };
+    tell.current = { onCommand, onFormat, onCommandRun, onScreen, onTyped };
   });
 
   // The window opens once and goes away with the exam; the commands keep the machine of the open question up to date.
@@ -70,9 +79,12 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, re
     let cleanup = () => {};
     mountTerminalWindow(container, null, {
       onCommand: (snapshot) => {
-        if (!open.current) return;
-        machines.current.set(open.current, snapshot);
-        if (!quiet.current) tell.current.onCommand?.(open.current, snapshot);
+        // the exam itself put this machine, and already keeps it with its terminal
+        if (!open.current || quiet.current) return;
+        const state = terminal.current?.terminalState();
+        const full = state ? { ...(snapshot as object), terminal: state } : snapshot;
+        machines.current.set(open.current, full);
+        tell.current.onCommand?.(open.current, full);
       },
       onCommandRun: (run) => {
         if (open.current && !quiet.current) tell.current.onCommandRun?.(open.current, run);
@@ -107,6 +119,8 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, re
     quiet.current = true;
     try {
       machine.reset(snapshot);
+      const state = terminalOf(snapshot);
+      if (state) machine.restoreTerminal(state);
     } finally {
       quiet.current = false;
     }
@@ -157,13 +171,27 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, re
     machines.current.set(id, start);
   };
 
+  /** After the key is handled, tells the line typed when it changed. */
+  const typing = () =>
+    setTimeout(() => {
+      const id = open.current;
+      const line = terminal.current?.typedLine() ?? "";
+      const said = `${id}\n${line}`;
+      if (!id || said === typed.current) return;
+      typed.current = said;
+      tell.current.onTyped?.(id, line);
+    }, 0);
+
   return (
-    <section className={styles.pane} aria-label={s.title}>
+    <section className={styles.pane} aria-label={s.title} onKeyDown={typing} onPaste={typing}>
       <div className={styles.bar}>
         <span className={styles.title}>{s.title}</span>
-        <Button variant="secondary" title={actions.resetTitle} disabled={!questionId || state !== "ready"} onClick={() => setConfirming(true)}>
-          {actions.reset}
-        </Button>
+        <div className={styles.barActions}>
+          {barExtra}
+          <Button variant="secondary" title={actions.resetTitle} disabled={!questionId || state !== "ready"} onClick={() => setConfirming(true)}>
+            {actions.reset}
+          </Button>
+        </div>
       </div>
       {state === "loading" && (
         <p className={styles.status} role="status">

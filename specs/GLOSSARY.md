@@ -257,6 +257,16 @@ Termos da SPEC-083 (Rascunho em 22/10/2026).
 | Português | Código (EN) | Definição | Evitar | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | Início da prova | `started_at`, `started_by` (rota `POST .../assessments/:assessmentId/start`, evento `STARTED`) | O ato da docente de iniciar a prova presencial, dentro do período marcado: registra quem e quando, não se desfaz e é o que libera a habilitação dos alunos. Não muda a fase da avaliação, que segue o relógio | `open`, `release` (o token de liberação é outro assunto), `begin` | Proposto (SPEC-083) |
+| Admissão na prova | `AssessmentAdmission` (tabela `assessment_admissions`, rota `POST .../assessments/:assessmentId/admissions`) | A docente deixa entrar, depois do início, o aluno que pediu para entrar na sala da prova; não se desfaz. Só o admitido começa a tentativa | `Approval`, `Clearance` (a habilitação da SPEC-076 é outra coisa) | Proposto (SPEC-096) |
+| Pedindo para entrar | `requesting` (cartão da sala) | O aluno conectado à sala depois do início, esperando a admissão | `Waiting` solto | Proposto (SPEC-096) |
+| Finalizar a prova | `finished_at`, `finished_by` (rota `POST .../assessments/:assessmentId/finish`) | A docente encerra a prova inteira antes do término: as tentativas em andamento são entregues como encerradas pela docente e ninguém mais entra | `close`, `end` (encerrar a prova de um aluno é outra coisa) | Proposto (SPEC-096) |
+| Não compareceu | `ABSENT` (só na lista das tentativas, nunca guardado) | O aluno elegível sem tentativa depois do fim da prova | `Missing` | Proposto (SPEC-096) |
+| Correção da prova | tela `.../assessments/:assessmentId/review`, `ReviewOf` | A docente revisa, depois do fim da prova, cada tentativa entregue: respostas, comandos, pedidos de ajuda, conversa, pontos e anotações | `Grading` solto | Proposto (SPEC-097) |
+| Ajuste de pontos | `adjusted_points`, `adjust_reason` (rota `PUT .../attempts/:attemptId/items/:position/points`) | Os pontos que a docente dá a uma questão na correção, de 0 ao peso, com o motivo; sem ajuste valem os automáticos | `Override` | Proposto (SPEC-097) |
+| Revisão concluída | `reviewed_at`, `reviewed_by`, `final_score` (rotas `POST` e `DELETE .../attempts/:attemptId/review`) | A docente encerra a correção de uma tentativa com a nota final; pode reabrir | `Homologation` (a homologação é outra coisa) | Proposto (SPEC-097) |
+| Anotação privada / Anotação ao aluno | `teacher_note`, `student_note` | O que a docente escreve sobre a tentativa: a privada só ela vê; a do aluno sai na publicação das notas | `Feedback` solto | Proposto (SPEC-097) |
+| Publicação das notas | `grades_published_at`, `grades_published_by` (rota `POST .../assessments/:assessmentId/grades/publish`) | A docente libera, de uma vez, as notas da prova inteira depois de revisar todos; não se desfaz e trava a correção | `Homologation`, `Release` | Proposto (SPEC-098) |
+| Resultado da prova | `MyResult` (rota `GET .../assessments/:assessmentId/my-result`, tela `.../result`) | O que o aluno que entregou lê depois da publicação: a nota final, a anotação ao aluno e a correção de cada questão | `Grade report` | Proposto (SPEC-098) |
 | Prova não iniciada | `NOT_STARTED` (resultado de `AccessOf`) | A prova presencial já está em andamento pelo relógio, mas a docente ainda não a iniciou; vem depois de `ENDED` e antes de `NOT_CLEARED` | `NOT_OPEN` (já é `NOT_OPEN_YET`, que é antes do horário) | Proposto (SPEC-083) |
 
 ## 5. Condução da prova e auditoria
@@ -277,6 +287,7 @@ Termos da SPEC-083 (Rascunho em 22/10/2026).
 | Evento da linha do tempo | `TimelineEvent` | Registro cronológico de auditoria da tentativa | `Log`, `Activity` | Canônico |
 | Infração de segurança | `SecurityViolation` | Detecção de DevTools, aba oculta, conflito de sessão ou IP fora da sub-rede | `Infraction`, `Cheat` | Canônico |
 | Pedido de ajuda ("mãozinha virtual") | `HelpRequest` / fila `HelpQueue` | Dúvida do estudante durante a prova, atendida em fila FIFO | `Ticket`, `Support` | Canônico |
+| Conversa da prova | `assessment_chat_messages` / `ChatMessage` | Troca de mensagens de texto entre o estudante e a docente durante a prova, guardada na tentativa e lida pela docente na correção; a mensagem para todos guarda quem a recebeu. Nada se edita nem se apaga. Na parte do chat, a SPEC-091 D-03 deixa de valer | `Chat` (solto), `DM` | Proposto (SPEC-093) |
 
 ## 6. Conflitos conhecidos nas fontes canônicas
 

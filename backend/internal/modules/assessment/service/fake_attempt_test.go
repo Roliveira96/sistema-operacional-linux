@@ -148,3 +148,86 @@ func (f *fakeRepo) DueAttempts(_ context.Context, before time.Time) ([]domain.At
 	}
 	return out, nil
 }
+
+// AnswerKey gives the key as it is for the objective kinds, as the fake bank keeps only the key (SPEC-095 D-02).
+func (f *fakeQuestions) AnswerKey(_ context.Context, kind string, key json.RawMessage) (json.RawMessage, error) {
+	switch kind {
+	case "THEORETICAL_SINGLE", "THEORETICAL_BOOLEAN", "THEORETICAL_MATCHING":
+		return key, nil
+	}
+	return nil, nil
+}
+
+// admissions of the fake (SPEC-096): by assessment, the admitted students.
+var fakeAdmissions = map[*fakeRepo]map[uuid.UUID]map[uuid.UUID]bool{}
+
+func (f *fakeRepo) Admit(_ context.Context, assessmentID uuid.UUID, students []uuid.UUID, _ time.Time, _ uuid.UUID) ([]uuid.UUID, error) {
+	if fakeAdmissions[f] == nil {
+		fakeAdmissions[f] = map[uuid.UUID]map[uuid.UUID]bool{}
+	}
+	if fakeAdmissions[f][assessmentID] == nil {
+		fakeAdmissions[f][assessmentID] = map[uuid.UUID]bool{}
+	}
+	var added []uuid.UUID
+	for _, s := range students {
+		if !fakeAdmissions[f][assessmentID][s] {
+			fakeAdmissions[f][assessmentID][s] = true
+			added = append(added, s)
+		}
+	}
+	return added, nil
+}
+
+func (f *fakeRepo) Admitted(_ context.Context, assessmentID uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	for s := range fakeAdmissions[f][assessmentID] {
+		out[s] = true
+	}
+	return out, nil
+}
+
+// ExpectedAnswer gives a fixed text for the written kind, as the fake bank keeps only the key (SPEC-097).
+func (f *fakeQuestions) ExpectedAnswer(_ context.Context, kind string, _ json.RawMessage) (string, error) {
+	if kind == "DISCURSIVE" {
+		return "Resposta esperada", nil
+	}
+	return "", nil
+}
+
+// AdjustItem changes the points of a question in the correction, or undoes it (SPEC-097).
+func (f *fakeRepo) AdjustItem(_ context.Context, attemptID uuid.UUID, position int, points *domain.Score, reason *string, _ time.Time, _ uuid.UUID) error {
+	f.attemptStore()
+	items := f.attemptItems[attemptID]
+	for i := range items {
+		if items[i].Position == position {
+			items[i].AdjustedPoints, items[i].AdjustReason = points, reason
+			return nil
+		}
+	}
+	return domain.ErrAttemptNotFound
+}
+
+// the review of the fake (SPEC-097): it changes the attempt kept by its id
+func (f *fakeRepo) changeAttempt(id uuid.UUID, change func(*domain.Attempt)) error {
+	f.attemptStore()
+	for key, a := range f.attempts {
+		if a.ID == id {
+			change(&a)
+			f.attempts[key] = a
+			return nil
+		}
+	}
+	return domain.ErrAttemptNotFound
+}
+
+func (f *fakeRepo) SaveReviewNotes(_ context.Context, attemptID uuid.UUID, teacher, student *string) error {
+	return f.changeAttempt(attemptID, func(a *domain.Attempt) { a.TeacherNote, a.StudentNote = teacher, student })
+}
+
+func (f *fakeRepo) FinishReview(_ context.Context, attemptID uuid.UUID, score domain.Score, at time.Time, by uuid.UUID) error {
+	return f.changeAttempt(attemptID, func(a *domain.Attempt) { a.FinalScore, a.ReviewedAt, a.ReviewedBy = &score, &at, &by })
+}
+
+func (f *fakeRepo) ReopenReview(_ context.Context, attemptID uuid.UUID) error {
+	return f.changeAttempt(attemptID, func(a *domain.Attempt) { a.FinalScore, a.ReviewedAt, a.ReviewedBy = nil, nil, nil })
+}

@@ -50,6 +50,17 @@ type AssessmentService interface {
 	CheckAnswer(ctx context.Context, a service.Actor, classID, id uuid.UUID, position int, snapshot json.RawMessage) (bool, error)
 	SubmitAttempt(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.StudentAttempt, error)
 	Attempts(ctx context.Context, a service.Actor, classID, id uuid.UUID) ([]service.AttemptRow, error)
+	// SPEC-095: the attempt of one student for the teacher
+	AttemptForTeacher(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.TeacherAttempt, error)
+	// SPEC-097: the correction
+	ReviewOf(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.Review, error)
+	AdjustItem(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID, position int, points *float64, reason string) (service.Review, error)
+	SaveReviewNotes(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID, teacherNote, studentNote string) error
+	FinishReview(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.Review, error)
+	ReopenReview(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.Review, error)
+	// SPEC-098: the publication of the grades
+	PublishGrades(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Summary, error)
+	MyResult(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.StudentResult, error)
 
 	// SPEC-091: the room
 	RoomServices
@@ -88,9 +99,24 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/assessments/:assessmentId/attempt/items/:position/check", h.checkAnswer)
 	g.POST("/classes/:id/assessments/:assessmentId/attempt/submit", h.submitAttempt)
 	g.GET("/classes/:id/assessments/:assessmentId/attempts", h.attempts)
+	g.GET("/classes/:id/assessments/:assessmentId/attempts/:attemptId", h.attemptForTeacher) // SPEC-095
 	// the room of the exam (SPEC-091 section 5)
 	g.GET("/classes/:id/assessments/:assessmentId/room/ws", h.connectRoom)
 	g.POST("/classes/:id/assessments/:assessmentId/attempts/:attemptId/end", h.endAttempt)
+	// the conversation of the exam (SPEC-093 section 5)
+	g.GET("/classes/:id/assessments/:assessmentId/attempts/:attemptId/chat", h.attemptChat)
+	// the admission by the teacher and the finish of the exam (SPEC-096 section 5)
+	g.POST("/classes/:id/assessments/:assessmentId/admissions", h.admit)
+	g.POST("/classes/:id/assessments/:assessmentId/finish", h.finish)
+	// the correction of the exam (SPEC-097 section 5)
+	g.GET("/classes/:id/assessments/:assessmentId/attempts/:attemptId/review", h.review)
+	g.PUT("/classes/:id/assessments/:assessmentId/attempts/:attemptId/items/:position/points", h.adjust)
+	g.PUT("/classes/:id/assessments/:assessmentId/attempts/:attemptId/notes", h.reviewNotes)
+	g.POST("/classes/:id/assessments/:assessmentId/attempts/:attemptId/review", h.finishReview)
+	g.DELETE("/classes/:id/assessments/:assessmentId/attempts/:attemptId/review", h.reopenReview)
+	// the publication of the grades (SPEC-098 section 5)
+	g.POST("/classes/:id/assessments/:assessmentId/grades/publish", h.publishGrades)
+	g.GET("/classes/:id/assessments/:assessmentId/my-result", h.myResult)
 }
 
 func fail(c *gin.Context, p *problem.Problem) {
@@ -220,6 +246,30 @@ func toProblem(err error) *problem.Problem {
 		return problem.BadRequest("invalid-reason", err.Error())
 	case errors.Is(err, domain.ErrInvalidHelp):
 		return problem.BadRequest("invalid-help", err.Error())
+	case errors.Is(err, domain.ErrAssessmentNotEnded):
+		return problem.Conflict("assessment-not-ended", err.Error())
+	case errors.Is(err, domain.ErrAttemptInProgress):
+		return problem.Conflict("attempt-in-progress", err.Error())
+	case errors.Is(err, domain.ErrReviewsPending):
+		return problem.Conflict("reviews-pending", err.Error())
+	case errors.Is(err, domain.ErrGradesPublished):
+		return problem.Conflict("grades-published", err.Error())
+	case errors.Is(err, domain.ErrResultNotPublished):
+		return problem.NotFound("result-not-published", err.Error())
+	case errors.Is(err, domain.ErrInvalidNote):
+		return problem.BadRequest("invalid-note", err.Error())
+	case errors.Is(err, domain.ErrWrittenPending):
+		return problem.Conflict("written-pending", err.Error())
+	case errors.Is(err, domain.ErrInvalidPoints):
+		return problem.BadRequest("invalid-points", err.Error())
+	case errors.Is(err, domain.ErrReviewDone):
+		return problem.Conflict("review-done", err.Error())
+	case errors.Is(err, domain.ErrAttemptNotAdmitted):
+		return problem.Conflict("attempt-not-admitted", err.Error())
+	case errors.Is(err, domain.ErrAssessmentFinished):
+		return problem.Conflict("assessment-finished", err.Error())
+	case errors.Is(err, domain.ErrInvalidAdmission):
+		return problem.BadRequest("invalid-admission", err.Error())
 	case errors.Is(err, domain.ErrHelpNotFound):
 		return problem.NotFound("help-not-found", err.Error())
 	}

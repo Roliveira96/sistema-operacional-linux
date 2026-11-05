@@ -158,6 +158,53 @@ func (r *Repository) CloseHelp(ctx context.Context, id uuid.UUID, status domain.
 }
 
 // OpenHelps gives the open requests of an assessment, the oldest first (RN-07).
+// AdjustItem stores the points the teacher gave a question in the correction, with the reason, who and when; nil undoes it (SPEC-097 RN-03).
+func (r *Repository) AdjustItem(ctx context.Context, attemptID uuid.UUID, position int, points *domain.Score, reason *string, at time.Time, by uuid.UUID) error {
+	values := map[string]any{"adjusted_points": nil, "adjust_reason": nil, "adjusted_at": nil, "adjusted_by": nil}
+	if points != nil {
+		values = map[string]any{"adjusted_points": *points, "adjust_reason": reason, "adjusted_at": at, "adjusted_by": by}
+	}
+	res := r.db.Conn(ctx).Table("assessment_attempt_items").Where("attempt_id = ? AND position = ?", attemptID, position).Updates(values)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return domain.ErrAttemptNotFound
+	}
+	return nil
+}
+
+// SaveReviewNotes keeps the notes of the correction of an attempt; nil clears one (SPEC-097 RN-04).
+func (r *Repository) SaveReviewNotes(ctx context.Context, attemptID uuid.UUID, teacher, student *string) error {
+	return r.updateAttempt(ctx, attemptID, map[string]any{"teacher_note": teacher, "student_note": student})
+}
+
+// FinishReview keeps the final score of the correction, who and when (SPEC-097 RN-05).
+func (r *Repository) FinishReview(ctx context.Context, attemptID uuid.UUID, score domain.Score, at time.Time, by uuid.UUID) error {
+	return r.updateAttempt(ctx, attemptID, map[string]any{"final_score": score, "reviewed_at": at, "reviewed_by": by})
+}
+
+// ReopenReview clears the final score and the review (SPEC-097 RN-05).
+func (r *Repository) ReopenReview(ctx context.Context, attemptID uuid.UUID) error {
+	return r.updateAttempt(ctx, attemptID, map[string]any{"final_score": nil, "reviewed_at": nil, "reviewed_by": nil})
+}
+
+func (r *Repository) updateAttempt(ctx context.Context, attemptID uuid.UUID, values map[string]any) error {
+	res := r.db.Conn(ctx).Table("assessment_attempts").Where("id = ?", attemptID).Updates(values)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return domain.ErrAttemptNotFound
+	}
+	return nil
+}
+
+// AttemptHelps gives every request for help of an attempt, open or closed, the oldest first (SPEC-097).
+func (r *Repository) AttemptHelps(ctx context.Context, attemptID uuid.UUID) ([]domain.HelpRequest, error) {
+	return r.helps(r.db.Conn(ctx).Where("h.attempt_id = ?", attemptID))
+}
+
 func (r *Repository) OpenHelps(ctx context.Context, assessmentID uuid.UUID) ([]domain.HelpRequest, error) {
 	return r.helps(r.db.Conn(ctx).Where("a.assessment_id = ? AND h.status = ?", assessmentID, domain.HelpOpen))
 }

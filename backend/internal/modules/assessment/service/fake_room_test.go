@@ -88,3 +88,14 @@ func (f *fakeRepo) OpenHelps(_ context.Context, assessmentID uuid.UUID) ([]domai
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	return out, nil
 }
+
+// AttemptHelps gives every request of an attempt, the oldest first (SPEC-097).
+func (f *fakeRepo) AttemptHelps(_ context.Context, attemptID uuid.UUID) ([]domain.HelpRequest, error) {
+	var out []domain.HelpRequest
+	for _, h := range fakeHelps[f] {
+		if h.AttemptID == attemptID {
+			out = append(out, h)
+		}
+	}
+	return out, nil
+}

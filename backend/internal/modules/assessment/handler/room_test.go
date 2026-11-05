@@ -29,6 +29,7 @@ import (
 type roomFake struct {
 	mu       sync.Mutex
 	started  bool
+	pending  map[uuid.UUID]bool // SPEC-096: who asks to enter after the start, until the teacher admits
 	enterErr error
 	commands []service.CommandInput
 	queue    []domain.HelpRequest
@@ -50,7 +51,7 @@ func (f *fakeService) EnterRoom(_ context.Context, a service.Actor, classID, id 
 		return service.RoomEntry{}, r.enterErr
 	}
 	if a.Role == authn.RoleStudent {
-		return service.RoomEntry{Waiting: !r.started}, nil
+		return service.RoomEntry{Waiting: !r.started || r.pending[a.UserID], Started: r.started}, nil
 	}
 	return service.RoomEntry{Controller: true}, nil
 }
@@ -230,10 +231,25 @@ func object2(t *testing.T, raw json.RawMessage) map[string]any {
 
 // ---- the tests ----
 
-// Covers SPEC-091 CA-01, CA-02 (RN-01, RN-02): the teacher gets the whole state; a student who comes before the start waits and is admitted when the
-// teacher starts; the teacher sees the student come and the start happen.
-func TestRoom_WaitingRoomAndTheStart(t *testing.T) {
+// post calls a route of the exam as the teacher, for the tests of the room.
+func (w *roomWorld) post(t *testing.T, route string, body string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, w.srv.URL+"/api/v1/classes/"+w.classID.String()+"/assessments/"+w.exam.String()+route, strings.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: authn.CookieName, Value: "teacher"})
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	_ = res.Body.Close()
+	require.Equal(t, http.StatusOK, res.StatusCode, route)
+}
+
+// Covers SPEC-091 CA-01 and SPEC-096 CA-01, CA-02 (RN-01, RN-02): the teacher gets the whole state; a student who comes before the start waits; the
+// start admits nobody: she is told the exam started and the teacher sees her asking to enter; when the teacher admits her, she is admitted; who
+// comes after the start also asks.
+func TestRoom_WaitingRoomTheStartAndTheAdmission(t *testing.T) {
 	w := roomSetup(t)
+	w.svc.room().pending = map[uuid.UUID]bool{roomStudent: true, roomOther: true}
 	teacher := w.dial(t, "teacher")
 	snap := object2(t, readType(t, teacher, "room:snapshot").Data)
 	cards := snap["cards"].([]any)
@@ -244,30 +260,56 @@ func TestRoom_WaitingRoomAndTheStart(t *testing.T) {
 	ana := w.dial(t, "ana")
 	mine := object2(t, readType(t, ana, "room:snapshot").Data)
 	assert.Equal(t, true, mine["waiting"])
+	assert.Equal(t, false, mine["started"])
 	card := object2(t, readType(t, teacher, "room:student").Data)
 	assert.Equal(t, roomStudent.String(), card["studentId"])
 	assert.NotContains(t, card, "attemptId", "no attempt yet")
 	assert.Equal(t, true, card["online"])
 	assert.Equal(t, true, card["waiting"])
+	assert.Equal(t, false, card["requesting"], "before the start she only waits")
 
 	w.svc.room().mu.Lock()
 	w.svc.room().started = true
 	w.svc.room().mu.Unlock()
 	w.svc.summary = service.Summary{Public: minimalPublic(), Modality: domain.ModalityOnline, StartedAt: ptr(at(21, 9, 5)), StartedByName: "Profa. Sediane"}
-	req, err := http.NewRequest(http.MethodPost, w.srv.URL+"/api/v1/classes/"+w.classID.String()+"/assessments/"+w.exam.String()+"/start", nil)
-	require.NoError(t, err)
-	req.AddCookie(&http.Cookie{Name: authn.CookieName, Value: "teacher"})
-	res, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	_ = res.Body.Close()
-	require.Equal(t, http.StatusOK, res.StatusCode)
+	w.post(t, "/start", "")
 
-	readType(t, ana, "room:admitted")
+	readType(t, ana, "room:started") // the start admits nobody: she now asks to enter
 	started := object2(t, readType(t, teacher, "room:started").Data)
 	assert.Equal(t, "Profa. Sediane", started["startedByName"])
+	card = object2(t, readType(t, teacher, "room:student").Data)
+	assert.Equal(t, true, card["requesting"])
 
 	bruno := w.dial(t, "bruno")
-	assert.Equal(t, false, object2(t, readType(t, bruno, "room:snapshot").Data)["waiting"], "after the start a student is in at once")
+	late := object2(t, readType(t, bruno, "room:snapshot").Data)
+	assert.Equal(t, true, late["waiting"], "who comes after the start also asks")
+	assert.Equal(t, true, late["started"])
+
+	w.post(t, "/admissions", `{"studentIds":["`+roomStudent.String()+`"]}`)
+	readType(t, ana, "room:admitted")
+	for {
+		card = object2(t, readType(t, teacher, "room:student").Data)
+		if card["studentId"] == roomStudent.String() {
+			break
+		}
+	}
+	assert.Equal(t, false, card["waiting"])
+	assert.Equal(t, false, card["requesting"])
+}
+
+// Covers SPEC-096 CA-05, CA-08 (RN-04): finishing the exam tells every student in the room that it was finished, with the reason.
+func TestRoom_FinishTellsTheStudents(t *testing.T) {
+	w := roomSetup(t)
+	w.svc.room().started = true
+	teacher := w.dial(t, "teacher")
+	readType(t, teacher, "room:snapshot")
+	ana := w.dial(t, "ana")
+	readType(t, ana, "room:snapshot")
+	fakeFinish = service.FinishResult{FinishedAt: at(21, 10, 0), FinishedByName: "Profa. Sediane", Ended: []uuid.UUID{roomStudent}}
+	w.post(t, "/finish", "")
+	ended := object2(t, readType(t, ana, "room:ended").Data)
+	assert.Equal(t, true, ended["finished"])
+	assert.Equal(t, domain.FinishReason, ended["reason"])
 }
 
 // Covers SPEC-091 CA-01 (RN-01): who may not enter the room is refused before the connection, with the reason.

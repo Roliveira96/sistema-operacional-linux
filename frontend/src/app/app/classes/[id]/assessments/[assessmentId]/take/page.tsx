@@ -3,12 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/Button/Button";
+import { StudentChat } from "@/components/ExamChat/ExamChat";
+import chatStyles from "@/components/ExamChat/ExamChat.module.scss";
 import { ExamRunner, type ExamRunnerRoom } from "@/components/ExamRunner/ExamRunner";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouteParams } from "@/hooks/useRouteParams";
+import { descriptionText } from "@/lib/description";
 import { messages } from "@/messages/pt-BR";
 import { ApiProblemError } from "@/services/httpClient";
-import { assessmentService, describeAssessmentError, type RoomSocket, type StudentAttempt } from "@/services/assessmentService";
+import { assessmentService, describeAssessmentError, type ExamChatMessage, type RoomSocket, type StudentAttempt } from "@/services/assessmentService";
 import styles from "../../page.module.scss";
 import own from "../simulate/page.module.scss";
 import take from "./page.module.scss";
@@ -47,13 +50,28 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
   const [phase, setPhase] = useState<Phase>("connecting");
   const [attempt, setAttempt] = useState<StudentAttempt | null>(null);
   const [title, setTitle] = useState("");
+  // the general instructions of the exam (SPEC-094), filtered html, and whether their column is open
+  const [instructions, setInstructions] = useState("");
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [round, setRound] = useState(0);
   const [help, setHelp] = useState<Help>({ status: "NONE" });
   const [asking, setAsking] = useState(false);
   const [question, setQuestion] = useState("");
   const [ended, setEnded] = useState<string | null>(null);
+  // SPEC-096: after the start, who waits asks to enter; the exam finished by the teacher locks with its own words
+  const [requesting, setRequesting] = useState(false);
+  const [finished, setFinished] = useState(false);
   const [watched, setWatched] = useState(false);
+  // the conversation with the teacher (SPEC-093): the messages, whether the column is open and the new ones of the teacher while it is closed
+  const [chat, setChat] = useState<ExamChatMessage[]>([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [online, setOnline] = useState(false);
+  const chatOpenRef = useRef(false);
+  useEffect(() => {
+    chatOpenRef.current = chatOpen;
+  }, [chatOpen]);
 
   const socket = useRef<RoomSocket | null>(null);
   const connected = useRef(false);
@@ -70,7 +88,11 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
     if (!classId || !assessmentId || !isStudent) return;
     let alive = true;
     assessmentService.get(classId, assessmentId).then(
-      (got) => alive && setTitle(got.title),
+      (got) => {
+        if (!alive) return;
+        setTitle(got.title);
+        setInstructions(descriptionText(got.description ?? "") ? got.description : "");
+      },
       () => {},
     );
     return () => {
@@ -102,6 +124,7 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
         onOpen: () => {
           if (!alive) return;
           connected.current = true;
+          setOnline(true);
           const queued = pending.current.splice(0);
           queued.forEach((c) => socket.current?.send("room:command", c));
           if (lastQuestion.current) socket.current?.send("room:question", lastQuestion.current);
@@ -112,16 +135,22 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
           switch (type) {
             case "room:snapshot":
               if (body.help) setHelp(body.help as Help);
+              if (Array.isArray(body.chat)) setChat(body.chat as ExamChatMessage[]);
+              if (body.started === true) setRequesting(true);
               if (body.waiting === true && !entered) setPhase("waiting");
               else enter();
               break;
             case "room:admitted":
               enter();
               break;
+            case "room:started":
+              setRequesting(true);
+              break;
             case "help:state":
               setHelp(body as unknown as Help);
               break;
             case "room:ended":
+              setFinished(body.finished === true);
               setEnded(String(body.reason ?? ""));
               break;
             case "room:watch-on":
@@ -130,11 +159,18 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
             case "room:watch-off":
               setWatched(false);
               break;
+            case "chat:message": {
+              const got = body as unknown as ExamChatMessage;
+              setChat((all) => (all.some((x) => x.id === got.id) ? all : [...all, got]));
+              if (got.from === "TEACHER" && !chatOpenRef.current) setUnread((n) => n + 1);
+              break;
+            }
           }
         },
         onClose: () => {
           if (!alive) return;
           connected.current = false;
+          setOnline(false);
           setWatched(false);
           enter(); // without the room the exam goes on; the server still decides who may enter
           timer = setTimeout(connect, RECONNECT_MS);
@@ -167,6 +203,48 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
       onScreen: (position, questionTitle, screen) => socket.current?.send("room:screen", { position, title: questionTitle, screen }),
       header: (position) => (
         <div className={take.help}>
+          {instructions && (
+            <div className={chatStyles.student}>
+              <Button
+                variant="secondary"
+                aria-expanded={instructionsOpen}
+                onClick={() => {
+                  setInstructionsOpen(!instructionsOpen);
+                  setChatOpen(false);
+                }}
+              >
+                {t.instructions.open}
+              </Button>
+              {instructionsOpen && (
+                <section
+                  className={chatStyles.column}
+                  aria-label={t.instructions.title}
+                  onKeyDown={(e) => e.key === "Escape" && setInstructionsOpen(false)}
+                >
+                  <div className={take.instructionsHead}>
+                    <h2 className={styles.heading}>{t.instructions.title}</h2>
+                    <Button variant="secondary" onClick={() => setInstructionsOpen(false)}>
+                      {t.instructions.close}
+                    </Button>
+                  </div>
+                  {/* html that the server filtered when the instructions were saved (SPEC-077 RN-01) */}
+                  <div className={`${styles.richText} ${take.instructionsBody}`} dangerouslySetInnerHTML={{ __html: instructions }} />
+                </section>
+              )}
+            </div>
+          )}
+          <StudentChat
+            messages={chat}
+            open={chatOpen}
+            unread={unread}
+            online={online}
+            onToggle={() => {
+              setChatOpen(!chatOpen);
+              setInstructionsOpen(false);
+              setUnread(0);
+            }}
+            onSend={(text) => socket.current?.send("chat:send", { text })}
+          />
           {help.status === "OPEN" ? (
             <>
               <span role="status">{r.helpOpen}</span>
@@ -207,7 +285,7 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
         </div>
       ),
     }),
-    [watched, help, asking, question],
+    [watched, help, asking, question, chat, chatOpen, unread, online, instructions, instructionsOpen],
   );
 
   if (!classId || !assessmentId || !isStudent) return null;
@@ -217,8 +295,14 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
       <h1 className={own.srOnly}>{t.title}</h1>
       {ended !== null ? (
         <div className={take.ended} role="alert">
-          <h2>{r.ended}</h2>
-          {ended && <p>{ended}</p>}
+          {finished ? (
+            <h2>{r.finishedByTeacher}</h2>
+          ) : (
+            <>
+              <h2>{r.ended}</h2>
+              {ended && <p>{ended}</p>}
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -234,9 +318,15 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
             <div className={take.waiting}>
               <span className={take.pulse} aria-hidden="true" />
               <p role="status" className={take.waitingText}>
-                {r.waiting}
+                {requesting ? r.requesting : r.waiting}
               </p>
               <p className={take.watchedNote}>{r.watched}</p>
+              {instructions && (
+                <section className={take.waitingInstructions}>
+                  <h2 className={styles.heading}>{t.instructions.title}</h2>
+                  <div className={styles.richText} dangerouslySetInnerHTML={{ __html: instructions }} />
+                </section>
+              )}
             </div>
           )}
           {!error && phase !== "waiting" && !attempt && (

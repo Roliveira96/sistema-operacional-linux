@@ -1,0 +1,121 @@
+// The published result of the student (SPEC-098): the grade, the note of the teacher and the correction of each question.
+.summary,
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.summary {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.grade {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.note {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-info-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-info-faint);
+}
+
+.noteTitle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-info-text);
+}
+
+.noteText {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--color-text-body);
+}
+
+.open {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent-contrast);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+
+  &:hover {
+    background: var(--color-accent-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.number {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5rem;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.statement {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+}
+
+.points {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.reason {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}

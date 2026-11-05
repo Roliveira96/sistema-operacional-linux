@@ -42,3 +42,42 @@ describe("AssessmentAttempts", () => {
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
   });
 });
+
+// SPEC-093 CA-09: the conversation of each attempt, read only, for the assessment.
+describe("AssessmentAttempts, SPEC-093 the conversation", () => {
+  it("opens the whole conversation of an attempt, read only, with who wrote, the date, the hour and the question", async () => {
+    const loadChat = vi.fn().mockResolvedValue({
+      messages: [
+        { id: "m-1", scope: "private", from: "STUDENT", senderName: "Ana", position: 4, text: "Posso usar o man?", createdAt: "2026-10-21T09:10:00-03:00" },
+        { id: "m-2", scope: "all", from: "TEACHER", senderName: "Profa. Sediane", text: "Faltam 10 minutos", createdAt: "2026-10-21T09:20:00-03:00" },
+      ],
+    });
+    const withChat = [{ ...rows[0]!, chatCount: 2 }, { ...rows[1]!, chatCount: 0 }];
+    render(<AssessmentAttempts maxScore={10} load={() => Promise.resolve({ items: withChat, serverNow: SERVER_NOW })} loadChat={loadChat} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Conversa (2)" }));
+    expect(screen.queryAllByRole("button", { name: /^Conversa \(/ })).toHaveLength(1);
+    expect(loadChat).toHaveBeenCalledWith("t-1");
+    const dialog = await screen.findByRole("dialog", { name: "Conversa de Ana" });
+    const items = await within(dialog).findAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]!.textContent).toContain("Ana");
+    expect(items[0]!.textContent).toContain("21/10/2026");
+    expect(items[0]!.textContent).toContain("Questão 4");
+    expect(items[1]!.textContent).toContain("Profa. Sediane");
+    expect(items[1]!.textContent).toContain("Para todos");
+    expect(within(dialog).queryByLabelText("Mensagem")).toBeNull();
+  });
+});
+
+// SPEC-096 CA-06: after the end, who did not come is in the list, without start, delivery nor conversation.
+describe("AssessmentAttempts, SPEC-096 the absent", () => {
+  it("lists who did not come", async () => {
+    const absent: AttemptRow = { studentId: "s-4", studentName: "Davi", academicId: "1000004", status: "ABSENT" };
+    render(<AssessmentAttempts maxScore={10} load={() => Promise.resolve({ items: [rows[0]!, absent], serverNow: SERVER_NOW })} loadChat={vi.fn()} />);
+    const table = await screen.findByRole("table", { name: "Tentativas" });
+    const line = within(table).getAllByRole("row")[2]!;
+    expect(line.textContent).toContain("Davi");
+    expect(line.textContent).toContain("Não compareceu");
+    expect(within(line).getAllByRole("cell")[3]!.textContent).toBe("—");
+  });
+});

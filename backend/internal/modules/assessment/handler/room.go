@@ -38,6 +38,8 @@ const (
 	helpQueue    = "help:queue"
 	helpState    = "help:state"
 	roomRevoked  = "room:revoked"
+	chatSend     = "chat:send"
+	chatMessage  = "chat:message"
 
 	// viewRoom is the window of the teacher (SPEC-091 section 3.1).
 	viewRoom = "room"
@@ -65,6 +67,15 @@ type RoomServices interface {
 	HelpQueue(ctx context.Context, id uuid.UUID) ([]domain.HelpRequest, error)
 	MyHelp(ctx context.Context, id, studentID uuid.UUID) (*domain.HelpRequest, error)
 	EndAttempt(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID, reason string) (service.AttemptRow, error)
+	// the conversation of the exam (SPEC-093)
+	SendStudentChat(ctx context.Context, id, studentID uuid.UUID, position *int, text string) (domain.ChatMessage, error)
+	SendTeacherChat(ctx context.Context, id, teacherID uuid.UUID, studentID *uuid.UUID, position *int, text string) (domain.ChatMessage, []uuid.UUID, error)
+	StudentChat(ctx context.Context, id, studentID uuid.UUID) ([]domain.ChatMessage, error)
+	RoomChat(ctx context.Context, id uuid.UUID) ([]domain.ChatMessage, error)
+	AttemptChat(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) ([]service.ChatLine, error)
+	// the admission by the teacher and the finish of the exam (SPEC-096)
+	Admit(ctx context.Context, a service.Actor, classID, id uuid.UUID, studentIDs []uuid.UUID) ([]uuid.UUID, error)
+	Finish(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.FinishResult, error)
 }
 
 // RoomOptions are the origins the room accepts, as in the live class.
@@ -84,11 +95,13 @@ type room struct {
 	watching map[string]string          // room -> student; ponytail: one watched student per room, per window if two teachers watch at once
 	// ponytail: in memory only, lost on a restart until the student changes the question or reconnects (SPEC-092 revision 2)
 	questions map[string]map[string]question // room -> student -> the question she is in
+	started   map[string]bool                // room -> the teacher started the exam: who waits now asks to enter (SPEC-096 RN-02)
 }
 
 // WithRoom turns on the room of the exam (SPEC-091); without it the route of the room answers 503.
 func (h *Handler) WithRoom(log *zap.Logger, opts RoomOptions) *Handler {
-	r := &room{log: log, present: map[string]map[string]bool{}, watching: map[string]string{}, questions: map[string]map[string]question{}}
+	r := &room{log: log, present: map[string]map[string]bool{}, watching: map[string]string{}, questions: map[string]map[string]question{},
+		started: map[string]bool{}}
 	r.upgrader = websocket.Upgrader{CheckOrigin: func(req *http.Request) bool {
 		origin := req.Header.Get("Origin")
 		if origin == "" || opts.AnyOrigin {
@@ -117,6 +130,7 @@ func roomConfig() hub.Config {
 			roomCommand:  {MaxBytes: 8 * kib, Limited: true},
 			helpRaise:    {MaxBytes: 4 * kib, Limited: true},
 			helpLower:    {MaxBytes: kib, Limited: true},
+			chatSend:     {MaxBytes: 4 * kib, Limited: true},
 		},
 		MaxViewers:    100,
 		MaxWaiting:    200,
@@ -148,9 +162,10 @@ func (r *room) cardJSON(roomID string, c service.RoomCard) gin.H {
 	r.mu.Lock()
 	waiting, online := r.present[roomID][c.StudentID.String()]
 	q, hasQuestion := r.questions[roomID][c.StudentID.String()]
+	started := r.started[roomID]
 	r.mu.Unlock()
 	out := gin.H{"studentId": c.StudentID, "name": c.Name, "academicId": c.AcademicID, "status": c.Status, "online": online, "waiting": online && waiting,
-		"answered": c.Answered, "total": c.Total, "solved": c.Solved}
+		"requesting": online && waiting && started, "answered": c.Answered, "total": c.Total, "solved": c.Solved}
 	if c.DeadlineAt != nil {
 		out["deadlineAt"] = iso(*c.DeadlineAt)
 	}
@@ -162,6 +177,26 @@ func (r *room) cardJSON(roomID string, c service.RoomCard) gin.H {
 	}
 	if hasQuestion {
 		out["question"] = q
+	}
+	return out
+}
+
+// chatJSON is a message of the conversation of the exam (SPEC-093 section 5): studentId, the owner of the conversation, only in a private one.
+func chatJSON(m domain.ChatMessage) gin.H {
+	out := gin.H{"id": m.ID, "scope": m.Scope(), "from": m.SenderRole, "text": m.Body, "createdAt": iso(m.CreatedAt)}
+	if m.StudentID != nil {
+		out["studentId"] = *m.StudentID
+	}
+	if m.Position != nil {
+		out["position"] = *m.Position
+	}
+	return out
+}
+
+func chatListJSON(list []domain.ChatMessage) []gin.H {
+	out := make([]gin.H, len(list))
+	for i, m := range list {
+		out[i] = chatJSON(m)
 	}
 	return out
 }
@@ -197,6 +232,11 @@ func (h *Handler) connectRoom(c *gin.Context) {
 	if err != nil {
 		return // the upgrader has already answered
 	}
+	if entry.Started {
+		h.room.mu.Lock()
+		h.room.started[id.String()] = true
+		h.room.mu.Unlock()
+	}
 	who := hub.Identity{UserID: actor.UserID.String(), Role: hub.Viewer, Meta: actor.Role, Waiting: entry.Waiting}
 	if entry.Controller {
 		who.Role, who.Kind = hub.Controller, viewRoom
@@ -208,33 +248,105 @@ func (h *Handler) connectRoom(c *gin.Context) {
 
 // ---- what the other routes tell the room ----
 
-// started admits everybody who waits and tells the teacher (SPEC-091 RN-02).
+// started tells the teacher and who waits that the exam started; it admits nobody: who waits now asks to enter (SPEC-096 RN-02, CA-01).
 func (h *Handler) started(id uuid.UUID, s service.Summary) {
 	if h.room == nil {
 		return
 	}
 	roomID := id.String()
 	h.room.mu.Lock()
+	h.room.started[roomID] = true
 	var waiting []string
 	for student, w := range h.room.present[roomID] {
 		if w {
 			waiting = append(waiting, student)
-			h.room.present[roomID][student] = false
 		}
 	}
 	h.room.mu.Unlock()
-	for _, student := range waiting {
-		h.room.hub.SendTo(roomID, student, encode(roomAdmitted, gin.H{}))
-		h.room.hub.SetWaiting(roomID, student, false)
-	}
 	data := gin.H{"startedByName": s.StartedByName}
 	if s.StartedAt != nil {
 		data["startedAt"] = iso(*s.StartedAt)
+	}
+	for _, student := range waiting {
+		h.room.hub.SendTo(roomID, student, encode(roomStarted, data))
 	}
 	h.room.hub.SendToKind(roomID, viewRoom, encode(roomStarted, data))
 	for _, student := range waiting {
 		h.cardChanged(context.Background(), id, uuid.MustParse(student))
 	}
+}
+
+// admitted lets in the students the teacher admitted who are waiting in the room, and tells the teacher (SPEC-096 RN-01, CA-02).
+func (h *Handler) admitted(ctx context.Context, id uuid.UUID, students []uuid.UUID) {
+	if h.room == nil {
+		return
+	}
+	roomID := id.String()
+	for _, st := range students {
+		student := st.String()
+		h.room.mu.Lock()
+		waiting := h.room.present[roomID][student]
+		if waiting {
+			h.room.present[roomID][student] = false
+		}
+		h.room.mu.Unlock()
+		if waiting {
+			h.room.hub.SetWaiting(roomID, student, false)
+			h.room.hub.SendTo(roomID, student, encode(roomAdmitted, gin.H{}))
+		}
+		h.cardChanged(ctx, id, st)
+	}
+}
+
+// admit is the teacher admitting students to the exam (SPEC-096 section 5).
+func (h *Handler) admit(c *gin.Context) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	var body struct {
+		StudentIDs []uuid.UUID `json:"studentIds"`
+	}
+	dec := json.NewDecoder(c.Request.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil || body.StudentIDs == nil {
+		malformed(c)
+		return
+	}
+	got, err := h.svc.Admit(c.Request.Context(), actor, classID, id, body.StudentIDs)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	h.admitted(c.Request.Context(), id, got)
+	c.JSON(http.StatusOK, gin.H{"admitted": got})
+}
+
+// finish is the teacher finishing the whole exam: every student in the room is told, and the window locks (SPEC-096 section 5, CA-05).
+func (h *Handler) finish(c *gin.Context) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	got, err := h.svc.Finish(c.Request.Context(), actor, classID, id)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	if h.room != nil {
+		roomID := id.String()
+		h.room.mu.Lock()
+		var students []string
+		for st := range h.room.present[roomID] {
+			students = append(students, st)
+		}
+		h.room.mu.Unlock()
+		for _, st := range students {
+			h.room.hub.SendTo(roomID, st, encode(roomEnded, gin.H{"reason": domain.FinishReason, "finished": true}))
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"finishedAt": iso(got.FinishedAt), "finishedBy": got.FinishedBy, "finishedByName": got.FinishedByName,
+		"ended": len(got.Ended), "absent": got.Absent})
 }
 
 // cardChanged sends the teacher the card of a student that changed (SPEC-091 RN-04).
@@ -324,6 +436,11 @@ func (rh roomHandler) Snapshot(ctx context.Context, roomID string, who hub.Ident
 			data["watching"] = w
 		}
 		rh.r.mu.Unlock()
+		chat, err := rh.h.svc.RoomChat(ctx, id)
+		if err != nil {
+			return hub.Message{}, err
+		}
+		data["chat"] = chatListJSON(chat)
 		return encode(roomSnapshot, data), nil
 	}
 	student := uuid.MustParse(who.UserID)
@@ -331,7 +448,14 @@ func (rh roomHandler) Snapshot(ctx context.Context, roomID string, who hub.Ident
 	if err != nil {
 		return hub.Message{}, err
 	}
-	return encode(roomSnapshot, gin.H{"waiting": who.Waiting, "help": stateJSON(help)}), nil
+	chat, err := rh.h.svc.StudentChat(ctx, id, student)
+	if err != nil {
+		return hub.Message{}, err
+	}
+	rh.r.mu.Lock()
+	started := rh.r.started[roomID]
+	rh.r.mu.Unlock()
+	return encode(roomSnapshot, gin.H{"waiting": who.Waiting, "started": started, "help": stateJSON(help), "chat": chatListJSON(chat)}), nil
 }
 
 func (rh roomHandler) Joined(roomID string, who hub.Identity) {
@@ -461,7 +585,88 @@ func (rh roomHandler) Message(ctx context.Context, roomID string, who hub.Identi
 		rh.r.hub.SendTo(roomID, got.StudentID.String(), encode(helpState, stateJSON(&got)))
 		rh.h.sendQueue(ctx, id)
 		rh.h.cardChanged(ctx, id, got.StudentID)
+	case chatSend:
+		rh.chat(ctx, id, who, msg.Data)
 	}
+}
+
+// chat stores a message of the conversation and gives it only to whom it is for: the teacher and the student of the conversation, or the teacher and
+// every student doing the exam (SPEC-093 RN-01, RN-05). A message out of the rules goes nowhere.
+func (rh roomHandler) chat(ctx context.Context, id uuid.UUID, who hub.Identity, data json.RawMessage) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(data, &fields) != nil {
+		return
+	}
+	var body struct {
+		Text      string     `json:"text"`
+		StudentID *uuid.UUID `json:"studentId"`
+		To        string     `json:"to"`
+	}
+	if json.Unmarshal(data, &body) != nil {
+		return
+	}
+	roomID := id.String()
+	user := uuid.MustParse(who.UserID)
+	positionOf := func(student string) *int {
+		rh.r.mu.Lock()
+		defer rh.r.mu.Unlock()
+		if q, ok := rh.r.questions[roomID][student]; ok {
+			return &q.Position
+		}
+		return nil
+	}
+	if who.Role != hub.Controller {
+		if len(fields) != 1 || fields["text"] == nil {
+			return
+		}
+		got, err := rh.h.svc.SendStudentChat(ctx, id, user, positionOf(who.UserID), body.Text)
+		if err != nil {
+			return
+		}
+		out := encode(chatMessage, chatJSON(got))
+		rh.r.hub.SendToKind(roomID, viewRoom, out)
+		rh.r.hub.SendTo(roomID, who.UserID, out)
+		return
+	}
+	if who.Kind != viewRoom || (body.StudentID != nil) == (body.To == "all") || (body.To != "" && body.To != "all") {
+		return
+	}
+	var position *int
+	if body.StudentID != nil {
+		position = positionOf(body.StudentID.String())
+	}
+	got, to, err := rh.h.svc.SendTeacherChat(ctx, id, user, body.StudentID, position, body.Text)
+	if err != nil {
+		return
+	}
+	out := encode(chatMessage, chatJSON(got))
+	rh.r.hub.SendToKind(roomID, viewRoom, out)
+	for _, student := range to {
+		rh.r.hub.SendTo(roomID, student.String(), out)
+	}
+}
+
+// attemptChat is the whole conversation of an attempt, for the teacher who reads it after (SPEC-093 RN-07).
+func (h *Handler) attemptChat(c *gin.Context) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	attemptID, ok := uuidParam(c, "attemptId")
+	if !ok {
+		return
+	}
+	lines, err := h.svc.AttemptChat(c.Request.Context(), actor, classID, id, attemptID)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	out := make([]gin.H, len(lines))
+	for i, l := range lines {
+		out[i] = chatJSON(l.ChatMessage)
+		out[i]["senderName"] = l.SenderName
+	}
+	c.JSON(http.StatusOK, gin.H{"messages": out})
 }
 
 // watch makes the teacher follow one student, or nobody: the one left stops sending the screen, the new one starts, and the teacher gets the
@@ -506,8 +711,10 @@ func commandJSON(c domain.AttemptCommand) gin.H {
 
 // attemptRowJSON is an attempt in the list of the teacher, with who ended it and why (SPEC-090 RN-09, SPEC-091 RN-08).
 func attemptRowJSON(r service.AttemptRow) gin.H {
-	row := gin.H{"attemptId": r.AttemptID, "studentId": r.StudentID, "studentName": r.StudentName, "academicId": r.AcademicID, "status": r.Status,
-		"startedAt": iso(r.StartedAt)}
+	row := gin.H{"studentId": r.StudentID, "studentName": r.StudentName, "academicId": r.AcademicID, "status": r.Status, "chatCount": r.ChatCount}
+	if r.AttemptID != uuid.Nil { // the absent have no attempt (SPEC-096 RN-06)
+		row["attemptId"], row["startedAt"] = r.AttemptID, iso(r.StartedAt)
+	}
 	if r.SubmittedAt != nil {
 		row["submittedAt"] = iso(*r.SubmittedAt)
 	}
@@ -522,6 +729,12 @@ func attemptRowJSON(r service.AttemptRow) gin.H {
 	}
 	if r.EndReason != "" {
 		row["endReason"] = r.EndReason
+	}
+	if r.AttemptID != uuid.Nil { // the review of the correction (SPEC-097 section 5)
+		row["reviewed"] = r.Reviewed
+	}
+	if r.FinalScore != nil {
+		row["finalScore"] = r.FinalScore.Float()
 	}
 	return row
 }

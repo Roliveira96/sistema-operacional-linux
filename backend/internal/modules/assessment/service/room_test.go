@@ -36,7 +36,11 @@ func TestEnterRoom_WhoAndWhen(t *testing.T) {
 	f.begin(t, a)
 	got, err = f.svc.EnterRoom(ctx, f.as(f.ana), f.class.ID, a.ID)
 	require.NoError(t, err)
-	assert.False(t, got.Waiting, "after the start the student is in")
+	assert.True(t, got.Waiting, "SPEC-096: after the start the student asks to enter")
+	f.admitAll(t, a)
+	got, err = f.svc.EnterRoom(ctx, f.as(f.ana), f.class.ID, a.ID)
+	require.NoError(t, err)
+	assert.False(t, got.Waiting, "admitted, the student is in")
 
 	_, err = f.svc.EnterRoom(ctx, f.other, f.class.ID, a.ID)
 	assert.ErrorIs(t, err, domain.ErrForbidden)

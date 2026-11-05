@@ -15,6 +15,9 @@ import (
 // kindPractical is the kind of question of command Linux, the only one with a machine to check (SPEC-090 RN-05).
 const kindPractical = "PRACTICAL"
 
+// kindWritten is the written question, which has no automatic points (SPEC-097 D-05).
+const kindWritten = "DISCURSIVE"
+
 // maxAnswerBytes is the largest answer: the machine of a practical question is up to 256 KiB, and the others fit well within (RN-04).
 const maxAnswerBytes = 256 * 1024
 
@@ -60,6 +63,11 @@ type AttemptRow struct {
 	// EndedByName and EndReason are only there when the teacher ended the attempt (SPEC-091 RN-08).
 	EndedByName string
 	EndReason   string
+	// ChatCount is the number of messages of the conversation (SPEC-093 RN-07).
+	ChatCount int
+	// Reviewed and FinalScore are the correction of the teacher (SPEC-097 RN-05).
+	Reviewed   bool
+	FinalScore *domain.Score
 }
 
 // attemptView is what the student sees of a question, frozen in the attempt at the entry (RN-02).
@@ -90,12 +98,22 @@ func (s *Service) EnterAttempt(ctx context.Context, actor Actor, classID, id uui
 		return StudentAttempt{}, false, err
 	}
 
+	if a.FinishedAt != nil {
+		return StudentAttempt{}, false, domain.ErrAssessmentFinished
+	}
 	access, err := s.AccessOf(ctx, actor.UserID, a.ID)
 	if err != nil {
 		return StudentAttempt{}, false, err
 	}
 	if err := refusalOf(access); err != nil {
 		return StudentAttempt{}, false, err
+	}
+	admitted, err := s.repo.Admitted(ctx, a.ID) // SPEC-096 RN-03: only the admitted student starts; who has an attempt went back above
+	if err != nil {
+		return StudentAttempt{}, false, err
+	}
+	if !admitted[actor.UserID] {
+		return StudentAttempt{}, false, domain.ErrAttemptNotAdmitted
 	}
 	items, err := s.frozenItems(ctx, a)
 	if err != nil {
@@ -238,16 +256,38 @@ func (s *Service) Attempts(ctx context.Context, actor Actor, classID, id uuid.UU
 			known[id] = Student{ID: id, Name: name}
 		}
 	}
+	counts, err := s.repo.ChatCounts(ctx, a.ID)
+	if err != nil {
+		return nil, err
+	}
 	rows := make([]AttemptRow, len(list))
 	for i, at := range list {
 		st := known[at.StudentID]
 		rows[i] = AttemptRow{AttemptID: at.ID, StudentID: at.StudentID, StudentName: st.Name, AcademicID: st.AcademicID, Status: at.Status,
-			StartedAt: at.StartedAt, SubmittedAt: at.SubmittedAt, PreliminaryScore: at.PreliminaryScore, PendingItems: at.PendingItems}
+			StartedAt: at.StartedAt, SubmittedAt: at.SubmittedAt, PreliminaryScore: at.PreliminaryScore, PendingItems: at.PendingItems, ChatCount: counts[at.ID],
+			Reviewed: at.ReviewedAt != nil, FinalScore: at.FinalScore}
 		if at.EndedBy != nil {
 			rows[i].EndedByName = enderNames[*at.EndedBy]
 		}
 		if at.EndReason != nil {
 			rows[i].EndReason = *at.EndReason
+		}
+	}
+	// SPEC-096 RN-06: once the exam ended, who could take it and has no attempt did not come
+	if a.PhaseAt(s.now()) != domain.PhaseEnded {
+		return rows, nil
+	}
+	eligible, err := s.eligible(ctx, a)
+	if err != nil {
+		return nil, err
+	}
+	took := make(map[uuid.UUID]bool, len(list))
+	for _, at := range list {
+		took[at.StudentID] = true
+	}
+	for _, st := range students {
+		if eligible[st.ID] && !took[st.ID] {
+			rows = append(rows, AttemptRow{StudentID: st.ID, StudentName: st.Name, AcademicID: st.AcademicID, Status: domain.AttemptAbsent})
 		}
 	}
 	return rows, nil

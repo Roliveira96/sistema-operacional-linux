@@ -1,0 +1,117 @@
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SERVER_NOW, detail } from "@/test/assessmentFixtures";
+import { assessmentService, type AttemptRow } from "@/services/assessmentService";
+import { ExamReview } from "./ExamReview";
+
+const rows: AttemptRow[] = [
+  { attemptId: "t-1", studentId: "s-1", studentName: "Ana", academicId: "1000001", status: "SUBMITTED", startedAt: "2026-10-21T09:10:00-03:00", preliminaryScore: 7.5, reviewed: false },
+  {
+    attemptId: "t-2", studentId: "s-2", studentName: "Bruno", academicId: "1000002", status: "TIME_EXPIRED", startedAt: "2026-10-21T09:12:00-03:00", preliminaryScore: 4,
+    reviewed: true, finalScore: 5,
+  },
+  { studentId: "s-3", studentName: "Carla", academicId: "1000003", status: "ABSENT" },
+];
+
+beforeEach(() => {
+  vi.spyOn(assessmentService, "attempts").mockResolvedValue({ items: rows, serverNow: SERVER_NOW });
+  vi.spyOn(assessmentService, "review").mockImplementation(() => new Promise(() => {}));
+});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+const exam = detail({ phase: "ENDED", maxScore: 10 });
+
+// SPEC-097 CA-06 (T4): the screen of the correction lists who delivered, to review or reviewed, with the filter, and the teacher picks one.
+describe("ExamReview, the list of the students", () => {
+  it("lists who delivered, with the score and the situation of the review, and never who did not come", async () => {
+    render(<ExamReview classId="c-1" assessment={exam} />);
+    const list = await screen.findByRole("list", { name: "Alunos que entregaram" });
+    const items = within(list).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]!.textContent).toContain("Ana");
+    expect(items[0]!.textContent).toContain("A revisar");
+    expect(items[0]!.textContent).toContain("7,50");
+    expect(items[1]!.textContent).toContain("Revisada");
+    expect(items[1]!.textContent).toContain("5,00");
+    expect(screen.queryByText("Carla")).toBeNull();
+    expect(screen.getByText("Escolha um aluno para corrigir.")).toBeDefined();
+  });
+
+  it("filters by the situation of the review and picks a student", async () => {
+    render(<ExamReview classId="c-1" assessment={exam} />);
+    await screen.findByRole("list", { name: "Alunos que entregaram" });
+    fireEvent.click(screen.getByRole("button", { name: "A revisar (1)" }));
+    expect(screen.queryByRole("button", { name: /Bruno/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Revisados (1)" }));
+    expect(screen.queryByRole("button", { name: /Ana/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Todos (2)" }));
+    const ana = screen.getByRole("button", { name: /Ana/ });
+    fireEvent.click(ana);
+    expect(ana.getAttribute("aria-pressed")).toBe("true");
+    expect(assessmentService.review).toHaveBeenCalledWith("c-1", "a-1", "t-1");
+  });
+
+  it("goes back to the assessment", async () => {
+    render(<ExamReview classId="c-1" assessment={exam} />);
+    expect((await screen.findByRole("link", { name: "Voltar para a prova" })).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1");
+  });
+});
+
+// SPEC-097 CA-07 (T7): concluding the review of a student marks her reviewed and opens the next one to review.
+describe("ExamReview, going to the next one", () => {
+  it("marks the student reviewed and opens the next one to review", async () => {
+    const pending: AttemptRow[] = [
+      { attemptId: "t-1", studentId: "s-1", studentName: "Ana", academicId: "1000001", status: "SUBMITTED", startedAt: "2026-10-21T09:10:00-03:00", reviewed: false },
+      { attemptId: "t-2", studentId: "s-2", studentName: "Bruno", academicId: "1000002", status: "SUBMITTED", startedAt: "2026-10-21T09:12:00-03:00", reviewed: false },
+    ];
+    vi.mocked(assessmentService.attempts).mockResolvedValue({ items: pending, serverNow: SERVER_NOW });
+    const of = (attemptId: string, studentName: string) => ({
+      attemptId, studentId: "s", studentName, academicId: "1", status: "SUBMITTED" as const, startedAt: "2026-10-21T09:10:00-03:00",
+      score: 2, reviewed: false, teacherNote: "", studentNote: "", items: [], helps: [], serverNow: SERVER_NOW,
+    });
+    vi.mocked(assessmentService.review).mockImplementation((_c, _a, attemptId) => Promise.resolve(attemptId === "t-1" ? of("t-1", "Ana") : of("t-2", "Bruno")));
+    vi.spyOn(assessmentService, "attemptChat").mockResolvedValue({ messages: [] });
+    vi.spyOn(assessmentService, "finishReview").mockResolvedValue({ ...of("t-1", "Ana"), reviewed: true, finalScore: 2 });
+    render(<ExamReview classId="c-1" assessment={exam} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Ana/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Concluir a revisão" }));
+    expect(await screen.findByRole("heading", { name: "Bruno" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Ana/ }).textContent).toContain("Revisada");
+    expect(screen.getByRole("button", { name: /Bruno/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("1 de 2 revisadas")).toBeDefined();
+  });
+});
+
+// SPEC-098 CA-04 (T3): the teacher publishes the grades once every student who delivered is reviewed; then the correction is only read.
+describe("ExamReview, SPEC-098 publishing the grades", () => {
+  it("keeps Publicar as notas locked, with the reason, while someone is not reviewed", async () => {
+    render(<ExamReview classId="c-1" assessment={exam} />);
+    await screen.findByRole("list", { name: "Alunos que entregaram" });
+    expect((screen.getByRole("button", { name: "Publicar as notas" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Revise todos os alunos antes de publicar (1 de 2 revisados).")).toBeDefined();
+  });
+
+  it("publishes after the dialog and says who and when", async () => {
+    vi.mocked(assessmentService.attempts).mockResolvedValue({ items: rows.map((r) => ({ ...r, reviewed: r.status !== "ABSENT" })), serverNow: SERVER_NOW });
+    const publish = vi.spyOn(assessmentService, "publishGrades").mockResolvedValue({
+      ...exam, gradesPublishedAt: "2026-10-21T10:30:00-03:00", gradesPublishedByName: "Profa. Sediane", serverNow: SERVER_NOW,
+    } as never);
+    render(<ExamReview classId="c-1" assessment={exam} />);
+    await screen.findByRole("list", { name: "Alunos que entregaram" });
+    fireEvent.click(screen.getByRole("button", { name: "Publicar as notas" }));
+    const dialog = screen.getByRole("dialog", { name: "Publicar as notas?" });
+    expect(dialog.textContent).toContain("Depois de publicadas, as notas não mudam mais.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Publicar" }));
+    await waitFor(() => expect(publish).toHaveBeenCalledWith("c-1", "a-1"));
+    expect(await screen.findByText("Notas publicadas por Profa. Sediane em 21/10/2026, 10:30.")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Publicar as notas" })).toBeNull();
+  });
+
+  it("says the grades were published when it opens after the publication", async () => {
+    render(<ExamReview classId="c-1" assessment={detail({ phase: "ENDED", gradesPublishedAt: "2026-10-21T10:30:00-03:00", gradesPublishedByName: "Profa. Sediane" })} />);
+    expect(await screen.findByText("Notas publicadas por Profa. Sediane em 21/10/2026, 10:30.")).toBeDefined();
+  });
+});

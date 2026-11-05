@@ -42,11 +42,29 @@ var (
 	ErrNotPractical            = errors.New("only a practical question is checked")
 	ErrNotEligible             = errors.New("the student is not eligible for the exam")
 	ErrNotCleared              = errors.New("the student was not cleared for the exam")
+	// SPEC-096: the admission by the teacher and the finish of the exam
+	ErrAttemptNotAdmitted = errors.New("the teacher has not admitted the student yet")
+	ErrAssessmentFinished = errors.New("the teacher finished the exam")
+	ErrInvalidAdmission   = errors.New("the admission takes from 1 to 200 eligible students")
+	// SPEC-097: the correction of the exam
+	ErrAssessmentNotEnded = errors.New("the exam has not ended yet")
+	ErrAttemptInProgress  = errors.New("the attempt is still in progress")
+	ErrInvalidPoints      = errors.New("the points go from 0 to the weight, with two decimals and the reason")
+	ErrReviewDone         = errors.New("the review of the attempt is done: reopen it first")
+	ErrInvalidNote        = errors.New("a note is up to 2,000 characters")
+	ErrWrittenPending     = errors.New("a written question has no points yet")
+	// SPEC-098: the publication of the grades
+	ErrReviewsPending     = errors.New("some delivered attempt is not reviewed yet")
+	ErrGradesPublished    = errors.New("the grades were published: the correction is kept")
+	ErrResultNotPublished = errors.New("the result is not published")
 
 	// SPEC-091: the room
 	ErrInvalidReason = errors.New("the reason is required, up to 500 characters")
 	ErrInvalidHelp   = errors.New("the question is up to 300 characters")
 	ErrHelpNotFound  = errors.New("the request for help was not found or is closed")
+
+	// SPEC-093: the conversation of the exam
+	ErrInvalidChat = errors.New("the message is from 1 to 500 characters of plain text")
 )
 
 // Shortage is a level of difficulty that the bank cannot supply: what the draw asks for and what there is.

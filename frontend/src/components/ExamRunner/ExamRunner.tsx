@@ -5,6 +5,7 @@ import { AssessmentDialog } from "@/components/AssessmentDialog/AssessmentDialog
 import dialog from "@/components/AssessmentDialog/AssessmentDialog.module.scss";
 import styles from "@/components/AssessmentSimulator/AssessmentSimulator.module.scss";
 import { ExamTerminal } from "@/components/AssessmentSimulator/ExamTerminal";
+import { ExamSplit } from "@/components/AssessmentSimulator/ExamSplit";
 import { SolvedCelebration } from "@/components/AssessmentSimulator/SolvedCelebration";
 import { Button } from "@/components/Button/Button";
 import { Html } from "@/components/ContentRenderer/blocks";
@@ -28,6 +29,8 @@ const t = m.take;
 
 /** The machine of a practical question is saved at most once in this interval (SPEC-090 section 3.1). */
 const MACHINE_EVERY_MS = 2000;
+/** How long after the last command the practical question checks itself (SPEC-090 revision 3, as the simulator of SPEC-085). */
+const CHECK_AFTER_MS = 1000;
 /** A written answer is saved this long after the student stops typing. */
 const WRITTEN_AFTER_MS = 1000;
 /** An answer that could not be saved is tried again after this long. */
@@ -37,6 +40,20 @@ type Phase = "answering" | "delivered" | "timeUp";
 type SaveState = "idle" | "saving" | "saved" | "offline";
 
 const isPractical = (item: AttemptItem) => item.kind === "PRACTICAL";
+
+/** What the window keeps in the browser of an attempt: the answers the server did not confirm and the lines typed without Enter (SPEC-090 revision 2). */
+interface LocalCopy {
+  pending?: Record<string, unknown>;
+  typed?: Record<string, string>;
+}
+const localKey = (attemptId: string) => `exam-attempt:${attemptId}`;
+function readLocal(attemptId: string): LocalCopy {
+  try {
+    return (JSON.parse(localStorage.getItem(localKey(attemptId)) ?? "{}") as LocalCopy | null) ?? {};
+  } catch {
+    return {};
+  }
+}
 
 export interface ExamRunnerProps {
   attempt: StudentAttempt;
@@ -70,11 +87,14 @@ export interface ExamRunnerRoom {
  */
 export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRunnerProps) {
   const items = attempt.items;
+  /** The copy in the browser, read once: what it has goes over what came from the server. */
+  const [local] = useState(() => readLocal(attempt.id));
+  const savedOf = (it: AttemptItem) => local.pending?.[it.position] ?? it.answer;
   const [current, setCurrent] = useState(0);
   const [responses, setResponses] = useState<Record<number, SimulatedResponse>>(() => {
     const out: Record<number, SimulatedResponse> = {};
     for (const it of items) {
-      const value = fromApiAnswer(it.kind, it.answer);
+      const value = fromApiAnswer(it.kind, savedOf(it));
       if (value !== undefined) out[it.position] = value;
     }
     return out;
@@ -84,8 +104,9 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [confirming, setConfirming] = useState(false);
   const [celebrating, setCelebrating] = useState<number | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [notSolved, setNotSolved] = useState<number | null>(null);
+  /** The practical questions being checked, and the one a command undid after it was solved (SPEC-090 revision 3, D-06). */
+  const [checking, setChecking] = useState<Record<number, boolean>>({});
+  const [undone, setUndone] = useState<number | null>(null);
   /** The practical questions in which the student ran a command, which count as answered. */
   const [touched, setTouched] = useState<Record<number, boolean>>({});
 
@@ -96,7 +117,16 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
   const [remaining, setRemaining] = useState(left);
 
   // ---- saving: one queue of the answers not sent yet, by question ----
-  const pending = useRef(new Map<number, unknown>());
+  const pending = useRef(new Map<number, unknown>(Object.entries(local.pending ?? {}).map(([position, value]) => [Number(position), value])));
+  const typed = useRef<Record<string, string>>({ ...local.typed });
+  /** Writes the copy in the browser; a browser that does not let it goes on with the server alone. */
+  const keep = useCallback(() => {
+    try {
+      localStorage.setItem(localKey(attempt.id), JSON.stringify({ pending: Object.fromEntries(pending.current), typed: typed.current }));
+    } catch {
+      // nothing kept: the server has what it confirmed
+    }
+  }, [attempt.id]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMachine = useRef(new Map<number, number>());
   const flushing = useRef<Promise<void> | null>(null);
@@ -120,6 +150,7 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
           await saveRef.current(position, answer);
           // a newer answer of the same question that came meanwhile stays to be sent
           if (pending.current.get(position) === answer) pending.current.delete(position);
+          keep();
         }
         setSaveState("saved");
       } catch {
@@ -131,20 +162,25 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
     })();
     flushing.current = run;
     return run;
-  }, []);
+  }, [keep]);
 
   useEffect(() => {
     retry.current = () => void flush();
+  }, [flush]);
+  // what the browser had and the server did not confirm goes at once
+  useEffect(() => {
+    void flush();
   }, [flush]);
 
   const queue = useCallback(
     (position: number, answer: unknown, delay: number) => {
       pending.current.set(position, answer);
+      keep();
       if (timer.current) clearTimeout(timer.current);
       if (delay <= 0) void flush();
       else timer.current = setTimeout(() => void flush(), delay);
     },
-    [flush],
+    [flush, keep],
   );
 
   useEffect(
@@ -168,9 +204,14 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
       } catch {
         // past the tolerance the server delivered it already (RN-07): the student reads the same
       }
+      try {
+        localStorage.removeItem(localKey(attempt.id));
+      } catch {
+        // nothing was kept
+      }
       setPhase(byTime ? "timeUp" : "delivered");
     },
-    [flush, submit],
+    [flush, submit, attempt.id],
   );
 
   useEffect(() => {
@@ -193,23 +234,87 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
 
   /** The machine of each practical question, as the terminal last had it. */
   const machines = useRef(new Map<number, unknown>());
+
+  // ---- the check by itself (SPEC-090 revision 3) ----
+  const checkRef = useRef(check);
+  const openPosition = useRef<number | null>(null);
+  useEffect(() => {
+    checkRef.current = check;
+    openPosition.current = items[current]?.position ?? null;
+  });
+  /** The waits after a command, the checks running and the ones asked meanwhile, the solved questions and the ones already celebrated. */
+  const checks = useRef({
+    timers: new Map<number, ReturnType<typeof setTimeout>>(),
+    running: new Set<number>(),
+    again: new Set<number>(),
+    solved: new Set(items.filter((it) => it.checkedSolved).map((it) => it.position)),
+    celebrated: new Set(items.filter((it) => it.checkedSolved).map((it) => it.position)),
+  });
+  useEffect(() => {
+    const timers = checks.current.timers;
+    return () => timers.forEach((t) => clearTimeout(t));
+  }, []);
+  /** Checks the last machine of a question, one check at a time; a machine that came meanwhile goes after, only the last one (CA-19, CA-20). */
+  const runCheck = useCallback(async (position: number) => {
+    const c = checks.current;
+    if (c.running.has(position)) {
+      c.again.add(position);
+      return;
+    }
+    c.running.add(position);
+    setChecking((all) => ({ ...all, [position]: true }));
+    try {
+      do {
+        c.again.delete(position);
+        const machine = machines.current.get(position) ?? null;
+        try {
+          const ok = await checkRef.current(position, machine);
+          if (pending.current.get(position) === machine) pending.current.delete(position);
+          const was = c.solved.has(position);
+          if (ok) {
+            c.solved.add(position);
+            setUndone((u) => (u === position ? null : u));
+            if (!c.celebrated.has(position)) {
+              c.celebrated.add(position);
+              // the celebration is only for the question that is open; solved while away, it only gets the mark (SPEC-087 CA-09)
+              if (openPosition.current === position) setCelebrating(position);
+            }
+          } else {
+            c.solved.delete(position);
+            if (was) setUndone(position);
+          }
+          setSolved((all) => ({ ...all, [position]: ok }));
+        } catch {
+          // a check that fails on the network is not an error: the next command tries again
+        }
+      } while (c.again.has(position));
+    } finally {
+      c.running.delete(position);
+      setChecking((all) => ({ ...all, [position]: false }));
+    }
+  }, []);
+
   const machineChanged = useCallback(
     (id: string, snapshot: unknown) => {
       const position = Number(id);
       machines.current.set(position, snapshot);
+      const timers = checks.current.timers;
+      clearTimeout(timers.get(position));
+      timers.set(position, setTimeout(() => void runCheck(position), CHECK_AFTER_MS));
       setTouched((all) => (all[position] ? all : { ...all, [position]: true }));
       const since = Date.now() - (lastMachine.current.get(position) ?? 0);
       const wait = since >= MACHINE_EVERY_MS ? 0 : MACHINE_EVERY_MS - since;
       lastMachine.current.set(position, Date.now() + wait);
       queue(position, snapshot, wait);
     },
-    [queue],
+    [queue, runCheck],
   );
   const machineFormatted = useCallback(
     (id: string) => {
       const position = Number(id);
       const item = items.find((it) => it.position === position);
       setSolved((all) => ({ ...all, [position]: false }));
+      checks.current.solved.delete(position);
       const start = item?.studentView.scenario ?? null;
       machines.current.set(position, start);
       if (start !== null) queue(position, start, 0);
@@ -217,7 +322,27 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
     [items, queue],
   );
   const loadScenario = useCallback(async (id: string) => items.find((it) => String(it.position) === id)?.studentView.scenario ?? null, [items]);
-  const resume = useMemo(() => Object.fromEntries(items.filter((it) => isPractical(it) && it.answer !== undefined).map((it) => [String(it.position), it.answer])), [items]);
+  const resume = useMemo(() => {
+    const out: Record<string, unknown> = {};
+    for (const it of items.filter(isPractical)) {
+      const saved = savedOf(it);
+      const line = local.typed?.[it.position];
+      const base = saved ?? (line ? it.studentView.scenario : undefined);
+      if (base === undefined || base === null) continue;
+      const terminal = (base as { terminal?: object }).terminal;
+      out[String(it.position)] = line ? { ...(base as object), terminal: { ...terminal, linha: line } } : base;
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the copy in the browser is read once, as the attempt
+  }, [items]);
+  const typedChanged = useCallback(
+    (id: string, line: string) => {
+      if (line) typed.current[id] = line;
+      else delete typed.current[id];
+      keep();
+    },
+    [keep],
+  );
 
   // ---- the room: the commands as they run, the screen while the teacher watches (SPEC-091) ----
   const roomRef = useRef(room);
@@ -251,31 +376,14 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
     roomRef.current?.onScreen(item.position, item.studentView.title, isPractical(item) ? (screens.current.get(item.position) ?? null) : null);
   }, [watched, current, items]);
 
-  const isDone = (it: AttemptItem) => (isPractical(it) ? !!solved[it.position] || resume[String(it.position)] !== undefined || !!touched[it.position] : isAnswered(responses[it.position]));
+  const isDone = (it: AttemptItem) => (isPractical(it) ? !!solved[it.position] || savedOf(it) !== undefined || !!touched[it.position] : isAnswered(responses[it.position]));
   const blank = items.filter((it) => !isDone(it)).length;
   const open = items[current];
   const hasTerminal = items.some(isPractical);
 
-  const conferir = async (item: AttemptItem) => {
-    setChecking(true);
-    setNotSolved(null);
-    try {
-      const machine = machines.current.has(item.position) ? machines.current.get(item.position) : (resume[String(item.position)] ?? item.studentView.scenario ?? null);
-      const ok = await check(item.position, machine);
-      if (pending.current.get(item.position) === machine) pending.current.delete(item.position);
-      setSolved((all) => ({ ...all, [item.position]: ok }));
-      if (ok) setCelebrating(item.position);
-      else setNotSolved(item.position);
-    } catch {
-      setSaveState("offline");
-    } finally {
-      setChecking(false);
-    }
-  };
-
   const goTo = (i: number) => {
     setCelebrating(null);
-    setNotSolved(null);
+    setUndone(null);
     if (timer.current) void flush();
     setCurrent(i);
   };
@@ -294,7 +402,8 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
   if (!open) return null;
 
   return (
-    <div className={styles.exam}>
+    // the same padding the simulator gives the exam, so the bar does not touch the top of the window
+    <div className={`${styles.pane} ${styles.exam}`}>
       <div className={styles.examHead}>
         <p className={styles.examName}>{title}</p>
         <span role="timer" aria-label={s.answering.timeLeft} className={styles.timer}>
@@ -306,7 +415,9 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
         {room?.header?.(open.position)}
         <Button onClick={() => setConfirming(true)}>{t.deliver}</Button>
       </div>
-      <div className={`${styles.examBody} ${hasTerminal ? styles.withTerminal : ""}`}>
+      <ExamSplit
+        hasTerminal={hasTerminal}
+        question={
         <div className={styles.questionCol}>
           <div className={styles.questionScroll}>
             <ol aria-label={s.answering.navigator} className={styles.navigator}>
@@ -330,21 +441,19 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
             </div>
             <Html html={open.studentView.statement} />
             <Answer key={open.position} item={open} seed={`${attempt.id}:${open.position}`} response={responses[open.position]} onChange={(v) => answer(open, v)} />
-            {isPractical(open) && (
-              <div className={styles.footer}>
-                <Button variant="secondary" disabled={checking} onClick={() => void conferir(open)}>
-                  {checking ? t.checking : t.check}
-                </Button>
-              </div>
+            {isPractical(open) && checking[open.position] && (
+              <p role="status" className={styles.note}>
+                {t.checking}
+              </p>
             )}
             {solved[open.position] && (
               <p role="status" className={styles.solvedNote}>
                 {s.answering.solved}
               </p>
             )}
-            {notSolved === open.position && (
+            {undone === open.position && (
               <p role="status" className={styles.notice}>
-                {t.notSolvedYet}
+                {t.undone}
               </p>
             )}
             <div className={styles.footer}>
@@ -368,8 +477,10 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
             />
           )}
         </div>
-        {hasTerminal && (
+        }
+        terminal={(toggle) => (
           <ExamTerminal
+            barExtra={toggle}
             questionId={isPractical(open) ? String(open.position) : null}
             loadScenario={loadScenario}
             onCommand={machineChanged}
@@ -377,9 +488,10 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
             resume={resume}
             onCommandRun={commandRun}
             onScreen={screenChanged}
+            onTyped={typedChanged}
           />
         )}
-      </div>
+      />
 
       {confirming && (
         <AssessmentDialog title={t.confirm.title} onClose={() => setConfirming(false)}>

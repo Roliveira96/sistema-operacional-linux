@@ -95,6 +95,12 @@ export interface TerminalWindow {
   processes(): { processos: unknown[]; encerrados: unknown[] };
   /** The commands typed in terminal 1 on the current session, oldest first (SPEC-020). */
   history(): string[];
+  /** Terminal 1 as the student left it, to go with the machine of an exam (SPEC-090 revision 2); null while it is not logged in. */
+  terminalState(): TerminalState | null;
+  /** Puts back on the machine in the window what `terminalState` gave; what is missing stays as the new terminal has it. */
+  restoreTerminal(state: Partial<TerminalState>): void;
+  /** The line typed in terminal 1 without Enter. */
+  typedLine(): string;
   exportJson(name: string): void;
   /** Opens the file picker and loads the chosen machine. Rejects on an invalid file. */
   importJson(): Promise<void>;
@@ -118,6 +124,18 @@ export function cleanOutput(printed: string, command: string): string {
   while (lines.length > 0 && (lines[lines.length - 1]!.trim() === "" || prompt.test(lines[lines.length - 1]!))) lines.pop();
   return lines.join("\n");
 }
+
+/** Terminal 1 of an exam as the student left it: the text of its screen, its history, its folder, its user and the line typed (SPEC-090 revision 2). */
+export interface TerminalState {
+  tela: string[];
+  historico: string[];
+  cwd: string;
+  usuario: string;
+  linha?: string;
+}
+
+/** The most lines of the screen that go with the machine of an exam (SPEC-090 revision 2). */
+const SCREEN_LINES = 500;
 
 /** The most of the output of a command the live classroom keeps (SPEC-073 RN-05). */
 const RUN_OUTPUT_MAX = 4000;
@@ -398,6 +416,9 @@ export async function mountTerminalWindow(
     } | null;
     usuarioAtual(): string | null;
     renderizarEntrada(): void;
+    limparTela(): void;
+    escrever(text: string): void;
+    posicaoHistorico: number;
     estaLivre(): boolean;
     estado: string;
     buffer: string;
@@ -582,6 +603,43 @@ export async function mountTerminalWindow(
     history() {
       const first = (window3 as unknown as WindowInternals).terminais[0];
       return [...(first?.sessao?.historico ?? [])];
+    },
+
+    terminalState() {
+      const first = (window3 as unknown as WindowInternals).terminais[0];
+      if (!first?.sessao) return null;
+      const lines = Array.from(first.elemento.querySelectorAll<HTMLElement>(".term-linhas > .term-linha"), (line) => line.textContent ?? "");
+      return { tela: lines.slice(-SCREEN_LINES), historico: [...first.sessao.historico], cwd: first.sessao.atual().cwd, usuario: first.usuarioAtual() ?? "root", linha: first.buffer };
+    },
+
+    restoreTerminal(state) {
+      const first = (window3 as unknown as WindowInternals).terminais[0];
+      if (!first) return;
+      if (state.usuario && state.usuario !== first.usuarioAtual()) {
+        // ponytail: a terminal that was in `su` comes back as that user alone, so `exit` closes it instead of going back to root
+        const user = machine.contas.usuario(state.usuario);
+        if (user) first.sessao = machine.abrirSessao(user) as unknown as typeof first.sessao;
+      }
+      const session = first.sessao;
+      if (session && state.historico) {
+        session.historico.splice(0, session.historico.length, ...state.historico);
+        first.posicaoHistorico = session.historico.length;
+      }
+      if (session && state.cwd && machine.fs.obter(state.cwd)?.ehDiretorio()) session.atual().cwd = state.cwd;
+      if (state.tela) {
+        first.limparTela();
+        first.escrever(`${state.tela.slice(-SCREEN_LINES).join("\n")}\n`);
+      }
+      if (state.linha !== undefined) {
+        first.buffer = state.linha;
+        first.cursor = state.linha.length;
+      }
+      first.renderizarEntrada();
+      window3.aoMudarTitulo();
+    },
+
+    typedLine() {
+      return (window3 as unknown as WindowInternals).terminais[0]?.buffer ?? "";
     },
 
     exportJson(name) {

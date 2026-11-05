@@ -69,3 +69,35 @@ func TestAssessmentQuestions_GradeAnAttempt(t *testing.T) {
 	_, _, err = grade(contentdomain.KindPractical, contentdomain.Question{ValidationConditions: json.RawMessage(`[]`)}, `{"not":"a machine"}`)
 	assert.ErrorIs(t, err, assessmentdomain.ErrInvalidAnswer, "the practical answer is a machine")
 }
+
+// Covers SPEC-095 CA-01 (D-02): the key the teacher reads in the room is the answer key of the objective kinds only, never the rest of the question
+// frozen in the attempt (the solution, the hints, the conditions), and nothing for the written and the practical ones.
+func TestAssessmentQuestions_AnswerKeyOfTheObjectiveKinds(t *testing.T) {
+	q := assessmentQuestions{}
+	key := func(kind string, question contentdomain.Question) json.RawMessage {
+		question.Kind = kind
+		got, err := q.AnswerKey(context.Background(), kind, keyOf(t, question))
+		require.NoError(t, err)
+		return got
+	}
+	single := contentdomain.Question{Title: "Permissões", AnswerKey: json.RawMessage(`{"correct":"a"}`)}
+	assert.JSONEq(t, `{"correct":"a"}`, string(key(contentdomain.KindTheoreticalSingle, single)))
+	assert.JSONEq(t, `{"correct":true}`, string(key(contentdomain.KindTheoreticalBoolean, contentdomain.Question{AnswerKey: json.RawMessage(`{"correct":true}`)})))
+	pairs := `{"pairs":[{"left":"l1","right":"r1"}]}`
+	assert.JSONEq(t, pairs, string(key(contentdomain.KindTheoreticalMatching, contentdomain.Question{AnswerKey: json.RawMessage(pairs)})))
+	assert.Nil(t, key(contentdomain.KindDiscursive, contentdomain.Question{AnswerKey: json.RawMessage(`{"expectedAnswer":"<p>7</p>"}`)}))
+	assert.Nil(t, key(contentdomain.KindPractical, contentdomain.Question{}))
+}
+
+// Covers SPEC-097 CA-02: the correction shows the teacher the answer she expected in a written question; the other kinds have none.
+func TestAssessmentQuestions_ExpectedAnswerOfTheWrittenOne(t *testing.T) {
+	q := assessmentQuestions{}
+	written := contentdomain.Question{Kind: contentdomain.KindDiscursive, AnswerKey: json.RawMessage(`{"maxLength":1000,"expectedAnswer":"<p>7</p>"}`)}
+	got, err := q.ExpectedAnswer(context.Background(), contentdomain.KindDiscursive, keyOf(t, written))
+	require.NoError(t, err)
+	assert.Equal(t, "<p>7</p>", got)
+	single := contentdomain.Question{Kind: contentdomain.KindTheoreticalSingle, AnswerKey: json.RawMessage(`{"correct":"a"}`)}
+	got, err = q.ExpectedAnswer(context.Background(), contentdomain.KindTheoreticalSingle, keyOf(t, single))
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}

@@ -63,18 +63,57 @@ describe("ExamRunner, answering", () => {
     expect(await screen.findByText("Salvo")).toBeDefined();
   }, 10000);
 
-  it("saves the machine of the practical question after a command, and the Conferir button checks it and celebrates", async () => {
+  // SPEC-090 revision 3, CA-19: the practical question checks itself a second after the last command, with no button, one check at a time.
+  it("saves the machine after a command and checks it by itself a second later, with no Conferir, and celebrates", async () => {
     const check = vi.fn().mockResolvedValue(true);
     const { save } = setup(studentAttempt(), { check });
     goTo(4);
     await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledWith({ cwd: "/root" }));
+    expect(screen.queryByRole("button", { name: "Conferir" })).toBeNull();
     terminal.callbacks[0]!.onCommand({ cwd: "/root", made: "/a" });
     await waitFor(() => expect(save).toHaveBeenCalledWith(4, { cwd: "/root", made: "/a" }));
-    fireEvent.click(screen.getByRole("button", { name: "Conferir" }));
-    await waitFor(() => expect(check).toHaveBeenCalledWith(4, { cwd: "/root", made: "/a" }));
-    expect(await screen.findByText("Questão resolvida!")).toBeDefined();
+    expect(check).not.toHaveBeenCalled();
+    await waitFor(() => expect(check).toHaveBeenCalledWith(4, { cwd: "/root", made: "/a" }), { timeout: 3000 });
+    expect(await screen.findByRole("dialog", { name: "Questão resolvida!" })).toBeDefined();
     expect(screen.getByRole("button", { name: "Questão 4, resolvida" })).toBeDefined();
   });
+
+  it("checks one at a time, and only the last machine that came meanwhile", async () => {
+    let answer: (ok: boolean) => void = () => {};
+    const check = vi.fn().mockImplementation(() => new Promise<boolean>((r) => (answer = r)));
+    setup(studentAttempt(), { check });
+    goTo(4);
+    await waitFor(() => expect(terminal.callbacks[0]).toBeDefined());
+    terminal.callbacks[0]!.onCommand({ step: 1 });
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    expect(screen.getByText("Conferindo…")).toBeDefined();
+    terminal.callbacks[0]!.onCommand({ step: 2 });
+    await new Promise((r) => setTimeout(r, 1200));
+    terminal.callbacks[0]!.onCommand({ step: 3 });
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(check).toHaveBeenCalledTimes(1);
+    answer(false);
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
+    expect(check).toHaveBeenLastCalledWith(4, { step: 3 });
+    answer(false);
+  }, 10000);
+
+  // SPEC-090 revision 3, CA-20 (D-06): a solved question that a command undoes loses the mark, and gets it back without a second celebration.
+  it("takes the mark away when a command undoes it, and puts it back without celebrating again", async () => {
+    const check = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    setup(studentAttempt(), { check });
+    goTo(4);
+    await waitFor(() => expect(terminal.callbacks[0]).toBeDefined());
+    terminal.callbacks[0]!.onCommand({ made: "/a" });
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar nesta questão" }, { timeout: 3000 }));
+    terminal.callbacks[0]!.onCommand({ made: "" });
+    expect(await screen.findByText("Esta questão deixou de estar resolvida.", {}, { timeout: 3000 })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Questão 4, resolvida" })).toBeNull();
+    terminal.callbacks[0]!.onCommand({ made: "/a" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Questão 4, resolvida" })).toBeDefined(), { timeout: 3000 });
+    expect(screen.queryByRole("dialog", { name: "Questão resolvida!" })).toBeNull();
+    expect(screen.queryByText("Esta questão deixou de estar resolvida.")).toBeNull();
+  }, 10000);
 
   it("does not offer Conferir in a question that is not practical, and never says whether an answer is right", async () => {
     const { save } = setup();
@@ -118,5 +157,79 @@ describe("ExamRunner, delivering", () => {
     const { submit } = setup(studentAttempt({ deadlineAt: "2026-10-21T10:00:00-03:00" }));
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("O tempo acabou. Sua prova foi entregue.")).toBeDefined();
+  });
+});
+
+// SPEC-090 revision 2 (CA-18): what the server did not confirm and the line typed without Enter stay in the browser and come back over the server.
+describe("ExamRunner, the copy in the browser", () => {
+  const KEY = "exam-attempt:t-1";
+  const local = () => JSON.parse(localStorage.getItem(KEY) ?? "null") as { pending?: Record<string, unknown>; typed?: Record<string, string> } | null;
+  beforeEach(() => localStorage.clear());
+
+  it("keeps an answer in the browser until the server confirms it", async () => {
+    let confirm = () => {};
+    const save = vi.fn(() => new Promise<void>((done) => (confirm = done)));
+    setup(studentAttempt(), { save });
+    fireEvent.click(screen.getByRole("radio", { name: "Verdadeiro" }));
+    expect(local()?.pending).toEqual({ 1: { value: true } });
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    confirm();
+    await waitFor(() => expect(local()?.pending ?? {}).toEqual({}));
+  });
+
+  it("comes back with what the server did not confirm, over what came from the server, and sends it", async () => {
+    localStorage.setItem(KEY, JSON.stringify({ pending: { 1: { value: false }, 4: { cwd: "/root", made: "/b" } } }));
+    const attempt = studentAttempt();
+    attempt.items[0]!.answer = { value: true };
+    const { save } = setup(attempt);
+    expect((screen.getByRole("radio", { name: "Falso" }) as HTMLElement).getAttribute("aria-checked")).toBe("true");
+    await waitFor(() => expect(save).toHaveBeenCalledWith(1, { value: false }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(4, { cwd: "/root", made: "/b" }));
+    goTo(4);
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalledWith({ cwd: "/root", made: "/b" }));
+  });
+
+  it("keeps the line typed without Enter and puts it back in the terminal", async () => {
+    const attempt = studentAttempt();
+    attempt.items[3]!.answer = { cwd: "/root" };
+    setup(attempt);
+    goTo(4);
+    await waitFor(() => expect(terminal.windows[0]!.reset).toHaveBeenCalled());
+    terminal.windows[0]!.typedLine.mockReturnValue("ls -");
+    fireEvent.keyDown(screen.getByRole("region", { name: "Terminal" }), { key: "-" });
+    await waitFor(() => expect(local()?.typed).toEqual({ 4: "ls -" }));
+
+    cleanup();
+    setup(attempt);
+    goTo(4);
+    await waitFor(() => expect(terminal.windows.at(-1)!.restoreTerminal).toHaveBeenCalledWith({ linha: "ls -" }));
+  });
+
+  it("clears the copy when the exam is delivered", async () => {
+    localStorage.setItem(KEY, JSON.stringify({ typed: { 4: "ls" } }));
+    const { submit } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Entregar a prova" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Entregar" }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("goes on with the server alone when the browser does not let it keep anything", async () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const { save } = setup();
+    fireEvent.click(screen.getByRole("radio", { name: "Verdadeiro" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(1, { value: true }));
+    setItem.mockRestore();
+  });
+});
+
+// SPEC-090 revision 4, CA-21: the window of the exam has the divider of the terminal.
+describe("ExamRunner, SPEC-090 revision 4 the size of the terminal", () => {
+  it("has the divider and the button to expand the terminal", () => {
+    setup();
+    expect(screen.getByRole("separator", { name: "Largura do terminal" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Expandir terminal" })).toBeDefined();
   });
 });

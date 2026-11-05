@@ -9,6 +9,7 @@ import { AssessmentCard } from "@/components/AssessmentCard/AssessmentCard";
 import { AssessmentHistory } from "@/components/AssessmentHistory/AssessmentHistory";
 import { AssessmentPreview, DrawRulesTable } from "@/components/AssessmentPreview/AssessmentPreview";
 import { AssessmentStartDialog } from "@/components/AssessmentStartDialog/AssessmentStartDialog";
+import { ResultSummary } from "@/components/AssessmentResult/AssessmentResult";
 import { AttemptAction } from "@/components/AttemptAction/AttemptAction";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
@@ -57,7 +58,26 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
       }),
     [classId, assessmentId],
   );
+  const loadResult = useCallback(() => assessmentService.myResult(classId!, assessmentId!), [classId, assessmentId]);
   const loadAttempts = useCallback(() => assessmentService.attempts(classId!, assessmentId!), [classId, assessmentId]);
+  // how many delivered and how many were reviewed, for the button of the correction once the exam ended (SPEC-097 CA-01)
+  const [corrected, setCorrected] = useState<{ reviewed: number; total: number } | null>(null);
+  const ended = !isStudent && detail?.type === "EXAM" && detail.status !== "CANCELED" && detail.phase === "ENDED";
+  useEffect(() => {
+    if (!ended || !classId || !assessmentId) return;
+    let alive = true;
+    assessmentService.attempts(classId, assessmentId).then(
+      (got) => {
+        const delivered = got.items.filter((r) => r.status === "SUBMITTED" || r.status === "TIME_EXPIRED" || r.status === "ENDED_BY_TEACHER");
+        if (alive) setCorrected({ reviewed: delivered.filter((r) => r.reviewed).length, total: delivered.length });
+      },
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, [ended, classId, assessmentId]);
+  const loadChat = useCallback((attemptId: string) => assessmentService.attemptChat(classId!, assessmentId!, attemptId), [classId, assessmentId]);
 
   useEffect(() => {
     if (!classId || !assessmentId || isStudent) return;
@@ -90,6 +110,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         <AssessmentCard load={loadPublic} />
         <AssessmentAccessNotice load={loadAccess} />
         <AttemptAction classId={classId} assessmentId={assessmentId} loadAccess={loadAccess} loadAttempt={loadAttempt} />
+        <ResultSummary href={`/app/classes/${classId}/assessments/${assessmentId}/result`} load={loadResult} />
       </main>
     );
   }
@@ -124,7 +145,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   const startable = canStart(detail);
   const roomHref = `/app/classes/${classId}/assessments/${assessmentId}/room`;
   /** The room of the exam while it runs (SPEC-091 CA-10). */
-  const roomOpen = exam && detail.phase === "RUNNING";
+  const roomOpen = exam && detail.phase === "RUNNING" && !detail.finishedAt;
   /** The start of the exam by the teacher (SPEC-083): the exam was started, can be started now, waits for its time, or ended without it. */
   const start = async () => {
     const started = await assessmentService.start(classId, assessmentId);
@@ -147,7 +168,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   ];
 
   return (
-    <main className={`${styles.container} ${styles.narrow}`}>
+    <main className={`${styles.container} ${styles.narrow} ${styles.detail}`}>
       {back}
       <h1 className={styles.title}>{canceled ? <s>{detail.title}</s> : detail.title}</h1>
       {canceled && (
@@ -169,6 +190,11 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         <Button variant="secondary" onClick={() => setAsked(true)}>
           {p.preview}
         </Button>
+        {ended && corrected && (
+          <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/review`} variant="primary">
+            {m.review.open(corrected.reviewed, corrected.total)}
+          </ButtonLink>
+        )}
         {roomOpen && (
           <ButtonLink href={roomHref} variant="primary" target="_blank" rel="noopener noreferrer" aria-label={`${m.room.open} (${m.room.newWindow})`}>
             {m.room.open}
@@ -179,8 +205,9 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         </ButtonLink>
       </div>
       {exam && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser)}</p>}
+      {detail.finishedAt && <p className={styles.text}>{p.finishedBy(detail.finishedByName || m.history.removedUser, formatHour(detail.finishedAt))}</p>}
       {exam && !detail.startedAt && detail.phase === "UPCOMING" && (
-        <p id="start-reason" className={styles.text}>
+        <p id="start-reason" className={styles.hint}>
           {p.startFrom(formatDateTime(detail.startsAt))}
         </p>
       )}
@@ -214,13 +241,17 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         {detail.composition === "DRAW" ? (
           <DrawRulesTable rules={detail.drawRules} />
         ) : (
-          <ul className={styles.plain} aria-label={p.questions}>
+          <ol className={styles.questions} aria-label={p.questions}>
             {detail.items.map((item) => (
               <li key={item.questionId}>
-                {item.title} · {(authoringMessages.questionKinds.label as Record<string, string>)[item.kind] ?? item.kind} · {m.difficulty[item.difficulty]} · {m.points(formatScore(item.weight))}
+                <span className={styles.questionTitle}>{item.title}</span>
+                <span className={styles.questionMeta}>
+                  {(authoringMessages.questionKinds.label as Record<string, string>)[item.kind] ?? item.kind} · {m.difficulty[item.difficulty]}
+                </span>
+                <span className={styles.questionPoints}>{m.points(formatScore(item.weight))}</span>
               </li>
             ))}
-          </ul>
+          </ol>
         )}
       </section>
 
@@ -237,7 +268,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         </section>
       )}
 
-      {detail.type === "EXAM" && <AssessmentAttempts maxScore={detail.maxScore} load={loadAttempts} />}
+      {detail.type === "EXAM" && <AssessmentAttempts maxScore={detail.maxScore} load={loadAttempts} loadChat={loadChat} />}
 
       {showPreview && (
         <section className={styles.section}>
