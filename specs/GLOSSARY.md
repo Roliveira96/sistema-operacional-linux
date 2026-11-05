@@ -265,6 +265,8 @@ Termos da SPEC-083 (Rascunho em 22/10/2026).
 | Ajuste de pontos | `adjusted_points`, `adjust_reason` (rota `PUT .../attempts/:attemptId/items/:position/points`) | Os pontos que a docente dá a uma questão na correção, de 0 ao peso, com o motivo; sem ajuste valem os automáticos | `Override` | Proposto (SPEC-097) |
 | Revisão concluída | `reviewed_at`, `reviewed_by`, `final_score` (rotas `POST` e `DELETE .../attempts/:attemptId/review`) | A docente encerra a correção de uma tentativa com a nota final; pode reabrir | `Homologation` (a homologação é outra coisa) | Proposto (SPEC-097) |
 | Anotação privada / Anotação ao aluno | `teacher_note`, `student_note` | O que a docente escreve sobre a tentativa: a privada só ela vê; a do aluno sai na publicação das notas | `Feedback` solto | Proposto (SPEC-097) |
+| Publicação das notas | `grades_published_at`, `grades_published_by` (rota `POST .../assessments/:assessmentId/grades/publish`) | A docente libera, de uma vez, as notas da prova inteira depois de revisar todos; não se desfaz e trava a correção | `Homologation`, `Release` | Proposto (SPEC-098) |
+| Resultado da prova | `MyResult` (rota `GET .../assessments/:assessmentId/my-result`, tela `.../result`) | O que o aluno que entregou lê depois da publicação: a nota final, a anotação ao aluno e a correção de cada questão | `Grade report` | Proposto (SPEC-098) |
 | Prova não iniciada | `NOT_STARTED` (resultado de `AccessOf`) | A prova presencial já está em andamento pelo relógio, mas a docente ainda não a iniciou; vem depois de `ENDED` e antes de `NOT_CLEARED` | `NOT_OPEN` (já é `NOT_OPEN_YET`, que é antes do horário) | Proposto (SPEC-083) |
 
 ## 5. Condução da prova e auditoria

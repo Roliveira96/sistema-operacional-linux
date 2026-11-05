@@ -95,13 +95,13 @@ Migração **00053**: `assessments.grades_published_at timestamptz` e `assessmen
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente publica com todos revisados, O servidor DEVE gravar quem e quando; com alguém sem revisão, `409 reviews-pending`; antes do fim, `409 assessment-not-ended` (RN-01, RN-02).
-- [ ] **CA-02** (evento): QUANDO o aluno lê o resultado depois da publicação, O servidor DEVE devolver a nota final, a anotação ao aluno e as questões com a resposta, a correta das objetivas, os pontos e o motivo do ajuste, e NUNCA a anotação privada, a resposta esperada, os comandos nem a nota automática (RN-03).
-- [ ] **CA-03** (indesejado): SE o aluno lê antes da publicação, ou não compareceu, ENTÃO `404 result-not-published`; SE a docente tenta ajustar, anotar, concluir ou reabrir depois da publicação, ENTÃO `409 grades-published` (RN-04, D-03, D-04).
-- [ ] **CA-04** (estado): ENQUANTO a docente está na correção, A tela DEVE ter *Publicar as notas*, travado com a razão até todos estarem revisados, com o diálogo; depois, "Notas publicadas por …" e a correção só leitura.
-- [ ] **CA-05** (estado): ENQUANTO as notas estão publicadas, O detalhe do aluno que entregou DEVE mostrar "Sua nota: X de Y", a anotação ao aluno e *Ver a correção*; quem não compareceu NÃO DEVE ver resultado; antes da publicação, como hoje.
-- [ ] **CA-06** (estado): ENQUANTO o aluno está no resultado, A tela DEVE mostrar cada questão com a resposta dele, a correta das objetivas, os pontos e o motivo do ajuste.
-- [ ] **CA-07** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, com teclado, contraste AA e alvos de 44 px.
+- [x] **CA-01** (evento): QUANDO a docente publica com todos revisados, O servidor DEVE gravar quem e quando; com alguém sem revisão, `409 reviews-pending`; antes do fim, `409 assessment-not-ended` (RN-01, RN-02).
+- [x] **CA-02** (evento): QUANDO o aluno lê o resultado depois da publicação, O servidor DEVE devolver a nota final, a anotação ao aluno e as questões com a resposta, a correta das objetivas, os pontos e o motivo do ajuste, e NUNCA a anotação privada, a resposta esperada, os comandos nem a nota automática (RN-03).
+- [x] **CA-03** (indesejado): SE o aluno lê antes da publicação, ou não compareceu, ENTÃO `404 result-not-published`; SE a docente tenta ajustar, anotar, concluir ou reabrir depois da publicação, ENTÃO `409 grades-published` (RN-04, D-03, D-04).
+- [x] **CA-04** (estado): ENQUANTO a docente está na correção, A tela DEVE ter *Publicar as notas*, travado com a razão até todos estarem revisados, com o diálogo; depois, "Notas publicadas por …" e a correção só leitura.
+- [x] **CA-05** (estado): ENQUANTO as notas estão publicadas, O detalhe do aluno que entregou DEVE mostrar "Sua nota: X de Y", a anotação ao aluno e *Ver a correção*; quem não compareceu NÃO DEVE ver resultado; antes da publicação, como hoje.
+- [x] **CA-06** (estado): ENQUANTO o aluno está no resultado, A tela DEVE mostrar cada questão com a resposta dele, a correta das objetivas, os pontos e o motivo do ajuste.
+- [x] **CA-07** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, com teclado, contraste AA e alvos de 44 px.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -135,3 +135,4 @@ Respondidas pelo Tech Lead em 05/11/2026.
 | 05/11/2026 | Aruna Architect | Criada em `Rascunho`, a pedido do Tech Lead (próxima demanda depois da SPEC-097). Pendências D-01 a D-05. |
 | 05/11/2026 | Aruna Architect | Decisões do Tech Lead incorporadas: D-01 publicar só com todos revisados; D-03 o ausente não vê resultado; D-04 depois de publicada a correção fica gravada e não reabre (`409 grades-published`); D-06 a contestação fica para o futuro. Aguarda o "aprovo". |
 | 05/11/2026 | Tech Lead | Aprovada ("Aprovo"), com as decisões D-01 a D-06. Status: `Aprovada` |
+| 05/11/2026 | Implementador | Implementada, menos o roteiro manual, por isso o status continua `Aprovada`. **Feito:** T1 a T4, CA-01 a CA-07. Backend: migração 00053, `PublishGrades`, `MyResult` (`StudentResult`, `ResultItem`), a correção travada depois da publicação (`grades-published`), `reviews-pending`, `result-not-published`, `gradesPublishedAt`/`gradesPublishedByName` no resumo e `gradesPublished` no público. Frontend: *Publicar as notas* na correção com o diálogo e a frase depois, a correção só leitura (`locked`), o `ResultSummary` no detalhe do aluno e a tela `/result` (`ResultView`, reaproveitando `AnswerOf` e `VerdictTag`). Glossário: *Publicação das notas* e *Resultado da prova*. **Medido:** cada tarefa com o vermelho pelo motivo esperado antes do código; backend verde (handler 87,1%, service 83,8%, repository 87,8%, domain 96,8%); frontend com 610 testes verdes nas pastas da avaliação (as 10 falhas são as antigas do calendário), `tsc`, ESLint e Stylelint limpos. **Desvios:** o `PublishGrades` recusa também uma tentativa ainda em andamento (não revisada); a anotação privada fica só leitura junto com o resto. **Testes alterados depois do vermelho:** nenhum. **Aberto:** o roteiro manual. |
