@@ -185,3 +185,13 @@ describe("ReviewAttempt, concluding and reopening", () => {
     await waitFor(() => expect(onChange).toHaveBeenCalled());
   });
 });
+
+// SPEC-098 CA-04 (T3): once the grades are published, the correction is only read.
+describe("ReviewAttempt, after the publication", () => {
+  it("has no editing, no concluding and no reopening", () => {
+    render(<ReviewAttempt classId="c-1" assessmentId="a-1" maxScore={10} review={review({ reviewed: true, finalScore: 2.5 })} onChange={vi.fn()} locked />);
+    expect(screen.queryByRole("button", { name: "Reabrir a revisão" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Salvar pontos" })).toBeNull();
+    expect((screen.getByLabelText("Anotação privada (só você vê)") as HTMLTextAreaElement).readOnly).toBe(true);
+  });
+});

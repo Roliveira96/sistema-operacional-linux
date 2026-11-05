@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SERVER_NOW, detail } from "@/test/assessmentFixtures";
 import { assessmentService, type AttemptRow } from "@/services/assessmentService";
@@ -82,5 +82,36 @@ describe("ExamReview, going to the next one", () => {
     expect(screen.getByRole("button", { name: /Ana/ }).textContent).toContain("Revisada");
     expect(screen.getByRole("button", { name: /Bruno/ }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("1 de 2 revisadas")).toBeDefined();
+  });
+});
+
+// SPEC-098 CA-04 (T3): the teacher publishes the grades once every student who delivered is reviewed; then the correction is only read.
+describe("ExamReview, SPEC-098 publishing the grades", () => {
+  it("keeps Publicar as notas locked, with the reason, while someone is not reviewed", async () => {
+    render(<ExamReview classId="c-1" assessment={exam} />);
+    await screen.findByRole("list", { name: "Alunos que entregaram" });
+    expect((screen.getByRole("button", { name: "Publicar as notas" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Revise todos os alunos antes de publicar (1 de 2 revisados).")).toBeDefined();
+  });
+
+  it("publishes after the dialog and says who and when", async () => {
+    vi.mocked(assessmentService.attempts).mockResolvedValue({ items: rows.map((r) => ({ ...r, reviewed: r.status !== "ABSENT" })), serverNow: SERVER_NOW });
+    const publish = vi.spyOn(assessmentService, "publishGrades").mockResolvedValue({
+      ...exam, gradesPublishedAt: "2026-10-21T10:30:00-03:00", gradesPublishedByName: "Profa. Sediane", serverNow: SERVER_NOW,
+    } as never);
+    render(<ExamReview classId="c-1" assessment={exam} />);
+    await screen.findByRole("list", { name: "Alunos que entregaram" });
+    fireEvent.click(screen.getByRole("button", { name: "Publicar as notas" }));
+    const dialog = screen.getByRole("dialog", { name: "Publicar as notas?" });
+    expect(dialog.textContent).toContain("Depois de publicadas, as notas não mudam mais.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Publicar" }));
+    await waitFor(() => expect(publish).toHaveBeenCalledWith("c-1", "a-1"));
+    expect(await screen.findByText("Notas publicadas por Profa. Sediane em 21/10/2026, 10:30.")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Publicar as notas" })).toBeNull();
+  });
+
+  it("says the grades were published when it opens after the publication", async () => {
+    render(<ExamReview classId="c-1" assessment={detail({ phase: "ENDED", gradesPublishedAt: "2026-10-21T10:30:00-03:00", gradesPublishedByName: "Profa. Sediane" })} />);
+    expect(await screen.findByText("Notas publicadas por Profa. Sediane em 21/10/2026, 10:30.")).toBeDefined();
   });
 });
