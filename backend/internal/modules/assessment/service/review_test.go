@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -97,4 +98,56 @@ func TestReviewOf_RefusesBeforeTheEndAndOthers(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrForbidden)
 	_, err = f.svc.ReviewOf(ctx, f.teacher, f.class.ID, a.ID, uuid.New())
 	assert.ErrorIs(t, err, domain.ErrAttemptNotFound)
+}
+
+// Covers SPEC-097 CA-03 (RN-03, D-01, D-05): the teacher adjusts the points of a question from 0 to its weight, with two decimals and the reason, and
+// the score changes; the first grade of a written question needs no reason, changing it does; undoing goes back to the automatic points; a review
+// already done refuses the adjustment.
+func TestAdjustItem_LimitsReasonAndScore(t *testing.T) {
+	f := newFixture(t)
+	a, ana := f.deliveredExam(t)
+	adjust := func(position int, points *float64, reason string) (service.Review, error) {
+		return f.svc.AdjustItem(ctx, f.teacher, f.class.ID, a.ID, ana.ID, position, points, reason)
+	}
+	before, err := f.svc.ReviewOf(ctx, f.teacher, f.class.ID, a.ID, ana.ID)
+	require.NoError(t, err)
+
+	got, err := adjust(1, ptr(1.5), "Alternativa ambígua")
+	require.NoError(t, err)
+	require.NotNil(t, got.Items[0].AdjustedPoints)
+	assert.Equal(t, domain.Points(1.5), *got.Items[0].AdjustedPoints)
+	assert.Equal(t, "Alternativa ambígua", got.Items[0].AdjustReason)
+	assert.Equal(t, before.Score-domain.Points(0.5), got.Score)
+
+	for name, c := range map[string]struct {
+		points float64
+		reason string
+	}{
+		"above the weight": {2.5, "x"}, "below zero": {-1, "x"}, "three decimals": {1.555, "x"}, "no reason": {1, ""}, "a reason too long": {1, strings.Repeat("a", 301)},
+	} {
+		_, err = adjust(1, ptr(c.points), c.reason)
+		assert.ErrorIs(t, err, domain.ErrInvalidPoints, name)
+	}
+
+	got, err = adjust(5, ptr(1.0), "")
+	require.NoError(t, err, "the first grade of the written question needs no reason")
+	assert.Equal(t, domain.Points(1), *got.Items[4].AdjustedPoints)
+	_, err = adjust(5, ptr(0.5), "")
+	assert.ErrorIs(t, err, domain.ErrInvalidPoints, "changing a grade given needs the reason")
+
+	got, err = adjust(1, nil, "")
+	require.NoError(t, err)
+	assert.Nil(t, got.Items[0].AdjustedPoints)
+	assert.Empty(t, got.Items[0].AdjustReason)
+	_, err = adjust(9, ptr(1.0), "x")
+	assert.ErrorIs(t, err, domain.ErrAttemptNotFound, "no such question")
+
+	stored := f.repo.attempts[[2]uuid.UUID{a.ID, f.ana.ID}]
+	now := at(21, 10, 30)
+	stored.ReviewedAt = &now
+	f.repo.attempts[[2]uuid.UUID{a.ID, f.ana.ID}] = stored
+	_, err = adjust(1, ptr(1.0), "x")
+	assert.ErrorIs(t, err, domain.ErrReviewDone)
+	_, err = f.svc.AdjustItem(ctx, f.other, f.class.ID, a.ID, ana.ID, 1, ptr(1.0), "x")
+	assert.ErrorIs(t, err, domain.ErrForbidden)
 }

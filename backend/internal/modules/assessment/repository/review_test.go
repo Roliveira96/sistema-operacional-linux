@@ -46,3 +46,23 @@ func TestAttemptHelps_AllOfTheAttemptInOrder(t *testing.T) {
 	assert.Equal(t, "Pode.", list[0].Answer)
 	assert.Equal(t, domain.HelpOpen, list[1].Status)
 }
+
+// Covers SPEC-097 CA-03: the adjustment of a question is stored with the reason, who and when, and undone.
+func TestAdjustItem_StoresAndClears(t *testing.T) {
+	e := newEnv(t)
+	a := e.create(t)
+	at, _ := e.attempt(t, a)
+	half, reason := domain.Points(0.5), "Parcial"
+	require.NoError(t, e.repo.AdjustItem(e.ctx, at.ID, 1, &half, &reason, e.now, e.teacher.ID))
+	items, err := e.repo.AttemptItems(e.ctx, at.ID)
+	require.NoError(t, err)
+	require.NotNil(t, items[0].AdjustedPoints)
+	assert.Equal(t, half, *items[0].AdjustedPoints)
+	assert.Equal(t, "Parcial", *items[0].AdjustReason)
+	require.NoError(t, e.repo.AdjustItem(e.ctx, at.ID, 1, nil, nil, e.now, e.teacher.ID))
+	items, err = e.repo.AttemptItems(e.ctx, at.ID)
+	require.NoError(t, err)
+	assert.Nil(t, items[0].AdjustedPoints)
+	assert.Nil(t, items[0].AdjustReason)
+	assert.ErrorIs(t, e.repo.AdjustItem(e.ctx, at.ID, 99, &half, &reason, e.now, e.teacher.ID), domain.ErrAttemptNotFound)
+}

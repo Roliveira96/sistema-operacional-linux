@@ -193,3 +193,16 @@ func (f *fakeQuestions) ExpectedAnswer(_ context.Context, kind string, _ json.Ra
 	}
 	return "", nil
 }
+
+// AdjustItem changes the points of a question in the correction, or undoes it (SPEC-097).
+func (f *fakeRepo) AdjustItem(_ context.Context, attemptID uuid.UUID, position int, points *domain.Score, reason *string, _ time.Time, _ uuid.UUID) error {
+	f.attemptStore()
+	items := f.attemptItems[attemptID]
+	for i := range items {
+		if items[i].Position == position {
+			items[i].AdjustedPoints, items[i].AdjustReason = points, reason
+			return nil
+		}
+	}
+	return domain.ErrAttemptNotFound
+}
