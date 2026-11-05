@@ -246,6 +246,7 @@ describe("take page, SPEC-094 the general instructions", () => {
   it("opens the instructions beside the question and closes them by the button, Fechar and Esc (CA-02, CA-04)", async () => {
     vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf({ description: "<ul><li>Use <code>ls -l</code></li></ul>" }));
     await inTheExam();
+    await waitFor(() => expect(mount).toHaveBeenCalled()); // the terminal mounts after the exam shows up
     const mounts = mount.mock.calls.length;
     const button = await screen.findByRole("button", { name: "Instruções" });
     fireEvent.click(button);
