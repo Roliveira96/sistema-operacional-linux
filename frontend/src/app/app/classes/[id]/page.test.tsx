@@ -97,9 +97,13 @@ const params = Promise.resolve({ id: "c-1" });
 
 beforeEach(() => {
   searchParams = new URLSearchParams();
+  // the calendar opens on the month of today, and the fixtures are of October 2026: only the date is fixed, the timers stay real
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-20T12:00:00-03:00"));
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.restoreAllMocks();
   replaceMock.mockClear();
