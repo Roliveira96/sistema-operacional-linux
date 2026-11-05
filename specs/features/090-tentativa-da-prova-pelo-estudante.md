@@ -5,7 +5,7 @@
 | **ID** | SPEC-090 |
 | **Status** | Aprovada |
 | **Data de criação** | 03/11/2026 |
-| **Última revisão** | 04/11/2026 |
+| **Última revisão** | 05/11/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
 | **Aprovador** | Tech Lead (Ricardo Martins de Oliveira) |
 | **Escopo** | Ambos |
@@ -71,6 +71,15 @@ Tema único escuro, tokens semânticos, textos em `messages/pt-BR.ts`, navegaç�
 
 - **O terminal vai junto com a máquina.** A gravação da prática (RN-04) leva também o terminal 1 da questão: a tela (as últimas 500 linhas), o histórico de comandos, a pasta atual e o usuário. Ao reabrir, a questão volta com a mesma tela, a seta para cima traz os comandos de antes e o aluno continua na mesma pasta. *Reset Máquina* limpa tudo isso, como hoje. Tudo cabe nos 256 KiB da RN-04, e a conferência e a nota continuam olhando só a máquina.
 - **Cópia no navegador.** A janela guarda no `localStorage`, por tentativa, o que o servidor ainda não confirmou (as respostas e os terminais) e a linha que o aluno está digitando sem Enter. Ao reabrir no mesmo navegador, isso vale por cima do que veio do servidor e é enviado na hora. Em outro navegador, vale o do servidor. A cópia é apagada quando o servidor confirma a gravação e na entrega. Se o navegador não deixar gravar, a janela segue só com o servidor.
+
+**Revisão 3 (05/11/2026): a prática se confere sozinha.** Pedido do Tech Lead no roteiro manual: "antes mostrava ao aluno que ele acertou o comando, isso ajuda ele não ficar preso na questão; como é comando Linux, devemos mostrar quando acertou; lembre-se que há várias formas de fazer o mesmo exercício". Na prova, a prática só dizia que estava resolvida quando o aluno clicava em *Conferir*; o simulador (SPEC-085) já confere sozinho.
+
+- **Conferência sozinha, como no simulador.** A cada comando que o terminal de uma questão prática executa, a janela espera **1 segundo sem comando novo** e manda a máquina daquele momento para a conferência da RN-05 (o servidor confere, salva a máquina e o resultado e responde). Uma conferência de cada vez por questão: o estado que chega enquanto uma volta vai depois, só o último. *Reset Máquina* e a troca de questão não mandam nada sozinhos; o próximo comando manda.
+- **Qualquer caminho vale.** O servidor confere o **estado final** da máquina contra as condições de finalização da questão (SPEC-022), nunca os comandos digitados: `mkdir -p /labs/projetoX`, ou `mkdir /labs` e depois `mkdir /labs/projetoX`, ou outro caminho que chegue ao mesmo estado, dão a questão como resolvida.
+- **Resolvida:** a questão ganha a marca no navegador de questões e a comemoração da SPEC-087, só se estiver aberta (resolvida longe dela, só a marca), como no simulador.
+- **Depois de resolvida (D-06):** a conferência continua a cada comando, porque a nota da entrega usa a última máquina (RN-08). Se um comando desfaz o resultado (por exemplo, apaga a pasta), a marca sai e a questão mostra "Esta questão deixou de estar resolvida." A comemoração não se repete quando volta a ficar resolvida.
+- **O botão *Conferir* (D-07):** sai da prática; enquanto uma conferência está no ar, um indicador discreto diz "Conferindo…". Uma conferência que falha pela rede não aparece como erro: a próxima tenta de novo.
+- **As objetivas e a descritiva continuam sem dizer se estão certas** (D-03).
 
 **Detalhe da avaliação, visão da docente e do administrador:** uma seção nova **Tentativas**, depois das questões. Ela traz uma tabela com aluno, RA, situação (*Em andamento*, *Entregue*, *Tempo esgotado*), início, entrega e nota preliminar ("7,50 de 10,00 · 1 descritiva pendente"), e o botão *Atualizar*. Sem tentativas: "Nenhum aluno entrou na prova ainda."
 
@@ -188,6 +197,8 @@ Todas sob `/api/v1/classes/:id/assessments/:assessmentId`. Erros em RFC 7807.
 - [x] **CA-15** (estado): ENQUANTO a docente vê o detalhe da prova, A seção *Tentativas* DEVE listar as tentativas com a situação e a nota preliminar, ou dizer que nenhum aluno entrou.
 - [x] **CA-16** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, e a janela da prova e os diálogos DEVEM ter navegação por teclado, contraste AA e alvos de 44 px.
 - [x] **CA-17** (evento): QUANDO o estudante reabre a janela de uma tentativa em andamento, A questão prática DEVE voltar com a tela, o histórico de comandos, a pasta e o usuário do terminal salvos, e *Reset Máquina* DEVE limpá-los (revisão 2).
+- [ ] **CA-19** (evento): QUANDO o terminal de uma questão prática executa um comando e passa 1 segundo sem outro, A janela DEVE mandar a máquina daquele momento para a conferência, uma de cada vez por questão e só o último estado que chegou no meio; QUANDO volta resolvida, DEVE mostrar a marca e, com a questão aberta, a comemoração, e NÃO DEVE haver o botão *Conferir* (revisão 3, D-07).
+- [ ] **CA-20** (evento): QUANDO a conferência de uma questão já resolvida volta não resolvida, A janela DEVE tirar a marca e mostrar "Esta questão deixou de estar resolvida."; QUANDO volta a ficar resolvida, DEVE pôr a marca de novo sem repetir a comemoração (revisão 3, D-06).
 - [x] **CA-18** (evento): QUANDO o estudante reabre a janela no mesmo navegador com respostas que o servidor não confirmou ou uma linha digitada sem Enter, A janela DEVE mostrá-las por cima das do servidor, enviá-las e apagar a cópia local quando o servidor confirmar; sem `localStorage`, DEVE seguir só com o servidor (revisão 2).
 
 ## 8. Plano de Testes (Test Plan)
@@ -246,6 +257,13 @@ Nenhuma. O Tech Lead decidiu em 03/11/2026, ao aprovar a spec, as cinco pendênc
 
 ---
 
+### Decisões da revisão 3 (aprovadas pelo Tech Lead em 05/11/2026, com as recomendações)
+
+| ID | Pendência | Recomendação |
+| :--- | :--- | :--- |
+| D-06 | **Depois de resolvida, a conferência continua?** (a) continua a cada comando e tira a marca se o resultado se desfaz; (b) para de conferir, como o simulador. | **(a).** A nota da entrega usa a última máquina: uma marca que fica depois de o aluno apagar a pasta mentiria para ele. |
+| D-07 | **O botão *Conferir*:** (a) sai, a conferência é só sozinha; (b) fica, para o aluno forçar. | **(a).** A conferência já vem 1 segundo depois de cada comando; o botão só confundiria ("preciso clicar?"). |
+
 ## Histórico de revisões
 
 | Data | Autor | Alteração |
@@ -259,3 +277,5 @@ Nenhuma. O Tech Lead decidiu em 03/11/2026, ao aprovar a spec, as cinco pendênc
 | 04/11/2026 | Aruna Architect | **Revisão 2 proposta**, a pedido do Tech Lead no roteiro manual ("se ele recarrega ele perde a questão do terminal [...] deve ser mantido, tanto localmente como via servidor"): o terminal (tela, histórico, pasta e usuário) vai junto com a máquina, e a janela guarda no navegador o que o servidor ainda não confirmou e a linha sem Enter. CA-17 e CA-18 novos. |
 | 04/11/2026 | Tech Lead | Revisão 2 aprovada ("aprovo"). Status: `Aprovada` |
 | 04/11/2026 | Implementador | Revisão 2 implementada, menos o roteiro manual. **Feito:** CA-17 e CA-18. `terminalWindow` ganhou `terminalState`, `restoreTerminal` e `typedLine` (o terminal 1: as últimas 500 linhas da tela, o histórico, a pasta, o usuário e a linha sem Enter); o `ExamTerminal` manda o terminal junto com a máquina (campo `terminal`), o põe de volta ao reabrir e ao voltar a uma questão, e avisa a linha digitada; o `ExamRunner` guarda no `localStorage` (`exam-attempt:<id>`) as respostas não confirmadas e as linhas sem Enter, as aplica por cima do servidor e as envia ao abrir, e apaga a cópia na entrega. O backend não mudou: o leitor da máquina ignora o campo `terminal`. **Medido:** 9 vermelhos pelos motivos esperados; verdes os 225 testes das pastas da prova, do simulador, da sala e do motor do terminal (um da página da sala falhou uma vez por lentidão e passou sozinho), `tsc` e ESLint limpos. **Desvios:** o terminal que estava em `su` volta como aquele usuário sozinho (o `exit` fecha o terminal em vez de voltar ao root); a linha sem Enter de uma questão sem nenhum comando e sem cenário não volta. **Testes alterados depois do vermelho:** a janela falsa do teste do formato ganhou os métodos novos; a chave da cópia usava o id errado da fixture (`a-1` em vez de `t-1`). **Aberto:** o roteiro manual. |
+| 05/11/2026 | Aruna Architect | **Revisão 3 proposta**, a pedido do Tech Lead no roteiro manual de 05/11/2026 ("antes mostrava ao aluno que ele acertou o comando [...] devemos mostrar quando acertou; há várias formas de fazer o mesmo exercício"): a prática se confere sozinha 1 segundo depois de cada comando, como no simulador da SPEC-085, pelo estado final da máquina. CA-19 e CA-20 novos; pendências D-06 e D-07. |
+| 05/11/2026 | Tech Lead | Revisão 3 aprovada ("sobre isso eu aprovo, pode fazer"), com as recomendações de D-06 e D-07. Status: `Aprovada` |
