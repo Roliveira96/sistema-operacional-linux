@@ -150,3 +150,38 @@ describe("ReviewAttempt, adjusting and the notes", () => {
     expect(screen.queryByRole("button", { name: "Desfazer o ajuste" })).toBeNull();
   });
 });
+
+// SPEC-097 CA-05, CA-07 (T7): the review is concluded only with every written question graded, and reopened once done.
+describe("ReviewAttempt, concluding and reopening", () => {
+  const graded = () => {
+    const r = review();
+    r.items[2] = { ...r.items[2]!, adjustedPoints: 1 };
+    return r;
+  };
+
+  it("does not conclude while a written question has no points, and says why", () => {
+    render(<ReviewAttempt classId="c-1" assessmentId="a-1" maxScore={10} review={review()} onChange={vi.fn()} />);
+    expect((screen.getByRole("button", { name: "Concluir a revisão" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Dê os pontos das descritivas antes de concluir.")).toBeDefined();
+  });
+
+  it("concludes the review and tells the screen", async () => {
+    const done = { ...graded(), reviewed: true, finalScore: 3.5 };
+    const finish = vi.spyOn(assessmentService, "finishReview").mockResolvedValue(done);
+    const onFinished = vi.fn();
+    render(<ReviewAttempt classId="c-1" assessmentId="a-1" maxScore={10} review={graded()} onChange={vi.fn()} onFinished={onFinished} />);
+    fireEvent.click(screen.getByRole("button", { name: "Concluir a revisão" }));
+    await waitFor(() => expect(finish).toHaveBeenCalledWith("c-1", "a-1", "t-1"));
+    await waitFor(() => expect(onFinished).toHaveBeenCalledWith(done));
+  });
+
+  it("reopens a review that is done", async () => {
+    const reopen = vi.spyOn(assessmentService, "reopenReview").mockResolvedValue(graded());
+    const onChange = vi.fn();
+    render(<ReviewAttempt classId="c-1" assessmentId="a-1" maxScore={10} review={{ ...graded(), reviewed: true, finalScore: 3.5 }} onChange={onChange} />);
+    expect(screen.getByText("Revisão concluída: nota final 3,50 de 10,00.")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Reabrir a revisão" }));
+    await waitFor(() => expect(reopen).toHaveBeenCalledWith("c-1", "a-1", "t-1"));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+  });
+});

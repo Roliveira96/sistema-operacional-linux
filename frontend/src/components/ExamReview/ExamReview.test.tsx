@@ -59,3 +59,28 @@ describe("ExamReview, the list of the students", () => {
     expect((await screen.findByRole("link", { name: "Voltar para a prova" })).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1");
   });
 });
+
+// SPEC-097 CA-07 (T7): concluding the review of a student marks her reviewed and opens the next one to review.
+describe("ExamReview, going to the next one", () => {
+  it("marks the student reviewed and opens the next one to review", async () => {
+    const pending: AttemptRow[] = [
+      { attemptId: "t-1", studentId: "s-1", studentName: "Ana", academicId: "1000001", status: "SUBMITTED", startedAt: "2026-10-21T09:10:00-03:00", reviewed: false },
+      { attemptId: "t-2", studentId: "s-2", studentName: "Bruno", academicId: "1000002", status: "SUBMITTED", startedAt: "2026-10-21T09:12:00-03:00", reviewed: false },
+    ];
+    vi.mocked(assessmentService.attempts).mockResolvedValue({ items: pending, serverNow: SERVER_NOW });
+    const of = (attemptId: string, studentName: string) => ({
+      attemptId, studentId: "s", studentName, academicId: "1", status: "SUBMITTED" as const, startedAt: "2026-10-21T09:10:00-03:00",
+      score: 2, reviewed: false, teacherNote: "", studentNote: "", items: [], helps: [], serverNow: SERVER_NOW,
+    });
+    vi.mocked(assessmentService.review).mockImplementation((_c, _a, attemptId) => Promise.resolve(attemptId === "t-1" ? of("t-1", "Ana") : of("t-2", "Bruno")));
+    vi.spyOn(assessmentService, "attemptChat").mockResolvedValue({ messages: [] });
+    vi.spyOn(assessmentService, "finishReview").mockResolvedValue({ ...of("t-1", "Ana"), reviewed: true, finalScore: 2 });
+    render(<ExamReview classId="c-1" assessment={exam} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Ana/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Concluir a revisão" }));
+    expect(await screen.findByRole("heading", { name: "Bruno" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Ana/ }).textContent).toContain("Revisada");
+    expect(screen.getByRole("button", { name: /Bruno/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("1 de 2 revisadas")).toBeDefined();
+  });
+});
