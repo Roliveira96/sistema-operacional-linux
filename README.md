@@ -16,10 +16,14 @@
 
 **Ambiente completo para dominar comandos de terminal, resolução de exames práticos (LPIC-1, Linux Essentials, CompTIA Linux+) e emissão oficial de certificados.**
 
-![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-banco-4169E1?logo=postgresql&logoColor=white)
 ![Ubuntu](https://img.shields.io/badge/simula-Ubuntu%2024.04-E95420?logo=ubuntu&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-752%20passando-success?logo=vitest&logoColor=white)
+![Specs](https://img.shields.io/badge/specs-98-informational)
+![Testes](https://img.shields.io/badge/arquivos%20de%20teste-622-success?logo=vitest&logoColor=white)
 ![UTFPR](https://img.shields.io/badge/UTFPR-Campus%20Guarapuava-F6C212?logoColor=231F20)
 
 **Aluno Desenvolvedor:** Ricardo Martins de Oliveira · [GitHub](https://github.com/Roliveira96) · [LinkedIn](https://www.linkedin.com/in/ricardodeoliveira96/) · [rmo.dev.br](https://rmo.dev.br)  
@@ -29,9 +33,38 @@
 
 ---
 
+## 📊 Estado Atual do Projeto (TCC 2, novembro de 2026)
+
+O protótipo do TCC 1 (o simulador de terminal no navegador) virou uma **plataforma cliente-servidor** para a docente conduzir a disciplina inteira: turmas, aulas ao vivo, conteúdo e avaliações com correção. Tudo é construído por **Spec-Driven Development**: nenhuma linha de código sem uma spec aprovada, e os testes vêm antes da implementação (SPEC-038).
+
+| Indicador | Hoje |
+| :--- | :--- |
+| Specs escritas | **98** — 69 implementadas, 26 aprovadas (implementadas, aguardando o roteiro manual), 2 em rascunho |
+| Migrações do banco | **53** (PostgreSQL, aplicadas na subida do backend) |
+| Módulos do backend (Go) | **13**: `auth`, `user`, `student`, `classgroup`, `classlink`, `schedule`, `classroom`, `coursemodule`, `content`, `practice`, `assessment`, `mcp`, `tts` |
+| Arquivos de teste | **622** — 341 no frontend (Vitest + Testing Library) e 281 no backend (Go, com PostgreSQL de verdade via Testcontainers) |
+| Cobertura mínima exigida | **acima de 80%** por camada (domain, service, repository, handler) |
+
+### ✨ O que a plataforma já faz
+
+- **Turmas e agenda:** página da turma com apresentação da disciplina, estudantes, links, auditoria, agenda de aulas com calendário, avisos por e-mail e linha do tempo da turma.
+- **Módulos de ensino:** autoria de blocos de conteúdo, versões, ambiente preparado (snapshot) da máquina, leitura guiada por voz no estilo karaokê e banco de exercícios.
+- **Banco de questões:** cinco tipos — prática no terminal, escolha única, verdadeiro ou falso, ligar colunas e descritiva (com sugestão de nota pela IA).
+- **Aula ao vivo:** sala de espera, apresentação de slides espelhada, terminal da docente transmitido, mão levantada com dúvida, chat, notificações, envio de PDF e imagens, exercício prático ao vivo com cronômetro e prática guiada (pausa, mais tempo e assumir o terminal do aluno).
+- **Avaliações de ponta a ponta:**
+  - agendamento no calendário, composição manual ou por sorteio, público e modalidade (presencial ou online);
+  - simulador da prova lado a lado (visão da docente e do aluno);
+  - **sala da prova ao vivo**: admissão de cada aluno pela docente, tela e comandos do aluno em tempo real, respostas marcadas, pedidos de ajuda, chat guardado na tentativa, relógio para projetar e *Finalizar a prova*;
+  - janela da prova do aluno com o terminal ao lado, conferência automática da questão prática, instruções sempre à mão e salvamento contínuo;
+  - **correção** pela docente (comandos por questão, ajuste de pontos com motivo, anotações privada e ao aluno) e **publicação das notas**, com o resultado e a correção para o aluno.
+- **IA pelo MCP:** um servidor MCP deixa uma IA criar módulos, blocos e questões, cadastrar estudantes e sugerir a nota das descritivas — sempre como sugestão para a docente decidir.
+- **Terminal Ubuntu no navegador:** o motor POSIX/VFS do TCC 1, agora dentro do frontend, com comandos de arquivos, permissões, usuários, pacotes, serviços e rede, e uma verificação de conformidade de todos os comandos.
+
+---
+
 ## 📸 Demonstração Visual do Sistema
 
-Abaixo estão capturas reais do sistema em funcionamento, cobrindo desde a exploração inicial até o exame cronometrado e a geração do certificado:
+Capturas do **protótipo do TCC 1** (o simulador que deu origem à plataforma), cobrindo desde a exploração inicial até o exame cronometrado e a geração do certificado:
 
 ### 1. Tela Inicial e Hub de Estudos
 Apresentação institucional da UTFPR e do curso TSI, cards temáticos com contadores de comandos e acesso rápido aos exames e laboratório livre:
@@ -112,9 +145,9 @@ Na branch `projeto-tcc2`, o projeto evolui para uma plataforma cliente-servidor 
 
 | Diretório | Conteúdo |
 | :--- | :--- |
-| `specs/` | Governança: instruções para IAs, arquitetura, glossário, template e specs numeradas em `specs/features/` |
-| `backend/` | Serviço em Go (em construção) |
-| `frontend/` | Aplicação Next.js (em construção) |
+| `specs/` | Governança: instruções para IAs, arquitetura, glossário, template e as 98 specs numeradas em `specs/features/` |
+| `backend/` | API em Go (Gin, GORM, PostgreSQL, MinIO para arquivos, WebSocket para a aula e a sala da prova): 13 módulos e 53 migrações em `backend/migrations/` |
+| `frontend/` | Aplicação Next.js 16 com React 19 e SCSS Modules; o motor do terminal fica em `frontend/src/engine/` |
 | `docs/` | Arquitetura da transição, monografia e capturas de tela |
 
 Antes de contribuir, leia [`specs/AI_INSTRUCTIONS.md`](specs/AI_INSTRUCTIONS.md).
