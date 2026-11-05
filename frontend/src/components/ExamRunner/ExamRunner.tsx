@@ -401,7 +401,8 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
   if (!open) return null;
 
   return (
-    <div className={styles.exam}>
+    // the same padding the simulator gives the exam, so the bar does not touch the top of the window
+    <div className={`${styles.pane} ${styles.exam}`}>
       <div className={styles.examHead}>
         <p className={styles.examName}>{title}</p>
         <span role="timer" aria-label={s.answering.timeLeft} className={styles.timer}>
