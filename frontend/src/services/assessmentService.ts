@@ -269,6 +269,49 @@ export interface AttemptRow {
   pendingItems?: number;
   /** The number of messages of the conversation (SPEC-093 RN-07). */
   chatCount?: number;
+  /** The correction of the teacher (SPEC-097 section 5). */
+  reviewed?: boolean;
+  finalScore?: number;
+}
+
+/** A command of a practical question, in the correction (SPEC-097). */
+export interface ReviewCommand {
+  position: number;
+  command: string;
+  output: string;
+  executedAt: string;
+}
+
+/** A question of the attempt in the correction (SPEC-097 section 5): the automatic points, the adjustment, the expected answer and the commands. */
+export interface ReviewItem extends TeacherAttemptItem {
+  points?: number;
+  adjustedPoints?: number;
+  adjustReason?: string;
+  expectedAnswer?: string;
+  commands: ReviewCommand[];
+}
+
+/** The delivered attempt of one student as the teacher corrects it (SPEC-097 section 5). */
+export interface Review {
+  attemptId: string;
+  studentId: string;
+  studentName: string;
+  academicId: string;
+  status: AttemptStatus;
+  startedAt: string;
+  submittedAt?: string;
+  preliminaryScore?: number;
+  pendingItems?: number;
+  endedByName?: string;
+  endReason?: string;
+  score: number;
+  reviewed: boolean;
+  finalScore?: number;
+  teacherNote: string;
+  studentNote: string;
+  items: ReviewItem[];
+  helps: HelpItem[];
+  serverNow: string;
 }
 
 /** A message of the conversation of the exam (SPEC-093 section 5): studentId is the owner of a private conversation; senderName only in the record. */
@@ -411,6 +454,7 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     submitAttempt: (classId: string, id: string) => client.post<StudentAttempt>(`${base(classId)}/${id}/attempt/submit`),
     /** The attempts of the exam, for the teacher and the administrator (SPEC-090 RN-09). */
     attemptForTeacher: (classId: string, id: string, attemptId: string) => client.get<TeacherAttempt>(`${base(classId)}/${id}/attempts/${attemptId}`),
+    review: (classId: string, id: string, attemptId: string) => client.get<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
     attempts: (classId: string, id: string) => client.get<{ items: AttemptRow[]; serverNow: string }>(`${base(classId)}/${id}/attempts`),
     /** The whole conversation of an attempt, for the teacher and the administrator (SPEC-093 RN-07). */
     attemptChat: (classId: string, id: string, attemptId: string) =>

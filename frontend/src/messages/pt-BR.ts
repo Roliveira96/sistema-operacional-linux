@@ -1313,6 +1313,23 @@ export const messages = {
       loadError: "Não foi possível carregar a conversa.",
       close: "Fechar",
     },
+    /** The correction of the exam by the teacher (SPEC-097). */
+    review: {
+      open: (reviewed: number, total: number) => `Corrigir a prova (${reviewed} de ${total} revisadas)`,
+      title: "Correção da prova",
+      back: "Voltar para a prova",
+      progress: (reviewed: number, total: number) => `${reviewed} de ${total} revisadas`,
+      students: "Alunos que entregaram",
+      filter: "Mostrar",
+      filters: { all: "Todos", pending: "A revisar", done: "Revisados" } as Record<string, string>,
+      pill: (label: string, n: number) => `${label} (${n})`,
+      toReview: "A revisar",
+      reviewed: "Revisada",
+      none: "Ninguém entregou esta prova.",
+      pick: "Escolha um aluno para corrigir.",
+      loading: "Carregando a correção…",
+      loadError: "Não foi possível carregar a correção.",
+    },
     room: {
       title: "Sala da prova",
       open: "Abrir a sala da prova",

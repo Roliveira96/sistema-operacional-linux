@@ -58,6 +58,23 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
     [classId, assessmentId],
   );
   const loadAttempts = useCallback(() => assessmentService.attempts(classId!, assessmentId!), [classId, assessmentId]);
+  // how many delivered and how many were reviewed, for the button of the correction once the exam ended (SPEC-097 CA-01)
+  const [corrected, setCorrected] = useState<{ reviewed: number; total: number } | null>(null);
+  const ended = !isStudent && detail?.type === "EXAM" && detail.status !== "CANCELED" && detail.phase === "ENDED";
+  useEffect(() => {
+    if (!ended || !classId || !assessmentId) return;
+    let alive = true;
+    assessmentService.attempts(classId, assessmentId).then(
+      (got) => {
+        const delivered = got.items.filter((r) => r.status === "SUBMITTED" || r.status === "TIME_EXPIRED" || r.status === "ENDED_BY_TEACHER");
+        if (alive) setCorrected({ reviewed: delivered.filter((r) => r.reviewed).length, total: delivered.length });
+      },
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, [ended, classId, assessmentId]);
   const loadChat = useCallback((attemptId: string) => assessmentService.attemptChat(classId!, assessmentId!, attemptId), [classId, assessmentId]);
 
   useEffect(() => {
@@ -170,6 +187,11 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         <Button variant="secondary" onClick={() => setAsked(true)}>
           {p.preview}
         </Button>
+        {ended && corrected && (
+          <ButtonLink href={`/app/classes/${classId}/assessments/${assessmentId}/review`} variant="primary">
+            {m.review.open(corrected.reviewed, corrected.total)}
+          </ButtonLink>
+        )}
         {roomOpen && (
           <ButtonLink href={roomHref} variant="primary" target="_blank" rel="noopener noreferrer" aria-label={`${m.room.open} (${m.room.newWindow})`}>
             {m.room.open}
