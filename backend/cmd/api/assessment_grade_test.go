@@ -88,3 +88,16 @@ func TestAssessmentQuestions_AnswerKeyOfTheObjectiveKinds(t *testing.T) {
 	assert.Nil(t, key(contentdomain.KindDiscursive, contentdomain.Question{AnswerKey: json.RawMessage(`{"expectedAnswer":"<p>7</p>"}`)}))
 	assert.Nil(t, key(contentdomain.KindPractical, contentdomain.Question{}))
 }
+
+// Covers SPEC-097 CA-02: the correction shows the teacher the answer she expected in a written question; the other kinds have none.
+func TestAssessmentQuestions_ExpectedAnswerOfTheWrittenOne(t *testing.T) {
+	q := assessmentQuestions{}
+	written := contentdomain.Question{Kind: contentdomain.KindDiscursive, AnswerKey: json.RawMessage(`{"maxLength":1000,"expectedAnswer":"<p>7</p>"}`)}
+	got, err := q.ExpectedAnswer(context.Background(), contentdomain.KindDiscursive, keyOf(t, written))
+	require.NoError(t, err)
+	assert.Equal(t, "<p>7</p>", got)
+	single := contentdomain.Question{Kind: contentdomain.KindTheoreticalSingle, AnswerKey: json.RawMessage(`{"correct":"a"}`)}
+	got, err = q.ExpectedAnswer(context.Background(), contentdomain.KindTheoreticalSingle, keyOf(t, single))
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}

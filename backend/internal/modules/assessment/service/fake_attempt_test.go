@@ -185,3 +185,11 @@ func (f *fakeRepo) Admitted(_ context.Context, assessmentID uuid.UUID) (map[uuid
 	}
 	return out, nil
 }
+
+// ExpectedAnswer gives a fixed text for the written kind, as the fake bank keeps only the key (SPEC-097).
+func (f *fakeQuestions) ExpectedAnswer(_ context.Context, kind string, _ json.RawMessage) (string, error) {
+	if kind == "DISCURSIVE" {
+		return "Resposta esperada", nil
+	}
+	return "", nil
+}
