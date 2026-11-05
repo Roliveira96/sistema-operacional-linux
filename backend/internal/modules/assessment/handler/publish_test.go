@@ -44,3 +44,32 @@ func TestPublishGradesRoute(t *testing.T) {
 	_, body = call(t, srv, http.MethodPost, path, nil)
 	assert.Contains(t, body["type"], "grades-published")
 }
+
+var fakeResult service.StudentResult
+
+func (f *fakeService) MyResult(_ context.Context, a service.Actor, classID, id uuid.UUID) (service.StudentResult, error) {
+	f.saw("MyResult", a)
+	return fakeResult, f.err
+}
+
+// Covers SPEC-098 CA-02, CA-03 (section 5): the result of the student with exactly its keys, never the private note; not published is 404.
+func TestMyResultRoute(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleStudent)
+	defer srv.Close()
+	half := domain.Points(0.5)
+	fakeResult = service.StudentResult{FinalScore: domain.Points(7.5), MaxScore: domain.Points(10), StudentNote: "Muito bem.",
+		Items: []service.ResultItem{{TeacherAttemptItem: service.TeacherAttemptItem{AttemptItemView: service.AttemptItemView{Position: 1, Kind: "THEORETICAL_SINGLE",
+			Weight: domain.Points(2), StudentView: []byte(`{"title":"P"}`), Answer: []byte(`{"choice":"a"}`)}, Title: "P", AnswerKey: []byte(`{"correct":"b"}`)},
+			Points: &half, AdjustReason: "Parcial"}}}
+	path := assessmentPath(uuid.New(), uuid.New()) + "/my-result"
+	status, body := call(t, srv, http.MethodGet, path, nil)
+	require.Equal(t, http.StatusOK, status)
+	assert.ElementsMatch(t, []string{"finalScore", "maxScore", "studentNote", "items"}, keysOf(body))
+	item := object(t, array(t, body["items"])[0])
+	assert.ElementsMatch(t, []string{"position", "kind", "weight", "title", "studentView", "answer", "answerKey", "points", "adjustReason"}, keysOf(item))
+	assert.Equal(t, 0.5, item["points"])
+	svc.err = domain.ErrResultNotPublished
+	status, body = call(t, srv, http.MethodGet, path, nil)
+	assert.Equal(t, http.StatusNotFound, status)
+	assert.Contains(t, body["type"], "result-not-published")
+}
