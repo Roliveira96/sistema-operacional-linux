@@ -26,6 +26,8 @@ beforeEach(() => {
   // the attempts of SPEC-090: none, unless a test says otherwise
   vi.spyOn(assessmentService, "attempts").mockResolvedValue({ items: [], serverNow: SERVER_NOW });
   vi.spyOn(assessmentService, "myAttempt").mockRejectedValue(problem("attempt-not-found", 404));
+  // the result of SPEC-098: not published, unless a test says otherwise
+  vi.spyOn(assessmentService, "myResult").mockRejectedValue(problem("result-not-published", 404));
 });
 afterEach(() => {
   cleanup();
@@ -445,5 +447,19 @@ describe("assessment page, SPEC-097 the correction", () => {
     render(<AssessmentPage params={params} />);
     await screen.findByRole("heading", { level: 1 });
     expect(screen.queryByRole("link", { name: /Corrigir a prova/ })).toBeNull();
+  });
+});
+
+// SPEC-098 CA-05 (T4): once the grades are published, the student reads the grade in the detail, with the way to the correction.
+describe("assessment page, SPEC-098 the result of the student", () => {
+  it("shows the grade and the way to the correction", async () => {
+    asRole("STUDENT");
+    vi.spyOn(assessmentService, "myAccess").mockResolvedValue(myAccess());
+    vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf({ phase: "ENDED" }));
+    vi.mocked(assessmentService.myResult).mockResolvedValue({ finalScore: 8, maxScore: 10, items: [] });
+    render(<AssessmentPage params={params} />);
+    expect(await screen.findByText("Sua nota: 8,00 de 10,00")).toBeDefined();
+    expect(screen.getByRole("link", { name: "Ver a correção" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/result");
+    expect(assessmentService.myResult).toHaveBeenCalledWith("c-1", "a-1");
   });
 });
