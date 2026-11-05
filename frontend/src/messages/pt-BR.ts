@@ -1242,6 +1242,8 @@ export const messages = {
       forbidden: "Você não tem permissão para fazer isto.",
     } as Record<string, string>,
     /** The window of the exam of the student (SPEC-090). */
+    /** The question beside the terminal: the divider and Expandir terminal (SPEC-090 revision 4). */
+    split: { width: "Largura do terminal", expand: "Expandir terminal", collapse: "Recolher" },
     take: {
       title: "Prova",
       /** The general instructions within reach during the exam and in the waiting room (SPEC-094). */

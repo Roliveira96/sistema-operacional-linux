@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { AssessmentDialog } from "@/components/AssessmentDialog/AssessmentDialog";
 import dialog from "@/components/AssessmentDialog/AssessmentDialog.module.scss";
 import { Button } from "@/components/Button/Button";
@@ -25,6 +26,8 @@ export interface ExamTerminalProps {
   onFormat?: (questionId: string) => void;
   /** The machines saved of an attempt the student comes back to: a question starts from it, and Reset Máquina still goes to the scenario (SPEC-090). */
   resume?: Record<string, unknown>;
+  /** What goes in the bar beside Reset Máquina: the button that expands the terminal (SPEC-090 revision 4). */
+  barExtra?: ReactNode;
   /** Each command that ran in the question that is open, with its line and its output, for the room of the exam (SPEC-091 RN-06). */
   onCommandRun?: (questionId: string, run: CommandRun) => void;
   /** The picture of the window at each change, for the teacher who watches (SPEC-091 RN-05). */
@@ -41,7 +44,7 @@ const terminalOf = (snapshot: unknown) => (snapshot as { terminal?: Partial<Term
  * first time it opens, and gets back what the student left in it when the student returns; Reset Máquina formats only the machine of the open question.
  * It has nothing of the study of a module: no pasting of commands, sound, narration, saving or loading of machines, or panel of processes (D-04).
  */
-export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, resume, onCommandRun, onScreen, onTyped }: ExamTerminalProps) {
+export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, resume, onCommandRun, onScreen, onTyped, barExtra }: ExamTerminalProps) {
   const host = useRef<HTMLDivElement>(null);
   const terminal = useRef<TerminalWindow | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -183,9 +186,12 @@ export function ExamTerminal({ questionId, loadScenario, onCommand, onFormat, re
     <section className={styles.pane} aria-label={s.title} onKeyDown={typing} onPaste={typing}>
       <div className={styles.bar}>
         <span className={styles.title}>{s.title}</span>
-        <Button variant="secondary" title={actions.resetTitle} disabled={!questionId || state !== "ready"} onClick={() => setConfirming(true)}>
-          {actions.reset}
-        </Button>
+        <div className={styles.barActions}>
+          {barExtra}
+          <Button variant="secondary" title={actions.resetTitle} disabled={!questionId || state !== "ready"} onClick={() => setConfirming(true)}>
+            {actions.reset}
+          </Button>
+        </div>
       </div>
       {state === "loading" && (
         <p className={styles.status} role="status">

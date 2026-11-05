@@ -5,6 +5,7 @@ import { AssessmentDialog } from "@/components/AssessmentDialog/AssessmentDialog
 import dialog from "@/components/AssessmentDialog/AssessmentDialog.module.scss";
 import styles from "@/components/AssessmentSimulator/AssessmentSimulator.module.scss";
 import { ExamTerminal } from "@/components/AssessmentSimulator/ExamTerminal";
+import { ExamSplit } from "@/components/AssessmentSimulator/ExamSplit";
 import { SolvedCelebration } from "@/components/AssessmentSimulator/SolvedCelebration";
 import { Button } from "@/components/Button/Button";
 import { Html } from "@/components/ContentRenderer/blocks";
@@ -414,7 +415,9 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
         {room?.header?.(open.position)}
         <Button onClick={() => setConfirming(true)}>{t.deliver}</Button>
       </div>
-      <div className={`${styles.examBody} ${hasTerminal ? styles.withTerminal : ""}`}>
+      <ExamSplit
+        hasTerminal={hasTerminal}
+        question={
         <div className={styles.questionCol}>
           <div className={styles.questionScroll}>
             <ol aria-label={s.answering.navigator} className={styles.navigator}>
@@ -474,8 +477,10 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
             />
           )}
         </div>
-        {hasTerminal && (
+        }
+        terminal={(toggle) => (
           <ExamTerminal
+            barExtra={toggle}
             questionId={isPractical(open) ? String(open.position) : null}
             loadScenario={loadScenario}
             onCommand={machineChanged}
@@ -486,7 +491,7 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
             onTyped={typedChanged}
           />
         )}
-      </div>
+      />
 
       {confirming && (
         <AssessmentDialog title={t.confirm.title} onClose={() => setConfirming(false)}>

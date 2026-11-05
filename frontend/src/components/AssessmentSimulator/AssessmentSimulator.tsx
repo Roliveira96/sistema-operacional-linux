@@ -17,6 +17,7 @@ import { contentMessages } from "@/messages/content.pt-BR";
 import { messages } from "@/messages/pt-BR";
 import type { AssessmentDetail, PreviewData } from "@/services/assessmentService";
 import { ExamTerminal } from "./ExamTerminal";
+import { ExamSplit } from "./ExamSplit";
 import { SolvedCelebration } from "./SolvedCelebration";
 import styles from "./AssessmentSimulator.module.scss";
 
@@ -428,7 +429,9 @@ function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: Assess
               )}
               <Button onClick={() => setConfirming(true)}>{s.answering.deliver}</Button>
             </div>
-            <div className={`${styles.examBody} ${hasTerminal ? styles.withTerminal : ""}`}>
+            <ExamSplit
+              hasTerminal={hasTerminal}
+              question={
               <div className={styles.questionCol}>
                 <div className={styles.questionScroll}>
                   <ol aria-label={s.answering.navigator} className={styles.navigator}>
@@ -485,10 +488,11 @@ function Simulator({ detail, load, loadScenario, checkQuestion, onExit }: Assess
                   />
                 )}
               </div>
-              {hasTerminal && (
-                <ExamTerminal questionId={isPractical(open) ? open.questionId : null} loadScenario={loadScenario} onCommand={machineChanged} onFormat={machineFormatted} />
+              }
+              terminal={(toggle) => (
+                <ExamTerminal questionId={isPractical(open) ? open.questionId : null} loadScenario={loadScenario} onCommand={machineChanged} onFormat={machineFormatted} barExtra={toggle} />
               )}
-            </div>
+            />
           </div>
         )}
 

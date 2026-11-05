@@ -261,9 +261,56 @@
   min-height: 0;
 }
 
+// The question and the terminal side by side, with the divider between them (SPEC-090 revision 4): the width the student chose, or the proportion of
+// before; the terminal expanded takes the whole area. On narrow screens they stay one under the other and the divider is not there.
+.questionSlot {
+  display: contents;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.terminalSlot {
+  display: contents;
+}
+
+.divider {
+  display: none;
+}
+
 @media (width >= 64rem) {
   .withTerminal {
-    grid-template-columns: minmax(22rem, 2fr) minmax(0, 3fr);
+    grid-template-columns: minmax(18rem, 2fr) auto minmax(22rem, 3fr);
+    column-gap: var(--space-1);
+  }
+
+  .sized {
+    grid-template-columns: minmax(18rem, 1fr) auto var(--terminal-width);
+  }
+
+  .expanded {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .divider {
+    display: block;
+    width: 0.75rem;
+    border-radius: var(--radius-pill);
+    cursor: col-resize;
+    touch-action: none;
+    background: linear-gradient(var(--color-border-strong), var(--color-border-strong)) center / 2px 2.5rem no-repeat;
+
+    &:hover,
+    &:focus-visible {
+      background-color: var(--color-accent-subtle);
+      background-image: linear-gradient(var(--color-accent), var(--color-accent));
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-focus-ring);
+      outline-offset: 2px;
+    }
   }
 }
 
