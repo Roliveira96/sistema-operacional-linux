@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/hooks/useAuth";
 import { messages } from "@/messages/pt-BR";
 import { scheduleService } from "@/services/scheduleService";
@@ -16,7 +16,14 @@ function asRole(role: "ADMIN" | "TEACHER" | "STUDENT") {
   });
 }
 
+// the calendar opens on the month of today, and the fixtures are of October 2026: only the date is fixed, the timers stay real
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-20T12:00:00-03:00"));
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.restoreAllMocks();
 });
