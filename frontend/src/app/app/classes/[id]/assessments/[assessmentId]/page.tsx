@@ -15,7 +15,7 @@ import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouteParams } from "@/hooks/useRouteParams";
-import { canStart, formatDateTime, formatHour, formatPeriod, formatScore, situationOf } from "@/lib/assessment";
+import { canStart, earlyPeriod, earlyStartFrom, inEarlyHour, formatDateTime, formatHour, formatPeriod, formatScore, situationOf } from "@/lib/assessment";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
 import { messages } from "@/messages/pt-BR";
 import { assessmentService, describeAssessmentError, type AssessmentDetail, type AssessmentPublic } from "@/services/assessmentService";
@@ -145,7 +145,10 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   const startable = canStart(detail);
   const roomHref = `/app/classes/${classId}/assessments/${assessmentId}/room`;
   /** The room of the exam while it runs (SPEC-091 CA-10). */
-  const roomOpen = exam && detail.phase === "RUNNING" && !detail.finishedAt;
+  const roomOpen = exam && (detail.phase === "RUNNING" || inEarlyHour(detail)) && !detail.finishedAt;
+  const early = exam && inEarlyHour(detail);
+  /** The start before the time set, kept in the history with the period it had (SPEC-099 D-06). */
+  const startedEarly = detail.events?.find((e) => e.kind === "STARTED" && e.oldStartsAt);
   /** The start of the exam by the teacher (SPEC-083): the exam was started, can be started now, waits for its time, or ended without it. */
   const start = async () => {
     const started = await assessmentService.start(classId, assessmentId);
@@ -204,11 +207,17 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
           {p.simulate}
         </ButtonLink>
       </div>
-      {exam && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser)}</p>}
+      {exam && detail.startedAt && (
+        <p className={styles.text}>
+          {startedEarly?.oldStartsAt
+            ? p.startedEarly(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser, formatHour(startedEarly.oldStartsAt))
+            : p.startedBy(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser)}
+        </p>
+      )}
       {detail.finishedAt && <p className={styles.text}>{p.finishedBy(detail.finishedByName || m.history.removedUser, formatHour(detail.finishedAt))}</p>}
       {exam && !detail.startedAt && detail.phase === "UPCOMING" && (
         <p id="start-reason" className={styles.hint}>
-          {p.startFrom(formatDateTime(detail.startsAt))}
+          {early ? p.startNow(formatHour(detail.startsAt)) : p.startFrom(formatDateTime(earlyStartFrom(detail.startsAt)))}
         </p>
       )}
       {exam && !detail.startedAt && detail.phase === "ENDED" && <p className={styles.text}>{p.endedNotStarted}</p>}
@@ -278,7 +287,9 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
       )}
 
       <AssessmentHistory events={detail.events} />
-      {starting && <AssessmentStartDialog assessment={detail} onClose={() => setStarting(false)} onConfirm={start} />}
+      {starting && (
+        <AssessmentStartDialog assessment={detail} early={early ? earlyPeriod(detail) : undefined} onClose={() => setStarting(false)} onConfirm={start} />
+      )}
     </main>
   );
 }

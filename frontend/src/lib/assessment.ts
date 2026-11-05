@@ -69,9 +69,36 @@ export const convertedSessionIds = (assessments: Pick<CalendarAssessment, "statu
  * clearance, scheduled, running, that the teacher started, with students waiting. Before the start there is nothing to clear, so nothing warns.
  */
 
-/** Whether the exam can be started now: an exam, in person or online, scheduled, running by the clock of the server and not started yet (SPEC-089 RN-01). */
-export const canStart = (a: Pick<AssessmentSummary, "status" | "type" | "phase" | "startedAt">): boolean =>
-  a.status === "SCHEDULED" && a.type === "EXAM" && a.phase === "RUNNING" && !a.startedAt;
+/** How long before the time set the teacher may start an exam (SPEC-099 D-03). */
+const EARLY_START_MS = 60 * 60 * 1000;
+
+/** An instant written in the time of Brasília, as the server writes them, so the formatters above read the right hour. */
+// ponytail: fixed -03:00, Brasília has no daylight saving time since 2019; take the zone from the server if that ever changes
+const brasilia = (ms: number): string => new Date(ms - 3 * 60 * 60 * 1000).toISOString().slice(0, 19) + "-03:00";
+
+/** Whether the exam is in the hour before its time set, by the clock of the server when the page has it (SPEC-099 D-03). */
+export function inEarlyHour(a: Pick<AssessmentSummary, "phase" | "startsAt"> & { serverNow?: string }): boolean {
+  const now = a.serverNow ? Date.parse(a.serverNow) : Date.now();
+  const start = Date.parse(a.startsAt);
+  return a.phase === "UPCOMING" && now >= start - EARLY_START_MS && now < start;
+}
+
+/** The instant from which an exam can be started: an hour before its time set (SPEC-099 D-03). */
+export const earlyStartFrom = (startsAt: string): string => brasilia(Date.parse(startsAt) - EARLY_START_MS);
+
+/**
+ * Whether the exam can be started now: an exam, in person or online, scheduled and not started yet, running by the clock of the server or in the
+ * hour before its time set (SPEC-089 RN-01, SPEC-099 D-03).
+ */
+export const canStart = (a: Pick<AssessmentSummary, "status" | "type" | "phase" | "startedAt" | "startsAt"> & { serverNow?: string }): boolean =>
+  a.status === "SCHEDULED" && a.type === "EXAM" && !a.startedAt && (a.phase === "RUNNING" || inEarlyHour(a));
+
+/** The period of an exam started early: from now, with the same length (SPEC-099 D-01, D-02). */
+export function earlyPeriod(a: Pick<AssessmentSummary, "startsAt" | "endsAt"> & { serverNow?: string }) {
+  const now = a.serverNow ? Date.parse(a.serverNow) : Date.now();
+  const length = Date.parse(a.endsAt) - Date.parse(a.startsAt);
+  return { setStart: a.startsAt, newStart: brasilia(now), newEnd: brasilia(now + length) };
+}
 
 /** Whether the list tells the teacher that the exam can be started. */
 export const needsStartWarning = (a: AssessmentSummary): boolean => canStart(a);

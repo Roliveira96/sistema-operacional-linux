@@ -16,7 +16,12 @@ import {
 import { TerminalMirror } from "@/components/Classroom/TerminalMirror/TerminalMirror";
 import { ChatComposer, ChatThread } from "@/components/ExamChat/ExamChat";
 import type { ScreenElement } from "@/engine/terminalScreen";
-import { countdown, formatHour } from "@/lib/assessment";
+import {
+  countdown,
+  earlyPeriod,
+  formatHour,
+  inEarlyHour,
+} from "@/lib/assessment";
 import { messages } from "@/messages/pt-BR";
 import {
   assessmentService,
@@ -577,11 +582,12 @@ export function ExamRoom({
             {r.openClock}
             <span className={styles.srOnly}> ({r.newWindow})</span>
           </Button>
-          {!started && assessment.phase === "RUNNING" && (
-            <Button onClick={() => setStarting(true)}>
-              {messages.assessments.page.start}
-            </Button>
-          )}
+          {!started &&
+            (assessment.phase === "RUNNING" || inEarlyHour(assessment)) && (
+              <Button onClick={() => setStarting(true)}>
+                {messages.assessments.page.start}
+              </Button>
+            )}
           {started && (
             <Button variant="danger" onClick={() => setFinishing(true)}>
               {r.finish.button}
@@ -1076,6 +1082,7 @@ export function ExamRoom({
       {starting && (
         <AssessmentStartDialog
           assessment={assessment}
+          early={inEarlyHour(assessment) ? earlyPeriod(assessment) : undefined}
           onClose={() => setStarting(false)}
           onConfirm={start}
         />
