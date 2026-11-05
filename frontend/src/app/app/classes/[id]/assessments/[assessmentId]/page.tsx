@@ -125,7 +125,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   const startable = canStart(detail);
   const roomHref = `/app/classes/${classId}/assessments/${assessmentId}/room`;
   /** The room of the exam while it runs (SPEC-091 CA-10). */
-  const roomOpen = exam && detail.phase === "RUNNING";
+  const roomOpen = exam && detail.phase === "RUNNING" && !detail.finishedAt;
   /** The start of the exam by the teacher (SPEC-083): the exam was started, can be started now, waits for its time, or ended without it. */
   const start = async () => {
     const started = await assessmentService.start(classId, assessmentId);
@@ -180,6 +180,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         </ButtonLink>
       </div>
       {exam && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser)}</p>}
+      {detail.finishedAt && <p className={styles.text}>{p.finishedBy(detail.finishedByName || m.history.removedUser, formatHour(detail.finishedAt))}</p>}
       {exam && !detail.startedAt && detail.phase === "UPCOMING" && (
         <p id="start-reason" className={styles.text}>
           {p.startFrom(formatDateTime(detail.startsAt))}

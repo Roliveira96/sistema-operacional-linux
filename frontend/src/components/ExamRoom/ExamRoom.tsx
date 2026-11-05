@@ -67,7 +67,8 @@ const isDelivered = (c: RoomCard) =>
   c.status === "SUBMITTED" ||
   c.status === "TIME_EXPIRED" ||
   c.status === "ENDED_BY_TEACHER";
-const situationOf = (c: RoomCard) => (isWaiting(c) ? "WAITING" : c.status);
+const situationOf = (c: RoomCard) =>
+  c.requesting ? "REQUESTING" : isWaiting(c) ? "WAITING" : c.status;
 
 const matches: Record<Filter, (c: RoomCard) => boolean> = {
   all: () => true,
@@ -82,6 +83,7 @@ const matches: Record<Filter, (c: RoomCard) => boolean> = {
 const badgeOf: Record<string, string | undefined> = {
   IN_PROGRESS: styles.badgeDoing,
   WAITING: styles.badgeWaiting,
+  REQUESTING: styles.badgeWaiting,
   SUBMITTED: styles.badgeDelivered,
   ENDED_BY_TEACHER: styles.badgeEnded,
 };
@@ -115,6 +117,8 @@ export interface ExamRoomProps {
   beep?: (kind: BeepKind) => void;
   /** The notices of the browser (SPEC-064); a test puts a double here. */
   notice?: BrowserNotice;
+  /** Where the teacher goes once she finished the exam (SPEC-096): the page sends her to the detail of the assessment. */
+  onFinished?: () => void;
 }
 
 /**
@@ -127,8 +131,15 @@ export function ExamRoom({
   assessment,
   beep = webAudioBeep,
   notice = browserNotice,
+  onFinished,
 }: ExamRoomProps) {
   const id = assessment.id;
+  // SPEC-096: who asks to enter, the ones the teacher selected, and the finish of the exam
+  const [selected, setSelected] = useState<string[]>([]);
+  const [admitError, setAdmitError] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState(false);
+  const asked = useRef(new Set<string>());
   const [connected, setConnected] = useState(false);
   const [started, setStarted] = useState<{ at: string; name: string } | null>(
     assessment.startedAt
@@ -270,9 +281,16 @@ export function ExamRoom({
             });
           break;
         }
-        case "room:student":
-          upsert(data as unknown as RoomCard);
+        case "room:student": {
+          const card = data as unknown as RoomCard;
+          // a new request to enter is news, as a raised hand (SPEC-096 CA-07)
+          if (card.requesting && !asked.current.has(card.studentId))
+            tell.current.beep("arrival");
+          if (card.requesting) asked.current.add(card.studentId);
+          else asked.current.delete(card.studentId);
+          upsert(card);
           break;
+        }
         case "room:started":
           setStarted({
             at: String(data.startedAt ?? ""),
@@ -448,6 +466,28 @@ export function ExamRoom({
   };
 
   const sorted = useMemo(() => [...cards].sort(byNeed), [cards]);
+  const requests = sorted.filter((c) => c.requesting);
+  const chosen = selected.filter((s) =>
+    requests.some((c) => c.studentId === s),
+  );
+  const admit = (studentIds: string[]) => {
+    setAdmitError(false);
+    setSelected((all) => all.filter((s) => !studentIds.includes(s)));
+    assessmentService
+      .admit(classId, id, studentIds)
+      .catch(() => setAdmitError(true));
+  };
+  const finish = async () => {
+    setFinishError(false);
+    try {
+      await assessmentService.finish(classId, id);
+    } catch {
+      setFinishError(true);
+      return;
+    }
+    setFinishing(false);
+    onFinished?.();
+  };
   const shown = sorted.filter(matches[filter]);
   const open = cards.find((c) => c.studentId === watching) ?? null;
   const openScreen = open ? screens[open.studentId] : undefined;
@@ -542,8 +582,64 @@ export function ExamRoom({
               {messages.assessments.page.start}
             </Button>
           )}
+          {started && (
+            <Button variant="danger" onClick={() => setFinishing(true)}>
+              {r.finish.button}
+            </Button>
+          )}
         </div>
       </header>
+
+      {requests.length > 0 && (
+        <section
+          className={styles.requests}
+          aria-label={r.admission.title(requests.length)}
+        >
+          <h2 className={styles.subheading}>
+            {r.admission.title(requests.length)}
+          </h2>
+          <ul className={styles.requestList}>
+            {requests.map((c) => (
+              <li key={c.studentId} className={styles.request}>
+                <label className={styles.requestName}>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(c.studentId)}
+                    onChange={(e) =>
+                      setSelected((all) =>
+                        e.target.checked
+                          ? [...all, c.studentId]
+                          : all.filter((s) => s !== c.studentId),
+                      )
+                    }
+                  />
+                  {r.admission.select(c.name, c.academicId)}
+                </label>
+                <Button
+                  size="sm"
+                  aria-label={r.admission.admitOne(c.name)}
+                  onClick={() => admit([c.studentId])}
+                >
+                  {r.admission.admit}
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <div className={styles.requestActions}>
+            <Button
+              variant="secondary"
+              disabled={chosen.length === 0}
+              onClick={() => admit(chosen)}
+            >
+              {r.admission.admitSelected(chosen.length)}
+            </Button>
+            <Button onClick={() => admit(requests.map((c) => c.studentId))}>
+              {r.admission.admitAll(requests.length)}
+            </Button>
+          </div>
+          {admitError && <p role="alert">{r.admission.error}</p>}
+        </section>
+      )}
 
       <div className={styles.pills} role="group" aria-label={r.filter}>
         {(Object.keys(matches) as Filter[]).map((f) => {
@@ -984,6 +1080,32 @@ export function ExamRoom({
           onConfirm={start}
         />
       )}
+      {finishing && (
+        <AssessmentDialog
+          title={r.finish.title}
+          onClose={() => setFinishing(false)}
+        >
+          <p>
+            {r.finish.doing(
+              cards.filter((c) => c.status === "IN_PROGRESS").length,
+            )}
+          </p>
+          <p>
+            {r.finish.absent(cards.filter((c) => c.status === "ABSENT").length)}
+          </p>
+          <p>{r.finish.final}</p>
+          {finishError && <p role="alert">{r.finish.error}</p>}
+          <div className={dialog.actions}>
+            <Button variant="secondary" onClick={() => setFinishing(false)}>
+              {r.finish.keep}
+            </Button>
+            <Button variant="danger" onClick={() => void finish()}>
+              {r.finish.button}
+            </Button>
+          </div>
+        </AssessmentDialog>
+      )}
+
       {ending && (
         <AssessmentDialog
           title={r.endTitle(ending.name)}

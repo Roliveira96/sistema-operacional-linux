@@ -470,7 +470,7 @@ describe("ExamRoom, SPEC-096 the admission and the finish", () => {
     await setup({ ...STARTED_AT, cards: [] });
     receive("room:student", asking(ANA, "Ana"));
     expect(beep).toHaveBeenCalled();
-    receive("room:student", asking(BRUNO, "Bruno"));
+    receive("room:student", { ...asking(BRUNO, "Bruno"), academicId: "1000002" });
     const strip = screen.getByRole("region", { name: "Pedindo para entrar (2)" });
     expect(screen.getByRole("button", { name: /^Ana/ }).textContent).toContain("Pedindo para entrar");
 

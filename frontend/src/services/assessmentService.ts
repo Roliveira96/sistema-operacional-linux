@@ -70,6 +70,9 @@ export interface AssessmentSummary extends AssessmentBase {
   startedAt?: string;
   startedBy?: string;
   startedByName?: string;
+  /** The teacher finished the whole exam (SPEC-096 RN-04). */
+  finishedAt?: string;
+  finishedByName?: string;
 }
 
 export interface AssessmentItem {
@@ -254,12 +257,13 @@ export interface StudentAttempt {
 export interface AttemptRow {
   endedByName?: string;
   endReason?: string;
-  attemptId: string;
+  /** None for who did not come (SPEC-096 RN-06). */
+  attemptId?: string;
   studentId: string;
   studentName: string;
   academicId: string;
-  status: AttemptStatus;
-  startedAt: string;
+  status: AttemptStatus | "ABSENT";
+  startedAt?: string;
   submittedAt?: string;
   preliminaryScore?: number;
   pendingItems?: number;
@@ -295,6 +299,17 @@ export interface RoomCard {
   help?: HelpItem;
   /** The question the student is in, as she told the room (SPEC-092 revision 2). */
   question?: { position: number; title: string };
+  /** Online and waiting after the start: she asks to enter, and the teacher admits her (SPEC-096 RN-02). */
+  requesting?: boolean;
+}
+
+/** The exam the teacher finished (SPEC-096 section 5). */
+export interface FinishResult {
+  finishedAt: string;
+  finishedBy: string;
+  finishedByName: string;
+  ended: number;
+  absent: number;
 }
 
 /** A request for help (SPEC-091 RN-07). */
@@ -401,6 +416,8 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     attemptChat: (classId: string, id: string, attemptId: string) =>
       client.get<{ messages: ExamChatMessage[] }>(`${base(classId)}/${id}/attempts/${attemptId}/chat`),
     /** Ends the exam of a student, with the reason (SPEC-091 RN-08). */
+    admit: (classId: string, id: string, studentIds: string[]) => client.post<{ admitted: string[] }>(`${base(classId)}/${id}/admissions`, { studentIds }),
+    finish: (classId: string, id: string) => client.post<FinishResult>(`${base(classId)}/${id}/finish`),
     endAttempt: (classId: string, id: string, attemptId: string, reason: string) => client.post<AttemptRow>(`${base(classId)}/${id}/attempts/${attemptId}/end`, { reason }),
     /** Opens the room of the exam on the same origin, under /api/v1 (SPEC-091 section 5). A message that is not JSON is ignored. */
     openRoom: (classId: string, id: string, handlers: RoomHandlers, create: (url: string) => WebSocket = (url) => new WebSocket(url)): RoomSocket => {

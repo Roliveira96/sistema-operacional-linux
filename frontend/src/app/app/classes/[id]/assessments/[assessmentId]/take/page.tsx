@@ -59,6 +59,9 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
   const [asking, setAsking] = useState(false);
   const [question, setQuestion] = useState("");
   const [ended, setEnded] = useState<string | null>(null);
+  // SPEC-096: after the start, who waits asks to enter; the exam finished by the teacher locks with its own words
+  const [requesting, setRequesting] = useState(false);
+  const [finished, setFinished] = useState(false);
   const [watched, setWatched] = useState(false);
   // the conversation with the teacher (SPEC-093): the messages, whether the column is open and the new ones of the teacher while it is closed
   const [chat, setChat] = useState<ExamChatMessage[]>([]);
@@ -133,16 +136,21 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
             case "room:snapshot":
               if (body.help) setHelp(body.help as Help);
               if (Array.isArray(body.chat)) setChat(body.chat as ExamChatMessage[]);
+              if (body.started === true) setRequesting(true);
               if (body.waiting === true && !entered) setPhase("waiting");
               else enter();
               break;
             case "room:admitted":
               enter();
               break;
+            case "room:started":
+              setRequesting(true);
+              break;
             case "help:state":
               setHelp(body as unknown as Help);
               break;
             case "room:ended":
+              setFinished(body.finished === true);
               setEnded(String(body.reason ?? ""));
               break;
             case "room:watch-on":
@@ -287,8 +295,14 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
       <h1 className={own.srOnly}>{t.title}</h1>
       {ended !== null ? (
         <div className={take.ended} role="alert">
-          <h2>{r.ended}</h2>
-          {ended && <p>{ended}</p>}
+          {finished ? (
+            <h2>{r.finishedByTeacher}</h2>
+          ) : (
+            <>
+              <h2>{r.ended}</h2>
+              {ended && <p>{ended}</p>}
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -304,7 +318,7 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
             <div className={take.waiting}>
               <span className={take.pulse} aria-hidden="true" />
               <p role="status" className={take.waitingText}>
-                {r.waiting}
+                {requesting ? r.requesting : r.waiting}
               </p>
               <p className={take.watchedNote}>{r.watched}</p>
               {instructions && (

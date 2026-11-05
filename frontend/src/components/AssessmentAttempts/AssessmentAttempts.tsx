@@ -28,7 +28,7 @@ export function AssessmentAttempts({ maxScore, load, loadChat }: AssessmentAttem
   const readChat = (row: AttemptRow) => {
     if (!loadChat) return;
     setReading({ row, list: null, failed: false });
-    loadChat(row.attemptId).then(
+    loadChat(row.attemptId!).then(
       (got) => setReading((now) => (now?.row === row ? { ...now, list: got.messages } : now)),
       () => setReading((now) => (now?.row === row ? { ...now, failed: true } : now)),
     );
@@ -75,11 +75,11 @@ export function AssessmentAttempts({ maxScore, load, loadChat }: AssessmentAttem
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.attemptId}>
+              <tr key={r.attemptId ?? r.studentId}>
                 <td>{r.studentName}</td>
                 <td>{r.academicId}</td>
                 <td>{t.status[r.status] ?? r.status}</td>
-                <td>{formatDateTime(r.startedAt)}</td>
+                <td>{r.startedAt ? formatDateTime(r.startedAt) : "—"}</td>
                 <td>{r.submittedAt ? formatDateTime(r.submittedAt) : "—"}</td>
                 <td>{r.preliminaryScore === undefined ? "—" : t.score(formatScore(r.preliminaryScore), formatScore(maxScore), r.pendingItems ?? 0)}</td>
                 <td>
