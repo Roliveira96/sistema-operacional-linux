@@ -373,3 +373,64 @@
 .helpText {
   color: var(--color-text-primary);
 }
+
+// The adjustment of the points and the notes (T6).
+.adjust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+
+  input,
+  textarea {
+    min-height: 2.75rem;
+    padding: var(--space-2) var(--space-3);
+    font: inherit;
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-sunken);
+
+    &:focus-visible {
+      outline: 2px solid var(--color-focus-ring);
+      outline-offset: 1px;
+    }
+  }
+
+  input {
+    width: 7rem;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+}
+
+.grow {
+  flex: 1 1 14rem;
+
+  input {
+    width: 100%;
+  }
+}
+
+.hint {
+  font-size: var(--font-size-xs);
+}
+
+.error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}

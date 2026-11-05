@@ -455,6 +455,10 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     /** The attempts of the exam, for the teacher and the administrator (SPEC-090 RN-09). */
     attemptForTeacher: (classId: string, id: string, attemptId: string) => client.get<TeacherAttempt>(`${base(classId)}/${id}/attempts/${attemptId}`),
     review: (classId: string, id: string, attemptId: string) => client.get<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
+    adjustPoints: (classId: string, id: string, attemptId: string, position: number, points: number | null, reason: string) =>
+      client.put<Review>(`${base(classId)}/${id}/attempts/${attemptId}/items/${position}/points`, points === null ? { points: null } : { points, reason }),
+    saveReviewNotes: (classId: string, id: string, attemptId: string, teacherNote: string, studentNote: string) =>
+      client.put<void>(`${base(classId)}/${id}/attempts/${attemptId}/notes`, { teacherNote, studentNote }),
     attempts: (classId: string, id: string) => client.get<{ items: AttemptRow[]; serverNow: string }>(`${base(classId)}/${id}/attempts`),
     /** The whole conversation of an attempt, for the teacher and the administrator (SPEC-093 RN-07). */
     attemptChat: (classId: string, id: string, attemptId: string) =>

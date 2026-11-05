@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { ChatThread } from "@/components/ExamChat/ExamChat";
 import { AnswerOf, VerdictTag } from "@/components/ExamRoom/StudentAnswers";
 import { formatDateTime, formatHour, formatScore } from "@/lib/assessment";
+import { Button } from "@/components/Button/Button";
 import { authoringMessages } from "@/messages/authoring.pt-BR";
+import { ApiProblemError } from "@/services/httpClient";
 import { messages } from "@/messages/pt-BR";
 import {
   assessmentService,
@@ -23,6 +25,8 @@ export interface ReviewAttemptProps {
   assessmentId: string;
   maxScore: number;
   review: Review;
+  /** The attempt after an adjustment of points (T6). */
+  onChange?: (review: Review) => void;
 }
 
 /**
@@ -34,7 +38,40 @@ export function ReviewAttempt({
   assessmentId,
   maxScore,
   review,
+  onChange,
 }: ReviewAttemptProps) {
+  const editable = !review.reviewed;
+  const adjust = (position: number, points: number | null, reason: string) =>
+    assessmentService
+      .adjustPoints(
+        classId,
+        assessmentId,
+        review.attemptId,
+        position,
+        points,
+        reason,
+      )
+      .then((got) => onChange?.(got));
+
+  // the notes, kept when the teacher leaves a field (T6)
+  const [teacherNote, setTeacherNote] = useState(review.teacherNote);
+  const [studentNote, setStudentNote] = useState(review.studentNote);
+  const [notesState, setNotesState] = useState<"idle" | "saved" | "error">(
+    "idle",
+  );
+  const saveNotes = () =>
+    assessmentService
+      .saveReviewNotes(
+        classId,
+        assessmentId,
+        review.attemptId,
+        teacherNote,
+        studentNote,
+      )
+      .then(
+        () => setNotesState("saved"),
+        () => setNotesState("error"),
+      );
   const [chat, setChat] = useState<ExamChatMessage[] | null>(null);
   const [chatFailed, setChatFailed] = useState(false);
   useEffect(() => {
@@ -79,7 +116,12 @@ export function ReviewAttempt({
 
       <h3 className={styles.sectionTitle}>{t.questions}</h3>
       {review.items.map((item) => (
-        <Question key={item.position} item={item} />
+        <Question
+          key={item.position}
+          item={item}
+          editable={editable}
+          onAdjust={adjust}
+        />
       ))}
 
       <section className={styles.block} aria-label={t.helps}>
@@ -107,6 +149,37 @@ export function ReviewAttempt({
         )}
       </section>
 
+      <section className={styles.block} aria-label={t.notes}>
+        <h3 className={styles.sectionTitle}>{t.notes}</h3>
+        <label className={styles.field}>
+          {t.teacherNote}
+          <textarea
+            rows={3}
+            maxLength={2000}
+            value={teacherNote}
+            onChange={(e) => setTeacherNote(e.target.value)}
+            onBlur={() => void saveNotes()}
+          />
+        </label>
+        <label className={styles.field}>
+          {t.studentNote}
+          <textarea
+            rows={3}
+            maxLength={2000}
+            value={studentNote}
+            onChange={(e) => setStudentNote(e.target.value)}
+            onBlur={() => void saveNotes()}
+          />
+          <span className={styles.hint}>{t.studentNoteHint}</span>
+        </label>
+        {notesState === "saved" && (
+          <p role="status" className={styles.muted}>
+            {t.notesSaved}
+          </p>
+        )}
+        {notesState === "error" && <p role="alert">{t.notesError}</p>}
+      </section>
+
       <section className={styles.block} aria-label={t.chat}>
         <h3 className={styles.sectionTitle}>{t.chat}</h3>
         {chatFailed && <p role="alert">{t.chatError}</p>}
@@ -123,7 +196,44 @@ export function ReviewAttempt({
   );
 }
 
-function Question({ item }: { item: ReviewItem }) {
+function Question({
+  item,
+  editable,
+  onAdjust,
+}: {
+  item: ReviewItem;
+  editable: boolean;
+  onAdjust: (
+    position: number,
+    points: number | null,
+    reason: string,
+  ) => Promise<void>;
+}) {
+  const [value, setValue] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const send = async (points: number | null, why: string) => {
+    setError(null);
+    if (points !== null && Number.isNaN(points)) {
+      setError(t.invalidPoints(formatScore(item.weight)));
+      return;
+    }
+    setBusy(true);
+    try {
+      await onAdjust(item.position, points, why);
+      setValue("");
+      setReason("");
+    } catch (cause) {
+      setError(
+        cause instanceof ApiProblemError && cause.type === "invalid-points"
+          ? t.invalidPoints(formatScore(item.weight))
+          : t.saveError,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
   const practical = item.kind === "PRACTICAL";
   return (
     <article
@@ -194,6 +304,48 @@ function Question({ item }: { item: ReviewItem }) {
             ? t.points(formatScore(item.points), formatScore(item.weight))
             : "—"}
       </p>
+      {editable && (
+        <div className={styles.adjust}>
+          <label className={styles.field}>
+            {t.pointsField}
+            <input
+              inputMode="decimal"
+              value={value}
+              placeholder={formatScore(item.adjustedPoints ?? item.points ?? 0)}
+              onChange={(e) => setValue(e.target.value)}
+            />
+          </label>
+          <label className={`${styles.field} ${styles.grow}`}>
+            {t.reasonField}
+            <input
+              maxLength={300}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </label>
+          <Button
+            variant="secondary"
+            disabled={busy || value.trim() === ""}
+            onClick={() => void send(Number(value.replace(",", ".")), reason)}
+          >
+            {t.save}
+          </Button>
+          {item.adjustedPoints !== undefined && (
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void send(null, "")}
+            >
+              {t.undo}
+            </Button>
+          )}
+          {error && (
+            <p role="alert" className={styles.error}>
+              {error}
+            </p>
+          )}
+        </div>
+      )}
     </article>
   );
 }

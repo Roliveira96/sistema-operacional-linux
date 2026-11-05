@@ -147,6 +147,7 @@ export function ExamReview({ classId, assessment }: ExamReviewProps) {
               assessmentId={id}
               maxScore={assessment.maxScore}
               review={review}
+              onChange={setReview}
             />
           )}
         </section>
