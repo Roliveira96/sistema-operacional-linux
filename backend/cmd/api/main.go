@@ -244,7 +244,7 @@ func start(cfg config.Config, log *zap.Logger) (err error) {
 		Homologation: noHomologation{},
 		// the check of the clearance answers by the table of the attempts (SPEC-090 RN-11)
 		Attempts: assessmentRepo,
-	}, time.Now)
+	}, time.Now).WithMail(assessmentMail{outbox: schedulerepository.New(db), publicURL: cfg.Auth.PublicURL, recipients: userRecipients(db)}) // SPEC-099 D-05
 	// The room of the exam is realtime, with the origins of the live class (SPEC-091).
 	assessmentHandler := assessmenthandler.New(assessmentService, auth).WithRoom(log, assessmenthandler.RoomOptions{
 		AllowedOrigins: []string{cfg.Auth.PublicURL},

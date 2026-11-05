@@ -47,7 +47,7 @@ func TestEnterRoom_WhoAndWhen(t *testing.T) {
 	_, err = f.svc.EnterRoom(ctx, f.as(f.outsider), f.class.ID, a.ID)
 	assert.ErrorIs(t, err, domain.ErrNotEligible)
 
-	f.now = at(21, 8, 59)
+	f.now = at(21, 7, 59)
 	_, err = f.svc.EnterRoom(ctx, f.teacher, f.class.ID, a.ID)
 	assert.ErrorIs(t, err, domain.ErrAssessmentNotOpenYet)
 	f.now = at(21, 11, 1)

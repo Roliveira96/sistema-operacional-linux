@@ -511,3 +511,11 @@ describe("ExamRoom, SPEC-096 the admission and the finish", () => {
     expect(screen.queryByRole("button", { name: "Finalizar a prova" })).toBeNull();
   });
 });
+
+// SPEC-099 CA-04 (D-04): in the hour before the time set, the room offers to start the exam.
+describe("ExamRoom, SPEC-099 the early start", () => {
+  it("offers to start within the hour before the time set", async () => {
+    await setup({}, detail({ phase: "UPCOMING", modality: "ONLINE", startsAt: "2026-10-21T10:30:00-03:00", endsAt: "2026-10-21T12:30:00-03:00", serverNow: SERVER_NOW }));
+    expect(screen.getByRole("button", { name: "Iniciar a prova" })).toBeDefined();
+  });
+});

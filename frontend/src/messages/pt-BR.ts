@@ -944,8 +944,10 @@ export const messages = {
       simulate: "Simular prova",
       simulateNewTab: "Simular prova (abre em nova aba)",
       start: "Iniciar a prova",
-      startFrom: (moment: string) => `A prova pode ser iniciada a partir de ${moment}.`,
+      startFrom: (moment: string) => `A prova pode ser iniciada a partir de ${moment} (1 hora antes do horário marcado).`,
+      startNow: (hour: string) => `Marcada para ${hour}. Você pode iniciar agora.`,
       startedBy: (time: string, who: string) => `Prova iniciada às ${time} por ${who}.`,
+      startedEarly: (time: string, who: string, set: string) => `Prova iniciada às ${time} por ${who}, antes do horário marcado (${set}).`,
       finishedBy: (who: string, time: string) => `Finalizada por ${who} às ${time}.`,
       endedNotStarted: "A prova terminou sem ser iniciada.",
       previewTitle: "Pré-visualização",
@@ -1175,6 +1177,9 @@ export const messages = {
       title: "Iniciar a prova agora?",
       warning: "Os alunos só entram depois de habilitados por você. O início não pode ser desfeito.",
       warningOpen: "Todos os alunos da prova poderão entrar a partir deste momento. O início não pode ser desfeito.",
+      // SPEC-099: the start before the time set
+      early: (set: string, start: string, end: string) =>
+        `Iniciar a prova agora, antes do horário marcado (${set})? O período passa a ser de ${start} (agora) a ${end}, com a mesma duração, e os alunos recebem um e-mail avisando.`,
       confirm: "Iniciar a prova",
       back: "Voltar",
     },

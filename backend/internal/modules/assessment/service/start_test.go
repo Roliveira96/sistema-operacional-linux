@@ -138,7 +138,7 @@ func TestStart_RefusedWhenAssignmentCanceledEndedOrNotOpenYet(t *testing.T) {
 		{"canceled and running", canceled, at(21, 10, 0), domain.ErrAssessmentCanceled},
 		{"canceled and ended: canceled comes first", canceled, at(21, 11, 0), domain.ErrAssessmentCanceled},
 		{"ended", exam, at(21, 11, 0), domain.ErrAssessmentEnded},
-		{"not open yet", exam, at(21, 8, 59), domain.ErrAssessmentNotOpenYet},
+		{"not open yet", exam, at(21, 7, 59), domain.ErrAssessmentNotOpenYet},
 	}
 	for _, c := range cases {
 		f.now = c.now
@@ -194,7 +194,7 @@ func TestAccessOf_NotStartedComesAfterEndedAndBeforeNotCleared(t *testing.T) {
 	}{
 		{"running, not started", a, at(21, 10, 0), f.ana, domain.AccessNotStarted},
 		{"running, not started, without the requirement", free, at(21, 10, 0), f.ana, domain.AccessNotStarted},
-		{"not open yet comes before", a, at(21, 8, 59), f.ana, domain.AccessNotOpenYet},
+		{"not open yet comes before", a, at(21, 7, 59), f.ana, domain.AccessNotOpenYet},
 		{"ended comes before", a, at(21, 11, 0), f.ana, domain.AccessEnded},
 		{"not eligible comes before", a, at(21, 10, 0), f.outsider, domain.AccessNotEligible},
 		{"canceled comes before", canceled, at(21, 10, 0), f.ana, domain.AccessCanceled},

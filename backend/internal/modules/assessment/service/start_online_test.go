@@ -56,7 +56,7 @@ func TestStart_Assignment_IsInvalid(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrInvalidAssessment, "an assignment")
 	_, err = f.svc.Start(ctx, f.teacher, f.class.ID, canceled.ID)
 	assert.ErrorIs(t, err, domain.ErrAssessmentCanceled, "online and canceled")
-	f.now = at(21, 8, 59)
+	f.now = at(21, 7, 59)
 	_, err = f.svc.Start(ctx, f.teacher, f.class.ID, online.ID)
 	assert.ErrorIs(t, err, domain.ErrAssessmentNotOpenYet, "online and not open yet")
 	f.now = at(21, 11, 0)

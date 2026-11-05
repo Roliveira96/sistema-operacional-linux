@@ -348,6 +348,9 @@ func (s *Service) accessFor(ctx context.Context, a domain.Assessment, studentID 
 	}
 	switch a.PhaseAt(s.now()) {
 	case domain.PhaseUpcoming:
+		if a.Type == domain.TypeExam && a.InEarlyHour(s.now()) { // the waiting room opens an hour before (SPEC-099 D-04)
+			return domain.AccessNotStarted, nil
+		}
 		return domain.AccessNotOpenYet, nil
 	case domain.PhaseEnded:
 		return domain.AccessEnded, nil

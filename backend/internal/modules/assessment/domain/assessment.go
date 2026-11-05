@@ -181,6 +181,14 @@ func (a Assessment) PhaseAt(now time.Time) Phase {
 	}
 }
 
+// EarlyStartWindow is how long before the time set the teacher may start an exam, and the room opens (SPEC-099 D-03, D-04).
+const EarlyStartWindow = time.Hour
+
+// InEarlyHour tells whether the exam has not reached its time yet but is within the hour before it, when the teacher may start it early (SPEC-099).
+func (a Assessment) InEarlyHour(now time.Time) bool {
+	return a.PhaseAt(now) == PhaseUpcoming && !now.Before(a.StartsAt.Add(-EarlyStartWindow))
+}
+
 // Frozen tells whether the composition can no longer change: from the instant of the start on (RN-10).
 func (a Assessment) Frozen(now time.Time) bool { return !now.Before(a.StartsAt) }
 
