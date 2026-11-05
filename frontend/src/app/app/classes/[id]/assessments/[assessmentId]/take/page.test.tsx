@@ -230,3 +230,59 @@ describe("take page, SPEC-093 the conversation", () => {
     expect((screen.getByRole("button", { name: "Enviar" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
+
+// SPEC-094: the general instructions within reach during the exam and in the waiting room.
+describe("take page, SPEC-094 the general instructions", () => {
+  it("has the button Instruções only when the exam has instructions (CA-01)", async () => {
+    await inTheExam();
+    expect(screen.getByRole("button", { name: "Instruções" }).getAttribute("aria-expanded")).toBe("false");
+    cleanup();
+    vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf({ description: "<p></p>" }));
+    await inTheExam();
+    expect(screen.queryByRole("button", { name: "Instruções" })).toBeNull();
+  });
+
+  it("opens the instructions beside the question and closes them by the button, Fechar and Esc (CA-02, CA-04)", async () => {
+    vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf({ description: "<ul><li>Use <code>ls -l</code></li></ul>" }));
+    await inTheExam();
+    const mounts = mount.mock.calls.length;
+    const button = await screen.findByRole("button", { name: "Instruções" });
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    const column = screen.getByRole("region", { name: "Instruções gerais" });
+    expect(column.querySelector("code")?.textContent).toBe("ls -l");
+    expect(screen.getByRole("heading", { name: "Questão 1 de 5" })).toBeDefined();
+    expect(mount.mock.calls.length).toBe(mounts);
+    fireEvent.click(button);
+    expect(screen.queryByRole("region", { name: "Instruções gerais" })).toBeNull();
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByRole("region", { name: "Instruções gerais" })).toBeNull();
+    fireEvent.click(button);
+    fireEvent.keyDown(screen.getByRole("region", { name: "Instruções gerais" }), { key: "Escape" });
+    expect(screen.queryByRole("region", { name: "Instruções gerais" })).toBeNull();
+  });
+
+  it("keeps one column open at a time (CA-03)", async () => {
+    await inTheExam();
+    const instructions = await screen.findByRole("button", { name: "Instruções" });
+    const chat = screen.getByRole("button", { name: "Conversa" });
+    fireEvent.click(chat);
+    fireEvent.click(instructions);
+    expect(chat.getAttribute("aria-expanded")).toBe("false");
+    expect(instructions.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(chat);
+    expect(instructions.getAttribute("aria-expanded")).toBe("false");
+    expect(chat.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("shows the instructions in the waiting room (CA-05)", async () => {
+    asRole("STUDENT");
+    roomOpens = true;
+    render(<TakePage params={params} />);
+    await waitFor(() => expect(rooms).toHaveLength(1));
+    receive("room:snapshot", { waiting: true, help: { status: "NONE" } });
+    expect(await screen.findByRole("heading", { name: "Instruções gerais" })).toBeDefined();
+    expect(screen.getByText("Traga o documento com foto.")).toBeDefined();
+  });
+});
