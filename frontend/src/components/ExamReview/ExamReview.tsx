@@ -11,6 +11,7 @@ import {
   type Review,
 } from "@/services/assessmentService";
 import styles from "./ExamReview.module.scss";
+import { ReviewAttempt } from "./ReviewAttempt";
 
 const t = messages.assessments.review;
 
@@ -140,7 +141,13 @@ export function ExamReview({ classId, assessment }: ExamReviewProps) {
             <p className={styles.muted}>{t.loading}</p>
           )}
           {review && (
-            <h2 className={styles.studentName}>{review.studentName}</h2>
+            <ReviewAttempt
+              key={review.attemptId}
+              classId={classId}
+              assessmentId={id}
+              maxScore={assessment.maxScore}
+              review={review}
+            />
           )}
         </section>
       </div>

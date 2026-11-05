@@ -188,3 +188,188 @@
   font-size: var(--font-size-lg);
   color: var(--color-text-primary);
 }
+
+// The attempt of the chosen student (T5).
+.attemptBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+}
+
+.wide {
+  flex-basis: 100%;
+}
+
+.badge {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+}
+
+.score {
+  flex-basis: 100%;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.sectionTitle {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+}
+
+.questionHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.number {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+}
+
+.questionTitle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5rem;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.statement summary,
+.commands summary {
+  min-height: 2rem;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.rich {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+}
+
+.commands {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  list-style: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+  }
+
+  code {
+    color: var(--color-text-primary);
+  }
+
+  pre {
+    margin: var(--space-1) 0 0;
+    white-space: pre-wrap;
+    color: var(--color-text-secondary);
+  }
+
+  details {
+    flex-basis: 100%;
+  }
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.expected {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-info-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-info-faint);
+}
+
+.expectedTitle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-info-text);
+}
+
+.points {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.helps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.helpHead {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.helpText {
+  color: var(--color-text-primary);
+}

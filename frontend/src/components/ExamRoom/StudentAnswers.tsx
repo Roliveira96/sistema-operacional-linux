@@ -182,7 +182,19 @@ export function StudentAnswers({ load, current }: StudentAnswersProps) {
   );
 }
 
-function AnswerOf({ item }: { item: TeacherAttemptItem }) {
+/** The tag of the verdict of a question, with the icon and the words; the correction shows it too (SPEC-097). */
+export function VerdictTag({ item }: { item: TeacherAttemptItem }) {
+  const v = verdictOf(item);
+  return (
+    <span className={`${styles.tag} ${styles[v.tone]}`}>
+      <span aria-hidden="true">{ICON[v.tone]}</span>
+      <span data-tag>{v.label}</span>
+    </span>
+  );
+}
+
+/** What the student answered in a question, with the key of the objective ones; the correction shows it too (SPEC-097). */
+export function AnswerOf({ item }: { item: TeacherAttemptItem }) {
   const view = item.studentView;
   const key = (item.answerKey ?? {}) as Key;
   if (item.kind === "PRACTICAL") {
