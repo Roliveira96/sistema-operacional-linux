@@ -157,3 +157,31 @@ func (f *fakeQuestions) AnswerKey(_ context.Context, kind string, key json.RawMe
 	}
 	return nil, nil
 }
+
+// admissions of the fake (SPEC-096): by assessment, the admitted students.
+var fakeAdmissions = map[*fakeRepo]map[uuid.UUID]map[uuid.UUID]bool{}
+
+func (f *fakeRepo) Admit(_ context.Context, assessmentID uuid.UUID, students []uuid.UUID, _ time.Time, _ uuid.UUID) ([]uuid.UUID, error) {
+	if fakeAdmissions[f] == nil {
+		fakeAdmissions[f] = map[uuid.UUID]map[uuid.UUID]bool{}
+	}
+	if fakeAdmissions[f][assessmentID] == nil {
+		fakeAdmissions[f][assessmentID] = map[uuid.UUID]bool{}
+	}
+	var added []uuid.UUID
+	for _, s := range students {
+		if !fakeAdmissions[f][assessmentID][s] {
+			fakeAdmissions[f][assessmentID][s] = true
+			added = append(added, s)
+		}
+	}
+	return added, nil
+}
+
+func (f *fakeRepo) Admitted(_ context.Context, assessmentID uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	for s := range fakeAdmissions[f][assessmentID] {
+		out[s] = true
+	}
+	return out, nil
+}
