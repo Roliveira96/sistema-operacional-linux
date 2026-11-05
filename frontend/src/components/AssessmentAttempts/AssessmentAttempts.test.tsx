@@ -68,3 +68,16 @@ describe("AssessmentAttempts, SPEC-093 the conversation", () => {
     expect(within(dialog).queryByLabelText("Mensagem")).toBeNull();
   });
 });
+
+// SPEC-096 CA-06: after the end, who did not come is in the list, without start, delivery nor conversation.
+describe("AssessmentAttempts, SPEC-096 the absent", () => {
+  it("lists who did not come", async () => {
+    const absent: AttemptRow = { studentId: "s-4", studentName: "Davi", academicId: "1000004", status: "ABSENT" };
+    render(<AssessmentAttempts maxScore={10} load={() => Promise.resolve({ items: [rows[0]!, absent], serverNow: SERVER_NOW })} loadChat={vi.fn()} />);
+    const table = await screen.findByRole("table", { name: "Tentativas" });
+    const line = within(table).getAllByRole("row")[2]!;
+    expect(line.textContent).toContain("Davi");
+    expect(line.textContent).toContain("Não compareceu");
+    expect(within(line).getAllByRole("cell")[3]!.textContent).toBe("—");
+  });
+});

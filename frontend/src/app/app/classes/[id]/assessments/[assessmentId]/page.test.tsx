@@ -404,3 +404,16 @@ describe("assessment page, the room of the exam", () => {
     await waitFor(() => expect(open).toHaveBeenCalledWith("/app/classes/c-1/assessments/a-1/room", "_blank", "noopener"));
   });
 });
+
+// SPEC-096 section 3.1: the finished exam says when and by whom, in the place of the room.
+describe("assessment page, SPEC-096 the finished exam", () => {
+  it("says who finished it and does not offer the room", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(
+      detail({ ...STARTED, phase: "ENDED", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00", finishedAt: "2026-10-21T10:00:00-03:00", finishedByName: "Profa. Sediane" }),
+    );
+    render(<AssessmentPage params={params} />);
+    expect(await screen.findByText("Finalizada por Profa. Sediane às 10:00.")).toBeDefined();
+    expect(screen.queryByRole("link", { name: /Abrir a sala da prova/ })).toBeNull();
+  });
+});

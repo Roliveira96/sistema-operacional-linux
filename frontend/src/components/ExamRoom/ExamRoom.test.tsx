@@ -458,3 +458,56 @@ describe("ExamRoom, SPEC-095 the answers of the student", () => {
     expect(read).toHaveBeenCalledWith("c-1", "a-1", "t-1");
   });
 });
+
+// SPEC-096 CA-07: after the start, who asks to enter waits for the teacher, who admits one, the selected ones or all; and the teacher finishes the
+// whole exam, with the dialog that counts who is doing it and who did not come.
+describe("ExamRoom, SPEC-096 the admission and the finish", () => {
+  const STARTED_AT = { startedAt: "2026-10-21T09:05:00-03:00" };
+  const asking = (studentId: string, name: string) => card({ studentId, name, online: true, waiting: true, requesting: true });
+
+  it("shows who asks to enter and admits one, the selected ones and all", async () => {
+    const admit = vi.spyOn(assessmentService, "admit").mockResolvedValue({ admitted: [] });
+    await setup({ ...STARTED_AT, cards: [] });
+    receive("room:student", asking(ANA, "Ana"));
+    expect(beep).toHaveBeenCalled();
+    receive("room:student", asking(BRUNO, "Bruno"));
+    const strip = screen.getByRole("region", { name: "Pedindo para entrar (2)" });
+    expect(screen.getByRole("button", { name: /^Ana/ }).textContent).toContain("Pedindo para entrar");
+
+    fireEvent.click(within(strip).getByRole("button", { name: "Admitir Ana" }));
+    expect(admit).toHaveBeenLastCalledWith("c-1", "a-1", [ANA]);
+    fireEvent.click(within(strip).getByRole("checkbox", { name: "Bruno (1000002)" }));
+    fireEvent.click(within(strip).getByRole("button", { name: "Admitir os selecionados (1)" }));
+    expect(admit).toHaveBeenLastCalledWith("c-1", "a-1", [BRUNO]);
+    fireEvent.click(within(strip).getByRole("button", { name: "Admitir todos (2)" }));
+    expect(admit).toHaveBeenLastCalledWith("c-1", "a-1", [ANA, BRUNO]);
+
+    receive("room:student", card({ studentId: ANA, name: "Ana", online: true, status: "IN_PROGRESS", attemptId: "t-1" }));
+    receive("room:student", card({ studentId: BRUNO, name: "Bruno", academicId: "1000002", online: true, status: "IN_PROGRESS", attemptId: "t-2" }));
+    expect(screen.queryByRole("region", { name: /Pedindo para entrar/ })).toBeNull();
+  });
+
+  it("finishes the exam after the dialog with who is doing it and who did not come, and then leaves the room", async () => {
+    const finish = vi.spyOn(assessmentService, "finish").mockResolvedValue({
+      finishedAt: "2026-10-21T10:00:00-03:00", finishedBy: "u-1", finishedByName: "Profa. Sediane", ended: 1, absent: 1,
+    });
+    const onFinished = vi.fn();
+    render(<ExamRoom classId="c-1" assessment={detail({ phase: "RUNNING", modality: "ONLINE" })} beep={beep} onFinished={onFinished} />);
+    await waitFor(() => expect(assessmentService.openRoom).toHaveBeenCalled());
+    receive("room:snapshot", snapshot({ ...STARTED_AT, cards: [card({ online: true, status: "IN_PROGRESS", attemptId: "t-1" }), card({ studentId: BRUNO, name: "Bruno" })] }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar a prova" }));
+    const dialog = screen.getByRole("dialog", { name: "Finalizar a prova?" });
+    expect(dialog.textContent).toContain("Fazendo a prova agora: 1. A prova deles é entregue já, com o que fizeram.");
+    expect(dialog.textContent).toContain("Não compareceram: 1.");
+    expect(dialog.textContent).toContain("Ninguém mais poderá entrar, e isso não se desfaz.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Finalizar a prova" }));
+    await waitFor(() => expect(finish).toHaveBeenCalledWith("c-1", "a-1"));
+    await waitFor(() => expect(onFinished).toHaveBeenCalled());
+  });
+
+  it("does not offer to finish before the start", async () => {
+    await setup();
+    expect(screen.queryByRole("button", { name: "Finalizar a prova" })).toBeNull();
+  });
+});

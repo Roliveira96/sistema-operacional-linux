@@ -237,6 +237,7 @@ describe("take page, SPEC-094 the general instructions", () => {
     await inTheExam();
     expect(screen.getByRole("button", { name: "Instruções" }).getAttribute("aria-expanded")).toBe("false");
     cleanup();
+    rooms = []; // the second window has a room of its own, not the one of the first
     vi.spyOn(assessmentService, "get").mockResolvedValue(publicOf({ description: "<p></p>" }));
     await inTheExam();
     expect(screen.queryByRole("button", { name: "Instruções" })).toBeNull();
@@ -284,5 +285,45 @@ describe("take page, SPEC-094 the general instructions", () => {
     receive("room:snapshot", { waiting: true, help: { status: "NONE" } });
     expect(await screen.findByRole("heading", { name: "Instruções gerais" })).toBeDefined();
     expect(screen.getByText("Traga o documento com foto.")).toBeDefined();
+  });
+});
+
+// SPEC-096 CA-08: after the start the student asks to enter and waits for the teacher; the exam finished by the teacher locks the window.
+describe("take page, SPEC-096 the admission and the finish", () => {
+  it("says the request was sent after the start, also when the start comes while waiting", async () => {
+    asRole("STUDENT");
+    roomOpens = true;
+    vi.spyOn(assessmentService, "enterAttempt").mockResolvedValue(studentAttempt());
+    render(<TakePage params={params} />);
+    await waitFor(() => expect(rooms).toHaveLength(1));
+    receive("room:snapshot", { waiting: true, started: false, help: { status: "NONE" } });
+    expect(await screen.findByText("Você está na sala de espera. A prova começa quando a docente iniciar.")).toBeDefined();
+    receive("room:started", { startedAt: "2026-10-21T09:05:00-03:00", startedByName: "Profa. Sediane" });
+    expect(screen.getByText("Pedido de entrada enviado. Aguarde a docente admitir você.")).toBeDefined();
+    receive("room:admitted", {});
+    expect(await screen.findByRole("heading", { name: "Questão 1 de 5" })).toBeDefined();
+  });
+
+  it("asks to enter at once when it comes after the start", async () => {
+    asRole("STUDENT");
+    roomOpens = true;
+    render(<TakePage params={params} />);
+    await waitFor(() => expect(rooms).toHaveLength(1));
+    receive("room:snapshot", { waiting: true, started: true, help: { status: "NONE" } });
+    expect(await screen.findByText("Pedido de entrada enviado. Aguarde a docente admitir você.")).toBeDefined();
+  });
+
+  it("locks when the teacher finishes the exam", async () => {
+    await inTheExam();
+    receive("room:ended", { reason: "A docente finalizou a prova.", finished: true });
+    expect(screen.getByText("A docente finalizou a prova. Sua prova foi entregue com o que você fez.")).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Questão 1 de 5" })).toBeNull();
+  });
+
+  it("says why it cannot enter without the admission or after the finish", async () => {
+    asRole("STUDENT");
+    vi.spyOn(assessmentService, "enterAttempt").mockRejectedValue(problem("attempt-not-admitted", 409));
+    render(<TakePage params={params} />);
+    expect(await screen.findByText("Aguarde a docente admitir você para começar.")).toBeDefined();
   });
 });
