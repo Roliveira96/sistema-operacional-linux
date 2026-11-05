@@ -119,3 +119,23 @@ describe("StudentAnswers", () => {
     Object.defineProperty(document, "hidden", { configurable: true, value: false });
   });
 });
+
+// SPEC-095 CA-03, polished in the manual script of 05/11/2026: a summary on top and a tag with the verdict on each question, in words and not only
+// in color.
+describe("StudentAnswers, the summary and the tags", () => {
+  it("sums up the answers and tags each question", async () => {
+    render(<StudentAnswers load={() => Promise.resolve(attempt())} />);
+    const summary = await screen.findByRole("group", { name: "Resumo das respostas" });
+    expect(summary.textContent).toContain("Respondidas: 5 de 6");
+    expect(summary.textContent).toContain("Certas: 1");
+    expect(summary.textContent).toContain("Com erro: 2");
+    expect(summary.textContent).toContain("Práticas resolvidas: 1 de 1");
+    const tag = (n: number, title: string) => screen.getByRole("listitem", { name: `Questão ${n}: ${title}` }).querySelector("[data-tag]")?.textContent;
+    expect(tag(1, "Permissões")).toBe("Errada");
+    expect(tag(2, "Apagar com rm")).toBe("Certa");
+    expect(tag(3, "Comandos")).toBe("Parcial: 1 de 2 pares");
+    expect(tag(4, "O 755")).toBe("Para corrigir");
+    expect(tag(5, "Criar pastas")).toBe("Resolvida");
+    expect(tag(6, "Sem marcar")).toBe("Sem resposta");
+  });
+});
