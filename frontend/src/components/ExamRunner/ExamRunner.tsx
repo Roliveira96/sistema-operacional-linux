@@ -28,6 +28,8 @@ const t = m.take;
 
 /** The machine of a practical question is saved at most once in this interval (SPEC-090 section 3.1). */
 const MACHINE_EVERY_MS = 2000;
+/** How long after the last command the practical question checks itself (SPEC-090 revision 3, as the simulator of SPEC-085). */
+const CHECK_AFTER_MS = 1000;
 /** A written answer is saved this long after the student stops typing. */
 const WRITTEN_AFTER_MS = 1000;
 /** An answer that could not be saved is tried again after this long. */
@@ -101,8 +103,9 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [confirming, setConfirming] = useState(false);
   const [celebrating, setCelebrating] = useState<number | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [notSolved, setNotSolved] = useState<number | null>(null);
+  /** The practical questions being checked, and the one a command undid after it was solved (SPEC-090 revision 3, D-06). */
+  const [checking, setChecking] = useState<Record<number, boolean>>({});
+  const [undone, setUndone] = useState<number | null>(null);
   /** The practical questions in which the student ran a command, which count as answered. */
   const [touched, setTouched] = useState<Record<number, boolean>>({});
 
@@ -230,23 +233,87 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
 
   /** The machine of each practical question, as the terminal last had it. */
   const machines = useRef(new Map<number, unknown>());
+
+  // ---- the check by itself (SPEC-090 revision 3) ----
+  const checkRef = useRef(check);
+  const openPosition = useRef<number | null>(null);
+  useEffect(() => {
+    checkRef.current = check;
+    openPosition.current = items[current]?.position ?? null;
+  });
+  /** The waits after a command, the checks running and the ones asked meanwhile, the solved questions and the ones already celebrated. */
+  const checks = useRef({
+    timers: new Map<number, ReturnType<typeof setTimeout>>(),
+    running: new Set<number>(),
+    again: new Set<number>(),
+    solved: new Set(items.filter((it) => it.checkedSolved).map((it) => it.position)),
+    celebrated: new Set(items.filter((it) => it.checkedSolved).map((it) => it.position)),
+  });
+  useEffect(() => {
+    const timers = checks.current.timers;
+    return () => timers.forEach((t) => clearTimeout(t));
+  }, []);
+  /** Checks the last machine of a question, one check at a time; a machine that came meanwhile goes after, only the last one (CA-19, CA-20). */
+  const runCheck = useCallback(async (position: number) => {
+    const c = checks.current;
+    if (c.running.has(position)) {
+      c.again.add(position);
+      return;
+    }
+    c.running.add(position);
+    setChecking((all) => ({ ...all, [position]: true }));
+    try {
+      do {
+        c.again.delete(position);
+        const machine = machines.current.get(position) ?? null;
+        try {
+          const ok = await checkRef.current(position, machine);
+          if (pending.current.get(position) === machine) pending.current.delete(position);
+          const was = c.solved.has(position);
+          if (ok) {
+            c.solved.add(position);
+            setUndone((u) => (u === position ? null : u));
+            if (!c.celebrated.has(position)) {
+              c.celebrated.add(position);
+              // the celebration is only for the question that is open; solved while away, it only gets the mark (SPEC-087 CA-09)
+              if (openPosition.current === position) setCelebrating(position);
+            }
+          } else {
+            c.solved.delete(position);
+            if (was) setUndone(position);
+          }
+          setSolved((all) => ({ ...all, [position]: ok }));
+        } catch {
+          // a check that fails on the network is not an error: the next command tries again
+        }
+      } while (c.again.has(position));
+    } finally {
+      c.running.delete(position);
+      setChecking((all) => ({ ...all, [position]: false }));
+    }
+  }, []);
+
   const machineChanged = useCallback(
     (id: string, snapshot: unknown) => {
       const position = Number(id);
       machines.current.set(position, snapshot);
+      const timers = checks.current.timers;
+      clearTimeout(timers.get(position));
+      timers.set(position, setTimeout(() => void runCheck(position), CHECK_AFTER_MS));
       setTouched((all) => (all[position] ? all : { ...all, [position]: true }));
       const since = Date.now() - (lastMachine.current.get(position) ?? 0);
       const wait = since >= MACHINE_EVERY_MS ? 0 : MACHINE_EVERY_MS - since;
       lastMachine.current.set(position, Date.now() + wait);
       queue(position, snapshot, wait);
     },
-    [queue],
+    [queue, runCheck],
   );
   const machineFormatted = useCallback(
     (id: string) => {
       const position = Number(id);
       const item = items.find((it) => it.position === position);
       setSolved((all) => ({ ...all, [position]: false }));
+      checks.current.solved.delete(position);
       const start = item?.studentView.scenario ?? null;
       machines.current.set(position, start);
       if (start !== null) queue(position, start, 0);
@@ -313,26 +380,9 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
   const open = items[current];
   const hasTerminal = items.some(isPractical);
 
-  const conferir = async (item: AttemptItem) => {
-    setChecking(true);
-    setNotSolved(null);
-    try {
-      const machine = machines.current.has(item.position) ? machines.current.get(item.position) : (resume[String(item.position)] ?? item.studentView.scenario ?? null);
-      const ok = await check(item.position, machine);
-      if (pending.current.get(item.position) === machine) pending.current.delete(item.position);
-      setSolved((all) => ({ ...all, [item.position]: ok }));
-      if (ok) setCelebrating(item.position);
-      else setNotSolved(item.position);
-    } catch {
-      setSaveState("offline");
-    } finally {
-      setChecking(false);
-    }
-  };
-
   const goTo = (i: number) => {
     setCelebrating(null);
-    setNotSolved(null);
+    setUndone(null);
     if (timer.current) void flush();
     setCurrent(i);
   };
@@ -387,21 +437,19 @@ export function ExamRunner({ attempt, title, save, check, submit, room }: ExamRu
             </div>
             <Html html={open.studentView.statement} />
             <Answer key={open.position} item={open} seed={`${attempt.id}:${open.position}`} response={responses[open.position]} onChange={(v) => answer(open, v)} />
-            {isPractical(open) && (
-              <div className={styles.footer}>
-                <Button variant="secondary" disabled={checking} onClick={() => void conferir(open)}>
-                  {checking ? t.checking : t.check}
-                </Button>
-              </div>
+            {isPractical(open) && checking[open.position] && (
+              <p role="status" className={styles.note}>
+                {t.checking}
+              </p>
             )}
             {solved[open.position] && (
               <p role="status" className={styles.solvedNote}>
                 {s.answering.solved}
               </p>
             )}
-            {notSolved === open.position && (
+            {undone === open.position && (
               <p role="status" className={styles.notice}>
-                {t.notSolvedYet}
+                {t.undone}
               </p>
             )}
             <div className={styles.footer}>

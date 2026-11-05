@@ -1250,9 +1250,8 @@ export const messages = {
       saved: "Salvo",
       saving: "Salvando…",
       offline: "Sem conexão: suas respostas serão enviadas quando ela voltar.",
-      check: "Conferir",
       checking: "Conferindo…",
-      notSolvedYet: "Ainda não está resolvida. Continue no terminal e confira de novo.",
+      undone: "Esta questão deixou de estar resolvida.",
       confirm: {
         title: "Entregar a prova?",
         blank: (n: number) =>
