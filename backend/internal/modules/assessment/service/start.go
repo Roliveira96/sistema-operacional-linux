@@ -51,5 +51,11 @@ func (s *Service) Start(ctx context.Context, actor Actor, classID, id uuid.UUID)
 	if err := s.repo.Save(ctx, &a, Replacements{}, &event); err != nil {
 		return Summary{}, err
 	}
+	if early {
+		// ponytail: the e-mails go to the outbox right after the start, not in its transaction; a failure here answers an error with the exam started
+		if err := s.mailEarlyStart(ctx, a, *event.OldStartsAt); err != nil {
+			return Summary{}, err
+		}
+	}
 	return s.summarize(ctx, a)
 }

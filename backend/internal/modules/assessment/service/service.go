@@ -287,6 +287,8 @@ type Service struct {
 	ports    Ports
 	now      func() time.Time
 	richText *htmlsafe.Sanitizer
+	// mail sends the e-mails of the assessments, when the composition root plugs it (SPEC-099 D-05); nil sends none.
+	mail Mailer
 }
 
 // New creates the service. now is the clock of the server.
