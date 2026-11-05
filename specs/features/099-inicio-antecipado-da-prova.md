@@ -3,7 +3,7 @@
 | Campo | Valor |
 | :--- | :--- |
 | **ID** | SPEC-099 |
-| **Status** | Rascunho |
+| **Status** | Aprovada |
 | **Data de criação** | 05/11/2026 |
 | **Última revisão** | 05/11/2026 |
 | **Autor** | Aruna Architect (agente de IA, a pedido do Tech Lead) |
@@ -108,3 +108,4 @@ Nenhuma coluna nova. Os e-mails usam a caixa de saída da SPEC-042 como está. N
 | :--- | :--- | :--- |
 | 05/11/2026 | Aruna Architect | Criada em `Rascunho`, a partir do pedido do Tech Lead de 04/11/2026. Pendências D-01 a D-06. |
 | 05/11/2026 | Aruna Architect | Decisões do Tech Lead incorporadas: D-03 até 1 hora antes, e fora disso não; D-05 e-mail aos alunos elegíveis no início antecipado (CA-06 novo); D-04 a sala abre 1 hora antes; D-01, D-02 e D-06 com as recomendações. Aguarda o "aprovo". |
+| 05/11/2026 | Tech Lead | Aprovada ("Aprovo"). Status: `Aprovada` |
