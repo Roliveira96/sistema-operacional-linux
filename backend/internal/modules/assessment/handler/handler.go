@@ -50,6 +50,8 @@ type AssessmentService interface {
 	CheckAnswer(ctx context.Context, a service.Actor, classID, id uuid.UUID, position int, snapshot json.RawMessage) (bool, error)
 	SubmitAttempt(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.StudentAttempt, error)
 	Attempts(ctx context.Context, a service.Actor, classID, id uuid.UUID) ([]service.AttemptRow, error)
+	// SPEC-095: the attempt of one student for the teacher
+	AttemptForTeacher(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.TeacherAttempt, error)
 
 	// SPEC-091: the room
 	RoomServices
@@ -88,6 +90,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/assessments/:assessmentId/attempt/items/:position/check", h.checkAnswer)
 	g.POST("/classes/:id/assessments/:assessmentId/attempt/submit", h.submitAttempt)
 	g.GET("/classes/:id/assessments/:assessmentId/attempts", h.attempts)
+	g.GET("/classes/:id/assessments/:assessmentId/attempts/:attemptId", h.attemptForTeacher) // SPEC-095
 	// the room of the exam (SPEC-091 section 5)
 	g.GET("/classes/:id/assessments/:assessmentId/room/ws", h.connectRoom)
 	g.POST("/classes/:id/assessments/:assessmentId/attempts/:attemptId/end", h.endAttempt)

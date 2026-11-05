@@ -183,3 +183,41 @@ func (h *Handler) attempts(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items, "serverNow": iso(h.svc.Now())})
 }
+
+// attemptForTeacher gives the attempt of one student to the teacher in the room, with the answers and the key of the objective kinds (SPEC-095
+// section 5).
+func (h *Handler) attemptForTeacher(c *gin.Context) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	attemptID, ok := uuidParam(c, "attemptId")
+	if !ok {
+		return
+	}
+	got, err := h.svc.AttemptForTeacher(c.Request.Context(), actor, classID, id, attemptID)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	items := make([]gin.H, len(got.Items))
+	for i, it := range got.Items {
+		item := gin.H{"position": it.Position, "kind": it.Kind, "weight": it.Weight.Float(), "title": it.Title, "studentView": it.StudentView}
+		if len(it.Answer) > 0 {
+			item["answer"] = it.Answer
+		}
+		if it.CheckedSolved != nil {
+			item["checkedSolved"] = *it.CheckedSolved
+		}
+		if len(it.AnswerKey) > 0 {
+			item["answerKey"] = it.AnswerKey
+		}
+		items[i] = item
+	}
+	out := gin.H{"attemptId": got.ID, "studentId": got.StudentID, "studentName": got.StudentName, "status": got.Status, "startedAt": iso(got.StartedAt),
+		"serverNow": iso(h.svc.Now()), "items": items}
+	if got.SubmittedAt != nil {
+		out["submittedAt"] = iso(*got.SubmittedAt)
+	}
+	c.JSON(http.StatusOK, out)
+}

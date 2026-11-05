@@ -156,6 +156,9 @@ type Questions interface {
 	// Grade grades an answer against a grading key frozen in an attempt, with the grading of the bank; an answer that does not fit the kind is
 	// domain.ErrInvalidAnswer (SPEC-090 RN-04, RN-05, RN-08).
 	Grade(ctx context.Context, kind string, key, answer json.RawMessage) (Graded, error)
+	// AnswerKey gives the answer key of an objective question from the grading key frozen in an attempt, and nil for the other kinds; the
+	// teacher reads it beside the answer in the room (SPEC-095 D-02).
+	AnswerKey(ctx context.Context, kind string, key json.RawMessage) (json.RawMessage, error)
 }
 
 // HomologationCheck says whether an assessment has homologated grades (RN-12). The grades module does not exist yet, so the composition root plugs

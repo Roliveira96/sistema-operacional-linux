@@ -370,6 +370,21 @@ type noHomologation struct{}
 
 func (noHomologation) HasHomologated(context.Context, uuid.UUID) (bool, error) { return false, nil }
 
+// AnswerKey gives the answer key of an objective question frozen in an attempt, never the rest of it (the solution, the hints, the conditions), and
+// nil for the written and the practical ones (SPEC-095 D-02).
+func (assessmentQuestions) AnswerKey(_ context.Context, kind string, key json.RawMessage) (json.RawMessage, error) {
+	switch kind {
+	case contentdomain.KindTheoreticalSingle, contentdomain.KindTheoreticalBoolean, contentdomain.KindTheoreticalMatching:
+	default:
+		return nil, nil
+	}
+	var question contentdomain.Question
+	if err := json.Unmarshal(key, &question); err != nil {
+		return nil, err
+	}
+	return question.AnswerKey, nil
+}
+
 // Grade grades an answer against the question frozen in an attempt, with the grading of the bank (SPEC-090 RN-04, RN-05, RN-08): the machine of a
 // practical question against its conditions; the other kinds by their own grading, the matching by the share of its right links (D-01). An answer
 // that does not fit the kind is ErrInvalidAnswer.
