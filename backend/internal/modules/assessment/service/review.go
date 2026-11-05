@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"math"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -112,4 +115,75 @@ func scoreOf(items []domain.AttemptItem) domain.Score {
 		}
 	}
 	return total
+}
+
+// AdjustItem changes the points of a question in the correction, from 0 to its weight with two decimals and the reason, or undoes the change with
+// nil points; the first grade of a written question needs no reason (SPEC-097 RN-03, D-01, D-05). A review already done refuses it (D-04).
+func (s *Service) AdjustItem(ctx context.Context, actor Actor, classID, id, attemptID uuid.UUID, position int, points *float64, reason string) (Review, error) {
+	attempt, err := s.reviewable(ctx, actor, classID, id, attemptID)
+	if err != nil {
+		return Review{}, err
+	}
+	if attempt.ReviewedAt != nil {
+		return Review{}, domain.ErrReviewDone
+	}
+	items, err := s.repo.AttemptItems(ctx, attemptID)
+	if err != nil {
+		return Review{}, err
+	}
+	var item *domain.AttemptItem
+	for i := range items {
+		if items[i].Position == position {
+			item = &items[i]
+		}
+	}
+	if item == nil {
+		return Review{}, domain.ErrAttemptNotFound
+	}
+	var stored *domain.Score
+	var why *string
+	if points != nil {
+		v := *points
+		p := domain.Points(v)
+		if v < 0 || p > item.Weight || math.Abs(v*100-math.Round(v*100)) > 1e-9 {
+			return Review{}, domain.ErrInvalidPoints
+		}
+		reason = strings.TrimSpace(reason)
+		firstGrade := item.Kind == kindWritten && item.Points == nil && item.AdjustedPoints == nil
+		if utf8.RuneCountInString(reason) > domain.MaxAdjustReason || (reason == "" && !firstGrade) {
+			return Review{}, domain.ErrInvalidPoints
+		}
+		stored = &p
+		if reason != "" {
+			why = &reason
+		}
+	}
+	if err := s.repo.AdjustItem(ctx, attemptID, position, stored, why, s.now(), actor.UserID); err != nil {
+		return Review{}, err
+	}
+	return s.ReviewOf(ctx, actor, classID, id, attemptID)
+}
+
+// reviewable is the delivered attempt of the exam the actor owns, once the exam ended (SPEC-097 RN-01).
+func (s *Service) reviewable(ctx context.Context, actor Actor, classID, id, attemptID uuid.UUID) (domain.Attempt, error) {
+	if _, err := s.writableClass(ctx, actor, classID); err != nil {
+		return domain.Attempt{}, err
+	}
+	a, err := s.assessmentOf(ctx, classID, id)
+	if err != nil {
+		return domain.Attempt{}, err
+	}
+	attempt, err := s.repo.FindAttemptByID(ctx, attemptID)
+	if err != nil {
+		return domain.Attempt{}, err
+	}
+	switch {
+	case attempt.AssessmentID != a.ID:
+		return domain.Attempt{}, domain.ErrAttemptNotFound
+	case a.PhaseAt(s.now()) != domain.PhaseEnded:
+		return domain.Attempt{}, domain.ErrAssessmentNotEnded
+	case attempt.Status == domain.AttemptInProgress:
+		return domain.Attempt{}, domain.ErrAttemptInProgress
+	}
+	return attempt, nil
 }

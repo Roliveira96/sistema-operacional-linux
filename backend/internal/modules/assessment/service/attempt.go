@@ -15,6 +15,9 @@ import (
 // kindPractical is the kind of question of command Linux, the only one with a machine to check (SPEC-090 RN-05).
 const kindPractical = "PRACTICAL"
 
+// kindWritten is the written question, which has no automatic points (SPEC-097 D-05).
+const kindWritten = "DISCURSIVE"
+
 // maxAnswerBytes is the largest answer: the machine of a practical question is up to 256 KiB, and the others fit well within (RN-04).
 const maxAnswerBytes = 256 * 1024
 

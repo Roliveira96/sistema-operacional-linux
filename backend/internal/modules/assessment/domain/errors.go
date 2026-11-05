@@ -49,6 +49,8 @@ var (
 	// SPEC-097: the correction of the exam
 	ErrAssessmentNotEnded = errors.New("the exam has not ended yet")
 	ErrAttemptInProgress  = errors.New("the attempt is still in progress")
+	ErrInvalidPoints      = errors.New("the points go from 0 to the weight, with two decimals and the reason")
+	ErrReviewDone         = errors.New("the review of the attempt is done: reopen it first")
 
 	// SPEC-091: the room
 	ErrInvalidReason = errors.New("the reason is required, up to 500 characters")

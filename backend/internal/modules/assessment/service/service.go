@@ -271,6 +271,9 @@ type Repository interface {
 	Admitted(ctx context.Context, assessmentID uuid.UUID) (map[uuid.UUID]bool, error)
 	// AttemptHelps gives every request for help of an attempt, the oldest first (SPEC-097).
 	AttemptHelps(ctx context.Context, attemptID uuid.UUID) ([]domain.HelpRequest, error)
+	// AdjustItem stores the points the teacher gave a question in the correction with the reason, or undoes them with nil; an unknown position is
+	// domain.ErrAttemptNotFound (SPEC-097 RN-03).
+	AdjustItem(ctx context.Context, attemptID uuid.UUID, position int, points *domain.Score, reason *string, at time.Time, by uuid.UUID) error
 }
 
 // Service implements the use cases of the assessments.

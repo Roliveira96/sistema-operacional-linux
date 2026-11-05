@@ -54,6 +54,7 @@ type AssessmentService interface {
 	AttemptForTeacher(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.TeacherAttempt, error)
 	// SPEC-097: the correction
 	ReviewOf(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.Review, error)
+	AdjustItem(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID, position int, points *float64, reason string) (service.Review, error)
 
 	// SPEC-091: the room
 	RoomServices
@@ -103,6 +104,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/assessments/:assessmentId/finish", h.finish)
 	// the correction of the exam (SPEC-097 section 5)
 	g.GET("/classes/:id/assessments/:assessmentId/attempts/:attemptId/review", h.review)
+	g.PUT("/classes/:id/assessments/:assessmentId/attempts/:attemptId/items/:position/points", h.adjust)
 }
 
 func fail(c *gin.Context, p *problem.Problem) {
@@ -236,6 +238,10 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("assessment-not-ended", err.Error())
 	case errors.Is(err, domain.ErrAttemptInProgress):
 		return problem.Conflict("attempt-in-progress", err.Error())
+	case errors.Is(err, domain.ErrInvalidPoints):
+		return problem.BadRequest("invalid-points", err.Error())
+	case errors.Is(err, domain.ErrReviewDone):
+		return problem.Conflict("review-done", err.Error())
 	case errors.Is(err, domain.ErrAttemptNotAdmitted):
 		return problem.Conflict("attempt-not-admitted", err.Error())
 	case errors.Is(err, domain.ErrAssessmentFinished):

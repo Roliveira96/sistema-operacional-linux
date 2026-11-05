@@ -15,6 +15,9 @@ const AttemptAbsent AttemptStatus = "ABSENT"
 // FinishReason is the reason of the attempts the teacher ends by finishing the exam (SPEC-096 RN-04, D-02).
 const FinishReason = "A docente finalizou a prova."
 
+// MaxAdjustReason is the longest reason of an adjustment of points (SPEC-097 RN-03).
+const MaxAdjustReason = 300
+
 // MaxAdmission is how many students one admission takes (SPEC-096 RN-01).
 const MaxAdmission = 200
 

@@ -280,3 +280,44 @@ func (h *Handler) reviewJSON(r service.Review) gin.H {
 	out["helps"] = helps
 	return out
 }
+
+// adjust changes the points of a question in the correction, or undoes the change with null points (SPEC-097 section 5).
+func (h *Handler) adjust(c *gin.Context) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	attemptID, ok := uuidParam(c, "attemptId")
+	if !ok {
+		return
+	}
+	position, ok := positionParam(c)
+	if !ok {
+		return
+	}
+	var body struct {
+		Points json.RawMessage `json:"points"`
+		Reason string          `json:"reason"`
+	}
+	dec := json.NewDecoder(c.Request.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil || len(body.Points) == 0 {
+		malformed(c)
+		return
+	}
+	var points *float64
+	if string(body.Points) != "null" {
+		var v float64
+		if err := json.Unmarshal(body.Points, &v); err != nil {
+			malformed(c)
+			return
+		}
+		points = &v
+	}
+	got, err := h.svc.AdjustItem(c.Request.Context(), actor, classID, id, attemptID, position, points, body.Reason)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, h.reviewJSON(got))
+}

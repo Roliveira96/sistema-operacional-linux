@@ -158,6 +158,22 @@ func (r *Repository) CloseHelp(ctx context.Context, id uuid.UUID, status domain.
 }
 
 // OpenHelps gives the open requests of an assessment, the oldest first (RN-07).
+// AdjustItem stores the points the teacher gave a question in the correction, with the reason, who and when; nil undoes it (SPEC-097 RN-03).
+func (r *Repository) AdjustItem(ctx context.Context, attemptID uuid.UUID, position int, points *domain.Score, reason *string, at time.Time, by uuid.UUID) error {
+	values := map[string]any{"adjusted_points": nil, "adjust_reason": nil, "adjusted_at": nil, "adjusted_by": nil}
+	if points != nil {
+		values = map[string]any{"adjusted_points": *points, "adjust_reason": reason, "adjusted_at": at, "adjusted_by": by}
+	}
+	res := r.db.Conn(ctx).Table("assessment_attempt_items").Where("attempt_id = ? AND position = ?", attemptID, position).Updates(values)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return domain.ErrAttemptNotFound
+	}
+	return nil
+}
+
 // AttemptHelps gives every request for help of an attempt, open or closed, the oldest first (SPEC-097).
 func (r *Repository) AttemptHelps(ctx context.Context, attemptID uuid.UUID) ([]domain.HelpRequest, error) {
 	return r.helps(r.db.Conn(ctx).Where("h.attempt_id = ?", attemptID))
