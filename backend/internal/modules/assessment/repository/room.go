@@ -174,6 +174,32 @@ func (r *Repository) AdjustItem(ctx context.Context, attemptID uuid.UUID, positi
 	return nil
 }
 
+// SaveReviewNotes keeps the notes of the correction of an attempt; nil clears one (SPEC-097 RN-04).
+func (r *Repository) SaveReviewNotes(ctx context.Context, attemptID uuid.UUID, teacher, student *string) error {
+	return r.updateAttempt(ctx, attemptID, map[string]any{"teacher_note": teacher, "student_note": student})
+}
+
+// FinishReview keeps the final score of the correction, who and when (SPEC-097 RN-05).
+func (r *Repository) FinishReview(ctx context.Context, attemptID uuid.UUID, score domain.Score, at time.Time, by uuid.UUID) error {
+	return r.updateAttempt(ctx, attemptID, map[string]any{"final_score": score, "reviewed_at": at, "reviewed_by": by})
+}
+
+// ReopenReview clears the final score and the review (SPEC-097 RN-05).
+func (r *Repository) ReopenReview(ctx context.Context, attemptID uuid.UUID) error {
+	return r.updateAttempt(ctx, attemptID, map[string]any{"final_score": nil, "reviewed_at": nil, "reviewed_by": nil})
+}
+
+func (r *Repository) updateAttempt(ctx context.Context, attemptID uuid.UUID, values map[string]any) error {
+	res := r.db.Conn(ctx).Table("assessment_attempts").Where("id = ?", attemptID).Updates(values)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return domain.ErrAttemptNotFound
+	}
+	return nil
+}
+
 // AttemptHelps gives every request for help of an attempt, open or closed, the oldest first (SPEC-097).
 func (r *Repository) AttemptHelps(ctx context.Context, attemptID uuid.UUID) ([]domain.HelpRequest, error) {
 	return r.helps(r.db.Conn(ctx).Where("h.attempt_id = ?", attemptID))

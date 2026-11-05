@@ -51,6 +51,8 @@ var (
 	ErrAttemptInProgress  = errors.New("the attempt is still in progress")
 	ErrInvalidPoints      = errors.New("the points go from 0 to the weight, with two decimals and the reason")
 	ErrReviewDone         = errors.New("the review of the attempt is done: reopen it first")
+	ErrInvalidNote        = errors.New("a note is up to 2,000 characters")
+	ErrWrittenPending     = errors.New("a written question has no points yet")
 
 	// SPEC-091: the room
 	ErrInvalidReason = errors.New("the reason is required, up to 500 characters")

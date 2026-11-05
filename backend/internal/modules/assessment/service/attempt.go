@@ -65,6 +65,9 @@ type AttemptRow struct {
 	EndReason   string
 	// ChatCount is the number of messages of the conversation (SPEC-093 RN-07).
 	ChatCount int
+	// Reviewed and FinalScore are the correction of the teacher (SPEC-097 RN-05).
+	Reviewed   bool
+	FinalScore *domain.Score
 }
 
 // attemptView is what the student sees of a question, frozen in the attempt at the entry (RN-02).
@@ -261,7 +264,8 @@ func (s *Service) Attempts(ctx context.Context, actor Actor, classID, id uuid.UU
 	for i, at := range list {
 		st := known[at.StudentID]
 		rows[i] = AttemptRow{AttemptID: at.ID, StudentID: at.StudentID, StudentName: st.Name, AcademicID: st.AcademicID, Status: at.Status,
-			StartedAt: at.StartedAt, SubmittedAt: at.SubmittedAt, PreliminaryScore: at.PreliminaryScore, PendingItems: at.PendingItems, ChatCount: counts[at.ID]}
+			StartedAt: at.StartedAt, SubmittedAt: at.SubmittedAt, PreliminaryScore: at.PreliminaryScore, PendingItems: at.PendingItems, ChatCount: counts[at.ID],
+			Reviewed: at.ReviewedAt != nil, FinalScore: at.FinalScore}
 		if at.EndedBy != nil {
 			rows[i].EndedByName = enderNames[*at.EndedBy]
 		}

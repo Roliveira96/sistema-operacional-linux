@@ -274,6 +274,11 @@ type Repository interface {
 	// AdjustItem stores the points the teacher gave a question in the correction with the reason, or undoes them with nil; an unknown position is
 	// domain.ErrAttemptNotFound (SPEC-097 RN-03).
 	AdjustItem(ctx context.Context, attemptID uuid.UUID, position int, points *domain.Score, reason *string, at time.Time, by uuid.UUID) error
+	// SaveReviewNotes keeps the private note and the note to the student, nil clearing them; FinishReview keeps the final score, who and when;
+	// ReopenReview clears them (SPEC-097 RN-04, RN-05).
+	SaveReviewNotes(ctx context.Context, attemptID uuid.UUID, teacher, student *string) error
+	FinishReview(ctx context.Context, attemptID uuid.UUID, score domain.Score, at time.Time, by uuid.UUID) error
+	ReopenReview(ctx context.Context, attemptID uuid.UUID) error
 }
 
 // Service implements the use cases of the assessments.

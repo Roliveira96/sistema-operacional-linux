@@ -730,5 +730,11 @@ func attemptRowJSON(r service.AttemptRow) gin.H {
 	if r.EndReason != "" {
 		row["endReason"] = r.EndReason
 	}
+	if r.AttemptID != uuid.Nil { // the review of the correction (SPEC-097 section 5)
+		row["reviewed"] = r.Reviewed
+	}
+	if r.FinalScore != nil {
+		row["finalScore"] = r.FinalScore.Float()
+	}
 	return row
 }

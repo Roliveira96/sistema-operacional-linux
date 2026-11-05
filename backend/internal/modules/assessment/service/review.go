@@ -27,7 +27,6 @@ type ReviewItem struct {
 type Review struct {
 	AttemptRow
 	Score       domain.Score
-	Reviewed    bool
 	TeacherNote string
 	StudentNote string
 	Items       []ReviewItem
@@ -59,7 +58,7 @@ func (s *Service) ReviewOf(ctx context.Context, actor Actor, classID, id, attemp
 	if err != nil {
 		return Review{}, err
 	}
-	out := Review{Reviewed: attempt.ReviewedAt != nil}
+	var out Review
 	for _, r := range rows {
 		if r.AttemptID == attemptID {
 			out.AttemptRow = r
@@ -186,4 +185,68 @@ func (s *Service) reviewable(ctx context.Context, actor Actor, classID, id, atte
 		return domain.Attempt{}, domain.ErrAttemptInProgress
 	}
 	return attempt, nil
+}
+
+// SaveReviewNotes keeps the private note and the note to the student, plain text up to 2,000 characters each; an empty one is cleared (SPEC-097 RN-04).
+func (s *Service) SaveReviewNotes(ctx context.Context, actor Actor, classID, id, attemptID uuid.UUID, teacherNote, studentNote string) error {
+	if _, err := s.reviewable(ctx, actor, classID, id, attemptID); err != nil {
+		return err
+	}
+	note := func(text string) (*string, error) {
+		text = strings.TrimSpace(text)
+		if utf8.RuneCountInString(text) > domain.MaxReviewNote {
+			return nil, domain.ErrInvalidNote
+		}
+		if text == "" {
+			return nil, nil
+		}
+		return &text, nil
+	}
+	teacher, err := note(teacherNote)
+	if err != nil {
+		return err
+	}
+	student, err := note(studentNote)
+	if err != nil {
+		return err
+	}
+	return s.repo.SaveReviewNotes(ctx, attemptID, teacher, student)
+}
+
+// FinishReview concludes the review of the attempt with the final score, once every written question has points (SPEC-097 RN-05, D-03).
+func (s *Service) FinishReview(ctx context.Context, actor Actor, classID, id, attemptID uuid.UUID) (Review, error) {
+	attempt, err := s.reviewable(ctx, actor, classID, id, attemptID)
+	if err != nil {
+		return Review{}, err
+	}
+	if attempt.ReviewedAt != nil {
+		return Review{}, domain.ErrReviewDone
+	}
+	items, err := s.repo.AttemptItems(ctx, attemptID)
+	if err != nil {
+		return Review{}, err
+	}
+	for _, it := range items {
+		if it.Kind == kindWritten && it.Points == nil && it.AdjustedPoints == nil {
+			return Review{}, domain.ErrWrittenPending
+		}
+	}
+	if err := s.repo.FinishReview(ctx, attemptID, scoreOf(items), s.now(), actor.UserID); err != nil {
+		return Review{}, err
+	}
+	return s.ReviewOf(ctx, actor, classID, id, attemptID)
+}
+
+// ReopenReview opens the review again, so the points can change (SPEC-097 RN-05, D-04).
+func (s *Service) ReopenReview(ctx context.Context, actor Actor, classID, id, attemptID uuid.UUID) (Review, error) {
+	attempt, err := s.reviewable(ctx, actor, classID, id, attemptID)
+	if err != nil {
+		return Review{}, err
+	}
+	if attempt.ReviewedAt != nil {
+		if err := s.repo.ReopenReview(ctx, attemptID); err != nil {
+			return Review{}, err
+		}
+	}
+	return s.ReviewOf(ctx, actor, classID, id, attemptID)
 }

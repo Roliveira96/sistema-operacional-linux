@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -315,6 +316,54 @@ func (h *Handler) adjust(c *gin.Context) {
 		points = &v
 	}
 	got, err := h.svc.AdjustItem(c.Request.Context(), actor, classID, id, attemptID, position, points, body.Reason)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, h.reviewJSON(got))
+}
+
+// reviewNotes keeps the private note and the note to the student (SPEC-097 section 5).
+func (h *Handler) reviewNotes(c *gin.Context) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	attemptID, ok := uuidParam(c, "attemptId")
+	if !ok {
+		return
+	}
+	var body struct {
+		TeacherNote string `json:"teacherNote"`
+		StudentNote string `json:"studentNote"`
+	}
+	dec := json.NewDecoder(c.Request.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		malformed(c)
+		return
+	}
+	if err := h.svc.SaveReviewNotes(c.Request.Context(), actor, classID, id, attemptID, body.TeacherNote, body.StudentNote); err != nil {
+		failWith(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// finishReview concludes the review of the attempt; reopenReview opens it again (SPEC-097 section 5).
+func (h *Handler) finishReview(c *gin.Context) { h.reviewAction(c, h.svc.FinishReview) }
+func (h *Handler) reopenReview(c *gin.Context) { h.reviewAction(c, h.svc.ReopenReview) }
+
+func (h *Handler) reviewAction(c *gin.Context, do func(context.Context, service.Actor, uuid.UUID, uuid.UUID, uuid.UUID) (service.Review, error)) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	attemptID, ok := uuidParam(c, "attemptId")
+	if !ok {
+		return
+	}
+	got, err := do(c.Request.Context(), actor, classID, id, attemptID)
 	if err != nil {
 		failWith(c, err)
 		return
