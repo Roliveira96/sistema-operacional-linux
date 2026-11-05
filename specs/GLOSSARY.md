@@ -257,6 +257,10 @@ Termos da SPEC-083 (Rascunho em 22/10/2026).
 | Português | Código (EN) | Definição | Evitar | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | Início da prova | `started_at`, `started_by` (rota `POST .../assessments/:assessmentId/start`, evento `STARTED`) | O ato da docente de iniciar a prova presencial, dentro do período marcado: registra quem e quando, não se desfaz e é o que libera a habilitação dos alunos. Não muda a fase da avaliação, que segue o relógio | `open`, `release` (o token de liberação é outro assunto), `begin` | Proposto (SPEC-083) |
+| Admissão na prova | `AssessmentAdmission` (tabela `assessment_admissions`, rota `POST .../assessments/:assessmentId/admissions`) | A docente deixa entrar, depois do início, o aluno que pediu para entrar na sala da prova; não se desfaz. Só o admitido começa a tentativa | `Approval`, `Clearance` (a habilitação da SPEC-076 é outra coisa) | Proposto (SPEC-096) |
+| Pedindo para entrar | `requesting` (cartão da sala) | O aluno conectado à sala depois do início, esperando a admissão | `Waiting` solto | Proposto (SPEC-096) |
+| Finalizar a prova | `finished_at`, `finished_by` (rota `POST .../assessments/:assessmentId/finish`) | A docente encerra a prova inteira antes do término: as tentativas em andamento são entregues como encerradas pela docente e ninguém mais entra | `close`, `end` (encerrar a prova de um aluno é outra coisa) | Proposto (SPEC-096) |
+| Não compareceu | `ABSENT` (só na lista das tentativas, nunca guardado) | O aluno elegível sem tentativa depois do fim da prova | `Missing` | Proposto (SPEC-096) |
 | Prova não iniciada | `NOT_STARTED` (resultado de `AccessOf`) | A prova presencial já está em andamento pelo relógio, mas a docente ainda não a iniciou; vem depois de `ENDED` e antes de `NOT_CLEARED` | `NOT_OPEN` (já é `NOT_OPEN_YET`, que é antes do horário) | Proposto (SPEC-083) |
 
 ## 5. Condução da prova e auditoria
