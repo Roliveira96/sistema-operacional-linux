@@ -160,7 +160,7 @@ func TestEnterAttempt_RefusalsSayWhy(t *testing.T) {
 	for i, c := range cases {
 		f.now = at(21, 10, 0)
 		if i == 0 {
-			f.now = at(21, 8, 59)
+			f.now = at(21, 7, 59)
 		}
 		_, _, err := f.svc.EnterAttempt(ctx, f.as(c.student), f.class.ID, c.a.ID)
 		assert.ErrorIs(t, err, c.want, c.name)
