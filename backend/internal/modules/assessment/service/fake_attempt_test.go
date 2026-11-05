@@ -148,3 +148,12 @@ func (f *fakeRepo) DueAttempts(_ context.Context, before time.Time) ([]domain.At
 	}
 	return out, nil
 }
+
+// AnswerKey gives the key as it is for the objective kinds, as the fake bank keeps only the key (SPEC-095 D-02).
+func (f *fakeQuestions) AnswerKey(_ context.Context, kind string, key json.RawMessage) (json.RawMessage, error) {
+	switch kind {
+	case "THEORETICAL_SINGLE", "THEORETICAL_BOOLEAN", "THEORETICAL_MATCHING":
+		return key, nil
+	}
+	return nil, nil
+}
