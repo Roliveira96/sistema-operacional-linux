@@ -91,7 +91,7 @@ describe("take page, the waiting room", () => {
     await waitFor(() => expect(rooms).toHaveLength(1));
     receive("room:snapshot", { waiting: true, help: { status: "NONE" } });
     expect(await screen.findByText("Você está na sala de espera. A prova começa quando a docente iniciar.")).toBeDefined();
-    expect(screen.getByText("Durante a prova, a docente pode ver a sua tela e os comandos que você executa.")).toBeDefined();
+    expect(screen.getByText("Durante a prova, a docente pode ver a sua tela, os comandos que você executa e as suas respostas.")).toBeDefined();
     expect(enter).not.toHaveBeenCalled();
     receive("room:admitted", {});
     expect(await screen.findByRole("heading", { name: "Questão 1 de 5" })).toBeDefined();

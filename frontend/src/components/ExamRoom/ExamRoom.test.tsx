@@ -373,10 +373,13 @@ describe("ExamRoom, SPEC-092 revision 3 the tabs of the panel (CA-16)", () => {
 
   it("moves between the tabs with the arrows", async () => {
     await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    // SPEC-095 D-03: the tab Respostas comes between Aluno and Pedidos de ajuda
     fireEvent.keyDown(screen.getByRole("tab", { name: "Aluno" }), { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Respostas" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Respostas" }), { key: "ArrowRight" });
     expect(screen.getByRole("tab", { name: "Pedidos de ajuda (0)" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.keyDown(screen.getByRole("tab", { name: "Pedidos de ajuda (0)" }), { key: "ArrowLeft" });
-    expect(screen.getByRole("tab", { name: "Aluno" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Respostas" }).getAttribute("aria-selected")).toBe("true");
   });
 });
 
@@ -435,5 +438,23 @@ describe("ExamRoom, SPEC-093 the chat", () => {
     receive("chat:message", chat({ id: "m-3", text: "Obrigada" }));
     receive("chat:message", chat({ id: "m-4", from: "TEACHER", text: "De nada" }));
     expect(screen.getByRole("tab", { name: "Chat (0)" })).toBeDefined();
+  });
+});
+
+// SPEC-095 CA-03: the tab Respostas reads the attempt of the open student; without a student, the tip.
+describe("ExamRoom, SPEC-095 the answers of the student", () => {
+  it("gives the tip without a student and reads the attempt of the open one", async () => {
+    const read = vi.spyOn(assessmentService, "attemptForTeacher").mockResolvedValue({
+      attemptId: "t-1", studentId: ANA, studentName: "Ana", status: "IN_PROGRESS", startedAt: "2026-10-21T09:10:00-03:00", serverNow: SERVER_NOW,
+      items: [{ position: 1, kind: "THEORETICAL_BOOLEAN", weight: 1, title: "Apagar com rm", studentView: { title: "Apagar com rm", statement: "" }, answer: { value: false } }],
+    });
+    await setup({ startedAt: "2026-10-21T09:05:00-03:00" });
+    fireEvent.click(screen.getByRole("tab", { name: "Respostas" }));
+    expect(screen.getByRole("tabpanel").textContent).toContain("Abra um aluno para ver as respostas dele.");
+    receive("room:student", card({ status: "IN_PROGRESS", online: true, attemptId: "t-1", question: { position: 1, title: "Apagar com rm" } }));
+    fireEvent.click(screen.getByRole("button", { name: /Ana/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Respostas" }));
+    expect(await screen.findByText("Marcou: Falso")).toBeDefined();
+    expect(read).toHaveBeenCalledWith("c-1", "a-1", "t-1");
   });
 });
