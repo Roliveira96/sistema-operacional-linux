@@ -94,3 +94,29 @@
     margin: 0;
   }
 }
+
+// The general instructions (SPEC-094): the head of their column, the text that scrolls in it, and the block in the waiting room.
+.instructionsHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.instructionsBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.waitingInstructions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(40rem, 100%);
+  padding: var(--space-5) var(--space-6);
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}

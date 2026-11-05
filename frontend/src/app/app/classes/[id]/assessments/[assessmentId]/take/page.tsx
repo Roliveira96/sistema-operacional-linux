@@ -4,9 +4,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { StudentChat } from "@/components/ExamChat/ExamChat";
+import chatStyles from "@/components/ExamChat/ExamChat.module.scss";
 import { ExamRunner, type ExamRunnerRoom } from "@/components/ExamRunner/ExamRunner";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouteParams } from "@/hooks/useRouteParams";
+import { descriptionText } from "@/lib/description";
 import { messages } from "@/messages/pt-BR";
 import { ApiProblemError } from "@/services/httpClient";
 import { assessmentService, describeAssessmentError, type ExamChatMessage, type RoomSocket, type StudentAttempt } from "@/services/assessmentService";
@@ -48,6 +50,9 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
   const [phase, setPhase] = useState<Phase>("connecting");
   const [attempt, setAttempt] = useState<StudentAttempt | null>(null);
   const [title, setTitle] = useState("");
+  // the general instructions of the exam (SPEC-094), filtered html, and whether their column is open
+  const [instructions, setInstructions] = useState("");
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [round, setRound] = useState(0);
   const [help, setHelp] = useState<Help>({ status: "NONE" });
@@ -80,7 +85,11 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
     if (!classId || !assessmentId || !isStudent) return;
     let alive = true;
     assessmentService.get(classId, assessmentId).then(
-      (got) => alive && setTitle(got.title),
+      (got) => {
+        if (!alive) return;
+        setTitle(got.title);
+        setInstructions(descriptionText(got.description ?? "") ? got.description : "");
+      },
       () => {},
     );
     return () => {
@@ -186,6 +195,36 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
       onScreen: (position, questionTitle, screen) => socket.current?.send("room:screen", { position, title: questionTitle, screen }),
       header: (position) => (
         <div className={take.help}>
+          {instructions && (
+            <div className={chatStyles.student}>
+              <Button
+                variant="secondary"
+                aria-expanded={instructionsOpen}
+                onClick={() => {
+                  setInstructionsOpen(!instructionsOpen);
+                  setChatOpen(false);
+                }}
+              >
+                {t.instructions.open}
+              </Button>
+              {instructionsOpen && (
+                <section
+                  className={chatStyles.column}
+                  aria-label={t.instructions.title}
+                  onKeyDown={(e) => e.key === "Escape" && setInstructionsOpen(false)}
+                >
+                  <div className={take.instructionsHead}>
+                    <h2 className={styles.heading}>{t.instructions.title}</h2>
+                    <Button variant="secondary" onClick={() => setInstructionsOpen(false)}>
+                      {t.instructions.close}
+                    </Button>
+                  </div>
+                  {/* html that the server filtered when the instructions were saved (SPEC-077 RN-01) */}
+                  <div className={`${styles.richText} ${take.instructionsBody}`} dangerouslySetInnerHTML={{ __html: instructions }} />
+                </section>
+              )}
+            </div>
+          )}
           <StudentChat
             messages={chat}
             open={chatOpen}
@@ -193,6 +232,7 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
             online={online}
             onToggle={() => {
               setChatOpen(!chatOpen);
+              setInstructionsOpen(false);
               setUnread(0);
             }}
             onSend={(text) => socket.current?.send("chat:send", { text })}
@@ -237,7 +277,7 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
         </div>
       ),
     }),
-    [watched, help, asking, question, chat, chatOpen, unread, online],
+    [watched, help, asking, question, chat, chatOpen, unread, online, instructions, instructionsOpen],
   );
 
   if (!classId || !assessmentId || !isStudent) return null;
@@ -267,6 +307,12 @@ export default function TakePage({ params }: { params: Promise<{ id: string; ass
                 {r.waiting}
               </p>
               <p className={take.watchedNote}>{r.watched}</p>
+              {instructions && (
+                <section className={take.waitingInstructions}>
+                  <h2 className={styles.heading}>{t.instructions.title}</h2>
+                  <div className={styles.richText} dangerouslySetInnerHTML={{ __html: instructions }} />
+                </section>
+              )}
             </div>
           )}
           {!error && phase !== "waiting" && !attempt && (

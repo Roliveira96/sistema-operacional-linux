@@ -1243,6 +1243,8 @@ export const messages = {
     /** The window of the exam of the student (SPEC-090). */
     take: {
       title: "Prova",
+      /** The general instructions within reach during the exam and in the waiting room (SPEC-094). */
+      instructions: { open: "Instruções", title: "Instruções gerais", close: "Fechar" },
       deliver: "Entregar a prova",
       saved: "Salvo",
       saving: "Salvando…",
