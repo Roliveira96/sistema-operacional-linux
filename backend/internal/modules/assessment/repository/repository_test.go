@@ -658,6 +658,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	up7, down7 := migrationParts(t, "00050_") // and so does the conversation of SPEC-093
 	up8, down8 := migrationParts(t, "00051_") // and the admissions and the finish of SPEC-096
 	up9, down9 := migrationParts(t, "00052_") // and the correction of SPEC-097 changes the attempts
+	up10, down10 := migrationParts(t, "00053_") // and the publication of SPEC-098 adds to the assessments
 
 	five := []string{"assessments", "assessment_items", "assessment_draw_rules", "assessment_students", "assessment_events"}
 	for _, name := range five {
@@ -665,6 +666,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	}
 	e.create(t)
 
+	runMigration(t, e, down10)
 	runMigration(t, e, down9)
 	runMigration(t, e, down8)
 	runMigration(t, e, down7)
@@ -688,6 +690,7 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	runMigration(t, e, up7)
 	runMigration(t, e, up8)
 	runMigration(t, e, up9)
+	runMigration(t, e, up10)
 	for _, name := range five {
 		assert.True(t, tablesOf(t, e)[name], name+" is back after going up again")
 	}

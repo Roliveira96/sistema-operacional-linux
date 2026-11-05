@@ -95,3 +95,20 @@ func TestReview_NotesFinishAndReopen(t *testing.T) {
 	assert.Nil(t, got.TeacherNote)
 	assert.ErrorIs(t, e.repo.FinishReview(e.ctx, uuid.New(), score, e.now, e.teacher.ID), domain.ErrAttemptNotFound)
 }
+
+// Covers SPEC-098 section 4: migration 00053 adds the publication of the grades to the assessments, and going down takes it away.
+func TestMigration00053_UpAndDown(t *testing.T) {
+	e := newEnv(t)
+	up, down := migrationParts(t, "00053_")
+	count := func() int64 {
+		var n int64
+		require.NoError(t, e.db.Conn(e.ctx).Raw(`SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema()
+			AND table_name = 'assessments' AND column_name IN ('grades_published_at', 'grades_published_by')`).Scan(&n).Error)
+		return n
+	}
+	assert.Equal(t, int64(2), count())
+	runMigration(t, e, down)
+	assert.Zero(t, count())
+	runMigration(t, e, up)
+	assert.Equal(t, int64(2), count())
+}
