@@ -385,6 +385,26 @@ func (assessmentQuestions) AnswerKey(_ context.Context, kind string, key json.Ra
 	return question.AnswerKey, nil
 }
 
+// ExpectedAnswer gives the answer the teacher wrote as expected in a written question frozen in an attempt, and "" for the other kinds (SPEC-097).
+func (assessmentQuestions) ExpectedAnswer(_ context.Context, kind string, key json.RawMessage) (string, error) {
+	if kind != contentdomain.KindDiscursive {
+		return "", nil
+	}
+	var question contentdomain.Question
+	if err := json.Unmarshal(key, &question); err != nil {
+		return "", err
+	}
+	var written struct {
+		ExpectedAnswer string `json:"expectedAnswer"`
+	}
+	if len(question.AnswerKey) > 0 {
+		if err := json.Unmarshal(question.AnswerKey, &written); err != nil {
+			return "", err
+		}
+	}
+	return written.ExpectedAnswer, nil
+}
+
 // Grade grades an answer against the question frozen in an attempt, with the grading of the bank (SPEC-090 RN-04, RN-05, RN-08): the machine of a
 // practical question against its conditions; the other kinds by their own grading, the matching by the share of its right links (D-01). An answer
 // that does not fit the kind is ErrInvalidAnswer.

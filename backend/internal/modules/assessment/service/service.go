@@ -159,6 +159,9 @@ type Questions interface {
 	// AnswerKey gives the answer key of an objective question from the grading key frozen in an attempt, and nil for the other kinds; the
 	// teacher reads it beside the answer in the room (SPEC-095 D-02).
 	AnswerKey(ctx context.Context, kind string, key json.RawMessage) (json.RawMessage, error)
+	// ExpectedAnswer gives the answer the teacher expected in a written question, from the grading key frozen in an attempt, and "" for the other
+	// kinds; it guides the correction (SPEC-097).
+	ExpectedAnswer(ctx context.Context, kind string, key json.RawMessage) (string, error)
 }
 
 // HomologationCheck says whether an assessment has homologated grades (RN-12). The grades module does not exist yet, so the composition root plugs
@@ -266,6 +269,8 @@ type Repository interface {
 	// admitted (SPEC-096 RN-01).
 	Admit(ctx context.Context, assessmentID uuid.UUID, students []uuid.UUID, at time.Time, by uuid.UUID) ([]uuid.UUID, error)
 	Admitted(ctx context.Context, assessmentID uuid.UUID) (map[uuid.UUID]bool, error)
+	// AttemptHelps gives every request for help of an attempt, the oldest first (SPEC-097).
+	AttemptHelps(ctx context.Context, attemptID uuid.UUID) ([]domain.HelpRequest, error)
 }
 
 // Service implements the use cases of the assessments.

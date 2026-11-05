@@ -46,6 +46,9 @@ var (
 	ErrAttemptNotAdmitted = errors.New("the teacher has not admitted the student yet")
 	ErrAssessmentFinished = errors.New("the teacher finished the exam")
 	ErrInvalidAdmission   = errors.New("the admission takes from 1 to 200 eligible students")
+	// SPEC-097: the correction of the exam
+	ErrAssessmentNotEnded = errors.New("the exam has not ended yet")
+	ErrAttemptInProgress  = errors.New("the attempt is still in progress")
 
 	// SPEC-091: the room
 	ErrInvalidReason = errors.New("the reason is required, up to 500 characters")

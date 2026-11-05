@@ -158,6 +158,11 @@ func (r *Repository) CloseHelp(ctx context.Context, id uuid.UUID, status domain.
 }
 
 // OpenHelps gives the open requests of an assessment, the oldest first (RN-07).
+// AttemptHelps gives every request for help of an attempt, open or closed, the oldest first (SPEC-097).
+func (r *Repository) AttemptHelps(ctx context.Context, attemptID uuid.UUID) ([]domain.HelpRequest, error) {
+	return r.helps(r.db.Conn(ctx).Where("h.attempt_id = ?", attemptID))
+}
+
 func (r *Repository) OpenHelps(ctx context.Context, assessmentID uuid.UUID) ([]domain.HelpRequest, error) {
 	return r.helps(r.db.Conn(ctx).Where("a.assessment_id = ? AND h.status = ?", assessmentID, domain.HelpOpen))
 }

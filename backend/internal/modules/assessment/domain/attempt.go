@@ -35,8 +35,14 @@ type Attempt struct {
 	// EndedBy and EndReason are only there when the teacher ended the attempt (SPEC-091 RN-08).
 	EndedBy   *uuid.UUID
 	EndReason *string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	// the correction by the teacher (SPEC-097): the notes, the final score and the review
+	TeacherNote *string
+	StudentNote *string
+	FinalScore  *Score
+	ReviewedAt  *time.Time
+	ReviewedBy  *uuid.UUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // Overdue tells whether an attempt in progress passed its deadline and the tolerance, and so must be closed as TIME_EXPIRED (RN-07).
@@ -57,6 +63,9 @@ type AttemptItem struct {
 	AnsweredAt    *time.Time
 	CheckedSolved *bool
 	Points        *Score
+	// AdjustedPoints and AdjustReason are the teacher changing the points in the correction (SPEC-097 RN-03); nil keeps the automatic ones.
+	AdjustedPoints *Score
+	AdjustReason   *string
 }
 
 // AttemptDeadline is the start plus the individual duration, or the end of the assessment when it comes first or there is no duration (RN-03).

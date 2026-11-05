@@ -221,3 +221,62 @@ func (h *Handler) attemptForTeacher(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, out)
 }
+
+// review gives the delivered attempt for the correction (SPEC-097 section 5).
+func (h *Handler) review(c *gin.Context) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	attemptID, ok := uuidParam(c, "attemptId")
+	if !ok {
+		return
+	}
+	got, err := h.svc.ReviewOf(c.Request.Context(), actor, classID, id, attemptID)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, h.reviewJSON(got))
+}
+
+func (h *Handler) reviewJSON(r service.Review) gin.H {
+	out := attemptRowJSON(r.AttemptRow)
+	delete(out, "chatCount")
+	out["score"], out["reviewed"], out["teacherNote"], out["studentNote"], out["serverNow"] = r.Score.Float(), r.Reviewed, r.TeacherNote, r.StudentNote, iso(h.svc.Now())
+	items := make([]gin.H, len(r.Items))
+	for i, it := range r.Items {
+		item := gin.H{"position": it.Position, "kind": it.Kind, "weight": it.Weight.Float(), "title": it.Title, "studentView": it.StudentView}
+		if len(it.Answer) > 0 {
+			item["answer"] = it.Answer
+		}
+		if it.CheckedSolved != nil {
+			item["checkedSolved"] = *it.CheckedSolved
+		}
+		if len(it.AnswerKey) > 0 {
+			item["answerKey"] = it.AnswerKey
+		}
+		if it.ExpectedAnswer != "" {
+			item["expectedAnswer"] = it.ExpectedAnswer
+		}
+		if it.Points != nil {
+			item["points"] = it.Points.Float()
+		}
+		if it.AdjustedPoints != nil {
+			item["adjustedPoints"], item["adjustReason"] = it.AdjustedPoints.Float(), it.AdjustReason
+		}
+		commands := make([]gin.H, len(it.Commands))
+		for j, cmd := range it.Commands {
+			commands[j] = gin.H{"position": cmd.Position, "command": cmd.Command, "output": cmd.Output, "executedAt": iso(cmd.ExecutedAt)}
+		}
+		item["commands"] = commands
+		items[i] = item
+	}
+	out["items"] = items
+	helps := make([]gin.H, len(r.Helps))
+	for i, hr := range r.Helps {
+		helps[i] = helpJSON(hr)
+	}
+	out["helps"] = helps
+	return out
+}
