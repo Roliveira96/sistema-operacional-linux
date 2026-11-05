@@ -370,3 +370,17 @@ func (h *Handler) reviewAction(c *gin.Context, do func(context.Context, service.
 	}
 	c.JSON(http.StatusOK, h.reviewJSON(got))
 }
+
+// publishGrades publishes the grades of the exam (SPEC-098 section 5).
+func (h *Handler) publishGrades(c *gin.Context) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	got, err := h.svc.PublishGrades(c.Request.Context(), actor, classID, id)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, summaryResponse{summaryJSON: toSummary(got), ServerNow: iso(h.svc.Now())})
+}

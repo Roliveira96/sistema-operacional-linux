@@ -53,6 +53,10 @@ var (
 	ErrReviewDone         = errors.New("the review of the attempt is done: reopen it first")
 	ErrInvalidNote        = errors.New("a note is up to 2,000 characters")
 	ErrWrittenPending     = errors.New("a written question has no points yet")
+	// SPEC-098: the publication of the grades
+	ErrReviewsPending     = errors.New("some delivered attempt is not reviewed yet")
+	ErrGradesPublished    = errors.New("the grades were published: the correction is kept")
+	ErrResultNotPublished = errors.New("the result is not published")
 
 	// SPEC-091: the room
 	ErrInvalidReason = errors.New("the reason is required, up to 500 characters")

@@ -402,6 +402,8 @@ type Public struct {
 	DurationMinutes  *int
 	MaxScore         domain.Score
 	CancelReason     *string
+	// GradesPublished tells the student the grades were published (SPEC-098).
+	GradesPublished bool
 }
 
 // Summary is an assessment as the teacher and the administrator get it.
@@ -432,6 +434,9 @@ type Summary struct {
 	// FinishedAt and FinishedByName are the teacher finishing the whole exam; empty until it happens (SPEC-096 RN-04).
 	FinishedAt     *time.Time
 	FinishedByName string
+	// GradesPublishedAt and GradesPublishedByName are the publication of the grades (SPEC-098 RN-02).
+	GradesPublishedAt     *time.Time
+	GradesPublishedByName string
 }
 
 // ItemView is a question of the composition with what the teacher needs to recognize it.
@@ -461,6 +466,7 @@ func publicOf(a domain.Assessment, now time.Time) Public {
 	p := Public{
 		ID: a.ID, ClassID: a.ClassID, ClassSessionID: a.ClassSessionID, Title: a.Title, Description: a.Description, Type: a.Type, Status: a.Status,
 		Phase: a.PhaseAt(now), StartsAt: a.StartsAt, EndsAt: a.EndsAt, DurationMinutes: a.DurationMinutes, MaxScore: a.MaxScore,
+		GradesPublished: a.GradesPublishedAt != nil,
 	}
 	if a.Status == domain.StatusCanceled {
 		p.CancelReason = a.CancelReason
@@ -474,7 +480,7 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 		Public: publicOf(a, s.now()), ModuleID: a.ModuleID, Composition: a.Composition, Audience: a.Audience, Frozen: a.Frozen(s.now()),
 		Modality: a.Modality, RequiresClearance: a.RequiresClearance,
 		TeacherPrivateNotes: a.TeacherPrivateNotes, CreatedBy: a.CreatedBy, UpdatedBy: a.UpdatedBy, UpdatedAt: a.UpdatedAt,
-		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt, StartedAt: a.StartedAt, StartedBy: a.StartedBy, FinishedAt: a.FinishedAt,
+		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt, StartedAt: a.StartedAt, StartedBy: a.StartedBy, FinishedAt: a.FinishedAt, GradesPublishedAt: a.GradesPublishedAt,
 	}
 	if module, ok, err := s.ports.Modules.ModuleOfClass(ctx, a.ClassID, a.ModuleID); err != nil {
 		return Summary{}, err
@@ -511,6 +517,9 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 	if a.FinishedBy != nil {
 		ids = append(ids, *a.FinishedBy)
 	}
+	if a.GradesPublishedBy != nil {
+		ids = append(ids, *a.GradesPublishedBy)
+	}
 	names, err := s.ports.Users.Names(ctx, ids)
 	if err != nil {
 		return Summary{}, err
@@ -521,6 +530,9 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 	}
 	if a.FinishedBy != nil {
 		sum.FinishedByName = names[*a.FinishedBy]
+	}
+	if a.GradesPublishedBy != nil {
+		sum.GradesPublishedByName = names[*a.GradesPublishedBy]
 	}
 	return sum, nil
 }

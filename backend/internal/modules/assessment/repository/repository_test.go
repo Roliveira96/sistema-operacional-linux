@@ -651,13 +651,13 @@ func TestMigration00041_UpAndDown(t *testing.T) {
 	e := newEnv(t) // every migration was applied by the helper
 	up, down := migrationParts(t, "00041_")
 	up2, down2 := migrationParts(t, "00042_")
-	up3, down3 := migrationParts(t, "00045_") // the start of SPEC-083 stands on the modality and on the kinds of event of the two before it
-	up4, down4 := migrationParts(t, "00046_") // and SPEC-089 changes the check of the start
-	up5, down5 := migrationParts(t, "00047_") // the attempts of SPEC-090 point to the assessments
-	up6, down6 := migrationParts(t, "00048_") // and the room of SPEC-091 points to the attempts
-	up7, down7 := migrationParts(t, "00050_") // and so does the conversation of SPEC-093
-	up8, down8 := migrationParts(t, "00051_") // and the admissions and the finish of SPEC-096
-	up9, down9 := migrationParts(t, "00052_") // and the correction of SPEC-097 changes the attempts
+	up3, down3 := migrationParts(t, "00045_")   // the start of SPEC-083 stands on the modality and on the kinds of event of the two before it
+	up4, down4 := migrationParts(t, "00046_")   // and SPEC-089 changes the check of the start
+	up5, down5 := migrationParts(t, "00047_")   // the attempts of SPEC-090 point to the assessments
+	up6, down6 := migrationParts(t, "00048_")   // and the room of SPEC-091 points to the attempts
+	up7, down7 := migrationParts(t, "00050_")   // and so does the conversation of SPEC-093
+	up8, down8 := migrationParts(t, "00051_")   // and the admissions and the finish of SPEC-096
+	up9, down9 := migrationParts(t, "00052_")   // and the correction of SPEC-097 changes the attempts
 	up10, down10 := migrationParts(t, "00053_") // and the publication of SPEC-098 adds to the assessments
 
 	five := []string{"assessments", "assessment_items", "assessment_draw_rules", "assessment_students", "assessment_events"}

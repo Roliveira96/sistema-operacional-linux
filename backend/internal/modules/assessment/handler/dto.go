@@ -36,13 +36,14 @@ type publicJSON struct {
 	DurationMinutes *int          `json:"durationMinutes,omitempty"`
 	MaxScore        float64       `json:"maxScore"`
 	CancelReason    *string       `json:"cancelReason,omitempty"`
+	GradesPublished bool          `json:"gradesPublished,omitempty"`
 }
 
 func toPublic(p service.Public) publicJSON {
 	return publicJSON{
 		ID: p.ID, ClassID: p.ClassID, ClassSessionID: p.ClassSessionID, Title: p.Title, Description: p.Description, Type: p.Type, Status: p.Status,
 		Phase: p.Phase, StartsAt: iso(p.StartsAt), EndsAt: iso(p.EndsAt), DurationMinutes: p.DurationMinutes, MaxScore: p.MaxScore.Float(),
-		CancelReason: p.CancelReason,
+		CancelReason: p.CancelReason, GradesPublished: p.GradesPublished,
 	}
 }
 
@@ -77,6 +78,9 @@ type summaryJSON struct {
 	StartedByName       string             `json:"startedByName,omitempty"`
 	FinishedAt          *string            `json:"finishedAt,omitempty"`
 	FinishedByName      string             `json:"finishedByName,omitempty"`
+	// the publication of the grades (SPEC-098)
+	GradesPublishedAt     *string `json:"gradesPublishedAt,omitempty"`
+	GradesPublishedByName string  `json:"gradesPublishedByName,omitempty"`
 }
 
 func toSummary(s service.Summary) summaryJSON {
@@ -86,6 +90,7 @@ func toSummary(s service.Summary) summaryJSON {
 		CreatedBy: s.CreatedBy, CreatedByName: s.CreatedByName, UpdatedBy: s.UpdatedBy, UpdatedByName: s.UpdatedByName, UpdatedAt: iso(s.UpdatedAt),
 		CanceledBy: s.CanceledBy, CanceledAt: isoPtr(s.CanceledAt), StartedAt: isoPtr(s.StartedAt), StartedBy: s.StartedBy, StartedByName: s.StartedByName,
 		FinishedAt: isoPtr(s.FinishedAt), FinishedByName: s.FinishedByName,
+		GradesPublishedAt: isoPtr(s.GradesPublishedAt), GradesPublishedByName: s.GradesPublishedByName,
 	}
 }
 

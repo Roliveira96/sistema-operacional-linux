@@ -183,6 +183,8 @@ func (s *Service) reviewable(ctx context.Context, actor Actor, classID, id, atte
 		return domain.Attempt{}, domain.ErrAssessmentNotEnded
 	case attempt.Status == domain.AttemptInProgress:
 		return domain.Attempt{}, domain.ErrAttemptInProgress
+	case a.GradesPublishedAt != nil: // once published, the correction is kept (SPEC-098 RN-04)
+		return domain.Attempt{}, domain.ErrGradesPublished
 	}
 	return attempt, nil
 }

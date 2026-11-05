@@ -159,6 +159,9 @@ type Assessment struct {
 	// FinishedAt and FinishedBy are the teacher finishing the whole exam (SPEC-096 RN-04); nil until she does.
 	FinishedAt *time.Time
 	FinishedBy *uuid.UUID
+	// GradesPublishedAt and GradesPublishedBy are the teacher publishing the grades (SPEC-098 RN-02); nil until she does.
+	GradesPublishedAt *time.Time
+	GradesPublishedBy *uuid.UUID
 }
 
 // TableName pins the table name.

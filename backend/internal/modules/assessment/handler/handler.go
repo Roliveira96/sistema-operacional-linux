@@ -58,6 +58,8 @@ type AssessmentService interface {
 	SaveReviewNotes(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID, teacherNote, studentNote string) error
 	FinishReview(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.Review, error)
 	ReopenReview(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.Review, error)
+	// SPEC-098: the publication of the grades
+	PublishGrades(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Summary, error)
 
 	// SPEC-091: the room
 	RoomServices
@@ -111,6 +113,8 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.PUT("/classes/:id/assessments/:assessmentId/attempts/:attemptId/notes", h.reviewNotes)
 	g.POST("/classes/:id/assessments/:assessmentId/attempts/:attemptId/review", h.finishReview)
 	g.DELETE("/classes/:id/assessments/:assessmentId/attempts/:attemptId/review", h.reopenReview)
+	// the publication of the grades (SPEC-098 section 5)
+	g.POST("/classes/:id/assessments/:assessmentId/grades/publish", h.publishGrades)
 }
 
 func fail(c *gin.Context, p *problem.Problem) {
@@ -244,6 +248,12 @@ func toProblem(err error) *problem.Problem {
 		return problem.Conflict("assessment-not-ended", err.Error())
 	case errors.Is(err, domain.ErrAttemptInProgress):
 		return problem.Conflict("attempt-in-progress", err.Error())
+	case errors.Is(err, domain.ErrReviewsPending):
+		return problem.Conflict("reviews-pending", err.Error())
+	case errors.Is(err, domain.ErrGradesPublished):
+		return problem.Conflict("grades-published", err.Error())
+	case errors.Is(err, domain.ErrResultNotPublished):
+		return problem.NotFound("result-not-published", err.Error())
 	case errors.Is(err, domain.ErrInvalidNote):
 		return problem.BadRequest("invalid-note", err.Error())
 	case errors.Is(err, domain.ErrWrittenPending):
