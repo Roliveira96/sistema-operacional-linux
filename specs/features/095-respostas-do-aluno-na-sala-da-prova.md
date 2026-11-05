@@ -78,12 +78,12 @@ Nenhuma mudança. Usa as tabelas da tentativa (SPEC-090) como estão: a visão d
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente dona ou o administrador lê a tentativa de um aluno, O servidor DEVE devolver as questões na ordem da tentativa, com a visão do aluno, a resposta salva e, na prática, se foi conferida como resolvida; com a D-02, o gabarito das objetivas; NUNCA os pontos nem a nota (RN-01, RN-02).
-- [ ] **CA-02** (indesejado): SE quem lê é o estudante ou outra docente, ENTÃO O servidor DEVE responder 403; SE a tentativa não é da avaliação, 404.
-- [ ] **CA-03** (estado): ENQUANTO a docente está na sala com um aluno aberto, A aba *Respostas* DEVE mostrar cada questão com o que o aluno marcou ou escreveu, "Sem resposta" quando não há, e a questão em que ele está marcada; sem aluno aberto, a dica.
-- [ ] **CA-04** (evento): QUANDO a aba está visível, A sala DEVE reler a tentativa a cada 10 segundos e ao clicar em *Atualizar*; QUANDO a aba está escondida, NÃO DEVE reler.
-- [ ] **CA-05** (estado): ENQUANTO o estudante está na sala de espera, O aviso DEVE dizer que a docente pode ver a tela, os comandos e as respostas (D-04).
-- [ ] **CA-06** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, com o padrão de abas acessível, contraste AA e alvos de 44 px.
+- [x] **CA-01** (evento): QUANDO a docente dona ou o administrador lê a tentativa de um aluno, O servidor DEVE devolver as questões na ordem da tentativa, com a visão do aluno, a resposta salva e, na prática, se foi conferida como resolvida; com a D-02, o gabarito das objetivas; NUNCA os pontos nem a nota (RN-01, RN-02).
+- [x] **CA-02** (indesejado): SE quem lê é o estudante ou outra docente, ENTÃO O servidor DEVE responder 403; SE a tentativa não é da avaliação, 404.
+- [x] **CA-03** (estado): ENQUANTO a docente está na sala com um aluno aberto, A aba *Respostas* DEVE mostrar cada questão com o que o aluno marcou ou escreveu, "Sem resposta" quando não há, e a questão em que ele está marcada; sem aluno aberto, a dica.
+- [x] **CA-04** (evento): QUANDO a aba está visível, A sala DEVE reler a tentativa a cada 10 segundos e ao clicar em *Atualizar*; QUANDO a aba está escondida, NÃO DEVE reler.
+- [x] **CA-05** (estado): ENQUANTO o estudante está na sala de espera, O aviso DEVE dizer que a docente pode ver a tela, os comandos e as respostas (D-04).
+- [x] **CA-06** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, com o padrão de abas acessível, contraste AA e alvos de 44 px.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -118,3 +118,4 @@ O Tech Lead aprovou em 05/11/2026 ("Aprovo") com as recomendações como estavam
 | :--- | :--- | :--- |
 | 05/11/2026 | Aruna Architect | Criada em `Rascunho`, a pedido do Tech Lead no roteiro manual do chat da prova. Pendências D-01 a D-04. |
 | 05/11/2026 | Tech Lead | Aprovada ("Aprovo"), com as recomendações das pendências como estavam. Status: `Aprovada` |
+| 05/11/2026 | Implementador | Implementada, menos o roteiro manual, por isso o status continua `Aprovada`. **Feito:** CA-01 a CA-06. Backend: `service.AttemptForTeacher` e os tipos `TeacherAttempt` e `TeacherAttemptItem`, a porta `Questions.AnswerKey` (o adaptador tira só o `AnswerKey` das objetivas da questão congelada na tentativa) e a rota `GET .../attempts/:attemptId`. Frontend: `StudentAnswers` (releitura a cada 10 s fora de página escondida e o *Atualizar*), a aba *Respostas* entre *Aluno* e *Pedidos de ajuda*, `attemptForTeacher` no serviço e o aviso novo da sala de espera. **Medido:** vermelhos pelos motivos esperados (tipos, métodos, aba e texto inexistentes); verdes: `go test` de `assessment` (service 83,4%, handler 84,1%) e de `cmd/api`, 45 testes da sala, do `StudentAnswers` e da janela da prova, `tsc` e ESLint limpos. **Desvios:** a prática não traz `answer` (a máquina fica fora, o terminal está na aba *Aluno*); a escolha única mostra o texto da alternativa, não a letra, porque a ordem das letras muda por aluno (embaralhamento). **Testes alterados depois do vermelho:** nenhum; antes do vermelho, o teste das setas da SPEC-092 passou a atravessar *Respostas* (D-03) e o da sala de espera, o texto novo (D-04). **Aberto:** o roteiro manual. |
