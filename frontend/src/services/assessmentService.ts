@@ -457,6 +457,8 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     review: (classId: string, id: string, attemptId: string) => client.get<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
     adjustPoints: (classId: string, id: string, attemptId: string, position: number, points: number | null, reason: string) =>
       client.put<Review>(`${base(classId)}/${id}/attempts/${attemptId}/items/${position}/points`, points === null ? { points: null } : { points, reason }),
+    finishReview: (classId: string, id: string, attemptId: string) => client.post<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
+    reopenReview: (classId: string, id: string, attemptId: string) => client.delete<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
     saveReviewNotes: (classId: string, id: string, attemptId: string, teacherNote: string, studentNote: string) =>
       client.put<void>(`${base(classId)}/${id}/attempts/${attemptId}/notes`, { teacherNote, studentNote }),
     attempts: (classId: string, id: string) => client.get<{ items: AttemptRow[]; serverNow: string }>(`${base(classId)}/${id}/attempts`),

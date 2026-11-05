@@ -68,6 +68,25 @@ export function ExamReview({ classId, assessment }: ExamReviewProps) {
     };
   }, [classId, id, selected]);
 
+  /** The review of a student concluded: she is marked reviewed and the next one to review opens, in the order of the list (CA-07). */
+  const finished = (done: Review) => {
+    const next = (rows ?? []).find(
+      (r) => !r.reviewed && r.attemptId !== done.attemptId,
+    );
+    setRows(
+      (list) =>
+        list?.map((r) =>
+          r.attemptId === done.attemptId
+            ? { ...r, reviewed: true, finalScore: done.finalScore }
+            : r,
+        ) ?? null,
+    );
+    if (next) {
+      setReview(null);
+      setSelected(next.attemptId!);
+    } else setReview(done);
+  };
+
   const all = rows ?? [];
   const reviewed = all.filter((r) => r.reviewed).length;
   const shown = all.filter(matches[filter]);
@@ -148,6 +167,7 @@ export function ExamReview({ classId, assessment }: ExamReviewProps) {
               maxScore={assessment.maxScore}
               review={review}
               onChange={setReview}
+              onFinished={finished}
             />
           )}
         </section>

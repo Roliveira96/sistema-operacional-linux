@@ -434,3 +434,24 @@
   font-size: var(--font-size-sm);
   color: var(--color-danger);
 }
+
+// Concluding and reopening the review (T7).
+.finish {
+  position: sticky;
+  bottom: calc(-1 * var(--space-4));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.doneText {
+  flex: 1;
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+}

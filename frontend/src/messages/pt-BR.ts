@@ -1370,6 +1370,11 @@ export const messages = {
       studentNoteHint: "O aluno verá quando as notas forem publicadas.",
       notesSaved: "Anotações salvas",
       notesError: "Não foi possível salvar as anotações.",
+      // concluding and reopening (T7)
+      finish: "Concluir a revisão",
+      writtenPending: "Dê os pontos das descritivas antes de concluir.",
+      done: (score: string, max: string) => `Revisão concluída: nota final ${score} de ${max}.`,
+      reopen: "Reabrir a revisão",
     },
     room: {
       title: "Sala da prova",

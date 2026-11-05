@@ -25,8 +25,10 @@ export interface ReviewAttemptProps {
   assessmentId: string;
   maxScore: number;
   review: Review;
-  /** The attempt after an adjustment of points (T6). */
+  /** The attempt after an adjustment of points or the review reopened (T6, T7). */
   onChange?: (review: Review) => void;
+  /** The review concluded (T7): the screen marks the student and opens the next one. */
+  onFinished?: (review: Review) => void;
 }
 
 /**
@@ -39,6 +41,7 @@ export function ReviewAttempt({
   maxScore,
   review,
   onChange,
+  onFinished,
 }: ReviewAttemptProps) {
   const editable = !review.reviewed;
   const adjust = (position: number, points: number | null, reason: string) =>
@@ -52,6 +55,39 @@ export function ReviewAttempt({
         reason,
       )
       .then((got) => onChange?.(got));
+
+  // concluding and reopening (T7): a written question without points keeps the review open (D-03)
+  const pendingWritten = review.items.some(
+    (it) =>
+      it.kind === "DISCURSIVE" &&
+      it.points === undefined &&
+      it.adjustedPoints === undefined,
+  );
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState(false);
+  const close = async (reopen: boolean) => {
+    setClosing(true);
+    setCloseError(false);
+    try {
+      const got = reopen
+        ? await assessmentService.reopenReview(
+            classId,
+            assessmentId,
+            review.attemptId,
+          )
+        : await assessmentService.finishReview(
+            classId,
+            assessmentId,
+            review.attemptId,
+          );
+      if (reopen) onChange?.(got);
+      else onFinished?.(got);
+    } catch {
+      setCloseError(true);
+    } finally {
+      setClosing(false);
+    }
+  };
 
   // the notes, kept when the teacher leaves a field (T6)
   const [teacherNote, setTeacherNote] = useState(review.teacherNote);
@@ -192,6 +228,38 @@ export function ReviewAttempt({
           />
         )}
       </section>
+      <div className={styles.finish}>
+        {review.reviewed ? (
+          <>
+            <p role="status" className={styles.doneText}>
+              {t.done(
+                formatScore(review.finalScore ?? review.score),
+                formatScore(maxScore),
+              )}
+            </p>
+            <Button
+              variant="secondary"
+              disabled={closing}
+              onClick={() => void close(true)}
+            >
+              {t.reopen}
+            </Button>
+          </>
+        ) : (
+          <>
+            {pendingWritten && (
+              <p className={styles.muted}>{t.writtenPending}</p>
+            )}
+            <Button
+              disabled={closing || pendingWritten}
+              onClick={() => void close(false)}
+            >
+              {t.finish}
+            </Button>
+          </>
+        )}
+        {closeError && <p role="alert">{t.saveError}</p>}
+      </div>
     </div>
   );
 }
