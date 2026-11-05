@@ -15,16 +15,37 @@
 }
 
 .back {
-  align-self: flex-start;
   display: inline-flex;
+  align-self: flex-start;
   align-items: center;
+  gap: var(--space-2);
   min-height: 2.75rem;
+  padding: 0 var(--space-4) 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-decoration: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  transition:
+    color 150ms ease-out,
+    background-color 150ms ease-out,
+    border-color 150ms ease-out;
+
+  // a chevron drawn with two borders, so it follows the color of the text
+  &::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-bottom: 2px solid currentcolor;
+    border-left: 2px solid currentcolor;
+    transform: rotate(45deg);
+  }
 
   &:hover {
     color: var(--color-text-primary);
-    text-decoration: underline;
+    background: var(--color-surface-raised);
+    border-color: var(--color-border-strong);
   }
 
   &:focus-visible {
@@ -83,31 +104,36 @@
   border-radius: var(--radius-sm);
 }
 
-// The facts of an assessment for the teacher.
+// The facts of an assessment for the teacher: a grid of tiles, the label small on top of the value.
 .facts {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--space-2) var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--space-5) var(--space-6);
   margin: 0;
-  padding: var(--space-4);
-  color: var(--color-text-body);
+  padding: var(--space-5) var(--space-6);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 
   dt {
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--color-text-secondary);
   }
 
   dd {
     margin: 0;
+    overflow-wrap: anywhere;
     color: var(--color-text-primary);
   }
 }
 
 .fact {
-  display: contents;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .text {
@@ -135,4 +161,71 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+// The page of one assessment for the teacher: every section is a card.
+.detail > section {
+  padding: var(--space-5) var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+// Why the exam cannot be started yet, next to the disabled button.
+.hint {
+  align-self: flex-start;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-info-text);
+  background: var(--color-info-faint);
+  border: 1px solid var(--color-info-line);
+  border-radius: var(--radius-sm);
+}
+
+// The questions of the assessment: number, title, kind and difficulty, and the points on the right.
+.questions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: question;
+
+  li {
+    display: grid;
+    grid-template-columns: 2rem 1fr auto;
+    gap: var(--space-1) var(--space-3);
+    align-items: baseline;
+    padding: var(--space-3) 0;
+    counter-increment: question;
+
+    &::before {
+      content: counter(question) "." / "";
+      font-variant-numeric: tabular-nums;
+      color: var(--color-text-secondary);
+    }
+
+    & + li {
+      border-top: 1px solid var(--color-border);
+    }
+  }
+}
+
+.questionTitle {
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+}
+
+.questionMeta {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.questionPoints {
+  grid-column: 3;
+  grid-row: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--color-text-body);
 }

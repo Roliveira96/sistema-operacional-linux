@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatScore } from "@/lib/assessment";
+import { AssessmentDialog } from "@/components/AssessmentDialog/AssessmentDialog";
+import dialog from "@/components/AssessmentDialog/AssessmentDialog.module.scss";
+import { Button } from "@/components/Button/Button";
+import { formatDateTime, formatScore } from "@/lib/assessment";
 import { messages } from "@/messages/pt-BR";
 import {
   assessmentService,
@@ -44,6 +47,30 @@ export function ExamReview({ classId, assessment }: ExamReviewProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [failed, setFailed] = useState(false);
+  // the publication of the grades (SPEC-098 T3)
+  const [published, setPublished] = useState(
+    assessment.gradesPublishedAt
+      ? {
+          at: assessment.gradesPublishedAt,
+          name: assessment.gradesPublishedByName ?? "",
+        }
+      : null,
+  );
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState(false);
+  const publish = async () => {
+    setPublishError(false);
+    try {
+      const got = await assessmentService.publishGrades(classId, id);
+      setPublished({
+        at: got.gradesPublishedAt ?? "",
+        name: got.gradesPublishedByName ?? "",
+      });
+      setPublishing(false);
+    } catch {
+      setPublishError(true);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -107,7 +134,43 @@ export function ExamReview({ classId, assessment }: ExamReviewProps) {
         {rows && (
           <p className={styles.progress}>{t.progress(reviewed, all.length)}</p>
         )}
+        {published ? (
+          <p role="status" className={styles.published}>
+            {t.published(published.name, formatDateTime(published.at))}
+          </p>
+        ) : (
+          rows && (
+            <div className={styles.publish}>
+              <Button
+                disabled={all.length === 0 || reviewed < all.length}
+                onClick={() => setPublishing(true)}
+              >
+                {t.publish}
+              </Button>
+              {reviewed < all.length && (
+                <p className={styles.muted}>
+                  {t.publishPending(reviewed, all.length)}
+                </p>
+              )}
+            </div>
+          )
+        )}
       </header>
+      {publishing && (
+        <AssessmentDialog
+          title={t.publishTitle}
+          onClose={() => setPublishing(false)}
+        >
+          <p>{t.publishBody}</p>
+          {publishError && <p role="alert">{t.publishError}</p>}
+          <div className={dialog.actions}>
+            <Button variant="secondary" onClick={() => setPublishing(false)}>
+              {t.publishKeep}
+            </Button>
+            <Button onClick={() => void publish()}>{t.publishConfirm}</Button>
+          </div>
+        </AssessmentDialog>
+      )}
       {failed && <p role="alert">{t.loadError}</p>}
 
       <div className={styles.body}>
@@ -168,6 +231,7 @@ export function ExamReview({ classId, assessment }: ExamReviewProps) {
               review={review}
               onChange={setReview}
               onFinished={finished}
+              locked={!!published}
             />
           )}
         </section>

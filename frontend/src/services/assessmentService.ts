@@ -73,6 +73,11 @@ export interface AssessmentSummary extends AssessmentBase {
   /** The teacher finished the whole exam (SPEC-096 RN-04). */
   finishedAt?: string;
   finishedByName?: string;
+  /** The teacher published the grades (SPEC-098). */
+  gradesPublishedAt?: string;
+  gradesPublishedByName?: string;
+  /** The student learns the grades were published (SPEC-098). */
+  gradesPublished?: boolean;
 }
 
 export interface AssessmentItem {
@@ -457,6 +462,7 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     review: (classId: string, id: string, attemptId: string) => client.get<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
     adjustPoints: (classId: string, id: string, attemptId: string, position: number, points: number | null, reason: string) =>
       client.put<Review>(`${base(classId)}/${id}/attempts/${attemptId}/items/${position}/points`, points === null ? { points: null } : { points, reason }),
+    publishGrades: (classId: string, id: string) => client.post<Now<AssessmentSummary>>(`${base(classId)}/${id}/grades/publish`),
     finishReview: (classId: string, id: string, attemptId: string) => client.post<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
     reopenReview: (classId: string, id: string, attemptId: string) => client.delete<Review>(`${base(classId)}/${id}/attempts/${attemptId}/review`),
     saveReviewNotes: (classId: string, id: string, attemptId: string, teacherNote: string, studentNote: string) =>

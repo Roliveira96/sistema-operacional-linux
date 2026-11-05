@@ -165,7 +165,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
   ];
 
   return (
-    <main className={`${styles.container} ${styles.narrow}`}>
+    <main className={`${styles.container} ${styles.narrow} ${styles.detail}`}>
       {back}
       <h1 className={styles.title}>{canceled ? <s>{detail.title}</s> : detail.title}</h1>
       {canceled && (
@@ -204,7 +204,7 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
       {exam && detail.startedAt && <p className={styles.text}>{p.startedBy(formatHour(detail.startedAt), detail.startedByName || m.history.removedUser)}</p>}
       {detail.finishedAt && <p className={styles.text}>{p.finishedBy(detail.finishedByName || m.history.removedUser, formatHour(detail.finishedAt))}</p>}
       {exam && !detail.startedAt && detail.phase === "UPCOMING" && (
-        <p id="start-reason" className={styles.text}>
+        <p id="start-reason" className={styles.hint}>
           {p.startFrom(formatDateTime(detail.startsAt))}
         </p>
       )}
@@ -238,13 +238,17 @@ export default function AssessmentPage({ params }: { params: Promise<{ id: strin
         {detail.composition === "DRAW" ? (
           <DrawRulesTable rules={detail.drawRules} />
         ) : (
-          <ul className={styles.plain} aria-label={p.questions}>
+          <ol className={styles.questions} aria-label={p.questions}>
             {detail.items.map((item) => (
               <li key={item.questionId}>
-                {item.title} · {(authoringMessages.questionKinds.label as Record<string, string>)[item.kind] ?? item.kind} · {m.difficulty[item.difficulty]} · {m.points(formatScore(item.weight))}
+                <span className={styles.questionTitle}>{item.title}</span>
+                <span className={styles.questionMeta}>
+                  {(authoringMessages.questionKinds.label as Record<string, string>)[item.kind] ?? item.kind} · {m.difficulty[item.difficulty]}
+                </span>
+                <span className={styles.questionPoints}>{m.points(formatScore(item.weight))}</span>
               </li>
             ))}
-          </ul>
+          </ol>
         )}
       </section>
 

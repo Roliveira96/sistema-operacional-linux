@@ -1375,6 +1375,15 @@ export const messages = {
       writtenPending: "Dê os pontos das descritivas antes de concluir.",
       done: (score: string, max: string) => `Revisão concluída: nota final ${score} de ${max}.`,
       reopen: "Reabrir a revisão",
+      // publishing the grades (SPEC-098 T3)
+      publish: "Publicar as notas",
+      publishPending: (reviewed: number, total: number) => `Revise todos os alunos antes de publicar (${reviewed} de ${total} revisados).`,
+      publishTitle: "Publicar as notas?",
+      publishBody: "Os alunos que entregaram verão a nota final, a anotação ao aluno e a correção. Depois de publicadas, as notas não mudam mais.",
+      publishConfirm: "Publicar",
+      publishKeep: "Voltar",
+      publishError: "Não foi possível publicar as notas. Tente de novo.",
+      published: (name: string, when: string) => `Notas publicadas por ${name} em ${when}.`,
     },
     room: {
       title: "Sala da prova",

@@ -29,6 +29,8 @@ export interface ReviewAttemptProps {
   onChange?: (review: Review) => void;
   /** The review concluded (T7): the screen marks the student and opens the next one. */
   onFinished?: (review: Review) => void;
+  /** The grades were published: the correction is only read (SPEC-098 RN-04). */
+  locked?: boolean;
 }
 
 /**
@@ -42,8 +44,9 @@ export function ReviewAttempt({
   review,
   onChange,
   onFinished,
+  locked = false,
 }: ReviewAttemptProps) {
-  const editable = !review.reviewed;
+  const editable = !review.reviewed && !locked;
   const adjust = (position: number, points: number | null, reason: string) =>
     assessmentService
       .adjustPoints(
@@ -193,8 +196,9 @@ export function ReviewAttempt({
             rows={3}
             maxLength={2000}
             value={teacherNote}
+            readOnly={locked}
             onChange={(e) => setTeacherNote(e.target.value)}
-            onBlur={() => void saveNotes()}
+            onBlur={() => !locked && void saveNotes()}
           />
         </label>
         <label className={styles.field}>
@@ -203,8 +207,9 @@ export function ReviewAttempt({
             rows={3}
             maxLength={2000}
             value={studentNote}
+            readOnly={locked}
             onChange={(e) => setStudentNote(e.target.value)}
-            onBlur={() => void saveNotes()}
+            onBlur={() => !locked && void saveNotes()}
           />
           <span className={styles.hint}>{t.studentNoteHint}</span>
         </label>
@@ -228,38 +233,40 @@ export function ReviewAttempt({
           />
         )}
       </section>
-      <div className={styles.finish}>
-        {review.reviewed ? (
-          <>
-            <p role="status" className={styles.doneText}>
-              {t.done(
-                formatScore(review.finalScore ?? review.score),
-                formatScore(maxScore),
+      {!locked && (
+        <div className={styles.finish}>
+          {review.reviewed ? (
+            <>
+              <p role="status" className={styles.doneText}>
+                {t.done(
+                  formatScore(review.finalScore ?? review.score),
+                  formatScore(maxScore),
+                )}
+              </p>
+              <Button
+                variant="secondary"
+                disabled={closing}
+                onClick={() => void close(true)}
+              >
+                {t.reopen}
+              </Button>
+            </>
+          ) : (
+            <>
+              {pendingWritten && (
+                <p className={styles.muted}>{t.writtenPending}</p>
               )}
-            </p>
-            <Button
-              variant="secondary"
-              disabled={closing}
-              onClick={() => void close(true)}
-            >
-              {t.reopen}
-            </Button>
-          </>
-        ) : (
-          <>
-            {pendingWritten && (
-              <p className={styles.muted}>{t.writtenPending}</p>
-            )}
-            <Button
-              disabled={closing || pendingWritten}
-              onClick={() => void close(false)}
-            >
-              {t.finish}
-            </Button>
-          </>
-        )}
-        {closeError && <p role="alert">{t.saveError}</p>}
-      </div>
+              <Button
+                disabled={closing || pendingWritten}
+                onClick={() => void close(false)}
+              >
+                {t.finish}
+              </Button>
+            </>
+          )}
+          {closeError && <p role="alert">{t.saveError}</p>}
+        </div>
+      )}
     </div>
   );
 }

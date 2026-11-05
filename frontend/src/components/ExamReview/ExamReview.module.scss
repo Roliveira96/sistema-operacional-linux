@@ -455,3 +455,23 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-success);
 }
+
+// Publishing the grades (SPEC-098 T3).
+.publish {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  max-width: 22rem;
+  text-align: right;
+
+  p {
+    font-size: var(--font-size-sm);
+  }
+}
+
+.published {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+}
