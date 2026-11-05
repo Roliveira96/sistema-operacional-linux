@@ -417,3 +417,33 @@ describe("assessment page, SPEC-096 the finished exam", () => {
     expect(screen.queryByRole("link", { name: /Abrir a sala da prova/ })).toBeNull();
   });
 });
+
+// SPEC-097 CA-01 (T4): after the end, the detail offers the correction, with how many were reviewed of those who delivered; before the end, no.
+describe("assessment page, SPEC-097 the correction", () => {
+  const ended = { phase: "ENDED", startsAt: "2026-10-21T09:00:00-03:00", endsAt: "2026-10-21T11:00:00-03:00" } as const;
+
+  it("offers to correct the exam after the end, with the count of the reviewed", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...STARTED, ...ended }));
+    vi.spyOn(assessmentService, "attempts").mockResolvedValue({
+      items: [
+        { attemptId: "t-1", studentId: "s-1", studentName: "Ana", academicId: "1", status: "SUBMITTED", startedAt: "2026-10-21T09:10:00-03:00", reviewed: true },
+        { attemptId: "t-2", studentId: "s-2", studentName: "Bruno", academicId: "2", status: "TIME_EXPIRED", startedAt: "2026-10-21T09:10:00-03:00", reviewed: false },
+        { studentId: "s-3", studentName: "Carla", academicId: "3", status: "ABSENT" },
+      ],
+      serverNow: SERVER_NOW,
+    });
+    render(<AssessmentPage params={params} />);
+    const link = await screen.findByRole("link", { name: "Corrigir a prova (1 de 2 revisadas)" });
+    expect(link.getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/review");
+  });
+
+  it("does not offer it while the exam runs", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...STARTED }));
+    vi.spyOn(assessmentService, "attempts").mockResolvedValue({ items: [], serverNow: SERVER_NOW });
+    render(<AssessmentPage params={params} />);
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("link", { name: /Corrigir a prova/ })).toBeNull();
+  });
+});
