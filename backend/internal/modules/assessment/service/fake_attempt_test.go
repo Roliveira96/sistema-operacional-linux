@@ -206,3 +206,28 @@ func (f *fakeRepo) AdjustItem(_ context.Context, attemptID uuid.UUID, position i
 	}
 	return domain.ErrAttemptNotFound
 }
+
+// the review of the fake (SPEC-097): it changes the attempt kept by its id
+func (f *fakeRepo) changeAttempt(id uuid.UUID, change func(*domain.Attempt)) error {
+	f.attemptStore()
+	for key, a := range f.attempts {
+		if a.ID == id {
+			change(&a)
+			f.attempts[key] = a
+			return nil
+		}
+	}
+	return domain.ErrAttemptNotFound
+}
+
+func (f *fakeRepo) SaveReviewNotes(_ context.Context, attemptID uuid.UUID, teacher, student *string) error {
+	return f.changeAttempt(attemptID, func(a *domain.Attempt) { a.TeacherNote, a.StudentNote = teacher, student })
+}
+
+func (f *fakeRepo) FinishReview(_ context.Context, attemptID uuid.UUID, score domain.Score, at time.Time, by uuid.UUID) error {
+	return f.changeAttempt(attemptID, func(a *domain.Attempt) { a.FinalScore, a.ReviewedAt, a.ReviewedBy = &score, &at, &by })
+}
+
+func (f *fakeRepo) ReopenReview(_ context.Context, attemptID uuid.UUID) error {
+	return f.changeAttempt(attemptID, func(a *domain.Attempt) { a.FinalScore, a.ReviewedAt, a.ReviewedBy = nil, nil, nil })
+}

@@ -151,3 +151,59 @@ func TestAdjustItem_LimitsReasonAndScore(t *testing.T) {
 	_, err = f.svc.AdjustItem(ctx, f.other, f.class.ID, a.ID, ana.ID, 1, ptr(1.0), "x")
 	assert.ErrorIs(t, err, domain.ErrForbidden)
 }
+
+// Covers SPEC-097 CA-04 (RN-04): the teacher keeps a private note and a note to the student, up to 2,000 characters each; the read of the student
+// never has them.
+func TestReviewNotes_KeepsBoth(t *testing.T) {
+	f := newFixture(t)
+	a, ana := f.deliveredExam(t)
+	require.NoError(t, f.svc.SaveReviewNotes(ctx, f.teacher, f.class.ID, a.ID, ana.ID, "  Colou na 3?  ", "Bom trabalho no terminal."))
+	got, err := f.svc.ReviewOf(ctx, f.teacher, f.class.ID, a.ID, ana.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Colou na 3?", got.TeacherNote)
+	assert.Equal(t, "Bom trabalho no terminal.", got.StudentNote)
+	assert.ErrorIs(t, f.svc.SaveReviewNotes(ctx, f.teacher, f.class.ID, a.ID, ana.ID, strings.Repeat("a", 2001), ""), domain.ErrInvalidNote)
+	assert.ErrorIs(t, f.svc.SaveReviewNotes(ctx, f.other, f.class.ID, a.ID, ana.ID, "x", ""), domain.ErrForbidden)
+	require.NoError(t, f.svc.SaveReviewNotes(ctx, f.teacher, f.class.ID, a.ID, ana.ID, "", ""))
+	got, err = f.svc.ReviewOf(ctx, f.teacher, f.class.ID, a.ID, ana.ID)
+	require.NoError(t, err)
+	assert.Empty(t, got.TeacherNote, "an empty note clears it")
+}
+
+// Covers SPEC-097 CA-05 (RN-05, D-03, D-04): the review is done only with every written question graded; it keeps the final score, and the list of
+// the attempts says it; while done, the points do not change; reopened, they change again.
+func TestFinishReview_NeedsTheWrittenAndLocks(t *testing.T) {
+	f := newFixture(t)
+	a, ana := f.deliveredExam(t)
+	_, err := f.svc.FinishReview(ctx, f.teacher, f.class.ID, a.ID, ana.ID)
+	assert.ErrorIs(t, err, domain.ErrWrittenPending)
+
+	_, err = f.svc.AdjustItem(ctx, f.teacher, f.class.ID, a.ID, ana.ID, 5, ptr(1.0), "")
+	require.NoError(t, err)
+	got, err := f.svc.FinishReview(ctx, f.teacher, f.class.ID, a.ID, ana.ID)
+	require.NoError(t, err)
+	assert.True(t, got.Reviewed)
+	require.NotNil(t, got.FinalScore)
+	assert.Equal(t, got.Score, *got.FinalScore)
+
+	rows, err := f.svc.Attempts(ctx, f.teacher, f.class.ID, a.ID)
+	require.NoError(t, err)
+	for _, r := range rows {
+		if r.AttemptID == ana.ID {
+			assert.True(t, r.Reviewed)
+			require.NotNil(t, r.FinalScore)
+			assert.Equal(t, got.Score, *r.FinalScore)
+		}
+	}
+	_, err = f.svc.AdjustItem(ctx, f.teacher, f.class.ID, a.ID, ana.ID, 1, ptr(1.0), "x")
+	assert.ErrorIs(t, err, domain.ErrReviewDone)
+
+	got, err = f.svc.ReopenReview(ctx, f.teacher, f.class.ID, a.ID, ana.ID)
+	require.NoError(t, err)
+	assert.False(t, got.Reviewed)
+	assert.Nil(t, got.FinalScore)
+	_, err = f.svc.AdjustItem(ctx, f.teacher, f.class.ID, a.ID, ana.ID, 1, ptr(1.0), "x")
+	assert.NoError(t, err, "reopened, the points change again")
+	_, err = f.svc.FinishReview(ctx, f.other, f.class.ID, a.ID, ana.ID)
+	assert.ErrorIs(t, err, domain.ErrForbidden)
+}

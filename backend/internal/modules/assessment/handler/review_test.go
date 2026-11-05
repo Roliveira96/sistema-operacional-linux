@@ -132,3 +132,79 @@ func TestAdjustRoute(t *testing.T) {
 	_, body = call(t, srv, http.MethodPut, path, map[string]any{"points": 1, "reason": "x"})
 	assert.Contains(t, body["type"], "invalid-points")
 }
+
+// fakeNotes records the notes the route sent.
+var fakeNotes [2]string
+
+func (f *fakeService) SaveReviewNotes(_ context.Context, a service.Actor, classID, id, attemptID uuid.UUID, teacherNote, studentNote string) error {
+	f.saw("SaveReviewNotes", a)
+	fakeNotes = [2]string{teacherNote, studentNote}
+	return f.err
+}
+
+func (f *fakeService) FinishReview(_ context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.Review, error) {
+	f.saw("FinishReview", a)
+	r := fakeReview
+	r.Reviewed, r.FinalScore = true, &r.Score
+	return r, f.err
+}
+
+func (f *fakeService) ReopenReview(_ context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.Review, error) {
+	f.saw("ReopenReview", a)
+	return fakeReview, f.err
+}
+
+// Covers SPEC-097 CA-04, CA-05 (section 5): the notes, concluding and reopening the review, with their codes.
+func TestReviewNotesFinishAndReopenRoutes(t *testing.T) {
+	srv, svc, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	fakeReview = service.Review{AttemptRow: service.AttemptRow{AttemptID: uuid.New(), Status: domain.AttemptSubmitted, StartedAt: at(21, 9, 10)}, Score: domain.Points(8)}
+	base := assessmentPath(uuid.New(), uuid.New()) + "/attempts/" + fakeReview.AttemptID.String()
+
+	status, _ := call(t, srv, http.MethodPut, base+"/notes", map[string]any{"teacherNote": "Colou?", "studentNote": "Muito bem."})
+	assert.Equal(t, http.StatusNoContent, status)
+	assert.Equal(t, [2]string{"Colou?", "Muito bem."}, fakeNotes)
+	status, _ = call(t, srv, http.MethodPut, base+"/notes", map[string]any{"teacherNote": "x", "other": 1})
+	assert.Equal(t, http.StatusBadRequest, status)
+
+	status, body := call(t, srv, http.MethodPost, base+"/review", nil)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, true, body["reviewed"])
+	assert.Equal(t, 8.0, body["finalScore"])
+	status, body = call(t, srv, http.MethodDelete, base+"/review", nil)
+	require.Equal(t, http.StatusOK, status)
+	assert.Equal(t, false, body["reviewed"])
+	assert.NotContains(t, body, "finalScore")
+
+	for err, want := range map[error]int{domain.ErrInvalidNote: http.StatusBadRequest, domain.ErrWrittenPending: http.StatusConflict} {
+		svc.err = err
+		status, body = call(t, srv, http.MethodPut, base+"/notes", map[string]any{"teacherNote": "x", "studentNote": ""})
+		assert.Equal(t, want, status, err.Error())
+		status, body = call(t, srv, http.MethodPost, base+"/review", nil)
+		assert.Equal(t, want, status, err.Error())
+	}
+	svc.err = domain.ErrWrittenPending
+	_, body = call(t, srv, http.MethodPost, base+"/review", nil)
+	assert.Contains(t, body["type"], "written-pending")
+	svc.err = domain.ErrInvalidNote
+	_, body = call(t, srv, http.MethodPut, base+"/notes", map[string]any{"teacherNote": "x", "studentNote": ""})
+	assert.Contains(t, body["type"], "invalid-note")
+}
+
+// Covers SPEC-097 section 5: the list of the attempts says whether each one was reviewed, and the final score of the reviewed ones.
+func TestAttemptList_HasTheReview(t *testing.T) {
+	srv, _, _ := setup(authn.RoleTeacher)
+	defer srv.Close()
+	final := domain.Points(8)
+	fakeRows = []service.AttemptRow{
+		{AttemptID: uuid.New(), StudentID: uuid.New(), StudentName: "Ana", Status: domain.AttemptSubmitted, StartedAt: at(21, 9, 10), Reviewed: true, FinalScore: &final},
+		{AttemptID: uuid.New(), StudentID: uuid.New(), StudentName: "Bruno", Status: domain.AttemptSubmitted, StartedAt: at(21, 9, 11)},
+	}
+	_, body := call(t, srv, http.MethodGet, assessmentPath(uuid.New(), uuid.New())+"/attempts", nil)
+	items := array(t, body["items"])
+	ana, bruno := object(t, items[0]), object(t, items[1])
+	assert.Equal(t, true, ana["reviewed"])
+	assert.Equal(t, 8.0, ana["finalScore"])
+	assert.Equal(t, false, bruno["reviewed"])
+	assert.NotContains(t, bruno, "finalScore")
+}

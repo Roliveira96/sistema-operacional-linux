@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -65,4 +66,32 @@ func TestAdjustItem_StoresAndClears(t *testing.T) {
 	assert.Nil(t, items[0].AdjustedPoints)
 	assert.Nil(t, items[0].AdjustReason)
 	assert.ErrorIs(t, e.repo.AdjustItem(e.ctx, at.ID, 99, &half, &reason, e.now, e.teacher.ID), domain.ErrAttemptNotFound)
+}
+
+// Covers SPEC-097 CA-04, CA-05: the notes, the review done with the final score and the review reopened are stored in the attempt.
+func TestReview_NotesFinishAndReopen(t *testing.T) {
+	e := newEnv(t)
+	a := e.create(t)
+	at, _ := e.attempt(t, a)
+	teacher, student := "Colou?", "Muito bem."
+	require.NoError(t, e.repo.SaveReviewNotes(e.ctx, at.ID, &teacher, &student))
+	score := domain.Points(7.5)
+	require.NoError(t, e.repo.FinishReview(e.ctx, at.ID, score, e.now, e.teacher.ID))
+	got, err := e.repo.FindAttemptByID(e.ctx, at.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Colou?", *got.TeacherNote)
+	assert.Equal(t, "Muito bem.", *got.StudentNote)
+	require.NotNil(t, got.FinalScore)
+	assert.Equal(t, score, *got.FinalScore)
+	require.NotNil(t, got.ReviewedAt)
+	assert.Equal(t, e.teacher.ID, *got.ReviewedBy)
+
+	require.NoError(t, e.repo.ReopenReview(e.ctx, at.ID))
+	require.NoError(t, e.repo.SaveReviewNotes(e.ctx, at.ID, nil, nil))
+	got, err = e.repo.FindAttemptByID(e.ctx, at.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got.ReviewedAt)
+	assert.Nil(t, got.FinalScore)
+	assert.Nil(t, got.TeacherNote)
+	assert.ErrorIs(t, e.repo.FinishReview(e.ctx, uuid.New(), score, e.now, e.teacher.ID), domain.ErrAttemptNotFound)
 }
