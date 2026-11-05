@@ -128,3 +128,13 @@ describe("AssessmentSimulator, the terminal of the exam", () => {
     expect(within(student).queryByRole("button", { name: /Cola|Som|Mudo|Painel de processos/ })).toBeNull();
   });
 });
+
+// SPEC-090 revision 4, CA-22 (D-08): the simulator has the same divider and the same button to expand the terminal as the window of the exam.
+describe("AssessmentSimulator, SPEC-090 revision 4 the size of the terminal", () => {
+  it("has the divider and expands the terminal", async () => {
+    const student = await start();
+    expect(within(student).getByRole("separator", { name: "Largura do terminal" })).toBeDefined();
+    fireEvent.click(within(student).getByRole("button", { name: "Expandir terminal" }));
+    expect(within(student).getByRole("button", { name: "Recolher" })).toBeDefined();
+  });
+});

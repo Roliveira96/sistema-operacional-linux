@@ -224,3 +224,12 @@ describe("ExamRunner, the copy in the browser", () => {
     setItem.mockRestore();
   });
 });
+
+// SPEC-090 revision 4, CA-21: the window of the exam has the divider of the terminal.
+describe("ExamRunner, SPEC-090 revision 4 the size of the terminal", () => {
+  it("has the divider and the button to expand the terminal", () => {
+    setup();
+    expect(screen.getByRole("separator", { name: "Largura do terminal" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Expandir terminal" })).toBeDefined();
+  });
+});
