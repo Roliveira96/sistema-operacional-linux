@@ -1,6 +1,7 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assessmentService, type Review } from "@/services/assessmentService";
+import { problem } from "@/test/helpers";
 import { ReviewAttempt } from "./ReviewAttempt";
 
 export const review = (over: Partial<Review> = {}): Review => ({
@@ -99,5 +100,53 @@ describe("ReviewAttempt", () => {
   it("says when there is no request for help", () => {
     render(<ReviewAttempt classId="c-1" assessmentId="a-1" maxScore={10} review={review({ helps: [] })} />);
     expect(screen.getByText("Nenhum pedido de ajuda.")).toBeDefined();
+  });
+});
+
+// SPEC-097 CA-06 (T6): while the review is open, the teacher adjusts the points of a question with the reason, undoes an adjustment, and keeps the
+// notes when she leaves the field; a review done has no editing.
+describe("ReviewAttempt, adjusting and the notes", () => {
+  it("adjusts the points of a question with the reason and gives back the new attempt", async () => {
+    const changed = review({ score: 2 });
+    const adjust = vi.spyOn(assessmentService, "adjustPoints").mockResolvedValue(changed);
+    const onChange = vi.fn();
+    render(<ReviewAttempt classId="c-1" assessmentId="a-1" maxScore={10} review={review()} onChange={onChange} />);
+    const single = screen.getByRole("article", { name: "Questão 1: Permissões" });
+    fireEvent.change(within(single).getByLabelText("Pontos nesta questão"), { target: { value: "1,5" } });
+    fireEvent.change(within(single).getByLabelText("Motivo do ajuste"), { target: { value: "Ambígua" } });
+    fireEvent.click(within(single).getByRole("button", { name: "Salvar pontos" }));
+    await waitFor(() => expect(adjust).toHaveBeenCalledWith("c-1", "a-1", "t-1", 1, 1.5, "Ambígua"));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(changed));
+  });
+
+  it("undoes an adjustment, and says why the points were refused", async () => {
+    const adjust = vi.spyOn(assessmentService, "adjustPoints").mockResolvedValue(review());
+    render(<ReviewAttempt classId="c-1" assessmentId="a-1" maxScore={10} review={review()} onChange={vi.fn()} />);
+    const practical = screen.getByRole("article", { name: "Questão 2: Criar pastas" });
+    fireEvent.click(within(practical).getByRole("button", { name: "Desfazer o ajuste" }));
+    await waitFor(() => expect(adjust).toHaveBeenCalledWith("c-1", "a-1", "t-1", 2, null, ""));
+
+    adjust.mockRejectedValue(problem("invalid-points", 400));
+    const single = screen.getByRole("article", { name: "Questão 1: Permissões" });
+    fireEvent.change(within(single).getByLabelText("Pontos nesta questão"), { target: { value: "5" } });
+    fireEvent.click(within(single).getByRole("button", { name: "Salvar pontos" }));
+    expect(await within(single).findByRole("alert")).toBeDefined();
+    expect(within(single).getByRole("alert").textContent).toContain("de 0 a 2,00");
+  });
+
+  it("keeps the notes when the teacher leaves the field", async () => {
+    const save = vi.spyOn(assessmentService, "saveReviewNotes").mockResolvedValue(undefined);
+    render(<ReviewAttempt classId="c-1" assessmentId="a-1" maxScore={10} review={review({ studentNote: "Muito bem" })} onChange={vi.fn()} />);
+    const note = screen.getByLabelText("Anotação privada (só você vê)");
+    fireEvent.change(note, { target: { value: "Colou na 3?" } });
+    fireEvent.blur(note);
+    await waitFor(() => expect(save).toHaveBeenCalledWith("c-1", "a-1", "t-1", "Colou na 3?", "Muito bem"));
+    expect(await screen.findByText("Anotações salvas")).toBeDefined();
+  });
+
+  it("has no editing once the review is done", () => {
+    render(<ReviewAttempt classId="c-1" assessmentId="a-1" maxScore={10} review={review({ reviewed: true, finalScore: 2.5 })} onChange={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Salvar pontos" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Desfazer o ajuste" })).toBeNull();
   });
 });
