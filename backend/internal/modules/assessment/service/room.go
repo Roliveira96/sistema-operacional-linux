@@ -83,7 +83,7 @@ func (s *Service) EnterRoom(ctx context.Context, actor Actor, classID, id uuid.U
 		return RoomEntry{}, domain.ErrInvalidAssessment
 	case a.Status == domain.StatusCanceled:
 		return RoomEntry{}, domain.ErrAssessmentCanceled
-	case now.Before(a.StartsAt):
+	case now.Before(a.StartsAt.Add(-domain.EarlyStartWindow)): // the room opens an hour before the time set (SPEC-099 D-04)
 		return RoomEntry{}, domain.ErrAssessmentNotOpenYet
 	case now.After(a.EndsAt.Add(domain.AttemptTolerance)):
 		return RoomEntry{}, domain.ErrAssessmentEnded

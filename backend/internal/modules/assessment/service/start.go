@@ -26,17 +26,28 @@ func (s *Service) Start(ctx context.Context, actor Actor, classID, id uuid.UUID)
 	case a.Status == domain.StatusCanceled:
 		return Summary{}, domain.ErrAssessmentCanceled
 	}
+	early := false
 	switch a.PhaseAt(now) {
 	case domain.PhaseEnded:
 		return Summary{}, domain.ErrAssessmentEnded
 	case domain.PhaseUpcoming:
-		return Summary{}, domain.ErrAssessmentNotOpenYet
+		if !a.InEarlyHour(now) {
+			return Summary{}, domain.ErrAssessmentNotOpenYet
+		}
+		early = true // up to an hour before the time set (SPEC-099 D-03)
 	}
 	if a.StartedAt != nil {
 		return Summary{}, domain.ErrAssessmentAlreadyStarted
 	}
 	a.StartedAt, a.StartedBy = &now, &actor.UserID
 	event := domain.Event{Kind: domain.EventStarted, ActorID: actor.UserID, CreatedAt: now}
+	if early {
+		// the period begins now and keeps its length; the history keeps the old one and the new one (SPEC-099 D-01, D-02, D-06)
+		oldStart, oldEnd := a.StartsAt, a.EndsAt
+		a.StartsAt, a.EndsAt = now, now.Add(oldEnd.Sub(oldStart))
+		newStart, newEnd := a.StartsAt, a.EndsAt
+		event.OldStartsAt, event.OldEndsAt, event.NewStartsAt, event.NewEndsAt = &oldStart, &oldEnd, &newStart, &newEnd
+	}
 	if err := s.repo.Save(ctx, &a, Replacements{}, &event); err != nil {
 		return Summary{}, err
 	}

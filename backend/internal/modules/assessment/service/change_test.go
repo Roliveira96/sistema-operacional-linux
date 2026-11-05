@@ -318,7 +318,7 @@ func TestAccessOf_DecisionTable(t *testing.T) {
 		student service.Student
 		want    domain.Access
 	}{
-		{"before the start", at(21, 8, 59), f.ana, domain.AccessNotOpenYet},
+		{"before the start", at(21, 7, 59), f.ana, domain.AccessNotOpenYet},
 		{"at the start", at(21, 9, 0), f.ana, domain.AccessAllowed},
 		{"in the middle", at(21, 10, 0), f.bruno, domain.AccessAllowed},
 		{"at the end", at(21, 11, 0), f.ana, domain.AccessEnded},
