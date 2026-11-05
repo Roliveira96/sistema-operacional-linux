@@ -294,7 +294,7 @@ describe("assessment page, start of the exam", () => {
     const button = (await screen.findByRole("button", { name: "Iniciar a prova" })) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     const reason = document.getElementById(button.getAttribute("aria-describedby")!);
-    expect(reason?.textContent).toBe("A prova pode ser iniciada a partir de 23/10/2026, 09:00.");
+    expect(reason?.textContent).toBe("A prova pode ser iniciada a partir de 23/10/2026, 08:00 (1 hora antes do horário marcado).");
   });
 
   it("says that the exam ended without being started", async () => {
@@ -461,5 +461,44 @@ describe("assessment page, SPEC-098 the result of the student", () => {
     expect(await screen.findByText("Sua nota: 8,00 de 10,00")).toBeDefined();
     expect(screen.getByRole("link", { name: "Ver a correção" }).getAttribute("href")).toBe("/app/classes/c-1/assessments/a-1/result");
     expect(assessmentService.myResult).toHaveBeenCalledWith("c-1", "a-1");
+  });
+});
+
+// SPEC-099 CA-04 (D-03): up to an hour before the time set, the teacher starts the exam, with the dialog that tells the new period and the e-mail;
+// afterwards the detail says it was started before the time set.
+describe("assessment page, SPEC-099 the early start", () => {
+  const soon = { phase: "UPCOMING", startsAt: "2026-10-21T10:30:00-03:00", endsAt: "2026-10-21T12:30:00-03:00", serverNow: SERVER_NOW } as const;
+
+  it("offers to start within the hour before, with the new period and the e-mail in the dialog", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(detail({ ...soon }));
+    render(<AssessmentPage params={params} />);
+    const button = (await screen.findByRole("button", { name: "Iniciar a prova" })) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(screen.getByText("Marcada para 10:30. Você pode iniciar agora.")).toBeDefined();
+    fireEvent.click(button);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("antes do horário marcado (10:30)");
+    expect(dialog.textContent).toContain("de 10:00 (agora) a 12:00");
+    expect(dialog.textContent).toContain("os alunos recebem um e-mail");
+  });
+
+  it("says the exam was started before the time set", async () => {
+    asRole("TEACHER");
+    vi.spyOn(assessmentService, "get").mockResolvedValue(
+      detail({
+        ...STARTED,
+        startedAt: "2026-10-21T10:00:00-03:00",
+        startedByName: "Profa. Sediane",
+        events: [
+          {
+            kind: "STARTED", actorName: "Profa. Sediane", createdAt: "2026-10-21T10:00:00-03:00",
+            oldStartsAt: "2026-10-21T10:30:00-03:00", oldEndsAt: "2026-10-21T12:30:00-03:00", newStartsAt: "2026-10-21T10:00:00-03:00", newEndsAt: "2026-10-21T12:00:00-03:00",
+          },
+        ],
+      }),
+    );
+    render(<AssessmentPage params={params} />);
+    expect(await screen.findByText("Prova iniciada às 10:00 por Profa. Sediane, antes do horário marcado (10:30).")).toBeDefined();
   });
 });
