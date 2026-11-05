@@ -72,12 +72,12 @@ Nenhuma coluna nova. Os e-mails usam a caixa de saída da SPEC-042 como está. N
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (evento): QUANDO a docente inicia a prova até 60 minutos antes do horário marcado, O servidor DEVE gravar o início, mover o período para começar agora com a mesma duração e registrar no histórico o período antigo e o novo; com mais de 60 minutos, `409 assessment-not-open-yet` (D-01 a D-03, D-06).
-- [ ] **CA-02** (evento): QUANDO a docente inicia na fase `RUNNING`, O período NÃO DEVE mudar (como hoje).
-- [ ] **CA-03** (estado): ENQUANTO faltam até 60 minutos para o horário marcado e a prova não começou, A sala DEVE aceitar a docente e deixar os alunos na sala de espera; antes disso, DEVE recusar (D-04).
-- [ ] **CA-06** (evento): QUANDO a prova é iniciada antes do horário, O servidor DEVE pôr na caixa de saída um e-mail para cada aluno elegível, com o título, o horário do início, o horário marcado, o novo término e o link; QUANDO é iniciada no horário, NÃO DEVE enviar e-mail (D-05).
-- [ ] **CA-04** (estado): ENQUANTO faltam até 60 minutos para o horário marcado, O detalhe e a sala DEVEM ter *Iniciar a prova* liberado, com a frase e o diálogo da seção 3.1; antes, travado com a frase da hora em que libera; depois do início, a frase "antes do horário marcado".
-- [ ] **CA-05** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`.
+- [x] **CA-01** (evento): QUANDO a docente inicia a prova até 60 minutos antes do horário marcado, O servidor DEVE gravar o início, mover o período para começar agora com a mesma duração e registrar no histórico o período antigo e o novo; com mais de 60 minutos, `409 assessment-not-open-yet` (D-01 a D-03, D-06).
+- [x] **CA-02** (evento): QUANDO a docente inicia na fase `RUNNING`, O período NÃO DEVE mudar (como hoje).
+- [x] **CA-03** (estado): ENQUANTO faltam até 60 minutos para o horário marcado e a prova não começou, A sala DEVE aceitar a docente e deixar os alunos na sala de espera; antes disso, DEVE recusar (D-04).
+- [x] **CA-06** (evento): QUANDO a prova é iniciada antes do horário, O servidor DEVE pôr na caixa de saída um e-mail para cada aluno elegível, com o título, o horário do início, o horário marcado, o novo término e o link; QUANDO é iniciada no horário, NÃO DEVE enviar e-mail (D-05).
+- [x] **CA-04** (estado): ENQUANTO faltam até 60 minutos para o horário marcado, O detalhe e a sala DEVEM ter *Iniciar a prova* liberado, com a frase e o diálogo da seção 3.1; antes, travado com a frase da hora em que libera; depois do início, a frase "antes do horário marcado".
+- [x] **CA-05** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -109,3 +109,4 @@ Nenhuma coluna nova. Os e-mails usam a caixa de saída da SPEC-042 como está. N
 | 05/11/2026 | Aruna Architect | Criada em `Rascunho`, a partir do pedido do Tech Lead de 04/11/2026. Pendências D-01 a D-06. |
 | 05/11/2026 | Aruna Architect | Decisões do Tech Lead incorporadas: D-03 até 1 hora antes, e fora disso não; D-05 e-mail aos alunos elegíveis no início antecipado (CA-06 novo); D-04 a sala abre 1 hora antes; D-01, D-02 e D-06 com as recomendações. Aguarda o "aprovo". |
 | 05/11/2026 | Tech Lead | Aprovada ("Aprovo"). Status: `Aprovada` |
+| 05/11/2026 | Implementador | Implementada, menos o roteiro manual, por isso o status continua `Aprovada`. **Feito:** CA-01 a CA-06, em T1 (backend: `EarlyStartWindow` e `InEarlyHour` no domínio, o `Start` que move o período e grava o antigo e o novo no evento `STARTED`, a sala e o acesso `NOT_STARTED` 1 hora antes), T2 (a porta `Mailer`, o e-mail em português no service e o adaptador `assessmentMail` na caixa de saída da SPEC-042) e T3 (`inEarlyHour`, `canStart`, `earlyPeriod` e `earlyStartFrom`, as frases, o diálogo e a sala). **Medido:** cada tarefa com o vermelho pelo motivo esperado; backend verde (service 83,8%, handler 87,1%, domain 96,2%, `cmd/api` verde); frontend com 613 testes verdes nas pastas da avaliação (as 10 falhas do calendário estão corrigidas na branch `fix/testes-do-calendario`), `tsc` e ESLint limpos. **Desvios:** os e-mails entram na caixa de saída logo depois do início, não na mesma transação; o acesso do aluno na hora antecipada vira `NOT_STARTED`, para o botão *Entrar na prova* levar à sala de espera; a tela usa o relógio do servidor da última leitura e o fuso fixo de Brasília. **Testes alterados depois do vermelho:** o caso "antes do início" da tabela de acesso (SPEC-075) passou de 08:59 para 07:59, por ser uma prova. **Aberto:** o roteiro manual. |
