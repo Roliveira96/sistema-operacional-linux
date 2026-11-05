@@ -42,6 +42,10 @@ var (
 	ErrNotPractical            = errors.New("only a practical question is checked")
 	ErrNotEligible             = errors.New("the student is not eligible for the exam")
 	ErrNotCleared              = errors.New("the student was not cleared for the exam")
+	// SPEC-096: the admission by the teacher and the finish of the exam
+	ErrAttemptNotAdmitted = errors.New("the teacher has not admitted the student yet")
+	ErrAssessmentFinished = errors.New("the teacher finished the exam")
+	ErrInvalidAdmission   = errors.New("the admission takes from 1 to 200 eligible students")
 
 	// SPEC-091: the room
 	ErrInvalidReason = errors.New("the reason is required, up to 500 characters")

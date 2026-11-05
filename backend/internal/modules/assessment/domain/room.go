@@ -9,6 +9,15 @@ import (
 // AttemptEndedByTeacher is the attempt the teacher ended during the exam, graded as it stood (SPEC-091 RN-08, SPEC-090 D-02).
 const AttemptEndedByTeacher AttemptStatus = "ENDED_BY_TEACHER"
 
+// AttemptAbsent is the eligible student without an attempt once the exam ended; it is only in the list of the attempts, never stored (SPEC-096 RN-06).
+const AttemptAbsent AttemptStatus = "ABSENT"
+
+// FinishReason is the reason of the attempts the teacher ends by finishing the exam (SPEC-096 RN-04, D-02).
+const FinishReason = "A docente finalizou a prova."
+
+// MaxAdmission is how many students one admission takes (SPEC-096 RN-01).
+const MaxAdmission = 200
+
 // The limits of the room (SPEC-091 RN-06 to RN-08).
 const (
 	MaxCommandLength = 1000

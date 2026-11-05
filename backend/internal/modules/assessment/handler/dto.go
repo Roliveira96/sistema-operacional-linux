@@ -75,6 +75,8 @@ type summaryJSON struct {
 	StartedAt           *string            `json:"startedAt,omitempty"`
 	StartedBy           *uuid.UUID         `json:"startedBy,omitempty"`
 	StartedByName       string             `json:"startedByName,omitempty"`
+	FinishedAt          *string            `json:"finishedAt,omitempty"`
+	FinishedByName      string             `json:"finishedByName,omitempty"`
 }
 
 func toSummary(s service.Summary) summaryJSON {
@@ -83,6 +85,7 @@ func toSummary(s service.Summary) summaryJSON {
 		Modality: s.Modality, RequiresClearance: s.RequiresClearance, ClearanceCounts: toCounts(s.ClearanceCounts), EligibleStudents: s.EligibleStudents, TotalQuestions: s.TotalQuestions, Frozen: s.Frozen, TeacherPrivateNotes: s.TeacherPrivateNotes,
 		CreatedBy: s.CreatedBy, CreatedByName: s.CreatedByName, UpdatedBy: s.UpdatedBy, UpdatedByName: s.UpdatedByName, UpdatedAt: iso(s.UpdatedAt),
 		CanceledBy: s.CanceledBy, CanceledAt: isoPtr(s.CanceledAt), StartedAt: isoPtr(s.StartedAt), StartedBy: s.StartedBy, StartedByName: s.StartedByName,
+		FinishedAt: isoPtr(s.FinishedAt), FinishedByName: s.FinishedByName,
 	}
 }
 

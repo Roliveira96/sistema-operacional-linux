@@ -19,7 +19,9 @@ import (
 // RN-01, RN-02).
 type RoomEntry struct {
 	Controller bool
-	Waiting    bool
+	// Waiting is the student before the start or, after it, asking to enter until the teacher admits her (SPEC-096 RN-02); Started says which.
+	Waiting bool
+	Started bool
 }
 
 // RoomCard is a student in the room (RN-04): the attempt (ABSENT while there is none), the progress, the deadline and the open hand. Whether the
@@ -86,8 +88,12 @@ func (s *Service) EnterRoom(ctx context.Context, actor Actor, classID, id uuid.U
 	case now.After(a.EndsAt.Add(domain.AttemptTolerance)):
 		return RoomEntry{}, domain.ErrAssessmentEnded
 	}
+	entry.Started = a.StartedAt != nil
 	if entry.Controller {
 		return entry, nil
+	}
+	if a.FinishedAt != nil {
+		return RoomEntry{}, domain.ErrAssessmentFinished
 	}
 	eligible, err := s.eligible(ctx, a)
 	if err != nil {
@@ -96,8 +102,8 @@ func (s *Service) EnterRoom(ctx context.Context, actor Actor, classID, id uuid.U
 	if !eligible[actor.UserID] {
 		return RoomEntry{}, domain.ErrNotEligible
 	}
-	entry.Waiting = a.StartedAt == nil
-	return entry, nil
+	entry.Waiting, err = s.waiting(ctx, a, actor.UserID)
+	return entry, err
 }
 
 // RoomState is the room for the teacher: the start, a card for each eligible student and the queue of the help (RN-04, RN-07).

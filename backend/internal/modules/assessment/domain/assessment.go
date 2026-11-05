@@ -156,6 +156,9 @@ type Assessment struct {
 	// StartedAt and StartedBy are the start of an in-person exam by the teacher (SPEC-083 RN-01); nil until she starts it.
 	StartedAt *time.Time
 	StartedBy *uuid.UUID
+	// FinishedAt and FinishedBy are the teacher finishing the whole exam (SPEC-096 RN-04); nil until she does.
+	FinishedAt *time.Time
+	FinishedBy *uuid.UUID
 }
 
 // TableName pins the table name.
@@ -164,6 +167,8 @@ func (Assessment) TableName() string { return "assessments" }
 // PhaseAt gives the phase at the instant now: before the start, from the start until the end (exclusive), and from the end on (RN-03).
 func (a Assessment) PhaseAt(now time.Time) Phase {
 	switch {
+	case a.FinishedAt != nil && !now.Before(*a.FinishedAt): // finished by the teacher before the end (SPEC-096 RN-05)
+		return PhaseEnded
 	case now.Before(a.StartsAt):
 		return PhaseUpcoming
 	case now.Before(a.EndsAt):

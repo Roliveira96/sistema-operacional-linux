@@ -262,6 +262,10 @@ type Repository interface {
 	AssessmentChat(ctx context.Context, assessmentID uuid.UUID, limit int) ([]domain.ChatMessage, error)
 	// ChatCounts gives the number of messages of the conversation of each attempt of the exam (RN-07).
 	ChatCounts(ctx context.Context, assessmentID uuid.UUID) (map[uuid.UUID]int, error)
+	// Admit stores the admission of the students, ignoring who was already admitted, and gives back who was admitted now; Admitted gives who was
+	// admitted (SPEC-096 RN-01).
+	Admit(ctx context.Context, assessmentID uuid.UUID, students []uuid.UUID, at time.Time, by uuid.UUID) ([]uuid.UUID, error)
+	Admitted(ctx context.Context, assessmentID uuid.UUID) (map[uuid.UUID]bool, error)
 }
 
 // Service implements the use cases of the assessments.
@@ -412,6 +416,9 @@ type Summary struct {
 	StartedAt     *time.Time
 	StartedBy     *uuid.UUID
 	StartedByName string
+	// FinishedAt and FinishedByName are the teacher finishing the whole exam; empty until it happens (SPEC-096 RN-04).
+	FinishedAt     *time.Time
+	FinishedByName string
 }
 
 // ItemView is a question of the composition with what the teacher needs to recognize it.
@@ -454,7 +461,7 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 		Public: publicOf(a, s.now()), ModuleID: a.ModuleID, Composition: a.Composition, Audience: a.Audience, Frozen: a.Frozen(s.now()),
 		Modality: a.Modality, RequiresClearance: a.RequiresClearance,
 		TeacherPrivateNotes: a.TeacherPrivateNotes, CreatedBy: a.CreatedBy, UpdatedBy: a.UpdatedBy, UpdatedAt: a.UpdatedAt,
-		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt, StartedAt: a.StartedAt, StartedBy: a.StartedBy,
+		CanceledBy: a.CanceledBy, CanceledAt: a.CanceledAt, StartedAt: a.StartedAt, StartedBy: a.StartedBy, FinishedAt: a.FinishedAt,
 	}
 	if module, ok, err := s.ports.Modules.ModuleOfClass(ctx, a.ClassID, a.ModuleID); err != nil {
 		return Summary{}, err
@@ -488,6 +495,9 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 	if a.StartedBy != nil {
 		ids = append(ids, *a.StartedBy)
 	}
+	if a.FinishedBy != nil {
+		ids = append(ids, *a.FinishedBy)
+	}
 	names, err := s.ports.Users.Names(ctx, ids)
 	if err != nil {
 		return Summary{}, err
@@ -495,6 +505,9 @@ func (s *Service) summarize(ctx context.Context, a domain.Assessment) (Summary, 
 	sum.CreatedByName, sum.UpdatedByName = names[a.CreatedBy], names[a.UpdatedBy]
 	if a.StartedBy != nil {
 		sum.StartedByName = names[*a.StartedBy]
+	}
+	if a.FinishedBy != nil {
+		sum.FinishedByName = names[*a.FinishedBy]
 	}
 	return sum, nil
 }

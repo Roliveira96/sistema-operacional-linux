@@ -92,12 +92,22 @@ func (s *Service) EnterAttempt(ctx context.Context, actor Actor, classID, id uui
 		return StudentAttempt{}, false, err
 	}
 
+	if a.FinishedAt != nil {
+		return StudentAttempt{}, false, domain.ErrAssessmentFinished
+	}
 	access, err := s.AccessOf(ctx, actor.UserID, a.ID)
 	if err != nil {
 		return StudentAttempt{}, false, err
 	}
 	if err := refusalOf(access); err != nil {
 		return StudentAttempt{}, false, err
+	}
+	admitted, err := s.repo.Admitted(ctx, a.ID) // SPEC-096 RN-03: only the admitted student starts; who has an attempt went back above
+	if err != nil {
+		return StudentAttempt{}, false, err
+	}
+	if !admitted[actor.UserID] {
+		return StudentAttempt{}, false, domain.ErrAttemptNotAdmitted
 	}
 	items, err := s.frozenItems(ctx, a)
 	if err != nil {
@@ -254,6 +264,23 @@ func (s *Service) Attempts(ctx context.Context, actor Actor, classID, id uuid.UU
 		}
 		if at.EndReason != nil {
 			rows[i].EndReason = *at.EndReason
+		}
+	}
+	// SPEC-096 RN-06: once the exam ended, who could take it and has no attempt did not come
+	if a.PhaseAt(s.now()) != domain.PhaseEnded {
+		return rows, nil
+	}
+	eligible, err := s.eligible(ctx, a)
+	if err != nil {
+		return nil, err
+	}
+	took := make(map[uuid.UUID]bool, len(list))
+	for _, at := range list {
+		took[at.StudentID] = true
+	}
+	for _, st := range students {
+		if eligible[st.ID] && !took[st.ID] {
+			rows = append(rows, AttemptRow{StudentID: st.ID, StudentName: st.Name, AcademicID: st.AcademicID, Status: domain.AttemptAbsent})
 		}
 	}
 	return rows, nil

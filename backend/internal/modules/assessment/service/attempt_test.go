@@ -117,6 +117,7 @@ func TestEnterAttempt_DeadlineIsTheDurationOrTheEnd(t *testing.T) {
 		in.Items, in.MaxScore = []domain.Item{{QuestionID: q, Position: 1, Weight: domain.Points(10)}}, domain.Points(10)
 	})
 	f.begin(t, a)
+	f.admitAll(t, a) // SPEC-096: the start admits nobody
 
 	f.now = at(21, 9, 10)
 	assert.True(t, f.enter(t, f.ana, a).DeadlineAt.Equal(at(21, 9, 40)), "the start plus 30 minutes")
@@ -181,6 +182,7 @@ func TestEnterAttempt_DrawAndFrozenQuestions(t *testing.T) {
 		in.Draw, in.MaxScore = f.draw(2, 1, 0, 3, 4, 0), domain.Points(10)
 	})
 	f.begin(t, a)
+	f.admitAll(t, a) // SPEC-096: the start admits nobody
 	got := f.enter(t, f.ana, a)
 	require.Len(t, got.Items, 3)
 	assert.Equal(t, []domain.Score{domain.Points(3), domain.Points(3), domain.Points(4)}, []domain.Score{got.Items[0].Weight, got.Items[1].Weight, got.Items[2].Weight})

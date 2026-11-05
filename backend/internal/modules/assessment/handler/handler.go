@@ -96,6 +96,9 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.POST("/classes/:id/assessments/:assessmentId/attempts/:attemptId/end", h.endAttempt)
 	// the conversation of the exam (SPEC-093 section 5)
 	g.GET("/classes/:id/assessments/:assessmentId/attempts/:attemptId/chat", h.attemptChat)
+	// the admission by the teacher and the finish of the exam (SPEC-096 section 5)
+	g.POST("/classes/:id/assessments/:assessmentId/admissions", h.admit)
+	g.POST("/classes/:id/assessments/:assessmentId/finish", h.finish)
 }
 
 func fail(c *gin.Context, p *problem.Problem) {
@@ -225,6 +228,12 @@ func toProblem(err error) *problem.Problem {
 		return problem.BadRequest("invalid-reason", err.Error())
 	case errors.Is(err, domain.ErrInvalidHelp):
 		return problem.BadRequest("invalid-help", err.Error())
+	case errors.Is(err, domain.ErrAttemptNotAdmitted):
+		return problem.Conflict("attempt-not-admitted", err.Error())
+	case errors.Is(err, domain.ErrAssessmentFinished):
+		return problem.Conflict("assessment-finished", err.Error())
+	case errors.Is(err, domain.ErrInvalidAdmission):
+		return problem.BadRequest("invalid-admission", err.Error())
 	case errors.Is(err, domain.ErrHelpNotFound):
 		return problem.NotFound("help-not-found", err.Error())
 	}
