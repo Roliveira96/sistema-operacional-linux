@@ -261,6 +261,10 @@ Termos da SPEC-083 (Rascunho em 22/10/2026).
 | Pedindo para entrar | `requesting` (cartão da sala) | O aluno conectado à sala depois do início, esperando a admissão | `Waiting` solto | Proposto (SPEC-096) |
 | Finalizar a prova | `finished_at`, `finished_by` (rota `POST .../assessments/:assessmentId/finish`) | A docente encerra a prova inteira antes do término: as tentativas em andamento são entregues como encerradas pela docente e ninguém mais entra | `close`, `end` (encerrar a prova de um aluno é outra coisa) | Proposto (SPEC-096) |
 | Não compareceu | `ABSENT` (só na lista das tentativas, nunca guardado) | O aluno elegível sem tentativa depois do fim da prova | `Missing` | Proposto (SPEC-096) |
+| Correção da prova | tela `.../assessments/:assessmentId/review`, `ReviewOf` | A docente revisa, depois do fim da prova, cada tentativa entregue: respostas, comandos, pedidos de ajuda, conversa, pontos e anotações | `Grading` solto | Proposto (SPEC-097) |
+| Ajuste de pontos | `adjusted_points`, `adjust_reason` (rota `PUT .../attempts/:attemptId/items/:position/points`) | Os pontos que a docente dá a uma questão na correção, de 0 ao peso, com o motivo; sem ajuste valem os automáticos | `Override` | Proposto (SPEC-097) |
+| Revisão concluída | `reviewed_at`, `reviewed_by`, `final_score` (rotas `POST` e `DELETE .../attempts/:attemptId/review`) | A docente encerra a correção de uma tentativa com a nota final; pode reabrir | `Homologation` (a homologação é outra coisa) | Proposto (SPEC-097) |
+| Anotação privada / Anotação ao aluno | `teacher_note`, `student_note` | O que a docente escreve sobre a tentativa: a privada só ela vê; a do aluno sai na publicação das notas | `Feedback` solto | Proposto (SPEC-097) |
 | Prova não iniciada | `NOT_STARTED` (resultado de `AccessOf`) | A prova presencial já está em andamento pelo relógio, mas a docente ainda não a iniciou; vem depois de `ENDED` e antes de `NOT_CLEARED` | `NOT_OPEN` (já é `NOT_OPEN_YET`, que é antes do horário) | Proposto (SPEC-083) |
 
 ## 5. Condução da prova e auditoria
