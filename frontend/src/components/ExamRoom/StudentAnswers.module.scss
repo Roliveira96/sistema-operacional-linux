@@ -1,0 +1,103 @@
+@use "@/styles/mixins";
+
+// What the open student answered (SPEC-095): one row per question, the answer under the title, the key beside it, and the question the student is in.
+.answers {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.head {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+
+  > li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+
+    & + li {
+      border-top: 1px solid var(--color-border);
+    }
+  }
+}
+
+.current {
+  background: var(--color-accent-subtle);
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.number {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.here {
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-pill);
+}
+
+.text,
+.muted {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.text {
+  color: var(--color-text-body);
+}
+
+.muted {
+  color: var(--color-text-secondary);
+}
+
+.key {
+  color: var(--color-text-secondary);
+}
+
+.right {
+  color: var(--color-success);
+}
+
+.wrong {
+  color: var(--color-danger);
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+}
+
+.written {
+  @include mixins.rich-text;
+
+  font-size: var(--font-size-sm);
+}

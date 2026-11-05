@@ -28,6 +28,7 @@ import {
   type RoomCommand,
 } from "@/services/assessmentService";
 import styles from "./ExamRoom.module.scss";
+import { StudentAnswers } from "./StudentAnswers";
 
 const r = messages.assessments.room;
 const c = messages.assessments.chat;
@@ -55,8 +56,8 @@ const savedWidth = () => {
   }
 };
 
-type Tab = "student" | "help" | "chat";
-const TABS: Tab[] = ["student", "help", "chat"];
+type Tab = "student" | "answers" | "help" | "chat";
+const TABS: Tab[] = ["student", "answers", "help", "chat"];
 
 type Filter = "all" | "hands" | "waiting" | "doing" | "delivered" | "absent";
 
@@ -450,6 +451,11 @@ export function ExamRoom({
   const shown = sorted.filter(matches[filter]);
   const open = cards.find((c) => c.studentId === watching) ?? null;
   const openScreen = open ? screens[open.studentId] : undefined;
+  // the attempt of the open student, read for the tab Respostas (SPEC-095)
+  const openAttempt = open?.attemptId;
+  const loadAnswers = openAttempt
+    ? () => assessmentService.attemptForTeacher(classId, id, openAttempt)
+    : null;
   const left = Math.max(Date.parse(endsAt) - (now + offset), 0);
   const commandsOf = open ? (commands[open.studentId] ?? []) : [];
   const commandPositions = [...new Set(commandsOf.map((c) => c.position))].sort(
@@ -642,7 +648,9 @@ export function ExamRoom({
                       )}
                       {(unread[c.studentId] ?? 0) > 0 && (
                         <span className={styles.unread}>
-                          {messages.assessments.chat.unread(unread[c.studentId]!)}
+                          {messages.assessments.chat.unread(
+                            unread[c.studentId]!,
+                          )}
                         </span>
                       )}
                       {c.help && (
@@ -703,9 +711,11 @@ export function ExamRoom({
                 >
                   {t === "student"
                     ? r.tabStudent
-                    : t === "help"
-                      ? r.tabHelp(openHelp)
-                      : c.tab(totalUnread)}
+                    : t === "answers"
+                      ? r.tabAnswers
+                      : t === "help"
+                        ? r.tabHelp(openHelp)
+                        : c.tab(totalUnread)}
                 </button>
               ))}
             </div>
@@ -894,6 +904,17 @@ export function ExamRoom({
                 />
               </section>
             )}
+
+            {tab === "answers" &&
+              (loadAnswers ? (
+                <StudentAnswers
+                  key={openAttempt}
+                  load={loadAnswers}
+                  current={(openScreen ?? open?.question)?.position}
+                />
+              ) : (
+                <p className={styles.empty}>{r.answers.empty}</p>
+              ))}
 
             {tab === "help" &&
               (queue.length === 0 ? (

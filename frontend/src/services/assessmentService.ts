@@ -221,6 +221,24 @@ export interface AttemptItem {
   checkedSolved?: boolean;
 }
 
+/** A question of the attempt as the teacher reads it in the room (SPEC-095): the title and, in the objective ones, the key; never the machine. */
+export interface TeacherAttemptItem extends AttemptItem {
+  title: string;
+  answerKey?: unknown;
+}
+
+/** The attempt of one student as the teacher reads it in the room (SPEC-095 section 5). */
+export interface TeacherAttempt {
+  attemptId: string;
+  studentId: string;
+  studentName: string;
+  status: AttemptStatus;
+  startedAt: string;
+  submittedAt?: string;
+  serverNow: string;
+  items: TeacherAttemptItem[];
+}
+
 /** The attempt of the student (SPEC-090 section 5). */
 export interface StudentAttempt {
   id: string;
@@ -377,6 +395,7 @@ export function createAssessmentService(client: HttpClient = httpClient) {
     /** Delivers the attempt (SPEC-090 RN-06). */
     submitAttempt: (classId: string, id: string) => client.post<StudentAttempt>(`${base(classId)}/${id}/attempt/submit`),
     /** The attempts of the exam, for the teacher and the administrator (SPEC-090 RN-09). */
+    attemptForTeacher: (classId: string, id: string, attemptId: string) => client.get<TeacherAttempt>(`${base(classId)}/${id}/attempts/${attemptId}`),
     attempts: (classId: string, id: string) => client.get<{ items: AttemptRow[]; serverNow: string }>(`${base(classId)}/${id}/attempts`),
     /** The whole conversation of an attempt, for the teacher and the administrator (SPEC-093 RN-07). */
     attemptChat: (classId: string, id: string, attemptId: string) =>
