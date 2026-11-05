@@ -60,6 +60,7 @@ type AssessmentService interface {
 	ReopenReview(ctx context.Context, a service.Actor, classID, id, attemptID uuid.UUID) (service.Review, error)
 	// SPEC-098: the publication of the grades
 	PublishGrades(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.Summary, error)
+	MyResult(ctx context.Context, a service.Actor, classID, id uuid.UUID) (service.StudentResult, error)
 
 	// SPEC-091: the room
 	RoomServices
@@ -115,6 +116,7 @@ func (h *Handler) Register(r gin.IRouter) {
 	g.DELETE("/classes/:id/assessments/:assessmentId/attempts/:attemptId/review", h.reopenReview)
 	// the publication of the grades (SPEC-098 section 5)
 	g.POST("/classes/:id/assessments/:assessmentId/grades/publish", h.publishGrades)
+	g.GET("/classes/:id/assessments/:assessmentId/my-result", h.myResult)
 }
 
 func fail(c *gin.Context, p *problem.Problem) {

@@ -384,3 +384,41 @@ func (h *Handler) publishGrades(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, summaryResponse{summaryJSON: toSummary(got), ServerNow: iso(h.svc.Now())})
 }
+
+// myResult gives the student her published result (SPEC-098 section 5).
+func (h *Handler) myResult(c *gin.Context) {
+	actor, classID, id, ok := attemptIDs(c)
+	if !ok {
+		return
+	}
+	got, err := h.svc.MyResult(c.Request.Context(), actor, classID, id)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	items := make([]gin.H, len(got.Items))
+	for i, it := range got.Items {
+		item := gin.H{"position": it.Position, "kind": it.Kind, "weight": it.Weight.Float(), "title": it.Title, "studentView": it.StudentView}
+		if len(it.Answer) > 0 {
+			item["answer"] = it.Answer
+		}
+		if it.CheckedSolved != nil {
+			item["checkedSolved"] = *it.CheckedSolved
+		}
+		if len(it.AnswerKey) > 0 {
+			item["answerKey"] = it.AnswerKey
+		}
+		if it.Points != nil {
+			item["points"] = it.Points.Float()
+		}
+		if it.AdjustReason != "" {
+			item["adjustReason"] = it.AdjustReason
+		}
+		items[i] = item
+	}
+	out := gin.H{"finalScore": got.FinalScore.Float(), "maxScore": got.MaxScore.Float(), "items": items}
+	if got.StudentNote != "" {
+		out["studentNote"] = got.StudentNote
+	}
+	c.JSON(http.StatusOK, out)
+}
