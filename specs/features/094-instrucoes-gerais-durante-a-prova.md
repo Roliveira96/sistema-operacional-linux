@@ -65,11 +65,11 @@ Nenhuma mudança. Usa `GET /api/v1/classes/{id}/assessments/{assessmentId}` (o c
 
 ## 7. Critérios de Aceite (Acceptance Criteria)
 
-- [ ] **CA-01** (estado): ENQUANTO o estudante está na janela da prova e a prova tem instruções gerais, A janela DEVE ter o botão *Instruções*; sem instruções, o botão NÃO DEVE aparecer.
-- [ ] **CA-02** (evento): QUANDO o estudante clica em *Instruções*, A janela DEVE mostrar as instruções formatadas, com a questão aberta e as respostas intactas; QUANDO clica de novo, em *Fechar* ou aperta `Esc`, DEVE escondê-las.
-- [ ] **CA-03** (evento): QUANDO o estudante abre *Instruções* com a *Conversa* aberta, A janela DEVE fechar a *Conversa*, e vice-versa.
-- [ ] **CA-05** (estado): ENQUANTO o estudante está na sala de espera e a prova tem instruções gerais, A sala DEVE mostrá-las formatadas abaixo da frase de espera (D-02).
-- [ ] **CA-04** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, com `aria-expanded` no botão, navegação por teclado, contraste AA e alvos de 44 px.
+- [x] **CA-01** (estado): ENQUANTO o estudante está na janela da prova e a prova tem instruções gerais, A janela DEVE ter o botão *Instruções*; sem instruções, o botão NÃO DEVE aparecer.
+- [x] **CA-02** (evento): QUANDO o estudante clica em *Instruções*, A janela DEVE mostrar as instruções formatadas, com a questão aberta e as respostas intactas; QUANDO clica de novo, em *Fechar* ou aperta `Esc`, DEVE escondê-las.
+- [x] **CA-03** (evento): QUANDO o estudante abre *Instruções* com a *Conversa* aberta, A janela DEVE fechar a *Conversa*, e vice-versa.
+- [x] **CA-05** (estado): ENQUANTO o estudante está na sala de espera e a prova tem instruções gerais, A sala DEVE mostrá-las formatadas abaixo da frase de espera (D-02).
+- [x] **CA-04** (ubíquo): Os textos novos DEVEM estar em `messages/pt-BR.ts`, com `aria-expanded` no botão, navegação por teclado, contraste AA e alvos de 44 px.
 
 ## 8. Plano de Testes (Test Plan)
 
@@ -97,3 +97,4 @@ Nenhuma mudança. Usa `GET /api/v1/classes/{id}/assessments/{assessmentId}` (o c
 | :--- | :--- | :--- |
 | 05/11/2026 | Aruna Architect | Criada em `Rascunho`, a pedido do Tech Lead no roteiro manual do chat da prova. Pendências D-01 e D-02. |
 | 05/11/2026 | Tech Lead | Aprovada ("Aprovo"), com as recomendações de D-01 e D-02. CA-05 novo (sala de espera). Status: `Aprovada` |
+| 05/11/2026 | Implementador | Implementada, menos o roteiro manual, por isso o status continua `Aprovada`. **Feito:** CA-01 a CA-05 na página `take`: o botão *Instruções* (só com texto visível, `descriptionText`), a coluna com o mesmo estilo da *Conversa* (`ExamChat.module.scss`), *Fechar* e `Esc`, uma coluna por vez, e o bloco na sala de espera; textos em `messages.assessments.take.instructions`. **Medido:** 4 testes vermelhos pelo motivo esperado (o botão e o título não existiam); verdes os 17 da página `take`, `tsc`, ESLint e Stylelint limpos. **Desvios:** nenhum. **Testes alterados depois do vermelho:** nenhum. **Aberto:** o roteiro manual. |
